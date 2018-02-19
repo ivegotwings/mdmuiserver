@@ -195,7 +195,7 @@ queryParser.parseQuery = function (string, followPreference, isSubQuery) {
             keywordIndices = queryParser.removeExtraIndices(keywordIndices);
         }
         keywordIndices.sort(function (a, b) { return a.index - b.index });
-        var keyValuesFromIndices = queryParser.getKeyValuesFromIndices(string, keywordIndices);
+        var keyValuesFromIndices = queryParser.getKeyValuesFromIndices(string, keywordIndices, isSubQuery);
         
         if(!queryParser.isEmptyObject(keyValuesFromIndices)) {
             var keysWithSplitValuesByKeywords = queryParser.splitValuesByKeywords(keyValuesFromIndices, queryParser.options.attributeKeywords, isSubQuery);
@@ -206,6 +206,8 @@ queryParser.parseQuery = function (string, followPreference, isSubQuery) {
                 return keysWithSplitValuesByOperators;
             }
         }
+    } else {
+        return string;
     }
 };
 
@@ -250,17 +252,22 @@ queryParser.removeExtraIndices = function(indices) {
     return indices;
 };
 
-queryParser.getKeyValuesFromIndices = function(string, indices) {
+queryParser.getKeyValuesFromIndices = function(string, indices, isSubQuery) {
     var keyValues = {};
     if(indices.length > 0 && indices[0].index !== 0) {
         var extraText = string.slice(0, indices[0].index);
         keyValues["extraText"] = extraText.trim();
     }
+    
     for(var i=1; i<indices.length; i++) {
         var indexObject = indices[i-1];
         var indexObject1 = indices[i];
         var startIndex = indexObject.index;
         var endIndex = indexObject1.index;
+        if(isSubQuery && indexObject.key === "!%&show&%!") {
+            endIndex = indices[indices.length -1].index;
+            i=indices.length;
+        }
         var value = string.slice(startIndex, endIndex);
         var sepIndex = value.indexOf(" ");
         if(sepIndex) {
@@ -299,7 +306,7 @@ queryParser.splitValuesByKeywords = function(keyValues, keywords, isSubQuery) {
                 valueList = [queryParser.parseQuery(val)];
             } else {
                 valueList = value.split(regex).map(function(item) {
-                    return item.replace(/'|"/g, '').trim();
+                    return item.trim();
                 });
             }
             if(valueList) {
@@ -372,13 +379,21 @@ queryParser.getFinalQuery = function(parsedQuery) {
 
         var entityTypes = parsedQuery.show;
         var entityAttributes = parsedQuery.with && parsedQuery.with.length > 0 ? parsedQuery.with : undefined;
-        var relationshipName = parsedQuery.having && parsedQuery.having[0] && Object.keys(parsedQuery.having[0]) && Object.keys(parsedQuery.having[0]).length > 0 ? Object.keys(parsedQuery.having[0])[0] : undefined;
+        var relatioshipsSection = parsedQuery.having && parsedQuery.having[0] ? parsedQuery.having[0] : undefined;
+        var relationshipName;
         var relationshipAttributes;
         var relatedEntityQuery;
-        if(relationshipName && parsedQuery.having[0][relationshipName] && parsedQuery.having[0][relationshipName].length >0 && parsedQuery.having[0][relationshipName][0]) {
-            let relData = parsedQuery.having[0][relationshipName][0];
-            relationshipAttributes = relData.with && relData.with.length > 0 ? relData.with : undefined;
-            relatedEntityQuery = relData.show && relData.show.length > 0 ? queryParser.getFinalQuery(relData.show[0]) : undefined;
+        if(relatioshipsSection) {
+            if(typeof(relatioshipsSection) === "string") {
+                relationshipName = relatioshipsSection;
+            } else if(typeof(relatioshipsSection) === "object") {
+                relationshipName = Object.keys(relatioshipsSection) && Object.keys(relatioshipsSection).length > 0 ? Object.keys(relatioshipsSection)[0] : undefined;
+            }
+            if(relationshipName && relatioshipsSection[relationshipName] && relatioshipsSection[relationshipName].length >0 && relatioshipsSection[relationshipName][0]) {
+                let relData = relatioshipsSection[relationshipName][0];
+                relationshipAttributes = relData.with && relData.with.length > 0 ? relData.with : undefined;
+                relatedEntityQuery = relData.show && relData.show.length > 0 ? queryParser.getFinalQuery(relData.show[0]) : undefined;
+            }
         }
         var workflowName = parsedQuery.pending && parsedQuery.pending.length > 0 ? parsedQuery.pending[0] : undefined;
         var workflowActivityName = parsedQuery.pending && parsedQuery.pending.length > 0 ? parsedQuery.pending[1] : undefined;

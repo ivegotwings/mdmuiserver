@@ -89,7 +89,9 @@
             }
 
             .checkbox-container {
-                margin-right: 15%;
+                width: 880px;
+                text-align: right;
+                margin: 0 auto;
             }
 
             .checkbox-label-color {
@@ -117,7 +119,7 @@
 
             <div align="right" class="checkbox-container">
                 <pebble-checkbox hidden$="[[!enableMappings]]" id="customizeMappingsChk" class="checkbox-label-color m-r-10" on-change="_onMappingsChange">Customize Mappings</pebble-checkbox>
-                <pebble-checkbox hidden$="[[!enableDataPreview]]" id="showReviewChk" class="checkbox-label-color" on-change="_onPreviewChange">Show Data Preview *</pebble-checkbox>
+                <!-- <pebble-checkbox hidden$="[[!enableDataPreview]]" id="showReviewChk" class="checkbox-label-color" on-change="_onPreviewChange">Show Data Preview *</pebble-checkbox> -->
             </div>
             <div class="placeHolder p-10">
                 <p class="title">
@@ -145,9 +147,9 @@
                 <pebble-file-upload id="fileUpload" allowed-file-types="[[allowedFileTypes]]"></pebble-file-upload>
                 <bedrock-pubsub event-name="pebble-file-upload-success" handler="_onFileUploadSuccess" target-id="fileUpload"></bedrock-pubsub>
             </div>
-            <div class="preview-message-container">
+            <!-- <div class="preview-message-container">
                 <span class="preview-message-info">* Previewing data can take some time.</span>
-            </div>
+            </div> -->
         </div>
         <div id="content-label" hidden>
             <img alt="Product image." id="image-container" sizing="contain" src="/src/images/MicrosoftExcel50,100,500px/MicrosoftExcel_100.svg"/>
@@ -157,6 +159,8 @@
                 <strong>[[attributeNames.length]]</strong> attributes.</span>
         </div>
         <div id="content-mappings" hidden>
+        </div>
+        <div id="content-value-mappings" hidden>
         </div>
         <div id="content-entities-grid" hidden>
             <rock-grid id="entitiesGrid" page-size="10" context-data="[[contextData]]" attribute-models="[[_attributeModels]]" no-header></rock-grid>
@@ -168,7 +172,10 @@
         </div>
         <bedrock-pubsub event-name="field-map-save" handler="_onFieldMappingsSave" target-id=""></bedrock-pubsub>
         <bedrock-pubsub event-name="field-map-cancel" handler="_onFieldMappingsCancel" target-id=""></bedrock-pubsub>
-        <bedrock-pubsub event-name="field-map-skip" handler="_onFieldMappingsSkip" target-id=""></bedrock-pubsub>
+        <bedrock-pubsub event-name="field-map-import" handler="_onFieldMappingsImport" target-id=""></bedrock-pubsub>
+        <bedrock-pubsub event-name="on-value-mapping-tap" handler="_onValueMappingsTap" target-id=""></bedrock-pubsub>
+        <bedrock-pubsub event-name="value-mapping-cancel" handler="_onValueMappingsCancelOrSave" target-id=""></bedrock-pubsub>
+        <bedrock-pubsub event-name="value-mapping-save" handler="_onValueMappingsCancelOrSave" target-id=""></bedrock-pubsub>
         <liquid-entity-data-get id="taxonomyGetDataService" operation="getbyids" request-data="{{_taxonomyRequest}}" on-response="_onTaxonomyResponse"></liquid-entity-data-get>
         <liquid-rest id="taxonomyModelGet" url="/data/pass-through/entitymodelservice/get" method="POST" request-data="{{_taxonomyModelRequest}}"
             on-liquid-response="_onTaxonomyModelGetResponse"></liquid-rest>
@@ -333,7 +340,7 @@
                         type: Boolean,
                         value: false
                     },
-                    _mappingsData: {
+                    _mappingsRequestData: {
                         type: Object,
                         value: function () { return {}; }
                     },
@@ -387,9 +394,9 @@
                         type: Object,
                         value: function () { return {}; }
                     },
-                    overridesOrder: {
-                        type: Number,
-                        value: 100
+                    copMappingContext: {
+                        type: Object,
+                        value: function () { return {}; }
                     },
                     _taxonomyExtName: {
                         type: String,
@@ -529,8 +536,8 @@
 
                     var url = "";
                     if (this._customizeMappings) {
-                        this._currentCOPService = "generateFieldMap";
-                        url = "/data/cop/generateFieldMap";
+                        this._currentCOPService = "getHeaderFields";
+                        url = "/data/cop/getHeaderFields";
                     } else if (this._showPreview) {
                         this._currentCOPService = "transform";
                         url = "/data/cop/transform";
@@ -561,10 +568,19 @@
                         req.dataObject.properties.workAutomationId = this._workAutomationId;
                     }
 
-                    if (this._currentCOPService == "generateFieldMap") {
-                        req.binaryObject = req.dataObject;
-                        delete req.dataObject;
-                        req.binaryObject.properties.workAutomationId = this._workAutomationId;
+                    if (this._currentCOPService == "getHeaderFields") {
+                        req.dataObject.dataObjectInfo.dataObjectType = this.copMappingContext.dataObjectType;
+                        req.dataObject.properties.service = this.copMappingContext.service;
+
+                        //Set properties for headerFields
+                        req.dataObject.properties.fileId = "";
+                        if(this.copMappingContext.excludeSubType) {
+                            delete req.dataObject.properties.subtype;
+                        }
+
+                        if(this.copMappingContext.excludeOrder) {
+                            delete req.dataObject.properties.order;
+                        }
                     }
 
                     formData.append("requestData", JSON.stringify(req));
@@ -602,12 +618,25 @@
                     var response = e.detail.response;
                     var statusMessage = DataHelper.validateAndGetMessage(response);
                     if (statusMessage == "") {
-                        var res = response.response;
-                        if (this._currentCOPService == "generateFieldMap") {
-                            var mappingsData = res.binaryObjects[0].data.profile.transform;
+                        var res = response.response ? response.response : response;
+                        if (this._currentCOPService == "getHeaderFields") {
+                            var headerFields = [];
+                            var workAutomationId = "";
+                            if(DataHelper.isValidObjectPath(res, "dataObjectOperationResponse.statusDetail.message.headers.Entities")) {
+                                headerFields = res.dataObjectOperationResponse.statusDetail.message.headers.Entities;
+                            }
+
+                            if(DataHelper.isValidObjectPath(res, "dataObjectOperationResponse.statusDetail.message.workAutomationId")) {
+                                workAutomationId = res.dataObjectOperationResponse.statusDetail.message.workAutomationId;
+                            }
+
+                            var mappingsRequestData = {
+                                "workAutomationId": workAutomationId,
+                                "headerFields": headerFields
+                            }
                             this._hideView("entity-import");
                             this._hideButtons();
-                            this.set("_mappingsData", mappingsData);
+                            this.set("_mappingsRequestData", mappingsRequestData);
                             this._importMappingComponent();
                             this._loading = false;
                             this._isDirty = false;
@@ -1096,12 +1125,11 @@
                 _importMappingComponent: function () {
                     this._showView("mappings");
                     var copCtx = DataHelper.cloneObject(this.copContext);
-                    copCtx.order = this.overridesOrder;
                     var component = {
                         "name": "rock-attribute-mapping",
                         "path": "/../../src/elements/rock-attribute-mapping/rock-attribute-mapping.html",
                         "properties": {
-                            "mappings-data": this._mappingsData,
+                            "mappings-request-data": this._mappingsRequestData,
                             "context-data": this.contextData,
                             "taxonomy": this.taxonomy,
                             "cop-context": copCtx
@@ -1129,20 +1157,34 @@
                     this._hideView("mappings");
                     this._showView("entity-import");
                 },
-                _onFieldMappingsSkip: function (e, detail) {
+                _onFieldMappingsImport: function (e, detail) {
                     this._customizeMappings = false;
                     this._hideView("mappings");
                     this._hideView("entity-import");
                     this._loading = true;
-                    var url = "";
-                    if (this._showPreview) {
-                        this._currentCOPService = "transform";
-                        url = "/data/cop/transform";
-                    } else {
-                        this._currentCOPService = "process";
-                        url = "/data/cop/process";
-                    }
+                    this._currentCOPService = "process"
+                    var url = "/data/cop/process";
                     this._generateCopRequest(url, this._fileDetails);
+                },
+                _onValueMappingsTap: function (e, detail) {
+                    this._hideView("mappings");
+                    this._showView("value-mappings");
+                    var copCtx = DataHelper.cloneObject(this.copContext);
+                    var component = {
+                        "name": "rock-value-mappings-grid",
+                        "path": "/../../src/elements/rock-value-mappings-manage/rock-value-mappings-grid.html",
+                        "properties": {
+                            "mappings-data": detail,
+                            "context-data": this.contextData,
+                            "cop-context": copCtx
+                        }
+                    };
+                    var contentEl = this.shadowRoot.querySelector("#content-value-mappings");
+                    ComponentHelper.loadContent(contentEl, component, this);
+                },
+                _onValueMappingsCancelOrSave: function(e, detail) {
+                    this._showView("mappings");
+                    this._hideView("value-mappings");
                 }
             });
         })();

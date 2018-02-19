@@ -255,6 +255,24 @@ var SERVICE_CONFIG = {
             "offlineSettings": {
             }
         },
+        "copservice/getHeaderFields": {
+            "url": "/rsConnectService/getHeaderFields",
+            "mode": "online",
+            "offlineSettings": {
+            }
+        },
+        "copservice/getMappings": {
+            "url": "/rsConnectService/getmappings",
+            "mode": "online",
+            "offlineSettings": {
+            }
+        },
+        "copservice/saveMappings": {
+            "url": "/rsConnectService/savemappings",
+            "mode": "online",
+            "offlineSettings": {
+            }
+        },
         "binarystreamobjectservice/prepareUpload": {
             "url": "/binarystreamobjectservice/prepareUpload",
             "mode": "online",

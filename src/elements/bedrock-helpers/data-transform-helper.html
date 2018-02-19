@@ -75,7 +75,7 @@
             return mergedRelationshipModels;
         };
 
-        DataTransformHelper.transformAttributes = function (entity, attributeModels, contextData, outputSchema, applySort) {
+        DataTransformHelper.transformAttributes = function (entity, attributeModels, contextModels, contextData, outputSchema, applySort) {
             var firstDataContext = ContextHelper.getFirstDataContext(contextData);
             var firstValueContext = ContextHelper.getFirstValueContext(contextData);
 
@@ -106,7 +106,7 @@
 
             var transformedAttributes;
             if (!_.isEmpty(attributeModels)) {
-                transformedAttributes = this._transformAttributes(mergedAttributes, sortedAttributeModels, firstValueContext, firstDataContext);
+                transformedAttributes = this._transformAttributes(mergedAttributes, sortedAttributeModels, contextModels, firstValueContext, firstDataContext);
             }
             else {
                 transformedAttributes = this._transformAttributesWithoutModels(mergedAttributes, firstValueContext);
@@ -229,7 +229,7 @@
 
                     var transformedAttributes = {};
                     if (entity) {
-                        transformedAttributes = DataTransformHelper.transformAttributes(entity, attributeModels, contextData, "objects", false);
+                        transformedAttributes = DataTransformHelper.transformAttributes(entity, attributeModels, {}, contextData, "objects", false);
                         if (metaDataColumns && metaDataColumns.length) {
                             for (var j = 0; j < metaDataColumns.length; j++) {
                                 var columnName = metaDataColumns[j].name;
@@ -847,8 +847,26 @@
             }
         };
 
-        DataTransformHelper._transformAttributes = function (attributes, attributeModels, valueContext, dataContext) {
+        DataTransformHelper._transformAttributes = function (attributes, attributeModels, contextModels, valueContext, dataContext) {
             var transformedAttributes = {};
+            var additionalContexts = [];
+            var primaryContexts = [];
+
+            if (!_.isEmpty(contextModels) && !_.isEmpty(dataContext)) {
+                var contextModel = DataTransformHelper._getContextModelBasedOnCurrentDataContext(contextModels, dataContext);
+                if (contextModel) {
+                    additionalContexts = contextModel.properties ? contextModel.properties.additionalcontexts : undefined;
+
+                    if (!_.isEmpty(additionalContexts)) {
+                        Object.keys(contextModel.context).filter(function (item) {
+                            if (additionalContexts.indexOf(item) < 0) {
+                                primaryContexts.push(item);
+                            }
+                        }, this);
+                    }
+                }
+            }
+            valueContext = _.isEmpty(valueContext) ? DataHelper.getDefaultValContext() : valueContext;
 
             for (var attributeModelName in attributeModels) {
                 var attributeJSON = {};
@@ -857,6 +875,11 @@
                 if (attributeModel.name) {
                     var attribute = attributes[attributeModel.name];
                     if (attribute && attribute.values) {
+
+                        if (!_.isEmpty(additionalContexts)) {
+                            this._removeCoalescePropertiesBasedOnAdditionalContext(attribute, attributeModel, additionalContexts, primaryContexts);
+                        }
+
                         attributeJSON = AttributeHelper.getCurrentValue(attribute.values, valueContext, attributeModel);
 
                         var attributeRefIds = [];
@@ -864,6 +887,7 @@
                         var localeCoalescePath = undefined;
                         var osid = undefined;
                         var ostype = undefined;
+
                         for (var i = 0; i < attribute.values.length; i++) {
                             var attributeValue = attribute.values[i];
                             if (!DataHelper.isEmptyObject(attributeValue.properties)) {
@@ -1875,6 +1899,156 @@
             }
         };
 
+        DataTransformHelper.prepareEntityForContextSave = function (data, contextModels, attributeModels, contextData) {
+            var firstDataContext = ContextHelper.getFirstDataContext(contextData);
+            var contextModel = DataTransformHelper._getContextModelBasedOnCurrentDataContext(contextModels, firstDataContext);
+
+            if (contextModel) {
+                var additionalContexts = contextModel.properties ? contextModel.properties.additionalcontexts : undefined;
+                var partialContext = undefined;
+
+                if (additionalContexts) {
+                    partialContext = DataTransformHelper._getPartialContextFromAdditionalContext(additionalContexts, firstDataContext);
+                }
+
+                if (!_.isEmpty(partialContext)) {
+                    var partialContextData = {
+                        "context": partialContext,
+                        "attributes": {}
+                    }
+                    if (data) {
+                        if (data.attributes) {
+                            partialContextData.attributes = data.attributes;
+                            delete data.attributes;
+                        }
+
+                        if (data.contexts) {
+                            var context = data.contexts[0];
+
+                            if (context && context.attributes) {
+                                var attributes = context.attributes;
+                                DataTransformHelper._addRemoveAttributesBasedOnAdditionalContext(attributes, attributeModels, additionalContexts, partialContextData);
+                            }
+                        }
+
+                        if (_.isEmpty(data.contexts)) {
+                            data.contexts = [];
+                        }
+                        data.contexts.push(partialContextData);
+                    }
+                }
+                else {
+                    if (data.contexts && data.contexts.length) {
+                        if (!_.isEmpty(data.contexts[0].attributes)) {
+                            for (var attrKey in data.attributes) {
+                                if (data.contexts[0].attributes[attrKey] == undefined) {
+                                    data.contexts[0].attributes[attrKey] = data.attributes[attrKey];
+                                }
+                            }
+                        } else {
+                            data.contexts[0].attributes = data.attributes;
+                        }
+                    } else {
+                        var newCtxItem = {};
+                        newCtxItem.context = firstDataContext;
+                        newCtxItem.attributes = data.attributes;
+                        data.contexts.push(newCtxItem);
+                    }
+                    delete data.attributes;
+                }
+            }
+
+            return data;
+        };
+
+        DataTransformHelper._addRemoveAttributesBasedOnAdditionalContext = function (attributes, attributeModels, additionalContexts, partialContextData) {
+            if (attributes && attributeModels && additionalContexts) {
+                Object.keys(attributeModels).filter(function (attrKey) {
+                    var attrModel = attributeModels[attrKey];
+                    if (attrModel && attrModel.properties && attributes[attrModel.name]) {
+                        var properties = attrModel.properties;
+
+                        if (properties.instanceCoalesce) {
+
+                            if (!DataTransformHelper._isAdditionalContexts(additionalContexts, properties.instanceCoalesce, "instance")) {
+                                partialContextData.attributes[attrModel.name] = attributes[attrModel.name];
+                                delete attributes[attrModel.name];
+                            }
+                        }
+
+                        if (properties.contextCoalesce) {
+                            if (!DataTransformHelper._isAdditionalContexts(additionalContexts, properties.contextCoalesce, "context")) {
+                                partialContextData.attributes[attrModel.name] = attributes[attrModel.name];
+                                delete attributes[attrModel.name];
+                            }
+                        }
+                    }
+                }, this);
+            }
+        };
+
+        DataTransformHelper._removeCoalescePropertiesBasedOnAdditionalContext = function (attribute, attributeModel, additionalContexts, primaryContexts) {
+            if (attribute && attributeModel && additionalContexts) {
+                if (attributeModel.properties) {
+                    var properties = attributeModel.properties;
+                    var isAdditionalContextAttribute = true;
+
+                    if (properties.instanceCoalesce) {
+                        isAdditionalContextAttribute = DataTransformHelper._isAdditionalContexts(additionalContexts, properties.instanceCoalesce, "instance");
+                    }
+
+                    if (properties.contextCoalesce) {
+                        isAdditionalContextAttribute = DataTransformHelper._isAdditionalContexts(additionalContexts, properties.contextCoalesce, "instance");
+                    }
+
+                    if (!isAdditionalContextAttribute && attribute.properties && attribute.properties.contextCoalesce) {
+                        if (!DataTransformHelper._isPartialPrimaryContexts(primaryContexts, attribute.properties.contextCoalesce)) {
+                            delete attribute.properties.contextCoalesce;
+                        }
+                    }
+                }
+            }
+        };
+
+        DataTransformHelper._isAdditionalContexts = function (additionalContexts, coalesceProperties, coalesceType) {
+            var isAdditionalContext = false;
+            if (additionalContexts && coalesceProperties) {
+                if (coalesceType == "instance") {
+                    if (additionalContexts.indexOf(coalesceProperties[0].coalesceSourceType) > -1) {
+                        isAdditionalContext = true;
+                    }
+                }
+
+                if (coalesceType == "context") {
+                    Object.keys(coalesceProperties[0]).forEach(function (ctx) {
+                        if (additionalContexts.indexOf(ctx) > -1) {
+                            isAdditionalContext = true;
+                        }
+                    }, this);
+                }
+            }
+            return isAdditionalContext;
+        };
+
+        DataTransformHelper._isPartialPrimaryContexts = function (primaryContexts, coalesceProperties) {
+            var isPartialPrimaryContext = false;
+            if (primaryContexts && coalesceProperties) {
+                var contextKeys = Object.keys(coalesceProperties[0]);
+                if (!_.isEmpty(contextKeys)) {
+                    if (primaryContexts.length > contextKeys.length) {
+                        isPartialPrimaryContext = true;
+                    } else {
+                        primaryContexts.forEach(function (ctx) {
+                            if (contextKeys.indexOf(ctx) < 0) {
+                                isPartialPrimaryContext = true;
+                            }
+                        }, this);
+                    }
+                }
+            }
+            return isPartialPrimaryContext;
+        };
+
         DataTransformHelper.getContextCoalescePaths = function (properties, dataContext) {
             var contextCoalescePaths = [];
 
@@ -1906,6 +2080,77 @@
             }
 
             return contextCoalescePaths;
+        };
+
+        DataTransformHelper._getContextModelBasedOnCurrentDataContext = function (contextModels, firstDataContext) {
+            var contextModel = undefined;
+            var partialContextModels = [];
+
+            if (!_.isEmpty(contextModels)) {
+                for (var i = 0; i < contextModels.length; i++) {
+                    var ctxModelItem = contextModels[i];
+                    if (ctxModelItem && ctxModelItem.context) {
+                        var dataContext = ctxModelItem.context;
+                        if (DataHelper.compareObjects(dataContext, firstDataContext)) {
+                            contextModel = ctxModelItem;
+                            break;
+                        } else {
+                            var numberOfExactMatch = 0;
+                            var isPartialMatch = false;
+                            if (Object.keys(dataContext).length == Object.keys(firstDataContext).length) {
+                                var dataCtxObjectKeys = Object.keys(dataContext);
+                                for (var j = 0; j < dataCtxObjectKeys.length; j++) {
+                                    if (dataContext[dataCtxObjectKeys[j]]) {
+                                        if (firstDataContext[dataCtxObjectKeys[j]] == dataContext[dataCtxObjectKeys[j]]) {
+                                            numberOfExactMatch++;
+                                        } else if (dataContext[dataCtxObjectKeys[j]].toLowerCase() == "_all") {
+                                            isPartialMatch = true;
+                                        } else {
+                                            isPartialMatch = false;
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                if (isPartialMatch) {
+                                    partialContextModels.push({
+                                        "numberOfExactMatch": numberOfExactMatch,
+                                        "ctxModelItem": ctxModelItem
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (partialContextModels && _.isEmpty(contextModel)) {
+                    if (partialContextModels.length == 1) {
+                        contextModel = partialContextModels[0].ctxModelItem;
+                    } else {
+                        var highestNumberOfMatch = 0;
+                        partialContextModels.forEach(function (ctxModel) {
+                            if (ctxModel.numberOfExactMatch > highestNumberOfMatch) {
+                                highestNumberOfMatch = ctxModel.numberOfExactMatch;
+                                contextModel = ctxModel.ctxModelItem;
+                            }
+                        }, this);
+                    }
+                }
+            }
+
+            return contextModel;
+        };
+
+        DataTransformHelper._getPartialContextFromAdditionalContext = function (additionalContexts, firstDataContext) {
+            var partialContext = {};
+            if (additionalContexts) {
+                Object.keys(firstDataContext).forEach(function (ctxItem) {
+                    if (additionalContexts.indexOf(ctxItem) < 0) {
+                        partialContext[ctxItem] = firstDataContext[ctxItem];
+                    }
+                }, this);
+            }
+            return partialContext;
         };
 
         DataTransformHelper.transformLocaleEntitiesToLocalesJson = function (entities, localeColumnMapCollection, relationshipType, relationshipAttribute, threshold) {

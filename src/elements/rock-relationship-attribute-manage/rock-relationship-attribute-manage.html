@@ -59,13 +59,20 @@ It is responsible to "get" and "save" the relationship attributes.
             <p>Found below errors in entity details: </p>
             <ul>
                 <template is="dom-repeat" items="[[_syncValidationErrors]]">
-                    <li>[[item.attributeExternalName]] with error: [[item.message]]</li>
+                    <li>
+                        <template is="dom-if" if="[[item.attributeExternalName]]">
+                            [[item.relationshipRelToId]] [[item.attributeExternalName]] with error: [[item.message]]
+                        </template>
+                        <template is="dom-if" if="[[!item.attributeExternalName]]">
+                            [[item.relationshipRelToId]] with error: [[item.message]]
+                        </template>
+                    </li>
                 </template>
             </ul>
             <p>Do you want to fix the errors or continue?</p>
             <div class="buttons">
-                <pebble-button id="skip" button-text="Skip & Continue" on-tap="_skipServerErrors"></pebble-button>
-                <pebble-button id="ok" button-text="Fix" on-tap="_fixServerErrors"></pebble-button>
+                <pebble-button id="ok" dialog-confirm class="btn btn-success" button-text="Fix" on-tap="_fixServerErrors"></pebble-button>
+                <pebble-button id="skip" dialog-confirm class="btn btn-secondary" button-text="Skip & Continue" on-tap="_skipServerErrors"></pebble-button>
             </div>
         </pebble-dialog>
         <pebble-dialog id="cancelDialog" dialog-title="Confirmation" modal alert-box show-cancel show-ok no-cancel-on-outside-click
@@ -436,6 +443,8 @@ It is responsible to "get" and "save" the relationship attributes.
                     var res = e.detail.response;
                     var itemContext = this.getFirstItemContext();
                     var entityId;
+                    var relationship;
+                    var allRelationships;
                     if (itemContext) {
                         entityId = itemContext.id;
                     }
@@ -445,11 +454,10 @@ It is responsible to "get" and "save" the relationship attributes.
                         return;
                     }
                     var relationshipId = this._relationshipId;
-                    var relationships = entity.data.relationships;
-                    var relationshipEntities = relationships[this._relationshipName];
-                    var relationship = relationshipEntities.find(function (rel) {
-                        return rel.relTo.id == relationshipId;
-                    });
+                    allRelationships = entity.data.relationships;
+                    if (allRelationships && !_.isEmpty(allRelationships)) {
+                        relationship = this._getCurrentRelationship(allRelationships);
+                    }
                     if (relationship) {
                         var attributes = relationship.attributes;
                         var attrMessages = MessageHelper.getAttributeMessages(attributes, this.relationshipAttributeModels, this.messageCodeMapping, this.localize);
@@ -479,7 +487,7 @@ It is responsible to "get" and "save" the relationship attributes.
                             if (relationship) {
                                 relData.data.attributes = relationship.attributes;
                             }
-                            attributes = DataTransformHelper.transformAttributes(relData, this.relationshipAttributeModels, this.contextData, "array", true);
+                            attributes = DataTransformHelper.transformAttributes(relData, this.relationshipAttributeModels, {}, this.contextData, "array", true);
                             //Removed the code for rock-title bar
                         }
                     }
@@ -487,7 +495,7 @@ It is responsible to "get" and "save" the relationship attributes.
                 },
                 _save: function (e) {
                     //TODO: Needs to check with Vishal.
-                    if (e.currentTarget.disabled == true) {
+                    if (e.currentTarget.disabled) {
                         return;
                     }
 
@@ -627,35 +635,70 @@ It is responsible to "get" and "save" the relationship attributes.
                         this.shadowRoot.querySelector('rock-attribute-list').updateDependentAttributesAndResetErrors();
                     }
                 },
+                _getCurrentRelationship: function (allRelationships) {
+                    var relationshipName, relationshipId, relationships, relationship
+                    relationshipName = this._relationshipName
+                    relationshipId = this._relationshipId
+                    if (relationshipName && relationshipId && allRelationships) {
+                        relationships = allRelationships[relationshipName];
+                        if (relationships && relationships.length) {
+                            relationship = relationships.find(function (rel) {
+                                return rel.relTo.id == relationshipId;
+                            });
+                        }
+                    }
+                    return relationship;
+                },
+                _getRelatioshipGovernMessage: function (allRelationships) {
+                    var relationshipGovernMessages = {}, relationshipMessages,relationship;
+                    relationship = this._getCurrentRelationship(allRelationships);
+                    if (relationship) {
+                        relationshipMessages = MessageHelper.getRelationshipMessages(relationship, this.messageCodeMapping, this.localize);
+                        var attrModels = this.relationshipAttributeModels;
+                        var relAttributes = relationship.attributes;
+                        relationshipGovernMessages = {
+                            "relMessage": relationshipMessages,
+                            "attrModels": attrModels,
+                            "relAttributes": relAttributes,
+                            "relationship": [relationship]
+                        };
+                    }
+                    return relationshipGovernMessages;
+                },
+                _getGovernErrorMessages: function (relationshipGovernMessages) {
+                    var governErrorMessage = {}, relationshipName, relAttributeMessage = {};
+                    relationshipName = this._relationshipName
+                    if (relationshipName) {
+                        relAttributeMessage[relationshipName] = relationshipGovernMessages
+                        if (!_.isEmpty(relAttributeMessage)) {
+                            governErrorMessage = MessageHelper.getErrorsFromRelMessages(relAttributeMessage, this.messageCodeMapping, this.localize);
+                        }
+                    }
+                    return governErrorMessage;
+                },
+                _getGovernMessages: function (allRelationships) {
+                    var relationshipGovernMessages, governMessage;
+                    relationshipGovernMessages = this._getRelatioshipGovernMessage(allRelationships);
+                    governMessage = this._getGovernErrorMessages(relationshipGovernMessages);
+                    return governMessage;
+                },
                 _onEntityGovernResponse: function (e) {
                     if (e && e.detail && e.detail.response && e.detail.response.response && e.detail.response.response.status == "success") {
                         var res = e.detail.response.response;
                         var itemContext = this.getFirstItemContext();
-                        var relationshipId = this._relationshipId;
+                        var governMessage;
                         var entityId;
                         if (itemContext) {
                             entityId = itemContext.id;
                         }
                         var entity = DataHelper.findEntityById(res.entities, entityId);
-                        var attrMessages = {};
                         if (entity && entity.data && entity.data.relationships) {
-                            var relationships = entity.data.relationships;
-                            var relationshipEntities = relationships[this._relationshipName];
-                            if (relationshipEntities && relationshipEntities.length) {
-                                var relationship = relationshipEntities.find(function (rel) {
-                                    return rel.id == relationshipId;
-                                });
-                                if (relationship) {
-                                    var attributes = relationship.attributes;
-                                    attrMessages = MessageHelper.getAttributeMessages(attributes, this.relationshipAttributeModels, this.messageCodeMapping, this.localize);
-                                }
-                            }
+                            var allRelationships = entity.data.relationships;
+                            governMessage = this._getGovernMessages(allRelationships)
                         }
-                        if (!_.isEmpty(attrMessages)) {
-                            var errorMessages = MessageHelper.getErrorsFromAttrMessages(attrMessages, this.relationshipAttributeModels);
-                            this.set("_syncValidationErrors", errorMessages);
+                        if (!_.isEmpty(governMessage)) {
+                            this.set("_syncValidationErrors", governMessage);
                             this.shadowRoot.querySelector('#errorsDialog').open();
-                            return;
                         } else {
                             this._saveEntity();
                         }
