@@ -39,6 +39,17 @@ DataObjectManageService.prototype = {
         // console.log('-----------------------------------------------------------------\n\n');
         return this.post(serviceName + "/getcombined", request);
     },
+    getRelated: async function (request) {
+        var serviceName = this._getServiceName(request);
+
+        //Need some better logic to set service name...
+        serviceName = serviceName.replace('service', 'appservice');
+
+        // console.log('------------------' + serviceName + '------------------------------');
+        // console.log('GET CALL: ', JSON.stringify(request));
+        // console.log('-----------------------------------------------------------------\n\n');
+        return this.post(serviceName + "/getrelated", request);
+    },
     create: async function (request) {
         var serviceName = this._getServiceName(request);
         // console.log('------------------' + serviceName + '------------------------------');

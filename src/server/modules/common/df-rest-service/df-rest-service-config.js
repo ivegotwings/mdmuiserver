@@ -39,6 +39,11 @@ var SERVICE_CONFIG = {
             "mode": "online",
             "timeout": 360000
         },
+        "entityappservice/getrelated": {
+            "url": "/entityappservice/getrelated",
+            "mode": "online",
+            "timeout": 360000
+        },
         "entitymodelservice/get": {
             "url": "/entityappmodelservice/get",
             "mode": "online",
@@ -133,6 +138,7 @@ var SERVICE_CONFIG = {
         "configurationservice/get": {
             "url": "/configurationservice/get",
             "mode": "online",
+            "baseConfigMode":"online",
             "offlineSettings": {
                 "operation": "get",
                 "requestPathToSelectDataFile": "params.query.filters.typesCriterion",
@@ -245,6 +251,24 @@ var SERVICE_CONFIG = {
         },
         "copservice/generateFieldMap": {
             "url": "/rsConnectService/generateFieldMap",
+            "mode": "online",
+            "offlineSettings": {
+            }
+        },
+        "copservice/getHeaderFields": {
+            "url": "/rsConnectService/getHeaderFields",
+            "mode": "online",
+            "offlineSettings": {
+            }
+        },
+        "copservice/getMappings": {
+            "url": "/rsConnectService/getmappings",
+            "mode": "online",
+            "offlineSettings": {
+            }
+        },
+        "copservice/saveMappings": {
+            "url": "/rsConnectService/savemappings",
             "mode": "online",
             "offlineSettings": {
             }

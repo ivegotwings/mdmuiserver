@@ -164,19 +164,34 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
             //console.log('attr group', JSON.stringify(attr.group));
             //var valCtxItem = { 'source': CONST_ANY, 'locale': CONST_ANY }; //TODO: How to find out val contexts keys from the flat list of values object..??
 
-            if (reqData.valCtxKeys) {
-                for (let valCtxKey of reqData.valCtxKeys) {
-                    var valContextJson = valContextsJson[valCtxKey];
-                    if (!valContextJson) {
-                        valContextJson = falcorUtil.getOrCreate(valContextsJson, valCtxKey, {});
-                    }
+            var valCtxItems = {};
+            for (let item of attr.group) {
+                var source = item.source || undefined;
+                var locale = item.locale || undefined;
+                var localeCoalesce = undefined;
 
-                    valContextJson['group'] = prepareValueJson($atom(attr.group), attrExpires);
+                var valCtxKey = falcorUtil.createCtxKey({ 'source': source, 'locale': locale });
+                var valCtxItem = falcorUtil.getOrCreate(valCtxItems, valCtxKey, {});
+                var group = falcorUtil.getOrCreate(valCtxItem, 'group', []);
 
-                    //build paths if requested
-                    if (reqData.buildPaths) {
-                        paths.push(mergePathSets(basePath, ['attributes', attrKey, 'valContexts', valCtxKey, 'group']));
-                    }
+                var localeCoalesceValCtxKey = falcorUtil.createCtxKey({ 'source': source, 'localeCoalesce': true, 'locale': locale });
+                var localeCoalesceValCtxItem = falcorUtil.getOrCreate(valCtxItems, localeCoalesceValCtxKey, {});
+                var localeCoalescegroup = falcorUtil.getOrCreate(localeCoalesceValCtxItem, 'group', []);
+
+                group.push(item);
+                localeCoalescegroup.push(item);
+            }
+
+            for(var valCtxKey in valCtxItems) {
+                var valCtxItem = valCtxItems[valCtxKey];
+                var valContextJson = {};
+
+                valContextJson['group'] = prepareValueJson($atom(valCtxItem.group), attrExpires);
+                valContextsJson[valCtxKey] = valContextJson;
+
+                //build paths if requested
+                if (reqData.buildPaths) {
+                    paths.push(mergePathSets(basePath, ['attributes', attrKey, 'valContexts', valCtxKey, 'group']));
                 }
             }
         }
@@ -292,7 +307,7 @@ function _buildRelationshipsResponse(rels, reqData, currentDataContextJson, path
 function _buildRelationshipDetailsResponse(enRel, reqData, relTypeKey, relsJson, paths, basePath) {
 
     var relJson = relsJson[enRel.id] = {};
-    var dataObjectsByIdBasePath = [pathKeys.root, reqData.dataIndex];
+    var dataObjectsByIdBasePath = [pathKeys.root, reqData.dataIndex, reqData.dataSubIndex];
     var relBasePath;
 
     if (reqData.buildPaths) {
@@ -582,7 +597,7 @@ function buildRefResponse(dataObject, reqData) {
 
     var dataJson = dataObjectResponseJson['data'] = {};
     var dataContextsJson = dataJson['contexts'] = {};
-    var pathToContexts = [pathKeys.root, reqData.dataIndex, reqData.dataObjectType, pathKeys.byIds, dataObject.id, 'data', 'contexts'];
+    var pathToContexts = [pathKeys.root, reqData.dataIndex, reqData.dataSubIndex, reqData.dataObjectType, pathKeys.byIds, dataObject.id, 'data', 'contexts'];
 
     var data = dataObject.data;
     if (data && data.contexts) {

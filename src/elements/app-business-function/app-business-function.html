@@ -15,16 +15,22 @@
 <link rel="import" href="../rock-layout/rock-layout.html">
 <link rel="import" href="../rock-layout/rock-titlebar/rock-titlebar.html">
 <link rel="import" href="../rock-wizard/rock-wizard.html">
+<link rel="import" href="../rock-component-config-behavior/rock-component-config-behavior.html">
 
 <dom-module id="app-business-function">
   <template>
-    <style include="bedrock-style-common"></style>
+    <style include="bedrock-style-common">
+      :host{
+        --scroller: {
+          overflow-x: hidden;
+        }
+      }
+    </style>
     <rock-layout>
       <div id="stepProviders"></div>
-      <liquid-config-get id="initiateConfigSearch" operation="initiatesearch" request-data={{initiateConfigSearchRequestData}} last-response="{{initiateConfigSearchResponse}}" on-response="_onInitiateConfigSearchResponse"></liquid-config-get>
-      <liquid-config-get id="getConfigSearchDetails" operation="getsearchresultdetail" on-response="_onGetConfigSearchDetailsResponse"></liquid-config-get>
 
-      <rock-titlebar slot="rock-titlebar" icon="pebble-md-icons:UserIcon" main-title="[[config.label]]" non-closable="[[config.nonClosable]]" non-minimizable="[[config.nonMinimizable]]"></rock-titlebar>
+      <rock-titlebar slot="rock-titlebar" icon="pebble-icon:User" main-title="[[config.label]]" non-closable="[[config.nonClosable]]"
+        non-minimizable="[[config.nonMinimizable]]"></rock-titlebar>
       <rock-wizard config="{{wizardConfig}}" shared-data="[[sharedData]]" on-first-step-cancelled="_onFirstStepCancelled" on-next-step="_onNextStep"
         on-cancel-event="_onCancel"></rock-wizard>
 
@@ -39,12 +45,9 @@
         properties: {
           contextData: {
             type: Object,
-            value: function() {
+            value: function () {
               return {};
             }
-          },
-          getConfig: {
-            type: Function
           },
           config: {
             type: Object,
@@ -61,7 +64,8 @@
         },
         behaviors: [
           RUFBehaviors.AppBehavior,
-          RUFBehaviors.BusinessFunctionBehavior
+          RUFBehaviors.BusinessFunctionBehavior,
+          RUFBehaviors.ComponentConfigBehavior
         ],
         created: function () {
           this.entityType = DataHelper.getParamValue('type');
@@ -76,102 +80,58 @@
 
           var userContext = {
             "role": this.roleId,
-            "user": this.userId
+            "user": this.userId,
+            "tenant": this.tenantId
           };
 
           this.contextData[ContextHelper.CONTEXT_TYPE_USER] = [userContext];
+          var valueContext = DataHelper.getDefaultValContext();
+          if(valueContext) {
+            this.contextData[ContextHelper.CONTEXT_TYPE_VALUE] = [valueContext];
+          }
         },
 
         attached: function () {
+          //Setting context information to loading component
+          if(_.isEmpty(this.sharedData) || _.isEmpty(this.sharedData["context-data"])) {
+            this.sharedData = {"context-data": this.contextData};
+          }
+
           this._searchTimeStamp = new Date().toLocaleString();
-
-          //Prepare collectionContext and trigger getconfig request
-          var collectionContext = {};
-
-          if (this.entityType) {
-            collectionContext.entityType = this.entityType;
-          }
-
-          if(this.roleId) {
-            //Will be removed once nearest get is implemented
-            if(this.name == "rock-value-mappings-manage") {
-              collectionContext.role = "_ALL";
-            } else {
-              collectionContext.role = this.roleId;
-            }
-          }
-
-          this.initiateConfigSearchRequestData = DataRequestHelper.getContextSepecificConfigRequest(this.appName, this.name, collectionContext);
-          var initiateConfigSearch = this.shadowRoot.querySelector("#initiateConfigSearch");
-          if(initiateConfigSearch) {
-            initiateConfigSearch.generateRequest();
-          }
+          this.requestConfig(this.name, this.contextData);
         },
 
-        _onInitiateConfigSearchResponse: function (e) {
-          var totalRecords = this.initiateConfigSearchResponse.content.totalRecords;
-
-          if(totalRecords == 0) {
+        onConfigLoaded: function (componentConfig) {
+          if (!componentConfig || !componentConfig.config || _.isEmpty(componentConfig.config.steps)) {
             this.showErrorToast("Component configuration is missing, please contact administrator.");
             this._onCancel();
             return;
           }
 
-          var options = { 'from': 0, 'to': totalRecords };
-          var searchResultId = this.initiateConfigSearchResponse.content.requestId;
-
-          var getConfigSearchDetails = this.shadowRoot.querySelector('#getConfigSearchDetails');
-          var reqData = this.initiateConfigSearchRequestData;
-          reqData.params.options = options;
-          getConfigSearchDetails.requestId = searchResultId;
-          getConfigSearchDetails.requestData = reqData;
-
-          getConfigSearchDetails.generateRequest();
+          var config = componentConfig.config;
+          config.steps = DataHelper.convertObjectToArray(config.steps);
+          this.set('config', config); //set the configuration
         },
 
-        _onGetConfigSearchDetailsResponse: function(e) {
-            var gridConfig = {};
-            if(e.detail.response &&
-              e.detail.response.status == "success" && 
-              DataHelper.isValidObjectPath(e, 'detail.response.content.configObjects.0.data.contexts.0.jsonData.config')) {
-                  var config = e.detail.response.content.configObjects[0].data.contexts[0].jsonData.config;
-                  //Add appContextData to the steps
-                  var contextData = DataHelper.cloneObject(this.contextData);
-                  contextData.appContexts = [{"appContext": this.appName}]; 
-                  if(config.steps && config.steps.length > 0) {
-                    for(var i = 0; i < config.steps.length; i++) {
-                      if(config.steps[i].component) {
-                        if(!config.steps[i].component.properties) {
-                          config.steps[i].component.properties = {};
-                        }
-
-                        config.steps[i].component.properties["app-context-data"] = contextData;
-                      }
-                    }
-                  }
-                  this.set('config', config);// set the configuration
-            }
-         },
-
-         /**
-         * Function to display the left nav info
-         */
-          getAppCurrentStatus: function (customArgs) { 
-            var titleStr = "";
-            if(customArgs.title) {
-              titleStr = customArgs.title;
-            }
-            var queryParams = "";
-            if(customArgs.queryParams && customArgs.queryParams.type){
-              titleStr = titleStr + " : " + customArgs.queryParams.type;
-              queryParams = customArgs.queryParams;
-            }
-            return {
-                title:titleStr,
-                subTitle: "Last Opened",
-                subTitleValue: this._searchTimeStamp ? this._searchTimeStamp : new Date().toLocaleString(),
-                queryParams: queryParams
-            };
+        /**
+        * Function to display the left nav info
+        */
+        getAppCurrentStatus: function (customArgs) {
+          var titleStr = "";
+          if (customArgs.title) {
+            titleStr = customArgs.title;
+          }
+          var queryParams = "";
+          if (customArgs.queryParams && customArgs.queryParams.type) {
+            titleStr = titleStr + " : " + customArgs.queryParams.type;
+            queryParams = customArgs.queryParams;
+          }
+          return {
+            title: titleStr,
+            subTitle: "Last Opened",
+            subTitleValue: this._searchTimeStamp ? this._searchTimeStamp : new Date().toLocaleString(),
+            queryParams: queryParams
+          };
         },
 
         _onFirstStepCancelled: function () {
@@ -184,7 +144,7 @@
           if (detail) {
             if (detail.dataRoute && detail.dataRoute != "") {
               ComponentHelper.closeCurrentApp();
-              var mainApp = document.querySelector("main-app");
+              var mainApp = RUFUtilities.mainApp;
               if (!detail.queryParams) {
                 detail.queryParams = {};
               }

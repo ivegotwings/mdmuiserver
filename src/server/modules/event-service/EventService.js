@@ -585,7 +585,7 @@ Eventservice.prototype = {
         return req;
     },
     _generateRequestTrackingGetReqForTaskDetails: function (taskId, isBulkWorkflowTask, totalRecords) {
-        var types = ["requestObject"];
+        var types = ["requestobject"];
         var req = this._getRequestJson(types);
 
         var attributeNames = ["entityId", "entityType", "entityAction", "requestStatus"];
@@ -750,7 +750,7 @@ Eventservice.prototype = {
             }]
         };
 
-        var dataIndexInfo = pathKeys.dataIndexInfo["requestTracking"];
+        var dataIndexInfo = pathKeys.dataIndexInfo["requestTracking"].dataSubIndexInfo["requestTracking"];
         req.params.options = {
             "maxRecords": dataIndexInfo.maxRecordsToReturn
         }
@@ -1022,7 +1022,7 @@ Eventservice.prototype = {
     },
     //Task summarization processor temp changes...
     _generateTaskDetailsGetReq: function (taskId, isBulkWorkflowTask, totalRecords) {
-        var types = ["requestObject"];
+        var types = ["requestobject"];
         var req = this._getRequestJson(types);
 
         var attributeNames = ["entityId", "entityType", "entityAction"];

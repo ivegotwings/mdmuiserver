@@ -1,0 +1,574 @@
+<link rel="import" href="../../../bower_components/polymer/polymer-element.html">
+
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html" />
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-styles-scroll-bar.html" />
+
+<link rel="import" href="../bedrock-app-context-behavior/bedrock-app-context-behavior.html">
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+
+<link rel="import" href="../pebble-button/pebble-button.html">
+<link rel="import" href="../pebble-popover/pebble-popover.html">
+<link rel="import" href="../pebble-textbox-collection/pebble-textbox-collection.html">
+<link rel="import" href="../pebble-textarea/pebble-textarea.html">
+<link rel="import" href="../pebble-icon/pebble-icon.html">
+<link rel="import" href="../pebble-textbox/pebble-textbox.html">
+<link rel="import" href="../pebble-lov/pebble-lov.html">
+<link rel="import" href="../pebble-data-table/pebble-data-table.html">
+<link rel="import" href="../pebble-datetime-picker/pebble-datetime-picker-overlay.html">
+
+<dom-module id="rock-attribute-filter-popover">
+    <template>
+        <style include="bedrock-style-common">
+                
+        pebble-textarea {
+            --autogrowtextarea:{
+                min-height: 30px !important;
+            }
+            --pebble-textarea:{
+                width: 260px;               
+            }
+        }
+        .dialogOptions paper-radio-button {
+            display: block;
+        }
+        paper-radio-group paper-radio-button{
+            --paper-radio-button-unchecked-color: var(--radio-button-border, #026bc3);
+            --paper-radio-button-checked-color: var(--radio-button-selected, #026bc3);
+        }
+        .input-content::slotted(input), .input-content::slotted(textarea), .input-content::slotted(iron-autogrow-textarea),
+        .input-content::slotted(.paper-input-input) {
+            font-size: var(--default-font-size, 14px);
+        }
+        
+        pebble-textbox-collection {
+            --tags-container: {
+                min-height: 0px;
+                margin-right: 0px;
+            }
+            --text-collection-container: {
+                min-height: 0px;
+                margin-top: 0px;
+            }
+        }
+
+        #filterPopover{
+            padding-right:10px;
+            padding-left:10px;
+        }
+        </style>
+         
+        <!-- Filter popover starts here -->         
+        <pebble-popover id="filterPopover" for="" no-overlap vertical-align="auto" horizontal-align="auto">
+                <template is="dom-if" if="{{_showTagModifier('textbox',currentFilterObj.displayType)}}">
+                    <pebble-textbox-collection id="textCollection" values="{{txtBoxCollection}}" no-popover textbox-label="Enter more values here to search" show-seperator seperator="or"></pebble-textbox-collection>
+                    <div class="PebbleButtonPadding text-center m-t-15">
+                    <pebble-button class="btn btn-secondary m-r-5" target-id="filterPopover" on-tap="_closeLov" raised elevation="1" button-text="Close"></pebble-button>
+                    <pebble-button class="btn btn-success" button-text="Apply" raised elevation="1" on-tap="_onUpdateValue"></pebble-button> 
+                    <div class="clearfix"></div>
+                    </div>
+                </template>
+                <template is="dom-if" if="{{_showTagModifier('textarea',currentFilterObj.displayType)}}">
+                    <pebble-textarea class="input" label="Enter text here" value="{{txtAreaInput}}"></pebble-textarea>
+                    <div class="PebbleButtonPadding text-center m-t-15">
+                    <pebble-button class="btn btn-secondary m-r-5" target-id="filterPopover" on-tap="_closeLov" raised elevation="1" button-text="Close"></pebble-button>
+                    <pebble-button class="btn btn-success" button-text="Apply" raised elevation="1" on-tap="_onUpdateValue"></pebble-button> 
+                    <div class="clearfix"></div>
+                    </div> 
+                </template>
+                <template is="dom-if" if="{{_showTagModifier('richtexteditor',currentFilterObj.displayType)}}">
+                    <pebble-textarea class="input" label="Enter text here" value="{{txtAreaInput}}"></pebble-textarea>
+                    <div class="PebbleButtonPadding text-center m-t-15">
+                    <pebble-button class="btn btn-secondary m-r-5" target-id="filterPopover" on-tap="_closeLov" raised elevation="1" button-text="Close"></pebble-button>
+                    <pebble-button class="btn btn-success" button-text="Apply" raised elevation="1" on-tap="_onUpdateValue"></pebble-button> 
+                    <div class="clearfix"></div>
+                    </div>
+                </template>
+                <template is="dom-if" if="{{_showTagModifier('referencelist',currentFilterObj.displayType)}}">
+                    <rock-entity-lov id="rockEntityLov" multi-select show-action-buttons selected-items="{{_selectedItems}}"></rock-entity-lov>
+                </template>
+                <template is="dom-if" if="{{_showTagModifier('boolean',currentFilterObj.displayType)}}">
+                    <pebble-boolean class="text-center" id="booleanDisplay" value="{{booleanvalue}}" required></pebble-boolean>
+                    <div class="PebbleButtonPadding text-center m-t-15">
+                    <pebble-button class="btn btn-secondary m-r-5" target-id="filterPopover" on-tap="_closeLov" raised elevation="1" button-text="Close"></pebble-button>
+                    <pebble-button class="btn btn-success" button-text="Apply" raised elevation="1" on-tap="_onUpdateValue"></pebble-button>
+                    </div> 
+                </template>
+                <template is="dom-if" if="{{_showTagModifier('numeric',currentFilterObj.displayType)}}">
+                <paper-radio-group aria-labelledby="{{longName}}" class="dialogOptions" on-paper-radio-group-changed="_onRadioGroupChange">
+                <paper-radio-button name="range">
+                    <div class="colspan-2 pull-left">
+                    <pebble-textbox label="Min" prevent-invalid-input allowed-pattern="[0-9.]" invalid="{{numericMinInvalid}}" show-error input-data-type="[[currentFilterObj.dataType]]"
+                        value="{{gte}}">
+                    </pebble-textbox>
+                    </div>
+                    <div class="colspan-2 pull-left">
+                    <pebble-textbox label="Max" prevent-invalid-input allowed-pattern="[0-9.]" invalid="{{numericMaxInvalid}}" show-error input-data-type="[[currentFilterObj.dataType]]"
+                        value="{{lte}}">
+                    </pebble-textbox>
+                    </div>
+                    <div class="clearfix"></div>
+                </paper-radio-button>
+                <paper-radio-button name="equalToData">
+                    <div class="col-90 pull-left">
+                    <pebble-textbox-collection id="textNumericCollection" values="{{_tagsNumericCollection}}" no-popover textbox-label="Enter more values here to search" show-seperator seperator="or" allowed-pattern="[0-9.]"></pebble-textbox-collection>
+                    </div>
+                    <div class="clearfix"></div>
+                </paper-radio-button>
+                </paper-radio-group>
+                <div class="PebbleButtonPadding text-center">
+                <pebble-button class="btn btn-secondary m-r-5" target-id="filterPopover" on-tap="_closeLov" raised elevation="1" button-text="Close"></pebble-button>
+                <pebble-button class="btn btn-success" button-text="Apply" raised elevation="1" on-tap="_onUpdateValue" disabled="{{_updateDisable}}"></pebble-button>
+                </div>
+            </template>
+            </pebble-popover>
+            <bedrock-pubsub event-name="on-popover-close" handler="_onFilterPopoverClose" target-id="filterPopover"></bedrock-pubsub>
+            <bedrock-pubsub event-name="entity-lov-confirm-button-tap" handler="_onLOVConfirmTap" target-id="rockEntityLov"></bedrock-pubsub>
+            <bedrock-pubsub event-name="entity-lov-close-button-tap" handler="_onLOVCloseTap" target-id="rockEntityLov"></bedrock-pubsub>
+        
+            <!-- Already overlay, so out of popover -->
+            <pebble-datetime-picker-overlay id="rangepicker" for="" picker-type="daterange" show-ranges heading-format="ddd, MMM DD YYYY"
+            start-date-text="{{displaygte}}" end-date-text="{{displaylte}}" start-date-value="{{gte}}" end-date-value="{{lte}}"
+            on-date-range-selected="_onUpdateValue">
+            </pebble-datetime-picker-overlay>
+            <!-- Filter popover ends here -->  
+        
+
+    </template>
+    <script>
+        class RockAttributeFilterPopover extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehaviors.AppContextBehavior,RUFBehaviors.ComponentContextBehavior], Polymer.Element) {
+
+            static get is() {
+                return 'rock-attribute-filter-popover'
+            }
+
+            ready() {
+                super.ready();               
+            }
+
+            connectedCallback() {
+                super.connectedCallback();        
+
+            }
+
+            disconnectedCallback() {
+                super.disconnectedCallback();
+            }
+
+            static get properties() {
+                return {
+                    currentFilterObj: {
+                        type: Object,
+                        notify: true                
+                    },
+
+                    txtBoxCollection: {
+                        type: Array,
+                        value: function() {
+                            return [];
+                        }
+                    },
+                    txtAreaInput:{
+                        type: String,
+                        value: ""
+                    },
+                    booleanvalue:{
+                        type: Boolean                
+                    },
+                    gte: {
+                        type: String,
+                        value: function () {
+                            return "";
+                        },
+                        observer: '_isMaxGreaterThanMin'
+                    },
+                    /**
+                     * <b><i>Content development is under progress... </b></i> 
+                     */
+                    lte: {
+                        type: String,
+                        value: function () {
+                            return "";
+                        },
+                        observer: '_isMaxGreaterThanMin'
+                    },
+                    /**
+                     * <b><i>Content development is under progress... </b></i> 
+                     */
+                    equalNum: {
+                        type: String,
+                        value: function () {
+                            return "";
+                        }
+                    },
+                    /**
+                     * <b><i>Content development is under progress... </b></i> 
+                     */
+                    numericMinInvalid: {
+                        type: Boolean,
+                        value: false
+                    },
+                    /**
+                     * <b><i>Content development is under progress... </b></i> 
+                     */
+                    numericMaxInvalid: {
+                        type: Boolean,
+                        value: false
+                    },
+                    /**
+                     * <b><i>Content development is under progress... </b></i> 
+                     */
+                    numericEqualInvalid: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    _updateDisable: {
+                        type: Boolean,
+                        computed: '_disableUpdate(numericMinInvalid, numericMaxInvalid, _tagsNumericCollection, _tagNumericInput, gte, lte)'
+                    },
+                    _tagsNumericCollection: {
+                        type: Array,
+                        value: function() {
+                            return [];
+                        }
+                    },           
+                    currentTargetRowName:{
+                        type: String,
+                        value: ""
+                    }
+                }
+            }
+
+        /**
+         *   When attribute is selected, which popover component need to show
+        */        
+        _showTagModifier(displayType) {
+            if(!this.currentFilterObj){
+                return;
+            } else if (this.currentFilterObj.dataType.toLowerCase() == "integer" || this.currentFilterObj.dataType.toLowerCase() == "decimal"){
+                this.currentFilterObj.displayType = "numeric";
+            } 
+            
+            if (this.currentFilterObj.displayType.toLowerCase() == displayType.toLowerCase()) {
+                return true;
+            }
+            return false;
+        }
+
+        /**
+         *   Handles the opening of filter popover
+        */ 
+        onOpenFilterPopover(filterInputValue,items,forTarget) {  
+
+            if(items){
+                this.currentFilterObj = items.attributeModel;
+            }
+            var scope = Polymer.dom(this).getOwnerRoot();
+            var target = Polymer.dom(scope).querySelector('#' + forTarget);
+
+            //DateTime Control
+            if (this.currentFilterObj.displayType.toLowerCase() == "datetime" || this.currentFilterObj.displayType.toLowerCase() == "date"){
+                var rangePicker = this.shadowRoot.querySelector('#rangepicker');
+                if(filterInputValue == ""){
+                    rangePicker.startDateValue = "";
+                    rangePicker.endDateValue = "";
+                    rangePicker.setDate(new Date());
+                    rangePicker.setRangeType(null);                                                     
+                } else {
+                    if(filterInputValue.indexOf('-')> -1){
+                        filterInputValues = filterInputValue.split('-');
+                        rangePicker.startDateValue = filterInputValues[0];
+                        rangePicker.endDateValue = filterInputValues[1];
+                    } else {
+                        rangePicker.startDateValue = filterInputValue;
+                        rangePicker.endDateValue = "";
+                    }
+                    var _date = new Date(rangePicker.startDateValue);
+                    rangePicker.setDate(_date);
+                }
+
+                rangePicker.positionTarget = target;
+                rangePicker.noOverlap = true;
+                rangePicker.show(true);
+                return; 
+            }
+            
+            var filterPopover = this.shadowRoot.querySelector('#filterPopover');
+            filterPopover.for = "";            
+            if(forTarget) {               
+                filterPopover.positionTarget = target;
+                filterPopover.show(true);
+            }
+                                            
+            if (this.currentFilterObj.displayType.toLowerCase() == "textbox") {
+                Polymer.Async.microTask.run(() => {
+                    var collectionInput = filterPopover.querySelector('#textCollection').shadowRoot.querySelector("#txtInputTag"); 
+                    this.txtBoxCollection = new Array();
+                    if(filterInputValue) {
+                        var filterInputValues = filterInputValue.split(' '+ 'or' +' ');
+                        //If the value has already been added, show it in the textbox for updating
+                        this.txtBoxCollection = filterInputValues;
+                    }
+                    collectionInput.value = "";                    
+                    collectionInput.focus();
+                });
+            } else if (this.currentFilterObj.displayType.toLowerCase() == "textarea"){
+                var filterInput = filterPopover.querySelector('.input');
+                this.txtAreaInput = "";
+                if (filterInput) {
+                    filterInput.value = filterInputValue;
+                    this.txtAreaInput = filterInputValue;
+                    filterInput.focus();  
+                }  
+            } else if (this.currentFilterObj.displayType.toLowerCase() == "richtexteditor"){
+                var filterInput = filterPopover.querySelector('.input');
+                this.txtAreaInput = "";
+                if (filterInput) {
+                    filterInput.value = filterInputValue;
+                    this.txtAreaInput = filterInputValue;
+                    filterInput.focus();  
+                }  
+            } else if (this.currentFilterObj.displayType.toLowerCase() == "boolean") {
+                var filterInput = filterPopover.querySelector('#booleanDisplay');
+                this.booleanvalue = "";
+                if (filterInput) {
+                    filterInput.value = filterInputValue;
+                    this.booleanvalue = filterInputValue;
+                }
+            } else if (this.currentFilterObj.displayType.toLowerCase() == "referencelist") {               
+
+                var lovComponent = filterPopover.querySelector('#rockEntityLov');  
+                if(lovComponent) {
+                    var titlePattern = "";
+                    var subTitlePattern = "";
+                    if(this.currentFilterObj.referenceEntityInfo && this.currentFilterObj.referenceEntityInfo.length) {
+                        titlePattern = this.currentFilterObj.referenceEntityInfo[0].listTitle;
+                        subTitlePattern = this.currentFilterObj.referenceEntityInfo[0].listSubTitle;
+                    }
+                    lovComponent.idField = "id";
+                    lovComponent.titlePattern = titlePattern;
+                    lovComponent.subTitlePattern = subTitlePattern;
+                    lovComponent.valueField = "name";
+                    this._selectedItems = [];
+                    if(filterInputValue) {
+                        lovComponent.selectedItems = items.selectedItems;
+                        this._selectedItems = items.selectedItems;
+                    }  
+                    var refEntityTypes = [this.currentFilterObj.referenceEntityInfo[0].refEntityType];
+                    var itemContexts = [];
+                    for (var i in refEntityTypes) {
+                        itemContexts.push({
+                            "type": refEntityTypes[i]
+                        });
+                    }
+                    var contextData = DataHelper.cloneObject(this.contextData);
+                    contextData[this.CONTEXT_TYPE_ITEM] = itemContexts;
+                    lovComponent.requestData = DataRequestHelper.createEntityGetRequest(contextData);
+                    lovComponent.requestData.params.additionalIds = this.currentFilterObj.selectedIds;
+                    lovComponent.reset();
+                } 
+            } else if (this.currentFilterObj.displayType.toLowerCase() == "numeric"){
+
+                this._tagsNumericCollection = [];
+                this._tagNumericInput = ""; 
+                this.lte = "";
+                this.gte = "";
+
+                if(filterInputValue) {
+                    var filterInputValues= [];
+                    if(filterInputValue.indexOf('-') > -1) {
+                        filterInputValues = filterInputValue.split('-');
+                        this.gte = filterInputValues[0];
+                        this.lte = filterInputValues[1];
+                    } else if (filterInputValue.indexOf('<=') > -1) {
+                        filterInputValues = filterInputValue.split('<=');
+                        this.lte = filterInputValues[1];
+                        this.gte = "";
+                    } else if (filterInputValue.indexOf('>=') > -1) {
+                        filterInputValues = filterInputValue.split('>=');
+                        this.gte = filterInputValues[1];
+                        this.lte = "";
+                    } else {
+                        this._tagsNumericCollection = filterInputValue;
+                    }
+                }           
+                 
+            } 
+
+        }
+
+        /**
+        * validate the input for numeric display type and disables the update button
+        */
+        _disableUpdate(numericMinInvalid, numericMaxInvalid, _tagsNumericCollection, _tagNumericInput, gte, lte) {
+            if (!_.isEmpty(this.gte + "") || !_.isEmpty(this.lte + "") || !_.isEmpty(_tagsNumericCollection) || _tagNumericInput) {
+            if (this.shadowRoot.querySelector('paper-radio-group') && this.shadowRoot.querySelector('paper-radio-group').selected == "range") {
+                return (numericMaxInvalid || numericMinInvalid);
+            } else {
+                return _.isEmpty(_tagsNumericCollection) && !_tagNumericInput;
+            }
+            } else {
+                return true;
+            }
+        }
+        
+        /**
+         * checks if the min value is less than maximum value in numeric display type popover
+        */
+        _isMaxGreaterThanMin() {
+            if (!_.isEmpty(this.gte + "") && !_.isEmpty(this.lte + "")) {
+            if (parseFloat(this.gte) > parseFloat(this.lte)) {
+                this.set('numericMaxInvalid', true);
+            } else {
+                this.set('numericMaxInvalid', false);
+            }
+            } else {
+            this.set('numericMaxInvalid', false);
+            }
+        }
+
+        /**
+         *  Handles updating of the filter popover content 
+        */ 
+        _onUpdateValue(e){
+
+            //Updating Date and Datetime inputs
+            if(this.currentFilterObj.displayType.toLowerCase() == "datetime" || this.currentFilterObj.displayType.toLowerCase() == "date"){
+                if (this.gte == this.lte) { 
+                    filterInputValue = this.displaygte;
+                } else {                    
+                    if (this.displaygte == this.displaylte) {
+                        filterInputValue = this.displaygte;
+                    } else {
+                        filterInputValue = this.displaygte + " - " + this.displaylte;
+                    }
+                } 
+                  
+                var eventDetail = {
+                    "filterInputValue": filterInputValue
+                }
+                this.fireBedrockEvent('on-filter-update',eventDetail);
+
+                return;
+            }
+           
+            //Updating other inputs
+            var filterPopover = this.shadowRoot.querySelector('#filterPopover');            
+            var filterInput;
+            var filterInputValue;
+            if (this.currentFilterObj.displayType.toLowerCase() == "textbox") {
+                var collectionInput = filterPopover.querySelector('#textCollection').shadowRoot.querySelector("#txtInputTag"); 
+                filterInputValue = collectionInput.value;               
+                if(this.txtBoxCollection.length > 0) {
+                    filterInputValue = this.txtBoxCollection.join(' '+ 'or' +' ');
+                }
+            } else if (this.currentFilterObj.displayType.toLowerCase() == "textarea") {
+                filterInput = filterPopover.querySelector('.input');
+                filterInputValue = filterInput.value;
+            } else if (this.currentFilterObj.displayType.toLowerCase() == "richtexteditor") {
+                filterInput = filterPopover.querySelector('.input');
+                filterInputValue = filterInput.value;
+            } else if (this.currentFilterObj.displayType.toLowerCase() == "boolean") {
+                filterInput = filterPopover.querySelector('#booleanDisplay');
+                filterInputValue = filterInput.value;
+            } else if(this.currentFilterObj.displayType.toLowerCase() == "numeric"){
+                if (this.shadowRoot.querySelector('paper-radio-group').selected == "range") {
+                    if (this.gte == "") {
+                        this.gte = undefined;
+                    }
+                    if (this.lte == "") {
+                        this.lte = undefined;
+                    }
+                    if (!(this.gte || this.lte)) {
+                        this.logWarning("FilterValuesEmpty");
+                        return;
+                    } else {
+                        var gteAsString = (parseFloat(this.gte)).toString();
+                        var lteAsString = (parseFloat(this.lte)).toString();
+                        if (!this.gte) {                   
+                            filterInputValue = "<= " + lteAsString;
+                        } else if (!this.lte) {                  
+                            filterInputValue = ">= " + gteAsString;
+                        } else {                   
+                            filterInputValue = gteAsString + " - " + lteAsString;
+                        }
+                    }
+                } else if (this._tagsNumericCollection.length > 0){
+                    filterInputValue = this._tagsNumericCollection;
+                } 
+            }
+          
+            var eventDetail = {
+                "filterInputValue": filterInputValue
+            }
+            this.fireBedrockEvent('on-filter-update',eventDetail);
+            //close the filter popover
+            filterPopover.close();
+
+        }
+
+        /**
+         *  Handles referencelist confirm tap 
+        */ 
+        _onLOVConfirmTap(){
+
+            var filterPopover = this.shadowRoot.querySelector('#filterPopover');
+            var filterInputValue = [];
+            var selectedItemsObj = this._selectedItems;
+            
+            for (let i = 0; i < selectedItemsObj.length; i++) {
+                if (selectedItemsObj[i].title) {
+                    filterInputValue.push(selectedItemsObj[i].title);
+                }            
+            }
+       
+            var eventDetail = {
+                "filterInputValue": filterInputValue,
+                "selectedItems" : this._selectedItems
+            }
+            
+            this.fireBedrockEvent('on-filter-update',eventDetail);
+
+            //close the filter popover
+            filterPopover.close();
+
+        }
+
+        /**
+         *  Handles referencelist close tap 
+        */ 
+        _onLOVCloseTap(e,detail){
+            var filterPopover = this.shadowRoot.querySelector('#filterPopover');
+            filterPopover.close();
+        }
+
+        /**
+         *  Clear radio button selection  
+        */ 
+        _onRadioGroupChange() {
+            this.gte = this.lte = "";
+            this._tagsNumericCollection = [];
+            this._tagNumericInput = "";
+
+            var filterPopover = this.shadowRoot.querySelector('#filterPopover');
+            if(filterPopover) {
+                this._clearCollectionInput(filterPopover, '#textNumericCollection', '#txtInputTag');
+            }
+        }         
+        
+        _clearCollectionInput(filterPopover, collection, input) {
+            var filterNumericCollection = filterPopover.querySelector(collection);
+            if(filterNumericCollection) {
+                var collectionInput = filterNumericCollection.shadowRoot.querySelector(input);
+                if(collectionInput) {
+                    collectionInput.value = "";
+                }
+            }
+        }
+            
+        }
+        customElements.define(RockAttributeFilterPopover.is, RockAttributeFilterPopover);
+    </script>
+</dom-module>

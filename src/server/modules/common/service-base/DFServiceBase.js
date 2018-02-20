@@ -28,7 +28,7 @@ var DFServiceBase = function (options) {
     this.requestJson = async function (url, request) {
         var timeout = request.timeout || this._timeout;
 
-        var tenantId = this._getTenantId();        
+        var tenantId = this.getTenantId();        
         var timeStamp = moment().toISOString();
         url = this._serverUrl + '/' + tenantId + '/api' + url + '?timeStamp=' + timeStamp;
 
@@ -106,7 +106,7 @@ var DFServiceBase = function (options) {
         return ownershipData;
     };
 
-    this._getTenantId = function () {
+    this.getTenantId = function () {
         var tenantId = "";
         var securityContext = executionContext.getSecurityContext();
 
@@ -119,7 +119,7 @@ var DFServiceBase = function (options) {
 
     this._createRequestHeaders = function (url, request) {
         var headers = {};
-        var tenantId = this._getTenantId();
+        var tenantId = this.getTenantId();
         var userId = 'admin';
         var userRoles = ['vendor'];
 

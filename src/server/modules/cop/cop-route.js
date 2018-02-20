@@ -41,6 +41,21 @@ var COPRouter = function (app) {
         //console.log('cop response:', JSON.stringify(response, null, 2));
         res.status(200).send(response);
     });
+    app.post('/data/cop/getHeaderFields', async function (req, res) {
+        var response = await copService.getHeaderFields(req);
+        //console.log('cop response:', JSON.stringify(response, null, 2));
+        res.status(200).send(response);
+    });
+    app.post('/data/cop/getMappings', async function (req, res) {
+        var response = await copService.getMappings(req);
+        //console.log('cop response:', JSON.stringify(response, null, 2));
+        res.status(200).send(response);
+    });
+    app.post('/data/cop/saveMappings', async function (req, res) {
+        var response = await copService.saveMappings(req);
+        //console.log('cop response:', JSON.stringify(response, null, 2));
+        res.status(200).send(response);
+    });
     app.post('/data/cop/publish', async function (req, res) {
         var response = await copService.publish(req);
         res.status(200).send(response);

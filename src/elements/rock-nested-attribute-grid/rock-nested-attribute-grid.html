@@ -33,13 +33,13 @@
         <template is="dom-if" if="[[_isEditMode(mode)]]">
             <template is="dom-if" if="[[_isAttributeEditable(attributeModelObject)]]">
                 <div class="button">
-                    <pebble-button icon="pebble-sm-icons:Add" id="button_add" class="btn btn-primary m-r-10" button-text="Add" on-click="_onAddRowClick"></pebble-button>
+                    <pebble-button icon="pebble-icon:Add" id="button_add" class="btn btn-primary m-r-10" button-text="Add" on-click="_onAddRowClick"></pebble-button>
                 </div>
             </template>
         </template>
         <div class="grid" hidden$="[[!_showGrid]]">
             <rock-grid id="attributesGrid" config="{{_gridConfig}}" data="{{_gridData}}" attribute-models="[[_attributeModels]]" no-header
-                page-size="20" is-dirty="{{_isGridDirty}}" context-data="[[contextData]]">
+                page-size="20" is-dirty="{{_isGridDirty}}" context-data="[[contextData]]" apply-locale-coalesce="[[applyLocaleCoalesce]]">
             </rock-grid>
             <bedrock-pubsub event-name="delete-item" handler="_onRowDelete" target-id="attributesGrid"></bedrock-pubsub>
             <bedrock-pubsub event-name="refresh-grid" handler="_onRefreshGrid" target-id="attributesGrid"></bedrock-pubsub>
@@ -70,26 +70,7 @@
                     _gridConfig: {
                         type: Object,
                         value: function () {
-                            return {
-                                "viewMode": "Tabular",
-                                "schemaType": "colModel",
-                                "statusEnabled": true,
-                                "tabular": {
-                                    "settings": {
-                                        "isMultiSelect": false,
-                                        "disableSelectAll": true,
-                                        "rowIdentifier": "groupidentifier",
-                                        "actions": [
-                                            {
-                                                "name": "delete",
-                                                "icon": "pebble-icons:Delete",
-                                                "eventName": "delete-item"
-                                            }
-                                        ]
-                                    },
-                                    "columns": []
-                                }
-                            };
+                            return {};
                         }
                     },
                     /**
@@ -175,7 +156,11 @@
                     _showGrid: {
                         type: Boolean,
                         value: false
-                    }
+                    },
+                    applyLocaleCoalesce: {
+                        type: Boolean,
+                        value: false
+                    },
                 },
                 behaviors: [
                     RUFBehaviors.UIBehavior,
@@ -199,11 +184,36 @@
                 },
                 _prepareGridConfig: function (attributeModelObject) {
                     if (attributeModelObject && attributeModelObject.group && attributeModelObject.group.length > 0) {
+                        var gridConfig = {
+                            "viewMode": "Tabular",
+                            "schemaType": "colModel",
+                            "statusEnabled": true,
+                            "itemConfig": {
+                                "fields": {}
+                            },
+                            "viewConfig": {
+                                "tabular": {
+                                    "settings": {
+                                        "isMultiSelect": false,
+                                        "disableSelectAll": true,
+                                        "rowIdentifier": "groupidentifier",
+                                        "actions": [
+                                            {
+                                                "name": "delete",
+                                                "icon": "pebble-icon:Delete",
+                                                "eventName": "delete-item"
+                                            }
+                                        ]
+                                    },
+                                    "fieldChanges": {}
+                                }
+                            }
+                        };
                         var attributeModels = attributeModelObject.group[0];
                         for (var model in attributeModels) {
                             attributeModels[model].hasWritePermission = true;
                         }
-                        this._gridConfig.mode = this.mode === "edit" ? "edit" : "read";
+                        gridConfig.mode = this.mode === "edit" ? "edit" : "read";
                         this.set("_attributeModels", attributeModels);
                         var keys = Object.keys(attributeModels);
                         if (keys && keys.length > 0) {
@@ -213,13 +223,19 @@
                                     "header": attributeModel.externalName,
                                     "name": attributeModel.name,
                                     "filterable": true,
-                                    "sortable": true
+                                    "sortable": true,
+                                    "visible": true,
+                                    "displaySequence": attributeModel.displaySequence,
+                                    "externalName": attributeModel.externalName
                                 };
-                                this._gridConfig.tabular.columns.push(column);
+                                gridConfig.itemConfig.fields[attributeModel.name] = column;
                             }
-                        }
+                            gridConfig.itemConfig.fields = DataTransformHelper.sortAttributeModels(gridConfig.itemConfig.fields);
+                       }
+                        this.set("_gridConfig", gridConfig);
                     }
                 },
+                
                 _prepareGridData: function (attributeObject) {
                     this._gridData = [];
 
@@ -340,9 +356,11 @@
                                                  * it delete. In this case to avoid duplicating the rows to be deleted.***/
                                                 this.attributeObject.value.splice(index, 1);
                                             } else {
-                                                /***replace the row data with original row data before marking the row with delete.***/
-                                                this.attributeObject.value[index] = DataHelper.cloneObject(originalVal);
-                                                this.attributeObject.value[index]["action"] = "delete";
+                                                if(originalVal) {
+                                                    /***replace the row data with original row data before marking the row with delete.***/
+                                                    this.attributeObject.value[index] = DataHelper.cloneObject(originalVal);
+                                                    this.attributeObject.value[index]["action"] = "delete";
+                                                }
                                             }
                                         }
                                     } else if (this._isIdentifierUpdated(rowData, originalVal) && !deletedValue) {

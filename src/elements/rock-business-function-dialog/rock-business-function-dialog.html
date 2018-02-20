@@ -10,6 +10,7 @@
 
 <link rel="import" href="../rock-wizard/rock-wizard.html">
 <link rel="import" href="../rock-layout/rock-layout.html">
+<link rel="import" href="../rock-component-config-behavior/rock-component-config-behavior.html">
 
 
 <!--
@@ -49,9 +50,9 @@ business function framework.
         </style>
         <div id="stepProviders"></div>
         <pebble-dialog id="businessFunctionDialog" modal horizontal-align="auto" vertical-align="auto" show-close-icon no-cancel-on-outside-click
-            no-cancel-on-esc-key dialog-title="[[title]]" o>
+            no-cancel-on-esc-key dialog-title="[[title]]">
             <div style="max-height:85vh;overflow-y: auto;overflow-x:hidden">
-                <rock-wizard config="{{wizardConfig}}" readonly$="[[readonly]]" shared-data="{{sharedData}}" on-first-step-cancelled="_onFirstStepCancelled" on-next-step="_onNextStep" on-cancel-event = "_onCancel"></rock-wizard>
+                <rock-wizard config="{{wizardConfig}}" readonly$="[[readonly]]" shared-data="{{sharedData}}" on-first-step-cancelled="_onFirstStepCancelled" on-next-step="_onNextStep" on-cancel-event = "_onCancel" hide-stepper="[[hideStepper]]"></rock-wizard>
             </div>
         </pebble-dialog>
     </template>
@@ -63,7 +64,8 @@ business function framework.
                 is: 'rock-business-function-dialog',
                 behaviors: [
                     RUFBehaviors.UIBehavior,
-                    RUFBehaviors.BusinessFunctionBehavior
+                    RUFBehaviors.BusinessFunctionBehavior,
+                    RUFBehaviors.ComponentConfigBehavior
                 ],
                 properties: {
                     /**
@@ -88,9 +90,15 @@ business function framework.
                     dialog: {
                         type: Object
                     },
-                    configName: {
+                    subName: {
                         type: String
-                    }
+                    },
+                    contextData: {
+                        type:Object
+                    },
+                    hideStepper: {
+                        type: Boolean
+                    },
                 },
                 /**
                   * <b><i>Content development is under progress... </b></i> 
@@ -103,8 +111,40 @@ business function framework.
                   */
                 open: function () {
                     this.config = {};
-                    this.config = this.configName ? this.getParentAppConfig(this.name, '', this.configName) : this.getParentAppConfig(this.name);
-                    this.dialog.open();
+                    if(!_.isEmpty(this.contextData)) {
+                        var context = DataHelper.cloneObject(this.contextData);
+                          //App specific
+                          var appName = ComponentHelper.getCurrentActiveAppName();
+                          if(appName) {
+                              context[ContextHelper.CONTEXT_TYPE_APP] = [{
+                                  "app": appName
+                              }];
+                          }
+                          this.requestConfig(this.name, context);
+                    }
+                    
+                },
+                onConfigLoaded: function (componentConfig) {
+                    if(componentConfig && componentConfig.config) {
+                        var config = componentConfig.config;
+
+                        if(this.subName){
+                            if(config[this.subName]){
+                                config = config[this.subName];
+                            }
+                        }
+                        if(config.wizardConfig){
+                            var steps = DataHelper.convertObjectToArray(config.wizardConfig.steps);
+                            config.wizardConfig.steps = steps;
+                            config=config.wizardConfig;
+                        }
+                        else if(config.steps){ 
+                            var steps = DataHelper.convertObjectToArray(config.steps);
+                            config.steps = steps;
+                        }
+                        this.config = config;
+                        this.dialog.open();
+                    }
                 },
                 _onFirstStepCancelled: function () {
                     this.dialog.close();
@@ -116,7 +156,7 @@ business function framework.
                     if (detail) {
                         if (detail.dataRoute && detail.dataRoute != "") {
                             this.dialog.close();
-                            var mainApp = document.querySelector("main-app");
+                            var mainApp = RUFUtilities.mainApp;
                             if (!detail.queryParams) {
                                 detail.queryParams = {};
                             }

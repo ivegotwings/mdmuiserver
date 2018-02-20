@@ -17,6 +17,7 @@
 <link rel="import" href="../rock-search-bar/rock-search-bar.html">
 <link rel="import" href="../rock-grid/rock-grid.html">
 <link rel="import" href="event-list-datasource.html">
+<link rel="import" href="../rock-component-config-behavior/rock-component-config-behavior.html">
 
 <!--
 `<rock-task-list>`
@@ -72,15 +73,15 @@
                     --pebble-button: {
                         font-size: var(--font-size-xs, 10px)!important;
                         height: auto;
-                        padding-bottom:0;
+                        padding-bottom: 0;
                     };
-                    --pebble-button-left-icon: {
-                        width: 14px !important;
-                        height: 14px!important;
-                        margin-right: 2px;
-                        margin-top: 3px;
-                        bottom: -1px;
+                    --pebble-icon-color:{
+                        fill:var(--palette-deep-sea-blue, #034c89);
                     };
+                    --pebble-icon-dimension:{
+                        width: 12px;
+                        height: 12px;
+                    }
                 }
 
                 .search-container {
@@ -89,37 +90,42 @@
                     width: 100%;
                 }
                 /*IE edge specific fix for refresh icon for task-list*/
-                _:-ms-lang(x), _:-webkit-full-screen, .pebble-md-icons {
+                _:-ms-lang(x), _:-webkit-full-screen {
                     vertical-align: top;
                 }
             </style>
-        <div class="search-container">
-            <rock-search-bar id="searchBar" placeholder="Enter Search text"></rock-search-bar>
-            <div class="resetsearch" hidden$="[[!_resetSearchEnabled]]">
-                <pebble-button icon="pebble-sm-icons:Resetsearch" class="btn-link" on-tap="_resetSearch" button-text="Reset Search"></pebble-button>
+            <div class="search-container">
+                <rock-search-bar id="searchBar" placeholder="Enter Search text"></rock-search-bar>
+                <div class="resetsearch" hidden$="[[!_resetSearchEnabled]]">
+                    <pebble-button icon="pebble-icon:Resetsearch" class="btn-link pebble-icon-color-blue" on-tap="_resetSearch" button-text="Reset Search"></pebble-button>
+                </div>
+                <bedrock-pubsub event-name="rock-search" handler="_onSearch" target-id="searchBar"></bedrock-pubsub>
+                <bedrock-pubsub event-name="rock-search-update" handler="_showResetSearch" target-id="searchBar"></bedrock-pubsub>
             </div>
-            <bedrock-pubsub event-name="rock-search" handler="_onSearch" target-id="searchBar"></bedrock-pubsub>
-            <bedrock-pubsub event-name="rock-search-update" handler="_showResetSearch" target-id="searchBar"></bedrock-pubsub>
-        </div>
 
+        <template is="dom-if" if="[[_load]]">
         <div class="row-wrap align-items-center">
-            <div class="col-4">
-                <pebble-dropdown class="dropdown" label="Type" items="[[eventTypes]]" selected-value="{{selectedEventType}}"></pebble-dropdown>
-            </div>
-            <div class="col-3">
-                <pebble-dropdown class="dropdown" label="Status" items="[[eventSubTypes]]" selected-value="{{selectedEventSubType}}"></pebble-dropdown>
-            </div>
-            <div class="col text-right">
-                <pebble-button id="refreshButton" icon="pebble-md-icons:ToolbarRefresh" class="pebble-md-icons iconButton tooltip-bottom m-r-10"
-                    data-tooltip$="Refresh" on-tap="_refreshList"></pebble-button>
-                <template is="dom-if" if="[[userToggleAllowed]]">
-                    <pebble-toggle-button checked="{{!getAllUsersEvents}}">Show Only My Tasks</pebble-toggle-button>
+                <template is="dom-if" if="{{isGenericTasklist(taskType)}}">
+                    <div class="col-4">
+                        <pebble-dropdown class="dropdown" label="Type" items="[[eventTypes]]" selected-value="{{selectedEventType}}"></pebble-dropdown>
+                    </div>
                 </template>
-            </div>
-        </div>
+                <div class="col-3">
+                    <pebble-dropdown class="dropdown" label="Status" items="[[eventSubTypes]]" selected-value="{{selectedEventSubType}}"></pebble-dropdown>
+                </div>
+                <div class="col text-right">
+                    <pebble-button id="refreshButton" icon="pebble-icon:Refresh" class="pebble-icon-size-16 iconButton tooltip-bottom m-r-10"
+                        data-tooltip$="Refresh" on-tap="_refreshList"></pebble-button>
+                    <template is="dom-if" if="[[userToggleAllowed]]">
+                        <pebble-toggle-button checked="{{!getAllUsersEvents}}">Show Only My Tasks</pebble-toggle-button>
+                    </template>
+                </div>
+            </div>    
+            <rock-grid id="importlistGrid" no-header config="{{gridConfig}}" page-size="50" r-data-source="{{dataSource}}" data-source-id$="eventDataSource"></rock-grid>
+        </template>
+        <bedrock-pubsub event-name="refresh-tasklist" handler="_refreshList"></bedrock-pubsub>
         <event-list-datasource id="eventDataSource" request="[[request]]" event-list-data-source="{{dataSource}}" grid-data-formatter="{{_dataFormatter}}">
         </event-list-datasource>
-        <rock-grid id="importlistGrid" no-header config="{{config}}" page-size="50" r-data-source="{{dataSource}}" data-source-id$="eventDataSource"></rock-grid>
     </template>
 
     <script>
@@ -255,6 +261,18 @@
                             return {};
                         }
                     },
+                    
+                    _load: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    gridConfig: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
                     /**
                      * <b><i>Content development is under progress... </b></i> 
                      */
@@ -299,23 +317,56 @@
                     _resetSearchEnabled: {
                         type: Boolean,
                         value: false
+                    },
+                    taskType: {
+                        type: String,
+                        value: "",
+                        observer:'_onChangeTaskType'
                     }
                 },
                 behaviors: [
-                    RUFBehaviors.UIBehavior
+                    RUFBehaviors.UIBehavior,
+                    RUFBehaviors.ComponentConfigBehavior
                 ],
                 /**
                  * <b><i>Content development is under progress... </b></i> 
                  */
                 ready: function () {
                     this._dataFormatter = this._getEventFormattedData.bind(this);
-                    this.config = this.getParentAppConfig('rock-task-list')
                 },
+                isGenericTasklist: function (taskType) {
+                    if(!taskType){
+                        return true;
+                    }
+                    else{
+                        return false;
+                    }
+                },
+                _onChangeTaskType: function(taskType){
+                    if(taskType){
+                        this.set("selectedEventType", taskType);
+                    }
+                },
+                observers: ['_contextDataChanged(contextData)'],
 
-                observers: ['_contextDataChanged(contextData,config)'],
-
-                _contextDataChanged: function (contextData, config) {
-                    if (!_.isEmpty(contextData) && !_.isEmpty(config)) {
+                _contextDataChanged: function (contextData) {
+                    Polymer.RenderStatus.afterNextRender(this,()=>{
+                            if (!_.isEmpty(contextData)) {
+                            var context = DataHelper.cloneObject(this.contextData);
+                            //App specific
+                            var appName = ComponentHelper.getCurrentActiveAppName();
+                            if(appName) {
+                                context[ContextHelper.CONTEXT_TYPE_APP] = [{
+                                    "app": appName
+                                }];
+                            }
+                            this.requestConfig('rock-task-list', context);
+                        }
+                    });                    
+                },
+                onConfigLoaded: function (componentConfig) {
+                    if(componentConfig && componentConfig.config) {
+                        this.config=componentConfig.config;
                         this._setEventRequest();
                     }
                 },
@@ -372,10 +423,12 @@
                     if(this.selectedEventType != "ASSET_IMPORT_RECORD") {
                         req.params.fields.attributes.push("isSummaryFromTaskProcessor");
                     }
-
+                    this._load = true;
                     this.set("request", req);
-
-                    this.shadowRoot.querySelector("#importlistGrid").reloadListData();
+                    this.set("gridConfig",this.config.gridConfig);
+                    Polymer.Async.timeOut.after(10).run(() => {
+                        this.shadowRoot.querySelector("#importlistGrid").reloadListData();
+                    });
                 },
                 _addEventTypeCriterion: function (attributesCriterion) {
                     if (this.selectedEventType) {
@@ -484,6 +537,12 @@
                                     }
                                 };
                                 break;
+                            default: 
+                                taskTypeCriterion = {
+                                    "taskType": {
+                                        "contains": this.selectedEventType
+                                    }
+                                }
                         }
 
                         if (taskTypeCriterion) {
@@ -516,7 +575,7 @@
                     }
                 },
                 _getEventFormattedData: function (data) {
-                    var attributeNames = this._getAttributeNamesFromListConfig(this.config);
+                    var attributeNames = this._getAttributeNamesFromListConfig(this.config.gridConfig);
 
                     if (data && data.content) {
                         var events = data.content.events;
@@ -566,7 +625,7 @@
                     return events;
                 },
                 _getAttributeNamesFromListConfig: function (config) {
-                    var listItems = config.list.listItems;
+                    var listItems = config.itemConfig;
                     var attributeNames = [];
                     attributeNames.push(listItems.image);
                     attributeNames.push(listItems.title);

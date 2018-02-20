@@ -66,12 +66,14 @@
       }
 
       if (!this._models[channelName]) {
-          this._models[channelName] = this._createModel(channelName);;
+        this._models[channelName] = this._createModel(channelName);;
       }
 
       return this._models[channelName];
     },
     _createModel: function (channelName) {
+      var dataChannel = RUFBehaviors.DataChannel;
+
       var channelConfig = this._getChannelConfig(channelName);
 
       if (!channelConfig) {
@@ -83,14 +85,11 @@
       var cacheChangeEvent = undefined;
 
       var dataStorageEnabled = localStorage.getItem("data-storage-enabled");
-      
+
       var offlineStoreEnabled = channelConfig.offlineStore && dataStorageEnabled == "true";
-    
+
       if (offlineStoreEnabled) {
-        cacheChangeEvent = RUFBehaviors.DataChannel[channelConfig.cacheChangeCallback];
-      }
-      else {
-        localStorage.removeItem(channelName);
+        cacheChangeEvent = dataChannel[channelConfig.cacheChangeCallback];
       }
 
       var model = new falcor.Model({
@@ -105,45 +104,69 @@
       }
 
       if (offlineStoreEnabled) {
-        var cachedData = localStorage.getItem(channelName);
-        if (cachedData) {
-          model.setCache(JSON.parse(cachedData));
+        var cacheKey = this.getLocalStorageCacheKey(channelName);
+        this.cleanupObsoletedLocalStorage(channelName, cacheKey);
+        var localStorageData = localStorage.getItem(cacheKey);
+        if (localStorageData) {
+          model.setCache(JSON.parse(localStorageData));
         }
       }
 
       return model;
     },
+    falcorCacheSerializer: function (key, value) {
+      if (key == "searchResults") {
+        return undefined;
+      }
+      return value;
+    },
+    getLocalStorageCacheKey: function (channelName) {
+      //console.log('runtime version : ', channelName, SharedUtils.RuntimeVersionManager.getVersion());
+      var rv = SharedUtils.RuntimeVersionManager.getVersion();
+      var mv = SharedUtils.ModuleVersionManager.getVersion(channelName);
+      return "".concat("data:", channelName, ":runtime-version:", rv, ":module-version:", mv);
+    },
+    cleanupObsoletedLocalStorage: function (channelName, excludeKey) {
+      var keysToRemove = [];
+      for (var i = 0; i < localStorage.length; i++) {
+        var key = localStorage.key(i);
+        if (key != excludeKey && key.startsWith("data:" + channelName) > 0) {
+          keysToRemove.push(key);
+        }
+      }
+
+      for (var i = 0; i < keysToRemove.length; i++) {
+        localStorage.removeItem(keysToRemove[i]);
+      }
+    },
     onEntityDataChange: function () {
-      RUFBehaviors.DataChannel.onCacheChange('entityData', 5000);
+      RUFBehaviors.DataChannel.onCacheChange('entityData', 10000);
     },
     onEntityGovernDataChange: function () {
       RUFBehaviors.DataChannel.onCacheChange('entityGovernData', 10000);
     },
     onConfigChange: function () {
-      RUFBehaviors.DataChannel.onCacheChange('config', 20000);
+      RUFBehaviors.DataChannel.onCacheChange('config', 10000);
     },
     onEntityModelChange: function () {
-      RUFBehaviors.DataChannel.onCacheChange('entityModel', 20000);
+      RUFBehaviors.DataChannel.onCacheChange('entityModel', 10000);
     },
     onEventDataChange: function () {
-      RUFBehaviors.DataChannel.onCacheChange('eventData', 30000);
+      RUFBehaviors.DataChannel.onCacheChange('eventData', 10000);
     },
     onCacheChange: function (channelName, debounceDuration) {
-      if (!RUFBehaviors.DataChannel.cacheChangeDebouncers) {
-        RUFBehaviors.DataChannel.cacheChangeDebouncers = {};
-      }
+      var dataChannel = RUFBehaviors.DataChannel;
 
-      var _debouncer = RUFBehaviors.DataChannel.cacheChangeDebouncers[channelName];
-      
+      if (!dataChannel.cacheChangeDebouncers) {
+        dataChannel.cacheChangeDebouncers = {};
+      }
+      var _debouncer = dataChannel.cacheChangeDebouncers[channelName];
+
       _debouncer = Polymer.Debouncer.debounce(_debouncer, Polymer.Async.timeOut.after(debounceDuration), () => {
-        var cachedData = RUFBehaviors.DataChannel.getModel(channelName).getCache();
-        if (cachedData) {
-          localStorage.setItem(channelName, JSON.stringify(cachedData, function (key, value) {
-            if (key == "searchResults") {
-              return undefined;
-            }
-            return value;
-          }));
+        var falcorCacheData = dataChannel.getModel(channelName).getCache();
+        if (falcorCacheData) {
+          var cacheKey = dataChannel.getLocalStorageCacheKey(channelName);
+          localStorage.setItem(cacheKey, JSON.stringify(falcorCacheData, dataChannel.falcorCacheSerializer));
         }
       });
     },
@@ -203,7 +226,9 @@
             'path': '/data/requestTracking.json',
             'maxSize': 1000000,
             'collectRatio': 0.75,
-            'treatErrorsAsValues': false
+            'treatErrorsAsValues': false,
+            'offlineStore': true,
+            'cacheChangeCallback': 'onEventDataChange'
           }
         }
       };

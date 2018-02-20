@@ -62,6 +62,10 @@ It is responsible to "get" and "save" the attributes.
             #errorsDialog {
                 --popup-header-color: var(--palette-pinkish-red, #ee204c);
             }
+
+            #rock-attribute-list-container {
+                height: 100%;
+            }
         </style>
         <pebble-dialog id="errorsDialog" modal small vertical-offset=1 50 horizontal-align="auto" vertical-align="auto" no-cancel-on-outside-click
             no-cancel-on-esc-key dialog-title="Errors on page">
@@ -82,38 +86,36 @@ It is responsible to "get" and "save" the attributes.
             <p>Are you sure you want to discard the unsaved changes.</p>
         </pebble-dialog>
         <bedrock-pubsub event-name="on-buttonok-clicked" handler="_revertAll" target-id="cancelDialog"></bedrock-pubsub>
-        <rock-attribute-list context-data="[[contextData]]" readonly$="[[readonly]]" show-group-name$=[[showGroupName]] group-name="[[groupName]]"
-            attribute-values="[[_attributeValues]]" attribute-models="[[_attributeModels]]" no-of-columns="[[noOfColumns]]" mode="{{mode}}"
-            attribute-messages="{{_attributeMessages}}" attributes-chunk-length=20 on-list-mode-changed="_onListModeChanged"></rock-attribute-list>
-        <liquid-entity-data-get name="attributeGetDataService" operation="getbyids" request-data="{{_attributeRequest}}" last-response="{{_attributeResponse}}"
+        <div id="rock-attribute-list-container"></div>
+        <liquid-entity-data-get name="attributeGetDataService" operation="getbyids" apply-locale-coalesce="[[applyLocaleCoalesce]]" request-data="{{_attributeRequest}}" last-response="{{_attributeResponse}}"
             on-response="_onEntityDataGetReceived" on-error="_onEntityDataGetFailed"></liquid-entity-data-get>
-
-
-        <liquid-entity-govern-data-get id="attributeGetMessageService" operation="getbyids" request-data={{_attributeMessageRequest}}
+        
+        
+            <liquid-entity-govern-data-get id="attributeGetMessageService" operation="getbyids" request-data={{_attributeMessageRequest}}
             on-response="_onAttributesMessageReceived" on-error="_onEntityGetFailed"></liquid-entity-govern-data-get>
         <liquid-entity-data-save name="attributeSaveDataService" operation="[[_entityDataOperation]]" request-data="{{_saveRequest}}"
             last-response="{{_saveResponse}}" on-response="_onSaveResponse" on-error="_onSaveError"></liquid-entity-data-save>
-
-        <liquid-entity-model-composite-get on-error="_onEntityModelCompositeGetFailed" name="compositeAttributeModelGet" request-data="{{_attributeModelRequest}}"
+        
+            <liquid-entity-model-composite-get on-error="_onEntityModelCompositeGetFailed" name="compositeAttributeModelGet" request-data="{{_attributeModelRequest}}"
             on-entity-model-composite-get-response="_onCompositeModelGetResponse"></liquid-entity-model-composite-get>
-
-        <liquid-rest id="entityGovernService" url="/data/pass-through/entitygovernservice/validate" method="POST" request-data={{_entityGovernRequest}}
+        
+            <liquid-rest id="entityGovernService" url="/data/pass-through/entitygovernservice/validate" method="POST" request-data={{_entityGovernRequest}}
             on-liquid-response="_onEntityGovernResponse" on-liquid-error="_onEntityGovernFailed">
         </liquid-rest>
         <liquid-rest id="entityMatchService" url="/data/pass-through/matchservice/search" method="POST" request-data={{_entityMatchRequest}}
             on-liquid-response="_onMatchSuccess" on-liquid-error="_onMatchFailure">
         </liquid-rest>
         <template is="dom-if" if="[[_showNoAttributeMessage]]">
-            <div align="center"> No attributes Found</div>
-        </template>
-        <div id="buttonContainer" align="center" class$="[[_getButtonsClass(functionalMode)]]">
-            <pebble-button id="cancel" class="btn btn-secondary m-r-10" button-text="Cancel" on-tap="_openCancelDialog" elevation=1 raised></pebble-button>
-            <pebble-button id="save" disabled$="[[readonly]]" class="focus btn btn-success" button-text="Save" on-tap="_save" elevation=1
-                raised></pebble-button>
-        </div>
-        <liquid-rest id="contextModelGet" url="/data/pass-through/entitymodelservice/getcontext" method="POST" request-data="{{_contextModelGetReq}}"
-            on-liquid-response="_onContextModelGetResponse" on-liquid-error="_onContextModelGetFailed"></liquid-rest>
-
+                <div align="center"> No attributes Found</div>
+            </template>
+            <div id="buttonContainer" align="center" class$="[[_getButtonsClass(functionalMode)]]">
+                <pebble-button id="cancel" class="btn btn-secondary m-r-10" button-text="Cancel" on-tap="_openCancelDialog" elevation=1 raised></pebble-button>
+                <pebble-button id="save" disabled$="[[readonly]]" class="focus btn btn-success" button-text="Save" on-tap="_save" elevation=1
+                    raised></pebble-button>
+            </div>
+            <liquid-rest id="contextModelGet" url="/data/pass-through/entitymodelservice/getcontext" method="POST" request-data="{{_contextModelGetReq}}"
+                on-liquid-response="_onContextModelGetResponse" on-liquid-error="_onContextModelGetFailed"></liquid-rest>
+    
         <liquid-entity-data-get name="relatedEntityGet" operation="getbyids" on-response="_relatedEntityGetResponse" exclude-in-progress></liquid-entity-data-get>
 
         <bedrock-pubsub event-name="global-edit" handler="_onGlobalEdit"></bedrock-pubsub>
@@ -126,12 +128,6 @@ It is responsible to "get" and "save" the attributes.
                 is: 'rock-attribute-manage',
                 attached: function () {
                     this.logInfo("AttributeManageAttached");
-                },
-                ready: function () {
-                    if (_.isEmpty(this.messageCodeMapping)) {
-                        this.messageCodeMapping = this.getParentAppConfig('rock-attribute-manage', '', 'messageCodeMapping');
-                    }
-                    this.logInfo("AttributeManageReady");
                 },
                 properties: {
                     /**
@@ -323,9 +319,6 @@ It is responsible to "get" and "save" the attributes.
                         type: Object,
                         value: function () { return {}; }
                     },
-                    parentContainer: {
-                        type: Object
-                    },
 
                     _contextModels: {
                         type: Object,
@@ -360,6 +353,9 @@ It is responsible to "get" and "save" the attributes.
                     '_contextChanged(contextData)',
                     '_modeChanged(mode)'
                 ],
+                detached() {
+                    if(this.loadContentFrameId) cancelAnimationFrame(this.loadContentFrameId);
+                },
                 /**
                   * <b><i>Content development is under progress... </b></i> 
                   */
@@ -377,12 +373,19 @@ It is responsible to "get" and "save" the attributes.
                 _onListModeChanged(e) {
                     this._modeChanged(e.detail.mode);
                 },
-                _modeChanged: function (mode) {
+                _modeChanged: function (mode, updateList) {
                     if (!mode) return;
 
                     this.mode = mode;
-
                     this.$.buttonContainer.style.display = mode === 'edit' ? "inline-block" : 'none';
+
+                    if(updateList) {
+                        const list = this.shadowRoot.querySelectorAll('rock-attribute-list');
+                        list.forEach(item => item.mode = mode);
+                    }
+                  
+                    this.mode = mode;
+                  
                 },
                 _contextChanged: function (valueContexts) {
                     if (valueContexts != undefined) {
@@ -443,8 +446,7 @@ It is responsible to "get" and "save" the attributes.
                                 itemContext.attributeNames = attributeNames;
 
                                 let contextData = this._getContextDataWithDefaultLocale();
-                                let useCoalesceFallback = this.applyLocaleCoalesce ? DataTransformHelper.hasLocalizableAttributes(this._attributeModels) : undefined;
-                                let req = DataRequestHelper.createEntityGetRequest(contextData, false, useCoalesceFallback);
+                                let req = DataRequestHelper.createEntityGetRequest(contextData);
                                 this._contextModelGetReq = DataRequestHelper.createContextModelGetRequest(itemContext.type);
 
                                 var liquidElement = this.$$('#contextModelGet');
@@ -472,7 +474,7 @@ It is responsible to "get" and "save" the attributes.
                                 }
                                 this._showNoAttributeMessage = false;
                             } else {
-                                var values = DataTransformHelper.transformAttributes({}, this._attributeModels, this.contextData, "array", true);
+                                var values = DataTransformHelper.transformAttributes({}, this._attributeModels, {}, this.contextData, "array", true);
                                 this._attributeValues = values;
                                 this.mode = 'edit';
                             }
@@ -502,20 +504,50 @@ It is responsible to "get" and "save" the attributes.
                     this.logError("AttributeManageGetFail", e);
                 },
                 _attributeResponseChanged: function (_attributeResponse) {
-                    if (_attributeResponse != undefined) {
-                        this.logInfo("AttributeManageResponseChange", "response", JSON.stringify(_attributeResponse, null, 2));
+                    if (!_attributeResponse) return;
+                    
+                    this.logInfo("AttributeManageResponseChange", "response", JSON.stringify(_attributeResponse, null, 2));
 
-                        var attributes = [];
+                    var attributes = [];
 
-                        if (DataHelper.validateGetEntitiesResponse(_attributeResponse) && this._attributeModels) {
-                            var entity = _attributeResponse.content.entities[0];
+                    if (DataHelper.validateGetEntitiesResponse(_attributeResponse) && this._attributeModels) {
+                        var entity = _attributeResponse.content.entities[0];
 
-                            if (entity) {
-                                attributes = DataTransformHelper.transformAttributes(entity, this._attributeModels, this.contextData, "array", true);
-                            }
+                        if (entity) {
+                            attributes = DataTransformHelper.transformAttributes(entity, this._attributeModels, this._contextModels, this.contextData, "array", true);
                         }
-                        this._attributeValues = attributes;
                     }
+                    this._attributeValues = attributes;
+
+                    if(this._attributeValues.length)
+                        this._loadAttributeList();
+                },
+                _loadAttributeList() {
+                    const listContainer = this.$['rock-attribute-list-container'];
+
+                    const meta = {
+                        "name": "rock-attribute-list",
+                        "path": "/../../src/elements/rock-attribute-list/rock-attribute-list.html",
+                        "properties": {
+                            "readonly": this.readonly,
+                            "show-group-name": true,
+                            "group-name": this.groupName,
+                            "mode": this.mode,
+                            "attribute-values": this._attributeValues,
+                            "attribute-models": this._attributeModels,
+                            "attribute-messages": this._attributeMessages,
+                            "attributes-chunk-length": this.attributesChunkLength || 10,
+                            "no-of-columns": this.noOfColumns,
+                            "context-data": this.contextData,
+                            "apply-locale-coalesce": this.applyLocaleCoalesce
+                        }
+                    };
+
+                    this.loadContentFrameId = requestAnimationFrame(()=> {
+                        ComponentHelper.loadContent(listContainer, meta, this, (content)=> {
+                            content.addEventListener('list-mode-changed', this._onListModeChanged.bind(this));
+                        });
+                    });
                 },
                 createNewEntity: function (attributesJSON) {
                     var newEntity = {};
@@ -543,10 +575,9 @@ It is responsible to "get" and "save" the attributes.
                     return newEntity;
                 },
                 showNoChangesToast: function () {
-                    var mainApp = document.querySelector('#app');
-                    mainApp.shadowRoot.querySelector("#pebbleAppToast").fitInto = mainApp.shadowRoot.querySelector("#toastArea");
-                    mainApp.toastText = "No changes to save";
-                    var toastElement = mainApp.shadowRoot.querySelector("#pebbleAppToast");
+                    RUFUtilities.pebbleAppToast.fitInto = RUFUtilities.appCommon.querySelector("#toastArea");
+                    RUFUtilities.appCommon.toastText = "No changes to save";
+                    var toastElement = RUFUtilities.pebbleAppToast;
                     toastElement.toastType = "information";
                     toastElement.heading = "Information";
                     toastElement.autoClose = true;
@@ -670,7 +701,6 @@ It is responsible to "get" and "save" the attributes.
                     }
                 },
                 _onSaveResponse: function (e) {
-                    var mainApp = document.querySelector('#app');
                     var liquidGet = this.shadowRoot.querySelector("[name=attributeGetDataService]");
                     var liquidSave = this.shadowRoot.querySelector("[name=attributeSaveDataService]");
 
@@ -725,7 +755,7 @@ It is responsible to "get" and "save" the attributes.
                     } else {
                         var attributeList = Polymer.dom(this).node.shadowRoot.querySelector('rock-attribute-list');
                         attributeList.revertAll();
-                        this.mode = "view";
+                        this._modeChanged('view');
                         this._resetErrors();
                     }
                 },
@@ -735,7 +765,7 @@ It is responsible to "get" and "save" the attributes.
                     }
                 },
                 _setTitleBar: function (values) {
-                    var mainApp = document.querySelector('main-app');
+                    var mainApp = RUFUtilities.mainApp;
                     if (mainApp) {
                         var contentViewMgr = mainApp.shadowRoot.querySelector("rock-content-view-manager");
                         if (contentViewMgr) {
@@ -933,7 +963,7 @@ It is responsible to "get" and "save" the attributes.
                     return attrMessages;
                 },
                 _onGlobalEdit: function (e) {
-                    this.mode = "edit";
+                    this._modeChanged('edit', true);
                 },
                 _onContextModelGetResponse: function (e) {
                     var response = e.detail.response.response;
@@ -982,6 +1012,18 @@ It is responsible to "get" and "save" the attributes.
                         relatedEntityGetElement.requestData = req;
                         relatedEntityGetElement.generateRequest();
                     }
+                },
+
+                get areAttributesEditable() {
+                    var hasWritePermissionValues = [];
+
+                    for (var attr in this._attributeModels) {
+                        if (this._attributeModels.hasOwnProperty(attr)) {
+                            hasWritePermissionValues.push(this._attributeModels[attr].hasWritePermission);
+                        }
+                    }
+
+                    return !hasWritePermissionValues.every(val => val === false);
                 }
             });
         })();

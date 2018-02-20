@@ -1,10 +1,10 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 <link rel="import" href="../../../bower_components/iron-flex-layout/iron-flex-layout.html">
-<link rel="import" href="../../../bower_components/iron-icons/iron-icons.html">
 
 
 <link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../bedrock-helpers/data-request-helper.html">
+<link rel="import" href="../bedrock-helpers/liquid-response-helper.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
 
@@ -50,9 +50,9 @@
         </style>
         <template is="dom-repeat" items="{{assetTypeList}}" as="asset" index-as="colIndex" notify-dom-change>
             <div id="assetContainer_[[asset]]">
-                <pebble-accordion header-text="[[_getAssetTypeTitle(asset)]]" default-icon="chevron-right" open-icon="expand-more">
+                <pebble-accordion header-text="[[_getAssetTypeTitle(asset)]]" default-icon="pebble-icon:RightArrow" open-icon="pebble-icon:Expand">
                     <div class="asset-name-container">
-                        <pebble-button icon="pebble-sm-icons:Add" asset="[[asset]]" class="btn btn-primary m-r-20" button-text="Add" on-click="_onAddAssetClick"></pebble-button>
+                        <pebble-button icon="pebble-icon:Add" asset="[[asset]]" class="btn btn-primary m-r-20" button-text="Add" on-click="_onAddAssetClick"></pebble-button>
                     </div>
                     <liquid-entity-data-get auto id="datasource_[[asset]]" operation="getbyids" request-data="[[_getAssetGridRequest(asset)]]"
                         on-response="_populateDataForGrid" exclude-in-progress></liquid-entity-data-get>
@@ -67,7 +67,7 @@
                 </pebble-accordion>
             </div>
         </template>
-        <rock-business-function-dialog id="assetDialog" name="rock-relationship-add"></rock-business-function-dialog>
+        <rock-business-function-dialog id="assetDialog" name="rock-relationship-add" context-data="[[contextData]]"></rock-business-function-dialog>
         <bedrock-pubsub event-name="refresh-relationship-grid" handler="_onRefreshRelationshipGridEvent" target-id="assetDialog"></bedrock-pubsub>
         <div id="messageCard"> {{_message}}</div>
         <liquid-rest id="getDownloadUrl" url="/data/pass-through/binarystreamobjectservice/prepareDownload" method="POST" on-liquid-response="_onGetDownloadUrlResponse">
@@ -143,6 +143,10 @@
                 RUFBehaviors.UIBehavior,
                 RUFBehaviors.ComponentContextBehavior
             ],
+            created() {
+                this._onRelationshipModelGetResponse = this._onRelationshipModelGetResponse.bind(this);
+                this._onRelatedEntityAttributeModelGetResponse = this._onRelatedEntityAttributeModelGetResponse.bind(this);
+            },
             /**
               * <b><i>Content development is under progress... </b></i> 
               */
@@ -182,6 +186,9 @@
                             }
                         }
                         this._counter = this._assetTypeList.length;
+                        var liquidElement = document.createElement("liquid-entity-model-composite-get");
+                        liquidElement.addEventListener("entity-model-composite-get-response", this._onRelationshipModelGetResponse);
+                        
                         Object.keys(this.assetsGridConfigs).forEach(function (assetType) {
                             if (assetType && this._assetTypeList.indexOf(assetType) > -1) {
                                 var gridConfig = this.assetsGridConfigs[assetType].gridConfig;
@@ -216,7 +223,7 @@
                                 }
                                 this._assetConfig[assetType] = {};
                                 this._assetConfig[assetType].gridConfig = this.assetsGridConfigs[assetType].gridConfig;
-                                this._initiateRelationshipModelRequest(assetType, relationshipAttributes);
+                                this._initiateRelationshipModelRequest(liquidElement, assetType, relationshipAttributes);
                             }
                         }, this);
                     } else {
@@ -227,8 +234,7 @@
             _prepareRequest: function () {
                 this._entityGetReq = DataRequestHelper.createEntityGetRequest(this.contextData);
             },
-            _initiateRelationshipModelRequest: function (relationshipType, relationshipAttributes) {
-                var liquidElement = document.createElement("liquid-entity-model-composite-get");
+            _initiateRelationshipModelRequest: function (liquidElement, relationshipType, relationshipAttributes) {
                 liquidElement.name = relationshipType;
 
                 var itemContext = this.getFirstItemContext();
@@ -239,7 +245,6 @@
 
                 var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
                 liquidElement.requestData = compositeModelGetRequest;
-                liquidElement.addEventListener("entity-model-composite-get-response", this._onRelationshipModelGetResponse.bind(this));
                 liquidElement.generateRequest();
             },
             _onRelationshipModelGetResponse: function (e) {
@@ -283,7 +288,7 @@
                                         relData.data = {};
                                         relData.data.attributes = rel.attributes;
 
-                                        this._assetConfig[relType].relationshipAttributeModels = DataTransformHelper.transformAttributeModels(relData, this.contextData);;
+                                        this._assetConfig[relType].relationshipAttributeModels = DataTransformHelper.transformAttributeModels(relData, this.contextData);
                                     }
 
                                     if (this._relationshipTypeAndAttributes[relType]) {
@@ -353,7 +358,7 @@
                 };
 
                 liquidElement.requestData = req;
-                liquidElement.addEventListener("entity-model-composite-get-response", this._onRelatedEntityAttributeModelGetResponse.bind(this));
+                liquidElement.addEventListener("entity-model-composite-get-response", this._onRelatedEntityAttributeModelGetResponse);
                 liquidElement.generateRequest();
             },
             _onRelatedEntityAttributeModelGetResponse: function (e) {
@@ -678,31 +683,14 @@
                 }
             },
             _onGetDownloadUrlResponse: function (e) {
-                if (e.detail && e.detail.response && e.detail.response.response) {
-                    var response = e.detail.response.response;
-                    if (response.status.toLowerCase() == "success") {
-                        var binaryStreamObjects = response.binaryStreamObjects;
-                        if (binaryStreamObjects) {
-                            for (var i = 0; i < binaryStreamObjects.length; i++) {
-                                if (binaryStreamObjects[i].data) {
-                                    var downloadURL = binaryStreamObjects[i].data.properties.downloadURL;
-                                    if (downloadURL) {
-                                        var a = document.createElement('a');
-                                        a.href = downloadURL;
-                                        a.download = "";
-                                        a.style.display = 'none';
-                                        document.body.appendChild(a);
-                                        a.click();
-                                        document.body.removeChild(a);
-                                        a = null;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                const a = document.createElement('a');
+                a.download = "";
+                
+                LiquidResponseHelper.downloadURLResponseMapper(e, downloadURL => {
+                    a.href = downloadURL;
+                    a.click();
+                });
             }
-
         });
     </script>
 </dom-module>

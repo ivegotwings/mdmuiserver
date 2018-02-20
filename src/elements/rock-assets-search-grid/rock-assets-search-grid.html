@@ -5,6 +5,7 @@
 <link rel="import" href="../bedrock-helpers/context-helper.html">
 <link rel="import" href="../bedrock-helpers/data-request-helper.html">
 <link rel="import" href="../bedrock-helpers/data-transform-helper.html">
+<link rel="import" href="../bedrock-helpers/liquid-response-helper.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
 
@@ -28,7 +29,7 @@
 -->
 
 <dom-module id="rock-assets-search-grid">
-   
+
     <template>
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
         <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{attributeModelRequest}}" on-entity-model-composite-get-response="_onCompositeModelGetResponse"></liquid-entity-model-composite-get>
@@ -51,15 +52,16 @@
             <bedrock-pubsub event-name="grid-bulk-edit-items" handler="_onBulkEdit" target-id="entityGrid"></bedrock-pubsub>
         </template>
 
-        <pebble-dialog id="confirmationDialog" dialog-title="Confirmation" modal alert-box show-cancel show-ok no-cancel-on-outside-click no-cancel-on-esc-key>
+        <pebble-dialog id="confirmationDialog" dialog-title="Confirmation" modal alert-box show-cancel show-ok no-cancel-on-outside-click
+            no-cancel-on-esc-key>
             <p>Are you sure you want to delete?</p>
         </pebble-dialog>
         <bedrock-pubsub event-name="on-buttonok-clicked" handler="_onBulkDelete" target-id="confirmationDialog"></bedrock-pubsub>
 
-        <rock-business-function-dialog id="entityUploadDialog"></rock-business-function-dialog>
-        <rock-business-function-dialog id="entityDownloadDialog"></rock-business-function-dialog>
-        <rock-business-function-dialog id="entityDeleteDialog"></rock-business-function-dialog>
-        <rock-business-function-dialog id="entityEditDialog"></rock-business-function-dialog>
+        <rock-business-function-dialog id="entityUploadDialog" context-data="[[contextData]]"></rock-business-function-dialog>
+        <rock-business-function-dialog id="entityDownloadDialog" context-data="[[contextData]]"></rock-business-function-dialog>
+        <rock-business-function-dialog id="entityDeleteDialog" context-data="[[contextData]]"></rock-business-function-dialog>
+        <rock-business-function-dialog id="entityEditDialog" context-data="[[contextData]]"></rock-business-function-dialog>
     </template>
 
     <script>
@@ -320,16 +322,16 @@
                     if (!(this.workflowCriterion && this.workflowCriterion.workflowName && this.workflowCriterion.workflowActivityName)) {
                         return;
                     }
-                    var title=this.workflowCriterion.workflowActivityExternalName +" ("+  this.workflowCriterion.workflowName+ ")";
-                    if(this.governDataCriterion && this.governDataCriterion.businessConditionExternalName){
-                        var status=this.governDataCriterion.status;
-                        if(!status){
-                            status="failed";
+                    var title = this.workflowCriterion.workflowActivityExternalName + " (" + this.workflowCriterion.workflowName + ")";
+                    if (this.governDataCriterion && this.governDataCriterion.businessConditionExternalName) {
+                        var status = this.governDataCriterion.status;
+                        if (!status) {
+                            status = "failed";
                         }
-                        title+= " - "+this.governDataCriterion.businessConditionExternalName + " ("+ status + ")"
-                        if(this.governDataCriterion.userId){
-                            var userText= this.governDataCriterion.userId=="_UNASSIGNED"? "Unassigned": "Assigned to me";
-                            title+=" - "+userText;
+                        title += " - " + this.governDataCriterion.businessConditionExternalName + " (" + status + ")"
+                        if (this.governDataCriterion.userId) {
+                            var userText = this.governDataCriterion.userId == "_UNASSIGNED" ? "Unassigned" : "Assigned to me";
+                            title += " - " + userText;
                         }
                     }
                     this.set('gridConfig.workflowTitle', title);
@@ -344,17 +346,17 @@
                         if (governDataLiquid) {
                             var workflowActivityName = this.workflowCriterion.workflowActivityName;
                             var contexts = [];
-                            var excludeNonContextual=false;
-                            if(!_.isEmpty(this.governDataCriterion)) {
+                            var excludeNonContextual = false;
+                            if (!_.isEmpty(this.governDataCriterion)) {
                                 var userId = this.governDataCriterion.userId;
                                 var businessConditionName = this.governDataCriterion.businessConditionName;
                                 var businessConditionNames = this.governDataCriterion.businessConditionNames;
-                                var passedBusinessConditions = this.governDataCriterion.status=="passed";
-                                if(!(businessConditionName || businessConditionNames)) {
+                                var passedBusinessConditions = this.governDataCriterion.status == "passed";
+                                if (!(businessConditionName || businessConditionNames)) {
                                     contexts.push({
                                         "workflow": this.workflowCriterion.workflowShortName
                                     });
-                                    excludeNonContextual=true;
+                                    excludeNonContextual = true;
                                 }
                             }
 
@@ -367,14 +369,14 @@
                                 "businessConditionNames": businessConditionNames,
                                 "attributes": "",
                                 "excludeNonContextual": excludeNonContextual,
-                                "passedBusinessConditions":passedBusinessConditions
+                                "passedBusinessConditions": passedBusinessConditions
                             }
 
                             var req = DataRequestHelper.createGovernGetRequest(options);
 
                             if (!_.isEmpty(req)) {
                                 this._governDataRequest = req;
-                                 governDataLiquid.generateRequest();
+                                governDataLiquid.generateRequest();
                             }
                         }
                     } else {
@@ -397,11 +399,15 @@
                         if (!gridConfig.dataRequest) {
                             return;
                         }
-                        this._updateItemContexts();
-                        this.set('gridConfig.dataContexts', this.contextData[ContextHelper.CONTEXT_TYPE_DATA]);
-                        this.set('gridConfig.valueContexts', this.contextData[ContextHelper.CONTEXT_TYPE_VALUE]);
-                        this.contextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
-                        var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
+
+
+                        var contextData = DataHelper.cloneObject(this.contextData);
+
+                        this._updateItemContexts(contextData);
+                        this.set('gridConfig.dataContexts', contextData[ContextHelper.CONTEXT_TYPE_DATA]);
+                        this.set('gridConfig.valueContexts', contextData[ContextHelper.CONTEXT_TYPE_VALUE]);
+                        contextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
+                        var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(contextData);
                         if (compositeModelGetRequest) {
                             this.set("attributeModelRequest", compositeModelGetRequest);
                             var liquidModelGet = this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
@@ -448,7 +454,7 @@
                 },
 
                 _getAttributeNamesFromTileConfig: function (config) {
-                    var tileItems = config.tile.tileItems;
+                    var tileItems = config.itemConfig;
                     var attributeNames = config.dataRequest.attributes;
                     if (!attributeNames) {
                         attributeNames = [];
@@ -478,32 +484,32 @@
                         var type = formattedEntities[i].type;
                         if (!formattedEntities[i].thumbnailid) {
                             formattedEntities[i].thumbnailid = "";
-                            if(this._typeThumbnailMapping && this._typeThumbnailMapping[type]) {
+                            if (this._typeThumbnailMapping && this._typeThumbnailMapping[type]) {
                                 formattedEntities[i].thumbnailid = this._typeThumbnailMapping[type];
                             }
                         }
 
                     }
 
-                    if(formattedEntities.length == 0 && this.getData().length <= 0) {
+                    if (formattedEntities.length == 0 && this.getData().length <= 0) {
                         this.fireBedrockEvent('empty-grid');
                     } else {
                         this.fireBedrockEvent('grid-with-data');
-                    } 
+                    }
 
                     return formattedEntities;
                 },
 
-                _updateItemContexts: function () {
+                _updateItemContexts: function (contextData) {
                     var itemContexts = [];
                     if (!this.gridConfig.dataRequest) {
                         return;
                     }
                     var attributeNames = this.gridConfig.dataRequest.attributes;
-                    if(attributeNames.indexOf("thumbnailid") ==-1 ){
+                    if (attributeNames.indexOf("thumbnailid") == -1) {
                         attributeNames.push("thumbnailid");
                     }
-                    if(attributeNames.indexOf("property_objectkey") ==-1 ){
+                    if (attributeNames.indexOf("property_objectkey") == -1) {
                         attributeNames.push("property_objectkey");
                     }
                     for (var i in this.typesCriterion) {
@@ -512,13 +518,15 @@
                         itemContext.type = this.typesCriterion[i];
                         itemContexts.push(itemContext);
                     }
-                    this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
+                    contextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
                 },
 
                 _reloadGrid: function (ids) {
 
-                    this._updateItemContexts();
-                    this.request = DataRequestHelper.createEntityGetRequest(this.contextData);
+                    var contextData = DataHelper.cloneObject(this.contextData);
+
+                    this._updateItemContexts(contextData);
+                    this.request = DataRequestHelper.createEntityGetRequest(contextData);
                     if (!_.isEmpty(ids)) {
                         this.request.params.query.ids = ids;
                     }
@@ -536,7 +544,7 @@
                     }
                 },
 
-                _setSearchCriteria: function() {
+                _setSearchCriteria: function () {
                     // reset search criteria
                     delete this.request.params.query.filters.keywordsCriterion;
                     var entityIdList = this.request.params.query.ids;
@@ -544,15 +552,15 @@
 
                     if (this.searchQuery && this.searchQuery != "") {
                         searchCriteria = DataHelper.getSearchCriteria(this.searchQuery);
-                        if(searchCriteria && searchCriteria.isIdSearch) {
+                        if (searchCriteria && searchCriteria.isIdSearch) {
                             var filteredIds = searchCriteria.ids || [];
-                            if(entityIdList && entityIdList.length > 0) {
-                                filteredIds = searchCriteria.ids.filter(function(searchCriteriaId) {
-                                    if(entityIdList.indexOf(searchCriteriaId) >= 0) {
+                            if (entityIdList && entityIdList.length > 0) {
+                                filteredIds = searchCriteria.ids.filter(function (searchCriteriaId) {
+                                    if (entityIdList.indexOf(searchCriteriaId) >= 0) {
                                         return searchCriteriaId;
                                     }
                                 });
-                            } 
+                            }
                             this.request.params.query.ids = filteredIds;
                         } else {
                             this.request.params.query.filters.keywordsCriterion = searchCriteria
@@ -571,7 +579,7 @@
                     return true;
                 },
 
-                _isWorkflowCriterion: function() {
+                _isWorkflowCriterion: function () {
                     if (_.isEmpty(this.workflowCriterion)) {
                         return false;
                     }
@@ -594,11 +602,11 @@
                             binaryStreamObjects.push(
                                 {
                                     "binaryStreamObject":
-                                    {
-                                        "id": item,
-                                        "type": "binarystreamobject",
-                                        "data": {}
-                                    }
+                                        {
+                                            "id": item,
+                                            "type": "binarystreamobject",
+                                            "data": {}
+                                        }
                                 }
                             )
                         }
@@ -636,7 +644,7 @@
                         this.showInformationToast("Please select at least one asset from grid to download.");
                     }
                 },
-                _showConfirmationDialog: function(e, detail) {
+                _showConfirmationDialog: function (e, detail) {
                     var selectedItems = this.getSelectedItems();
                     if (!selectedItems || selectedItems.length == 0) {
                         this.showInformationToast("Please select at least one entity from grid to delete.");
@@ -652,7 +660,7 @@
                     var selectionQuery = this.getSelectedItemsAsQuery();
 
                     //Safer code - Already delete button is hidden
-                    if(selectionMode == "query") {
+                    if (selectionMode == "query") {
                         this.showInformationToast("Cannot perform delete based on 'All Search Criteria', please select the entities manually to perform this operation.");
                         return;
                     }
@@ -672,29 +680,13 @@
                     }
                 },
                 _onGetDownloadUrlResponse: function (e) {
-                    if (e.detail && e.detail.response && e.detail.response.response) {
-                        var response = e.detail.response.response;
-                        if (response.status.toLowerCase() == "success") {
-                            var binaryStreamObjects = response.binaryStreamObjects;
-                            if (binaryStreamObjects) {
-                                for (var i = 0; i < binaryStreamObjects.length; i++) {
-                                    if (binaryStreamObjects[i].data) {
-                                        var downloadURL = binaryStreamObjects[i].data.properties.downloadURL;
-                                        if (downloadURL) {
-                                            var a = document.createElement('a');
-                                            a.href = downloadURL;
-                                            a.download = "";
-                                            a.style.display = 'none';
-                                            document.body.appendChild(a);
-                                            a.click();
-                                            document.body.removeChild(a);
-                                            a = null;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    const a = document.createElement('a');
+                    a.download = "";
+
+                    LiquidResponseHelper.downloadURLResponseMapper(e, downloadURL => {
+                        a.href = downloadURL;
+                        a.click();
+                    });
                 },
                 _onUpload: function () {
                     this.shadowRoot.querySelector("#entityUploadDialog").name = "rock-entity-upload";

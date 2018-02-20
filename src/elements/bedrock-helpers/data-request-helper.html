@@ -60,20 +60,20 @@
             }];
 
             //in both cases (remove from the top)
-            if(DataHelper.getValue(requestObject, "params.query.locale")){
+            if (DataHelper.getValue(requestObject, "params.query.locale")) {
                 delete requestObject.params.query.locale;
             }
 
             //requestObject.params.query.contexts <- locale here for every of (dataContexts x valContexts.locale)
             if (!_.isEmpty(dataContexts) && !_.isEmpty(dataContexts[0])) {
-                targetContexts = dataContexts.reduce((result, dataContext)=> {
-                                        (valContexts || []).forEach((valContext)=> {
-                                            let dataContextWithLocale = DataHelper.cloneObject(dataContext);
-                                            dataContextWithLocale.locale = valContext.locale;
-                                            result.push(dataContextWithLocale);
-                                        });
-                                    return result;
-                                }, []);
+                targetContexts = dataContexts.reduce((result, dataContext) => {
+                    (valContexts || []).forEach((valContext) => {
+                        let dataContextWithLocale = DataHelper.cloneObject(dataContext);
+                        dataContextWithLocale.locale = valContext.locale;
+                        result.push(dataContextWithLocale);
+                    });
+                    return result;
+                }, []);
             }
 
             //requestObject.params.query.contexts if empty - create a new one with locale
@@ -156,7 +156,12 @@
             }
 
             if (!_.isNull(ids) && !_.isEmpty(ids) && ids) {
-                req.params.query.ids = ids;
+                if(ids.length == 1) {
+                    req.params.query.id = ids[0];
+                } else {
+                    req.params.query.ids = ids;
+                }
+                
             }
 
             if (!_.isNull(relationshipsCriterion) && !_.isEmpty(relationshipsCriterion)) {
@@ -177,7 +182,7 @@
                 }
             }
 
-            if(addDefaultContext) {
+            if (addDefaultContext) {
                 DataRequestHelper.addDefaultContext(req);
             }
 
@@ -333,7 +338,7 @@
 
                 workflowContext = {
                     "workflow": workflowName,
-                    "self": "self/" + entityId
+                    "self": "self"
                 };
                 workflowContexts.push(workflowContext);
             }
@@ -607,7 +612,7 @@
                 }
             };
 
-            console.log('config X get request ', JSON.stringify(req, null, 2));
+            //console.log('config X get request ', JSON.stringify(req, null, 2));
             return req;
         };
 
@@ -859,6 +864,87 @@
             return req;
         };
 
+        DataRequestHelper.createMappingsGetRequest = function (contextData, copContext, selectedContexts, types) {
+            var context = DataRequestHelper._createMappingContext(contextData, selectedContexts, copContext);
+            var req = {
+                "params": {
+                    "query": {
+                        "filters": {
+                            "typesCriterion": types
+                        },
+                        "contexts": [
+                            context
+                        ]
+                    },
+                    "fields": {
+                        "attributes": [
+                            "_ALL"
+                        ]
+                    },
+                    "rsconnect": {
+                        "loadMappingsFromHeaders": true,
+                        "profilecontexts": [ 
+                            copContext
+                        ],
+                        "headers": {
+                            "relationships": [],
+                            "entities": []
+                        }
+                    }
+                }
+            };
+
+            return req;
+        };
+
+        DataRequestHelper.createMappingsSaveRequest = function (contextData, copContext, selectedContexts, type) {
+            var context = DataRequestHelper._createMappingContext(contextData, selectedContexts, copContext);
+            var req = {
+                "entity": {
+                    "id": "",
+                    "type": type,
+                    "data": {
+                        "contexts": [
+                            {
+                                "context": context,
+                                "attributes": {}
+                            }
+                        ]
+                    }
+                }
+            };
+
+            return req;
+        };
+
+        DataRequestHelper._createMappingContext = function (contextData, selectedContexts, copContext) {
+            var context = {};
+            if (!_.isEmpty(contextData)) {
+                var context = {};
+                var itemContext = ContextHelper.getFirstItemContext(contextData);
+                if (itemContext) {
+                    context["entitytype"] = itemContext.type;
+                }
+
+                if (!_.isEmpty(selectedContexts)) {
+                    for (var i = 0; i < selectedContexts.length; i++) {
+                        context[selectedContexts[i].type] = selectedContexts[i].value;
+                    }
+                }
+
+                var userContext = ContextHelper.getFirstUserContext(contextData);
+                if (!_.isEmpty(userContext)) {
+                    context["user"] = userContext.user;
+                    context["role"] = userContext.role;
+                }
+
+                context["ownershipdata"] = "";
+                context.service = copContext.service;
+            }
+
+            return context;
+        };
+
         DataRequestHelper.createEntityEventGetRequest = function (entityId) {
             if (entityId) {
                 var req = {
@@ -894,7 +980,7 @@
                                 "message",
                                 "action",
                                 "timeStamp"
-                             ]
+                            ]
                         },
                         "sort": {
                             "properties": [
@@ -1041,7 +1127,8 @@
 
         DataRequestHelper.addDefaultContext = function (req) {
             let defaultLocale = DataHelper.getDefaultLocale();
-            if (req.params.query && req.params.query.valueContexts) {
+            if (req.params.query) {
+                req.params.query.valueContexts = req.params.query.valueContexts || [];
                 let defaultValueContext = req.params.query.valueContexts.find(context => context.locale === defaultLocale);
                 if (!defaultValueContext) {
                     req.params.query.valueContexts.push(DataHelper.getDefaultValContext());
@@ -1073,7 +1160,7 @@
             return req;
         };
 
-        DataRequestHelper.createGetManageModelRequest = function(entityTypes) {
+        DataRequestHelper.createGetManageModelRequest = function (entityTypes) {
             var ids = [];
             for (let i = 0; i < entityTypes.length; i++) {
                 let entityType = entityTypes[i];
@@ -1095,6 +1182,58 @@
                             "_ALL"
                         ],
                         "relationships": [
+                            "_ALL"
+                        ]
+                    }
+                }
+            };
+
+            return req;
+        };
+
+        DataRequestHelper.createGetAttributeModelRequest = function (types, attributes) {
+            var ids = [];
+            if(!attributes || attributes.length == 0) {
+                attributes = "_ALL";
+            }
+
+            for (let i = 0; i < types.length; i++) {
+                let type = types[i];
+                ids.push(type + "_attributeModel");
+            }
+
+            var req = {
+                "params": {
+                    "query": {
+                        "ids": ids,
+                        "filters": {
+                            "typesCriterion": [
+                                "attributeModel"
+                            ]
+                        }
+                    },
+                    "fields": {
+                        "attributes": [
+                            attributes
+                        ]
+                    }
+                }
+            };
+
+            return req;
+        };
+
+        DataRequestHelper.createGetReferenceRequest = function (contextData, referenceTypes) {
+            var req = {
+                "params": {
+                    "query": {
+                        "valueContexts": contextData.ValContexts,
+                        "filters": {
+                            "typesCriterion": referenceTypes
+                        }
+                    },
+                    "fields": {
+                        "attributes": [
                             "_ALL"
                         ]
                     }
@@ -1137,7 +1276,7 @@
                 if (typeof (titlePattern) !== 'undefined' && titlePattern !== "") {
                     if (!attributes.includes(this.titlePattern)) {
                         var titleFields = DataHelper.getAttributesBetweenCurlies(titlePattern);
-                        if(_.isEmpty(titleFields)){
+                        if (_.isEmpty(titleFields)) {
                             attributes.push(titlePattern);
                         }
                         else if (titleFields && titleFields instanceof Array) {

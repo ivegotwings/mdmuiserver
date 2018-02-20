@@ -4,24 +4,33 @@
     window.ComponentHelper = window.ComponentHelper || {};
 
     (function () {
+        ComponentHelper.deleteQueue = [];
+
         ComponentHelper.fireBedrockEvent = function (name, data, settings, element) {
             var returnVal;
             if (element) {
-                returnVal = ComponentHelper._fireBedrocEvent(name, data, settings, element);
-            } else {
-                _pubsubListenerRegistry.forEach(function (item) {
-                    var eventName = name;
-                    if (item) {
-                        var element = item.element;
-                    }
-                    if (item.eventName && item.eventName.indexOf(eventName) >= 0) {
-                        returnVal = ComponentHelper._fireBedrocEvent(eventName, data, settings, element);
+                return ComponentHelper._fireBedrockEvent(name, data, settings, element);
+            }
+            else {
+                var eventNameRegistries= ['universal'];
+                var currentAppId = ComponentHelper.getCurrentActiveApp() ? ComponentHelper.getCurrentActiveApp().id : "";
+                if (currentAppId) {
+                    eventNameRegistries.push(currentAppId);
+                }
+                eventNameRegistries.forEach((registry) => {
+                    var eventIndex = RUFUtilities.pubsubEventNameRegistry[registry].indexOf(name);
+                    if (eventIndex !== -1) {
+                        var listeners = RUFUtilities.pubsubListenerRegistry[registry][eventIndex];
+                        listeners.forEach((listener) => {
+                            if (listener && listener.element) {
+                                ComponentHelper.fireBedrockEvent(name, data, settings, listener.element);
+                            }
+                        })
                     }
                 });
-            };
-            return returnVal;
+            }
         };
-        ComponentHelper._fireBedrocEvent = function (name, data, settings, element) {
+        ComponentHelper._fireBedrockEvent = function (name, data, settings, element) {
             if ((!settings || !settings.ignoreId) && element.id) {
                 name = name + "-" + element.id;
             }
@@ -41,7 +50,6 @@
                     }
                 }
             }
-
             return element.fire('bedrock-event' + "-" + name, data, { cancelable: cancelable });
         };
 
@@ -52,10 +60,28 @@
         };
 
         ComponentHelper.clearNode = function(contentElement) {
-            while (contentElement.firstChild) {
-                contentElement.removeChild(contentElement.firstChild);
-            }
+            var rangeObj = new Range();
+            rangeObj.selectNodeContents(contentElement);
+            rangeObj.deleteContents();
         };
+
+        ComponentHelper.removeNode = function(node) {
+            if(!(node instanceof HTMLElement) || !(node.parentNode)) return;
+
+            node.parentNode.removeChild(node);
+        };
+
+        ComponentHelper.addToDeleteQueue = function(node) {
+            ComponentHelper.deleteQueue.push(node);
+        };
+
+        ComponentHelper.emptyDeleteQueue = function() {
+            var deleteNodes = ComponentHelper.deleteQueue.filter((n) => {return !!n.parentNode})
+            deleteNodes.forEach((n) => {
+                ComponentHelper.removeNode(n);
+            });
+            ComponentHelper.deleteQueue = [];
+        }
 
         ComponentHelper.loadContent = function (contentElement, component, element, callback) {
             if(!contentElement) return;
@@ -135,7 +161,7 @@
         };
 
         ComponentHelper.getCurrentActiveApp = function () {
-            var mainApp = document.querySelector("main-app");
+            var mainApp = RUFUtilities.mainApp;
             if (mainApp && mainApp.shadowRoot) {
                 var contentViewMgr = mainApp.shadowRoot.querySelector("rock-content-view-manager");
                 if (contentViewMgr) {
@@ -149,11 +175,20 @@
                     }
                 }
             }
+        };
+
+        ComponentHelper.getCurrentActiveAppName = function () {
+            var currentActiveApp = ComponentHelper.getCurrentActiveApp();
+
+            if(currentActiveApp && DataHelper.isValidObjectPath(currentActiveApp, 'appConfig.component.name')) {
+                return currentActiveApp.appConfig.component.name;
+            }
+
             return undefined;
         };
 
         ComponentHelper.getAppById = function (appId) {
-            var mainApp = document.querySelector("main-app");
+            var mainApp = RUFUtilities.mainApp;
             var app;
             if (mainApp) {
                 var contentViewMgr = mainApp.shadowRoot.querySelector("rock-content-view-manager");
@@ -178,7 +213,7 @@
         * @return {HTMLElement|null}
         */
         ComponentHelper.getContentViewByName = function (viewName) {
-            this.mainApp = this.mainApp || document.querySelector("main-app");
+            this.mainApp = this.mainApp || RUFUtilities.mainApp;
 
             if (!this.mainApp) return null;
 
@@ -215,9 +250,9 @@
         };
 
         ComponentHelper.getProgressBar = function () {
-            var mainApp = document.querySelector("main-app");
-            if (mainApp) {
-                return mainApp.shadowRoot.querySelector("paper-progress");
+            var appCommon = RUFUtilities.appCommon;
+            if (appCommon) {
+                return appCommon.querySelector("paper-progress");
             }
             return undefined;
         };
@@ -261,13 +296,13 @@
         };
 
         ComponentHelper.appRoute = function (appName, queryParams) {
-            var mainApp = document.querySelector("main-app");
+            var mainApp = RUFUtilities.mainApp;
 
             if (mainApp) {
                 if (!_.isEmpty(queryParams)) {
                     ComponentHelper.setQueryParamsWithoutEncode(queryParams);
                 }
-                document.querySelector("main-app").changePageRoutePath(appName);
+                mainApp.changePageRoutePath(appName);
             }
         };
 
@@ -278,11 +313,11 @@
                     queryParams[key] = encodeURIComponent(element);
                 }
             }
-            document.querySelector("main-app").set('pageRoute.__queryParams', queryParams);
+            RUFUtilities.mainApp.set('pageRoute.__queryParams', queryParams);
         };
 
         ComponentHelper.setQueryParamsWithoutEncode = function (queryParams) {
-            document.querySelector("main-app").set('pageRoute.__queryParams', queryParams);
+            RUFUtilities.mainApp.set('pageRoute.__queryParams', queryParams);
         };
 
         ComponentHelper.closeBusinessFunction = function (action) {
@@ -307,6 +342,13 @@
             }
 
             return value;
+        };
+
+        ComponentHelper.getLocaleManager = function() {
+            var mainApp = RUFUtilities.mainApp;
+            if(mainApp) {
+                return mainApp.localeManager;
+            }
         }
     })();
 

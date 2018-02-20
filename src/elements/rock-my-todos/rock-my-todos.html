@@ -81,26 +81,29 @@
             }
         </style>
 
-        <liquid-entity-model-get exclude-in-progress id="initWorkflowDefinitionMappingsGet" operation="initiatesearch" last-response="{{initWorkflowDefinitionMappingsGet}}"
+        <template is="dom-if" if="[[_liquidLoad]]">
+            <liquid-entity-model-get exclude-in-progress id="initWorkflowDefinitionMappingsGet" operation="initiatesearch" last-response="{{initWorkflowDefinitionMappingsGet}}"
             on-response="_onInitWorkflowDefinitionMappingsGetResponse" on-error="_onInitWorkflowDefinitionMappingsGetError"></liquid-entity-model-get>
-        <liquid-entity-model-get exclude-in-progress id="workflowDefinitionMappingsGet" operation="getsearchresultdetail" request-id="[[initWorkflowDefinitionMappingsGet.content.requestId]]"
+            <liquid-entity-model-get exclude-in-progress id="workflowDefinitionMappingsGet" operation="getsearchresultdetail" request-id="[[initWorkflowDefinitionMappingsGet.content.requestId]]"
             on-response="_onWorkflowDefinitionMappingsGetResponse" on-error="_onWorkflowDefinitionMappingsGetError"></liquid-entity-model-get>
 
 
-        <liquid-entity-model-get exclude-in-progress id="initWorkflowDefinitionsGet" operation="initiatesearch" last-response="{{initWorkflowDefinitionsGet}}"
+            <liquid-entity-model-get exclude-in-progress id="initWorkflowDefinitionsGet" operation="initiatesearch" last-response="{{initWorkflowDefinitionsGet}}"
             on-response="_onInitWorkflowDefinitionsGetResponse" on-error="_onInitWorkflowDefinitionsGetError"></liquid-entity-model-get>
-        <liquid-entity-model-get exclude-in-progress id="workflowDefinitionsGet" operation="getsearchresultdetail" request-id="[[initWorkflowDefinitionsGet.content.requestId]]"
+            <liquid-entity-model-get exclude-in-progress id="workflowDefinitionsGet" operation="getsearchresultdetail" request-id="[[initWorkflowDefinitionsGet.content.requestId]]"
             on-response="_onWorkflowDefinitionsGetResponse" on-error="_onWorkflowDefinitionsGetError"></liquid-entity-model-get>
+        </template>
 
-        <div class="row-wrap">
-            <div class="col-3">
-                <pebble-dropdown id="assignedTo" label="Assigned To" selected-value="{{selectedValue}}" items="[[dropDownItems]]"></pebble-dropdown>
+
+        <template is="dom-if" if="[[_load]]">
+            <div class="row-wrap">
+                <div class="col-3">
+                    <pebble-dropdown id="assignedTo" label="Assigned To" selected-value="{{selectedValue}}" items="[[dropDownItems]]"></pebble-dropdown>
+                </div>
             </div>
-        </div>
-
-        <rock-tabs id="rock-my-todos-tabs" deferred-render></rock-tabs>
+            <rock-tabs id="rock-my-todos-tabs" deferred-render></rock-tabs>
+        </template>
         <bedrock-pubsub event-name="component-creating" handler="_onComponentCreating"></bedrock-pubsub>
-
         <div class="default-message" id="noWorkflows">You don't have any Workflow yet</div>
 
     </template>
@@ -153,6 +156,14 @@
                     selectedValue:{
                         type: String,
                         value: 'All'
+                    },
+                    _load: {
+                        type: Boolean,
+                        value: false
+                    },
+                    _liquidLoad: {
+                        type: Boolean,
+                        value: false
                     }
                 },
 
@@ -169,18 +180,26 @@
                   */
                 
                 attached: function () {
-                    if (!_.isEmpty(this.contextData)) {
-                        var initWorkflowDefinitionMappingsGet = this.shadowRoot.querySelector('#initWorkflowDefinitionMappingsGet');
 
-                        if (typeof (initWorkflowDefinitionMappingsGet) === "undefined" ||
-                            initWorkflowDefinitionMappingsGet == null) {
-                            this.logError("InitGetError");
-                            return;
+                },
+
+                ready: function(){
+                    Polymer.RenderStatus.afterNextRender(this,()=>{
+                        if (!_.isEmpty(this.contextData)) {
+                            this._liquidLoad = true;                   
+                            Polymer.Async.timeOut.after(10).run(() => {
+                                var initWorkflowDefinitionMappingsGet = this.shadowRoot.querySelector('#initWorkflowDefinitionMappingsGet');
+                                if (typeof (initWorkflowDefinitionMappingsGet) === "undefined" ||
+                                    initWorkflowDefinitionMappingsGet == null) {
+                                    this.logError("InitGetError");
+                                    return;
+                                }   
+                                this._initWorkflowDefinitionGet();
+                                initWorkflowDefinitionMappingsGet.requestData = DataRequestHelper.createWorkflowDefinitionMappingGetRequest();
+                                initWorkflowDefinitionMappingsGet.generateRequest();
+                            });
                         }
-
-                        initWorkflowDefinitionMappingsGet.requestData = DataRequestHelper.createWorkflowDefinitionMappingGetRequest();
-                        initWorkflowDefinitionMappingsGet.generateRequest();
-                    }
+                    });
                 },
 
                 _onInitWorkflowDefinitionMappingsGetResponse: function () {
@@ -229,8 +248,7 @@
                             }
                         }, this);
 
-                        this._workflowDefinitionMappings = workflowMappings;
-                        this._initWorkflowDefinitionGet();
+                        this._workflowDefinitionMappings = workflowMappings;        
                     }
                 },
 
@@ -359,10 +377,13 @@
                         } else {
                             this.setNoWorkflowMessageVisibility(true);
                         }
-                        var rockTabs = this.shadowRoot.querySelector('rock-tabs');
-                        rockTabs.readyToRender(true);
-                        rockTabs.config = tabConfig;
-
+                        this._load = true;
+                        var that = this;
+                        Polymer.Async.timeOut.after(10).run(() => {
+                            var rockTabs = that.shadowRoot.querySelector('rock-tabs');
+                            rockTabs.readyToRender(true);
+                            rockTabs.config = tabConfig;
+                        });
                         this.logInfo("TodoSummaryList", "lists", JSON.stringify(this.lists));
                     }
                 },
@@ -397,7 +418,11 @@
                 },
 
                 refresh: function() {
-                    this.shadowRoot.querySelector('rock-tabs').reloadCurrentTab();
+                    var rockTabs = this.shadowRoot.querySelector('rock-tabs');
+                    if (rockTabs) {
+                        rockTabs.readyToRender(true);
+                        rockTabs.reloadCurrentTab();
+                    }
                 },
 
                 setNoWorkflowMessageVisibility: function (isVisible) {

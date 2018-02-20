@@ -80,6 +80,13 @@
             /**
               * Content is not appearing - Content development is under progress. 
               */
+            includeTypeExternalName: {
+                type: Boolean,
+                value: false
+            },
+            /**
+              * Content is not appearing - Content development is under progress. 
+              */
             noCache: {
                 type: Boolean,
                 value: false
@@ -98,7 +105,7 @@
          * Content is not appearing - Can be used to perform a request to the specified URL.
          *
          */
-        generateRequest: function () {
+        generateRequest: async function () {
             var request = this._createRequest();
             var self = this;
             if (request.requestData === null || request.operation === '') {
@@ -117,10 +124,12 @@
             this._handleProgress();
             this.push('activeRequests', request);
             this._setLastRequest(request);
+            request.originalRequest = DataHelper.cloneObject(request);
+            request.applyLocaleCoalesce = this.applyLocaleCoalesce;
+            if(this.applyLocaleCoalesce) {
+                await this._updateValueContextsWithFallbackLocales(request.requestData);
+            }
             this._setLoading(true);
-            this.dispatchEvent(new CustomEvent('request', { detail:{request: request}, bubbles: this.bubbles,composed: true }));
-            this.dispatchEvent(new CustomEvent('liquid-request', { detail: {request: request}, bubbles: this.bubbles,composed: true }));
-
             var model = RUFBehaviors.DataChannel.getModel(this.dataIndex);
 
             var modelResponse = this._executeRequest(model, request);
@@ -132,6 +141,26 @@
             }
 
             return request;
+        },
+        _updateValueContextsWithFallbackLocales : async function(reqData) {
+            if(reqData.params && reqData.params.query && reqData.params.query.valueContexts) {
+                var valContexts = DataHelper.cloneObject(reqData.params.query.valueContexts);
+                for(let i=0; i<valContexts.length; i++) {
+                    var locale = valContexts[i].locale;
+                    var fallbackLocales = await DataHelper.getFallbackLocalesForLocaleAsync(locale);
+                    if(fallbackLocales) {
+                        for(let j=0; j<fallbackLocales.length; j++) {
+                            let fallbackLocale = fallbackLocales[j].name;
+                            let existingValCtx = reqData.params.query.valueContexts.find(obj => obj.locale === fallbackLocale);
+                            if(!existingValCtx) {
+                                var valCtx = DataHelper.cloneObject(valContexts[i]);
+                                valCtx.locale = fallbackLocale;
+                                reqData.params.query.valueContexts.push(valCtx);
+                            }
+                        }
+                    }
+                }
+            }
         },
         _executeRequest: function (model, request) {
             //abstract method....do nothing...all elements implementing this behavior must implement this method
@@ -145,6 +174,9 @@
             //abstract method....do nothing...all elements implementing this behavior must implement this method
         },
         _createRequest: function () {
+            if(this.includeTypeExternalName){
+                this.requestData.includeTypeExternalName = true;
+            }
             return {
                 "operation": this.operation,
                 "requestId": this.requestId === undefined ? '' : this.requestId,
@@ -172,11 +204,14 @@
             }
             return true;
         },
-        _handleResponse: function (request, responsePkg) {
+        _handleResponse:async function (request, responsePkg) {
             if (this.verbose) {
                 console.log('_handleResponse called with :', request, responsePkg);
             }
-            var formattedResponse = this._formatResponse(request, responsePkg);
+            var formattedResponse = await this._formatResponse(request, responsePkg);
+            if(request.applyLocaleCoalesce) {
+                formattedResponse = await DataTransformHelper.transformDataToCoalescedData(formattedResponse, request.originalRequest.requestData);
+            }
             var response = this._createSuccessResponse(request, formattedResponse);
             var utils = SharedUtils.DataObjectFalcorUtil;
             if (utils.compareObjects(request, this.lastRequest)) {
@@ -276,13 +311,22 @@
                 }
             }
         },
-        _handleProgress: function () {
+        _handleProgress: function () { 
+            var updateProgress = this._updateProgressBar;
+            var resetProgress = this._resetProgressBar;
+
+            var debounceProgressBar = _.debounce(function () {
+                updateProgress(resetProgress);
+                }, 200);
+                
+            debounceProgressBar();
+        },
+        _updateProgressBar: function (resetProgress) {
             if (!Globals.progressBar) {
                 return;
             }
 
             if (Globals.requestCount > 0) {
-
                 if (Globals.responseCount < Globals.requestCount) {
                     var step = Globals.progressBar.max / Globals.requestCount;
                     Globals.progressBar.value = step * Globals.responseCount;
@@ -290,28 +334,27 @@
                 } else {
                     Globals.progressBar.value = Globals.progressBar.max - (Globals.progressBar.max / 10);
                 }
-
-                function resetProgressBar() {
-                    if (Globals.requestCount == Globals.responseCount) {
-                        // console.log("Progress stopped at: " + Globals.requestCount + ", " + Globals.responseCount);
-                        var leftOver = Globals.progressBar.max - Globals.progressBar.value;
-                        if (leftOver > 0) {
-                            Globals.progressBar.value += leftOver;
-                        }
-
-                        Globals.requestCount = 0;
-                        Globals.responseCount = 0;
-
-                        Globals.progressBar.value = Globals.responseCount;
-                        // console.log("Counts Resetted: " + Globals.progressBar.value + ", " + Globals.progressBar.max);
-                    }
-                }
-
+                
                 var debounceProgressBar = _.debounce(function () {
-                    resetProgressBar();
+                    resetProgress();
                 }, 1000);
 
                 debounceProgressBar();
+            }
+        },
+        _resetProgressBar: function () {
+            if (Globals.requestCount == Globals.responseCount) {
+                // console.log("Progress stopped at: " + Globals.requestCount + ", " + Globals.responseCount);
+                var leftOver = Globals.progressBar.max - Globals.progressBar.value;
+                if (leftOver > 0) {
+                    Globals.progressBar.value += leftOver;
+                }
+
+                Globals.requestCount = 0;
+                Globals.responseCount = 0;
+
+                Globals.progressBar.value = Globals.responseCount;
+                // console.log("Counts Resetted: " + Globals.progressBar.value + ", " + Globals.progressBar.max);
             }
         },
         _createSuccessResponse: function (request, data) {

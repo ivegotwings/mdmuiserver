@@ -4,7 +4,6 @@
 <link rel="import" href="../../../bower_components/iron-scroll-target-behavior/iron-scroll-target-behavior.html">
 <link rel="import" href="../../../bower_components/paper-spinner/paper-spinner-lite.html">
 <link rel="import" href="../../../bower_components/shadycss/apply-shim.html">
-<link rel="import" href="../../../bower_components/polymer/lib/elements/custom-style.html">
 <link rel="import" href="../../../bower_components/polymer/lib/utils/async.html">
 <link rel="import" href="../../../bower_components/polymer/lib/utils/debounce.html">
 <link rel="import" href="../../../bower_components/polymer/lib/utils/flattened-nodes-observer.html">
@@ -241,11 +240,12 @@
             <data-table-row class$="{{_computePrimaryClass(item)}}" row-drag-drop-enabled="[[rowDragDropEnabled]]" before-bind="[[beforeRowBind]]" even$="[[!_isEven(index)]]"
               expanded="[[_isExpanded(item, _expandedItems, _expandedItems.*)]]" index="[[index]]" item="[[item]]" tabindex="-1"
               selected="[[_isSelected(item, selectedItems, selectedItems.*)]]">
-              <data-table-checkbox slot="data-table-checkbox-slot" hidden$="[[!enableMultiSelection]]" tabindex="0" checked="[[_isSelected(item, selectedItems, selectedItems.*)]]"
+              <template is="dom-if" if="[[_isMultiSelectEnabled(enableMultiSelection)]]">
+                <data-table-checkbox slot="data-table-checkbox-slot" hidden$="[[!enableMultiSelection]]" tabindex="0" checked="[[_isSelected(item, selectedItems, selectedItems.*)]]"
                 on-tap="_onCheckBoxTap"></data-table-checkbox>
-
+              </template>
+              
               <template is="dom-if" if="[[_isRowFrozen(index)]]">
-
                 <template is="dom-repeat" items="[[columns]]" as="column" index-as="colIndex">
                   <template is="dom-if" if="[[_isRowHeader(column)]]">
                     <data-table-cell frozen frozen-row class="data-table-cell" header slot="row-header" template="[[column.template]]" table="[[_this]]"
@@ -414,7 +414,7 @@
 
         enableMultiSelection:{
           type:Boolean,
-          valye:false
+          value:false
         },
         /**
          * When `true`, All items cannot be selected at once, 
@@ -856,6 +856,9 @@
         return index % 2 === 0;
       },
 
+      _isMultiSelectEnabled: function (enableMultiSelection) {
+        return this.enableMultiSelection;
+      },
       _resetData: function (rDataSource, filter, sortOrder) {
         // Resetting scroll position and selection for consistency here. They are
         // both reset implicitly when a new _cachedItems is set to iron-list, but
@@ -1186,6 +1189,14 @@
             this.splice('_cachedPages', index, 1);
           }
         }
+
+        // When ever refresh request comes to pebble-data-table this variable has to be empty.
+        // If it's not getting reset then in case of 2 sequential request it will fail and grid will be keep on loading.
+        // pebble-data-table loads two pages on first load so this variable will be filled with first [0] and then [0,1] and as soon as 0th page get loaded
+        // this array value will be [1] and so on it will be come empty on 2 pages load complete. 
+        // SO in case of two request first is running and _pagesLoading state is [1] then for first page it will add and remove "0" an will become [0, 1] 
+        // but for second page "1" will not be added newly in this variable and considered as it's still loading and grid will get stuck.
+        this._pagesLoading = [];
 
         this._currentPageChanged(this.rDataSource, page);
       },
@@ -1521,18 +1532,20 @@
           if (this._cachedItems) {
             itemPicked = this._cachedItems[e.detail.pickedIndex];
             var columns = this.columns;
+            const frag = document.createDocumentFragment();
             for (var i = 0; i < columns.length; i++) {
               if (columns[i] && this.columns[i].modelObject && columns[i].modelObject.name) {
-                var columnData = itemPicked[columns[i].modelObject.name];
-                columnData = columnData == undefined ? "" : columnData;
+                var columnData = itemPicked[columns[i].modelObject.name] || '';
                 li = document.createElement("li");
                 li.innerHTML = columnData;
-                this.shadowRoot.querySelector('#rowTracker ul').appendChild(li);
+                frag.appendChild(li);
               }
             }
-            if(this.shadowRoot.querySelector('#rowTracker')){
-              this.shadowRoot.querySelector('#rowTracker').classList.add('fader');
-            }
+            const rowTracker = this.shadowRoot.querySelector('#rowTracker');
+            
+            rowTracker.querySelector('#rowTracker ul').appendChild(frag);
+            
+            rowTracker.classList.add('fader');
           }
         }
         this.updateStyles({            
@@ -1580,9 +1593,8 @@
         });
         clearInterval(this.setIntervelDragUp);
         clearInterval(this.setIntervelDragDown);       
-        if(this.shadowRoot.querySelector('#rowTracker')){
-          this.shadowRoot.querySelector('#rowTracker').classList.remove('fader')
-        }
+        
+        this.shadowRoot.querySelector('#rowTracker').classList.remove('fader')
       },
       updateData: function(data,detail) {
         if(!_.isEmpty(data)) {

@@ -103,6 +103,7 @@
 
             pebble-button.action {
                 display: inline-block;
+                vertical-align: top;
                 border: 1px solid var(--palette-cerulean, #036bc3);
                 border-radius: 3px;
                 margin-top:0px;
@@ -117,12 +118,6 @@
                     margin-right:10px;
                     margin-bottom:0px;
                     margin-left:10px;
-                }
-                --pebble-button-iron-icon: {
-                    padding-top: 0px;
-                    padding-right:5px;
-                    padding-bottom:0px;
-                    padding-left:0px;
                 }
                 --pebble-menu-button: {
                     height: 30px !important;
@@ -318,7 +313,16 @@
 
             attached: function () {
                 var governDataLiquid = this.shadowRoot.querySelector("[name=governDataGet]");
-                this._allowedEntityTypes = this.appSetting('allowedEntityTypes');
+
+                var _allowedEntityTypes = [];
+                if(this.appSetting('dataDefaults')) {
+                    var entityTypes = this.appSetting('dataDefaults').entityTypes;
+                    for(var key in entityTypes) {
+                        _allowedEntityTypes = _allowedEntityTypes.concat(entityTypes[key]);
+                    }
+                }
+
+                this._allowedEntityTypes = _allowedEntityTypes;
                 var mappedEntityTypesString = this.myTodo.mappedEntityTypes ? this.myTodo.mappedEntityTypes.join("#@#") : undefined;
                 this.myTodo.workflowData.mappedEntityTypesString = mappedEntityTypesString;
 
@@ -339,11 +343,9 @@
                             }
                         }
 
-                        var contexts = [
-                            {
-                                "workflow": this.myTodo.workflowName
-                            }
-                        ];
+                        var contexts = [{
+                            "workflow": this.myTodo.workflowName
+                        }];
 
                         var options = {
                             "contexts": contexts,
@@ -351,12 +353,14 @@
                             "userId": userId,
                             "workflowActivityName": this.myTodo.workflowData.wfActivityName,
                             "excludeNonContextual": true
-                        }
+                        };
+
                         var req = DataRequestHelper.createGovernGetRequest(options);
                         this._governDataRequest = req;
                         governDataLiquid.generateRequest();
                     } else {
                         this.showErrorToast("Types criterion is undefied or empty for govern get.");
+                        this._setTaskLoadingIndicatorVisibility(false);
                     }
                 }
 
@@ -376,13 +380,18 @@
                         }
                     }
 
-                    this.shadowRoot.querySelector('#taskCountLoading').hidden = true;
-                    this.shadowRoot.querySelector('#taskCount').hidden = false;
+                    this._setTaskLoadingIndicatorVisibility(false);
                 }
+            },
+
+            _setTaskLoadingIndicatorVisibility: function (isVisible) {
+                this.shadowRoot.querySelector('#taskCountLoading').hidden = !isVisible;
+                this.shadowRoot.querySelector('#taskCount').hidden = isVisible;
             },
 
             _onGovernDataError: function (e) {
                 this.showErrorToast(e.detail.response.reason);
+                this._setTaskLoadingIndicatorVisibility(false);
             },
 
             /**
@@ -623,7 +632,12 @@
                         }
                         var attributes = ["businessConditions", "status", "activities"];
                         var passedBCOptions={};
+                      
                         this._businessConditionMappings.forEach(function (businessCondition) {
+                            var governGetLiquid = document.createElement('liquid-entity-govern-data-get');
+                            governGetLiquid.addEventListener('response', this._getBusinessConditionCountResponse.bind(this));
+                            governGetLiquid.addEventListener('error', this._getBusinessConditionCountFailed);
+                        
                             if (businessCondition && businessCondition.data) {
                                 var options = {
                                     "contexts": contexts,
@@ -637,15 +651,11 @@
                                 passedBCOptions=options;
                                 var req = DataRequestHelper.createGovernGetRequest(options);
                                 if (!_.isEmpty(req)) {
-                                    var governGetLiquid = document.createElement('liquid-entity-govern-data-get');
                                     governGetLiquid.id = businessCondition.data.bcId;
                                     governGetLiquid.operation = 'initiatesearchandgetcount';
                                     governGetLiquid.requestData = req;
                                     governGetLiquid.excludeInProgress = true;
-                                    governGetLiquid.addEventListener('response', this._getBusinessConditionCountResponse.bind(this));
-                                    governGetLiquid.addEventListener('error', this._getBusinessConditionCountFailed);
                                     governGetLiquid.generateRequest();
-                                    governGetLiquid = null;
                                 }
                             }
                         }, this);
@@ -670,9 +680,7 @@
                     governGetLiquid.requestData = req;
                     governGetLiquid.excludeInProgress = true;
                     governGetLiquid.addEventListener('response', this._onGetPassedBusinessConditionsCountResponse.bind(this));
-                    governGetLiquid.addEventListener('error', this._getBusinessConditionCountFailed);
                     governGetLiquid.generateRequest();
-                    governGetLiquid = null;
                 }
             },
             _addCountToBCButton:function (response,businessConditionButton) {
@@ -708,7 +716,7 @@
                 }
             },
 
-            __getBusinessConditionCountFailed: function (e) {
+            _getBusinessConditionCountFailed: function (e) {
                 this.showErrorToast(e.detail.response.reason);
             },
 
@@ -730,7 +738,7 @@
                 if (allowedTypes && allowedTypes.length) {
                     allowedTypes.forEach(function (type) {
                         contexts.push({
-                            "self": "self/" + type + "_ruleContextMappings",
+                            "self": "self",
                             "workflow": this.myTodo.workflowName
                         });
                     }, this);

@@ -1,13 +1,9 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 <link rel="import" href="../../../bower_components/shadycss/apply-shim.html">
-<link rel="import" href="../../../bower_components/polymer/lib/elements/custom-style.html">
 
 <link rel="import" href="../bedrock-app-behavior/bedrock-app-behavior.html" />
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
-
-<link rel="import" href="../liquid-config-aggregate-get/liquid-config-aggregate-get.html" />
-<link rel="import" href="../liquid-rest/liquid-rest.html" />
 
 <link rel="import" href="../rock-layout/rock-titlebar/rock-titlebar.html" />
 <link rel="import" href="../rock-layout/rock-layout.html" />
@@ -32,20 +28,19 @@
             }
         </style>
         <rock-layout>
-            <liquid-config-aggregate-get id="getEntityDiscoveryAppConfig" verbose operation="getbyids" request-id="req1" app-name="app-entity-discovery"
-                context-data="[[contextData]]" on-config-get-response="_onApplicationConfigReceived"></liquid-config-aggregate-get>
-            <rock-titlebar slot="rock-titlebar" icon="pebble-md-icons:ToolbarSearch" main-title="Entity Search & Refine" non-minimizable="[[appConfig.nonMinimizable]]"
+            <rock-titlebar slot="rock-titlebar" icon="pebble-icon:Search" main-title="Entity Search & Refine" non-minimizable="[[appConfig.nonMinimizable]]"
                 non-closable="[[appConfig.nonClosable]]">
                 <div id="dimensionContainer" align="right">
-                    <rock-dimension-selector id="dimensionSelector" config-data="[[getConfig('rock-dimension-selector')]]" all-single-select></rock-dimension-selector>
+                    <rock-dimension-selector id="dimensionSelector" context-data="[[contextData]]" app-name="app-entity-discovery" all-single-select></rock-dimension-selector>
                 </div>
             </rock-titlebar>
             <template is="dom-if" if="{{isElementLoaded}}">
             <div class="flex">
                 <div class="flex search-discovery-container">
-                    <rock-entity-search-discovery domain="[[domain]]" 
-                        id="entitySearchDiscoveryGrid" context-data="[[contextData]]" 
-                        config-data="[[getConfig('rock-entity-search-discovery')]]"
+                    <rock-entity-search-discovery 
+                        domain="[[domain]]" 
+                        id="entitySearchDiscoveryGrid" 
+                        context-data="[[contextData]]" 
                         selected-dimensions="{{_selectedDimensions}}" 
                         allowed-entity-types=[[_allowedEntityTypes]] 
                         search-query="[[_searchQuery]]"
@@ -56,7 +51,7 @@
                         business-condition-name="[[_businessConditionName]]" 
                         business-condition-external-name="[[_businessConditionExternalName]]" 
                         user="[[_user]]" status="[[_status]]"
-                        requested-entity-types = "[[_mappedEntityTypes]]"
+                        requested-entity-types = "[[_scopedEntityTypes]]"
                         on-load = "updateAppCurrentStatus">
                     </rock-entity-search-discovery>
                 </div>
@@ -94,11 +89,18 @@
                         value: false
                     },
                     domain:{
-                        type:String
+                        type:String,
+                        value: "thing"
                     },
                     queryParams:{
                         type:String,
                         value:""
+                    },
+                    _scopedEntityTypes: {
+                        type: Array,
+                        value: function() {
+                            return [];
+                        }
                     }
 
                 },
@@ -107,9 +109,12 @@
                     RUFBehaviors.AppBehavior                    
                 ],
 
-                ready: function () {
-                    this._allowedEntityTypes = this.appSetting('allowedEntityTypes');
-
+                ready: async function () {
+                    this._allowedEntityTypes = this.appSetting('dataDefaults').entityTypes[this.domain];
+                    if(this._allowedEntityTypes.length > 0){
+                        var entityTypeManager = new EntityTypeManager();
+                        await entityTypeManager.getTypeExternalNameByIdAsync(this._allowedEntityTypes[0]);
+                    }
                     // Read query string values
                     this._searchQuery = DataHelper.getParamValue('searchtext');
                     this._savedSearchId = DataHelper.getParamValue('_savedSearchId');
@@ -123,7 +128,7 @@
                     this._status = DataHelper.getParamValue('status');
                     var mappedEntityTypes = DataHelper.getParamValue('mappedEntityTypesString');
                     if (mappedEntityTypes && mappedEntityTypes !== "") {
-                        this._mappedEntityTypes = mappedEntityTypes.split("#@#");
+                        this._scopedEntityTypes = mappedEntityTypes.split("#@#");
                     }
 
                     var dimensionSelector = this.shadowRoot.querySelector("#dimensionSelector");
@@ -136,10 +141,19 @@
                     var userContext = {
                         "role": this.roleId,
                         "user": this.userId,
-                        "ownershipData": this.ownershipData
+                        "ownershipData": this.ownershipData,
+                        "tenant": this.tenantId
                     };
 
                     this.contextData[ContextHelper.CONTEXT_TYPE_USER] = [userContext];
+
+                    this.preloadEntityManage();
+                },
+
+                preloadEntityManage() {
+                    Polymer.RenderStatus.afterNextRender(this, () => {
+                        this.importHref(this.resolveUrl('../app-entity-manage/app-entity-manage.html'), null, null, true)
+                    });
                 },
                 
                 attached: function () {                                      
@@ -169,16 +183,14 @@
                     appStatus.title = customArgs.title;
                     this.fireBedrockEvent('app-status-updated', appStatus, { appId: "main-app", ignoreId: true });
                 },
-
-                _onApplicationConfigReceived: function (e) {
-                    // this.logInfo("ConfigReceived","response",JSON.stringify(e, null, 2));
-                    this.set('applicationConfig', e.detail);
-
-                },
                 _onContextChanged: function (e) {
-                    var contextData = this.contextData;
-                    this.contextData = {}; // To notify
-                    this.contextData = contextData;
+                    /***TODO: Discuss why we had to reset the whole context data here?
+                        In contextData change obesrver, we have only config get request which is solely
+                        dependent on app and domain. On dimensions change we don't need to request for config.
+                        Hence commenting out.**/
+                    // var contextData = this.contextData;
+                    // this.contextData = {}; // To notify
+                    // this.contextData = contextData;
 
                     var searchDiscoveryEl = this.shadowRoot.querySelector("#entitySearchDiscoveryGrid");
 

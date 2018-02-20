@@ -3,6 +3,7 @@
 <link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../bedrock-grid-datasource-behavior/bedrock-grid-datasource-behavior.html">
 <link rel="import" href="../bedrock-helpers/constant-helper.html">
+<link rel="import" href="../bedrock-helpers/data-request-helper.html">
 
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 
@@ -13,10 +14,10 @@
 -->
 <dom-module id="entity-search-grid-datasource">
     <template>
-        <liquid-entity-data-get id="initiateSearchResult" operation="initiatesearch" request-data="[[request]]" last-response="{{_initSearchResponse}}"
+        <liquid-entity-data-get id="initiateSearchResult" operation="initiatesearch" request-data="[[_initSearchRequest]]" last-response="{{_initSearchResponse}}"
             on-error="_onSearchError" exclude-in-progress></liquid-entity-data-get>
-        <liquid-entity-data-get id="getSearchResultDetail" operation="getsearchresultdetail" request-data="[[_request]]" request-id="[[_initSearchResponse.content.requestId]]"
-            last-response="{{searchResultResponse}}" exclude-in-progress></liquid-entity-data-get>
+        <liquid-entity-data-get id="getSearchResultDetail" operation="getsearchresultdetail" apply-locale-coalesce="[[applyLocaleCoalesce]]" request-data="[[_searchResultRequest]]" request-id="[[_initSearchResponse.content.requestId]]"
+            last-response="{{searchResultResponse}}" exclude-in-progress include-type-external-name></liquid-entity-data-get>
     </template>
     <script>
         Polymer({
@@ -79,17 +80,31 @@
                     notify: true,
                     value: 0
                 },
-                _request: {
+                 _originalRequest: {
                     type: Object,
                     value: function () {
                         return {};
                     }
                 },
-                _searchRequest: {
+                _initSearchRequest: {
                     type: Object,
                     value: function () {
                         return {};
                     }
+                },
+                _searchResultRequest: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                },
+                relatedEntitySearchEnabled: {
+                    type: Boolean,
+                    value: false
+                },
+                applyLocaleCoalesce: {
+                    type: Boolean,
+                    value: false
                 }
             },
 
@@ -154,7 +169,6 @@
                         property["sortType"] = ConstantHelper.getDataTypeConstant(attributeModel.dataType);
                         attributes.push(property);
                         this.request.params["sort"] = { "attributes": attributes };
-                        this._request.params["sort"] = { "attributes": attributes }; //Used in combined get
                     }
                 } else {
                     //TEMP": Vishal - REMOVED DEFAULT SORTING TILL RDF FIXES SORT PERF ISSUE
@@ -169,41 +183,35 @@
                 }
 
                 this.set("request.params.options", requestOptions);
-                this.set("_request.params.options", requestOptions);
 
-                this._searchRequest = DataHelper.cloneObject(this.request);
+                this._originalRequest = DataHelper.cloneObject(this.request);
 
                 var dataContexts = ContextHelper.getDataContexts(this.contextData);
 
-                if (!_.isEmpty(dataContexts)) {
-                    if (this.isCombinedGet) {
-                        if (this.request && this.request.entity && this.request.entity.data && this.request.entity.data.jsonData) {
-                            var searchQueries = this.request.entity.data.jsonData.searchQueries;
-                            for (var i = 0; i < searchQueries.length; i++) {
-                                if (searchQueries[i].serviceName === "entityservice") {
-                                    var searchParams = searchQueries[i].searchQuery;
-                                    if (_.isEmpty(searchParams.query.filters.attributesCriterion) &&
-                                        _.isEmpty(searchParams.query.filters.relationshipsCriterion)) {
-                                        searchParams.query.filters.excludeNonContextual = true;
-                                        delete searchParams.fields;
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        if (_.isEmpty(this.request.params.query.filters.attributesCriterion) &&
-                            _.isEmpty(this.request.params.query.filters.relationshipsCriterion)) {
-                            this.request.params.query.filters.excludeNonContextual = true;
-                            delete this.request.params.fields;
-                        }
-                    }
+                var requestParams = this._getRequestParams(this.request);
+
+                if (!_.isEmpty(dataContexts) && _.isEmpty(requestParams.query.filters.attributesCriterion) &&  _.isEmpty(requestParams.query.filters.relationshipsCriterion)) {
+                    requestParams.query.filters.excludeNonContextual = true;
+                }
+
+                this._initSearchRequest = DataHelper.cloneObject(this.request);
+
+                var initSearchRequestParams = this._getRequestParams(this._initSearchRequest);
+
+                delete initSearchRequestParams.fields;
+
+                if(this._isRelatedEntitySearch(initSearchRequestParams)) {
+                    initSearchRequestParams.isRelatedEntitySearch = true;
+
+                    var requestParams = this._getRequestParams(this.request);
+                    requestParams.isRelatedEntitySearch = true;
                 }
 
                 // Initiate Request only for First Time.
                 if (!this._isRequestInitiated) {
                     this._liquidInitSearchElement.generateRequest();
                 } else {
-                    this._liquidGetSearchElement.generateRequest();
+                    this._generateSearchResultRequest();
                 }
             },
 
@@ -211,22 +219,21 @@
             _onInitSearchResponse: function (e) {
                 this._totalCount = this._resultRecordSize = e.detail.response.content.totalRecords;
 
-                if (this.isCombinedGet) {
-                    if (this._searchRequest && this._searchRequest.entity && this._searchRequest.entity.data && this._searchRequest.entity.data.jsonData) {
-                        var searchQueries = this._searchRequest.entity.data.jsonData.searchQueries;
-                        for (var i = 0; i < searchQueries.length; i++) {
-                            if (searchQueries[i].serviceName === "entityservice") {
-                                this._request = {
-                                    "params": searchQueries[i].searchQuery
-                                }
-                                this._request.params.options = this._prepareRequestOptions(this._options);
-                                break;
-                            }
-                        }
-                    }
-                } else {
-                    this._request = this._searchRequest;
-                }
+                this._generateSearchResultRequest();
+            },
+
+            _generateSearchResultRequest: function() {
+                this._searchResultRequest = {
+                    "params" : this._getRequestParams(this._originalRequest)
+                };
+                this._searchResultRequest.params.options = this._prepareRequestOptions(this._options);
+
+                delete this._searchResultRequest.params.query.filters.attributesCriterion;
+                delete this._searchResultRequest.params.query.filters.relationshipsCriterion;
+                delete this._searchResultRequest.params.query.filters.keywordsCriterion;
+
+                DataRequestHelper.addDefaultContext(this.request);
+                DataRequestHelper.addDefaultContext(this._searchResultRequest);
 
                 this._liquidGetSearchElement.generateRequest();
                 this._isRequestInitiated = true;
@@ -253,7 +260,37 @@
             _onSearchError: function (e) {
                 var reason = e.detail.response.reason;
                 //this.showErrorToast(reason, 10000);   //TODO: Find a way to display reason 
-            }
+            },
+
+             _getRequestParams : function(request) {
+                 if (this.isCombinedGet) {
+                     if (request && request.entity && request.entity.data && request.entity.data.jsonData) {
+                         var searchQueries = request.entity.data.jsonData.searchQueries;
+                         for (var i = 0; i < searchQueries.length; i++) {
+                             if (searchQueries[i].serviceName === "entityservice") {
+                                 return searchQueries[i].searchQuery;
+                             }
+                         }
+                     }
+                 } else {
+                     return request.params;
+                 }
+             },
+
+             _isRelatedEntitySearch: function(params) {
+                 if(this.relatedEntitySearchEnabled && params && params.query && params.query.filters && params.query.filters.relationshipsCriterion
+                    && params.query.filters.relationshipsCriterion.length > 0) {
+                        for(let i=0; i< params.query.filters.relationshipsCriterion.length; i++) {
+                            var relCriterion = params.query.filters.relationshipsCriterion[i];
+                            for(let relType in relCriterion) {
+                                if(!_.isEmpty(relCriterion[relType].relTo)) {
+                                    //means this is related entity search
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+             }
 
         });
     </script>

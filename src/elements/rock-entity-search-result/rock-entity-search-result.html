@@ -1,0 +1,1204 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-helpers/context-helper.html">
+<link rel="import" href="../bedrock-helpers/data-request-helper.html">
+<link rel="import" href="../bedrock-helpers/liquid-response-helper.html">
+<link rel="import" href="../bedrock-helpers/data-transform-helper.html">
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+
+<link rel="import" href="../liquid-dataobject-utils/liquid-dataobject-utils.html">
+<link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
+<link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
+
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
+<link rel="import" href="../pebble-toggle-button/pebble-toggle-button.html">
+<link rel="import" href="../pebble-dialog/pebble-dialog.html">
+
+<link rel="import" href="../rock-grid/rock-grid.html">
+<link rel="import" href="../rock-grid-data-sources/entity-search-grid-datasource.html">
+<link rel="import" href="../rock-business-function-dialog/rock-business-function-dialog.html">
+<link rel="import" href="../rock-govern-data-grid/rock-govern-data-grid.html">
+<link rel="import" href="../rock-entity-search-result-actions/rock-entity-search-result-actions.html">
+<link rel="import" href="../rock-component-config-behavior/rock-component-config-behavior.html">
+
+<!--
+`rock-entity-search-result` Represents a component that renders the entities in the grid.
+It filters the data as per filter criteria.
+
+@demo demo/index.html
+-->
+
+<dom-module id="rock-entity-search-result">
+    <template>
+        <style>
+            pebble-toggle-button {
+                --pebble-toggle-button-checked-bar-color: var(--success-color, #4caf50);
+                --pebble-toggle-button-checked-button-color: var(--success-color, #4caf50);
+                --pebble-toggle-button-checked-ink-color: var(--success-color, #4caf50);
+                --pebble-toggle-button-label-color: var(--secondary-button-text-color, #75808b);
+            }
+
+            .toggle-button {
+                float: right;
+                padding: 22px 20px 0px 0px;
+                font-size: var(--font-size-sm, 12px);
+            }
+
+            /* Firefox specific fix for toggle button */
+
+            @media all and (min--moz-device-pixel-ratio:0) and (min-resolution: 3e1dpcm) {
+                .toggle-button {
+                    padding: 0;
+                }
+            }
+
+            /* IE11 specific fix for toggle button */
+
+            @media screen and (-ms-high-contrast: active),
+            (-ms-high-contrast: none) {
+                .toggle-button {
+                    padding: 0;
+                }
+            }
+
+            pebble-toggle-button {
+                --pebble-toggle-button-checked-bar-color: var(--success-color, #4caf50);
+                --pebble-toggle-button-checked-button-color: var(--success-color, #4caf50);
+                --pebble-toggle-button-checked-ink-color: var(--success-color, #4caf50);
+                --pebble-toggle-button-label-color: var(--secondary-button-text-color, #75808b);
+            }
+
+            .toggle-button {
+                float: right;
+                padding: 22px 20px 0px 0px;
+                font-size: var(--font-size-sm, 12px);
+            }
+
+            rock-grid {
+                --pebble-grid-container: {
+                    margin-right: 20px;
+                    margin-left: 20px;
+                    margin-bottom: 10px;
+                }
+            }
+        </style>
+        <pebble-spinner active="[[_loading]]"></pebble-spinner>
+        <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{attributeModelRequest}}" on-entity-model-composite-get-response="_onCompositeModelGetResponse">
+        </liquid-entity-model-composite-get>
+        <liquid-rest id="getDownloadUrl" url="/data/binarystreamobjectservice/prepareDownload" method="POST" on-liquid-response="_onGetDownloadUrlResponse">
+        </liquid-rest>
+        <template is="dom-if" if="[[_isWorkflowRequest(_loadGrid, _loadWithoutWorkflow)]]">
+            <template is="dom-if" if="[[_showToggle()]]">
+                <pebble-toggle-button class="toggle-button" noink checked="{{_loadGovernData}}">Govern Data</pebble-toggle-button>
+            </template>
+            <template is="dom-if" if="[[!_loadGovernData]]">
+
+                <entity-search-grid-datasource id="searchGridDatasource"
+                                               context-data="[[contextData]]"
+                                               request="{{request}}"
+                                               r-data-source="{{rDataSource}}"
+                                               r-data-formatter="{{rDataFormatter}}"
+                                               buffer-record-size="{{size}}"
+                                               current-record-size="{{currentRecordSize}}"
+                                               result-record-size="{{resultRecordSize}}"
+                                               total-count="{{totalCount}}"
+                                               attribute-models="{{attributeModels}}"
+                                               is-combined-get="[[_isCombinedGetReq]]" 
+                                               apply-context-coalesce="[[applyContextCoalesce]]"
+                                               related-entity-search-enabled
+                                               apply-locale-coalesce="[[applyLocaleCoalesce]]"></entity-search-grid-datasource>
+
+                <rock-grid hidden$="[[_loadGovernData]]"
+                           id="entityGrid"
+                           r-data-source="{{rDataSource}}"
+                           r-data-source-id="searchGridDatasource"
+                           result-record-size="{{resultRecordSize}}"
+                           current-record-size="{{currentRecordSize}}"
+                           config="[[gridConfig]]"
+                           grid-data-size="{{size}}"
+                           attribute-models="{{attributeModels}}"
+                           page-size="[[pageSize]]"
+                           selected-item="{{selectedItem}}"
+                           selected-items="{{selectedItems}}"
+                           total-count="{{totalCount}}"
+                           max-configured-count="[[maxConfiguredCount]]"
+                           apply-locale-coalesce-style="[[applyLocaleCoalesceStyle]]"
+                           domain="[[domain]]"
+                           selection-enabled>
+                    <rock-entity-search-result-actions slot="toolbar" id="gridActions" context-data="[[contextData]]" domain="[[domain]]"></rock-entity-search-result-actions>
+                </rock-grid>
+
+            </template>
+            <template is="dom-if" if="[[_loadGovernData]]">
+                <rock-govern-data-grid id="governGrid" context-data="[[contextData]]" request="[[request]]" entity-name-attribute="[[governDataConfig.entityNameAttribute]]">
+                </rock-govern-data-grid>
+            </template>
+            <bedrock-pubsub event-name="grid-custom-toolbar-event" handler="_onCustomToolbarEvent" target-id="entityGrid"></bedrock-pubsub>
+            <bedrock-pubsub event-name="grid-download-item" handler="_onDownload" target-id="entityGrid"></bedrock-pubsub>
+            <bedrock-pubsub event-name="grid-upload-item" handler="_onUpload" target-id="entityGrid"></bedrock-pubsub>
+            <bedrock-pubsub event-name="grid-bulk-edit-items" handler="_onBulkEdit" target-id="entityGrid"></bedrock-pubsub>
+            <bedrock-pubsub event-name="grid-bulk-delete-items" handler="_showConfirmationDialog" target-id="entityGrid"></bedrock-pubsub>
+            <bedrock-pubsub event-name="download-original-asset" handler="_onOriginalAssetDownloadAction" target-id="entityGrid"></bedrock-pubsub>
+        </template>
+
+        <pebble-dialog id="confirmationDialog" dialog-title="Confirmation" modal alert-box show-cancel show-ok no-cancel-on-outside-click
+            no-cancel-on-esc-key>
+            <p>Are you sure you want to delete?</p>
+        </pebble-dialog>
+        <bedrock-pubsub event-name="on-buttonok-clicked" handler="_onBulkDelete" target-id="confirmationDialog"></bedrock-pubsub>
+
+        <rock-business-function-dialog id="entityUploadDialog" context-data="[[contextData]]"></rock-business-function-dialog>
+        <rock-business-function-dialog id="entityDownloadDialog" context-data="[[contextData]]"></rock-business-function-dialog>
+        <rock-business-function-dialog id="entityEditDialog" context-data="[[contextData]]"></rock-business-function-dialog>
+        <rock-business-function-dialog id="entityDeleteDialog" context-data="[[contextData]]"></rock-business-function-dialog>
+        <bedrock-pubsub on-bedrock-event-route-changed="_onRouteChange" name="bedrock-event-route-changed"></bedrock-pubsub>
+    </template>
+
+    <script>
+        (function () {
+            'use strict';
+
+            Polymer({
+                is: 'rock-entity-search-result',
+                properties: {
+                    /**
+                     * Indicates the request object that is passed to the data element to retrieve the attribute model data.
+                     */
+                    attributeModelRequest: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    /**
+                     * <b><i>Content development is under progress... </b></i> 
+                     */
+                    contextData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    domain:{
+                        type:String
+                    },
+                    /**
+                     * Specifies the configuration object that is passed to the grid.
+                     */
+                    gridConfig: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    /**
+                     * Specifies the request object to initiate the search.
+                     * 
+                     */
+                    request: {
+                        type: Object,
+                        value: function () {
+                            return {
+                                "params": {
+                                    "query": {
+                                        "contexts": [],
+                                        "valueContexts": [],
+                                        "filters": {
+                                            "attributesCriterion": [],
+                                            "typesCriterion": []
+                                        }
+                                    },
+                                    "fields": {
+                                        "ctxTypes": [
+                                            "properties"
+                                        ],
+                                        "attributes": []
+                                    },
+                                    "options": {
+                                        "from": 0,
+                                        "to": 0
+                                    }
+                                }
+                            };
+                        }
+                    },
+                    /**
+                     * Specifies the filters to filter the search.
+                     */
+                    searchFilters: {
+                        type: Array,
+                        notify: true,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    /**
+                     * Specifies the filters to filter the search.
+                     */
+                    relationshipSearchFilters: {
+                        type: Array,
+                        notify: true,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    /**
+                     * Specifies the query object that initiates the search.
+                     */
+                    searchQuery: {
+                        type: String,
+                        notify: true,
+                        value: ""
+                    },
+                    /**
+                     * Specifies the workflow criterion for the search.
+                     */
+                    typesCriterion: {
+                        type: Object,
+                        notify: true,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    /**
+                     * Specifies the workflow criterion for the search.
+                     */
+                    workflowCriterion: {
+                        type: Object,
+                        notify: true,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    /**
+                     * Specifies the workflow criterion for the search.
+                     */
+                    governDataCriterion: {
+                        type: Object,
+                        notify: true,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    /**
+                     * Specifies the format of the data that are passed to the `remote-data`.
+                     */
+                    rDataFormatter: {
+                        type: Object,
+                        notify: true,
+                        value: function () {
+                            return this._getAttributeFormattedData.bind(this);
+                        }
+                    },
+                    // rDataSource: {
+                    //     type: Object,
+                    //     notify: true
+                    // },
+                    /**
+                     * <b><i>Content development is under progress... </b></i> 
+                     */
+                    attributeModels: {
+                        type: Object,
+                        value: function () {
+                            return {}
+                        }
+                    },
+
+                    /**
+                     * Indicates the number of items fetched at a time from the data-source.
+                     */
+                    pageSize: {
+                        type: Number,
+                        notify: true,
+                        value: 200
+                    },
+
+                    /**
+                     * Indicates the total record size of the current grid.				 
+                     */
+                    currentRecordSize: {
+                        notify: true,
+                        type: Number,
+                        value: 0
+                    },
+
+                    /**
+                     * Indicates a selected item.
+                     */
+                    selectedItem: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        },
+                        notify: true
+                    },
+
+                    /**
+                     * Indicates an array of selected items.
+                     */
+                    selectedItems: {
+                        type: Array,
+                        value: [],
+                        notify: true
+                    },
+                    /**
+                     * <b><i>Content development is under progress... </b></i> 
+                     */
+                    savedSearchCriterion: {
+                        type: Object,
+                        value: function () {
+                            return true;
+                        }
+                    },
+                    /**
+                     * <b><i>Content development is under progress... </b></i> 
+                     */
+                    savedSearchId: {
+                        type: String,
+                        value: ""
+                    },
+                    /**
+                     * <b><i>Content development is under progress... </b></i> 
+                     */
+                    maxConfiguredCount: {
+                        type: Number,
+                        value: function () {
+                            return DataObjectFalcorUtil.getPathKeys().dataIndexInfo.entityData.dataSubIndexInfo.data.maxRecordsToReturn;
+                        }
+                    },
+                    governDataConfig: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+
+                    governAttributesCriterion: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+
+                    entityIdList: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+
+                    _governDataGetReq: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+
+                    _loadGrid: {
+                        type: Boolean
+                    },
+
+                    _loadWithoutWorkflow: {
+                        type: Boolean
+                    },
+
+                    _loading: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    _loadGovernData: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    _isCombinedGetReq: {
+                        type: Boolean,
+                        value: false
+                    },
+                    dynamicFields: {
+                        type: Object,
+                        value: function() {
+                            return {};
+                        }
+                    },
+                    processWithDynamicFields: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    applyLocaleCoalesce: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    applyContextCoalesce: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    applyLocaleCoalesceStyle: {
+                        type: Boolean,
+                        value: true
+                    }
+                },
+
+                observers: [
+                    '_onContextDataChange(contextData.*, dynamicFields)'
+                ],
+
+                behaviors: [
+                    RUFBehaviors.UIBehavior,
+                    RUFBehaviors.ComponentContextBehavior,
+                    RUFBehaviors.ComponentConfigBehavior
+                ],
+
+                attached: function () {
+                    Polymer.RenderStatus.beforeNextRender(this, function () {
+                        this._isViewLoaded = true;
+                    });
+                },
+
+                _onContextDataChange: function() {
+                    if(this.processWithDynamicFields && _.isEmpty(this.dynamicFields)) {
+                        return;
+                    }
+
+                    if(!_.isEmpty(this.contextData)) {
+                        var context = DataHelper.cloneObject(this.contextData);
+                        //App specific
+                        var appName = ComponentHelper.getCurrentActiveAppName();
+                        if(appName) {
+                            context[ContextHelper.CONTEXT_TYPE_APP] = [{
+                                "app": appName
+                            }];
+                        }
+
+                        if(this.domain) {
+                            context[ContextHelper.CONTEXT_TYPE_DOMAIN] = [{
+                                "domain": this.domain
+                            }];
+                        }
+
+                        //Delete ItemContexts if more than one entity type is selected
+                        if(context.ItemContexts && context.ItemContexts.length > 1) {
+                            var types = [];
+                            context.ItemContexts.forEach(function(itemContext) {
+                                if(itemContext.type) {
+                                    types.push(itemContext.type)
+                                }
+                            })
+                            types = [...new Set(types)]; //unique types
+
+                            if(types.length > 1) {
+                                delete context.ItemContexts;
+                            } else {
+                                context.ItemContexts = [{
+                                    "type": types[0]
+                                }]
+                            }
+                        }
+
+                        this.requestConfig('rock-entity-search-result', context);
+                    }
+                },
+
+                onConfigLoaded: function(componentConfig) {
+                    if(componentConfig && componentConfig.config) {
+                        var gridConfig = componentConfig.config.gridConfig;
+                        if(!_.isEmpty(this.dynamicFields)) {
+                            Object.keys(this.dynamicFields).forEach(key => {
+                                this.dynamicFields[key].visible = "true";
+                            });
+                            gridConfig.itemConfig.fields = this.dynamicFields;
+                            gridConfig.schemaType = "attribute"; //Should come from configuration, delete it once nearest get is enabled
+                        }
+
+                        this.set('gridConfig', gridConfig);
+                        this.set('governAttributesCriterion', componentConfig.config.governAttributesCriterion);
+                        this.set('governDataConfig', componentConfig.config.governDataConfig);
+
+                        this.attributeModels = {};
+                        this.refresh();
+                    }
+                },
+
+                /**
+                 * <b><i>Content development is under progress... </b></i> 
+                 */
+                refresh: function () {
+                    this._onGridConfigChange(this.gridConfig);
+                },
+
+                /**
+                 * Can be used to get the grid data.
+                 */
+                getData: function () {
+                    return this._getEntityGrid().getData();
+                },
+
+                /**
+                 * Can be used to set the multi-selection for the grid.
+                 */
+                setMultiSelection: function (flag) {
+                    if (this.shadowRoot.querySelector('#entityGrid') && flag != undefined) {
+                        this._getEntityGrid().setMultiSelection(flag);
+                    }
+                },
+
+                /**
+                 * Can be used to clear the current selection state.
+                 */
+                clearSelection: function () {
+                    this._getEntityGrid().clearSelection();
+                },
+
+                /**
+                 *  Can be used to select an item.
+                 */
+                selectItem: function (item) {
+                    this._getEntityGrid().selectItem(item);
+                },
+
+                /**
+                 * Can be used to set the "scroll position" dynamically.
+                 */
+                scrollToIndex: function (index) {
+                    this._getEntityGrid().scrollToIndex(index);
+                },
+
+                /**
+                 * Can be used to reset the grid size.
+                 */
+                notifyResize: function () {
+                    if (this._getEntityGrid()) {
+                        this._getEntityGrid().notifyResize();
+                    }
+                },
+
+               /**
+                * For entity discovery & task details, this grid resize shoud happen when show/close download bar
+                */
+                _onRouteChange: function(e) {
+                    if(DataHelper.isValidObjectPath(e, "detail.route.path") &&
+                    (   
+                        e.detail.route.path.indexOf('/entity-discovery') != -1 || 
+                        e.detail.route.path.indexOf('/task-detail') != -1 ||
+                        e.detail.route.path.indexOf('/reference-discovery') != -1 ||
+                        e.detail.route.path.indexOf('/asset-discovery') != -1)) {
+                            this.notifyResize();
+                    }
+                },
+
+                /**
+                 * Can be used to get the selected grid row.
+                 */
+                getSelectedGridRow: function () {
+                    return this._getEntityGrid().getSelectedGridRow();
+                },
+
+                /**
+                 * Can be used to get the selected item index.
+                 */
+                getSelectedItemIndex: function () {
+                    return this._getEntityGrid().getSelectedItemIndex();
+                },
+                getSelectedItemsAsQuery: function () {
+                    return this._getEntityGrid().getSelectedItemsAsQuery();
+                },
+                getSelectionMode: function () {
+                    return this._getEntityGrid().getSelectionMode();
+                },
+                _addWorkflowDetailsToConfig: function () {
+                    if (!(this.workflowCriterion && this.workflowCriterion.workflowName && this.workflowCriterion.workflowActivityName)) {
+                        return;
+                    }
+                    var title = this.workflowCriterion.workflowActivityExternalName + " (" + this.workflowCriterion.workflowName + ")";
+                    if (this.governDataCriterion && this.governDataCriterion.businessConditionExternalName) {
+                        var status = this.governDataCriterion.status;
+                        if (!status) {
+                            status = "failed";
+                        }
+                        title += " - " + this.governDataCriterion.businessConditionExternalName + " (" + status + ")"
+
+                        if (this.governDataCriterion.userId) {
+                            var userText = this.governDataCriterion.userId == "_UNASSIGNED" ? "Unassigned" : "Assigned to me";
+                            title += " - " + userText;
+                        }
+                    }
+                    this.set('gridConfig.workflowTitle', title);
+                },
+                /**
+                 * Can be used to reload the grid.
+                 */
+                reloadGrid: function () {
+                    if (!_.isEmpty(this.workflowCriterion)) {
+                        this._addWorkflowDetailsToConfig();
+                        var workflowActivityName = this.workflowCriterion.workflowActivityName;
+                        var contexts = [];
+                        var excludeNonContextual = false;
+                        if (!_.isEmpty(this.governDataCriterion)) {
+                            var userId = this.governDataCriterion.userId;
+                            var businessConditionName = this.governDataCriterion.businessConditionName;
+                            var businessConditionNames = this.governDataCriterion.businessConditionNames;
+                            var passedBusinessConditions = this.governDataCriterion.status == "passed";
+                            if (!(businessConditionName || businessConditionNames)) {
+                                contexts.push({
+                                    "workflow": this.workflowCriterion.workflowShortName
+                                });
+                                excludeNonContextual = true;
+                            }
+                        }
+
+                        var options = {
+                            "contexts": contexts,
+                            "typesCriterion": this.typesCriterion,
+                            "userId": userId,
+                            "workflowActivityName": workflowActivityName,
+                            "businessConditionName": businessConditionName,
+                            "businessConditionNames": businessConditionNames,
+                            "attributes": "",
+                            "excludeNonContextual": excludeNonContextual,
+                            "passedBusinessConditions": passedBusinessConditions
+                        }
+
+                        var req = DataRequestHelper.createGovernGetRequest(options);
+
+                        if (!_.isEmpty(req)) {
+                            this._governDataGetReq = req;
+                            // governDataLiquid.generateRequest();
+                            this._loadWithoutWorkflow = undefined;
+                            this._loadWithoutWorkflow = false;
+                            this._loadGrid = true;
+                            this._reloadGrid(true);
+                        }
+                    } else {
+                        this._loadGrid = true;
+                        this._loadWithoutWorkflow = true;
+                        this._reloadGrid(false);
+                    }
+                },
+
+                _onGridConfigChange: function (gridConfig) {
+                    var dataRequest = {};
+
+                    if (_.isEmpty(this.contextData) || _.isEmpty(gridConfig)) {
+                        return;
+                    }
+
+                    if (!_.isEmpty(this.contextData)) {
+                        if (Object.keys(this.contextData).length == 1 && this.contextData[ContextHelper.CONTEXT_TYPE_USER]) {
+                            return;
+                        }
+                    }
+
+                    // //TODO:: Search has to be restructured.
+                    // // Below is temporary fix.
+                    // if (!_.isEmpty(this.savedSearchId) && _.isEmpty(savedSearchCriterion)) {
+                    //     return;
+                    // }
+
+                    var attributeNames = this._getAttributesFromConfig();
+                    var typesCriterion = this.typesCriterion;;
+                    var firstEntityType = undefined;
+
+                    if (typesCriterion && typesCriterion.length > 0) {
+                        firstEntityType = typesCriterion[0]; // TODO:: how to get attribute models for multiple entity types
+                    }
+
+                    this.set('applyLocaleCoalesce', gridConfig.applyLocaleCoalesce || false);
+
+                    this._updateItemContexts();
+                    this.set('gridConfig.dataContexts', this.contextData[ContextHelper.CONTEXT_TYPE_DATA]);
+                    this.set('gridConfig.valueContexts', this.contextData[ContextHelper.CONTEXT_TYPE_VALUE]);
+                    var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
+                    if (compositeModelGetRequest) {
+                        this.set("attributeModelRequest", compositeModelGetRequest);
+                        var liquidModelGet = this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
+                        if (liquidModelGet) {
+                            liquidModelGet.generateRequest();
+                        }
+                    }
+                },
+
+                _onCompositeModelGetResponse: function (e) {
+                    if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
+                        var entityModels = e.detail.response.content.entityModels;
+                        for (var i = 0; i < entityModels.length; i++) {
+                            var entityModel = entityModels[i];
+                            var properties = entityModel.properties;
+                            if (properties && properties.hasOwnProperty("defaultThumbnailId")) {
+                                this._typeThumbnailMapping[entityModel.name] = properties.defaultThumbnailId;
+                            }
+                        }
+                        this.attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], this.contextData);
+                    }
+                    this.reloadGrid();
+                },
+
+                _searchResultFiltersChanged: function (currentFilters) {
+                    this.set("request.params.query.filters", currentFilters);
+                },
+
+                _getAttributeFormattedData: function (data) {
+                    var dataArray = [];
+                    var formattedEntities = [];
+                    if (data && data.content) {
+                        var entities = data.content.entities;
+                        if (entities && entities.length > 0) {
+                            if(this.gridConfig.viewMode=="Tabular") {
+                                formattedEntities = DataTransformHelper.transformEntitiesToGridFormat(entities, this.attributeModels, this.contextData, this._getGridColumns());
+                            }else{
+                                var attributes = this._getAttributesFromConfig();
+                                if(attributes.indexOf("type")==-1){
+                                    attributes.push("type");
+                                }
+                                this._updateAttributesForDomain(attributes);
+                                formattedEntities = DataTransformHelper.transformEntitiesToSimpleSchema(entities, attributes, this.attributeModels);
+                                for (var i = 0; i < formattedEntities.length; i++) {
+                                    var type = formattedEntities[i].type;
+                                    if (!formattedEntities[i].thumbnailid) {
+                                        formattedEntities[i].thumbnailid = "";
+                                        if (this._typeThumbnailMapping && this._typeThumbnailMapping[type]) {
+                                            formattedEntities[i].thumbnailid = this._typeThumbnailMapping[type];
+                                        }
+                                    }
+                                }
+                            }
+                            this.fireBedrockEvent('grid-with-data');
+                        } else {
+                            //Check on scroll down, the grid can still have some data
+                            if (this.getData().length <= 0) {
+                                this.fireBedrockEvent('empty-grid');
+                            }
+                        }
+                    }
+
+                    return formattedEntities;
+                },
+
+                _getGridColumns: function() {
+                    if(this.gridConfig && this.gridConfig.tabular && this.gridConfig.tabular.columns) {
+                        return this.gridConfig.tabular.columns;
+                    }
+                    var columns = [];
+                    if(DataHelper.isValidObjectPath(this.gridConfig, 'itemConfig.fields')) {
+                        columns = DataHelper.convertObjectToArray(this.gridConfig.itemConfig.fields);
+                    }
+                    return columns;
+                },
+
+                _getAttributesFromConfig: function() {
+                    return this._getGridColumns().map(function(column) {
+                        return column.name;
+                    });
+                },
+
+                // Remove unsupported filters which were added for tags
+                _removeUnSupportedFilters: function (filters) {
+                    for (var i = 0; i < filters.length; i++) {
+                        if (filters[i] && !_.isEmpty(filters[i])) {
+                            for (var key in filters[i]) {
+                                if (!filters[i].hasOwnProperty(key)) continue;
+                                for (var j in filters[i][key]) {
+                                    if (!filters[i][key].hasOwnProperty(j)) continue;
+                                    if (j != 'eq' &&
+                                        j != 'gte' &&
+                                        j != 'lte' &&
+                                        j != 'contains' &&
+                                        j != 'exact' &&
+                                        j != 'exacts' &&
+                                        j != 'type' &&
+                                        j != 'operator' &&
+                                        j != 'valueContexts' &&
+                                        j != 'nonContextual' &&
+                                        j != 'contexts') {
+                                        delete filters[i][key][j];
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    return filters;
+                },
+
+                _setSearchCriteria: function () {
+                    // reset search criteria
+                    delete this._entityDataGetReq.params.query.filters.keywordsCriterion;
+                    delete this._entityDataGetReq.params.query.ids;
+                    var searchCriteria;
+
+                    if (this.searchQuery && this.searchQuery != "") {
+                        searchCriteria = DataHelper.getSearchCriteria(this.searchQuery);
+                        if (searchCriteria && searchCriteria.isIdSearch) {
+                            var filteredIds = searchCriteria.ids || [];
+                            if (this.entityIdList && this.entityIdList.length > 0) {
+                                var self = this;
+                                filteredIds = searchCriteria.ids.filter(function (searchCriteriaId) {
+                                    if (self.entityIdList.indexOf(searchCriteriaId) >= 0) {
+                                        return searchCriteriaId;
+                                    }
+                                });
+                            }
+                            this._entityDataGetReq.params.query.ids = filteredIds;
+                        } else {
+                            this._entityDataGetReq.params.query.filters.keywordsCriterion = searchCriteria
+                        }
+                    }
+
+                    if (this.entityIdList && this.entityIdList.length > 0 && (DataHelper.isEmptyObject(searchCriteria) || !searchCriteria.isIdSearch)) {
+                        this._entityDataGetReq.params.query.ids = this.entityIdList;
+                    }
+                },
+
+                _addDefaultContext: function () {
+                    let defaultLocale = DataHelper.getDefaultLocale();
+                    if (this._entityDataGetReq.params.query && this._entityDataGetReq.params.query.valueContexts) {
+                        let defaultValueContext = this._entityDataGetReq.params.query.valueContexts.find(context => context.locale === defaultLocale);
+                        if (!defaultValueContext) {
+                            let contextData = DataHelper.cloneObject(ContextHelper.getFirstValueContext(this.contextData));
+                            contextData.locale = defaultLocale;
+                            this._entityDataGetReq.params.query.valueContexts.push(contextData);
+                        }
+                    }
+                },
+
+                _updateItemContexts: function () {
+                    var itemContexts = this.getItemContexts();
+                    if (!itemContexts && itemContexts.length) {
+                        return;
+                    }
+                    var attributeNames = this._getAttributesFromConfig();
+                    this._updateAttributesForDomain(attributeNames);
+                    for (var i in itemContexts) {
+                        itemContexts[i].attributeNames = attributeNames;
+                    }
+                },
+
+                _updateAttributesForDomain: function(attributes) {
+                    if(this.domain == "digitalAsset") {
+                        if(this.gridConfig.itemConfig) {
+                            attributes.push(this.gridConfig.itemConfig.image);
+                            attributes.push(this.gridConfig.itemConfig.title);
+                            attributes.push(this.gridConfig.itemConfig.id);
+                            attributes.push(this.gridConfig.itemConfig.subtitle);
+                        }
+
+                        //Required attributes for assets
+                        attributes.push("type");
+                        attributes.push("filenameextension");
+                        attributes.push("thumbnailid");
+                        attributes.push("property_objectkey");
+
+                        attributes = [...new Set(attributes)]; //unique types
+                    }
+                },
+
+                _reloadGrid: function (isCombinedGetReq) {
+                    this._updateItemContexts();
+
+                    this._entityDataGetReq = DataRequestHelper.createEntityGetRequest(this.contextData);
+
+                    if (this.searchFilters && !_.isEmpty(this.searchFilters)) {
+                        var attrsCriterion = this._removeUnSupportedFilters(this.searchFilters);
+                        this._entityDataGetReq.params.query.filters.attributesCriterion = attrsCriterion;
+                        if (!_.isEmpty(this._governDataGetReq)) {
+                            this._governDataGetReq.params.query.filters.attributesCriterion = this._getDefaultGovernAttributesCriterion();
+                            this._updateGovernRequestAttributesCriterion(this.searchFilters);
+                        }
+                    }
+
+                    if (!_.isEmpty(this.relationshipSearchFilters)) {
+                        this._entityDataGetReq.params.query.filters.relationshipsCriterion = this.relationshipSearchFilters;
+                    }
+
+                    this._setSearchCriteria();
+
+                    this._isCombinedGetReq = isCombinedGetReq;
+
+                    if (isCombinedGetReq) {
+                        this.request = DataRequestHelper.createCombinedGetRequest(this._governDataGetReq, this._entityDataGetReq);
+                    } else {
+                        this.request = this._entityDataGetReq;
+                    }
+
+                    var grid = this._getEntityGrid();
+                    var dataSource = this._getEntityDataSource();
+
+                    if (grid) {
+                        if (dataSource) {
+                            dataSource.resetDataSource();
+                        }
+                        grid.reRenderGrid();
+                    }
+
+                },
+
+                _getEntityGrid: function () {
+                    if (!this._loadGovernData) {
+                        return ElementHelper.getElement(this, "#entityGrid");
+                    } else {
+                        return ElementHelper.getElement(this, "#governGrid");
+                    }
+                },
+                _getEntityDataSource: function () {
+                    if (this._loadGovernData) {
+                        return undefined;
+                    } else {
+                        return ElementHelper.getElement(this, "#searchGridDatasource");
+                    }
+                },
+
+                _isWorkflowRequest: function (loadGrid, loadWithoutWorkflow) {
+                    if (_.isEmpty(this.workflowCriterion) && !loadWithoutWorkflow) {
+                        return false;
+                    }
+                    return true;
+                },
+
+                _isWorkflowCriterion: function () {
+                    if (_.isEmpty(this.workflowCriterion)) {
+                        return false;
+                    }
+
+                    return true;
+                },
+
+                _onDownload: function (e, detail) {
+                    var selectedItems = this.getSelectedItems();
+                    var selectionMode = this.getSelectionMode();
+                    var selectionQuery = this.getSelectedItemsAsQuery();
+
+                    if (selectedItems && selectedItems.length && this.contextData) {
+                        var selectedItemsCount = selectionMode == "query" ? this.totalCount : selectedItems.length;
+                        var entityDownloadDialog = this.shadowRoot.querySelector("#entityDownloadDialog");
+                        entityDownloadDialog.name = "rock-wizard-entity-download";
+                        entityDownloadDialog.sharedData = {
+                            "context-data": this.contextData,
+                            "selection-query": selectionQuery,
+                            "selection-mode": selectionMode,
+                            "selected-entities": selectedItems,
+                            "selected-items-count": selectedItemsCount
+                        };
+                        entityDownloadDialog.open();
+                    } else {
+                        this.showInformationToast("Please select at least one entity from grid to download.");
+                    }
+                },
+                _onUpload: function (e, detail) {
+                    var dialog=this.shadowRoot.querySelector("#entityUploadDialog");
+                    if(dialog){
+                        dialog.name = "rock-wizard-entity-upload";
+                        dialog.sharedData = { "context-data": this.contextData };
+                        dialog.open();
+                    }
+                },
+                _onBulkEdit: function (e, detail) {
+                    var selectedItems = this.getSelectedItems();
+                    var selectionMode = this.getSelectionMode();
+                    var selectionQuery = this.getSelectedItemsAsQuery();
+                    if (selectedItems && selectedItems.length && this.contextData) {
+                        var itemContexts = [];
+                        if (this.typesCriterion && this.typesCriterion.length) {
+                            for (var i = 0; i < this.typesCriterion.length; i++) {
+                                var type = this.typesCriterion[i];
+                                if (!(itemContexts.find(obj => obj.type === type))) {
+                                    var itemContext = { "type": type };
+                                    itemContexts.push(itemContext);
+                                }
+                            }
+                        }
+                        var clonedContextData = DataHelper.cloneObject(this.contextData);
+                        clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
+                        clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
+                        var entityEditDialog = this.shadowRoot.querySelector("#entityEditDialog");
+                        entityEditDialog.name = "rock-wizard-entity-bulk-edit";
+                        entityEditDialog.configName = "wizardConfig";
+                        entityEditDialog.sharedData = {
+                            "context-data": clonedContextData,
+                            "workflow-criterion": this.workflowCriterion,
+                            "selection-query": selectionQuery,
+                            "selection-mode": selectionMode,
+                            "selected-entities": selectedItems,
+                            "edit-attributes-only": true
+                        };
+                        entityEditDialog.open();
+                    } else {
+                        this.showInformationToast("Please select at least one entity from grid to edit.");
+                    }
+                },
+                _showConfirmationDialog: function (e, detail) {
+                    var selectedItems = this.getSelectedItems();
+                    if (!selectedItems || selectedItems.length == 0) {
+                        this.showInformationToast("Please select at least one entity from grid to delete.");
+                        return;
+                    }
+                    this.shadowRoot.querySelector("#confirmationDialog").open();
+                },
+                _onBulkDelete: function () {
+                    var selectedItems = this.getSelectedItems();
+                    var selectionMode = this.getSelectionMode();
+                    var selectionQuery = this.getSelectedItemsAsQuery();
+
+                    //Safer code - Already delete button is hidden
+                    if (selectionMode == "query") {
+                        this.showInformationToast("Cannot perform delete based on 'All Search Criteria', please select the entities manually to perform this operation.");
+                        return;
+                    }
+
+                    if (this.contextData) {
+                        var entityDeleteDialog = this.shadowRoot.querySelector("#entityDeleteDialog");
+                        entityDeleteDialog.name = "rock-wizard-entity-delete";
+                        entityDeleteDialog.sharedData = {
+                            "context-data": this.contextData,
+                            "selection-query": selectionQuery,
+                            "selection-mode": selectionMode,
+                            "selected-entities": selectedItems
+                        };
+                        entityDeleteDialog.open();
+                    } else {
+                        this.showInformationToast("Context not available, cannot perform delete operation.");
+                    }
+                },
+                /**
+                 * <b><i>Content development is under progress... </b></i> 
+                 */
+                getSelectedItems: function () {
+                    var grid = this._getEntityGrid();
+                    return grid.getSelectedItems();
+                },
+                _showToggle: function () {
+                    if (this.governDataConfig && this.governDataConfig.showGovernDataToggle) {
+                        return true;
+                    }
+                    return false;
+                },
+
+                _getDefaultGovernAttributesCriterion: function () {
+                    var defaultCriterion = [];
+                    var currentCriterion = this._governDataGetReq.params.query.filters.attributesCriterion;
+
+                    if (currentCriterion) {
+                        currentCriterion.forEach(function (criterion) {
+                            if (criterion && Object.keys(criterion).length == 1) {
+                                switch (Object.keys(criterion)[0]) {
+                                    case "activities":
+                                    case "status":
+                                    case "businessConditions":
+                                        defaultCriterion.push(criterion);
+                                        break;
+                                }
+                            }
+                        }, this);
+                    }
+                    return defaultCriterion;
+                },
+
+                _updateGovernRequestAttributesCriterion: function (attributesCriterion) {
+
+                    if (this.governAttributesCriterion) {
+                        if (this.governAttributesCriterion.include && this.governAttributesCriterion.include.length) {
+
+                            if (this.governAttributesCriterion.include.length == 1 && this.governAttributesCriterion.include[0] == "_ALL") {
+                                attributesCriterion.forEach(function (attrCritrn) {
+                                    attrCritrn[Object.keys(attrCritrn)[0]].nonContextual = true;
+                                    this._governDataGetReq.params.query.filters.attributesCriterion.push(attrCritrn)
+                                }, this);
+                            } else {
+                                var attributes = this.governAttributesCriterion.include;
+
+                                if (attributes && attributes.length) {
+                                    attributes.forEach(function (attr) {
+                                        for (var i = 0; i < attributesCriterion.length; i++) {
+                                            if (attributesCriterion[i][attr]) {
+                                                var attrCriterion = attributesCriterion[i];
+                                                attrCriterion[attr].nonContextual = true;
+                                                this._governDataGetReq.params.query.filters.attributesCriterion.push(attrCriterion);
+                                                break;
+                                            }
+                                        }
+                                    }, this);
+                                }
+                            }
+                        }
+                    }
+                },
+
+                _onOriginalAssetDownloadAction: function (e, detail) {
+                    if (detail) {
+                        var fileName = detail.property_objectkey;
+                        if (fileName) {
+                            this._generateOriginalAssetsDownloadRequest([fileName]);
+                        }
+                    }
+                },
+
+                _onCustomToolbarEvent: function (e, detail) {
+                    if (detail && detail.name == "originalAssetDownload") {
+                        this._originalAssetsDownload();
+                    }
+                },
+
+                _originalAssetsDownload: function () {
+                    var rockGrid = Polymer.dom(this).node.shadowRoot.querySelector('rock-grid');
+                    var selectedItems = rockGrid.getSelectedItems();
+                    if (selectedItems && selectedItems.length) {
+                        if (selectedItems.length > 5) {
+                            this.showInformationToast("Simultaneous download of maximum 5 assets are allowed.");
+                            return;
+                        }
+                        var objectKeys = [];
+                        selectedItems.forEach(function (item) {
+                            if (item && item.property_objectkey) {
+                                objectKeys.push(item.property_objectkey)
+                            }
+                        }, this);
+                        if (objectKeys.length) {
+                            this._generateOriginalAssetsDownloadRequest(objectKeys);
+                        }
+                    } else {
+                        this.showInformationToast("Please select at least one asset from grid to download.");
+                    }
+                },
+
+                _generateOriginalAssetsDownloadRequest: function (objectkeys) {
+                    var binaryStreamObjects = [];
+                    objectkeys.forEach(function (item) {
+                        if (item) {
+                            binaryStreamObjects.push(
+                                {
+                                    "binaryStreamObject":
+                                    {
+                                        "id": item,
+                                        "type": "binarystreamobject",
+                                        "data": {}
+                                    }
+                                }
+                            )
+                        }
+                    }, this);
+                    var req = binaryStreamObjects;
+                    var downloadUrlLiquid = this.shadowRoot.querySelector("#getDownloadUrl");
+                    if (downloadUrlLiquid) {
+                        downloadUrlLiquid.requestData = req;
+                        downloadUrlLiquid.generateRequest();
+                    }
+                },
+
+                _onGetDownloadUrlResponse: function (e) {
+                    const a = document.createElement('a');
+                    a.download = "";
+                    
+                    LiquidResponseHelper.downloadURLResponseMapper(e, downloadURL => {
+                        a.href = downloadURL;
+                        a.click();
+                    });
+                }
+            });
+        })();
+    </script>
+</dom-module>
