@@ -195,7 +195,7 @@ async function initiateSearch(callPath, args) {
                         additionalIdsRequested = request.params.additionalIds;
 
                         for (let additionalId of additionalIdsRequested) {
-                            var dataObjectsByIdPath = [pathKeys.root, dataIndex, dataObjectType, pathKeys.byIds];
+                            var dataObjectsByIdPath = [pathKeys.root, dataIndex, dataSubIndex, dataObjectType, pathKeys.byIds];
                             response.push(mergeAndCreatePath(basePath, [pathKeys.searchResultItems, index++], $ref(mergePathSets(dataObjectsByIdPath, [additionalId])), searchResultExpireTime));
                         }
                     }

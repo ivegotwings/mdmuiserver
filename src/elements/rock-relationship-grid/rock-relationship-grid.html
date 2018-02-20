@@ -272,6 +272,10 @@ The following JSON object is a sample of data which binds the grid.
         --rock-grid-height: 200px;
       }
 
+      rock-grid.expanded {
+        --rock-grid-height: inherit !important;
+      }
+
       #buttonContainer {
         height: 50px;
         background: var(--white, #fff);
@@ -345,7 +349,12 @@ The following JSON object is a sample of data which binds the grid.
     
     <template is="dom-if" if="[[!_isMessageAvailable]]">
         <div id="relContainer_[[relationship]]"  >
+
+
+          <template is="dom-if" if="[[showAccordion]]">
           <pebble-accordion header-text="[[relationshipGridConfig.gridConfig.title]]" default-icon="pebble-icon:RightArrow" open-icon="pebble-icon:Expand">
+          </template>
+
             <span slot="header-actions">
               <template is="dom-if" if="[[relationshipGridConfig.gridConfig]]">
                 <pebble-info-icon description-object="[[relationshipGridConfig.gridConfig]]"></pebble-info-icon>
@@ -373,10 +382,26 @@ The following JSON object is a sample of data which binds the grid.
                                                       r-data-source="{{rDataSource}}" r-data-formatter="{{rDataFormatter}}" buffer-record-size="{{size}}" current-record-size="{{currentRecordSize}}"
                                                       result-record-size="{{resultRecordSize}}" total-count="{{totalCount}}" apply-context-coalesce="[[relationshipGridConfig.gridConfig.applyContextCoalesce]]"></entity-relationship-grid-datasource>
 
-                  <rock-grid id$="[[relationship]]" readonly$="[[readonly]]" context-data="[[contextData]]" r-data-source="{{rDataSource}}" r-data-source-id="datasource_[[relationship]]" config="{{relationshipGridConfig.gridConfig}}"
-                            attribute-models="[[_getRelationshipAttributeModels(relationship)]]" grid-data-size="{{size}}" current-record-size="{{currentRecordSize}}" max-configured-count="[[maxConfiguredCount]]"
-                            row-drag-drop-enabled="[[_getRowDragDropEnabled()]]" on-row-drop-event-raised="_onRowDropEventRaised" result-record-size="{{resultRecordSize}}" total-count="{{totalCount}}" page-size="20">
-                            <rock-entity-relationship-search-result-actions slot="toolbar" id="gridActions" context-data="[[contextData]]" has-write-permissions$="[[_hasWritePermissions(relationshipGridConfig.gridConfig)]]"></rock-entity-relationship-search-result-actions>
+                  <rock-grid id$="[[relationship]]"
+                             class$="[[_getGridClass()]]"
+                             readonly$="[[readonly]]"
+                             context-data="[[contextData]]"
+                             r-data-source="{{rDataSource}}"
+                             r-data-source-id="datasource_[[relationship]]"
+                             config="{{relationshipGridConfig.gridConfig}}"
+                             attribute-models="[[_getRelationshipAttributeModels(relationship)]]"
+                             grid-data-size="{{size}}"
+                             current-record-size="{{currentRecordSize}}"
+                             max-configured-count="[[maxConfiguredCount]]"
+                             row-drag-drop-enabled="[[_getRowDragDropEnabled()]]"
+                             on-row-drop-event-raised="_onRowDropEventRaised"
+                             result-record-size="{{resultRecordSize}}"
+                             total-count="{{totalCount}}"
+                             page-size="20">
+
+                    <rock-entity-relationship-search-result-actions slot="toolbar" id="gridActions"
+                                                                    context-data="[[contextData]]"
+                                                                    has-write-permissions$="[[_hasWritePermissions(relationshipGridConfig.gridConfig)]]"></rock-entity-relationship-search-result-actions>
                   </rock-grid>
                   <bedrock-pubsub event-name="grid-selecting-item" handler="_onSelectingGridItem" target-id="[[relationship]]"></bedrock-pubsub>
                   <bedrock-pubsub event-name="grid-deselecting-item" handler="_onDeSelectingGridItem" target-id="[[relationship]]"></bedrock-pubsub>
@@ -404,8 +429,12 @@ The following JSON object is a sample of data which binds the grid.
                   </div>
                 </template>
               </div>
+
             </div>
+
+        <template is="dom-if" if="[[showAccordion]]">
         </pebble-accordion>
+        </template>
       </div>
 
       <liquid-entity-data-get id="entityGetData" name="entityGet" operation="getbyids" request-data="{{_entityGetRequest}}" last-response="{{entitiesResponse}}"></liquid-entity-data-get>
@@ -426,7 +455,7 @@ The following JSON object is a sample of data which binds the grid.
         <p>Found below errors in entity details: </p>
         <ul>
           <template is="dom-repeat" items="[[_errorMessages]]">
-            <li>[[item.attributeName]] with error: [[item.message]]</li>
+            <li>[[item.relationshipRelToId]] with error:[[item.message]]</li>
           </template>
         </ul>
         <p>Do you want to fix the errors or continue?</p>
@@ -613,6 +642,10 @@ The following JSON object is a sample of data which binds the grid.
           _quickManageEnabled: {
             type: Boolean,
             value: false
+          },
+          showAccordion: {
+            type: Boolean,
+            value: true
           },
           /**
            * <b><i>Content development is under progress... </b></i>
@@ -906,6 +939,7 @@ The following JSON object is a sample of data which binds the grid.
 
 
                   var savedItemsToLov = [];
+                  var entityTypeManager = new EntityTypeManager();
                   relationships.forEach(function (relItem) {
                     if (relItem) {
                       var record = {};
@@ -931,7 +965,7 @@ The following JSON object is a sample of data which binds the grid.
                         record["type"] = relItem.relTo.type;
                         lovItem["id"] = relItem.relTo.id;
                         lovItem["title"] = relItem.relTo.id;
-                        record["typeExternalName"] = DataHelper.getEntityTypeExternalName(relItem.relTo.type);
+                        record["typeExternalName"] =  entityTypeManager.getTypeExternalNameById(relItem.relTo.type);
                         savedItemsToLov.push(lovItem);
 
                         //It will required in case of default sorting.
@@ -1442,15 +1476,16 @@ The following JSON object is a sample of data which binds the grid.
               for (var i in relationships) {
                 var relationshipType = i;
                 var relTitle = this._getRelationshipTypeTitle(relationshipType);
-                var relationshipMessages = MessageHelper.getRelationshipMessages(relationships[i], this.messageCodeMapping, this.localize);
+                var relationshipMessages = MessageHelper.getRelationshipsMessages(relationships[i], this.messageCodeMapping, this.localize);
                 if (relationshipMessages && relationshipMessages.length > 0) {
                   var relAttributes = relationships[i][0].attributes;
                   var attrModels = this._getRelationshipAttributeModels(relationshipType);
                   var relationshipObj = {
                     "relTitle": relTitle,
-                    "relMessage": relationshipMessages[0],
+                    "relMessage": relationshipMessages,
                     "relAttributes": relAttributes,
-                    "attrModels": attrModels
+                    "attrModels": attrModels,
+                    "relationship":relationships[i]
                   };
                   relMessages[relationshipType] = relationshipObj;
                 }
@@ -1995,7 +2030,9 @@ The following JSON object is a sample of data which binds the grid.
             this.showInformationToast("Please select at least one entity from grid to edit.");
           }
         },
-
+        _getGridClass(){
+          return !this.showAccordion ? "expanded" : "";
+        },
         _onGlobalEdit(e) {
           const relGrid = this.$$(`rock-grid`);
 
