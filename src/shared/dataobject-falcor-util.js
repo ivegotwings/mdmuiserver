@@ -340,7 +340,7 @@ DataObjectFalcorUtil.mergeObjects = function (target, source, addMissing = true,
         var targetObj = target[targetObjKey];
         var sourceObj = source[targetObjKey];
 
-        if (sourceObj) {
+        if (sourceObj != undefined) {
             //console.log('deep assign---- target:', JSON.stringify(targetObj), 'source:', JSON.stringify(sourceObj));
             if(overrideArrays) {
                 target[targetObjKey] = DataObjectFalcorUtil.deepAssignArrayOverride(targetObj, sourceObj);
@@ -356,7 +356,7 @@ DataObjectFalcorUtil.mergeObjects = function (target, source, addMissing = true,
             var sourceObj = source[sourceObjKey];
             var targetObj = target[sourceObjKey];
 
-            if (!targetObj) {
+            if (targetObj == undefined) {
                 target[sourceObjKey] = sourceObj;
             }
         }
