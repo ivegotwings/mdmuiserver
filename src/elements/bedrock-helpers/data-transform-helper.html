@@ -412,7 +412,7 @@
             return newEntity;
 
         };
-    
+
 
         DataTransformHelper._removeAttrsWithDeleteFlagAndContextCoalesce = function (attributes, dataContext) {
             /***if attribute has contextCoalescePaths in attrProperties and that path is 
@@ -616,24 +616,6 @@
             return transformedAttributes;
         };
 
-        DataTransformHelper._overrideByDefaultLocaleValue = function (attributes, attributeModel, attributeJSON) {
-            let defaultLocaleId = DataHelper.getDefaultLocale();
-            if (attributeJSON && attributes[attributeModel.name] && attributes[attributeModel.name].values) {
-                let defaultLocaleValue = attributes[attributeModel.name].values.filter(v => v.locale === defaultLocaleId);
-                if (defaultLocaleValue && defaultLocaleValue.length) {
-                    attributeJSON.locale = defaultLocaleId;
-                    if (attributeJSON.value instanceof Array) {
-                        attributeJSON.value = [];
-                        for (var i = 0; i < defaultLocaleValue.length; i++) {
-                            attributeJSON.value.push(defaultLocaleValue[i].value);
-                        }
-                    } else {
-                        attributeJSON.value = defaultLocaleValue[0] ? defaultLocaleValue[0].value : undefined;
-                    }
-                }
-            }
-        };
-
         DataTransformHelper._transformAttributes = function (attributes, attributeModels, contextModels, valueContext, dataContext) {
             var transformedAttributes = {};
             var additionalContexts = [];
@@ -653,7 +635,9 @@
                     }
                 }
             }
-            valueContext = _.isEmpty(valueContext) ? DataHelper.getDefaultValContext() : valueContext;
+            var defaultValCtx = DataHelper.getDefaultValContext();
+            valueContext = _.isEmpty(valueContext) ? defaultValCtx : valueContext;
+            var clonedValCtx = DataHelper.cloneObject(valueContext);
 
             for (var attributeModelName in attributeModels) {
                 var attributeJSON = {};
@@ -667,7 +651,14 @@
                             this._removeCoalescePropertiesBasedOnAdditionalContext(attribute, attributeModel, additionalContexts, primaryContexts);
                         }
 
-                        attributeJSON = AttributeHelper.getCurrentValue(attribute.values, valueContext, attributeModel);
+                        var currentLocale = valueContext.locale;
+                        if (!attributeModel.isLocalizable) {
+                            currentLocale = defaultValCtx.locale;
+                        }
+
+                        attribute.values = attribute.values.filter(value => value.locale === currentLocale);
+                        clonedValCtx.locale = currentLocale;
+                        attributeJSON = AttributeHelper.getCurrentValue(attribute.values, clonedValCtx, attributeModel);
 
                         var attributeRefIds = [];
                         var selectedLocales = [];
@@ -763,10 +754,6 @@
 
                     if (attributeJSON == undefined || (!attributeJSON.value && !attributeJSON.group)) {
                         attributeJSON = AttributeHelper.getEmptyValue(valueContext, attributeModel);
-                    }
-
-                    if (attributeModel.properties && !attributeModel.properties.isLocalizable) {
-                        this._overrideByDefaultLocaleValue(attributes, attributeModel, attributeJSON);
                     }
 
                     attributeJSON.selfContext = attributeModel.selfContext;
@@ -894,6 +881,10 @@
 
                 if (model.properties && (model.properties.isReferenceType || model.properties.dataType === "nested" || model.isNestedChild)) {
                     model.properties.isLocalizable = true;
+                }
+
+                if (model.properties.isCollection && model.properties.dataType !== "nested") {
+                    model.properties.isLocalizable = false;
                 }
 
                 for (var prop in model.properties) {
@@ -1696,31 +1687,31 @@
 
                 if (additionalContexts) {
                     partialContext = DataTransformHelper._getPartialContextFromAdditionalContext(additionalContexts, firstDataContext);
-                }
 
-                if (!_.isEmpty(partialContext)) {
-                    var partialContextData = {
-                        "context": partialContext,
-                        "attributes": {},
-                        "relationships": {}
-                    }
-                    if (data) {
-                        if (data.attributes) {
-                            partialContextData.attributes = data.attributes;
-                            delete data.attributes;
+                    if (!_.isEmpty(partialContext)) {
+                        var partialContextData = {
+                            "context": partialContext,
+                            "attributes": {},
+                            "relationships": {}
                         }
+                        if (data) {
+                            if (data.attributes) {
+                                partialContextData.attributes = data.attributes;
+                                delete data.attributes;
+                            }
 
-                        if (data.relationships) {
-                            partialContextData.relationships = data.relationships;
-                            delete data.relationships;
-                        }
+                            if (data.relationships) {
+                                partialContextData.relationships = data.relationships;
+                                delete data.relationships;
+                            }
 
-                        if (data.contexts) {
-                            var context = data.contexts[0];
+                            if (data.contexts) {
+                                var context = data.contexts[0];
 
-                            if (context && context.attributes) {
-                                var attributes = context.attributes;
-                                DataTransformHelper._addRemoveAttributesBasedOnAdditionalContext(attributes, attributeModels, additionalContexts, partialContextData);
+                                if (context && context.attributes) {
+                                    var attributes = context.attributes;
+                                    DataTransformHelper._addRemoveAttributesBasedOnAdditionalContext(attributes, attributeModels, additionalContexts, partialContextData);
+                                }
                             }
 
                             if (context && context.relationships) {
@@ -1734,8 +1725,7 @@
                         }
                         data.contexts.push(partialContextData);
                     }
-                }
-                else {
+                } else {
                     if (data.contexts && data.contexts.length) {
                         if (!_.isEmpty(data.contexts[0].attributes)) {
                             for (var attrKey in data.attributes) {
@@ -2079,12 +2069,12 @@
             for (let attributeName in attributes) {
                 var attribute = attributes[attributeName];
                 if (attribute.values) {
-                    var attrVal = DataTransformHelper._updateValuesAndCoalesceInfo(attribute.values, valContext, clonedValCtx, fallbackLocales);
-                    if (attrVal) {
-                        attribute.values = [attrVal];
+                    var attrValues = DataTransformHelper._updateValuesAndCoalesceInfo(attribute.values, valContext, clonedValCtx, fallbackLocales);
+                    if (attrValues) {
+                        attribute.values = attrValues;
                     }
                 } else if (attribute.group && attribute.group.length > 0) {
-                    var currentLocaleGroup = DataTransformHelper._updateValuesAndCoalesceInfo(attribute.group, valContext, clonedValCtx, fallbackLocales, true);
+                    var currentLocaleGroup = DataTransformHelper._updateValuesAndCoalesceInfo(attribute.group, valContext, clonedValCtx, fallbackLocales);
                     if (currentLocaleGroup) {
                         attribute.group = currentLocaleGroup;
                     }
@@ -2092,33 +2082,30 @@
             }
         };
 
-        DataTransformHelper._updateValuesAndCoalesceInfo = function (values, valContext, clonedValCtx, fallbackLocales, isNested) {
+        DataTransformHelper._updateValuesAndCoalesceInfo = function (values, valContext, clonedValCtx, fallbackLocales) {
             var model = {};
-            if (isNested) {
-                model.dataType = "nested";
-            }
-            var attrVal = AttributeHelper.getCurrentValue(values, valContext, model);
-            if (_.isEmpty(attrVal)) {
+            var defaultValues = values.filter(value => value.locale === DataHelper.getDefaultLocale());
+            var _values = DataHelper.cloneObject(values);
+            var attrValues = _values.filter(value => value.locale === valContext.locale);
+            if (_.isEmpty(attrValues)) {
                 for (let j = 0; j < fallbackLocales.length; j++) {
                     var fbl = fallbackLocales[j].name;
                     clonedValCtx.locale = fbl;
-                    attrVal = AttributeHelper.getCurrentValue(values, clonedValCtx, model);
-                    if (!_.isEmpty(attrVal)) {
-                        if (attrVal instanceof Array && attrVal.length > 0) {
-                            for (let x = 0; x < attrVal.length; x++) {
-                                var val = attrVal[x];
-                                DataTransformHelper._updateValueContextAndCoalesceInfo(val, valContext, fallbackLocales, j);
-                            }
-                        } else {
-                            DataTransformHelper._updateValueContextAndCoalesceInfo(attrVal, valContext, fallbackLocales, j);
+                    attrValues = _values.filter(value => value.locale === clonedValCtx.locale);
+                    if (!_.isEmpty(attrValues)) {
+                        for (let x = 0; x < attrValues.length; x++) {
+                            var val = attrValues[x];
+                            DataTransformHelper._updateValueContextAndCoalesceInfo(val, valContext, fallbackLocales, j);
                         }
                         break;
-                    } else {
+                    }
+                    else {
                         continue;
                     }
                 }
             }
-            return attrVal;
+            attrValues = attrValues.concat(defaultValues);
+            return attrValues;
         };
 
         DataTransformHelper._updateValueContextAndCoalesceInfo = function (value, valContext, fallbackLocales, localeIndex) {
