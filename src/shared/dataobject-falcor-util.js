@@ -1,4 +1,69 @@
 'use strict';
+var RUFUtilities = {};
+RUFUtilities.datahelpers = (function(){
+    var _walk = function (target, copy) {
+                    for (var key in target) {
+                        var obj = target[key];
+                        if (obj instanceof Date) {
+                            var value = new Date(obj.getTime());
+                            _add(copy, key, value);
+                        }
+                        else if (obj instanceof Function) {
+                            var value = obj;
+                            _add(copy, key, value);
+                        }
+                        else if (obj instanceof Array) {
+                            var value = [];
+                            var last = _add(copy, key, value);
+                            _walk(obj, last);
+                        }
+                        else if (obj instanceof Object) {
+                            var value = {};
+                            var last = _add(copy, key, value);
+                            _walk(obj, last);
+                        }
+                        else {
+                            var value = obj;
+                            _add(copy, key, value);
+                        }
+                    }
+                }
+    
+    var _add = function (copy, key, value) {
+                if (copy instanceof Array) {
+                    copy.push(value);
+                    return copy[copy.length - 1];
+                }
+                else if (copy instanceof Object) {
+                    copy[key] = value;
+                    return copy[key];
+                }
+            }
+
+    return {
+        dcopy: function (target) {
+            if (/number|string|boolean/.test(typeof target)) {
+            return target;
+            }
+            if (target instanceof Date) {
+            return new Date(target.getTime());
+            }
+
+            var copy = (target instanceof Array) ? [] : {};
+            _walk(target, copy);
+            return copy;
+        }
+    }
+})();
+
+(function (){
+    try {
+        window.RUFUtilities = RUFUtilities;    
+    } catch(e) {
+
+    }
+})();
+
 
 var DataObjectFalcorUtil = function () { };
 
@@ -597,13 +662,7 @@ DataObjectFalcorUtil.getConfigByCtx = function (dataObject, context) {
 }
 
 DataObjectFalcorUtil.cloneObject = function (obj) {
-    var clonedObj = {};
-
-    if (obj) {
-        clonedObj = JSON.parse(JSON.stringify(obj));
-    }
-
-    return clonedObj;
+    return RUFUtilities.datahelpers.dcopy(obj);
 };
 
 DataObjectFalcorUtil.objectHasKeys = function (obj, keys) {
