@@ -171,6 +171,7 @@
         <div id="context-header">
             <rock-dimension-selector id="dimensionSelector" context-data="[[contextData]]" app-name="app-business-function" horizontal-align="left"
                 all-single-select></rock-dimension-selector>
+            <bedrock-pubsub event-name="dimension-selector-data-changed" handler="_onDimensionsChanged" target-id="dimensionSelector"></bedrock-pubsub>
             <span class="pull-right">
                 <pebble-icon class="iconButton pebble-icon-size-30 tooltip-bottom pebble-icon-color-success" icon="pebble-icon:Searchsmall"
                     id="loadMappings" data-tooltip="Load Mappings" raised on-tap="_onLoadMappingsTap"></pebble-icon>
@@ -191,7 +192,7 @@
                 </data-table-column>
                 <data-table-column slot="column-slot" name="Governed Value">
                     <template>
-                        <div id="inputDiv" slot="cell-slot-content" on-tap="_onAttributeTap" index="[[index]]">
+                        <div id="inputDiv" slot="cell-slot-content" index="[[index]]">
                             <pebble-textbox readonly$="[[_isReferenceField]]" class="attributes-text" id="govern-text_[[index]]" no-label-float row-id="[[index]]" value="[[item.governedValue]]"
                                 title="[[item.governedValue]]" on-change="_onGovernTextChange"></pebble-textbox>
                         </div>
@@ -328,6 +329,27 @@
                     },
 
                     //Remove it after implementing context mapping
+                    _taxonomies: {
+                        type: Array,
+                        value: function () {
+                            return [
+                                {
+                                    "id": "merchandisingtaxonomy",
+                                    "name": "Merchandising Taxonomy",
+                                    "type": "taxonomy",
+                                    "domain": "thing"
+                                },
+                                {
+                                    "id": "productsetuptaxonomy",
+                                    "name": "Product Setup Taxonomy",
+                                    "type": "taxonomy",
+                                    "domain": "thing"
+                                }
+                            ];
+                        }
+                    },
+
+                    //Remove it after implementing context mapping
                     _contexts: {
                         type: Array,
                         value: function() {
@@ -445,6 +467,8 @@
                         }
                         contexts.push(context);
                     }
+
+                    return contexts;
                 },
 
                 _onAttributeModelError: function (e, detail) {
@@ -739,13 +763,23 @@
 
                         if(this.isSuccess && !this.isFailed) {
                             this.showSuccessToast("Value mappings saved successfully.");
-                            this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                            this._resetMappings();
+                            //this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
                         } else if(!this.isSuccess && this.isFailed) {
                             this.showErrorToast("Unable to save value mappings, please contact administrator.");
                         } else {
                             this.showWarningToast("Value mappings processed with errors.");
-                            this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                            this._resetMappings();
+                            //this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
                         }
+                    }
+                },
+
+                _resetMappings: function () {
+                    this._deletedMappings = [];
+                    this._refChangeDeletedMappings = [];
+                    for (var i = 0; i < this._gridData.length; i++) {
+                        this._gridData[i].action = "";
                     }
                 },
 
@@ -857,7 +891,28 @@
                     var dimensionSelector = this.shadowRoot.querySelector("#dimensionSelector");
                     if(dimensionSelector) {
                         this.selectedDimensions = dimensionSelector.selectedDimensions;
+                        this._resetMappings(); // Reset before get
                         this._getMappings(); // Get mappings based on dimensions
+                    }
+                },
+
+                _onDimensionsChanged: function(e, detail) {
+                    if(detail && detail.dimensions && 
+                       detail.dimensions.taxonomy && 
+                       detail.dimensions.taxonomy.length) {
+                        if(this._currentTaxonomy != detail.dimensions.taxonomy[0]) {
+                            this._currentTaxonomy = detail.dimensions.taxonomy[0];
+
+                            var dimensionSelector = this.shadowRoot.querySelector("#dimensionSelector");
+                            if(dimensionSelector) {
+                                for(var i = 0; i < this._taxonomies.length; i++) {
+                                    if(this._taxonomies[i].name.toLowerCase() == this._currentTaxonomy.toLowerCase()) {
+                                        dimensionSelector.classificationTaxonomy = this._taxonomies[i].id;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             });
