@@ -41,7 +41,7 @@ RUFUtilities.datahelpers = (function(){
             }
 
     return {
-        dcopy: function (target) {
+        clone: function (target) {
             if (/number|string|boolean/.test(typeof target)) {
             return target;
             }
@@ -58,7 +58,9 @@ RUFUtilities.datahelpers = (function(){
 
 (function (){
     try {
-        window.RUFUtilities = RUFUtilities;    
+        if (window.RUFUtilities) {
+            RUFUtilities = window.RUFUtilities;
+        }    
     } catch(e) {
 
     }
@@ -662,7 +664,7 @@ DataObjectFalcorUtil.getConfigByCtx = function (dataObject, context) {
 }
 
 DataObjectFalcorUtil.cloneObject = function (obj) {
-    return RUFUtilities.datahelpers.dcopy(obj);
+    return RUFUtilities.datahelpers.clone(obj);
 };
 
 DataObjectFalcorUtil.objectHasKeys = function (obj, keys) {
