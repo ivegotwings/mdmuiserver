@@ -1,6 +1,6 @@
 'use strict';
 var RUFUtilities = {};
-RUFUtilities.datahelpers = (function(){
+var datahelpers = (function(){
     var _walk = function (target, copy) {
                     for (var key in target) {
                         var obj = target[key];
@@ -39,30 +39,160 @@ RUFUtilities.datahelpers = (function(){
                     return copy[key];
                 }
             }
+            
+    var _clone = function (target) {
+                if (/number|string|boolean/.test(typeof target)) {
+                return target;
+                }
+                if (target instanceof Date) {
+                return new Date(target.getTime());
+                }
+    
+                var copy = (target instanceof Array) ? [] : {};
+                _walk(target, copy);
+                return copy;
+            }
+              
+    const types = {}
+    // (Number) -> boolean
+    types.number = function(a, b){
+        return a !== a && b !== b/*Nan check*/
+    }
+    
+    // (function, function, array) -> boolean
+    types['function'] = function(a, b, memos){
+        return a.toString() === b.toString()
+        // Functions can act as objects
+        && types.object(a, b, memos)
+        && equal(a.prototype, b.prototype)
+    }
+    
+    // (date, date) -> boolean
+    types.date = function(a, b){
+        return +a === +b
+    }
+    
+    // (regexp, regexp) -> boolean
+    types.regexp = function(a, b){
+        return a.toString() === b.toString()
+    }
+    
+    // (DOMElement, DOMElement) -> boolean
+    types.element = function(a, b){
+        return a.outerHTML === b.outerHTML
+    }
+    
+    // (textnode, textnode) -> boolean
+    types.textnode = function(a, b){
+        return a.textContent === b.textContent
+    }
+
+    types.undefined = function(a,b) {
+        return true;
+    }
+    // decorate `fn` to prevent it re-checking objects
+    // (function) -> function
+    function memoGaurd(fn){
+        return function(a, b, memos){
+            if (!memos) return fn(a, b, [])
+            var i = memos.length, memo
+            while (memo = memos[--i]) {
+                if (memo[0] === a && memo[1] === b) return true
+            }
+            return fn(a, b, memos)
+        }
+    }
+
+    // (array, array, array) -> boolean
+    function arrayEqual(a, b, memos){
+        var i = a.length
+        if (i !== b.length) return false
+        memos.push([a, b])
+        while (i--) {
+        if (!equal(a[i], b[i], memos)) return false
+        }
+        return true
+    }
+
+    function getEnumerableProperties(object) {
+        const result = []
+        for (var k in object) if (k !== 'constructor') {
+            result.push(k)
+        }
+        return result
+    }
+
+    function objectEqual(a, b, memos) {
+        if (typeof a.equal == 'function') {
+          memos.push([a, b])
+          return a.equal(b, memos)
+        }
+        var ka = getEnumerableProperties(a)
+        var kb = getEnumerableProperties(b)
+        var i = ka.length
+   
+        // same number of properties
+        if (i !== kb.length) return false
+      
+        // although not necessarily the same order
+        ka.sort()
+        kb.sort()
+      
+        // cheap key test
+        while (i--) if (ka[i] !== kb[i]) return false
+      
+        // remember
+        memos.push([a, b])
+      
+        // iterate again this time doing a thorough check
+        i = ka.length
+        while (i--) {
+          if (!_equal(a[key], b[key], memos)) return false
+        }
+      
+        return true
+      } 
+    types.array = memoGaurd(arrayEqual)
+    types.object = memoGaurd(objectEqual)
+
+    function type(x) {
+        var type = typeof x
+        if (type != 'object') return type
+        type = types[toString.call(x)]
+        if (type == 'object') {
+            // in case they have been polyfilled
+            if (x instanceof Map) return 'map'
+            if (x instanceof Set) return 'set'
+            return 'object'
+        }
+        if (type) return type
+    }
+    
+    var _equal = function (a, b, memos){
+        // All identical values are equivalent
+        if (a === b) return true
+
+        const fnA = types[type(a)]
+        const fnB = types[type(b)]
+        return fnA && fnA === fnB
+            ? fnA(a, b, memos)
+            : false
+    }
 
     return {
-        clone: function (target) {
-            if (/number|string|boolean/.test(typeof target)) {
-            return target;
-            }
-            if (target instanceof Date) {
-            return new Date(target.getTime());
-            }
-
-            var copy = (target instanceof Array) ? [] : {};
-            _walk(target, copy);
-            return copy;
-        }
+        clone: _clone,
+        deepEqual: _equal
     }
 })();
 
 (function (){
     try {
-        if (window.RUFUtilities) {
-            RUFUtilities = window.RUFUtilities;
+        if (window.RUFUtilities) { //only copy deepqueal, as client has a separate deepequal module
+            window.RUFUtilities.datahelpers = window.RUFUtilities.datahelpers || {};
+            window.RUFUtilities.datahelpers['deepEqual'] = datahelpers.deepEqual;
         }    
     } catch(e) {
-
+        RUFUtilities.datahelpers = datahelpers;
     }
 })();
 
@@ -511,31 +641,23 @@ DataObjectFalcorUtil.mergeArraysNoOverride = function (target, source, identifie
     return target;
 };
 
-DataObjectFalcorUtil.sortObject = function (object) {
-    if (isEmpty(object)) {
-        return object;
+DataObjectFalcorUtil.sortObject = function (src) {
+    if (isEmpty(src)) {
+        return src;
     }
 
-    var sortedObj = {},
-        keys = Object.keys(object);
+    if (src && typeof src === 'object' && !Array.isArray(src)) {
+        var out = {};
 
-    keys.sort(function (key1, key2) {
-        key1 = key1.toLowerCase(), key2 = key2.toLowerCase();
-        if (key1 < key2) return -1;
-        if (key1 > key2) return 1;
-        return 0;
-    });
+        Object.keys(src).sort((key1,key2) => {
+            return key2.localeCompare(key1);
+        }).forEach(function (key) {
+            out[key] = DataObjectFalcorUtil.sortObject(src[key]);
+        });
 
-    for (var index in keys) {
-        var key = keys[index];
-        if (typeof object[key] == 'object' && !(object[key] instanceof Array)) {
-            sortedObj[key] = DataObjectFalcorUtil.sortObject(object[key]);
-        } else {
-            sortedObj[key] = object[key];
-        }
+        return out;
     }
-
-    return sortedObj;
+    return src;
 };
 
 DataObjectFalcorUtil.createCtxKey = function (ctxItem) {
@@ -570,11 +692,11 @@ DataObjectFalcorUtil.createEmptyKeyFieldIfMissing = function (obj, key, defaultV
 };
 
 DataObjectFalcorUtil.compareCtx = function (obj1, obj2) {
-    return JSON.stringify(DataObjectFalcorUtil.sortObject(obj1)) == JSON.stringify(DataObjectFalcorUtil.sortObject(obj2));
+    return RUFUtilities.datahelpers.deepEqual(obj1, obj2);
 };
 
 DataObjectFalcorUtil.compareObjects = function (obj1, obj2) {
-    return JSON.stringify(DataObjectFalcorUtil.sortObject(obj1)) == JSON.stringify(DataObjectFalcorUtil.sortObject(obj2));
+    return RUFUtilities.datahelpers.deepEqual(obj1, obj2);
 }
 
 DataObjectFalcorUtil.createCtxItem = function (ctxKey) {
