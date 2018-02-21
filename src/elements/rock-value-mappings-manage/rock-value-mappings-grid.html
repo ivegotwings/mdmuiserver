@@ -135,13 +135,20 @@
 
             #gridManage {
                 text-align: right;
-                margin-right: 10px;
+                font-size: 0;
+            }
+
+            #gridManage pebble-icon {
+                display: inline-block;
+                vertical-align: middle;
             }
 
             .gridCountMsg {
                 font-weight: bold;
                 margin-right: 10px;
                 font-size: var(--grid-msg-font-size, 12px);
+                display: inline-block;
+                vertical-align: middle;
             }
         </style>
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
@@ -150,24 +157,24 @@
         </div>
         <div id="gridManage">
             <span class="gridCountMsg">Showing [[_getGridRecordsCount(_gridData)]] items</span>
-            <pebble-button class="iconButton m-r-5" title="Add" id="add" icon="pebble-icon:Add" raised on-tap="_onAddTap"></pebble-button>
-            <pebble-button class="iconButton m-r-5" title="Delete" id="delete" icon="pebble-icon:Delete" raised on-tap="_onDeleteTap"></pebble-button>
+            <pebble-icon class="pebble-icon-size-16 tooltip-bottom m-r-10" id="add" icon="pebble-icon:Add" data-tooltip="Add" raised on-tap="_onAddTap"></pebble-icon>
+            <pebble-icon class="pebble-icon-size-16 tooltip-bottom" id="delete" icon="pebble-icon:Delete" data-tooltip="Delete" raised on-tap="_onDeleteTap"></pebble-icon>
         </div>
         <div id="grid-container">
             <pebble-data-table id="mapping-grid" items="{{_gridData}}" multi-selection>
                 <data-table-column slot="column-slot" name="Given Value">
                     <template>
-                        <pebble-textbox slot="cell-slot-content" class="column-text" id="given-value_[[index]]" row-id="[[index]]" value="{{item.givenValue}}"
-                            title="{{item.givenValue}}" on-change="_onRowChange"></pebble-textbox>
+                        <pebble-textbox slot="cell-slot-content" class="column-text" id="given-value_[[index]]" no-label-float row-id="[[index]]" value="{{item.givenValue}}"
+                            title="{{item.givenValue}}" on-change="_onGivenTextChange"></pebble-textbox>
                     </template>
                 </data-table-column>
                 <data-table-column slot="column-slot" name="Governed Value">
                     <template>
                         <div id="inputDiv" slot="cell-slot-content" on-tap="_onAttributeTap" index="[[index]]">
-                            <pebble-textbox readonly$="[[_isReferenceField]]" class="attributes-text" id="govern-text_[[index]]" row-id="[[index]]" value="[[item.governedValue]]"
-                                title="[[item.governedValue]]" on-change="_onRowChange"></pebble-textbox>
+                            <pebble-textbox readonly$="[[_getNotifyOnChange(_isReferenceField)]]" class="attributes-text" id="govern-text_[[index]]" no-label-float row-id="[[index]]" value="[[item.governedValue]]"
+                                title="[[item.governedValue]]" on-change="_onGovernTextChange"></pebble-textbox>
                         </div>
-                        <template is="dom-if" if="[[_isReferenceField]]">
+                        <template is="dom-if" if="[[_getNotifyOnChange(_isReferenceField)]]">
                             <div id="iconDiv" slot="cell-slot-content">
                                 <pebble-icon class="dropdown-icon pebble-icon-size-10" id="txtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:Down"
                                     on-tap="_showReferenceLOV"></pebble-icon>
@@ -470,7 +477,7 @@
                             lov.currentRowId = rowId;
                             popover.for = "govern-text_" + rowId;
                             popover.show();
-                            lov.refreshLOVData();
+                            lov.reset();
                         }
                     }
                 },
@@ -480,29 +487,41 @@
                     if (lov) {
                         var rowId = lov.currentRowId;
                         if (rowId >= 0) {
-                            var governTxtbox = this.root.querySelector("#govern-text_" + rowId);
-                            if (!governTxtbox) {
-                                governTxtbox = this.shadowRoot.querySelector("#govern-text_" + rowId);
-                            }
-                            if (governTxtbox) {
-                                var row = this._getParentRow(governTxtbox)
-                                this._setRowAsDeletedOnSelectionChange(DataHelper.cloneObject(row.item));
-                                if (row) {
-                                    row.item.attributeModel = detail.data;
-                                    if (row.item["action"] != "new") {
-                                        row.item["action"] = "updated";
-                                    }
-                                    row.item["governedValue"] = detail.data.title;
-                                    governTxtbox.value = detail.data.title;
-                                    governTxtbox.title = detail.data.title;
-                                }
-                            }
+                            this._setGovernValue(rowId, detail.data);
                         }
                     }
                     var popover = this.shadowRoot.querySelector("#referencePopover");
                     if (popover) {
                         popover.for = "";
                         popover.hide();
+                    }
+                },
+
+                //Triggers for non reference field
+                _onGovernTextChange: function(e, detail) {
+                    var governText = {
+                        "title": e.target.value
+                    }
+                    this._setGovernValue(e.target.rowId, governText);
+                },
+
+                _setGovernValue: function(rowId, data) {
+                    var governTxtbox = this.root.querySelector("#govern-text_" + rowId);
+                    if (!governTxtbox) {
+                        governTxtbox = this.shadowRoot.querySelector("#govern-text_" + rowId);
+                    }
+                    if (governTxtbox) {
+                        var row = this._getParentRow(governTxtbox)
+                        this._setRowAsDeletedOnSelectionChange(DataHelper.cloneObject(row.item));
+                        if (row) {
+                            row.item.attributeModel = data;
+                            if (row.item["action"] != "new") {
+                                row.item["action"] = "updated";
+                            }
+                            row.item["governedValue"] = data.title;
+                            governTxtbox.value = data.title;
+                            governTxtbox.title = data.title;
+                        }
                     }
                 },
 
@@ -576,7 +595,7 @@
                     return undefined;
                 },
 
-                _onRowChange: function (e, detail) {
+                _onGivenTextChange: function (e, detail) {
                     var rowId = e.currentTarget.rowId;
                     if (rowId >= 0) {
                         var givenTxtbox = this.root.querySelector("#given-value_" + rowId);
@@ -652,9 +671,11 @@
                 _getValueMappingId: function(key) {
                     if(this._valueMappingEntities && this._valueMappingEntities.length > 0) {
                         for(var i = 0; i < this._valueMappingEntities.length; i++) {
-                            var mappingAttributes = this._valueMappingEntities[i].data.contexts[0].attributes;
-                            if(!_.isEmpty(mappingAttributes) && mappingAttributes.attributevalue.values[0].value == key) {
-                                return this._valueMappingEntities[i].id;
+                            if(DataHelper.isValidObjectPath(this._valueMappingEntities, i + ".data.contexts.0.attributes")) {
+                                var mappingAttributes = this._valueMappingEntities[i].data.contexts[0].attributes;
+                                if(!_.isEmpty(mappingAttributes) && mappingAttributes.attributevalue.values[0].value == key) {
+                                    return this._valueMappingEntities[i].id;
+                                }
                             }
                         }
                     }
@@ -719,7 +740,8 @@
                     for(var i = 0; i < this._refChangeDeletedMappings.length; i++) {
                         var isFound = false;
                         for(var key in mappings) {
-                            if(this._refChangeDeletedMappings[i].governedValue == key) {
+                            if(this._refChangeDeletedMappings[i] &&
+                               this._refChangeDeletedMappings[i].governedValue == key) {
                                 isFound = true;
                                 break;
                             }
@@ -791,6 +813,10 @@
                     }
 
                     return this._gridData.length;
+                },
+
+                _getNotifyOnChange: function() {
+                    return this._isReferenceField;
                 }
             });
         })();
