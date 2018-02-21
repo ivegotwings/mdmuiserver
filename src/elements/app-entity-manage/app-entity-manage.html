@@ -27,7 +27,6 @@
 <link rel="import" href="../rock-entity-header/rock-entity-header.html">
 <link rel="import" href="../rock-entity-sidebar/rock-entity-sidebar.html">
 <link rel="import" href="../rock-dimension-grid/rock-dimension-grid.html">
-<link rel="import" href="../rock-business-function-dialog/rock-business-function-dialog.html">
 <link rel="import" href="../rock-entity-manage-elements/rock-entity-manage-elements.html">
 
 <dom-module id="app-entity-manage">
@@ -154,14 +153,6 @@
         <bedrock-pubsub event-name="on-workflow-available" handler="_onWorkflowAvailable"></bedrock-pubsub>
         <bedrock-pubsub event-name="on-attribute-save" handler="_refreshHeaderAndNavBars"></bedrock-pubsub>
         <bedrock-pubsub event-name="on-buttonok-clicked" handler="_onDeleteConfirm" target-id="confirmationDialog"></bedrock-pubsub>
-        <rock-business-function-dialog id="contextDialog" context-data="[[contextData]]"></rock-business-function-dialog>
-        <rock-business-function-dialog id="entityUploadDialog" context-data="[[contextData]]"></rock-business-function-dialog>
-        <rock-business-function-dialog id="entityDownloadDialog" context-data="[[contextData]]"></rock-business-function-dialog>
-        <rock-business-function-dialog id="rePublishDialog" context-data="[[contextData]]"></rock-business-function-dialog>
-        <rock-business-function-dialog id="addRelDialog" name="rock-wizard-entity-relationship-add" context-data="[[contextData]]"></rock-business-function-dialog>
-        <rock-business-function-dialog id="manageAttributesDialog" name="rock-wizard-attribute-manage" context-data="[[contextData]]"></rock-business-function-dialog>
-        <rock-business-function-dialog id="manageRelationshipsDialog" name="rock-wizard-relationship-manage" context-data="[[contextData]]"></rock-business-function-dialog>
-        <rock-business-function-dialog id="dimensionGridDialog" name="rock-wizard-dimension-grid" context-data="[[contextData]]" hide-stepper="true"></rock-business-function-dialog>
         <bedrock-pubsub event-name="refresh-classification" handler="_refreshDimensionSelector" target-id="contextDialog"></bedrock-pubsub>
         <bedrock-pubsub event-name="govern-complete" handler="_onGovernComplete"></bedrock-pubsub>
         <liquid-rest id="entityDeleteLiquidRest" url="/data/pass-through/entityappservice/delete" method="POST" request-data={{deleteRequest}}
@@ -367,23 +358,16 @@
                 },
                 
                 _onContextManageTap: function(e, detail) {
-                    if(detail && detail.data) {
-                        var componentName = detail.data.componentName;
-                        var taxonomy = "";
-                        if(DataHelper.isValidObjectPath(detail.data, 'properties.context.taxonomy')) {
-                            taxonomy = detail.data.properties.context.taxonomy;
-                        }
-
-                        var contextDialog = this.shadowRoot.querySelector("#contextDialog");
-                        if(contextDialog) {
-                            contextDialog.name = componentName;
-                            contextDialog.sharedData = { 
-                                "context-data": this.contextData,
-                                "taxonomy": taxonomy
-                            };
-                            contextDialog.open();
-                        }
+                    if(!detail || !detail.data) return;
+                    
+                    const { componentName, properties } = detail.data;
+                    
+                    var taxonomy = "";
+                    if(DataHelper.isValidObjectPath(detail.data, 'properties.context.taxonomy')) {
+                        taxonomy = properties.context.taxonomy;
                     }
+
+                    this.openBusinessFunctionDialog({ name: componentName }, { taxonomy });
                 },
                 _onToolbarEvent: function (e, detail) {
                     var event = detail.name;
@@ -531,34 +515,26 @@
                     alert("event triggered: " + detail.name);
                 },
                 _downloadEvent: function (e, detail) {
-                    var clonedDataContext = DataHelper.cloneObject(this.contextData);
-                    var itemContexts = DataHelper.cloneObject(this.getItemContexts());
+                    var itemContexts = this.getItemContexts();
 
-                    if (itemContexts && itemContexts.length) {
-                        var selectedEntities = [];
-                        var selctedEntity = {
-                            "id": itemContexts[0].id,
-                            "type": itemContexts[0].type
-                        };
-                        selectedEntities.push(selctedEntity);
-
-                        var entityDownloadDialog = this.shadowRoot.querySelector("#entityDownloadDialog");
-                        entityDownloadDialog.name = "rock-wizard-entity-download";
-                        entityDownloadDialog.sharedData = {
-                            "context-data": clonedDataContext,
-                            "selected-entities": selectedEntities
-                        };
-                        entityDownloadDialog.open();
-                    } else {
-                        this.showErrorToast("item context not found.");
+                    if(!itemContexts || !itemContexts.length) {
+                        return this.showErrorToast("item context not found.");
                     }
+
+                    const { id, type } = itemContexts[0];
+
+                    const sharedData = {
+                        "selected-entities": [{id, type}]
+                    };
+
+                    this.openBusinessFunctionDialog({ name: 'rock-wizard-entity-download' }, sharedData);
                 },
                 _rePublishEvent: function (e, detail) {
-                    var itemContexts = DataHelper.cloneObject(this.getItemContexts());
-                    var rePublishDialog = this.shadowRoot.querySelector("#rePublishDialog");
-                    rePublishDialog.name = "rock-wizard-re-publish";
-                    rePublishDialog.sharedData = { "context-data": this.contextData, "selected-entities": itemContexts };
-                    rePublishDialog.open();
+                    const sharedData = {
+                        "selected-entities": DataHelper.cloneObject(this.getItemContexts())
+                    };
+
+                    this.openBusinessFunctionDialog({ name: 'rock-wizard-re-publish' }, sharedData);
                 },
                 _onCOPDownloadFailure: function (e) {
                     this.showErrorToast("Failed to download entity data. Please contact administrator.");
@@ -738,51 +714,51 @@
                     this.showErrorToast("Unable to perform the action now. Please contact administrator.");
                 },
                 _openLinkAssetsDialog: function (relationshipDetails) {
-                    var rel = relationshipDetails.relType;
-                    var typesCriterion = relationshipDetails.relatedEntityTypes;
-                    var dialog = this.shadowRoot.querySelector("#addRelDialog");
-                    var itemContext = ContextHelper.getFirstItemContext(this.contextData);
-                    var entity = { "id": itemContext.id, "type": itemContext.type };
-                    var mode = relationshipDetails.mode;
-                    var selfContext = relationshipDetails.selfContext;
+                    const { relType, relatedEntityTypes, mode, selfContext } = relationshipDetails;
 
-                    dialog.sharedData = {
-                        "mode": mode,
-                        "context-data": this.contextData,
-                        "types-criterion": typesCriterion,
-                        "relationship-type": rel,
-                        "selected-entities": [entity],
+                    const { id, type } = ContextHelper.getFirstItemContext(this.contextData);
+                    
+                    const sharedData = {
+                        mode,
+                        "types-criterion": relatedEntityTypes,
+                        "relationship-type": relType,
+                        "selected-entities": [{id, type}],
                         "self-context": selfContext
                     };
-                    dialog.open();
-                    this._setDialogTitle(dialog);
+
+                    this.openBusinessFunctionDialog({ 
+                        name: 'rock-wizard-entity-relationship-add',
+                        title: this.todoActionDialogTitle
+                    }, sharedData);
                 },
                 _openManageAttributesDialog: function (label, attributeNames) {
                     var clonedContextData = DataHelper.cloneObject(this.contextData);
+                    
                     var itemContext = ContextHelper.getFirstItemContext(clonedContextData);
-                    var configContext = { "groupName": label };
                     itemContext.attributeNames = attributeNames;
-                    var dialog = this.shadowRoot.querySelector("#manageAttributesDialog");
-                    dialog.sharedData = {
+
+                    const sharedData = {
                         "context-data": clonedContextData,
-                        "config-context": configContext
+                        "config-context": { "groupName": label }
                     };
-                    dialog.open();
-                    this._setDialogTitle(dialog);
+
+                    this.openBusinessFunctionDialog({
+                        name: 'rock-wizard-attribute-manage',
+                        title: this.todoActionDialogTitle
+                    }, sharedData);
                 },
                 _openManageRelationshipsDialog: function (model) {
-                    var clonedContextData = DataHelper.cloneObject(this.contextData);
-                    var configContext = {
-                        "addRelationshipMode": model.domain == "digitalAsset" ? "businessFunction" : "lov",
-                        "relationshipTypeName": model.name
+                    const sharedData = {
+                        "config-context": {
+                            "addRelationshipMode": model.domain == "digitalAsset" ? "businessFunction" : "lov",
+                            "relationshipTypeName": model.name
+                        }
                     };
-                    var dialog = this.shadowRoot.querySelector("#manageRelationshipsDialog");
-                    dialog.sharedData = {
-                        "context-data": clonedContextData,
-                        "config-context": configContext
-                    };
-                    dialog.open();
-                    this._setDialogTitle(dialog);
+
+                    this.openBusinessFunctionDialog({
+                        name: 'rock-wizard-relationship-manage',
+                        title: this.todoActionDialogTitle
+                    }, sharedData);
                 },
                 _setDialogTitle: function (dialog) {
                     if (this.todoActionDialogTitle) {
@@ -794,29 +770,23 @@
                         detail.label);
                 },
                 onDimensionGridOpen: function (e, detail, sender) {
-                    var dialog = Polymer.dom(this).node.$.dimensionGridDialog;
-
                     var entityTitlebar = Polymer.dom(this).node.shadowRoot.querySelector("#entityTitlebar");
-                    if(entityTitlebar) {
-                        var dimensionSelectorConfig = entityTitlebar.getDimensionSelectorConfig();
-                        var selectedDimensions = entityTitlebar.getSelectedDimensions();
-                    }
+                    var dimensionSelectorConfig = entityTitlebar.getDimensionSelectorConfig();
+                    var selectedDimensions = entityTitlebar.getSelectedDimensions();
 
-                    if (dialog) {
-                        dialog.sharedData = {
-                            "dimension-configs": dimensionSelectorConfig,
-                            "attribute-model-object": detail.data,
-                            "data-id": DataHelper.getParamValue('id'),
-                            "data-context": selectedDimensions
-                        };
+                    const sharedData = {
+                        "dimension-configs": dimensionSelectorConfig,
+                        "attribute-model-object": detail.data,
+                        "data-id": DataHelper.getParamValue('id'),
+                        "data-context": selectedDimensions
+                    };
 
-                        dialog.open();
+                    const dialogTitle = `Detailed Dimensional Edit for : ${detail.data.externalName}`;
 
-                        Polymer.Async.microTask.run(() => {
-                            var dialogTitle = "Detailed Dimensional Edit for : " + detail.data.externalName;
-                            dialog.setTitle(dialogTitle);
-                        });
-                    }
+                    this.openBusinessFunctionDialog({
+                        name: 'rock-wizard-dimension-grid',
+                        title: dialogTitle
+                    }, sharedData);
                 },
                 buttonOkClicked: function (event) {
                     alert("Hello");
@@ -923,18 +893,8 @@
                     ComponentHelper.fireBedrockEvent("workflow-refresh", data, { ignoreId: true });
                     ComponentHelper.fireBedrockEvent("entity-history-refresh", data, { ignoreId: true });
                 },
-                _clearDimensionGridDialog: function () {
-                    var dialog = Polymer.dom(this).node.$.dimensionGridDialog;
-                    if (dialog) {
-                        ComponentHelper.removeNode(dialog.firstElementChild);
-                    }
-                },
                 _openEntityUploadBF: function (e, detail) {
-                    const uploadDialog = this.shadowRoot.querySelector("#entityUploadDialog");
-                    
-                    uploadDialog.name = "rock-wizard-entity-upload";
-                    uploadDialog.sharedData = { "context-data": this.contextData };
-                    uploadDialog.open();
+                    this.openBusinessFunctionDialog({ name: 'rock-wizard-entity-upload' });
                 },
                 _refreshEntityThumbnail: function () {
                     var entityHeader = this.shadowRoot.querySelector("rock-entity-header");
