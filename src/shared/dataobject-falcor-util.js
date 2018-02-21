@@ -165,7 +165,7 @@ var datahelpers = (function(){
             if (x instanceof Set) return 'set'
             return 'object'
         }
-        if (type) return type
+        return type
     }
     
     var _equal = function (a, b, memos){
