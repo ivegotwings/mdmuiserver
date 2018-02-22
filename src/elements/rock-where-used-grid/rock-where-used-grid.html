@@ -370,7 +370,7 @@ The following JSON object is a sample of data which binds the grid.
                      total-count="{{totalCount}}" page-size="20">
                      <rock-entity-relationship-search-result-actions slot="toolbar" id="gridActions" context-data="[[contextData]]" has-write-permissions$="[[_hasWritePermissions(relationshipGridConfig.gridConfig)]]"></rock-entity-relationship-search-result-actions>
           </rock-grid>
-
+          <bedrock-pubsub event-name="grid-bulk-relationship-edit-items" handler="_onBulkRelationshipEdit" target-id="[[relationship]]"></bedrock-pubsub>
           <bedrock-pubsub event-name="grid-bulk-edit-items" handler="_onBulkEdit" target-id="[[relationship]]"></bedrock-pubsub>
           <template is="dom-if" if="[[_loadGovernData]]">
             <rock-govern-data-grid id$="[[relationship]]" context-data="[[contextData]]" request="[[_getRelationshipGridRequest(relationship)]]"
@@ -604,7 +604,61 @@ The following JSON object is a sample of data which binds the grid.
 
           return false;
         },
+        _onBulkRelationshipEdit: function(e, detail){
+          var grid = this._getRelationshipGrid();
+          var selectedItems = grid.getSelectedItems();
+          var selectionMode = grid.getSelectionMode();
+          var selectionQuery = grid.getSelectedItemsAsQuery();
+          var currentRel = this.relationship;
+          var originalEntity = this.dataObjects[currentRel];
+          selectionQuery.ids = [originalEntity.id];
+          if (selectedItems && selectedItems.length && this.contextData) {
+            var originalEntity = this.dataObjects[currentRel];
+            selectionQuery.ids = [originalEntity.id];
+            var itemContexts = [];
+            var typesCriterion = [];
+
+            var itemContext = { "type": originalEntity.type };
+            var relAndTypeAttributes = this._getAttributeList();
+            var relAttributeNames = relAndTypeAttributes && relAndTypeAttributes.relationshipAttributes ? relAndTypeAttributes.relationshipAttributes : [];
+            if(_.isEmpty(relAttributeNames)){
+              this.showInformationToast("No relationship attribute configured in the grid for bulk edit.");
+              return;
+            }
+            // var relAttributeNames = ["linkdescription","enabled","status","displayname"];
+            itemContext.relationshipAttributes = relAttributeNames;
+            itemContext.relationships = [currentRel];
+            itemContexts.push(itemContext);
+            if (!typesCriterion.find(type => type === entityRelation.relTo.type)) {
+              typesCriterion.push(itemContext.type);
+            }
+            selectionQuery.filters.typesCriterion = typesCriterion; //Based on relationship entityType
+            var clonedContextData = DataHelper.cloneObject(this.contextData);
+            clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
+            var entityEditDialog = this.shadowRoot.querySelector("#entityEditDialog");
+            entityEditDialog.name = "rock-wizard-entity-bulk-edit";
+            entityEditDialog.configName = "wizardConfig";
+            entityEditDialog.sharedData = {
+              "context-data": clonedContextData,
+              "selection-query": selectionQuery,
+              "selection-mode": selectionMode,
+              "selected-entities": selectedItems,
+              "original-entity": originalEntity,
+              "relationship": currentRel,
+              "edit-attributes-only": false,
+              "edit-relationship-attributes-only": true
+            };
+            entityEditDialog.contextData = clonedContextData;
+            entityEditDialog.open();
+          } else {
+            this.showInformationToast("Please select at least one entity from grid to edit.");
+          }          
+        },
         
+        _getRelationshipGrid:function () {
+          return this.shadowRoot.querySelector("rock-grid");
+        },
+
         _getAttributeList: function () {
           if (this.relationshipGridConfig) {
             return this.relationshipGridConfig.relationshipTypeAndAttributes;
@@ -691,7 +745,7 @@ The following JSON object is a sample of data which binds the grid.
         _populateDataForGrid: function (respData) {
           var data = [];
           var itemContext = this.getFirstItemContext();
-
+          var entityTypeManager = new EntityTypeManager();
           if (respData && itemContext) {
             var currentEntityId = itemContext.id;
             if (respData.content && respData.content.entities && currentEntityId) {
@@ -715,13 +769,17 @@ The following JSON object is a sample of data which binds the grid.
                   var relationships = EntityHelper.getRelationshipsBasedOnContext(entity, this.getFirstDataContext(), isSelfContext);
                   if (!_.isEmpty(relationships)) {
                     var relatedEntities = relationships[currentRel];
-
+                    if (this.dataObjects) {
+                      if (!this.dataObjects[currentRel]) {
+                        this.dataObjects[currentRel] = entity;
+                      }
+                    }
                     relatedEntities.forEach(function (relItem) {
                       if (relItem) {
                         record["Relationship Id"] = relItem.id;               
                         if (relItem.relTo && relItem.relTo.id == currentEntityId) {
                           if(relItem.relTo.type){
-                            record["typeExternalName"] = DataHelper.getEntityTypeExternalName(relItem.relTo.type);
+                            record["typeExternalName"] = entityTypeManager.getTypeExternalNameById(relItem.relTo.type);
                           }
                           if (relItem.attributes) {
                             Object.keys(relItem.attributes).forEach(function (item) {
