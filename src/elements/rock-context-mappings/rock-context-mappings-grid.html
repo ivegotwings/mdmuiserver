@@ -22,6 +22,7 @@
 
 <link rel="import" href="../rock-entity-lov/rock-entity-lov.html">
 <link rel="import" href="../rock-dimension-selector/rock-dimension-selector.html">
+<link rel="import" href="../rock-context-mappings/rock-context-path-builder.html">
 
 <!--
 <b><i>Content development is under progress... </b></i>
@@ -200,7 +201,7 @@
                 <data-table-column slot="column-slot" name="Excel Column">
                     <template>
                         <div id="inputExcelDiv" slot="cell-slot-content" index="[[index]]">
-                            <pebble-textbox class="column-text" id="excelColumn_[[index]]" row-id="[[index]]" no-label-float value="[[item.excelColumn]]"
+                            <pebble-textbox readonly class="column-text" id="excelColumn_[[index]]" row-id="[[index]]" no-label-float value="[[item.excelColumn]]"
                                 title="[[item.excelColumn]]"></pebble-textbox>
                         </div>
                         <div id="iconExcelDiv" slot="cell-slot-content">
@@ -209,7 +210,7 @@
                         </div>
                         <div id="buttonDiv" slot="cell-slot-content">
                             <pebble-icon class="action-button-focus pebble-icon-size-16 tooltip-right m-l-20" data-tooltip="Build Path" icon="pebble-icon:value-mapping"
-                                id="btnBuildPath_[[index]]" raised on-tap="_onTapBuildPath" hidden$="[[!item.isPath]]"></pebble-icon>
+                                id="btnBuildPath_[[index]]" row-id="[[index]]" raised on-tap="_onTapBuildPath" hidden$="[[!item.isPath]]"></pebble-icon>
                         </div>
                     </template>
                 </data-table-column>
@@ -223,9 +224,19 @@
         </div>
         <div id="actions-container" class="m-t-20" align="center">
             <pebble-button class="action-button btn btn-secondary m-r-5" id="cancel" button-text="Cancel" raised on-tap="_onCancelTap"></pebble-button>
-            <pebble-button class="action-button btn btn-primary m-r-5" id="cancel" button-text="Skip" raised on-tap="_onSkipTap"></pebble-button>
-            <pebble-button class="action-button-focus dropdownText btn btn-success m-r-5" id="next" button-text="Save" raised on-tap="_onSaveTap"></pebble-button>
+            <pebble-button class="action-button btn btn-primary m-r-5" id="skip" button-text="Skip" raised on-tap="_onSkipTap"></pebble-button>
+            <pebble-button class="action-button-focus dropdownText btn btn-success m-r-5" id="save" button-text="Save" raised on-tap="_onSaveTap"></pebble-button>
         </div>
+
+        <!-- Build path dialog -->
+        <pebble-dialog id="buildPathDialog" dialog-title="CONTEXT PATH SELECTION" modal show-close-icon no-cancel-on-outside-click
+            no-cancel-on-esc-key>
+            <rock-context-path-builder id="contextPathBuilder"></rock-context-path-builder>
+        </pebble-dialog>
+
+        <!-- Build Path events -->
+        <bedrock-pubsub event-name="context-build-path-cancel" handler="_onCancelBuildPath" target-id=""></bedrock-pubsub>
+        <bedrock-pubsub event-name="context-build-path-select" handler="_onSelectBuildPath" target-id=""></bedrock-pubsub>
 
         <!-- Context get -->
         <liquid-rest id="contextModelGet" url="/data/pass-through/entitymodelservice/getcontext" method="POST" request-data="{{_contextModelGetReq}}"
@@ -263,14 +274,14 @@
                         }
                     },
 
-                    mappingsRequestData: {
+                    mappingConfig: {
                         type: Object,
                         value: function () {
                             return {};
                         }
                     },
 
-                    mappingConfig: {
+                    mappingData: {
                         type: Object,
                         value: function () {
                             return {};
@@ -317,10 +328,17 @@
                         value: function () {
                             return [];
                         }
+                    },
+
+                    _mappingAttributes: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
                     }
                 },
                 observers: [
-                    "_onMappingsDataChange(mappingsRequestData, contextData, copContext)"
+                    "_onMappingsDataChange(mappingConfig, mappingData, contextData, copContext)"
                 ],
                 behaviors: [
                     RUFBehaviors.UIBehavior,
@@ -328,7 +346,7 @@
                 ],
 
                 _onMappingsDataChange: function () {
-                    if (!_.isEmpty(this.contextData) && !_.isEmpty(this.mappingsRequestData) && !_.isEmpty(this.copContext)) {
+                    if (!_.isEmpty(this.contextData) && !_.isEmpty(this.mappingData) && !_.isEmpty(this.mappingConfig) && !_.isEmpty(this.copContext)) {
                         var itemContext = ContextHelper.getFirstItemContext(this.contextData);
                         if (itemContext) {
                             this.entityType = itemContext.type;
@@ -425,8 +443,7 @@
                         }
 
                         //Fetch context mappings now
-                        //this._getMappings();
-                        this._prepareGridData();
+                        this._getMappings();
                     } else {
                         this._raiseTaxonomyError(detail);
                     }
@@ -439,8 +456,8 @@
                     }];
                     var types = ["contextmapping"];
                     var req = DataRequestHelper.createMappingsGetRequest(this.contextData, this.copContext, selectedContexts, types);
-                    req.params.rsconnect.headers.entities = this.mappingsRequestData.headerFields;
-                    req.params.query.contexts[0].ownershipdata = this.ownershipdata && this.ownershipdata != "undefined" ? this.ownershipdata : "";
+                    req.params.rsconnect.headers.entities = this.mappingData.headerFields;
+                    delete req.params.query.contexts[0].ownershipdata;
                     this.set("_getMappingsRequest", req);
                     var getMappings = this.shadowRoot.querySelector("#getMappings");
                     if (getMappings) {
@@ -449,18 +466,20 @@
                 },
 
                 _onGetMappingsResponse: function (e, detail) {
-                    if ( !DataHelper.isValidObjectPath(detail, "response.response.status") || 
-                          detail.response.response.status.toLowerCase() != "success") {
+                    if (!DataHelper.isValidObjectPath(detail, "response.response.status") ||
+                        detail.response.response.status.toLowerCase() != "success") {
                         this.showErrorToast("Unable to fetch context mappings, please contact administrator.");
                         return;
                     }
 
                     var response = detail.response.response;
                     if (response.entities) {
-                        if (response.entities.length > 0 && DataHelper.isValidObjectPath(response, "entities.0.data.contexts.0.attributes")) {
-                            this._mappingAttributes = response.entities[0].data.contexts[0].attributes;
+                        if (response.entities.length > 0 && DataHelper.isValidObjectPath(response, "entities.0.data.data.contexts.0.attributes")) {
+                            this._mappingAttributes = response.entities[0].data.data.contexts[0].attributes;
                         }
                     }
+                    //Prepare grid now
+                    this._prepareGridData();
                 },
 
                 _onGetSearchError: function (e, detail) {
@@ -476,9 +495,10 @@
                     var gridData = [];
                     var contexts = [];
                     for (var i = 0; i < this.contexts.length; i++) {
+                        var attributeValue = this._getMappingAttribute(this.contexts[i]);
                         var rowData = {
                             "context": this.contexts[i],
-                            "excelColumn": "Excel Column",
+                            "excelColumn": attributeValue,
                             "index": i
                         };
                         this._setBuildPath(rowData);
@@ -490,16 +510,26 @@
                     }
 
                     var excelFields = [];
-                    for (var i = 0; i < this.mappingsRequestData.headerFields.length; i++) {
+                    for (var i = 0; i < this.mappingData.headerFields.length; i++) {
                         excelFields.push({
-                            "id": this.mappingsRequestData.headerFields[i],
-                            "title": this.mappingsRequestData.headerFields[i]
+                            "id": this.mappingData.headerFields[i],
+                            "title": this.mappingData.headerFields[i]
                         });
                     }
 
                     this.set("gridExcelFields", excelFields);
                     this.set("gridContexts", contexts);
                     this.set("_gridData", gridData);
+                },
+
+                _getMappingAttribute: function (context) {
+                    var attributeValue = "";
+                    if (this._mappingAttributes && this._mappingAttributes[context] &&
+                        this._mappingAttributes[context].values && this._mappingAttributes[context].values.length) {
+                        attributeValue = this._mappingAttributes[context].values[0].value || "";
+                    }
+
+                    return attributeValue;
                 },
 
                 _setBuildPath: function (rowData, rowId) {
@@ -576,10 +606,12 @@
                             if (columnTxtbox) {
                                 var row = this._getParentRow(columnTxtbox);
                                 if (row) {
-                                    //Set row context on selection change
+                                    //Set row context/excelColumn on selection change
                                     if (id == "context") {
                                         row.item.context = detail.item.title;
                                         this._setBuildPath(row.item, rowId);
+                                    } else {
+                                        row.item.excelColumn = detail.item.title;
                                     }
                                     columnTxtbox.value = detail.item.title;
                                     columnTxtbox.title = detail.item.title;
@@ -612,8 +644,124 @@
                     var eventName = "context-mapping-skip";
                     var eventDetail = {
                         "name": eventName,
+                        "taxonomies": this.taxonomies,
+                        "contexts": this.contexts,
+                        "nonContextFields": this._getNonTaxonomyFields()
                     };
                     this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                },
+
+                _onSaveTap: function (e) {
+                    if (this._isDuplicateGridDataAvailable()) {
+                        this.showErrorToast("Please provide unique contexts.");
+                        return;
+                    }
+
+                    var mappings = this._transformGridDataToSaveMappings();
+
+                    if (!_.isEmpty(mappings)) {
+                        var selectedContexts = [{
+                            "type": "entitytype",
+                            "value": this.entityType
+                        }];
+                        var saveRequest = DataRequestHelper.createMappingsSaveRequest(this.contextData, this.copContext, selectedContexts, "contextmapping")
+                        if (!_.isEmpty(saveRequest)) {
+                            saveRequest.entity.data.contexts[0].attributes = mappings;
+                            delete saveRequest.entity.data.contexts[0].context.ownershipdata;
+                            this.set("_saveMappingsRequest", saveRequest);
+                            var saveMappings = this.shadowRoot.querySelector("#saveMappings");
+                            if (saveMappings) {
+                                saveMappings.generateRequest();
+                            }
+                        }
+                    } else {
+                        this.showSuccessToast("There are no changes in mappings to save.");
+                    }
+                },
+
+                _onMappingsSaveResponse: function (e, detail) {
+                    var response = detail.response.response;
+                    if (response && response.status == "success") {
+                        this.showSuccessToast("Context mappings saved successfully.");
+                        //Trigger event to goto next step
+                        var eventName = "context-mapping-save";
+                        var eventDetail = {
+                            "name": eventName,
+                            "taxonomies": this.taxonomies,
+                            "contexts": this.contexts,
+                            "nonContextFields": this._getNonTaxonomyFields(true)
+                        };
+                        this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                    }
+
+                    this.showErrorToast("Unable to save context mappings, please contact administrator.");
+                },
+
+                _onMappingsError: function (e, detail) {
+                    this.logError("Mapping get/save error", detail);
+                    this.showErrorToast("Unable to perform mappings operation, please contact administrator.");
+                },
+
+                _isDuplicateGridDataAvailable: function () {
+                    var uniqueContexts = [...new Set(this._gridData.map((obj) => obj.context))];
+
+                    if (this._gridData.length != uniqueContexts.length) {
+                        return true;
+                    }
+
+                    return false;
+                },
+
+                _transformGridDataToSaveMappings: function () {
+                    var mappings = {};
+                    var contextMapping = DataHelper.cloneObject(this._mappingAttributes);
+                    var self = this;
+                    this._gridData.forEach(function (row) {
+                        var mappedValues = [];
+                        if (contextMapping[row.context]) {
+                            //If excel column value matched, then do not consider as change
+                            if (row.excelColumn != contextMapping[row.context].values[0].value) {
+                                mappedValues = self._populateMappingValue(row.excelColumn);
+                            }
+
+                            delete contextMapping[row.context];
+                        } else {
+                            mappedValues = self._populateMappingValue(row.excelColumn);
+                        }
+
+                        if (mappedValues && mappedValues.length) {
+                            mappings[row.context] = {
+                                "values": mappedValues
+                            };
+                        }
+                    });
+
+                    //Remaingin mappings not in grid, so consider as delete
+                    if (!_.isEmpty(contextMapping)) {
+                        for (var key in contextMapping) {
+                            contextMapping[key].action = "delete";
+                            mappings[key] = contextMapping[key];
+                        }
+                    }
+
+                    return mappings;
+                },
+
+                _populateMappingValue: function (excelValue) {
+                    if (!excelValue) {
+                        return;
+                    }
+
+                    var values = [];
+                    var valContext = ContextHelper.getFirstValueContext(this.contextData);
+
+                    values.push({
+                        "value": excelValue,
+                        "locale": valContext.locale,
+                        "source": valContext.source
+                    });
+
+                    return values;
                 },
 
                 _onAddTap: function () {
@@ -662,12 +810,93 @@
                     }
                 },
 
-                _getGridRecordsCount: function() {
-                    if(!this._gridData) {
+                _getGridRecordsCount: function () {
+                    if (!this._gridData) {
                         return 0;
                     }
 
                     return this._gridData.length;
+                },
+
+                _onTapBuildPath: function (e, detail) {
+                    var rowId = e.currentTarget.rowId;
+                    this.currentPathEl = this.shadowRoot.querySelector("#excelColumn_" + rowId);
+                    //Assign details to path component
+                    var contextPathBuilder = this.shadowRoot.querySelector("#contextPathBuilder");
+                    if (contextPathBuilder) {
+                        //Reset
+                        contextPathBuilder.inputPath = "";
+                        contextPathBuilder.headerFields = [];
+                        //Set excel details
+                        contextPathBuilder.inputPath = this.currentPathEl.value;
+                        contextPathBuilder.headerFields = this.mappingData.headerFields;
+                    }
+                    this._toggleBuildPathDialog(true);
+                },
+
+                _onCancelBuildPath: function (e, detail) {
+                    this._toggleBuildPathDialog(false);
+                },
+
+                _onSelectBuildPath: function (e, detail) {
+                    var row = this._getParentRow(this.currentPathEl);
+                    if (row) {
+                        row.item.excelColumn = this.currentPathEl.value = detail.selectedPath;
+                        this.currentPathEl.title = detail.selectedPath;
+                        this._toggleBuildPathDialog(false);
+                    }
+                },
+
+                _toggleBuildPathDialog: function (open) {
+                    var buildPathDialog = this.shadowRoot.querySelector("#buildPathDialog");
+                    if (buildPathDialog) {
+                        if (open) {
+                            buildPathDialog.open();
+                        } else {
+                            buildPathDialog.close();
+                        }
+                    }
+                },
+
+                //Prepare non context fields based on context mappings
+                _getNonTaxonomyFields: function (fromGridData) {
+                    var nonContextFields = [];
+                    var contextFields = [];
+                    var categoryPathSeperator = this.appSetting('dataDefaults').categoryPathSeparator;
+
+                    //Collect context fields from grid / initial mapping contexts
+                    if (fromGridData) {
+                        this._gridData.forEach(function (row) {
+                            if (row.excelColumn) {
+                                var columns = [];
+                                columns = row.excelColumn.split(categoryPathSeperator);
+                                contextFields = contextFields.concat(columns);
+                            }
+                        });
+                    } else {
+                        if (!_.isEmpty(this._mappingAttributes)) {
+                            for (var key in this._mappingAttributes) {
+                                if (this._mappingAttributes[key] &&
+                                    this._mappingAttributes[key].values &&
+                                    this._mappingAttributes[key].values.length) {
+                                    for (var i = 0; i < this._mappingAttributes[key].values.length; i++) {
+                                        var columns = [];
+                                        columns = this._mappingAttributes[key].values[i].value.split(categoryPathSeperator);
+                                        contextFields = contextFields.concat(columns);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    //Prepare non-context fields
+                    for(var i = 0; i < this.mappingData.headerFields.length; i++) {
+                        if(contextFields.indexOf(this.mappingData.headerFields[i]) == -1) {
+                            nonContextFields.push(this.mappingData.headerFields[i]);
+                        }
+                    }
+
+                    return nonContextFields;
                 }
             });
         })();
