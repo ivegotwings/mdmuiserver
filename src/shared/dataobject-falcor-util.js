@@ -519,15 +519,7 @@ DataObjectFalcorUtil.getOrCreate = function (obj, key, defaultVal) {
 };
 
 DataObjectFalcorUtil.mergeObjects = function (target, source, addMissing = true, overrideArrays = false) {
-
-    if (!target) {
-        if (addMissing) {
-            target = {};
-        }
-        else {
-            return target;
-        }
-    }
+    target = target || {};
 
     if (!source) {
         return target;
@@ -549,12 +541,16 @@ DataObjectFalcorUtil.mergeObjects = function (target, source, addMissing = true,
     }
 
     if (addMissing) {
-        for (var sourceObjKey in source) {
-            var sourceObj = source[sourceObjKey];
-            var targetObj = target[sourceObjKey];
-
-            if (targetObj == undefined) {
-                target[sourceObjKey] = sourceObj;
+        if (!Object.keys(target).length) {
+            target = Object.assign(target, source);
+        } else {
+            for (var sourceObjKey in source) {
+                var sourceObj = source[sourceObjKey];
+                var targetObj = target[sourceObjKey];
+    
+                if (targetObj == undefined) {
+                    target[sourceObjKey] = sourceObj;
+                }
             }
         }
     }
@@ -563,15 +559,7 @@ DataObjectFalcorUtil.mergeObjects = function (target, source, addMissing = true,
 };
 
 DataObjectFalcorUtil.mergeObjectsNoOverride = function (target, source, addMissing = false) {
-
-    if (!target) {
-        if (addMissing) {
-            target = {};
-        }
-        else {
-            return target;
-        }
-    }
+    target = target || {};
 
     if (!source) {
         return target;
@@ -589,13 +577,17 @@ DataObjectFalcorUtil.mergeObjectsNoOverride = function (target, source, addMissi
     }
 
     if (addMissing) {
-        for (var sourceObjKey in source) {
-            var sourceObj = source[sourceObjKey];
-            var targetObj = target[sourceObjKey];
-
-            if (!targetObj) {
-                target[sourceObjKey] = sourceObj;
-            }
+        if (!Object.keys(target).length) {
+            target = Object.assign(target, source);
+        } else {
+            for (var sourceObjKey in source) {
+                var sourceObj = source[sourceObjKey];
+                var targetObj = target[sourceObjKey];
+    
+                if (!targetObj) {
+                    target[sourceObjKey] = sourceObj;
+                }
+            }                
         }
     }
 
@@ -603,7 +595,7 @@ DataObjectFalcorUtil.mergeObjectsNoOverride = function (target, source, addMissi
 };
 
 DataObjectFalcorUtil.mergeArraysNoOverride = function (target, source, identifierKey, addMissing = false) {
-
+    
     if (!target) {
         if (addMissing) {
             target = [];
@@ -825,7 +817,7 @@ DataObjectFalcorUtil.isValidObjectPath = function (base, path) {
     return true;
 }
 
-DataObjectFalcorUtil.deepAssign = function (...objs) {
+DataObjectFalcorUtil.deepAssign = function (...objs) {    
     if (objs.length < 2) {
         throw new Error('Need two or more objects to merge');
     }
