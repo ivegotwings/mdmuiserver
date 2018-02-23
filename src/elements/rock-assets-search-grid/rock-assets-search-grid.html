@@ -31,8 +31,8 @@
 
     <template>
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
-        <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{attributeModelRequest}}" on-entity-model-composite-get-response="_onCompositeModelGetResponse"></liquid-entity-model-composite-get>
-        <liquid-entity-govern-data-get name="governDataGet" operation="initiatesearch" request-data="{{_governDataRequest}}" on-response="_onGovernDataResponse"></liquid-entity-govern-data-get>
+        <liquid-entity-model-composite-get name="compositeAttributeModelGet" on-entity-model-composite-get-response="_onCompositeModelGetResponse"></liquid-entity-model-composite-get>
+        <liquid-entity-govern-data-get name="governDataGet" operation="initiatesearch" on-response="_onGovernDataResponse"></liquid-entity-govern-data-get>
         <liquid-rest id="getThumbnail" url="/binaryobjectservice/get" method="POST" on-liquid-response="_onGetThumbnailResponse">
         </liquid-rest>
         <liquid-rest id="getDownloadUrl" url="/data/binarystreamobjectservice/prepareDownload" method="POST" on-liquid-response="_onGetDownloadUrlResponse">
@@ -65,17 +65,6 @@
             Polymer({
                 is: 'rock-assets-search-grid',
                 properties: {
-                    /**
-                     * Indicates the request object that 
-                     * is passed to the data element to retrieve the attribute model data.
-                     *
-                     */
-                    attributeModelRequest: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    },
                     /**
                      * Indicates the context data.
                      * 
@@ -228,12 +217,6 @@
                             return DataObjectFalcorUtil.getPathKeys().dataIndexInfo.entityData.dataSubIndexInfo.data.maxRecordsToReturn;
                         }
                     },
-                    _governDataRequest: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    },
 
                     _loadGrid: {
                         type: Boolean
@@ -261,6 +244,25 @@
                     RUFBehaviors.ComponentContextBehavior
                 ],
 
+                attached() {
+                    this._confirmationDialog = this.shadowRoot.querySelector("#confirmationDialog");
+                },
+
+                get governDataGetLiq() {
+                    this._governDataGet = this._governDataGet || this.shadowRoot.querySelector("[name=governDataGet]");
+                    return this._governDataGet;
+                },
+
+                get compositeAttributeModelGetLiq() {
+                    this._compositeAttributeModelGet = this._compositeAttributeModelGet || this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
+                    return this._compositeAttributeModelGet;
+                },
+
+                get getDownloadUrlLiq() {
+                    this._getDownloadUrl = this._getDownloadUrl || this.shadowRoot.querySelector("#getDownloadUrl");
+                    return this._getDownloadUrl;
+                },
+
                 /**
                  * Can be used to refresh the grid.
                  *
@@ -280,8 +282,9 @@
                  * Can be used to set the multi-selection for the grid.
                  */
                 setMultiSelection: function (flag) {
-                    if (this.shadowRoot.querySelector('#entityGrid') && flag != undefined) {
-                        this._getEntityGrid().setMultiSelection(flag);
+                    const _entityGrid = this._getEntityGrid();
+                    if (_entityGrid && flag) {
+                        _entityGrid.setMultiSelection(flag);
                     }
                 },
 
@@ -335,50 +338,46 @@
                  * Can be used to reload the grid.
                  */
                 reloadGrid: function () {
-                    if (!_.isEmpty(this.workflowCriterion)) {
-                        this._addWorkflowDetailsToConfig();
-                        var governDataLiquid = this.shadowRoot.querySelector("[name=governDataGet]");
-                        if (governDataLiquid) {
-                            var workflowActivityName = this.workflowCriterion.workflowActivityName;
-                            var contexts = [];
-                            var excludeNonContextual = false;
-                            if (!_.isEmpty(this.governDataCriterion)) {
-                                var userId = this.governDataCriterion.userId;
-                                var businessConditionName = this.governDataCriterion.businessConditionName;
-                                var businessConditionNames = this.governDataCriterion.businessConditionNames;
-                                var passedBusinessConditions = this.governDataCriterion.status == "passed";
-                                if (!(businessConditionName || businessConditionNames)) {
-                                    contexts.push({
-                                        "workflow": this.workflowCriterion.workflowShortName
-                                    });
-                                    excludeNonContextual = true;
-                                }
-                            }
-
-                            var options = {
-                                "contexts": contexts,
-                                "typesCriterion": this.typesCriterion,
-                                "userId": userId,
-                                "workflowActivityName": workflowActivityName,
-                                "businessConditionName": businessConditionName,
-                                "businessConditionNames": businessConditionNames,
-                                "attributes": "",
-                                "excludeNonContextual": excludeNonContextual,
-                                "passedBusinessConditions": passedBusinessConditions
-                            }
-
-                            var req = DataRequestHelper.createGovernGetRequest(options);
-
-                            if (!_.isEmpty(req)) {
-                                this._governDataRequest = req;
-                                governDataLiquid.generateRequest();
-                            }
-                        }
-                    } else {
+                    if (_.isEmpty(this.workflowCriterion)) {
                         this._loadGrid = true;
                         this._loadWithoutWorkflow = true;
-                        this._reloadGrid(undefined);
+                        this._reloadGrid();
+                        return;
                     }
+
+                    this._addWorkflowDetailsToConfig();
+                    if(!this.governDataGetLiq) return;
+                    
+                    var workflowActivityName = this.workflowCriterion.workflowActivityName;
+                    var contexts = [];
+                    var excludeNonContextual = false;
+                    if (!_.isEmpty(this.governDataCriterion)) {
+                        var userId = this.governDataCriterion.userId;
+                        var businessConditionName = this.governDataCriterion.businessConditionName;
+                        var businessConditionNames = this.governDataCriterion.businessConditionNames;
+                        var passedBusinessConditions = this.governDataCriterion.status == "passed";
+                        if (!(businessConditionName || businessConditionNames)) {
+                            contexts.push({
+                                "workflow": this.workflowCriterion.workflowShortName
+                            });
+                            excludeNonContextual = true;
+                        }
+                    }
+
+                    var options = {
+                        "contexts": contexts,
+                        "typesCriterion": this.typesCriterion,
+                        "userId": userId,
+                        "workflowActivityName": workflowActivityName,
+                        "businessConditionName": businessConditionName,
+                        "businessConditionNames": businessConditionNames,
+                        "attributes": "",
+                        "excludeNonContextual": excludeNonContextual,
+                        "passedBusinessConditions": passedBusinessConditions
+                    }
+
+                    this.governDataGetLiq.requestData = DataRequestHelper.createGovernGetRequest(options);;
+                    this.governDataGetLiq.generateRequest();
                 },
 
                 _onGridConfigChange: function (gridConfig) {
@@ -403,12 +402,9 @@
                         this.set('gridConfig.valueContexts', contextData[ContextHelper.CONTEXT_TYPE_VALUE]);
                         contextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
                         var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(contextData);
-                        if (compositeModelGetRequest) {
-                            this.set("attributeModelRequest", compositeModelGetRequest);
-                            var liquidModelGet = this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
-                            if (liquidModelGet) {
-                                liquidModelGet.generateRequest();
-                            }
+                        if (compositeModelGetRequest && this.compositeAttributeModelGetLiq) {
+                            this.compositeAttributeModelGetLiq.requestData = compositeModelGetRequest;
+                            this.compositeAttributeModelGetLiq.generateRequest();
                         }
                     }
                 },
@@ -532,7 +528,7 @@
 
                     this._setSearchCriteria();
 
-                    var grid = Polymer.dom(this).node.shadowRoot.querySelector('rock-grid');
+                    var grid = this._getEntityGrid();
 
                     if (grid) {
                         grid.reRenderGrid();
@@ -591,6 +587,8 @@
                     }
                 },
                 _generateOriginalAssetsDownloadRequest: function (objectkeys) {
+                    if(!this.getDownloadUrlLiq) return;
+                    
                     var binaryStreamObjects = [];
                     objectkeys.forEach(function (item) {
                         if (item) {
@@ -605,13 +603,10 @@
                                 }
                             )
                         }
-                    }, this);
-                    var req = binaryStreamObjects;
-                    var downloadUrlLiquid = this.shadowRoot.querySelector("#getDownloadUrl");
-                    if (downloadUrlLiquid) {
-                        downloadUrlLiquid.requestData = req;
-                        downloadUrlLiquid.generateRequest();
-                    }
+                    });
+                    
+                    this.getDownloadUrlLiq.requestData = binaryStreamObjects;
+                    this.getDownloadUrlLiq.generateRequest();
                 },
                 _onCustomToolbarEvent: function (e, detail) {
                     if (detail && detail.name == "originalAssetDownload") {
@@ -619,7 +614,7 @@
                     }
                 },
                 _originalAssetsDownload: function () {
-                    var rockGrid = Polymer.dom(this).node.shadowRoot.querySelector('rock-grid');
+                    var rockGrid = this._getEntityGrid();
                     var selectedItems = rockGrid.getSelectedItems();
                     if (selectedItems && selectedItems.length) {
                         if (selectedItems.length > 5) {
@@ -647,7 +642,7 @@
                     }
 
                     this._deleteComponentName = detail.componentName;
-                    this.shadowRoot.querySelector("#confirmationDialog").open();
+                    this._confirmationDialog.open();
                 },
                 _onBulkDelete: function () {
                     var selectedItems = this.getSelectedItems();
@@ -708,8 +703,7 @@
                   * <b><i>Content development is under progress... </b></i> 
                   */
                 getSelectedItems: function () {
-                    var rockGrid = Polymer.dom(this).node.shadowRoot.querySelector('rock-grid');
-                    return rockGrid.getSelectedItems();
+                    return this._getEntityGrid().getSelectedItems();
                 },
                 getSelectedItemsAsQuery: function () {
                     return this._getEntityGrid().getSelectedItemsAsQuery();

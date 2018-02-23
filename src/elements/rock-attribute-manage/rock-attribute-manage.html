@@ -87,7 +87,7 @@ It is responsible to "get" and "save" the attributes.
         </pebble-dialog>
         <bedrock-pubsub event-name="on-buttonok-clicked" handler="_revertAll" target-id="cancelDialog"></bedrock-pubsub>
         <div id="rock-attribute-list-container"></div>
-        <liquid-entity-data-get name="attributeGetDataService" operation="getbyids" apply-locale-coalesce="[[applyLocaleCoalesce]]" request-data="{{_attributeRequest}}" last-response="{{_attributeResponse}}"
+        <liquid-entity-data-get name="attributeGetDataService" operation="getbyids" apply-locale-coalesce="[[applyLocaleCoalesce]]" last-response="{{_attributeResponse}}"
             on-response="_onEntityDataGetReceived" on-error="_onEntityDataGetFailed"></liquid-entity-data-get>
         
         
@@ -194,32 +194,9 @@ It is responsible to "get" and "save" the attributes.
                         value: ''
                     },
                     /**
-                    * Indicates the request object that is passed to the data element to retrive the attribute data.
-                      Sample: { 
-                                action: "getAttributes" 
-                              }
-                    */
-                    _attributeRequest: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    },
-                    /**
                      * Indicates the response object that is received from the data element for the attribute `get request`.
                      */
                     _attributeResponse: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    },
-                    /**
-                    * Indicates the request object that is passed to the data element to retrive attribute model data.
-                      Sample: {
-                              }
-                    */
-                    _attributeModelRequest: {
                         type: Object,
                         value: function () {
                             return {};
@@ -353,6 +330,10 @@ It is responsible to "get" and "save" the attributes.
                     '_contextChanged(contextData)',
                     '_modeChanged(mode)'
                 ],
+
+                attached() {
+                    this._cancelDialog = this.shadowRoot.querySelector("#cancelDialog");
+                },
                 detached() {
                     if(this.loadContentFrameId) cancelAnimationFrame(this.loadContentFrameId);
                 },
@@ -373,15 +354,18 @@ It is responsible to "get" and "save" the attributes.
                 _onListModeChanged(e) {
                     this._modeChanged(e.detail.mode);
                 },
+                get attributeList() {
+                    this._attributeList = this._attributeList || this.shadowRoot.querySelector('rock-attribute-list');
+                    return this._attributeList;
+                },
                 _modeChanged: function (mode, updateList) {
                     if (!mode) return;
 
                     this.mode = mode;
                     this.$.buttonContainer.style.display = mode === 'edit' ? "inline-block" : 'none';
 
-                    if(updateList) {
-                        const list = this.shadowRoot.querySelector('rock-attribute-list');
-                        list.mode = mode;
+                    if(updateList && this.attributeList) {
+                        this.attributeList.mode = mode;
                     }
                   
                     this.mode = mode;
@@ -401,10 +385,12 @@ It is responsible to "get" and "save" the attributes.
 
                         var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
 
-                        this.set("_attributeModelRequest", compositeModelGetRequest);
-                        var liquidModelGet = this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
-                        if (liquidModelGet && compositeModelGetRequest) {
-                            liquidModelGet.generateRequest();
+                        if (compositeModelGetRequest) {
+                            this._compositeAttributeModelGet = this._compositeAttributeModelGet || this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
+                            if(this._compositeAttributeModelGet) {
+                                this._compositeAttributeModelGet.requestData = compositeModelGetRequest;
+                                this._compositeAttributeModelGet.generateRequest();
+                            }
                         }
                     }
                 },
@@ -454,8 +440,6 @@ It is responsible to "get" and "save" the attributes.
                                     liquidElement.generateRequest();
                                 }
 
-                                this.set("_attributeRequest", req);
-
                                 var messageReq = DataHelper.cloneObject(req);
 
                                 delete messageReq.params.query.valueContexts;
@@ -466,12 +450,9 @@ It is responsible to "get" and "save" the attributes.
                                     liquidGovernGet.generateRequest();
                                 }
                                 let liquidDataGet = this.shadowRoot.querySelector("[name=attributeGetDataService]");
-                                if (liquidDataGet) {
-                                    if(this.applyContextCoalesce) {
-                                        liquidDataGet.useDataCoalesce = true;
-                                    }
-                                    liquidDataGet.generateRequest();
-                                }
+                                liquidDataGet.useDataCoalesce = !!this.applyContextCoalesce;
+                                liquidDataGet.requestData = req;
+                                liquidDataGet.generateRequest();
                                 this._showNoAttributeMessage = false;
                             } else {
                                 var values = DataTransformHelper.transformAttributes({}, this._attributeModels, {}, this.contextData, "array", true);
@@ -663,16 +644,15 @@ It is responsible to "get" and "save" the attributes.
                     //TODO: Needs to check with Vishal.
                     //check if any changes
                     //if none, then return operationResult with warning message else proceed
-                    var attributeList = Polymer.dom(this).node.shadowRoot.querySelector('rock-attribute-list');
 
                     //If have errors return
-                    if (!this.allowSaveOnError && attributeList.hasModelErrors()) {
+                    if (!this.allowSaveOnError && this.attributeList && this.attributeList.hasModelErrors()) {
                         this.showErrorToast("Cannot save the entity, please resolve the errors.");
                         return;
                     }
 
-                    var changedAttributeElements = attributeList.getChangedAttributeElements();
-                    if (changedAttributeElements == undefined || changedAttributeElements.length == 0) {
+                    var changedAttributeElements = this.attributeList && this.attributeList.getChangedAttributeElements();
+                    if (!changedAttributeElements || changedAttributeElements.length == 0) {
                         this.showNoChangesToast();
                         return {
                             "message": "No changes to save"
@@ -707,8 +687,7 @@ It is responsible to "get" and "save" the attributes.
 
                     if (liquidGet) {
                         this.mode = "view";
-                        var attributeList = Polymer.dom(this).node.shadowRoot.querySelector('rock-attribute-list');
-                        attributeList.resetChanged();
+                        this.attributeList && this.attributeList.resetChanged();
                         liquidGet.generateRequest();
                     }
 
@@ -741,7 +720,7 @@ It is responsible to "get" and "save" the attributes.
                 },
                 _openCancelDialog: function () {
                     if (this.getIsDirty()) {
-                        this.shadowRoot.querySelector("#cancelDialog").open();
+                        this._cancelDialog.open();
                     } else {
                         this._revertAll();
                     }
@@ -754,16 +733,14 @@ It is responsible to "get" and "save" the attributes.
                         };
                         this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
                     } else {
-                        var attributeList = Polymer.dom(this).node.shadowRoot.querySelector('rock-attribute-list');
-                        attributeList.revertAll();
+                        this.attributeList && this.attributeList.revertAll();
                         this._modeChanged('view');
                         this._resetErrors();
                     }
                 },
                 _resetErrors: function () {
-                    const attributeList = this.shadowRoot.querySelector('rock-attribute-list');
-                    if (attributeList) {
-                        attributeList.updateDependentAttributesAndResetErrors();
+                    if (this.attributeList) {
+                        this.attributeList.updateDependentAttributesAndResetErrors();
                     }
                 },
                 _setTitleBar: function (values) {
@@ -793,7 +770,7 @@ It is responsible to "get" and "save" the attributes.
                         if (!_.isEmpty(attrMessages)) {
                             var errorMessages = MessageHelper.getErrorsFromAttrMessages(attrMessages, this._attributeModels);
                             this.set("_syncValidationErrors", errorMessages);
-                            this.shadowRoot.querySelector('#errorsDialog').open();
+                            this.$.errorsDialog.open();
                             return;
                         } else {
                             this._saveEntity();
@@ -822,17 +799,11 @@ It is responsible to "get" and "save" the attributes.
                     }
                 },
                 _skipServerErrors: function () {
-                    var errorDialog = this.$.errorsDialog;
-                    if (errorDialog) {
-                        errorDialog.close();
-                    }
+                    this.$.errorsDialog.close();
                     this._saveEntity();
                 },
                 _fixServerErrors: function () {
-                    var errorDialog = this.$.errorsDialog;
-                    if (errorDialog) {
-                        errorDialog.close();
-                    }
+                    this.$.errorsDialog.close();
                     if (this._syncValidationErrors) {
                         var newAttributeMessages = {};
                         for (var i = 0; i < this._syncValidationErrors.length; i++) {
@@ -855,18 +826,16 @@ It is responsible to "get" and "save" the attributes.
                  * Can be used to get the elements if they are dirty.
                  */
                 getIsDirty: function () {
-                    var attributeList = this.shadowRoot.querySelector("rock-attribute-list");
-                    if (attributeList && attributeList.getIsDirty) {
-                        return attributeList.getIsDirty();
+                    if (this.attributeList) {
+                        return this.attributeList.getIsDirty();
                     }
                 },
                 /**
                  * Can be used to get the controls if they are dirty.
                  */
                 getControlIsDirty: function () {
-                    var attributeList = this.$$("rock-attribute-list");
-                    if (attributeList && attributeList.getControlIsDirty) {
-                        return attributeList.getControlIsDirty();
+                    if (this.attributeList) {
+                        return this.attributeList.getControlIsDirty();
                     }
                 },
                 _hasErrors: function (detail) {
