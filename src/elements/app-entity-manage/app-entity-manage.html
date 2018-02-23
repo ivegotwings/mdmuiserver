@@ -156,12 +156,9 @@
         <bedrock-pubsub event-name="govern-complete" handler="_onGovernComplete"></bedrock-pubsub>
         <liquid-rest id="entityDeleteLiquidRest" url="/data/pass-through/entityappservice/delete" method="POST" request-data={{deleteRequest}}
             on-liquid-response="_deleteSuccess" on-liquid-error="_deleteFailure"></liquid-rest>
-            <liquid-entity-model-composite-get id="compositeRelModelGet" request-data="{{_relModelRequest}}" on-entity-model-composite-get-response="_onRelationshipCompositeModelGetResponse" on-error="_onCompositeModelGetError">
-            </liquid-entity-model-composite-get>
-            <liquid-entity-model-composite-get id="compositeAttrModelGet" request-data="{{_attrModelRequest}}" on-entity-model-composite-get-response="_onAttributeCompositeModelGetResponse" on-error="_onCompositeModelGetError">
-            </liquid-entity-model-composite-get>
-            <liquid-entity-model-get id="getRelDomains" operation="getbyids"  on-response="_onRelModelsReceived"
-                                     on-error="_onModelGetFailed"></liquid-entity-model-get>
+        <liquid-entity-model-composite-get id="compositeRelModelGet" on-entity-model-composite-get-response="_onRelationshipCompositeModelGetResponse" on-error="_onCompositeModelGetError"></liquid-entity-model-composite-get>
+        <liquid-entity-model-composite-get id="compositeAttrModelGet" on-entity-model-composite-get-response="_onAttributeCompositeModelGetResponse" on-error="_onCompositeModelGetError"></liquid-entity-model-composite-get>
+        <liquid-entity-model-get id="getRelDomains" operation="getbyids" on-response="_onRelModelsReceived"on-error="_onModelGetFailed"></liquid-entity-model-get>
     </template>
     <script>
         (function () {
@@ -271,7 +268,28 @@
                 ],
                 attached: function () {
                     this._searchTimeStamp = new Date().toLocaleString();
+                    this._initializeComponent();
                 },
+                _initializeComponent() {
+                    this._entityTitlebar = this.shadowRoot.querySelector('#entityTitlebar');
+                    this._confirmationDialog = this.shadowRoot.querySelector("#confirmationDialog");
+                    this._entityDeleteLiquidRest = this.shadowRoot.querySelector("#entityDeleteLiquidRest");
+                    this._compositeRelModelGet = this.shadowRoot.querySelector("#compositeRelModelGet");
+                    this._compositeAttrModelGet = this.shadowRoot.querySelector("#compositeAttrModelGet");
+                    this._getRelDomains = this.shadowRoot.querySelector("#getRelDomains");
+                    this._entityHeader = this.shadowRoot.querySelector("rock-entity-header");
+                },
+
+                get dimensionSelector() {
+                    this._dimensionSelector = this._dimensionSelector || this.shadowRoot.querySelector('rock-dimension-selector');
+                    return this._dimensionSelector;
+                },
+
+                get detailTabs() {
+                    this._detailTabs = this._detailTabs || this.shadowRoot.querySelector('#rockDetailTabs');
+                    return this._detailTabs;
+                },
+
                 created: function () {
                     this.contentHeightVariable = "--rock-tab-content-height";
                     var userContext = {
@@ -296,39 +314,30 @@
                     this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
                 },
                 refresh: function () {
-                    var isDirty = false;
-                    if (this.getIsDirty) {
-                        isDirty = this.getIsDirty();
-                    }
-                    if (isDirty) {
-                        if (window.confirm(
-                            "There are unsaved changes. Do you want to discard the changes?")) {
-                            this.shadowRoot.querySelector('rock-dimension-selector').refresh();
-                            this._reRenderOnDimensionChange();
-                        }
-                    } else {
-                        this.shadowRoot.querySelector('rock-dimension-selector').refresh();
+                    var isDirty = this.getIsDirty();
+
+                    const _refresh = () => {
+                        this.dimensionSelector.refresh();
                         this._reRenderOnDimensionChange();
+                    };
+
+                    if (isDirty) {
+                        if (window.confirm("There are unsaved changes. Do you want to discard the changes?")) {
+                            _refresh();
+                        }
+                        return;
                     }
+                    _refresh();
                 },
                 /**
                  * Function to display the left nav info
                  */
                 getAppCurrentStatus: function (customArgs) {
-                    
-                    var title = "";
-                    var param;
-                    var titlebar = this.shadowRoot.querySelector('#entityTitlebar');
-                    if (titlebar && titlebar.mainTitle != "") {
-                        param = titlebar.mainTitle;
-                    }
-                    title = this.getNavbarTitle(param);
-
                     if(customArgs && customArgs.queryParams){
                         this.queryParams = customArgs.queryParams;
                     }
                     return {
-                        title: title,
+                        title: this.getNavbarTitle(this._entityTitlebar.mainTitle),
                         subTitle: this.getIsDirty() ? "Draft" : this._lastSavedTime && this._lastSavedTime != "" ? "Last Saved" : "Last Opened",
                         subTitleValue: this._lastSavedTime && this._lastSavedTime != "" ? this._lastSavedTime : new Date().toLocaleString(),
                         queryParams: this.queryParams
@@ -457,7 +466,7 @@
                     alert("event triggered: " + detail.name);
                 },
                 _deleteEvent: function (e, detail, sender) {
-                    this.shadowRoot.querySelector("#confirmationDialog").open();
+                    this._confirmationDialog.open();
                 },
                 _onDeleteConfirm: function () {
                     var itemContexts = DataHelper.cloneObject(this.getItemContexts());
@@ -475,11 +484,7 @@
                     this.set("deleteRequest", req);
 
                     //Send request to delete the entity
-                    var liquidDelete = this.shadowRoot.querySelector("#entityDeleteLiquidRest");
-                    if (liquidDelete) {
-                        liquidDelete.generateRequest();
-                    }
-
+                    this._entityDeleteLiquidRest.generateRequest();
                 },
                 _deleteSuccess: function (e) {
                     if (e.detail && e.detail.response && e.detail.response.response) {
@@ -584,15 +589,12 @@
                     }
                 },
                 _triggerLinkAssets: function (relationshipTypeName) {
-                    var liqRelModelGet = this.shadowRoot.querySelector("#compositeRelModelGet");
                     var request = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
                     delete request.params.fields.attributes;
                     request.params.fields.relationships = [relationshipTypeName];
-                    this._relModelRequest = request;
+                    this._compositeRelModelGet.requestData = request;
 
-                    if (liqRelModelGet) {
-                        liqRelModelGet.generateRequest();
-                    }
+                    this._compositeRelModelGet.generateRequest();
                 },
                 _onRelationshipCompositeModelGetResponse: function (e, detail) {
                     var relationshipDetails = {};
@@ -636,16 +638,13 @@
                     }
                 },
                 _triggerManageAttributes: function () {
-                    var liqAttrModelGet = this.shadowRoot.querySelector("#compositeAttrModelGet");
                     var request = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
                     delete request.params.fields.relationships;
                     delete request.params.fields.relationshipAttributes;
                     request.params.fields.attributes = ["_ALL"];
-                    this._attrModelRequest = request;
 
-                    if (liqAttrModelGet) {
-                        liqAttrModelGet.generateRequest();
-                    }
+                    this._compositeAttrModelGet.requestData = request;
+                    this._compositeAttrModelGet.generateRequest();
                 },
                 _onAttributeCompositeModelGetResponse: function (e, detail) {
                     if (detail && DataHelper.validateGetModelsResponse(detail.response)) {
@@ -694,11 +693,8 @@
                         }
                     };
 
-                    var relModelLiquid = this.shadowRoot.querySelector("#getRelDomains");
-                    if (relModelLiquid) {
-                        relModelLiquid.requestData = req;
-                        relModelLiquid.generateRequest();
-                    }
+                    this._getRelDomains.requestData = req;
+                    this._getRelDomains.generateRequest();
                 },
                 _onRelModelsReceived: function (e, detail) {
                     var responseContent = DataHelper.validateAndGetResponseContent(detail.response)
@@ -769,9 +765,8 @@
                         detail.label);
                 },
                 onDimensionGridOpen: function (e, detail, sender) {
-                    var entityTitlebar = Polymer.dom(this).node.shadowRoot.querySelector("#entityTitlebar");
-                    var dimensionSelectorConfig = entityTitlebar.getDimensionSelectorConfig();
-                    var selectedDimensions = entityTitlebar.getSelectedDimensions();
+                    var dimensionSelectorConfig = this._entityTitlebar.getDimensionSelectorConfig();
+                    var selectedDimensions = this._entityTitlebar.getSelectedDimensions();
 
                     const sharedData = {
                         "dimension-configs": dimensionSelectorConfig,
@@ -799,18 +794,16 @@
                     }
                 },
                 errorLengthChanged: function (e, detail) {
-                    var detailTabs = this.shadowRoot.querySelector('#rockDetailTabs');
-                    if(detailTabs) {
-                        detailTabs.errorLengthChanged(detail);
+                    if(this.detailTabs) {
+                        this.detailTabs.errorLengthChanged(detail);
                     }
                 },
                 _refreshView: function () {
                     this._refreshRockEntityHeader();
                     this._refreshRightSidePanel();
-                    var detailTabs = this.shadowRoot.querySelector('#rockDetailTabs')
-                    if(detailTabs) {
-                        detailTabs.readyToRender(true);
-                        detailTabs.reloadCurrentTab();
+                    if(this.detailTabs) {
+                        this.detailTabs.readyToRender(true);
+                        this.detailTabs.reloadCurrentTab();
                     }
                 },
                 _refreshHeaderAndNavBars: function () {
@@ -820,23 +813,18 @@
                     this._invalidateEntityCache = true;
                 },
                 getIsDirty: function () {
-                    var detailTabs = this.shadowRoot.querySelector('#rockDetailTabs')
-                    if(detailTabs) {
-                        return detailTabs.getIsDirty();
+                    if(this.detailTabs) {
+                        return this.detailTabs.getIsDirty();
                     }
                 },
                 getControlIsDirty: function () {
-                    var detailTabs = this.shadowRoot.querySelector('#rockDetailTabs')
-                    if(detailTabs) {
-                        return detailTabs.getControlIsDirty();
+                    if(this.detailTabs) {
+                        return this.detailTabs.getControlIsDirty();
                     }
                 },
 
                 _refreshTitleBar: function () {
-                    var titlebar = this.shadowRoot.querySelector('#entityTitlebar');
-                    if(titlebar) {
-                        titlebar.refreshTitleBar();
-                    }
+                    this._entityTitlebar.refreshTitleBar();
                 },
 
                 _onSetTitlebar: function(e, detail) {
@@ -860,10 +848,9 @@
                     }
 
                     this._debouncer = Polymer.Debouncer.debounce(this._debouncer, Polymer.Async.timeOut.after(30), () => {
-                        var detailsTab = this.shadowRoot.querySelector('#rockDetailTabs')
-                        if(detailsTab) {
-                            detailsTab.readyToRender(true);
-                            detailsTab.reloadTabs();
+                        if(this.detailTabs) {
+                            this.detailTabs.readyToRender(true);
+                            this.detailTabs.reloadTabs();
                         }
                     });
                 },
@@ -877,10 +864,8 @@
                 },
                 _refreshRockEntityHeader: function (e) {
                     this._refreshTitleBar();
-                    var entityHeaderEle = Polymer.dom(this).node.shadowRoot.querySelector('rock-entity-header');
-                    if (entityHeaderEle && entityHeaderEle.refresh) {
-                        entityHeaderEle.refresh(this._invalidateEntityCache);
-                    }
+                    this._entityHeader.refresh(this._invalidateEntityCache);
+
                     if (e) {
                         this._lastSavedTime = new Date().toLocaleString();
                     }
@@ -897,19 +882,16 @@
                     this.openBusinessFunctionDialog({ name: 'rock-wizard-entity-upload' });
                 },
                 _refreshEntityThumbnail: function () {
-                    var entityHeader = this.shadowRoot.querySelector("rock-entity-header");
-                    if (entityHeader) {
-                        entityHeader.refreshThumbnail();
-                    }
+                    this._entityHeader.refreshThumbnail();
                 },
                 _refreshActiveMenuItems: function () {
                     this._lastSavedTime = new Date().toLocaleString();
-                    var contentView = RUFUtilities.mainApp.contentViewManager.shadowRoot.querySelector("rock-content-view:not([hidden])");
+                    var contentView = RUFUtilities.mainApp.contentViewManager.activeContentView;
                     this.fireBedrockEvent('app-status-changed', { "viewName": contentView.name, "contentView": contentView, "config": undefined }, { appId: "main-app", ignoreId: true });
                 },
                 _refreshDimensionSelector: function () {
                     Polymer.Async.microTask.run(() => {
-                        this.shadowRoot.querySelector('rock-dimension-selector').refreshDimensionData();
+                        this.dimensionSelector.refreshDimensionData();
                     })
                 },
                 /*
@@ -938,9 +920,8 @@
                          notificationObj.showToast(data);
                     } else {
                         //Refresh the current tab
-                        var detailTabs = this.shadowRoot.querySelector('#rockDetailTabs')
-                        if(detailTabs) {
-                            detailTabs.refresh();
+                        if(this.detailTabs) {
+                            this.detailTabs.refresh();
                         }
                         //Refresh the Rightsidebar
                         this._refreshRightSidePanel();   
