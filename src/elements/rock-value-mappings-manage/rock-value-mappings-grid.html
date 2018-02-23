@@ -412,7 +412,7 @@
                         if (DataHelper.isValidObjectPath(detail, "response.content.entityModels.0.data.attributes")) {
                             var attributes = detail.response.content.entityModels[0].data.attributes;
                             var lov = this.shadowRoot.querySelector("#rockReferenceLov");
-                            
+
                             for (var key in attributes) {
                                 if (attributes[key].properties.isExternalName) {
                                     if (lov) {
@@ -435,10 +435,10 @@
 
                 _getMappings: function () {
                     //To-do: Contexts hardcoded here, will be removed once context header logic is implemented
-                    var selectedContexts = this._prepareContexts();
+                    this.selectedContexts = this._prepareContexts();
                     var types = [this.mappingData.valueMappingTypeName];
 
-                    var req = DataRequestHelper.createMappingsGetRequest(this.contextData, this.copContext, selectedContexts, types);
+                    var req = DataRequestHelper.createMappingsGetRequest(this.contextData, this.copContext, this.selectedContexts, types);
                     req.params.query.contexts[0].ownershipdata = this.ownershipdata && this.ownershipdata != "undefined" ? this.ownershipdata : "";
                     delete req.params.query.contexts[0].entitytype;
                     delete req.params.query.contexts[0].service;
@@ -484,7 +484,7 @@
                     var gridData = [];
                     if (response.entities) {
                         if (response.entities.length > 0) {
-                            this._valueMappingEntities = response.entities;
+                            this._valueMappingEntities = this._getContextSpecificValueMappings(response.entities);
 
                             var index = 0;
                             for (var i = 0; i < this._valueMappingEntities.length; i++) {
@@ -509,6 +509,30 @@
                     }
 
                     this.set("_gridData", gridData);
+                },
+
+                _getContextSpecificValueMappings: function(mappingEntities) {
+                    var contextSpecificMappings = [];
+                    if(mappingEntities && mappingEntities.length) {
+                        for(var i = 0; i < mappingEntities.length; i++) {
+                            if(DataHelper.isValidObjectPath(mappingEntities[i], "data.contexts.0.context")) {
+                                var context = mappingEntities[i].data.contexts[0].context;
+                                var isMatched = true;
+                                for(var j = 0; j < this.selectedContexts.length; j++) {
+                                    if(context[this.selectedContexts[j].type] != this.selectedContexts[j].value) {
+                                        isMatched = false;
+                                        break;
+                                    }
+                                }
+
+                                if(isMatched) {
+                                    contextSpecificMappings.push(mappingEntities[i]);
+                                }
+                            }
+                        }
+                    }
+
+                    return contextSpecificMappings;
                 },
 
                 _isDataAvailable: function (data) {
@@ -688,10 +712,9 @@
                     }
                     var mappings = this._transformGridDataToSaveMappings();
                     var saveRequests = [];
-                    var selectedContexts = this._prepareContexts();
                     if (!_.isEmpty(mappings)) {
                         for(var key in mappings) {
-                            var saveRequest = DataRequestHelper.createMappingsSaveRequest(this.contextData, this.copContext, selectedContexts, this.mappingData.valueMappingTypeName);
+                            var saveRequest = DataRequestHelper.createMappingsSaveRequest(this.contextData, this.copContext, this.selectedContexts, this.mappingData.valueMappingTypeName);
                             saveRequest.entity.data.contexts[0].attributes = mappings[key];
                             saveRequest.entity.data.contexts[0].context.ownershipdata = this.ownershipdata && this.ownershipdata != "undefined" ? this.ownershipdata : "";
                             delete saveRequest.entity.data.contexts[0].context.entitytype;
