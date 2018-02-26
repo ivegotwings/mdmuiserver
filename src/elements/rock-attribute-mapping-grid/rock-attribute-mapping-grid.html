@@ -22,6 +22,7 @@
 
 <link rel="import" href="../rock-attribute-model-lov/rock-attribute-model-lov.html">
 <link rel="import" href="../rock-classification-tree/rock-classification-tree.html">
+<link rel="import" href="../rock-dimension-selector/rock-dimension-selector.html">
 
 <!--
 <b><i>Content development is under progress... </b></i>
@@ -154,6 +155,18 @@
                 display: inline-block;
                 vertical-align: middle;
             }
+
+            #context-header {
+                box-shadow: 0 1px 7px 0 var(--palette-cloudy-blue, #c1cad4);
+                padding: 15px;
+                margin: 10px;
+            }
+
+            rock-dimension-selector {
+                --dimension-selector-simple-button: {
+                    width: 120px;
+                }
+            }
         </style>
         <liquid-rest id="getMappings" url="/data/cop/getMappings" method="POST" on-liquid-response="_onGetMappingsResponse"
             on-liquid-error="_onMappingsError"></liquid-rest>
@@ -161,6 +174,13 @@
             on-liquid-error="_onMappingsError"></liquid-rest>
         <div id="grid-heading">
             <strong>Attribute Mapping</strong>
+        </div>
+        <div id="context-header">
+            <rock-dimension-selector id="dimensionSelector" context-data="[[contextData]]" app-name="app-business-function-attributemapping" horizontal-align="left" all-single-select></rock-dimension-selector>
+            <bedrock-pubsub event-name="dimension-selector-data-changed" handler="_onDimensionsChanged" target-id="dimensionSelector"></bedrock-pubsub>
+            <span class="pull-right">
+                <pebble-button class="action-button-focus dropdownText btn btn-success m-r-5" id="btnLoadMappings" button-text="Load Mappings" raised on-tap="_onLoadMappingsTap"></pebble-button>
+            </span>
         </div>
         <div id="gridManage">
             <span class="gridCountMsg">Showing [[_getGridRecordsCount(_gridData)]] items</span>
@@ -199,8 +219,10 @@
             </template>
         </div>
         <div id="actions-container" class="m-t-20" align="center">
-            <pebble-button class="action-button btn btn-secondary m-r-5" id="skip" button-text="Cancel" raised on-tap="_onCancelTap"></pebble-button>
+            <pebble-button class="action-button btn btn-primary m-r-5" id="cancel" button-text="Cancel" raised on-tap="_onCancelTap"></pebble-button>
+            <pebble-button class="action-button btn btn-secondary m-r-5" id="back" button-text="Back" raised on-tap="_onBackTap"></pebble-button>
             <pebble-button class="action-button-focus dropdownText btn btn-success m-r-5" id="save" button-text="Save" raised on-tap="_onSaveTap"></pebble-button>
+            <pebble-button class="action-button btn btn-secondary m-r-5" id="saveandimport" button-text="Save & Import" raised on-tap="_onSaveAndImportTap"></pebble-button>
             <pebble-button class="action-button btn btn-primary m-r-5" id="import" button-text="Import" raised on-tap="_onImportTap"></pebble-button>
         </div>
         <pebble-dialog id="confirmationDialog" dialog-title="Confirmation" modal alert-box show-cancel show-ok no-cancel-on-outside-click
@@ -223,7 +245,12 @@
                     /**
                       * <b><i>Content development is under progress... </b></i> 
                       */
-                    mappingsRequestData: {
+                    mappingConfig: {
+                        type: Object,
+                        value: function () { return {}; }
+                    },
+
+                    mappingData: {
                         type: Object,
                         value: function () { return {}; }
                     },
@@ -278,11 +305,30 @@
                         value: function () {
                             return [];
                         }
+                    },
+
+                    _currentTaxonomy: {
+                        type: String,
+                        value: ""
+                    },
+
+                    _taxonomies: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+
+                    _contexts: {
+                        type: Array,
+                        value: function() {
+                            return [];
+                        }
                     }
                 },
 
                 observers: [
-                    '_dataChanged(contextData, mappingsRequestData, copContext)'
+                    '_dataChanged(contextData, mappingConfig, mappingData, copContext)'
                 ],
 
                 behaviors: [
@@ -302,13 +348,13 @@
                 },
 
                 get getMappingsLiq() {
-                    this._getMappings = this._getMappings || this.shadowRoot.querySelector("#getMappings");
-                    return this._getMappings;
+                    this._getMappingsLiq = this._getMappingsLiq || this.shadowRoot.querySelector("#getMappings");
+                    return this._getMappingsLiq;
                 },
 
                 get saveMappingsLiq() {
-                    this._saveMappings = this._saveMappings || this.shadowRoot.querySelector("#saveMappings");
-                    return this._saveMappings;
+                    this._saveMappingsLiq = this._saveMappingsLiq || this.shadowRoot.querySelector("#saveMappings");
+                    return this._saveMappingsLiq;
                 },
 
                 get liquidAttributeModelGetLiq() {
@@ -336,29 +382,49 @@
                     return this._mappingGrid;
                 },
 
-                _dataChanged: function (contextData, mappingsRequestData, copContext) {
-                    if (!_.isEmpty(contextData) && !_.isEmpty(mappingsRequestData) && !_.isEmpty(copContext)) {
-                        //To-do: Contexts hardcoded here, will be removed once context header logic is implemented
-                        this.selectedContexts = [
-                            {
-                                "type": "taxonomy",
-                                "value": "_ALL"
-                            },
-                            {
-                                "type": "classification",
-                                "value": "_ALL"
-                            }
-                        ];
-                        var types = ["attributemapping"];
+                get dimensionSelectorEl() {
+                    this._dimensionSelectorEl = this._dimensionSelectorEl || this.shadowRoot.querySelector("#dimensionSelector");
+                    return this._dimensionSelectorEl;
+                },
 
-                        var req = DataRequestHelper.createMappingsGetRequest(contextData, copContext, this.selectedContexts, types);
-                        req.params.rsconnect.headers.entities = mappingsRequestData.headerFields;
+                _dataChanged: function () {
+                    this._getMappings();
+                },
+
+                _getMappings: function() {
+                    if (!_.isEmpty(this.contextData) && !_.isEmpty(this.mappingData) && !_.isEmpty(this.mappingConfig) && !_.isEmpty(this.copContext)) {
+                        this._taxonomies = this.mappingData.taxonomies;
+                        this._contexts = this.mappingData.contexts;
+                        var selectedContexts = this._prepareContexts();
+                        var types = ["attributemapping"];
+                        var req = DataRequestHelper.createMappingsGetRequest(this.contextData, this.copContext, selectedContexts, types);
+                        req.params.rsconnect.headers.entities = this.mappingData.headerFields;
                         req.params.query.contexts[0].ownershipdata = this.ownershipdata && this.ownershipdata != "undefined" ? this.ownershipdata : "";
+
                         if(this.getMappingsLiq) {
                             this.getMappingsLiq.requestData = req;
                             this.getMappingsLiq.generateRequest();
                         }
                     }
+                },
+
+                _prepareContexts: function() {
+                    var contexts = [];
+                    for(var i = 0; i < this._contexts.length; i++) {
+                        var context = {};
+                        if(this.selectedDimensions && 
+                           this.selectedDimensions[this._contexts[i]] && 
+                           this.selectedDimensions[this._contexts[i]].length) {
+                            context.type = this._contexts[i];
+                            context.value = this.selectedDimensions[this._contexts[i]][0];
+                        } else {
+                            context.type = this._contexts[i];
+                            context.value = "_ALL";
+                        }
+                        contexts.push(context);
+                    }
+
+                    return contexts;
                 },
 
                 _onGetMappingsResponse: function (e, detail) {
@@ -373,7 +439,6 @@
                     if (response.entities) {
                         if (response.entities.length > 0 && DataHelper.isValidObjectPath(response, "entities.0.data.contexts.0.attributes")) {
                             this._mappingAttributes = response.entities[0].data.contexts[0].attributes;
-                            this._setHeaderFields(this._mappingAttributes);
                             for (var key in this._mappingAttributes) {
                                 destinationAttributes.push(key);
                             }
@@ -384,26 +449,12 @@
                         var attributes = [];
                         attributes.push("externalName");
                         var modelGetRequest = DataRequestHelper.createGetAttributeModelRequest(destinationAttributes, attributes);
-                        
+
                         if(this.liquidAttributeModelGetLiq) {
                             this.liquidAttributeModelGetLiq.requestData = modelGetRequest;
-                            this.liquidAttributeModelGetLiq.generateRequest();    
+                            this.liquidAttributeModelGetLiq.generateRequest();
                         }
                     }
-                },
-
-                //Remove context fields
-                _setHeaderFields: function (attributes) {
-                    var nonContextFields = [];
-                    // Todo - This logic will be removed, will get based on context mapping
-                    var contextFields = ["Classification", "Taxonomy"];
-                    for(var i = 0; i < this.mappingsRequestData.headerFields.length; i++) {
-                        if(contextFields.indexOf(this.mappingsRequestData.headerFields[i]) == -1) {
-                            nonContextFields.push(this.mappingsRequestData.headerFields[i]);
-                        }
-                    }
-
-                    this.mappingsRequestData.headerFields = nonContextFields;
                 },
 
                 _onAttributeModelGetResponse: function (e) {
@@ -428,7 +479,7 @@
                     var types = [];
                     types.push(this.getFirstItemContext().type);
                     var modelGetRequest = DataRequestHelper.createGetManageModelRequest(types);
-                    
+
                     if(this.liquidEntityManageModelGetLiq) {
                         this.liquidEntityManageModelGetLiq.requestData = modelGetRequest;
                         this.liquidEntityManageModelGetLiq.generateRequest();
@@ -463,7 +514,7 @@
                 _prepareGridData: function () {
                     var gridData = [];
                     var contextFields = [];
-                    var headerFields = this.mappingsRequestData.headerFields;
+                    var headerFields = this.mappingData.headerFields;
                     var itemContext = this.getFirstItemContext();
                     var entityType = itemContext.type;
                     for (var i = 0; i < headerFields.length; i++) {
@@ -629,7 +680,7 @@
                     }
                     this._currentEditIndex = index;
                     var grid = this.mappingGrid;
-                    
+
                     if(!grid) return;
 
                     var ironListComponent = Polymer.dom(grid.shadowRoot.querySelector('#list'));
@@ -647,9 +698,14 @@
                     }
                 },
 
-                _onSaveTap: function (e) {
+                _onSaveAndImportTap: function() {
+                    this.isSaveAndImport = true;
+                    this._onSaveTap();
+                },
+
+                _onSaveTap: function () {
                     if(!this.saveMappingsLiq) return;
-                    
+
                     var mappings = this._transformGridDataToSaveMappings();
                     if (_.isEmpty(mappings)) {
                         return this.showSuccessToast("There are no changes in mappings to save.");
@@ -668,11 +724,15 @@
                     if (response && response.status == "success") {
                         this.isMappingsChanged = true;
                         this._resetMappings(); //Call this on save mappings success
-                        this.showSuccessToast("Attribute mappings saved successfully.");
+                        this.showSuccessToast("Attribute mappings submitted successfully.");
+                        if(this.isSaveAndImport) {
+                            this._onImportTap();
+                            this.isSaveAndImport = false;
+                        }
                         return;
                     }
 
-                    this.showErrorToast("Unable to save attribute mappings, please contact administrator.");
+                    this.showErrorToast("Unable to submit attribute mappings, please contact administrator.");
                 },
 
                 _onMappingsError: function (e, detail) {
@@ -682,6 +742,7 @@
 
                 _resetMappings: function () {
                     this._deletedMappings = [];
+                    this._refChangeDeletedMappings = [];
                     for (var i = 0; i < this._gridData.length; i++) {
                         this._gridData[i].action = "";
                     }
@@ -780,6 +841,14 @@
                     return unique.hashCode();
                 },
 
+                _onBackTap: function (e) {
+                    var eventName = "field-map-back";
+                    var eventDetail = {
+                        "name": eventName,
+                    };
+                    this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                },
+
                 _onCancelTap: function (e) {
                     var eventName = "field-map-cancel";
                     var eventDetail = {
@@ -788,7 +857,7 @@
                     this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
                 },
 
-                _onImportTap: function (e) {
+                _onImportTap: function () {
                     if (this.isMappingsChanged) {
                         this._confirmationDialog.open();
                         return;
@@ -882,7 +951,7 @@
                 _onDeleteTap: function () {
                     var grid = this.mappingGrid;
                     if (!grid) return;
-                    
+
                     var selectedItems = grid.getSelectedItems();
                     if (selectedItems.length == 0) {
                         //Show message if needed - Please select an item for delete
@@ -964,6 +1033,33 @@
                     }
 
                     return this._gridData.length;
+                },
+
+                _onDimensionsChanged: function(e, detail) {
+                    if(detail && detail.dimensions && 
+                       detail.dimensions.taxonomy && 
+                       detail.dimensions.taxonomy.length) {
+                        if(this._currentTaxonomy != detail.dimensions.taxonomy[0]) {
+                            this._currentTaxonomy = detail.dimensions.taxonomy[0];
+
+                            if(this.dimensionSelectorEl) {
+                                for(var i = 0; i < this._taxonomies.length; i++) {
+                                    if(this._taxonomies[i].name.toLowerCase() == this._currentTaxonomy.toLowerCase()) {
+                                        this.dimensionSelectorEl.classificationTaxonomy = this._taxonomies[i].id;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+
+                _onLoadMappingsTap: function() {
+                    if(this.dimensionSelectorEl) {
+                        this.selectedDimensions = this.dimensionSelectorEl.selectedDimensions;
+                        this._resetMappings(); // Reset before get
+                        this._getMappings(); // Get mappings based on dimensions
+                    }
                 }
             });
         })();
