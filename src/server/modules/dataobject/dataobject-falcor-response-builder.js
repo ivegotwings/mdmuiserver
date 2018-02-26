@@ -307,7 +307,7 @@ function _buildRelationshipsResponse(rels, reqData, currentDataContextJson, path
 function _buildRelationshipDetailsResponse(enRel, reqData, relTypeKey, relsJson, paths, basePath) {
 
     var relJson = relsJson[enRel.id] = {};
-    var dataObjectsByIdBasePath = [pathKeys.root, reqData.dataIndex];
+    var dataObjectsByIdBasePath = [pathKeys.root, reqData.dataIndex, reqData.dataSubIndex];
     var relBasePath;
 
     if (reqData.buildPaths) {

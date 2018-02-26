@@ -97,6 +97,7 @@
           var itemContext = {};
 
           var entityTypes = queryObject.entityData && queryObject.entityData.types ? queryObject.entityData.types : [];
+          this.searchFilters["typesCriterion"] = entityTypes;
 
           var searchQuery = queryObject.searchQuery ? queryObject.searchQuery : undefined;
           this.searchFilters["searchQuery"] = searchQuery;
@@ -113,26 +114,25 @@
           if (relationshipName) {
             itemContext.relationships = [relationshipName];
             this._relationshipAttributes = queryObject.entityRelationships && queryObject.entityRelationships.attributes ? queryObject.entityRelationships.attributes : undefined;
-            var relationshipAttributes = this._relationshipAttributes ? this._getAttributeNames(this._relationshipAttributes) : "_ALL";
+            var relationshipAttributes = this._relationshipAttributes ? this._getAttributeNames(this._relationshipAttributes) : ["_ALL"];
             itemContext.relationshipAttributes = relationshipAttributes;
 
             this._relatedEntityAttributes = undefined;
             this._relToEntityTypes = [];
             if(queryObject.entityRelationships && queryObject.entityRelationships.relatedEntityData) {
               this._relatedEntityAttributes = queryObject.entityRelationships.relatedEntityData.attributes ? queryObject.entityRelationships.relatedEntityData.attributes : undefined;
-              var relEntityAttributes = this._relatedEntityAttributes ? this._getAttributeNames(this._relationshipAttributes) : undefined;
+              var relEntityAttributes = this._relatedEntityAttributes ? this._getAttributeNames(this._relatedEntityAttributes) : undefined;
 
               if(relEntityAttributes) {
-                itemContext.attributeNames.concat(relEntityAttributes);
+                itemContext.attributeNames = itemContext.attributeNames.concat(relEntityAttributes);
               }
 
               this._relToEntityTypes = queryObject.entityRelationships.relatedEntityData.types || [];
-              entityTypes.concat(this._relToEntityTypes);
+              entityTypes = entityTypes.concat(this._relToEntityTypes);
             }
           }
 
           if (entityTypes && entityTypes.length > 0) {
-            this.searchFilters["typesCriterion"] = entityTypes;
             this._currentIndex = entityTypes.length;
             this._currentItems = [];
             for (var i = 0; i < entityTypes.length; i++) {
@@ -158,7 +158,12 @@
           if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
             var attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], this.contextData);
 
-            var relationshipModels = DataTransformHelper.transformRelationshipModels(e.detail.response.content.entityModels[0], this.contextData);
+            var entityType = e.detail.response.content.entityModels[0] ? e.detail.response.content.entityModels[0].name : undefined;
+
+            if(entityType) {
+              this._relationshipModels = this._relationshipModels || {};
+              this._relationshipModels[entityType] = DataTransformHelper.transformRelationshipModels(e.detail.response.content.entityModels[0], this.contextData);
+            }
 
             if (this._currentIndex == 1) {
               this._currentItems = [];
@@ -180,12 +185,16 @@
                 }
               }
 
+              if (!_.isEmpty(this._relToEntityTypes)) {
+                delete this._relationshipModels[this._relToEntityTypes[0]]
+              }
+
               var attrsCriterion = this._prepareAttrsCriterion(compositeModels, this._entityAttributes);
-              var relationshipsCriterion = this._prepareRelationshipsCriterion(relationshipModels, this._relationshipAttributes, this._relatedEntityAttributes, this._relToEntityTypes, compositeModels);
+              var relationshipsCriterion = this._prepareRelationshipsCriterion(this._relationshipModels, this._relationshipAttributes, this._relatedEntityAttributes, this._relToEntityTypes, compositeModels);
               this.searchFilters["attributesCriterion"] = !_.isEmpty(attrsCriterion) ? attrsCriterion : undefined;
               this.searchFilters["relationshipsCriterion"] = !_.isEmpty(relationshipsCriterion) ? [relationshipsCriterion] : undefined;
               this.searchFilters["compositeModels"] = compositeModels;
-              this.searchFilters["relationshipModels"] = relationshipModels;
+              this.searchFilters["relationshipModels"] = this._relationshipModels;
               this.fireBedrockEvent('on-search-filters', this.searchFilters);
             }
           }
@@ -211,7 +220,7 @@
                   if (keys && keys.length > 0) {
                     for (var j = 0; j < keys.length; j++) {
                       var key = keys[j];
-                      var val = attrVal[key].replace(/'/g, '');
+                      var val = attrVal[key];
                       var isPrefixed = prefix.test(val);
                       var isSuffixed = suffix.test(val);
                       var isPartialSearch = false;
@@ -264,12 +273,12 @@
                           delete attrVal[key];
                         } else if (displayType === "datetime") {
                           if(key === "gte") {
-                            attrVal[key] = moment(attrVal[key]).startOf("day").format("YYYY-MM-DDTHH:mm:ss.SSS-0500");
+                            attrVal[key] = moment(attrVal[key]).startOf("day").format(FormatHelper.getISODateTimeFormat());
                           } else if(key === "lte") {
-                            attrVal[key] = moment(attrVal[key]).endOf("day").format("YYYY-MM-DDTHH:mm:ss.SSS-0500");
+                            attrVal[key] = moment(attrVal[key]).endOf("day").format(FormatHelper.getISODateTimeFormat());
                           } else if(key === "equals") {
-                            attrVal["gte"] = moment(attrVal[key]).startOf("day").format("YYYY-MM-DDTHH:mm:ss.SSS-0500");
-                            attrVal["lte"] = moment(attrVal[key]).endOf("day").format("YYYY-MM-DDTHH:mm:ss.SSS-0500");
+                            attrVal["gte"] = moment(attrVal[key]).startOf("day").format(FormatHelper.getISODateTimeFormat());
+                            attrVal["lte"] = moment(attrVal[key]).endOf("day").format(FormatHelper.getISODateTimeFormat());
                             delete attrVal[key];
                           }
                         } else if(displayType === "date") {
@@ -331,6 +340,16 @@
           var relType = this.searchFilters["relationshipName"];
           var relationshipsCriterion = {};
           if (relType) {
+            var rel;
+            if(!_.isEmpty(relationshipModels)) {
+              for(var entityType in relationshipModels) {
+                if(relationshipModels[entityType] && relationshipModels[entityType][relType] && relationshipModels[entityType][relType].length > 0) {
+                  rel = relationshipModels[entityType][relType][0];
+                }
+              }
+            }
+            relationshipsCriterion[relType] = relationshipsCriterion[relType] || {};
+            var relOwnership = rel && rel.properties ? rel.properties.relationshipOwnership : undefined;
             if(!_.isEmpty(relToEntityTypes)) {
               relationshipsCriterion[relType] = relationshipsCriterion[relType] || {};
               relationshipsCriterion[relType]["relTo"] = {
@@ -342,13 +361,16 @@
                   }
               };
 
-              if(!_.isEmpty(relatedEntityAttributes)) {
+              if (!_.isEmpty(relatedEntityAttributes)) {
                 var relEntityAttrsCriterion = this._prepareAttrsCriterion(compositeModels, relatedEntityAttributes);
 
                 relationshipsCriterion[relType].query.filters.attributesCriterion = relEntityAttrsCriterion;
+              } else {
+                if(relOwnership !== "whereused") {
+                  delete relationshipsCriterion[relType]["query"];
+                }
               }
             }
-            var rel = relationshipModels[relType] && relationshipModels[relType].length ? relationshipModels[relType][0] : undefined;
             if (rel && rel.attributes) {
               var relData = {};
               relData.data = {};
@@ -379,6 +401,40 @@
             }
           }
           return attributeNames;
+        },
+
+        formatValue: function(value) {
+          var valSplitByOr = value.split(' or ');
+          var valSplitByAnd = value.split(' and ');
+
+          var values = valSplitByAnd.length > 1 ? valSplitByAnd : valSplitByOr.length > 1 ? valSplitByOr : [];
+
+          if(!_.isEmpty(values)) {
+            for(let i=0; i<values.length; i++) {
+              values[i] = this._formatValue(values[i]);
+            }
+
+            value = valSplitByAnd.length > 1 ? values.join(' and ') : valSplitByOr.length > 1 ? values.join(' or ') : value;
+          } else {
+            value = this._formatValue(value);
+          }
+
+          return value;
+        },
+
+        _formatValue: function(value) {
+          var prefix = /^\'|"/i;
+          var suffix1 = /^.+\'$/gm;
+          var suffix2 = /^.+\"$/gm;
+
+          if(prefix.test(value)) {
+              value = value.replace(/^.|$/g, '')
+          }
+          if(suffix1.test(value) || suffix2.test(value)) {
+              value = value.replace(/^|.$/g, '')
+          }
+
+          return value;
         }
       });
     })();

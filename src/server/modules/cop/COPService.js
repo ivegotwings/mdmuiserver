@@ -114,6 +114,62 @@ COPService.prototype = {
         //console.log('generateFieldMapRequest: ', JSON.stringify(generateFieldMapRequest, null, 2));
         return await this.post(generateFieldMapURL, generateFieldMapRequest);
     },
+    getHeaderFields: async function (request) {
+        var getHeaderFieldsURL = "copservice/getHeaderFields";
+        var validationResult = this._validateRequest(request);
+        if (!validationResult) {
+            return {
+                "entityOperationResponse": {
+                    "status": "Error",
+                    "statusDetail": {
+                        "code": "RSUI0000",
+                        "message": "Incorrect request for COP get header fields.",
+                        "messageType": "Error"
+                    }
+                }
+            };
+        }
+
+        var fileName = request.body.fileName;
+        var files = request.files;
+
+        var getHeaderFieldsRequest = JSON.parse(request.body.requestData);
+        getHeaderFieldsRequest.dataObject.id = uuidV1();
+        getHeaderFieldsRequest.dataObject.data.blob = this._getFileContent(fileName, files);
+        return await this.post(getHeaderFieldsURL, getHeaderFieldsRequest);
+    },
+    getMappings: async function (request) {
+        var getMappingsURL = "copservice/getMappings";
+        if (!request.body) {
+            return {
+                "entityOperationResponse": {
+                    "status": "Error",
+                    "statusDetail": {
+                        "code": "RSUI0000",
+                        "message": "Incorrect request for COP get mappings.",
+                        "messageType": "Error"
+                    }
+                }
+            };
+        }
+        return await this.post(getMappingsURL, request.body);
+    },
+    saveMappings: async function (request) {
+        var saveMappingsURL = "copservice/saveMappings";
+        if (!request.body) {
+            return {
+                "entityOperationResponse": {
+                    "status": "Error",
+                    "statusDetail": {
+                        "code": "RSUI0000",
+                        "message": "Incorrect request for COP save mappings.",
+                        "messageType": "Error"
+                    }
+                }
+            };
+        }
+        return await this.post(saveMappingsURL, request.body);
+    },
     downloadModelExcel: async function (request, response) {
         var downloadModelURL = "copservice/downloadModelExcel";
         var timeStamp = Date.now();

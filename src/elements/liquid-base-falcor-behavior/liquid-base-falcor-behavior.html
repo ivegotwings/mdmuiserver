@@ -80,6 +80,13 @@
             /**
               * Content is not appearing - Content development is under progress. 
               */
+            includeTypeExternalName: {
+                type: Boolean,
+                value: false
+            },
+            /**
+              * Content is not appearing - Content development is under progress. 
+              */
             noCache: {
                 type: Boolean,
                 value: false
@@ -98,7 +105,7 @@
          * Content is not appearing - Can be used to perform a request to the specified URL.
          *
          */
-        generateRequest: function () {
+        generateRequest: async function () {
             var request = this._createRequest();
             var self = this;
             if (request.requestData === null || request.operation === '') {
@@ -117,6 +124,11 @@
             this._handleProgress();
             this.push('activeRequests', request);
             this._setLastRequest(request);
+            request.originalRequest = DataHelper.cloneObject(request);
+            request.applyLocaleCoalesce = this.applyLocaleCoalesce;
+            if(this.applyLocaleCoalesce) {
+                await this._updateValueContextsWithFallbackLocales(request.requestData);
+            }
             this._setLoading(true);
             var model = RUFBehaviors.DataChannel.getModel(this.dataIndex);
 
@@ -130,6 +142,26 @@
 
             return request;
         },
+        _updateValueContextsWithFallbackLocales : async function(reqData) {
+            if(reqData.params && reqData.params.query && reqData.params.query.valueContexts) {
+                var valContexts = DataHelper.cloneObject(reqData.params.query.valueContexts);
+                for(let i=0; i<valContexts.length; i++) {
+                    var locale = valContexts[i].locale;
+                    var fallbackLocales = await DataHelper.getFallbackLocalesForLocaleAsync(locale);
+                    if(fallbackLocales) {
+                        for(let j=0; j<fallbackLocales.length; j++) {
+                            let fallbackLocale = fallbackLocales[j].name;
+                            let existingValCtx = reqData.params.query.valueContexts.find(obj => obj.locale === fallbackLocale);
+                            if(!existingValCtx) {
+                                var valCtx = DataHelper.cloneObject(valContexts[i]);
+                                valCtx.locale = fallbackLocale;
+                                reqData.params.query.valueContexts.push(valCtx);
+                            }
+                        }
+                    }
+                }
+            }
+        },
         _executeRequest: function (model, request) {
             //abstract method....do nothing...all elements implementing this behavior must implement this method
         },
@@ -142,6 +174,9 @@
             //abstract method....do nothing...all elements implementing this behavior must implement this method
         },
         _createRequest: function () {
+            if(this.includeTypeExternalName){
+                this.requestData.includeTypeExternalName = true;
+            }
             return {
                 "operation": this.operation,
                 "requestId": this.requestId === undefined ? '' : this.requestId,
@@ -169,11 +204,14 @@
             }
             return true;
         },
-        _handleResponse: function (request, responsePkg) {
+        _handleResponse:async function (request, responsePkg) {
             if (this.verbose) {
                 console.log('_handleResponse called with :', request, responsePkg);
             }
-            var formattedResponse = this._formatResponse(request, responsePkg);
+            var formattedResponse = await this._formatResponse(request, responsePkg);
+            if(request.applyLocaleCoalesce) {
+                formattedResponse = await DataTransformHelper.transformDataToCoalescedData(formattedResponse, request.originalRequest.requestData);
+            }
             var response = this._createSuccessResponse(request, formattedResponse);
             var utils = SharedUtils.DataObjectFalcorUtil;
             if (utils.compareObjects(request, this.lastRequest)) {

@@ -4,22 +4,31 @@
     window.ComponentHelper = window.ComponentHelper || {};
 
     (function () {
+        ComponentHelper.deleteQueue = [];
+
         ComponentHelper.fireBedrockEvent = function (name, data, settings, element) {
             var returnVal;
             if (element) {
-                returnVal = ComponentHelper._fireBedrockEvent(name, data, settings, element);
-            } else {
-                _pubsubListenerRegistry.forEach(function (item) {
-                    var eventName = name;
-                    if (item) {
-                        var element = item.element;
-                    }
-                    if (item.eventName && item.eventName.indexOf(eventName) >= 0) {
-                        returnVal = ComponentHelper._fireBedrockEvent(eventName, data, settings, element);
+                return ComponentHelper._fireBedrockEvent(name, data, settings, element);
+            }
+            else {
+                var eventNameRegistries= ['universal'];
+                var currentAppId = ComponentHelper.getCurrentActiveApp() ? ComponentHelper.getCurrentActiveApp().id : "";
+                if (currentAppId) {
+                    eventNameRegistries.push(currentAppId);
+                }
+                eventNameRegistries.forEach((registry) => {
+                    var eventIndex = RUFUtilities.pubsubEventNameRegistry[registry].indexOf(name);
+                    if (eventIndex !== -1) {
+                        var listeners = RUFUtilities.pubsubListenerRegistry[registry][eventIndex];
+                        listeners.forEach((listener) => {
+                            if (listener && listener.element) {
+                                ComponentHelper.fireBedrockEvent(name, data, settings, listener.element);
+                            }
+                        })
                     }
                 });
-            };
-            return returnVal;
+            }
         };
         ComponentHelper._fireBedrockEvent = function (name, data, settings, element) {
             if ((!settings || !settings.ignoreId) && element.id) {
@@ -51,16 +60,28 @@
         };
 
         ComponentHelper.clearNode = function(contentElement) {
-            while (contentElement.firstChild) {
-                contentElement.removeChild(contentElement.firstChild);
-            }
+            var rangeObj = new Range();
+            rangeObj.selectNodeContents(contentElement);
+            rangeObj.deleteContents();
         };
 
         ComponentHelper.removeNode = function(node) {
-            if(!(node instanceof HTMLElement)) return;
-            
+            if(!(node instanceof HTMLElement) || !(node.parentNode)) return;
+
             node.parentNode.removeChild(node);
         };
+
+        ComponentHelper.addToDeleteQueue = function(node) {
+            ComponentHelper.deleteQueue.push(node);
+        };
+
+        ComponentHelper.emptyDeleteQueue = function() {
+            var deleteNodes = ComponentHelper.deleteQueue.filter((n) => {return !!n.parentNode})
+            deleteNodes.forEach((n) => {
+                ComponentHelper.removeNode(n);
+            });
+            ComponentHelper.deleteQueue = [];
+        }
 
         ComponentHelper.loadContent = function (contentElement, component, element, callback) {
             if(!contentElement) return;
@@ -142,10 +163,9 @@
         ComponentHelper.getCurrentActiveApp = function () {
             var mainApp = RUFUtilities.mainApp;
             if (mainApp && mainApp.shadowRoot) {
-                var contentViewMgr = mainApp.shadowRoot.querySelector("rock-content-view-manager");
+                var contentViewMgr = mainApp.contentViewManager;
                 if (contentViewMgr) {
-                    var activeContentView = contentViewMgr.$.contentViewManager.querySelector(
-                        "rock-content-view:not([hidden])");
+                    var activeContentView = contentViewMgr.activeContentView;
                     if (activeContentView) {
                         var viewComponent = activeContentView.shadowRoot.querySelector("#content-view-container").querySelector(".view-component");
                         return viewComponent;
@@ -168,22 +188,17 @@
 
         ComponentHelper.getAppById = function (appId) {
             var mainApp = RUFUtilities.mainApp;
-            var app;
-            if (mainApp) {
-                var contentViewMgr = mainApp.shadowRoot.querySelector("rock-content-view-manager");
-                if (contentViewMgr) {
-                    var openedContentViews = contentViewMgr.$.contentViewManager.querySelectorAll("rock-content-view");
-                    if (openedContentViews) {
-                        openedContentViews.forEach(function (element) {
-                            var viewComponent = element.shadowRoot.querySelector("#content-view-container").querySelector(".view-component");
-                            if (viewComponent && viewComponent.id == appId) {
-                                app = viewComponent;
-                            }
-                        }, this);
-                    }
-                }
-            }
-            return app;
+            if (!mainApp ||!mainApp.contentViewManager) return null;
+            
+            var contentViewMgr = mainApp.contentViewManager;
+            var openedContentViews = contentViewMgr.$.contentViewManager.querySelectorAll("rock-content-view");
+            
+            if (!openedContentViews) return null;
+            
+            return openedContentViews.find(function (element) {
+                var viewComponent = element.shadowRoot.querySelector("#content-view-container").querySelector(".view-component");
+                return viewComponent && viewComponent.id == appId;
+            });
         };
 
         /**
@@ -196,7 +211,7 @@
 
             if (!this.mainApp) return null;
 
-            const contentViewManager = this.mainApp.shadowRoot.querySelector("rock-content-view-manager");
+            const contentViewManager = this.mainApp.contentViewManager;
 
             return contentViewManager ? contentViewManager.shadowRoot.querySelector(`rock-content-view[name="${viewName}"]`) : null;
         };
@@ -231,9 +246,9 @@
         ComponentHelper.getProgressBar = function () {
             var appCommon = RUFUtilities.appCommon;
             if (appCommon) {
-                return appCommon.querySelector("paper-progress");
+                this._progressBar = this._progressBar || appCommon.querySelector("paper-progress");
+                return this._progressBar;
             }
-            return undefined;
         };
 
         ComponentHelper.getViewNameWithQueryParams = function (queryParams, viewName) {
@@ -321,6 +336,13 @@
             }
 
             return value;
+        };
+
+        ComponentHelper.getLocaleManager = function() {
+            var mainApp = RUFUtilities.mainApp;
+            if(mainApp) {
+                return mainApp.localeManager;
+            }
         }
     })();
 

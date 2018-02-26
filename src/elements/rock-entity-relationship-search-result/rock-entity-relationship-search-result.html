@@ -23,21 +23,37 @@
         }
     </style>
 <style></style>
-<rock-business-function-dialog id="wfTransitionDialog" context-data="[[contextData]]"></rock-business-function-dialog>
-<rock-business-function-dialog id="wfAssignmentDialog" context-data="[[contextData]]"></rock-business-function-dialog>
 <template is="dom-if" if="{{_isRelGridConfigAvailable(relGridConfig)}}">
     <template is="dom-if" if="{{!_isUpdirection(relationship)}}">
-        <rock-relationship-grid id="entityRelationshipGrid_[[relationship]]" readonly$="[[readonly]]" relationship="[[relationship]]"
-            add-relationship-mode="[[configContext.addRelationshipMode]]" relationship-type="[[configContext.relationshipType]]"
-            relationship-title="[[configContext.relationshipTitle]]" rel-req="[[requestObj]]" relationship-grid-config="[[relGridConfig]]"
-            page-size="[[pageSize]]" context-data="[[contextData]]" do-sync-validation$="[[doSyncValidation]]" functional-mode="[[functionalMode]]"
-            type-thumbnail-mapping="[[_typeThumbnailMapping]]" global-edit="{{globalEdit}}" add-relationship-grid-config="[[addRelationshipGridConfig]]">
+        <rock-relationship-grid id="entityRelationshipGrid_[[relationship]]"
+                                readonly$="[[readonly]]"
+                                show-accordion="[[showAccordion]]"
+                                relationship="[[relationship]]"
+                                add-relationship-mode="[[configContext.addRelationshipMode]]"
+                                relationship-type="[[configContext.relationshipType]]"
+                                relationship-title="[[configContext.relationshipTitle]]"
+                                rel-req="[[requestObj]]"
+                                relationship-grid-config="[[relGridConfig]]"
+                                page-size="[[pageSize]]"
+                                context-data="[[contextData]]"
+                                do-sync-validation$="[[doSyncValidation]]"
+                                functional-mode="[[functionalMode]]"
+                                type-thumbnail-mapping="[[_typeThumbnailMapping]]"
+                                global-edit="{{globalEdit}}"
+                                add-relationship-grid-config="[[addRelationshipGridConfig]]">
         </rock-relationship-grid>
     </template>
     <template is="dom-if" if="{{_isUpdirection(relationship)}}">
-        <rock-where-used-grid id="entityRelationshipGrid_[[relationship]]" readonly$="[[readonly]]" relationship="[[relationship]]"
-            relationship-title="[[configContext.relationshipTitle]]" rel-req="[[requestObj]]" relationship-grid-config="[[relGridConfig]]"
-            page-size="[[pageSize]]" context-data="[[contextData]]" do-sync-validation$="[[doSyncValidation]]" global-edit="{{globalEdit}}">
+        <rock-where-used-grid id="entityRelationshipGrid_[[relationship]]"
+                              readonly$="[[readonly]]"
+                              relationship="[[relationship]]"
+                              relationship-title="[[configContext.relationshipTitle]]"
+                              rel-req="[[requestObj]]"
+                              relationship-grid-config="[[relGridConfig]]"
+                              page-size="[[pageSize]]"
+                              context-data="[[contextData]]"
+                              do-sync-validation$="[[doSyncValidation]]"
+                              global-edit="{{globalEdit}}">
         </rock-where-used-grid>
         <bedrock-pubsub event-name="govern-grid-action-click" handler="_onWorkflowActionTap" target-id="entityRelationshipGrid_[[relationship]]"></bedrock-pubsub>
     </template>
@@ -46,7 +62,12 @@
 </template>
 <script>
     class RockEntityRelationshipSearchResult
-        extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.ComponentContextBehavior, RUFBehaviors.ComponentConfigBehavior], Polymer.Element) {
+        extends Polymer.mixinBehaviors([
+            RUFBehaviors.UIBehavior,
+            RUFBehaviors.AppBehavior,
+            RUFBehaviors.ComponentContextBehavior, 
+            RUFBehaviors.ComponentConfigBehavior
+        ], Polymer.Element) {
         static get is() { return 'rock-entity-relationship-search-result' }
         ready() {
             super.ready();
@@ -107,6 +128,10 @@
                     type: Boolean,
                     notify: false
                 },
+                showAccordion: {
+                    type: Boolean,
+                    notify: false
+                },
                 pageSize: {
                     type: Number,
                     value: 100
@@ -116,6 +141,11 @@
                     value: function() {
                         return {}
                     }
+                },
+                relationshipItems: {
+                    type: Array,
+                    value: function(){ return [] },
+                    observer: '_onRelationshipItemsChange'
                 }
             }
         }
@@ -150,6 +180,9 @@
 
                 this.requestConfig('rock-entity-relationship-search-result', context);
             }
+        }
+        _onRelationshipItemsChange() {
+            this.showAccordion = this.relationshipItems.length > 1;
         }
         onConfigLoaded(componentConfig) {
             if (componentConfig && componentConfig.config) {
@@ -277,10 +310,11 @@
                     }
 
                     for (var i = 0; i < fields.length; i++) {
-                        if (fields[i].isRelationshipAttribute) {
-                            relationshipAttributes.push(fields[i].name);
-                        } else {
+                        if (fields[i].isRelatedEntityAttribute) {
                             relatedEntityAttributes.push(fields[i].name);
+                        } else {
+                            relationshipAttributes.push(fields[i].name);
+                            
                         }
                     }
 
@@ -506,8 +540,10 @@
             var selectionMode = "count"; //set default
             var selectionQuery = {};
 
-            if (this.shadowRoot.querySelector("rock-where-used-grid[id=entityRelationshipGrid_" + relationship + "]")) {
-                selectedItems = this.shadowRoot.querySelector("rock-where-used-grid[id=entityRelationshipGrid_" + relationship + "]").getSelectedItems();
+            const relationShipGrid = this.shadowRoot.querySelector(`rock-where-used-grid[id=entityRelationshipGrid_${relationship}`);
+
+            if (relationShipGrid) {
+                selectedItems = relationShipGrid.getSelectedItems();
             }
 
             //SelectedItems should not be blank, because using count
@@ -569,40 +605,40 @@
             return isValid;
         }
         _showAssignmentDialog(detail, action, selectionMode, selectionQuery, selectedItems, wfDetails) {
-            var assignmentDialog = this.shadowRoot.querySelector("#wfAssignmentDialog");
-            assignmentDialog.name = "rock-wizard-workflow-assignment";
-            assignmentDialog.sharedData = {
+            const { workflowLongName, activityLongName, workflowName, activityName } = wfDetails;
+
+            const sharedData = {
                 "selection-mode": selectionMode,
                 "selection-query": selectionQuery,
                 "selected-entities": selectedItems,
-                "context-data": this.contextData,
                 "assignment-Action": action,
-                "workflow-external-name": wfDetails.workflowLongName,
-                "workflow-activity-external-name": wfDetails.activityLongName,
-                "workflow-name": wfDetails.workflowName,
-                "workflow-activity-name": wfDetails.activityName
+                "workflow-external-name": workflowLongName,
+                "workflow-activity-external-name": activityLongName,
+                "workflow-name": workflowName,
+                "workflow-activity-name": activityName
             };
-            assignmentDialog.open();
+
+            this.openBusinessFunctionDialog({name: 'rock-wizard-workflow-assignment'}, sharedData);
         }
         _showTransitionDialog(detail, action, selectionMode, selectionQuery, selectedItems, wfDetails) {
-            var currentWorkflow = {
-                "name": wfDetails.workflowLongName,
-                "activityName": wfDetails.activityName,
-                "activityExternalName": wfDetails.activityLongName
-            }
-
-            var transitionDialog = this.shadowRoot.querySelector("#wfTransitionDialog");
-            transitionDialog.name = "rock-wizard-workflow-transition";
-            transitionDialog.sharedData = {
+            const { workflowLongName, activityName, activityLongName } = wfDetails;
+            
+            const sharedData = {
                 "selection-mode": selectionMode,
                 "selection-query": selectionQuery,
                 "selected-entities": selectedItems,
-                "context-data": this.contextData,
-                "current-workflow": currentWorkflow
+                "current-workflow": {
+                    name: workflowLongName,
+                    activityName: activityName,
+                    activityExternalName: activityLongName
+                }
             };
-            transitionDialog.open();
-            var existingTitle = transitionDialog.getTitle();
-            transitionDialog.setTitle(existingTitle + " - " + wfDetails.activityLongName);
+
+            this.openBusinessFunctionDialog({
+                name: 'rock-wizard-workflow-transition',
+                title: wfDetails.activityLongName,
+                mergeTitle: true,
+            }, sharedData);
         }
         getIsDirty() {
             var relGrid = this.shadowRoot.querySelector('rock-relationship-grid');

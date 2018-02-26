@@ -30,7 +30,6 @@
 <link rel="import" href="../rock-entity-lov/rock-entity-lov.html">
 <link rel="import" href="../rock-grid/rock-grid.html">
 <link rel="import" href="../rock-grid-data-sources/entity-search-grid-datasource.html">
-<link rel="import" href="../rock-business-function-dialog/rock-business-function-dialog.html">
 <link rel="import" href="../rock-govern-data-grid/rock-govern-data-grid.html">
 <link rel="import" href="../rock-entity-relationship-search-result-actions/rock-entity-relationship-search-result-actions.html">
 <link rel="import" href="../rock-business-actions/rock-business-actions.html" />
@@ -354,10 +353,6 @@ The following JSON object is a sample of data which binds the grid.
             <pebble-toggle-button class="toggle-button" noink checked="{{_loadGovernData}}">Govern Data</pebble-toggle-button>
             <template is="dom-if" if="[[_loadActions(_loadGovernData, relationshipGridConfig.governGridConfig)]]">
               <pebble-icon icon="pebble-icon:Refresh" class="refresh pebble-icon-size-16" on-tap="_governGridRefresh"></pebble-icon>
-              <!--<pebble-actions id="governGridActions" button-icon="[[governGridActionsConfig.icon]]" class="dropdownText dropdownIcon btn btn-actions dropdown-success govern-grid-actions"
-                              button-text="[[governGridActionsConfig.title]]"
-                              actions-data="[[governGridActionsConfig.actionsData]]"></pebble-actions>-->
-              <!--<bedrock-pubsub event-name="pebble-actions-action-click" handler="_onGovernGridActionTap" target-id=""></bedrock-pubsub>-->
               <rock-business-actions id="businessActions" context-data="[[contextData]]" button-text="[[relationshipGridConfig.governGridConfig.actionsTitle]]" button-icon="[[relationshipGridConfig.governGridConfig.actionsIcon]]" show-workflow-actions></rock-business-actions>
               <bedrock-pubsub event-name="business-actions-action-click" handler="_onGovernGridActionTap" target-id="businessActions"></bedrock-pubsub>
             </template>
@@ -371,7 +366,7 @@ The following JSON object is a sample of data which binds the grid.
                      total-count="{{totalCount}}" page-size="20">
                      <rock-entity-relationship-search-result-actions slot="toolbar" id="gridActions" context-data="[[contextData]]" has-write-permissions$="[[_hasWritePermissions(relationshipGridConfig.gridConfig)]]"></rock-entity-relationship-search-result-actions>
           </rock-grid>
-
+          <bedrock-pubsub event-name="grid-bulk-relationship-edit-items" handler="_onBulkRelationshipEdit" target-id="[[relationship]]"></bedrock-pubsub>
           <bedrock-pubsub event-name="grid-bulk-edit-items" handler="_onBulkEdit" target-id="[[relationship]]"></bedrock-pubsub>
           <template is="dom-if" if="[[_loadGovernData]]">
             <rock-govern-data-grid id$="[[relationship]]" context-data="[[contextData]]" request="[[_getRelationshipGridRequest(relationship)]]"
@@ -392,9 +387,6 @@ The following JSON object is a sample of data which binds the grid.
 
       <liquid-entity-data-save name="attributeSaveDataService" operation="update" request-data="{{_saveRequest}}" last-response="{{_saveResponse}}"
                                on-response="_onSaveResponse"></liquid-entity-data-save>
-      <rock-business-function-dialog id="entityUploadDialog" context-data="[[contextData]]"></rock-business-function-dialog>
-      <rock-business-function-dialog id="entityDownloadDialog" context-data="[[contextData]]"></rock-business-function-dialog>
-      <rock-business-function-dialog id="entityEditDialog" context-data="[[contextData]]"></rock-business-function-dialog>
       <!--<pebble-dialog id="errorsDialog" dialog-title="Errors on page" alert-box>
         <p>Found below errors in entity details: </p>
         <template is="dom-repeat" items="[[_errorMessages]]" as="error">
@@ -586,6 +578,7 @@ The following JSON object is a sample of data which binds the grid.
 
         behaviors: [
           RUFBehaviors.UIBehavior,
+          RUFBehaviors.AppBehavior,
           RUFBehaviors.ComponentContextBehavior
         ],
 
@@ -607,7 +600,61 @@ The following JSON object is a sample of data which binds the grid.
 
           return false;
         },
+        _onBulkRelationshipEdit: function(e, detail){
+          var grid = this._getRelationshipGrid();
+          var selectedItems = grid.getSelectedItems();
+          var selectionMode = grid.getSelectionMode();
+          var selectionQuery = grid.getSelectedItemsAsQuery();
+          var currentRel = this.relationship;
+          var originalEntity = this.dataObjects[currentRel];
+          selectionQuery.ids = [originalEntity.id];
+          if (selectedItems && selectedItems.length && this.contextData) {
+            var originalEntity = this.dataObjects[currentRel];
+            selectionQuery.ids = [originalEntity.id];
+            var itemContexts = [];
+            var typesCriterion = [];
+
+            var itemContext = { "type": originalEntity.type };
+            var relAndTypeAttributes = this._getAttributeList();
+            var relAttributeNames = relAndTypeAttributes && relAndTypeAttributes.relationshipAttributes ? relAndTypeAttributes.relationshipAttributes : [];
+            if(_.isEmpty(relAttributeNames)){
+              this.showInformationToast("No relationship attribute configured in the grid for bulk edit.");
+              return;
+            }
+            // var relAttributeNames = ["linkdescription","enabled","status","displayname"];
+            itemContext.relationshipAttributes = relAttributeNames;
+            itemContext.relationships = [currentRel];
+            itemContexts.push(itemContext);
+            if (!typesCriterion.find(type => type === entityRelation.relTo.type)) {
+              typesCriterion.push(itemContext.type);
+            }
+            selectionQuery.filters.typesCriterion = typesCriterion; //Based on relationship entityType
+            var clonedContextData = DataHelper.cloneObject(this.contextData);
+            clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
+            var entityEditDialog = this.shadowRoot.querySelector("#entityEditDialog");
+            entityEditDialog.name = "rock-wizard-entity-bulk-edit";
+            entityEditDialog.configName = "wizardConfig";
+            entityEditDialog.sharedData = {
+              "context-data": clonedContextData,
+              "selection-query": selectionQuery,
+              "selection-mode": selectionMode,
+              "selected-entities": selectedItems,
+              "original-entity": originalEntity,
+              "relationship": currentRel,
+              "edit-attributes-only": false,
+              "edit-relationship-attributes-only": true
+            };
+            entityEditDialog.contextData = clonedContextData;
+            entityEditDialog.open();
+          } else {
+            this.showInformationToast("Please select at least one entity from grid to edit.");
+          }          
+        },
         
+        _getRelationshipGrid:function () {
+          return this.shadowRoot.querySelector("rock-grid");
+        },
+
         _getAttributeList: function () {
           if (this.relationshipGridConfig) {
             return this.relationshipGridConfig.relationshipTypeAndAttributes;
@@ -656,6 +703,7 @@ The following JSON object is a sample of data which binds the grid.
               req.params.query.filters.relationshipsCriterion = [];
 
               delete req.params.query.ids;
+              delete req.params.query.id;
 
               var relCriterion = {};
               relCriterion[relationshipTypeName] = {};
@@ -693,7 +741,7 @@ The following JSON object is a sample of data which binds the grid.
         _populateDataForGrid: function (respData) {
           var data = [];
           var itemContext = this.getFirstItemContext();
-
+          var entityTypeManager = EntityTypeManager.getInstance();
           if (respData && itemContext) {
             var currentEntityId = itemContext.id;
             if (respData.content && respData.content.entities && currentEntityId) {
@@ -717,11 +765,18 @@ The following JSON object is a sample of data which binds the grid.
                   var relationships = EntityHelper.getRelationshipsBasedOnContext(entity, this.getFirstDataContext(), isSelfContext);
                   if (!_.isEmpty(relationships)) {
                     var relatedEntities = relationships[currentRel];
-
+                    if (this.dataObjects) {
+                      if (!this.dataObjects[currentRel]) {
+                        this.dataObjects[currentRel] = entity;
+                      }
+                    }
                     relatedEntities.forEach(function (relItem) {
                       if (relItem) {
-                        record["Relationship Id"] = relItem.id;
+                        record["Relationship Id"] = relItem.id;               
                         if (relItem.relTo && relItem.relTo.id == currentEntityId) {
+                          if(relItem.relTo.type){
+                            record["typeExternalName"] = entityTypeManager.getTypeExternalNameById(relItem.relTo.type);
+                          }
                           if (relItem.attributes) {
                             Object.keys(relItem.attributes).forEach(function (item) {
                               if (item && relItem.attributes[item]) {
@@ -750,173 +805,6 @@ The following JSON object is a sample of data which binds the grid.
           }
           return data;
         },
-        //TODO: Add new in where used has not been implemented yet. Need below code to start on that.
-        // _onAddPopoverClick: function (e) {
-        //   var popover = Polymer.dom(this).node.shadowRoot.querySelector("pebble-popover[for=" + e.currentTarget.id + "]");
-        //   this._currentSelectedLov = Polymer.dom(this).node.shadowRoot.querySelector('rock-entity-lov[id=' + e.currentTarget.id + ']');
-
-        //   popover.show();
-        // },
-        // _convertIntoEntityLovList: function (entitiesResponse) {
-        //   if (entitiesResponse) {
-        //     var items = [];
-        //     var selectedItems = [];
-
-        //     if (entitiesResponse.content && entitiesResponse.content.entities) {
-        //       var entities = entitiesResponse.content.entities;
-        //       entities.forEach(function (item) {
-        //         if (item) {
-        //           //TODO: this code has to be enhanced for based on config.
-        //           var attributes = EntityHelper.getAllAttributes(item);
-        //           items.push({
-        //             "id": item.id,
-        //             "title": item.id,
-        //             "subtitle": item.type,
-        //             "image": "/src/images/lookup-item.jpg"
-        //           });
-        //         }
-        //       }, this);
-        //     }
-
-        //     if (this._currentSelectedLov) {
-        //       var relGrid = Polymer.dom(this).node.shadowRoot.querySelector('rock-grid[id=' + this._currentSelectedLov.id + ']');
-        //       var relGridData = [];
-        //       if (relGrid) {
-        //         relGridData = relGrid.getData();
-        //       }
-
-        //       this._currentSelectedLov.items = items;
-        //       this._currentSelectedLov.selectedItems = relGridData;
-        //       this._currentLovItems = items;
-        //     }
-        //   }
-        // },
-        // _onLovConfirmButtonTapped: function (event) {
-        //   if (event.detail) {
-
-        //     var lov = this.shadowRoot.querySelector("rock-entity-lov[id=" + event.detail.data.id + "]");
-
-        //     var oldSelectedItemIds = [];
-        //     var selectedItemIds = [...new Set(lov.selectedItems.map((obj) => obj.id))];
-        //     var newItemIds = [];
-
-        //     // TO-DO Pebble-LOV has to handle this filteration.
-        //     var currentRelGrid = Polymer.dom(this).node.shadowRoot.querySelector('rock-grid[id=' + event.detail.data.id + ']');
-        //     if (currentRelGrid) {
-        //       var data = currentRelGrid.getData();
-        //       data.forEach(function (item) {
-        //         if (item) {
-        //           oldSelectedItemIds.push(item.id);
-        //         }
-        //       }, this);
-        //     }
-
-        //     selectedItemIds.forEach(function (item) {
-        //       if (item && oldSelectedItemIds.indexOf(item) < 0) {
-        //         newItemIds.push(item);
-        //       }
-        //     }, this);
-
-        //     this._addRelatedEntity(event.detail.data.id, newItemIds);
-        //   }
-        // },
-        // _onLovCloseButtonTapped: function (event) {
-        //   if (event.detail) {
-        //     var currentLovPopover = Polymer.dom(this).node.shadowRoot.querySelector('pebble-popover[for=' + event.detail.data.id + ']');
-
-        //     if (currentLovPopover) {
-        //       currentLovPopover.hide();
-        //     }
-        //   }
-        // },
-        // _addRelatedEntity: function (relationshipType, entityIds) {
-        //   if (entityIds && entityIds.length > 0) {
-        //     var popover = Polymer.dom(this).node.shadowRoot.querySelector("pebble-popover[for=" + relationshipType + "]");
-        //     this._currentRelationshipItem = relationshipType;
-
-        //     var relatedEntityContexts = this._getRelatedEntityContexts(this._currentRelationshipItem);
-        //     var typesCriterion = [];
-        //     var contexts = [];
-        //     var attributes = this._getFromEntityAttributeList(this._currentRelationshipItem);
-
-        //     if (relatedEntityContexts) {
-        //       relatedEntityContexts.forEach(function (relContexts) {
-        //         if (relContexts) {
-        //           typesCriterion.push(relContexts.relEntityType);
-        //           if (relContexts.relContexts) {
-        //             relContexts.relContexts.forEach(function (ctxItem) {
-        //               contexts.push(ctxItem);
-        //             }, this);
-        //           }
-        //         }
-        //       }, this);
-        //     }
-
-        //     var valueContext = this.getFirstValueContext();
-
-        //     //TODO-dimensions has to be set in req. same like did in relationship-manage
-        //     var req = {
-        //       "params": {
-        //         "query": {
-        //           "contexts": contexts,
-        //           "valueContexts": [valueContext],
-        //           "ids": entityIds,
-        //           "filters": {
-        //             "typesCriterion": typesCriterion
-        //           }
-        //         },
-        //         "fields": {
-        //           "ctxTypes": [
-        //             "properties"
-        //           ],
-        //           "attributes": attributes
-        //         },
-        //         "options": {
-        //           "maxRecords": 10
-        //         }
-        //       }
-        //     };
-
-        //     this.set('_entityGetAddRequest', req);
-        //     var relAddLiquid = Polymer.dom(this).node.shadowRoot.querySelector('liquid-entity-data-get[id="entityGetAddData"]');
-        //     if (relAddLiquid) {
-        //       relAddLiquid.generateRequest();
-        //     }
-        //     popover.hide();
-        //   }
-        // },
-        // _addRelationship: function () {
-        //   if (this.relEntitiesResponse) {
-        //     var relGrid = Polymer.dom(this).node.shadowRoot.querySelector('rock-grid[id=' + this._currentRelationshipItem + ']');
-
-        //     if (relGrid) {
-        //       var relData = [];
-        //       if (this.relEntitiesResponse.content && this.relEntitiesResponse.content.entities) {
-        //         var entities = this.relEntitiesResponse.content.entities;
-        //         var relGridData = relGrid.getData();
-        //         entities.forEach(function (relItem) {
-        //           if (relItem) {
-        //             var attributes = EntityHelper.getAllAttributes(relItem);
-        //             var record = {};
-        //             if (attributes) {
-        //               Object.keys(attributes).forEach(function (attrItem) {
-        //                 if (attrItem && attributes[attrItem]) {
-        //                   record[attrItem] = attributes[attrItem].values[0].value;
-        //                 }
-        //               }, this);
-        //             }
-        //             record['From Entity'] = record['id'] = relItem.id;
-        //             record['type'] = relItem.type;
-        //             record['properties'] = relItem.properties;
-        //             record['relationshipType'] = this._currentRelationshipItem;
-        //             relData.push(record);
-        //           }
-        //         }, this);
-        //       }
-        //       relGrid.addNewRecords(relData);
-        //     }
-        //   }
-        // },
         _onEditMode: function (e) {
           var relDiv = this.shadowRoot.querySelector('div[id=relContainer_' + this.relationship + ']');
           if (relDiv) {
@@ -1112,11 +1000,11 @@ The following JSON object is a sample of data which binds the grid.
           var selectedItems = rockGrid.getSelectedItems();
 
           if (selectedItems && selectedItems.length && this.contextData) {
-            var entityDownloadDialog = this.shadowRoot.querySelector("#entityDownloadDialog");
-            entityDownloadDialog.name = "rock-entity-download";
-            entityDownloadDialog.sharedData = { "context-data": this.contextData,
-              "selected-entities": selectedItems };
-            entityDownloadDialog.open();
+            const sharedData = {
+              "selected-entities": selectedItems
+            };
+
+            this.openBusinessFunctionDialog({ name: 'rock-entity-download' }, sharedData);
           } else {
             this.showInformationToast("Please select at least one entity from grid to download.");
           }
@@ -1126,12 +1014,7 @@ The following JSON object is a sample of data which binds the grid.
           this._loading = false;
         },
         _onUpload: function (e, detail) {
-          var entityUploadDialog = this.shadowRoot.querySelector("#entityUploadDialog");
-          if(entityUploadDialog) {
-            entityUploadDialog.name = "rock-entity-upload";
-            entityUploadDialog.sharedData = { "context-data": this.contextData };
-            entityUploadDialog.open();
-          }
+          this.openBusinessFunctionDialog({ name: 'rock-entity-upload' });
         },
         _computeGovernConfig: function(relationshipGridConfig) {
           if(relationshipGridConfig) {
@@ -1252,18 +1135,20 @@ The following JSON object is a sample of data which binds the grid.
             }
             var clonedContextData = DataHelper.cloneObject(this.contextData);
             clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
-            var entityEditDialog = this.shadowRoot.querySelector("#entityEditDialog");
-            entityEditDialog.name = "rock-wizard-entity-bulk-edit";
-            entityEditDialog.configName = "wizardConfig";
-            entityEditDialog.sharedData = {
-              "context-data": clonedContextData,
-              "selection-query": selectionQuery,
-              "selection-mode": selectionMode,
-              "selected-entities": selectedItems,
-              "edit-attributes-only": true,
-              "edit-relationship-attributes-only": false
+            
+            const sharedData ={
+                "context-data": clonedContextData,
+                "selection-query": selectionQuery,
+                "selection-mode": selectionMode,
+                "selected-entities": selectedItems,
+                "edit-attributes-only": true,
+                "edit-relationship-attributes-only": false
             };
-            entityEditDialog.open();
+
+            this.openBusinessFunctionDialog({ 
+              name: 'rock-wizard-entity-bulk-edit',
+              configName: 'wizardConfig'
+            }, sharedData);
           } else {
             this.showInformationToast("Please select at least one entity from grid to edit.");
           }

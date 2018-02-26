@@ -10,6 +10,9 @@
 <link rel="import" href="../../../bower_components/polymer/lib/utils/debounce.html">
 <link rel="import" href="../../../bower_components/polymer/lib/elements/dom-if.html">
 
+<link rel="import" href="../bedrock-managers/bedrock-managers.html">
+<link rel="import" href="../bedrock-managers/locale-manager.html">
+
 <!-- loading behaviors early to avoid behavior is null error -->
 <link rel="import" href="../bedrock-datasource-behavior/bedrock-datasource-behavior.html">
 <link rel="import" href="../bedrock-query-builder-behavior/bedrock-query-builder-behavior.html">
@@ -58,7 +61,8 @@ var Globals = Globals || {};
 Globals.requestCount = 0;
 Globals.responseCount = 0;
 
-pages= ["dashboard", "entity-discovery", "asset-discovery", "reference-discovery", "system-healthcheck", "entity-manage"];
+
+pages= ["dashboard", "entity-discovery", "asset-discovery", "reference-discovery", "compare-entities", "system-healthcheck", "entity-manage", "govmodel-dashboard", "basemodel-dashboard"];
 
 </script>
 
@@ -342,6 +346,12 @@ Main os app for riversand ui framework
                     value: function() {
                         return {};
                     }
+                },
+                localeManager:{
+                    type:Object,
+                    value: function(){
+                        return {};
+                    }
                 }
             },
             _onPreLoadChange: function () {
@@ -395,10 +405,10 @@ Main os app for riversand ui framework
                     var globalSettings = componentConfig.config;
                     this.initGlobalSettings(globalSettings);
                     this._renderTenantLogo(globalSettings.themeSettings);
-                    var themeProvider = this.shadowRoot.querySelector("bedrock-style-theme-provider");
-                    if(themeProvider){
-                        themeProvider.initiateTheme(globalSettings.themeSettings);
-                    }
+                    this._themeProvider = this._themeProvider || this.shadowRoot.querySelector("bedrock-style-theme-provider");
+                    this._themeProvider.initiateTheme(globalSettings.themeSettings);
+
+                    this.localeManager = new LocaleManager();
                 }
             },
 
@@ -417,8 +427,14 @@ Main os app for riversand ui framework
                 //   this.page = customArgs.item.name;
                 //   this.$.contentViewManager.openView(customArgs.item.name, customArgs.item);
             },
+            get contentViewManager() {
+                this._contentViewManager = this._contentViewManager || this.shadowRoot.querySelector('#contentViewManager');
+
+                return this._contentViewManager;
+            },
+
             onMenuCloseClick: function (e, customArgs) {
-                this.shadowRoot.querySelector('#contentViewManager').closeView(customArgs.item.data_route, customArgs.item.queryParams);
+                this.contentViewManager.closeView(customArgs.item.data_route, customArgs.item.queryParams);
             },
             onRefreshClick: function () {
                 location.reload();
@@ -506,11 +522,7 @@ Main os app for riversand ui framework
                 }
             },
             getIsDirty: function () {
-                var contentViewManager = this.shadowRoot.querySelector('#contentViewManager');
-                if (contentViewManager && contentViewManager.getIsDirty) {
-                    var isDirty = contentViewManager.getIsDirty();
-                    return isDirty;
-                }
+                return this.contentViewManager && this.contentViewManager.getIsDirty();
             },
             _onAuthResponseChange: function () {
                 if (this._authResponse && this._authResponse.isSuccessful) {
@@ -543,11 +555,12 @@ Main os app for riversand ui framework
             _pageChanged: function (page, appRepository, queryParams) {
                 this._debouncer = Polymer.Debouncer.debounce(this._debouncer, Polymer.Async.timeOut.after(0), () => {
                     if (page != undefined && queryParams != undefined && appRepository !=undefined) {
-                        var contentViewManager = this.shadowRoot.querySelector('#contentViewManager');
+                        var contentViewManager = this.contentViewManager;
                         if (contentViewManager) {
                             ComponentHelper.setQueryParamsWithoutEncode(queryParams);
                             contentViewManager.openView(page, this.appRepository[page], this.queryParams, this.openAction);
                         }
+                        ComponentHelper.emptyDeleteQueue();
                     }
                     this.dispatchEvent(new CustomEvent('bedrock-event', {
                         detail: {
@@ -565,6 +578,10 @@ Main os app for riversand ui framework
                 //console.log('Received configs ', JSON.stringify(e, null, 2));
                 this.set('userStore', e.detail.response.content.configObjects[0].data.contexts[0].jsonData.config);
             },
+            get mainAppSpinner() {
+                this._mainAppSpinner = this._mainAppSpinner || document.querySelector("#mainAppSpinner");
+                return this._mainAppSpinner;
+            },
             _renderTenantLogo: function(_tenantConfig){
                 if (_tenantConfig) {
                     this.tenantLogo = _tenantConfig.headerLogoUrl;
@@ -574,9 +591,8 @@ Main os app for riversand ui framework
                         this.mainLogo = _tenantConfig.mainLogoUrl;
                     }
 
-                    var preloadElement = document.querySelector("#mainAppSpinner");
-                    if (preloadElement) {
-                        preloadElement.tenantLogoText = this.tenantLogoText;
+                    if (this.mainAppSpinner) {
+                        this.mainAppSpinner.tenantLogoText = this.tenantLogoText;
                     }
 
                 } else {
@@ -585,11 +601,7 @@ Main os app for riversand ui framework
                 }
             },
             _isUserStoreNeeded: function (tenantId, isAuthenticated) {
-                if (tenantId && tenantId != "" && !isAuthenticated) {
-                    return true;
-                } else {
-                    return false;
-                }
+                return tenantId && !isAuthenticated;
             },
             _startPreload: function () {
                 var contextData = {};
@@ -600,14 +612,14 @@ Main os app for riversand ui framework
                     }
                 ];
 
-                var liquidDataObjectPreLoad = this.shadowRoot.querySelector('#liquidDataObjectPreLoad');
-                liquidDataObjectPreLoad.contextData = contextData;
-                liquidDataObjectPreLoad.generateRequest();
+                this._liquidDataObjectPreLoad = this._liquidDataObjectPreLoad || this.shadowRoot.querySelector('#liquidDataObjectPreLoad');
+                this._liquidDataObjectPreLoad.contextData = contextData;
+                this._liquidDataObjectPreLoad.generateRequest();
                 this._appViewOpened = false;
             },
             _onRequestTrackerChange: function (e) {
                 var loadingTexts = ["Loading configurations...", "Loading apps...", "Launching your app..."];
-                var preloadElement = document.querySelector("#mainAppSpinner");
+                var preloadElement = this.mainAppSpinner;
                 if (preloadElement) {
                     preloadElement.indeterminate = false;
                     var progressMaxValue = preloadElement.progressMaxValue;
@@ -624,9 +636,8 @@ Main os app for riversand ui framework
                 }
             },
             _onPreloadCompleted: function (e) {
-                var preloadElement = document.querySelector("#mainAppSpinner");
-                if (preloadElement) {
-                    preloadElement.active = false;
+                if (this.mainAppSpinner) {
+                    this.mainAppSpinner.active = false;
                 }
                 this._appViewOpened = true;        
             },
