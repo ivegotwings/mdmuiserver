@@ -1,7 +1,6 @@
 <!--<link rel="import" href="../../../bower_components/polymer/polymer.html">-->
 <link rel="import" href="../liquid-dataobject-utils/liquid-dataobject-utils.html">
 <link rel="import" href="../bedrock-helpers/data-helper.html">
-<link rel="import" href="../bedrock-helpers/model-helper.html">
 <link rel="import" href="../bedrock-helpers/attribute-helper.html">
 <link rel="import" href="../bedrock-helpers/context-helper.html">
 <link rel="import" href="../bedrock-helpers/data-merge-helper.html">
@@ -396,8 +395,7 @@
             }
 
             var attributes = {};
-            var i;
-            for (i = 0; i < relationshipAttributesJSON.length; i++) {
+            for (let i = 0; i < relationshipAttributesJSON.length; i++) {
                 var relationshipAttributeJSON = relationshipAttributesJSON[i];
                 var attr = DataTransformHelper.createAttributeInstance(relationshipAttributeJSON, firstValueContext);
                 attributes[relationshipAttributeJSON.name] = attr;
@@ -620,10 +618,8 @@
             var additionalContexts = [];
             var primaryContexts = [];
 
-            var contextModels = await ModelHelper.getContextModelsBasedOnEntityType(itemContext.type);
-
-            if (!_.isEmpty(contextModels) && !_.isEmpty(dataContext)) {
-                var contextModel = DataTransformHelper.getContextModelBasedOnCurrentDataContext(contextModels, dataContext);
+            if (!_.isEmpty(dataContext)) {
+                var contextModel = await ContextModelManager.getContextModelByEntityTypeAndDataContext(itemContext.type, dataContext);
                 if (contextModel) {
                     additionalContexts = contextModel.properties ? contextModel.properties.additionalcontexts : undefined;
                     primaryContext = DataTransformHelper.getPrimaryContextFromAdditionalContext(additionalContexts, dataContext);
@@ -1674,88 +1670,84 @@
         DataTransformHelper.prepareEntityForContextSave = async function (data, attributeModels, relationshipModels, contextData) {
             var firstDataContext = ContextHelper.getFirstDataContext(contextData);
             var firstItemContext = ContextHelper.getFirstItemContext(contextData);
-            var contextModels = await ModelHelper.getContextModelsBasedOnEntityType(firstItemContext.type);
+            var contextModel = await ContextModelManager.getContextModelByEntityTypeAndDataContext(firstItemContext.type, firstDataContext);
 
-            if (contextModels) {
-                var contextModel = DataTransformHelper.getContextModelBasedOnCurrentDataContext(contextModels, firstDataContext);
+            if (contextModel) {
+                var additionalContexts = contextModel.properties && contextModel.properties.additionalcontexts;
+                var primaryContext = undefined;
 
-                if (contextModel) {
-                    var additionalContexts = contextModel.properties && contextModel.properties.additionalcontexts;
-                    var primaryContext = undefined;
+                if (additionalContexts) {
+                    primaryContext = DataTransformHelper.getPrimaryContextFromAdditionalContext(additionalContexts, firstDataContext);
 
-                    if (additionalContexts) {
-                        primaryContext = DataTransformHelper.getPrimaryContextFromAdditionalContext(additionalContexts, firstDataContext);
-
-                        if (!_.isEmpty(primaryContext)) {
-                            var primaryContextData = {
-                                "context": primaryContext,
-                                "attributes": {},
-                                "relationships": {}
+                    if (!_.isEmpty(primaryContext)) {
+                        var primaryContextData = {
+                            "context": primaryContext,
+                            "attributes": {},
+                            "relationships": {}
+                        }
+                        if (data) {
+                            if (data.attributes) {
+                                primaryContextData.attributes = data.attributes;
+                                delete data.attributes;
                             }
-                            if (data) {
-                                if (data.attributes) {
-                                    primaryContextData.attributes = data.attributes;
-                                    delete data.attributes;
+
+                            if (data.relationships) {
+                                primaryContextData.relationships = data.relationships;
+                                delete data.relationships;
+                            }
+
+                            if (data.contexts) {
+                                var context = data.contexts[0];
+
+                                if (context && context.attributes) {
+                                    var attributes = context.attributes;
+                                    DataTransformHelper._addRemoveAttributesBasedOnAdditionalContext(attributes, attributeModels, additionalContexts, primaryContextData);
                                 }
 
-                                if (data.relationships) {
-                                    primaryContextData.relationships = data.relationships;
-                                    delete data.relationships;
+                                if (context && context.relationships) {
+                                    var relationships = context.relationships;
+                                    DataTransformHelper._addRemoveRelationshipsBasedOnAdditionalContext(relationships, relationshipModels, additionalContexts, primaryContextData);
                                 }
+                            }
 
-                                if (data.contexts) {
-                                    var context = data.contexts[0];
-
-                                    if (context && context.attributes) {
-                                        var attributes = context.attributes;
-                                        DataTransformHelper._addRemoveAttributesBasedOnAdditionalContext(attributes, attributeModels, additionalContexts, primaryContextData);
-                                    }
-
-                                    if (context && context.relationships) {
-                                        var relationships = context.relationships;
-                                        DataTransformHelper._addRemoveRelationshipsBasedOnAdditionalContext(relationships, relationshipModels, additionalContexts, primaryContextData);
-                                    }
+                            if (primaryContextData && (!_.isEmpty(primaryContextData.attributes) || !_.isEmpty(primaryContextData.relationships))) {
+                                if (_.isEmpty(data.contexts)) {
+                                    data.contexts = [];
                                 }
-
-                                if (primaryContextData && (!_.isEmpty(primaryContextData.attributes) || !_.isEmpty(primaryContextData.relationships))) {
-                                    if (_.isEmpty(data.contexts)) {
-                                        data.contexts = [];
-                                    }
-                                    data.contexts.push(primaryContextData);
-                                }
+                                data.contexts.push(primaryContextData);
                             }
                         }
-                    } else {
-                        if (data.contexts && data.contexts.length) {
-                            if (!_.isEmpty(data.contexts[0].attributes)) {
-                                for (var attrKey in data.attributes) {
-                                    if (!data.contexts[0].attributes[attrKey]) {
-                                        data.contexts[0].attributes[attrKey] = data.attributes[attrKey];
-                                    }
+                    }
+                } else {
+                    if (data.contexts && data.contexts.length) {
+                        if (!_.isEmpty(data.contexts[0].attributes)) {
+                            for (var attrKey in data.attributes) {
+                                if (!data.contexts[0].attributes[attrKey]) {
+                                    data.contexts[0].attributes[attrKey] = data.attributes[attrKey];
                                 }
-                            } else {
-                                data.contexts[0].attributes = data.attributes;
-                            }
-
-                            if (!_.isEmpty(data.contexts[0].relationships)) {
-                                for (var relKey in data.relationships) {
-                                    if (!data.contexts[0].relationships[relKey]) {
-                                        data.contexts[0].relationships[relKey] = data.relationships[relKey];
-                                    }
-                                }
-                            } else {
-                                data.contexts[0].relationships = data.relationships;
                             }
                         } else {
-                            var newCtxItem = {};
-                            newCtxItem.context = firstDataContext;
-                            newCtxItem.attributes = data.attributes;
-                            newCtxItem.relationships = data.relationships;
-                            data.contexts.push(newCtxItem);
+                            data.contexts[0].attributes = data.attributes;
                         }
-                        delete data.attributes;
-                        delete data.relationships;
+
+                        if (!_.isEmpty(data.contexts[0].relationships)) {
+                            for (var relKey in data.relationships) {
+                                if (!data.contexts[0].relationships[relKey]) {
+                                    data.contexts[0].relationships[relKey] = data.relationships[relKey];
+                                }
+                            }
+                        } else {
+                            data.contexts[0].relationships = data.relationships;
+                        }
+                    } else {
+                        var newCtxItem = {};
+                        newCtxItem.context = firstDataContext;
+                        newCtxItem.attributes = data.attributes;
+                        newCtxItem.relationships = data.relationships;
+                        data.contexts.push(newCtxItem);
                     }
+                    delete data.attributes;
+                    delete data.relationships;
                 }
             }
         };
@@ -1852,10 +1844,12 @@
                         isAdditionalContextRelationship = DataTransformHelper._isAdditionalContexts(additionalContexts, properties.contextCoalesce, "context");
                     }
 
-                    if (!isAdditionalContextRelationship && attribute.properties && attribute.properties.contextCoalesce) {
+                    if (!isAdditionalContextRelationship) {
                         relationships.forEach(function (rel) {
-                            if (!DataTransformHelper._isPartialPrimaryContexts(primaryContexts, rel.properties.contextCoalesce)) {
-                                delete rel.properties.contextCoalesce;
+                            if (rel.properties && rel.properties.contextCoalesce) {
+                                if (!DataTransformHelper._isPartialPrimaryContexts(primaryContexts, rel.properties.contextCoalesce)) {
+                                    delete rel.properties.contextCoalesce;
+                                }
                             }
                         });
                     }
@@ -1933,65 +1927,6 @@
             }
 
             return contextCoalescePaths;
-        };
-
-        DataTransformHelper.getContextModelBasedOnCurrentDataContext = function (contextModels, firstDataContext) {
-            var contextModel = undefined;
-            var partialContextModels = [];
-
-            if (!_.isEmpty(contextModels)) {
-                for (var i = 0; i < contextModels.length; i++) {
-                    var ctxModelItem = contextModels[i];
-                    if (ctxModelItem && ctxModelItem.context) {
-                        var dataContext = ctxModelItem.context;
-                        if (DataHelper.compareObjects(dataContext, firstDataContext)) {
-                            contextModel = ctxModelItem;
-                            break;
-                        } else {
-                            var numberOfExactMatch = 0;
-                            var isPartialMatch = false;
-                            if (Object.keys(dataContext).length == Object.keys(firstDataContext).length) {
-                                var dataCtxObjectKeys = Object.keys(dataContext);
-                                for (var j = 0; j < dataCtxObjectKeys.length; j++) {
-                                    if (dataContext[dataCtxObjectKeys[j]]) {
-                                        if (firstDataContext[dataCtxObjectKeys[j]] == dataContext[dataCtxObjectKeys[j]]) {
-                                            numberOfExactMatch++;
-                                        } else if (dataContext[dataCtxObjectKeys[j]].toLowerCase() == "_all") {
-                                            isPartialMatch = true;
-                                        } else {
-                                            isPartialMatch = false;
-                                            break;
-                                        }
-                                    }
-                                }
-
-                                if (isPartialMatch) {
-                                    partialContextModels.push({
-                                        "numberOfExactMatch": numberOfExactMatch,
-                                        "ctxModelItem": ctxModelItem
-                                    });
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if (partialContextModels && _.isEmpty(contextModel)) {
-                    if (partialContextModels.length == 1) {
-                        contextModel = partialContextModels[0].ctxModelItem;
-                    } else {
-                        var highestNumberOfMatch = 0;
-                        partialContextModels.forEach(function (ctxModel) {
-                            if (ctxModel.numberOfExactMatch > highestNumberOfMatch) {
-                                highestNumberOfMatch = ctxModel.numberOfExactMatch;
-                                contextModel = ctxModel.ctxModelItem;
-                            }
-                        }, this);
-                    }
-                }
-            }
-
-            return contextModel;
         };
 
         DataTransformHelper.getPrimaryContextFromAdditionalContext = function (additionalContexts, firstDataContext) {
