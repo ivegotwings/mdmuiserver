@@ -94,6 +94,12 @@ ConfigurationService.prototype = {
         var baseConfigResponse = await this.baseConfigService.get(RDF_SERVICE_NAME + "/get", baseConfigRequest);
         //console.log('base config get response ', JSON.stringify(baseConfigResponse));
 
+        if (!falcorUtil.isValidObjectPath(baseConfigResponse, "response.configObjects.0")) {
+            var errorMsg = "".concat('Base config not found for the config Id:', baseConfigId);
+            logger.error(errorMsg, null, logger.getCurrentModule());
+            throw new Error(errorMsg);
+        }
+
         var finalConfigObject = baseConfigResponse.response.configObjects[0];
         //console.log('base config', JSON.stringify(finalConfigObject));
 
