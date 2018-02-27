@@ -30,6 +30,7 @@
 
 <link rel="import" href="../rock-grid/rock-grid.html">
 <link rel="import" href="../rock-classification-tree/rock-classification-tree.html">
+<link rel="import" href="../rock-context-mappings/rock-context-mappings-grid.html">
 <!--
 <b><i>Content development is under progress... </b></i>
 
@@ -103,7 +104,7 @@
             }
             #categoryTreeContainer{
                 height: calc(100% - 80px);
-            }            
+            }
 
             .preview-message-info {
                 font-size: 12px;
@@ -158,6 +159,8 @@
                 <strong>[[_entities.length]]</strong> items with
                 <strong>[[attributeNames.length]]</strong> attributes.</span>
         </div>
+        <div id="content-context-mappings" hidden>
+        </div>
         <div id="content-mappings" hidden>
         </div>
         <div id="content-value-mappings" hidden>
@@ -171,11 +174,15 @@
             <pebble-button class="action-button-focus dropdownText btn btn-success m-r-5" id="next" button-text="Save" raised on-tap="_onSaveTap"></pebble-button>
         </div>
         <bedrock-pubsub event-name="field-map-save" handler="_onFieldMappingsSave" target-id=""></bedrock-pubsub>
+        <bedrock-pubsub event-name="field-map-back" handler="_onFieldMappingsBack" target-id=""></bedrock-pubsub>
         <bedrock-pubsub event-name="field-map-cancel" handler="_onFieldMappingsCancel" target-id=""></bedrock-pubsub>
         <bedrock-pubsub event-name="field-map-import" handler="_onFieldMappingsImport" target-id=""></bedrock-pubsub>
         <bedrock-pubsub event-name="on-value-mapping-tap" handler="_onValueMappingsTap" target-id=""></bedrock-pubsub>
         <bedrock-pubsub event-name="value-mapping-cancel" handler="_onValueMappingsCancelOrSave" target-id=""></bedrock-pubsub>
         <bedrock-pubsub event-name="value-mapping-save" handler="_onValueMappingsCancelOrSave" target-id=""></bedrock-pubsub>
+        <bedrock-pubsub event-name="context-mapping-cancel" handler="_onContextMappingsCancel" target-id=""></bedrock-pubsub>
+        <bedrock-pubsub event-name="context-mapping-skip" handler="_onContextMappingsSkipOrSave" target-id=""></bedrock-pubsub>
+        <bedrock-pubsub event-name="context-mapping-save" handler="_onContextMappingsSkipOrSave" target-id=""></bedrock-pubsub>
         <liquid-entity-data-get id="taxonomyGetDataService" operation="getbyids" request-data="{{_taxonomyRequest}}" on-response="_onTaxonomyResponse"></liquid-entity-data-get>
         <liquid-rest id="taxonomyModelGet" url="/data/pass-through/entitymodelservice/get" method="POST" request-data="{{_taxonomyModelRequest}}"
             on-liquid-response="_onTaxonomyModelGetResponse"></liquid-rest>
@@ -340,10 +347,6 @@
                         type: Boolean,
                         value: false
                     },
-                    _mappingsRequestData: {
-                        type: Object,
-                        value: function () { return {}; }
-                    },
                     _selectedCategories: {
                         type: Array,
                         value: function () {
@@ -394,7 +397,7 @@
                         type: Object,
                         value: function () { return {}; }
                     },
-                    copMappingContext: {
+                    mappingConfig: {
                         type: Object,
                         value: function () { return {}; }
                     },
@@ -569,16 +572,17 @@
                     }
 
                     if (this._currentCOPService == "getHeaderFields") {
-                        req.dataObject.dataObjectInfo.dataObjectType = this.copMappingContext.dataObjectType;
-                        req.dataObject.properties.service = this.copMappingContext.service;
+                        var copMappingContext = this.mappingConfig["cop-mapping-context"];
+                        req.dataObject.dataObjectInfo.dataObjectType = copMappingContext.dataObjectType;
+                        req.dataObject.properties.service = copMappingContext.service;
 
                         //Set properties for headerFields
                         req.dataObject.properties.fileId = "";
-                        if(this.copMappingContext.excludeSubType) {
+                        if(copMappingContext.excludeSubType) {
                             delete req.dataObject.properties.subtype;
                         }
 
-                        if(this.copMappingContext.excludeOrder) {
+                        if(copMappingContext.excludeOrder) {
                             delete req.dataObject.properties.order;
                         }
                     }
@@ -630,14 +634,9 @@
                                 workAutomationId = res.dataObjectOperationResponse.statusDetail.message.workAutomationId;
                             }
 
-                            var mappingsRequestData = {
-                                "workAutomationId": workAutomationId,
-                                "headerFields": headerFields
-                            }
                             this._hideView("entity-import");
                             this._hideButtons();
-                            this.set("_mappingsRequestData", mappingsRequestData);
-                            this._importMappingComponent();
+                            this._importContextComponent(headerFields);
                             this._loading = false;
                             this._isDirty = false;
                             return;
@@ -1125,17 +1124,45 @@
                     this.showErrorToast("Failed to download category model template. Please contact administrator.");
                     this._downloadInProgress = false;
                 },
+                _importContextComponent: function (headerFields) {
+                    this._showView("context-mappings");
+                    var copCtx = DataHelper.cloneObject(this.copContext);
+                    var mappingData = {
+                        "headerFields": headerFields
+                    }
+                    var component = {
+                        "name": "rock-context-mappings-grid",
+                        "path": "/../../src/elements/rock-context-mappings/rock-context-mappings-grid.html",
+                        "properties": {
+                            "context-data": this.contextData,
+                            "taxonomy": this.taxonomy,
+                            "cop-context": copCtx,
+                            "mapping-data": mappingData,
+                            "mapping-config": this.mappingConfig
+                        }
+                    };
+                    var contentEl = this.shadowRoot.querySelector("#content-context-mappings");
+                    ComponentHelper.loadContent(contentEl, component, this);
+                },
                 _importMappingComponent: function () {
+                    this._hideView("context-mappings");
                     this._showView("mappings");
                     var copCtx = DataHelper.cloneObject(this.copContext);
+                    var mappingData = {
+                        "headerFields": this.attributeFields,
+                        "taxonomies": this.taxonomies,
+                        "contexts": this.contexts
+                    }
+
                     var component = {
                         "name": "rock-attribute-mapping",
                         "path": "/../../src/elements/rock-attribute-mapping/rock-attribute-mapping.html",
                         "properties": {
-                            "mappings-request-data": this._mappingsRequestData,
                             "context-data": this.contextData,
                             "taxonomy": this.taxonomy,
-                            "cop-context": copCtx
+                            "cop-context": copCtx,
+                            "mapping-config": this.mappingConfig,
+                            "mapping-data": mappingData
                         }
                     };
                     var contentEl = this.shadowRoot.querySelector("#content-mappings");
@@ -1156,6 +1183,10 @@
                     }
                     this._generateCopRequest(url, this._fileDetails);
                 },
+                _onFieldMappingsBack: function (e, detail) {
+                    this._hideView("mappings");
+                    this._showView("context-mappings");
+                },
                 _onFieldMappingsCancel: function (e, detail) {
                     this._hideView("mappings");
                     this._showView("entity-import");
@@ -1173,13 +1204,19 @@
                     this._hideView("mappings");
                     this._showView("value-mappings");
                     var copCtx = DataHelper.cloneObject(this.copContext);
+                    var mappingData = detail;
+                    mappingData.headerFields = this.attributeFields
+                    mappingData.taxonomies = this.taxonomies
+                    mappingData.contexts = this.contexts
+
                     var component = {
                         "name": "rock-value-mappings-grid",
                         "path": "/../../src/elements/rock-value-mappings-manage/rock-value-mappings-grid.html",
                         "properties": {
-                            "mappings-data": detail,
+                            "mapping-data": mappingData,
                             "context-data": this.contextData,
-                            "cop-context": copCtx
+                            "cop-context": copCtx,
+                            "mapping-config": this.mappingConfig
                         }
                     };
                     var contentEl = this.shadowRoot.querySelector("#content-value-mappings");
@@ -1188,6 +1225,16 @@
                 _onValueMappingsCancelOrSave: function(e, detail) {
                     this._showView("mappings");
                     this._hideView("value-mappings");
+                },
+                _onContextMappingsCancel: function(e, detail) {
+                    this._hideView("context-mappings");
+                    this._showView("entity-import");
+                },
+                _onContextMappingsSkipOrSave: function(e, detail) {
+                    this.taxonomies = detail.taxonomies;
+                    this.contexts = detail.contexts;
+                    this.attributeFields = detail.nonContextFields;
+                    this._importMappingComponent();
                 }
             });
         })();
