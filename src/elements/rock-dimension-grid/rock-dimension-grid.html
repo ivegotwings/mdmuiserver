@@ -137,6 +137,8 @@ The user can view the past data but cannot modify it. However he/she can add or 
     <liquid-entity-data-get verbose name="attributeGetDataService" operation="getbyids" request-data="{{_request}}" on-response="[[_onAttributesGetResponse]]"></liquid-entity-data-get>
     <!--liquid-entity-data-save name="attributeSaveDataService" operation="update" request-data="{{_saveRequest}}" last-response="{{saveResponse}}"
       on-response="_onSaveResponse"></liquid-entity-data-save-->
+    <liquid-rest id="entityModelServiceGet" url="/data/pass-through/entitymodelservice/get" method="POST" request-data="{{_entityModelServiceRequest}}"
+      on-liquid-response="_onEntityModelServiceGetResponse"></liquid-rest>
   </template>
   <script>
     (function () {
@@ -250,7 +252,20 @@ The user can view the past data but cannot modify it. However he/she can add or 
             value: function () {
               return {};
             }
-          }
+          },
+
+          _gridData: {
+              type: Array,
+              value: function () {
+                  return [];
+              }
+          },
+          _entityModelServiceRequest: {
+              type: Object,
+              value: function () {
+                  return {};
+              }
+            },
         },
         behaviors: [
           RUFBehaviors.UIBehavior,
@@ -536,12 +551,12 @@ The user can view the past data but cannot modify it. However he/she can add or 
             }
         },
         _onAttributesGetResponse:function(res){
-            if (res && res.status && (res.status == "success")) {
-              var dimGrid = this.shadowRoot.querySelector('rock-grid');
+            if (res && res.status && (res.status == "success")) {              
               var data = [];
               var modelObject = JSON.parse(this.attributeModelObject);
               var relationshipName = modelObject.relationshipName;
               var attrName = modelObject.name;
+              var userMailIdList = [];
 
               if (res.content && res.content.events && res.content.events.length > 0) {
                 var events = res.content.events;
@@ -603,16 +618,49 @@ The user can view the past data but cannot modify it. However he/she can add or 
                       if(eventObj.properties && eventObj.properties.modifiedDate){
                         record.Time = FormatHelper.convertFromISODateTimeToClientFormat(eventObj.properties.modifiedDate, 'datetime');
                       }
+                      if(eventObj.properties && eventObj.properties.modifiedBy){
+                        const user = eventObj.properties.modifiedBy.replace(/_user$/, "");
+                        userMailIdList.push(user);
+                        record.user = user;
+                      }
                       data.push(record);
                     }
-                })
-
-                if (data) {
-                  dimGrid.data = data;
-                  if (dimGrid._getIronDataTable()) {
-                    dimGrid._getIronDataTable()._sizeChanged(data.length, 0);
-                    dimGrid.reRenderGrid();
+                });
+                this._gridData = data;
+                if(_.uniq(userMailIdList).length > 0){
+                  // Construct user by using email id
+                  this._entityModelServiceRequest = {
+                      "params": {
+                          "query": {
+                              "filters": {
+                                  "typesCriterion": [
+                                      "user"
+                                  ],
+                                  "propertiesCriterion": [
+                                      {
+                                          "email": {
+                                              "exacts": _.uniq(userMailIdList)
+                                          }
+                                      }
+                                  ]
+                              }
+                          },
+                          "fields": {
+                              "attributes": [
+                                  "_ALL"
+                              ],
+                              "relationships": [
+                                  "_ALL"
+                              ]
+                          }
+                      }
                   }
+                  var entityModelServiceGetComponent = this.$$("#entityModelServiceGet");
+                  if (entityModelServiceGetComponent) {
+                    entityModelServiceGetComponent.generateRequest();
+                  }
+                } else{
+                    this._populateGrid();
                 }
               }
             }
@@ -881,6 +929,33 @@ The user can view the past data but cannot modify it. However he/she can add or 
           }
 
           return config;
+        },
+
+        _onEntityModelServiceGetResponse: function(e){
+          var response = e.detail.response.response;
+            if (response && response.entityModels) {
+              if(response.entityModels.length > 0){
+                for(let index = 0; index < response.entityModels.length; index++){
+                  this._gridData.forEach(function(item){ 
+                      if(item && item.user == response.entityModels[index].name){
+                        item.user = response.entityModels[index].properties.firstName;
+                      }
+                  });
+                }
+              }                        
+            }
+            this._populateGrid(); 
+        },
+
+        _populateGrid: function(){
+          if (this._gridData) {
+            var dimGrid = this.shadowRoot.querySelector('rock-grid');
+            dimGrid.data = this._gridData;
+            if (dimGrid._getIronDataTable()) {
+              dimGrid._getIronDataTable()._sizeChanged(this._gridData.length, 0);
+              dimGrid.reRenderGrid();
+            }
+          }
         }
       });
     })();
