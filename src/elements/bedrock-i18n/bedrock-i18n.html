@@ -126,12 +126,6 @@
        *  'en': { 'greeting': 'Hello!' }, 'fr' : { 'greeting': 'Bonjour!' }
        * }
        */
-      resources: {
-        type: Object,
-        value: function () {
-          return {};
-        }
-      },
       /**
        * Content is not appearing - Indicates the key for the translation. If it is set to <b>true</b>, then it uses provided key when
        * the translation does not exist for that key.
@@ -169,10 +163,6 @@
        * string must be passed in the following order:
        * `localize(stringKey, param1Name, param1Value, param2Name, param2Value)`
        */
-      localize: {
-        type: Function,
-        computed: '__computeLocalize(language, resources, formats)'
-      },
       /**
         * Content is not appearing - Content development is under progress. 
         */
@@ -191,7 +181,6 @@
     },
 
     created() {
-      this.__onResourceLoaded = this._onResourceLoaded.bind(this);
       this.__onRequestResponse = this.__onRequestResponse.bind(this);
       this.__onRequestError = this.__onRequestError.bind(this);
     },
@@ -199,34 +188,11 @@
        * Content is not appearing - Content development is under progress. 
        */
     ready: function () {
-      var _this = this;
-      var proto = this.constructor.prototype;
       if (this.nodeName == 'BEDROCK-INIT') {
         this.addEventListener('localize-resources-loaded', function () {
-          proto.__localizationCache.loadedResources = this.resources;         
           RUFUtilities.localizationResourcesLoaded = true;
-          RUFUtilities.i18Subscribers.forEach((elem) => {
-            elem._onResourceLoaded({
-                resources: this.resources,
-                language: this.language
-            })
-          });
-          RUFUtilities.i18Subscribers = [];
         });
-      } else {
-        if (RUFUtilities.localizationResourcesLoaded) {
-          this.resources = proto.__localizationCache.loadedResources;
-          this.language = proto.__localizationCache.language;         
-        } else {
-          RUFUtilities.i18Subscribers =  RUFUtilities.i18Subscribers ? RUFUtilities.i18Subscribers : [];
-          RUFUtilities.i18Subscribers.push(this);
-        }
       }
-    },
-
-    _onResourceLoaded(e) {
-        this.resources = e.resources;
-        this.language = e.language;
     },
 
     detached() {
@@ -247,16 +213,19 @@
     */
     init: function (resourcePath, localeLanguage) {
 
+      this.language = localeLanguage || RUFUtilities.localeLanguage;
       if (localeLanguage != undefined && localeLanguage != '') {
-        this.language = localeLanguage;
-        var proto = this.constructor.prototype;
-        proto.__localizationCache.language = this.language;
+        RUFUtilities.localeLanguage = localeLanguage;
       }
       if (resourcePath != undefined) {
         if (this.nodeName == 'BEDROCK-INIT') {
           this.loadResources(resourcePath);
         }
       }
+    },
+
+    localize: function(){
+      return this.__computeLocalize();
     },
     /**
       * Content is not appearing - Content development is under progress. 
@@ -298,17 +267,21 @@
     /**
      * Returns a computed `localize` method, based on the current `language`.
      */
-    __computeLocalize: function (language, resources, formats) {
+    __computeLocalize: function () {
       var proto = this.constructor.prototype;
 
       // Everytime any of the parameters change, invalidate the strings cache.
       proto.__localizationCache.messages = {};
 
       //If resources as string, then parse it to JSON object
+      var resources =  RUFUtilities.localizationResources;
+      var language = this.language = this.language || RUFUtilities.localeLanguage;
+      var formats = this.formats;
+      
       if(!_.isEmpty(resources) && typeof resources == "string") {
         resources = JSON.parse(resources);
       }
-
+      
       return function () {
         var key = arguments[0];
         if (!key || !resources || !language || !resources[language])
@@ -338,7 +311,7 @@
       };
     },
     __onRequestResponse: function (event) {
-      this.resources = event.detail.__data.response;
+      RUFUtilities.localizationResources = event.detail.__data.response;
       this.dispatchEvent(new CustomEvent('localize-resources-loaded', { bubbles: true, composed: true }));
     },
     __onRequestError: function (event) {

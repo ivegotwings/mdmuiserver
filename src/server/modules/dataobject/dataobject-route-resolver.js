@@ -52,6 +52,8 @@ const entityHistoryEventService = new EntityHistoryEventService(options);
 
 const searchResultExpireTime = -30 * 60 * 1000;
 
+const logger = require('../common/logger/logger-service');
+
 async function initiateSearch(callPath, args) {
     var response = [];
     var isCombinedQuerySearch = false;
@@ -444,7 +446,6 @@ async function get(dataObjectIds, reqData) {
 
         reqData.cacheExpiryDuration = dataIndexInfo && dataIndexInfo.cacheExpiryDurationInMins ? -(dataIndexInfo.cacheExpiryDurationInMins * 60 * 1000) : -(60 * 60 * 1000);
 
-
         var dataObjectResponse = res && dataIndexInfo && dataIndexInfo.responseObjectName ? res[dataIndexInfo.responseObjectName] : undefined;
 
         if (dataObjectResponse && dataObjectResponse.status == "success") {
@@ -478,7 +479,8 @@ async function get(dataObjectIds, reqData) {
         }
     }
     catch (err) {
-        console.log('Failed to get data.\nOperation:', operation, '\nError:', err.message, '\nStackTrace:', err.stack);
+        var errMsg = "".concat('Failed to get data.\nOperation:', operation, '\nError:', err.message, '\nStackTrace:', err.stack);
+        logger.error(errMsg, null, logger.getCurrentModule());
         throw err;
     }
     finally {
@@ -529,7 +531,8 @@ async function getByIds(pathSet, operation) {
         }
     }
     catch (err) {
-        console.log('Failed to get data.\nOperation:', operation, '\nError:', err.message, '\nStackTrace:', err.stack);
+        var errMsg = "".concat('Failed to get data.\nOperation:', operation, '\nError:', err.message, '\nStackTrace:', err.stack);
+        logger.error(errMsg, null, logger.getCurrentModule());
         throw err;
     }
     finally {

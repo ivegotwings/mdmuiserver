@@ -7,6 +7,8 @@ var logger = require('../common/logger/logger-service');
 var falcorUtil = require('../../../shared/dataobject-falcor-util');
 var mergeUtil = require('../../../shared/dataobject-merge-util');
 
+var RuntimeVersionManager = require('../version-service/RuntimeVersionManager');
+
 const arrayRemove = require('../common/utils/array-remove'),
     arrayContains = require('../common/utils/array-contains'),
     isEmpty = require('../common/utils/isEmpty'),
@@ -94,6 +96,12 @@ ConfigurationService.prototype = {
         var baseConfigResponse = await this.baseConfigService.get(RDF_SERVICE_NAME + "/get", baseConfigRequest);
         //console.log('base config get response ', JSON.stringify(baseConfigResponse));
 
+        if (!falcorUtil.isValidObjectPath(baseConfigResponse, "response.configObjects.0")) {
+            var errorMsg = "".concat('Base config not found for the config Id:', baseConfigId);
+            logger.error(errorMsg, null, logger.getCurrentModule());
+            throw new Error(errorMsg);
+        }
+
         var finalConfigObject = baseConfigResponse.response.configObjects[0];
         //console.log('base config', JSON.stringify(finalConfigObject));
 
@@ -117,6 +125,7 @@ ConfigurationService.prototype = {
         var configContextSettings = await this._getConfigContextSettings(tenant, isBase);
 
         if (isEmpty(configContextSettings)) {
+            console.error('config context setting not found');
             return mergedConfigObject;
         }
 
@@ -148,8 +157,7 @@ ConfigurationService.prototype = {
         };
 
         //console.log('nearest get request ', JSON.stringify(req));
-        var getLatest = true;
-        var res = await this._fetchConfigObject(RDF_SERVICE_NAME + "/getnearest", req, getLatest);
+        var res = await this._fetchConfigObject(RDF_SERVICE_NAME + "/getnearest", req);
         //console.log('nearest get response ', JSON.stringify(res));
 
         if (res && res.response.configObjects && res.response.configObjects.length > 0) {
@@ -213,15 +221,16 @@ ConfigurationService.prototype = {
             configId = req.params.query.id = "sys_config-context-settings-base_uiConfig";
         }
 
+        //console.log('config context settings request ', JSON.stringify(req));
+
         var configData = {};
-        var getLatest = false;
-        var res = await this._fetchConfigObject(RDF_SERVICE_NAME + "/get", req, getLatest);
+        var res = await this._fetchConfigObject(RDF_SERVICE_NAME + "/get", req);
 
         if (falcorUtil.isValidObjectPath(res, "response.configObjects.0.data.contexts.0.jsonData.config")) {
             configData = res.response.configObjects[0].data.contexts[0].jsonData.config;
         }
 
-        //console.log('config context settings ', isBase, JSON.stringify(configData));
+        //console.log('config context settings response ', isBase, JSON.stringify(configData));
 
         return configData;
     },
@@ -287,7 +296,7 @@ ConfigurationService.prototype = {
             }
         }
     },
-    _fetchConfigObject: async function (serviceUrl, request, getLatest = true) {
+    _fetchConfigObject: async function (serviceUrl, request, getLatest = false) {
         var res = {};
 
         if (getLatest) {
@@ -297,11 +306,11 @@ ConfigurationService.prototype = {
             var requestedConfigId = request.params.query.id ? request.params.query.id : "_BYCONTEXT";
             var requestedContext = falcorUtil.isValidObjectPath(request, "params.query.contexts.0") ? request.params.query.contexts[0] : "_NOCONTEXT";
             var generatedId = this._createConfigId(requestedContext);
-            var cacheKey = "".concat("id:", requestedConfigId, "|contextKey:", generatedId);
+            var tenant = this.getTenantId();
+            var runtimeVersion = await RuntimeVersionManager.getVersion();
+            var cacheKey = "".concat("uiConfig|id:", requestedConfigId, "|contextKey:", generatedId, "|runtime-version:", runtimeVersion);
 
-            //console.log('cacheKey: ', cacheKey);
-
-            if (cacheKey != "id:_BYCONTEXT|contextKey:_NOCONTEXT") {
+            if (requestedConfigId != "_BYCONTEXT" && requestedContext != "_NOCONTEXT") {
                 res = falcorUtil.cloneObject(localConfigCache[cacheKey]);
             }
 
@@ -311,7 +320,7 @@ ConfigurationService.prototype = {
             }
         }
 
-        return res;
+        return await res;
     },
     _validate: function (reqData) {
         return true;
