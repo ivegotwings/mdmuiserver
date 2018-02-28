@@ -27,7 +27,6 @@
 <link rel="import" href="../rock-entity-header/rock-entity-header.html">
 <link rel="import" href="../rock-entity-sidebar/rock-entity-sidebar.html">
 <link rel="import" href="../rock-dimension-grid/rock-dimension-grid.html">
-<link rel="import" href="../rock-business-function-dialog/rock-business-function-dialog.html">
 <link rel="import" href="../rock-entity-manage-elements/rock-entity-manage-elements.html">
 
 <dom-module id="app-entity-manage">
@@ -120,7 +119,6 @@
             </rock-entity-titlebar>
             <bedrock-pubsub event-name="on-set-titlebar" handler="_onSetTitlebar" target-id="entityTitlebar"></bedrock-pubsub>
             <bedrock-pubsub event-name="dimension-selector-data-changed" handler="_onDimensionsChanged" target-id="entityTitlebar"></bedrock-pubsub>
-
             <rock-header frozen slot="rock-header">
                 <div slot="fixed-content" class="fixed-content">
                     <bedrock-pubsub event-name="toolbar-button-event" handler="_onToolbarEvent" target-id="entityManageHeader"></bedrock-pubsub>
@@ -132,7 +130,7 @@
             <rock-sidebar id="rockSideBar" position="right" slot="rock-sidebar" collapsable>
             <rock-entity-sidebar id="entityManageSidebar" context-data="[[contextData]]"></rock-entity-sidebar> 
             </rock-sidebar>
-
+            
             <div class="content">
                 <template is="dom-if" if="true" id="tabsTemplate">
                     <div class="tab-wrap">
@@ -154,24 +152,13 @@
         <bedrock-pubsub event-name="on-workflow-available" handler="_onWorkflowAvailable"></bedrock-pubsub>
         <bedrock-pubsub event-name="on-attribute-save" handler="_refreshHeaderAndNavBars"></bedrock-pubsub>
         <bedrock-pubsub event-name="on-buttonok-clicked" handler="_onDeleteConfirm" target-id="confirmationDialog"></bedrock-pubsub>
-        <rock-business-function-dialog id="contextDialog" context-data="[[contextData]]"></rock-business-function-dialog>
-        <rock-business-function-dialog id="entityUploadDialog" context-data="[[contextData]]"></rock-business-function-dialog>
-        <rock-business-function-dialog id="entityDownloadDialog" context-data="[[contextData]]"></rock-business-function-dialog>
-        <rock-business-function-dialog id="rePublishDialog" context-data="[[contextData]]"></rock-business-function-dialog>
-        <rock-business-function-dialog id="addRelDialog" name="rock-wizard-entity-relationship-add" context-data="[[contextData]]"></rock-business-function-dialog>
-        <rock-business-function-dialog id="manageAttributesDialog" name="rock-wizard-attribute-manage" context-data="[[contextData]]"></rock-business-function-dialog>
-        <rock-business-function-dialog id="manageRelationshipsDialog" name="rock-wizard-relationship-manage" context-data="[[contextData]]"></rock-business-function-dialog>
-        <rock-business-function-dialog id="dimensionGridDialog" name="rock-wizard-dimension-grid" context-data="[[contextData]]" hide-stepper="true"></rock-business-function-dialog>
         <bedrock-pubsub event-name="refresh-classification" handler="_refreshDimensionSelector" target-id="contextDialog"></bedrock-pubsub>
         <bedrock-pubsub event-name="govern-complete" handler="_onGovernComplete"></bedrock-pubsub>
-        <liquid-rest id="entityDeleteLiquidRest" url="/data/pass-through/entityappservice/delete" method="POST" request-data={{deleteRequest}}
-            on-liquid-response="_deleteSuccess" on-liquid-error="_deleteFailure"></liquid-rest>
-            <liquid-entity-model-composite-get id="compositeRelModelGet" request-data="{{_relModelRequest}}" on-entity-model-composite-get-response="_onRelationshipCompositeModelGetResponse" on-error="_onCompositeModelGetError">
-            </liquid-entity-model-composite-get>
-            <liquid-entity-model-composite-get id="compositeAttrModelGet" request-data="{{_attrModelRequest}}" on-entity-model-composite-get-response="_onAttributeCompositeModelGetResponse" on-error="_onCompositeModelGetError">
-            </liquid-entity-model-composite-get>
-            <liquid-entity-model-get id="getRelDomains" operation="getbyids"  on-response="_onRelModelsReceived"
-                                     on-error="_onModelGetFailed"></liquid-entity-model-get>
+        <liquid-rest id="entityDeleteLiquidRest" url="/data/pass-through/entityappservice/delete" method="POST" on-liquid-response="_deleteSuccess" on-liquid-error="_deleteFailure"></liquid-rest>
+        <liquid-entity-model-composite-get id="compositeRelModelGet" on-entity-model-composite-get-response="_onRelationshipCompositeModelGetResponse" on-error="_onCompositeModelGetError"></liquid-entity-model-composite-get>
+        <liquid-entity-model-composite-get id="compositeAttrModelGet" on-entity-model-composite-get-response="_onAttributeCompositeModelGetResponse" on-error="_onCompositeModelGetError"></liquid-entity-model-composite-get>
+        <liquid-entity-model-get id="getRelDomains" operation="getbyids" on-response="_onRelModelsReceived" on-error="_onModelGetFailed"></liquid-entity-model-get>
+        <liquid-entity-model-get id="getEntityDomain" operation="getbyids" on-response="_onDomainReceived" on-error="_onDomainGetFailed"></liquid-entity-model-get>
     </template>
     <script>
         (function () {
@@ -223,13 +210,6 @@
                     _lastSavedTime: {
                         value: ""
                     },
-
-                    deleteRequest: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    },
                     dimensions: {
                         type: Object,
                         value: function () {
@@ -273,6 +253,10 @@
                     viewMode:{
                         type:String,
                         value:""
+                    },
+                    domain:{
+                        type:String,
+                        value: ""
                     }
                 },
                 behaviors: [
@@ -281,9 +265,92 @@
                 ],
                 attached: function () {
                     this._searchTimeStamp = new Date().toLocaleString();
+                    //Get the domain and set it
+                    this.getDomain();
+                    this._initializeComponent();                   
                 },
+                _initializeComponent() {
+                    this._entityTitlebar = this.shadowRoot.querySelector('#entityTitlebar');
+                    this._confirmationDialog = this.shadowRoot.querySelector("#confirmationDialog");
+                    this._entityHeader = this.shadowRoot.querySelector("rock-entity-header");
+                },
+
+                /**
+                 * Function to raise a request to get the domain of the given entity type
+                 */
+                 getDomain: function(){
+                    var req = {
+                        "params": {
+                            "query": {
+                                "id": this._entityType + "_entityType",
+                                "filters": {
+                                    "typesCriterion": ["entityType"]
+                                }
+                            },
+                            "fields": {}
+                        }
+                    };
+
+                    var domainGet = this.shadowRoot.querySelector("#getEntityDomain");
+                    if (domainGet) {
+                        domainGet.requestData = req;
+                        domainGet.generateRequest();
+                    }
+                },
+
+                /**
+                 * Function to set the domain in the contextData
+                 */  
+                _onDomainReceived: function (e, detail) {
+                    var responseContent = DataHelper.validateAndGetResponseContent(detail.response)
+                    if (responseContent) {
+                        this.domain = responseContent.entityModels[0].domain;
+                    }
+                    if(this.domain) {
+                        this.contextData[ContextHelper.CONTEXT_TYPE_DOMAIN] = [{
+                                "domain": this.domain
+                        }];
+                    }
+                },
+
+                /**
+                 * Function to handle error during domain get
+                 */ 
+                _onDomainGetFailed: function(){
+                    this.showErrorToast("Unable to fetch domain. Please contact administrator.");
+                },
+
+                get dimensionSelector() {
+                    this._dimensionSelector = this._dimensionSelector || this.shadowRoot.querySelector('rock-dimension-selector');
+                    return this._dimensionSelector;
+                },
+
+                get detailTabs() {
+                    this._detailTabs = this._detailTabs || this.shadowRoot.querySelector('#rockDetailTabs');
+                    return this._detailTabs;
+                },
+
+                get entityDeleteLiquidRestLiq() {
+                    this._entityDeleteLiquidRest = this._entityDeleteLiquidRest || this.shadowRoot.querySelector("#entityDeleteLiquidRest");
+                    return this._entityDeleteLiquidRest;
+                },
+
+                get compositeRelModelGetLiq() {
+                    this._compositeRelModelGet = this._compositeRelModelGet || this.shadowRoot.querySelector("#compositeRelModelGet");
+                    return this._compositeRelModelGet;
+                },
+
+                get compositeAttrModelGetLiq() {
+                    this._compositeAttrModelGet = this._compositeAttrModelGet || this.shadowRoot.querySelector("#compositeAttrModelGet");
+                    return this._compositeAttrModelGet;
+                },
+
+                get getRelDomainsLiq() {
+                    this._getRelDomains = this._getRelDomains || this.shadowRoot.querySelector("#getRelDomains");
+                    return this._getRelDomains;
+                },
+
                 created: function () {
-                    this.contentHeightVariable = "--rock-tab-content-height";
                     var userContext = {
                         "role": this.roleId,
                         "user": this.userId,
@@ -306,41 +373,30 @@
                     this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
                 },
                 refresh: function () {
-                    var isDirty = false;
-                    if (this.getIsDirty) {
-                        isDirty = this.getIsDirty();
-                    }
-                    if (isDirty) {
-                        if (window.confirm(
-                            "There are unsaved changes. Do you want to discard the changes?")) {
-                            this.shadowRoot.querySelector('rock-dimension-selector').refresh();
-                            this._reRenderOnDimensionChange();
-                        }
-                    } else {
-                        this.shadowRoot.querySelector('rock-dimension-selector').refresh();
+                    var isDirty = this.getIsDirty();
+
+                    const _refresh = () => {
+                        this.dimensionSelector && this.dimensionSelector.refresh();
                         this._reRenderOnDimensionChange();
+                    };
+
+                    if (isDirty) {
+                        if (window.confirm("There are unsaved changes. Do you want to discard the changes?")) {
+                            _refresh();
+                        }
+                        return;
                     }
-                },
-                ready: function () {
+                    _refresh();
                 },
                 /**
                  * Function to display the left nav info
                  */
                 getAppCurrentStatus: function (customArgs) {
-
-                    var title = "";
-                    var param;
-                    var titlebar = this.shadowRoot.querySelector('#entityTitlebar');
-                    if (titlebar && titlebar.mainTitle != "") {
-                        param = titlebar.mainTitle;
-                    }
-                    title = this.getNavbarTitle(param);
-
                     if(customArgs && customArgs.queryParams){
                         this.queryParams = customArgs.queryParams;
                     }
                     return {
-                        title: title,
+                        title: this.getNavbarTitle(this._entityTitlebar.mainTitle),
                         subTitle: this.getIsDirty() ? "Draft" : this._lastSavedTime && this._lastSavedTime != "" ? "Last Saved" : "Last Opened",
                         subTitleValue: this._lastSavedTime && this._lastSavedTime != "" ? this._lastSavedTime : new Date().toLocaleString(),
                         queryParams: this.queryParams
@@ -369,23 +425,16 @@
                 },
                 
                 _onContextManageTap: function(e, detail) {
-                    if(detail && detail.data) {
-                        var componentName = detail.data.componentName;
-                        var taxonomy = "";
-                        if(DataHelper.isValidObjectPath(detail.data, 'properties.context.taxonomy')) {
-                            taxonomy = detail.data.properties.context.taxonomy;
-                        }
-
-                        var contextDialog = this.shadowRoot.querySelector("#contextDialog");
-                        if(contextDialog) {
-                            contextDialog.name = componentName;
-                            contextDialog.sharedData = { 
-                                "context-data": this.contextData,
-                                "taxonomy": taxonomy
-                            };
-                            contextDialog.open();
-                        }
+                    if(!detail || !detail.data) return;
+                    
+                    const { componentName, properties } = detail.data;
+                    
+                    var taxonomy = "";
+                    if(DataHelper.isValidObjectPath(detail.data, 'properties.context.taxonomy')) {
+                        taxonomy = properties.context.taxonomy;
                     }
+
+                    this.openBusinessFunctionDialog({ name: componentName }, { taxonomy });
                 },
                 _onToolbarEvent: function (e, detail) {
                     var event = detail.name;
@@ -476,9 +525,11 @@
                     alert("event triggered: " + detail.name);
                 },
                 _deleteEvent: function (e, detail, sender) {
-                    this.shadowRoot.querySelector("#confirmationDialog").open();
+                    this._confirmationDialog.open();
                 },
                 _onDeleteConfirm: function () {
+                    if(!this.entityDeleteLiquidRestLiq) return;
+                    
                     var itemContexts = DataHelper.cloneObject(this.getItemContexts());
 
                     //Prepare request
@@ -491,14 +542,10 @@
 
                     req.entity.id = itemContexts[0].id;
                     req.entity.type = itemContexts[0].type;
-                    this.set("deleteRequest", req);
 
                     //Send request to delete the entity
-                    var liquidDelete = this.shadowRoot.querySelector("#entityDeleteLiquidRest");
-                    if (liquidDelete) {
-                        liquidDelete.generateRequest();
-                    }
-
+                    this.entityDeleteLiquidRestLiq.requestData = req;
+                    this.entityDeleteLiquidRestLiq.generateRequest();
                 },
                 _deleteSuccess: function (e) {
                     if (e.detail && e.detail.response && e.detail.response.response) {
@@ -533,34 +580,26 @@
                     alert("event triggered: " + detail.name);
                 },
                 _downloadEvent: function (e, detail) {
-                    var clonedDataContext = DataHelper.cloneObject(this.contextData);
-                    var itemContexts = DataHelper.cloneObject(this.getItemContexts());
+                    var itemContexts = this.getItemContexts();
 
-                    if (itemContexts && itemContexts.length) {
-                        var selectedEntities = [];
-                        var selctedEntity = {
-                            "id": itemContexts[0].id,
-                            "type": itemContexts[0].type
-                        };
-                        selectedEntities.push(selctedEntity);
-
-                        var entityDownloadDialog = this.shadowRoot.querySelector("#entityDownloadDialog");
-                        entityDownloadDialog.name = "rock-wizard-entity-download";
-                        entityDownloadDialog.sharedData = {
-                            "context-data": clonedDataContext,
-                            "selected-entities": selectedEntities
-                        };
-                        entityDownloadDialog.open();
-                    } else {
-                        this.showErrorToast("item context not found.");
+                    if(!itemContexts || !itemContexts.length) {
+                        return this.showErrorToast("item context not found.");
                     }
+
+                    const { id, type } = itemContexts[0];
+
+                    const sharedData = {
+                        "selected-entities": [{id, type}]
+                    };
+
+                    this.openBusinessFunctionDialog({ name: 'rock-wizard-entity-download' }, sharedData);
                 },
                 _rePublishEvent: function (e, detail) {
-                    var itemContexts = DataHelper.cloneObject(this.getItemContexts());
-                    var rePublishDialog = this.shadowRoot.querySelector("#rePublishDialog");
-                    rePublishDialog.name = "rock-wizard-re-publish";
-                    rePublishDialog.sharedData = { "context-data": this.contextData, "selected-entities": itemContexts };
-                    rePublishDialog.open();
+                    const sharedData = {
+                        "selected-entities": DataHelper.cloneObject(this.getItemContexts())
+                    };
+
+                    this.openBusinessFunctionDialog({ name: 'rock-wizard-re-publish' }, sharedData);
                 },
                 _onCOPDownloadFailure: function (e) {
                     this.showErrorToast("Failed to download entity data. Please contact administrator.");
@@ -611,15 +650,14 @@
                     }
                 },
                 _triggerLinkAssets: function (relationshipTypeName) {
-                    var liqRelModelGet = this.shadowRoot.querySelector("#compositeRelModelGet");
+                    if(!this.compositeRelModelGetLiq) return;
+                    
                     var request = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
                     delete request.params.fields.attributes;
                     request.params.fields.relationships = [relationshipTypeName];
-                    this._relModelRequest = request;
-
-                    if (liqRelModelGet) {
-                        liqRelModelGet.generateRequest();
-                    }
+                    
+                    this.compositeRelModelGetLiq.requestData = request;
+                    this.compositeRelModelGetLiq.generateRequest();
                 },
                 _onRelationshipCompositeModelGetResponse: function (e, detail) {
                     var relationshipDetails = {};
@@ -663,16 +701,15 @@
                     }
                 },
                 _triggerManageAttributes: function () {
-                    var liqAttrModelGet = this.shadowRoot.querySelector("#compositeAttrModelGet");
+                    if(!this.compositeAttrModelGetLiq) return;
+
                     var request = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
                     delete request.params.fields.relationships;
                     delete request.params.fields.relationshipAttributes;
                     request.params.fields.attributes = ["_ALL"];
-                    this._attrModelRequest = request;
 
-                    if (liqAttrModelGet) {
-                        liqAttrModelGet.generateRequest();
-                    }
+                    this.compositeAttrModelGetLiq.requestData = request;
+                    this.compositeAttrModelGetLiq.generateRequest();
                 },
                 _onAttributeCompositeModelGetResponse: function (e, detail) {
                     if (detail && DataHelper.validateGetModelsResponse(detail.response)) {
@@ -709,6 +746,8 @@
                     }
                 },
                 _triggerManageRelationships: function (relationshipTypeName) {
+                    if(!this.getRelDomainsLiq) return;
+                    
                     var req = {
                         "params": {
                             "query": {
@@ -720,12 +759,9 @@
                             "fields": {}
                         }
                     };
-
-                    var relModelLiquid = this.shadowRoot.querySelector("#getRelDomains");
-                    if (relModelLiquid) {
-                        relModelLiquid.requestData = req;
-                        relModelLiquid.generateRequest();
-                    }
+                    
+                    this.getRelDomainsLiq.requestData = req;
+                    this.getRelDomainsLiq.generateRequest();
                 },
                 _onRelModelsReceived: function (e, detail) {
                     var responseContent = DataHelper.validateAndGetResponseContent(detail.response)
@@ -740,51 +776,51 @@
                     this.showErrorToast("Unable to perform the action now. Please contact administrator.");
                 },
                 _openLinkAssetsDialog: function (relationshipDetails) {
-                    var rel = relationshipDetails.relType;
-                    var typesCriterion = relationshipDetails.relatedEntityTypes;
-                    var dialog = this.shadowRoot.querySelector("#addRelDialog");
-                    var itemContext = ContextHelper.getFirstItemContext(this.contextData);
-                    var entity = { "id": itemContext.id, "type": itemContext.type };
-                    var mode = relationshipDetails.mode;
-                    var selfContext = relationshipDetails.selfContext;
+                    const { relType, relatedEntityTypes, mode, selfContext } = relationshipDetails;
 
-                    dialog.sharedData = {
-                        "mode": mode,
-                        "context-data": this.contextData,
-                        "types-criterion": typesCriterion,
-                        "relationship-type": rel,
-                        "selected-entities": [entity],
+                    const { id, type } = ContextHelper.getFirstItemContext(this.contextData);
+                    
+                    const sharedData = {
+                        mode,
+                        "types-criterion": relatedEntityTypes,
+                        "relationship-type": relType,
+                        "selected-entities": [{id, type}],
                         "self-context": selfContext
                     };
-                    dialog.open();
-                    this._setDialogTitle(dialog);
+
+                    this.openBusinessFunctionDialog({ 
+                        name: 'rock-wizard-entity-relationship-add',
+                        title: this.todoActionDialogTitle
+                    }, sharedData);
                 },
                 _openManageAttributesDialog: function (label, attributeNames) {
                     var clonedContextData = DataHelper.cloneObject(this.contextData);
+                    
                     var itemContext = ContextHelper.getFirstItemContext(clonedContextData);
-                    var configContext = { "groupName": label };
                     itemContext.attributeNames = attributeNames;
-                    var dialog = this.shadowRoot.querySelector("#manageAttributesDialog");
-                    dialog.sharedData = {
+
+                    const sharedData = {
                         "context-data": clonedContextData,
-                        "config-context": configContext
+                        "config-context": { "groupName": label }
                     };
-                    dialog.open();
-                    this._setDialogTitle(dialog);
+
+                    this.openBusinessFunctionDialog({
+                        name: 'rock-wizard-attribute-manage',
+                        title: this.todoActionDialogTitle
+                    }, sharedData);
                 },
                 _openManageRelationshipsDialog: function (model) {
-                    var clonedContextData = DataHelper.cloneObject(this.contextData);
-                    var configContext = {
-                        "addRelationshipMode": model.domain == "digitalAsset" ? "businessFunction" : "lov",
-                        "relationshipTypeName": model.name
+                    const sharedData = {
+                        "config-context": {
+                            "addRelationshipMode": model.domain == "digitalAsset" ? "businessFunction" : "lov",
+                            "relationshipTypeName": model.name
+                        }
                     };
-                    var dialog = this.shadowRoot.querySelector("#manageRelationshipsDialog");
-                    dialog.sharedData = {
-                        "context-data": clonedContextData,
-                        "config-context": configContext
-                    };
-                    dialog.open();
-                    this._setDialogTitle(dialog);
+
+                    this.openBusinessFunctionDialog({
+                        name: 'rock-wizard-relationship-manage',
+                        title: this.todoActionDialogTitle
+                    }, sharedData);
                 },
                 _setDialogTitle: function (dialog) {
                     if (this.todoActionDialogTitle) {
@@ -795,34 +831,23 @@
                     alert("event triggered: " + detail.type + ' >> ' + detail.eventName + ' >> ' +
                         detail.label);
                 },
-                refreshDataContext: function () {
-                    this.dataContext = Polymer.dom(this).node.shadowRoot.querySelector(
-                        'rock-dimension-selector[id="dimensionSelector"]')._getSelectedDimensions();
-                },
                 onDimensionGridOpen: function (e, detail, sender) {
-                    var dialog = Polymer.dom(this).node.$.dimensionGridDialog;
+                    var dimensionSelectorConfig = this._entityTitlebar.getDimensionSelectorConfig();
+                    var selectedDimensions = this._entityTitlebar.getSelectedDimensions();
 
-                    var entityTitlebar = Polymer.dom(this).node.shadowRoot.querySelector("#entityTitlebar");
-                    if(entityTitlebar) {
-                        var dimensionSelectorConfig = entityTitlebar.getDimensionSelectorConfig();
-                        var selectedDimensions = entityTitlebar.getSelectedDimensions();
-                    }
+                    const sharedData = {
+                        "dimension-configs": dimensionSelectorConfig,
+                        "attribute-model-object": detail.data,
+                        "data-id": DataHelper.getParamValue('id'),
+                        "data-context": selectedDimensions
+                    };
 
-                    if (dialog) {
-                        dialog.sharedData = {
-                            "dimension-configs": dimensionSelectorConfig,
-                            "attribute-model-object": detail.data,
-                            "data-id": DataHelper.getParamValue('id'),
-                            "data-context": selectedDimensions
-                        };
+                    const dialogTitle = `Detailed Dimensional Edit for : ${detail.data.externalName}`;
 
-                        dialog.open();
-
-                        Polymer.Async.microTask.run(() => {
-                            var dialogTitle = "Detailed Dimensional Edit for : " + detail.data.externalName;
-                            dialog.setTitle(dialogTitle);
-                        });
-                    }
+                    this.openBusinessFunctionDialog({
+                        name: 'rock-wizard-dimension-grid',
+                        title: dialogTitle
+                    }, sharedData);
                 },
                 buttonOkClicked: function (event) {
                     alert("Hello");
@@ -836,18 +861,16 @@
                     }
                 },
                 errorLengthChanged: function (e, detail) {
-                    var detailTabs = this.shadowRoot.querySelector('#rockDetailTabs');
-                    if(detailTabs) {
-                        detailTabs.errorLengthChanged(detail);
+                    if(this.detailTabs) {
+                        this.detailTabs.errorLengthChanged(detail);
                     }
                 },
                 _refreshView: function () {
                     this._refreshRockEntityHeader();
                     this._refreshRightSidePanel();
-                    var detailTabs = this.shadowRoot.querySelector('#rockDetailTabs')
-                    if(detailTabs) {
-                        detailTabs.readyToRender(true);
-                        detailTabs.reloadCurrentTab();
+                    if(this.detailTabs) {
+                        this.detailTabs.readyToRender(true);
+                        this.detailTabs.reloadCurrentTab();
                     }
                 },
                 _refreshHeaderAndNavBars: function () {
@@ -857,23 +880,18 @@
                     this._invalidateEntityCache = true;
                 },
                 getIsDirty: function () {
-                    var detailTabs = this.shadowRoot.querySelector('#rockDetailTabs')
-                    if(detailTabs) {
-                        return detailTabs.getIsDirty();
+                    if(this.detailTabs) {
+                        return this.detailTabs.getIsDirty();
                     }
                 },
                 getControlIsDirty: function () {
-                    var detailTabs = this.shadowRoot.querySelector('#rockDetailTabs')
-                    if(detailTabs) {
-                        return detailTabs.getControlIsDirty();
+                    if(this.detailTabs) {
+                        return this.detailTabs.getControlIsDirty();
                     }
                 },
 
                 _refreshTitleBar: function () {
-                    var titlebar = this.shadowRoot.querySelector('#entityTitlebar');
-                    if(titlebar) {
-                        titlebar.refreshTitleBar();
-                    }
+                    this._entityTitlebar.refreshTitleBar();
                 },
 
                 _onSetTitlebar: function(e, detail) {
@@ -897,26 +915,24 @@
                     }
 
                     this._debouncer = Polymer.Debouncer.debounce(this._debouncer, Polymer.Async.timeOut.after(30), () => {
-                        var detailsTab = this.shadowRoot.querySelector('#rockDetailTabs')
-                        if(detailsTab) {
-                            detailsTab.readyToRender(true);
-                            detailsTab.reloadTabs();
+                        if(this.detailTabs) {
+                            this.detailTabs.readyToRender(true);
+                            this.detailTabs.reloadTabs();
                         }
                     });
                 },
                 _onWorkflowTransitionComplete: function (e) {
                     this._refreshRockEntityHeader();
                     this._refreshRightSidePanel();
+                    ComponentHelper.fireBedrockEvent("workflow-panel-refreshed","", { ignoreId: true });
                 },
                 _onWorkflowAssignmentComplete: function (e) {
                     this._refreshRightSidePanel();
                 },
                 _refreshRockEntityHeader: function (e) {
                     this._refreshTitleBar();
-                    var entityHeaderEle = Polymer.dom(this).node.shadowRoot.querySelector('rock-entity-header');
-                    if (entityHeaderEle && entityHeaderEle.refresh) {
-                        entityHeaderEle.refresh(this._invalidateEntityCache);
-                    }
+                    this._entityHeader.refresh(this._invalidateEntityCache);
+
                     if (e) {
                         this._lastSavedTime = new Date().toLocaleString();
                     }
@@ -929,33 +945,20 @@
                     ComponentHelper.fireBedrockEvent("workflow-refresh", data, { ignoreId: true });
                     ComponentHelper.fireBedrockEvent("entity-history-refresh", data, { ignoreId: true });
                 },
-                _clearDimensionGridDialog: function () {
-                    var dialog = Polymer.dom(this).node.$.dimensionGridDialog;
-                    if (dialog) {
-                        ComponentHelper.removeNode(dialog.firstElementChild);
-                    }
-                },
                 _openEntityUploadBF: function (e, detail) {
-                    const uploadDialog = this.shadowRoot.querySelector("#entityUploadDialog");
-                    
-                    uploadDialog.name = "rock-wizard-entity-upload";
-                    uploadDialog.sharedData = { "context-data": this.contextData };
-                    uploadDialog.open();
+                    this.openBusinessFunctionDialog({ name: 'rock-wizard-entity-upload' });
                 },
                 _refreshEntityThumbnail: function () {
-                    var entityHeader = this.shadowRoot.querySelector("rock-entity-header");
-                    if (entityHeader) {
-                        entityHeader.refreshThumbnail();
-                    }
+                    this._entityHeader.refreshThumbnail();
                 },
                 _refreshActiveMenuItems: function () {
                     this._lastSavedTime = new Date().toLocaleString();
-                    var contentView = RUFUtilities.mainApp.shadowRoot.querySelector("rock-content-view-manager").shadowRoot.querySelector("rock-content-view:not([hidden])");
+                    var contentView = RUFUtilities.mainApp.contentViewManager.activeContentView;
                     this.fireBedrockEvent('app-status-changed', { "viewName": contentView.name, "contentView": contentView, "config": undefined }, { appId: "main-app", ignoreId: true });
                 },
                 _refreshDimensionSelector: function () {
                     Polymer.Async.microTask.run(() => {
-                        this.shadowRoot.querySelector('rock-dimension-selector').refreshDimensionData();
+                        this.dimensionSelector && this.dimensionSelector.refreshDimensionData();
                     })
                 },
                 /*
@@ -984,9 +987,8 @@
                          notificationObj.showToast(data);
                     } else {
                         //Refresh the current tab
-                        var detailTabs = this.shadowRoot.querySelector('#rockDetailTabs')
-                        if(detailTabs) {
-                            detailTabs.refresh();
+                        if(this.detailTabs) {
+                            this.detailTabs.refresh();
                         }
                         //Refresh the Rightsidebar
                         this._refreshRightSidePanel();   
