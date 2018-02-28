@@ -55,7 +55,7 @@ var datahelpers = (function(){
               
     const types = {}
     // (Number) -> boolean
-    types.number = function(a, b){
+    types['number'] = function(a, b){
         return a !== a && b !== b/*Nan check*/
     }
     
@@ -64,30 +64,30 @@ var datahelpers = (function(){
         return a.toString() === b.toString()
         // Functions can act as objects
         && types.object(a, b, memos)
-        && equal(a.prototype, b.prototype)
+        && _equal(a.prototype, b.prototype)
     }
     
     // (date, date) -> boolean
-    types.date = function(a, b){
+    types['date'] = function(a, b){
         return +a === +b
     }
     
     // (regexp, regexp) -> boolean
-    types.regexp = function(a, b){
+    types['regexp'] = function(a, b){
         return a.toString() === b.toString()
     }
     
     // (DOMElement, DOMElement) -> boolean
-    types.element = function(a, b){
+    types['element'] = function(a, b){
         return a.outerHTML === b.outerHTML
     }
     
     // (textnode, textnode) -> boolean
-    types.textnode = function(a, b){
+    types['textnode'] = function(a, b){
         return a.textContent === b.textContent
     }
 
-    types.undefined = function(a,b) {
+    types['undefined'] = function(a,b) {
         return true;
     }
     // decorate `fn` to prevent it re-checking objects
@@ -109,7 +109,7 @@ var datahelpers = (function(){
         if (i !== b.length) return false
         memos.push([a, b])
         while (i--) {
-        if (!equal(a[i], b[i], memos)) return false
+        if (!_equal(a[i], b[i], memos)) return false
         }
         return true
     }
@@ -125,7 +125,7 @@ var datahelpers = (function(){
     function objectEqual(a, b, memos) {
         if (typeof a.equal == 'function') {
           memos.push([a, b])
-          return a.equal(b, memos)
+          return a._equal(b, memos)
         }
         var ka = getEnumerableProperties(a)
         var kb = getEnumerableProperties(b)
@@ -147,22 +147,21 @@ var datahelpers = (function(){
         // iterate again this time doing a thorough check
         i = ka.length
         while (i--) {
+          let key = ka[i];
           if (!_equal(a[key], b[key], memos)) return false
         }
       
         return true
       } 
-    types.array = memoGaurd(arrayEqual)
-    types.object = memoGaurd(objectEqual)
+    types['array'] = memoGaurd(arrayEqual)
+    types['object'] = memoGaurd(objectEqual)
 
     function type(x) {
         var type = typeof x
         if (type != 'object') return type
-        type = types[toString.call(x)]
         if (type == 'object') {
             // in case they have been polyfilled
-            if (x instanceof Map) return 'map'
-            if (x instanceof Set) return 'set'
+            if (x instanceof Array) return 'array'
             return 'object'
         }
         return type

@@ -25,12 +25,13 @@ var DFServiceBase = function (options) {
     this._baseHeaders = _dataConnection.getHeaders();
     this._timeout = _dataConnection.getTimeout();
 
-    this.requestJson = async function (url, request) {
+    this.requestJson = async function (serviceName, request) {
         var timeout = request.timeout || this._timeout;
 
         var tenantId = this.getTenantId();        
         var timeStamp = moment().toISOString();
-        url = this._serverUrl + '/' + tenantId + '/api' + url + '?timeStamp=' + timeStamp;
+
+        var url = this._serverUrl + '/' + tenantId + '/api' + serviceName + '?timeStamp=' + timeStamp;
 
         var headers = this._createRequestHeaders(url, request);
 
@@ -51,12 +52,12 @@ var DFServiceBase = function (options) {
         };
 
         var hrstart = process.hrtime();
-        var internalRequestId = logger.logRequest(url, options);
+        var internalRequestId = logger.logRequest(serviceName, options);
         var _self = this;
 
         var reqPromise = this._restRequest(options)
             .catch(function (error) {
-               logger.logException(internalRequestId, url, options, error);
+               logger.logException(internalRequestId, serviceName, options, error);
             })
             .catch(function (err) {
                 console.error(err); // This will print any error that was thrown in the previous error handler.
@@ -64,12 +65,14 @@ var DFServiceBase = function (options) {
 
         var result = await reqPromise;
 
-        var isErrorResponse = logger.logError(internalRequestId, url, options, result);
+        var isErrorResponse = logger.logError(internalRequestId, serviceName, options, result);
 
         if(!isErrorResponse) {
-            logger.logResponse(internalRequestId, url, options, result, hrstart);
+            logger.logResponseCompletedInfo(internalRequestId, serviceName, hrstart);
         }
-        logger.debug("RDF_RESPONSE",{response:result, request:options, url:url});
+        
+        logger.logResponse(internalRequestId, serviceName, result);
+
         return result;
     };
 
@@ -146,13 +149,11 @@ var DFServiceBase = function (options) {
             headers["x-rdp-authtoken"] = cryptoJS.HmacSHA256(url.split('?')[1], securityContext.clientAuthKey).toString(cryptoJS.enc.Base64);
         }
         else {
-            console.log('req obejct for which sec context not found ', url, JSON.stringify(request));
+            console.log('security context not found for the req object ', url, JSON.stringify(request));
         }
         
         return headers;
     }
-
-    //console.log('Data platform service instance initiated with ', JSON.stringify({options: options, baseUrl: this.baseUrl}, null, 4));
 };
 
 module.exports = DFServiceBase;

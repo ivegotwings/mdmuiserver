@@ -325,6 +325,10 @@ It makes it easy to explore and switch between different views or functional asp
                     viewMode: {
                         type: String,
                         value: ""
+                    },
+                    cachableContent: {
+                        type: Boolean,
+                        value: true
                     }
                 },
                 behaviors: [
@@ -332,12 +336,15 @@ It makes it easy to explore and switch between different views or functional asp
                 ],
                 created() {
                     this.showLoadingSpinner = false;
+
+                    this.contentCacheMap = new Map();
                 },
                 /*
                  * Can be used to get the value of a badge for the `tab-name` that the user specified.
                  */
                 attached: function () {
                     this._isReadyToRender = !this.deferredRender;
+                    this._tabContent = this.shadowRoot.querySelector('#tab-content');
                 },
 
                 getTabByName: function (tabName) {
@@ -614,7 +621,7 @@ It makes it easy to explore and switch between different views or functional asp
                         return;
                     };
 
-                    const contentElement = this.$['tab-content'];
+                    const contentElement = this._tabContent;
 
                     ComponentHelper.displayNode(contentElement, false);
 
@@ -623,12 +630,19 @@ It makes it easy to explore and switch between different views or functional asp
 
                     this._tabChange(viewName);
 
-
                     //Timeout needs to postpone the rendering until tab-animation has finished
                     setTimeout(() => {
-                        ComponentHelper.loadContent(contentElement, config.component, this, (content) => {
-                            content.readonly = this.readonly;
-                        });
+                        const content = this.contentCacheMap.get(viewName);
+
+                        if(content && !reload && this.cachableContent) {
+                            ComponentHelper.clearNode(contentElement);
+                            contentElement.appendChild(content);
+                        } else {
+                            ComponentHelper.loadContent(contentElement, config.component, this, (content) => {
+                                content.readonly = this.readonly;
+                                this.contentCacheMap.set(viewName, content);
+                            });
+                        }
 
                         ComponentHelper.displayNode(contentElement, true);
                         this.showLoadingSpinner = false;
@@ -653,9 +667,10 @@ It makes it easy to explore and switch between different views or functional asp
 
                 refresh: function () {
                     if (this._currentTabName) {
-                        var content = this.$$('#tab-content');
+                        var content = this._tabContent;
                         if (content && content.firstChild) {
                             content.firstChild.refresh();
+                            this.contentCacheMap.clear();
                         }
                     }
                 },
@@ -697,7 +712,7 @@ It makes it easy to explore and switch between different views or functional asp
                     if (config) {
                         var viewName = config.name;
                         viewName = tabName ? tabName + '-' + viewName : viewName;
-                        var contentElement = this.shadowRoot.querySelector('#tab-content');
+                        var contentElement = this._tabContent;
                         if (contentElement && contentElement.firstChild && typeof (contentElement.firstChild.globalEdit) == "function") {
                             contentElement.firstChild.globalEdit();
                         }
@@ -783,7 +798,7 @@ It makes it easy to explore and switch between different views or functional asp
                 */
                 getIsDirty: function () {
                     if (this._currentTabName) {
-                        var content = this.shadowRoot.querySelector('#tab-content');
+                        var content = this._tabContent;
                         if (content && content.firstChild && content.firstChild.getIsDirty) {
                             var isTabDirty = content.firstChild.getIsDirty();
                             return isTabDirty;
@@ -795,7 +810,7 @@ It makes it easy to explore and switch between different views or functional asp
                 */
                 getControlIsDirty: function () {
                     if (this._currentTabName) {
-                        var content = this.$$('#tab-content');
+                        var content = this._tabContent;
                         if (content && content.firstChild && content.firstChild.getControlIsDirty) {
                             return content.firstChild.getControlIsDirty();
                         }
@@ -803,7 +818,7 @@ It makes it easy to explore and switch between different views or functional asp
                 },
 
                 _onReadonly() {
-                    const tabView = this.$['tab-content'].firstChild;
+                    const tabView = this._tabContent && this._tabContent.firstChild;
 
                     if (tabView)
                         tabView.readonly = this.readonly;
