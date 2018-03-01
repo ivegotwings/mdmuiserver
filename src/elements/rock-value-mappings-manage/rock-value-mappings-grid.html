@@ -5,7 +5,6 @@
 <link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
 
 <link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
-<link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 <link rel="import" href="../liquid-rest/liquid-rest.html">
 
 <link rel="import" href="../pebble-icons/pebble-icons.html">
@@ -19,6 +18,7 @@
 <link rel="import" href="../bedrock-helpers/context-helper.html">
 
 <link rel="import" href="../rock-entity-lov/rock-entity-lov.html">
+<link rel="import" href="../rock-dimension-selector/rock-dimension-selector.html">
 
 <!--
 <b><i>Content development is under progress... </b></i>
@@ -66,7 +66,7 @@
                 width: 250px;
             }
 
-            .attributes-text .context-text {
+            .attributes-text {
                 line-height: 56px;
             }
 
@@ -77,11 +77,6 @@
                 margin-left: -32px;
                 cursor: pointer;
                 margin-bottom: 10px;
-            }
-
-            .actionButton {
-                height: 20px;
-                width: 20px;
             }
 
             pebble-data-table {
@@ -150,10 +145,31 @@
                 display: inline-block;
                 vertical-align: middle;
             }
+
+            #context-header {
+                box-shadow: 0 1px 7px 0 var(--palette-cloudy-blue, #c1cad4);
+                padding: 15px;
+                margin: 10px;
+            }
+
+            rock-dimension-selector {
+                --dimension-selector-simple-button: {
+                    width: 120px;
+                }
+            }
         </style>
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
         <div id="grid-heading">
             <strong>Value Mapping - [[_attributeTitle]]</strong>
+        </div>
+        <div id="context-header">
+            <rock-dimension-selector id="dimensionSelector" context-data="[[contextData]]" app-name="app-business-function-valuemapping" horizontal-align="left"
+                all-single-select></rock-dimension-selector>
+            <bedrock-pubsub event-name="dimension-selector-data-changed" handler="_onDimensionsChanged" target-id="dimensionSelector"></bedrock-pubsub>
+            <span class="pull-right">
+                <pebble-icon class="iconButton pebble-icon-size-30 tooltip-bottom pebble-icon-color-success" icon="pebble-icon:Searchsmall"
+                    id="loadMappings" data-tooltip="Load Mappings" raised on-tap="_onLoadMappingsTap"></pebble-icon>
+            </span>
         </div>
         <div id="gridManage">
             <span class="gridCountMsg">Showing [[_getGridRecordsCount(_gridData)]] items</span>
@@ -170,11 +186,11 @@
                 </data-table-column>
                 <data-table-column slot="column-slot" name="Governed Value">
                     <template>
-                        <div id="inputDiv" slot="cell-slot-content" on-tap="_onAttributeTap" index="[[index]]">
-                            <pebble-textbox readonly$="[[_getNotifyOnChange(_isReferenceField)]]" class="attributes-text" id="govern-text_[[index]]" no-label-float row-id="[[index]]" value="[[item.governedValue]]"
+                        <div id="inputDiv" slot="cell-slot-content" index="[[index]]">
+                            <pebble-textbox readonly$="[[_isReferenceField]]" class="attributes-text" id="govern-text_[[index]]" no-label-float row-id="[[index]]" value="[[item.governedValue]]"
                                 title="[[item.governedValue]]" on-change="_onGovernTextChange"></pebble-textbox>
                         </div>
-                        <template is="dom-if" if="[[_getNotifyOnChange(_isReferenceField)]]">
+                        <template is="dom-if" if="[[_isReferenceField]]">
                             <div id="iconDiv" slot="cell-slot-content">
                                 <pebble-icon class="dropdown-icon pebble-icon-size-10" id="txtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:Down"
                                     on-tap="_showReferenceLOV"></pebble-icon>
@@ -190,7 +206,8 @@
         </div>
         <div id="actions-container" class="m-t-20" align="center">
             <pebble-button class="action-button btn btn-secondary m-r-5" id="cancel" button-text="Cancel" raised on-tap="_onCancelTap"></pebble-button>
-            <pebble-button class="action-button-focus dropdownText btn btn-success m-r-5" id="next" button-text="Save" raised on-tap="_onSaveTap"></pebble-button>
+            <pebble-button class="action-button-focus dropdownText btn btn-success m-r-5" id="save" button-text="Save" raised on-tap="_onSaveTap"></pebble-button>
+            <pebble-button class="aaction-button btn btn-primary m-r-5" id="saveandback" button-text="Save & Go back" raised on-tap="_onSaveAndGobackTap"></pebble-button>
         </div>
         <liquid-entity-model-get name="liquidAttributeModelGet" operation="getbyids" request-data={{attributeModelRequest}} on-response="_onAttributeModelGetResponse"
             on-error="_onAttributeModelError"></liquid-entity-model-get>
@@ -223,9 +240,16 @@
                         }
                     },
 
-                    mappingsData: {
+                    mappingData: {
                         type: Object,
                         value: function () {
+                            return {};
+                        }
+                    },
+
+                    mappingConfig: {
+                        type: Object,
+                        value: function() {
                             return {};
                         }
                     },
@@ -304,21 +328,61 @@
                         value: function () {
                             return [];
                         }
+                    },
+
+                    _taxonomies: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+
+                    _contexts: {
+                        type: Array,
+                        value: function() {
+                            return [];
+                        }
+                    },
+
+                    _dimensionAllowedComponents: {
+                        type: Array,
+                        value: ["valuemappings"]
                     }
                 },
+
                 observers: [
-                    "_onMappingsDataChange(mappingsData, contextData, copContext)"
+                    "_onMappingsDataChange(mappingData, contextData, copContext, mappingConfig)"
                 ],
+
                 behaviors: [
                     RUFBehaviors.UIBehavior,
                     RUFBehaviors.ComponentContextBehavior
                 ],
 
+                get dimensionSelectorEl() {
+                    this._dimensionSelectorEl = this._dimensionSelectorEl || this.shadowRoot.querySelector("#dimensionSelector");
+                    return this._dimensionSelectorEl;
+                },
+
+                get referenceLOV() {
+                    this._referenceLOV = this._referenceLOV || this.shadowRoot.querySelector("#rockReferenceLov");
+                    return this._referenceLOV;
+                },
+
+                get referencePopoverEl() {
+                    this._referencePopoverEl = this._referencePopoverEl || this.shadowRoot.querySelector("#referencePopover");
+                    return this._referencePopoverEl;
+                },
+
                 _onMappingsDataChange: function () {
-                    if (!_.isEmpty(this.contextData) && !_.isEmpty(this.mappingsData) && !_.isEmpty(this.copContext)) {
+                    if (!_.isEmpty(this.contextData) && !_.isEmpty(this.mappingData) && !_.isEmpty(this.mappingConfig) && !_.isEmpty(this.copContext)) {
                         var types = []; 
                         var attributes = [];
-                        types.push(this.mappingsData.attribute);
+                        this._taxonomies = this.mappingData.taxonomies;
+                        this._contexts = this.mappingData.contexts;
+                        this._contexts = this._contexts.concat(this.mappingConfig["non-context-fields"]); //For brand
+
+                        types.push(this.mappingData.attribute);
                         attributes.push("externalName");
                         this.attributeModelRequest = DataRequestHelper.createGetAttributeModelRequest(types, attributes);
 
@@ -364,9 +428,10 @@
                     if (detail && detail.response && detail.response.status == "success") {
                         if (DataHelper.isValidObjectPath(detail, "response.content.entityModels.0.data.attributes")) {
                             var attributes = detail.response.content.entityModels[0].data.attributes;
+                            var lov = this.referenceLOV;
+
                             for (var key in attributes) {
                                 if (attributes[key].properties.isExternalName) {
-                                    var lov = this.shadowRoot.querySelector("#rockReferenceLov");
                                     if (lov) {
                                         lov.titlePattern = "{" + key + "}";
                                     }
@@ -387,17 +452,8 @@
 
                 _getMappings: function () {
                     //To-do: Contexts hardcoded here, will be removed once context header logic is implemented
-                    this.selectedContexts = [
-                        {
-                            "type": "taxonomy",
-                            "value": "_ALL"
-                        },
-                        {
-                            "type": "classification",
-                            "value": "_ALL"
-                        }
-                    ];
-                    var types = [this.mappingsData.valueMappingTypeName];
+                    this.selectedContexts = this._prepareContexts();
+                    var types = [this.mappingData.valueMappingTypeName];
 
                     var req = DataRequestHelper.createMappingsGetRequest(this.contextData, this.copContext, this.selectedContexts, types);
                     req.params.query.contexts[0].ownershipdata = this.ownershipdata && this.ownershipdata != "undefined" ? this.ownershipdata : "";
@@ -408,6 +464,25 @@
                     if (getMappings) {
                         getMappings.generateRequest();
                     }
+                },
+
+                _prepareContexts: function() {
+                    var contexts = [];
+                    for(var i = 0; i < this._contexts.length; i++) {
+                        var context = {};
+                        if(this.selectedDimensions && 
+                           this.selectedDimensions[this._contexts[i]] && 
+                           this.selectedDimensions[this._contexts[i]].length) {
+                            context.type = this._contexts[i];
+                            context.value = this.selectedDimensions[this._contexts[i]][0];
+                        } else {
+                            context.type = this._contexts[i];
+                            context.value = "_ALL";
+                        }
+                        contexts.push(context);
+                    }
+
+                    return contexts;
                 },
 
                 _onAttributeModelError: function (e, detail) {
@@ -426,7 +501,7 @@
                     var gridData = [];
                     if (response.entities) {
                         if (response.entities.length > 0) {
-                            this._valueMappingEntities = response.entities;
+                            this._valueMappingEntities = this._getContextSpecificValueMappings(response.entities);
 
                             var index = 0;
                             for (var i = 0; i < this._valueMappingEntities.length; i++) {
@@ -453,6 +528,30 @@
                     this.set("_gridData", gridData);
                 },
 
+                _getContextSpecificValueMappings: function(mappingEntities) {
+                    var contextSpecificMappings = [];
+                    if(mappingEntities && mappingEntities.length) {
+                        for(var i = 0; i < mappingEntities.length; i++) {
+                            if(DataHelper.isValidObjectPath(mappingEntities[i], "data.contexts.0.context")) {
+                                var context = mappingEntities[i].data.contexts[0].context;
+                                var isMatched = true;
+                                for(var j = 0; j < this.selectedContexts.length; j++) {
+                                    if(context[this.selectedContexts[j].type] != this.selectedContexts[j].value) {
+                                        isMatched = false;
+                                        break;
+                                    }
+                                }
+
+                                if(isMatched) {
+                                    contextSpecificMappings.push(mappingEntities[i]);
+                                }
+                            }
+                        }
+                    }
+
+                    return contextSpecificMappings;
+                },
+
                 _isDataAvailable: function (data) {
                     if (data && data.length > 0) {
                         return true;
@@ -471,8 +570,8 @@
                 _showReferenceLOV: function (e) {
                     var rowId = e.currentTarget.rowId;
                     if (rowId >= 0) {
-                        var lov = this.shadowRoot.querySelector("#rockReferenceLov");
-                        var popover = this.shadowRoot.querySelector("#referencePopover");
+                        var lov = this.referenceLOV;
+                        var popover = this.referencePopoverEl;
                         if (lov && popover) {
                             lov.currentRowId = rowId;
                             popover.for = "govern-text_" + rowId;
@@ -483,14 +582,14 @@
                 },
 
                 _onReferenceSelection: function (e, detail) {
-                    var lov = this.shadowRoot.querySelector("#rockReferenceLov");
+                    var lov = this.referenceLOV;
                     if (lov) {
                         var rowId = lov.currentRowId;
                         if (rowId >= 0) {
                             this._setGovernValue(rowId, detail.data);
                         }
                     }
-                    var popover = this.shadowRoot.querySelector("#referencePopover");
+                    var popover = this.referencePopoverEl;
                     if (popover) {
                         popover.for = "";
                         popover.hide();
@@ -623,6 +722,11 @@
                     return false;
                 },
 
+                _onSaveAndGobackTap: function () {
+                    this.isSaveAndGoback = true;
+                    this._onSaveTap();
+                },
+
                 _onSaveTap: function () {
                     if(this._isDuplicateGridDataAvailable()) {
                         this.showErrorToast("Please provide unique given values.");
@@ -632,7 +736,7 @@
                     var saveRequests = [];
                     if (!_.isEmpty(mappings)) {
                         for(var key in mappings) {
-                            var saveRequest = DataRequestHelper.createMappingsSaveRequest(this.contextData, this.copContext, this.selectedContexts, this.mappingsData.valueMappingTypeName);
+                            var saveRequest = DataRequestHelper.createMappingsSaveRequest(this.contextData, this.copContext, this.selectedContexts, this.mappingData.valueMappingTypeName);
                             saveRequest.entity.data.contexts[0].attributes = mappings[key];
                             saveRequest.entity.data.contexts[0].context.ownershipdata = this.ownershipdata && this.ownershipdata != "undefined" ? this.ownershipdata : "";
                             delete saveRequest.entity.data.contexts[0].context.entitytype;
@@ -693,21 +797,31 @@
                     }
 
                     if(--this._generatedRequestCount == 0) {
-                        //on saveMappings response trigger below event
-                        var eventName = "value-mapping-save";
-                        var eventDetail = {
-                            "name": eventName,
-                        };
-
                         if(this.isSuccess && !this.isFailed) {
                             this.showSuccessToast("Value mappings saved successfully.");
-                            this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                            this._resetMappings();
+                            if(this.isSaveAndGoback) {
+                                this._onCancelTap();
+                                this.isSaveAndGoback = false;
+                            }
                         } else if(!this.isSuccess && this.isFailed) {
                             this.showErrorToast("Unable to save value mappings, please contact administrator.");
                         } else {
                             this.showWarningToast("Value mappings processed with errors.");
-                            this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                            this._resetMappings();
+                            if(this.isSaveAndGoback) {
+                                this._onCancelTap();
+                                this.isSaveAndGoback = false;
+                            }
                         }
+                    }
+                },
+
+                _resetMappings: function () {
+                    this._deletedMappings = [];
+                    this._refChangeDeletedMappings = [];
+                    for (var i = 0; i < this._gridData.length; i++) {
+                        this._gridData[i].action = "";
                     }
                 },
 
@@ -815,8 +929,31 @@
                     return this._gridData.length;
                 },
 
-                _getNotifyOnChange: function() {
-                    return this._isReferenceField;
+                _onLoadMappingsTap: function() {
+                    if(this.dimensionSelectorEl) {
+                        this.selectedDimensions = this.dimensionSelectorEl.selectedDimensions;
+                        this._resetMappings(); // Reset before get
+                        this._getMappings(); // Get mappings based on dimensions
+                    }
+                },
+
+                _onDimensionsChanged: function(e, detail) {
+                    if(detail && detail.dimensions && 
+                       detail.dimensions.taxonomy && 
+                       detail.dimensions.taxonomy.length) {
+                        if(this._currentTaxonomy != detail.dimensions.taxonomy[0]) {
+                            this._currentTaxonomy = detail.dimensions.taxonomy[0];
+
+                            if(this.dimensionSelectorEl) {
+                                for(var i = 0; i < this._taxonomies.length; i++) {
+                                    if(this._taxonomies[i].name.toLowerCase() == this._currentTaxonomy.toLowerCase()) {
+                                        this.dimensionSelectorEl.classificationTaxonomy = this._taxonomies[i].id;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             });
         })();
