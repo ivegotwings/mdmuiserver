@@ -5,6 +5,7 @@
 <link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
 
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
+<link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
 <link rel="import" href="../liquid-rest/liquid-rest.html">
 
 <link rel="import" href="../pebble-icons/pebble-icons.html">
@@ -105,8 +106,8 @@
             }
 
             #gridManage {
-                text-align: right;
                 font-size: 0;
+                padding: 10px;
             }
 
             #gridManage pebble-icon {
@@ -133,17 +134,16 @@
         </style>
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
         <div id="grid-heading">
-            <strong>Context Mappings</strong>
-        </div>
-        <div id="context-header">
-            <span id="type-label">Entity Type: </span> [[entityType]]
+            <strong>Context Mappings for [[entityTypeExternalName]]</strong>
         </div>
         <div id="gridManage">
-            <span class="gridCountMsg">Showing [[_getGridRecordsCount(_gridData)]] items</span>
-            <pebble-icon class="pebble-icon-size-16 tooltip-bottom m-r-10" id="add" icon="pebble-icon:Add" data-tooltip="Add" raised
-                on-tap="_onAddTap"></pebble-icon>
-            <pebble-icon class="pebble-icon-size-16 tooltip-bottom" id="delete" icon="pebble-icon:Delete" data-tooltip="Delete" raised
-                on-tap="_onDeleteTap"></pebble-icon>
+            <span class="gridCountMsg">[[_getGridRecordsCountMessage(_gridData)]]</span>
+            <span class="pull-right">
+                <pebble-icon class="pebble-icon-size-16 tooltip-bottom m-r-10" id="add" icon="pebble-icon:Add" data-tooltip="Add" raised
+                    on-tap="_onAddTap"></pebble-icon>
+                <pebble-icon class="pebble-icon-size-16 tooltip-bottom" id="delete" icon="pebble-icon:Delete" data-tooltip="Delete" raised
+                    on-tap="_onDeleteTap"></pebble-icon>
+            </span>
         </div>
         <div id="grid-container">
             <pebble-data-table id="mapping-grid" items="{{_gridData}}" multi-selection>
@@ -184,9 +184,9 @@
             </pebble-popover>
         </div>
         <div id="actions-container" class="m-t-20" align="center">
-            <pebble-button class="action-button btn btn-secondary m-r-5" id="cancel" button-text="Cancel" raised on-tap="_onCancelTap"></pebble-button>
+            <pebble-button class="action-button btn btn-secondary m-r-5" id="back" button-text="Back" raised on-tap="_onBackTap"></pebble-button>
             <pebble-button class="action-button btn btn-primary m-r-5" id="skip" button-text="Skip" raised on-tap="_onSkipTap"></pebble-button>
-            <pebble-button class="action-button-focus dropdownText btn btn-success m-r-5" id="save" button-text="Save" raised on-tap="_onSaveTap"></pebble-button>
+            <pebble-button class="action-button-focus dropdownText btn btn-success m-r-5" id="saveandcontinue" button-text="Save & Continue" raised on-tap="_onSaveTap"></pebble-button>
         </div>
 
         <!-- Build path dialog -->
@@ -207,6 +207,7 @@
         <liquid-entity-data-get id="getEntitySearchResultDetail" operation="getsearchresultdetail" request-data="{{entityGetrequest}}"
             request-id="[[initiateSearchResponse.content.requestId]]" last-response="{{getEntitySearchResultsResponse}}" on-error="_onGetSearchError"
             on-response="_onGetEntitySearchResultDetailResponse" exclude-in-progress></liquid-entity-data-get>
+        <liquid-entity-model-get id="getEntityTypeModel" operation="getbyids" on-response="_onEntityTypeModelReceived" on-error="_onEntityTypeModelFailed"></liquid-entity-model-get>
 
         <!-- Mappings get/save -->
         <liquid-rest id="getMappings" url="/data/cop/getMappings" method="POST" request-data="[[_getMappingsRequest]]" on-liquid-response="_onGetMappingsResponse"
@@ -296,6 +297,11 @@
                         value: function () {
                             return {};
                         }
+                    },
+
+                    _loading: {
+                        type: Boolean,
+                        value: false
                     }
                 },
                 observers: [
@@ -308,6 +314,7 @@
 
                 _onMappingsDataChange: function () {
                     if (!_.isEmpty(this.contextData) && !_.isEmpty(this.mappingData) && !_.isEmpty(this.mappingConfig) && !_.isEmpty(this.copContext)) {
+                        this._loading = true;
                         var itemContext = ContextHelper.getFirstItemContext(this.contextData);
                         if (itemContext) {
                             this.entityType = itemContext.type;
@@ -383,6 +390,7 @@
                 _onContextModelGetFailed: function (e, detail) {
                     this.logError("Context get error", detail);
                     this.showSuccessToast("Unable to get context details, please contact administrator.");
+                    this._loading = false;
                 },
 
                 _onInitiateEntitySearchResponse: function (e, detail) {
@@ -435,10 +443,54 @@
 
                     var response = detail.response.response;
                     if (response.entities) {
-                        if (response.entities.length > 0 && DataHelper.isValidObjectPath(response, "entities.0.data.contexts.0.attributes")) {
-                            this._mappingAttributes = response.entities[0].data.contexts[0].attributes;
+                        if (response.entities.length > 0 && DataHelper.isValidObjectPath(response, "entities.0.data.contexts")) {
+                            var contexts = response.entities[0].data.contexts || [];
+                            for(var i = 0; i < contexts.length; i++) {
+                                for(var key in contexts[i].attributes) {
+                                    this._mappingAttributes[key] = contexts[i].attributes[key];
+                                 }
+                            }
                         }
                     }
+
+                    //Fetch externalNames
+                    var entityTypeModelGetEl = this.$$("#getEntityTypeModel");
+                    if (entityTypeModelGetEl) {
+                        var eTypes = [];
+                        eTypes.push(this.entityType); //entityType
+                        if (this.contexts && this.contexts.length) {
+                            for (var i = 0; i < this.contexts.length; i++) {
+                                eTypes.push(this.contexts[i]); //context
+                            }
+                        }
+                        entityTypeModelGetEl.requestData = DataRequestHelper.createGetModelRequest(eTypes, "entityType");
+                        entityTypeModelGetEl.generateRequest();
+                    }
+                },
+
+                _onEntityTypeModelReceived: function(e, detail) {
+                    if(detail && detail.response) {
+                        var response = detail.response;
+                        if(response.status == "success" && response.content && response.content.entityModels)
+                        {
+                            var entityModels = response.content.entityModels || [];
+                            var entityTypeExternalNames = {};
+                            for(var i = 0; i < entityModels.length; i++) {
+                                entityTypeExternalNames[entityModels[i].name] = entityModels[i].properties.externalName;
+                            }
+
+                            this.entityTypeExternalName = entityTypeExternalNames[this.entityType];
+                            delete entityTypeExternalNames[this.entityType];
+                            this.contextExternalNames = entityTypeExternalNames; // Remaining context names
+                        }
+                    }
+
+                    //Prepare grid now
+                    this._prepareGridData();
+                },
+
+                _onEntityTypeModelFailed: function (e, detail) {
+                    this.logError("Entity type model get error", detail);
                     //Prepare grid now
                     this._prepareGridData();
                 },
@@ -450,6 +502,7 @@
                 _raiseTaxonomyError: function (detail) {
                     this.logError("Taxonomy entity get error", detail);
                     this.showSuccessToast("Unable to get taxonomy details, please contact administrator.");
+                    this._loading = false;
                 },
 
                 _prepareGridData: function () {
@@ -458,7 +511,7 @@
                     for (var i = 0; i < this.contexts.length; i++) {
                         var attributeValue = this._getMappingAttribute(this.contexts[i]);
                         var rowData = {
-                            "context": this.contexts[i],
+                            "context": this._getContextExternalName(this.contexts[i]),
                             "excelColumn": attributeValue,
                             "index": i
                         };
@@ -466,7 +519,7 @@
                         gridData.push(rowData);
                         contexts.push({
                             "id": this.contexts[i],
-                            "title": this.contexts[i]
+                            "title": this._getContextExternalName(this.contexts[i])
                         });
                     }
 
@@ -481,6 +534,20 @@
                     this.set("gridExcelFields", excelFields);
                     this.set("gridContexts", contexts);
                     this.set("_gridData", gridData);
+                    this._loading = false;
+                },
+
+                _getContextExternalName: function(contextName) {
+                    return this.contextExternalNames[contextName] || contextName;
+                },
+
+                _getContextKeyByExternalName: function(contextExternalName) {
+                    for(var key in this.contextExternalNames) {
+                        if(this.contextExternalNames[key] == contextExternalName) {
+                            return key || contextExternalName;
+                        }
+                    }
+                    return contextExternalName;
                 },
 
                 _getMappingAttribute: function (context) {
@@ -593,8 +660,8 @@
                     return undefined;
                 },
 
-                _onCancelTap: function (e) {
-                    var eventName = "context-mapping-cancel";
+                _onBackTap: function (e) {
+                    var eventName = "context-mapping-back";
                     var eventDetail = {
                         "name": eventName,
                     };
@@ -618,6 +685,7 @@
                         return;
                     }
 
+                    this._loading = true;
                     var mappings = this._transformGridDataToSaveMappings();
 
                     if (!_.isEmpty(mappings)) {
@@ -637,6 +705,7 @@
                         }
                     } else {
                         this.showSuccessToast("There are no changes in mappings to save.");
+                        this._loading = false;
                     }
                 },
 
@@ -653,15 +722,18 @@
                             "nonContextFields": this._getNonTaxonomyFields(true)
                         };
                         this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                        this._loading = false;
                         return;
                     }
 
+                    this._loading = false;
                     this.showErrorToast("Unable to save context mappings, please contact administrator.");
                 },
 
                 _onMappingsError: function (e, detail) {
                     this.logError("Mapping get/save error", detail);
                     this.showErrorToast("Unable to perform mappings operation, please contact administrator.");
+                    this._loading = false;
                 },
 
                 _isDuplicateGridDataAvailable: function () {
@@ -680,19 +752,23 @@
                     var self = this;
                     this._gridData.forEach(function (row) {
                         var mappedValues = [];
-                        if (contextMapping[row.context]) {
+                        var contextKey = self._getContextKeyByExternalName(row.context);
+                        if (contextMapping[contextKey]) {
                             //If excel column value matched, then do not consider as change
-                            if (row.excelColumn != contextMapping[row.context].values[0].value) {
-                                mappedValues = self._populateMappingValue(row.excelColumn);
+                            if (row.excelColumn != contextMapping[contextKey].values[0].value) {
+                                mappedValues.push(self._populateMappingValue(row.excelColumn));
+                                var deleteExisting = self._populateMappingValue(contextMapping[contextKey].values[0].value);
+                                deleteExisting.action = "delete";
+                                mappedValues.push(deleteExisting);
                             }
 
-                            delete contextMapping[row.context];
+                            delete contextMapping[contextKey];
                         } else {
-                            mappedValues = self._populateMappingValue(row.excelColumn);
+                            mappedValues.push(self._populateMappingValue(row.excelColumn));
                         }
 
                         if (mappedValues && mappedValues.length) {
-                            mappings[row.context] = {
+                            mappings[contextKey] = {
                                 "values": mappedValues
                             };
                         }
@@ -713,17 +789,13 @@
                     if (!excelValue) {
                         return;
                     }
-
-                    var values = [];
                     var valContext = ContextHelper.getFirstValueContext(this.contextData);
 
-                    values.push({
+                    return {
                         "value": excelValue,
                         "locale": valContext.locale,
                         "source": valContext.source
-                    });
-
-                    return values;
+                    }
                 },
 
                 _onAddTap: function () {
@@ -772,12 +844,12 @@
                     }
                 },
 
-                _getGridRecordsCount: function () {
-                    if (!this._gridData) {
-                        return 0;
+                _getGridRecordsCountMessage: function () {
+                    if (!this._gridData || this._gridData.length == 0) {
+                        return "Showing 0 results";
                     }
 
-                    return this._gridData.length;
+                    return "Showing 1 - "+ this._gridData.length +" items of total "+ this._gridData.length +" results";
                 },
 
                 _onTapBuildPath: function (e, detail) {
@@ -828,11 +900,15 @@
 
                     //Collect context fields from grid / initial mapping contexts
                     if (fromGridData) {
+                        var self = this;
                         this._gridData.forEach(function (row) {
                             if (row.excelColumn) {
                                 var columns = [];
                                 columns = row.excelColumn.split(categoryPathSeperator);
                                 contextFields = contextFields.concat(columns);
+                                //Update mappingAttributes
+                                var key = self._getContextKeyByExternalName(row.context);
+                                self._mappingAttributes[key].values[0].value = row.excelColumn;
                             }
                         });
                     } else {
