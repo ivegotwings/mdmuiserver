@@ -113,8 +113,6 @@ It is responsible to "get" and "save" the attributes.
                 <pebble-button id="save" disabled$="[[readonly]]" class="focus btn btn-success" button-text="Save" on-tap="_save" elevation=1
                     raised></pebble-button>
             </div>
-            <liquid-rest id="contextModelGet" url="/data/pass-through/entitymodelservice/getcontext" method="POST" request-data="{{_contextModelGetReq}}"
-                on-liquid-response="_onContextModelGetResponse" on-liquid-error="_onContextModelGetFailed"></liquid-rest>
     
         <liquid-entity-data-get name="relatedEntityGet" operation="getbyids" on-response="_relatedEntityGetResponse" exclude-in-progress></liquid-entity-data-get>
 
@@ -297,16 +295,6 @@ It is responsible to "get" and "save" the attributes.
                         value: function () { return {}; }
                     },
 
-                    _contextModels: {
-                        type: Object,
-                        value: function () { return {}; }
-                    },
-
-                    _contextModelGetReq: {
-                        type: Object,
-                        value: function () { return {}; }
-                    },
-
                     applyLocaleCoalesce: {
                         type: Boolean,
                         value: false
@@ -335,7 +323,11 @@ It is responsible to "get" and "save" the attributes.
                     this._cancelDialog = this.shadowRoot.querySelector("#cancelDialog");
                 },
                 detached() {
+                    this._revertAll();
+                    this.attributeList && this.attributeList.resetChanged();
                     if(this.loadContentFrameId) cancelAnimationFrame(this.loadContentFrameId);
+                    this._closeErrorsDialog();
+                    this._cancelDialog._close();
                 },
                 /**
                   * <b><i>Content development is under progress... </b></i> 
@@ -355,8 +347,7 @@ It is responsible to "get" and "save" the attributes.
                     this._modeChanged(e.detail.mode);
                 },
                 get attributeList() {
-                    this._attributeList = this._attributeList || this.shadowRoot.querySelector('rock-attribute-list');
-                    return this._attributeList;
+                    return this.shadowRoot.querySelector('rock-attribute-list');
                 },
                 _modeChanged: function (mode, updateList) {
                     if (!mode) return;
@@ -367,9 +358,6 @@ It is responsible to "get" and "save" the attributes.
                     if(updateList && this.attributeList) {
                         this.attributeList.mode = mode;
                     }
-                  
-                    this.mode = mode;
-                  
                 },
                 _contextChanged: function (valueContexts) {
                     if (valueContexts != undefined) {
@@ -410,7 +398,7 @@ It is responsible to "get" and "save" the attributes.
 
                     return clonedContextData;
                 },
-                _onCompositeModelGetResponse: function (e) {
+                _onCompositeModelGetResponse: async function (e) {
                     var _attributeModelResponse = this._attributeModelResponse || {};
                     var itemContext = this.getFirstItemContext();
                     var entityId = itemContext.id;
@@ -433,12 +421,6 @@ It is responsible to "get" and "save" the attributes.
 
                                 let contextData = this._getContextDataWithDefaultLocale();
                                 let req = DataRequestHelper.createEntityGetRequest(contextData);
-                                this._contextModelGetReq = DataRequestHelper.createContextModelGetRequest(itemContext.type);
-
-                                var liquidElement = this.$$('#contextModelGet');
-                                if (liquidElement) {
-                                    liquidElement.generateRequest();
-                                }
 
                                 var messageReq = DataHelper.cloneObject(req);
 
@@ -455,7 +437,7 @@ It is responsible to "get" and "save" the attributes.
                                 liquidDataGet.generateRequest();
                                 this._showNoAttributeMessage = false;
                             } else {
-                                var values = DataTransformHelper.transformAttributes({}, this._attributeModels, {}, this.contextData, "array", true);
+                                var values = await DataTransformHelper.transformAttributes({}, this._attributeModels, this.contextData, "array", true);
                                 this._attributeValues = values;
                                 this.mode = 'edit';
                             }
@@ -484,7 +466,7 @@ It is responsible to "get" and "save" the attributes.
                 _onEntityGetFailed: function (e) {
                     this.logError("AttributeManageGetFail", e);
                 },
-                _attributeResponseChanged: function (_attributeResponse) {
+                _attributeResponseChanged: async function (_attributeResponse) {
                     if (!_attributeResponse) return;
                     
                     this.logInfo("AttributeManageResponseChange", "response", JSON.stringify(_attributeResponse, null, 2));
@@ -495,7 +477,7 @@ It is responsible to "get" and "save" the attributes.
                         var entity = _attributeResponse.content.entities[0];
 
                         if (entity) {
-                            attributes = DataTransformHelper.transformAttributes(entity, this._attributeModels, this._contextModels, this.contextData, "array", true);
+                            attributes = await DataTransformHelper.transformAttributes(entity, this._attributeModels, this.contextData, "array", true);
                         }
                     }
                     this._attributeValues = attributes;
@@ -565,10 +547,10 @@ It is responsible to "get" and "save" the attributes.
                     toastElement.autoClose = true;
                     toastElement.show();
                 },
-                updateEntity: function (attributesJSON) {
+                updateEntity: async function (attributesJSON) {
                     var newEntity = {};
                     var originalEntity = this._attributeResponse.content.entities[0];
-                    newEntity = DataTransformHelper.prepareEntityForAttributesSave(originalEntity, attributesJSON, this.contextData, this._attributeModels, this._contextModels);
+                    newEntity = await DataTransformHelper.prepareEntityForAttributesSave(originalEntity, attributesJSON, this.contextData, this._attributeModels);
                     this._entityDataOperation = "update";
 
                     if (!_.isEmpty(newEntity)) {
@@ -637,7 +619,7 @@ It is responsible to "get" and "save" the attributes.
                         return _.isEmpty(value);
                     }
                 },
-                _save: function (e) {
+                _save: async function (e) {
                     if (e.currentTarget.disabled == true) {
                         return;
                     }
@@ -668,12 +650,10 @@ It is responsible to "get" and "save" the attributes.
                     this.logInfo("AttributeManageSave", "attributes", JSON.stringify(attributesJSON, null, 2));
                     var newEntity = {};
                     if (this.responseHasEntities()) {
-                        newEntity = this.updateEntity(attributesJSON);
+                        newEntity = await this.updateEntity(attributesJSON);
                     } else if (this.isNewEntity()) {
                         newEntity = this.createNewEntity(attributesJSON);
                     }
-                    //this return isnt useful for now
-                    return newEntity;
                 },
                 _saveEntity: function () {
                     var liquidSave = this.shadowRoot.querySelector("[name=attributeSaveDataService]");
@@ -798,12 +778,15 @@ It is responsible to "get" and "save" the attributes.
                         this._onEntityDataGetFailed(e);
                     }
                 },
+                _closeErrorsDialog() {
+                    this.$.errorsDialog._close();
+                },
                 _skipServerErrors: function () {
-                    this.$.errorsDialog.close();
+                    this._closeErrorsDialog();
                     this._saveEntity();
                 },
                 _fixServerErrors: function () {
-                    this.$.errorsDialog.close();
+                    this._closeErrorsDialog();
                     if (this._syncValidationErrors) {
                         var newAttributeMessages = {};
                         for (var i = 0; i < this._syncValidationErrors.length; i++) {
@@ -932,21 +915,6 @@ It is responsible to "get" and "save" the attributes.
                 },
                 _onGlobalEdit: function (e) {
                     this._modeChanged('edit', true);
-                },
-                _onContextModelGetResponse: function (e) {
-                    var response = e.detail.response.response;
-
-                    if (response) {
-                        var entityModels = response.entityModels;
-
-                        if (entityModels && entityModels.length) {
-                            this._contextModels = entityModels[0].data ? entityModels[0].data.contexts : undefined;
-                        }
-                    }
-                },
-
-                _onContextModelGetFailed: function (e) {
-                    // Error msg . . .
                 },
 
                 _onSourceInfoOpen: function (e) {
