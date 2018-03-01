@@ -330,7 +330,7 @@ function createGetRequest(reqData) {
         query.valueContexts = valContexts;
     }
 
-    if (reqData.dataIndex == "config") {
+    if (reqData.dataIndex == "config" || (reqData.dataIndex == "entityModel" && reqData.dataObjectType == 'entityCompositeModel')) {
         fields.jsonData = true;
         if (contexts && contexts.length > 0) {
             filters.excludeNonContextual = true;

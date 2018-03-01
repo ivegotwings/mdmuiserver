@@ -18,7 +18,7 @@
 
             //put default model as base
             if (compositeModel && compositeModel.data && compositeModel.data.attributes) {
-                mergedAttributeModels = DataMergeHelper.mergeAttributes(mergedAttributeModels, compositeModel.data.attributes, true);
+                mergedAttributeModels = compositeModel.data.attributes;
                 for (var attrKey in mergedAttributeModels) {
                     var dataAttrModel = mergedAttributeModels[attrKey];
                     dataAttrModel.selfContext = 1;
@@ -32,6 +32,10 @@
                 for (var attrKey in specificCtxAttributeModels) {
                     if (mergedAttrKeys.indexOf(attrKey) >= 0) {
                         mergedAttributeModels[attrKey] = specificCtxAttributeModels[attrKey];
+                    }
+
+                    if ("contextCoalesce" in specificCtxAttributeModels[attrKey].properties) {
+                        specificCtxAttributeModels[attrKey].selfContext = "self" in specificCtxAttributeModels[attrKey].properties.contextCoalesce[0] && 1;
                     }
                 }
                 mergedAttributeModels = DataMergeHelper.mergeAttributes(mergedAttributeModels, specificCtxAttributeModels, true);
@@ -51,7 +55,7 @@
 
             //put default model as base
             if (compositeModel.data && compositeModel.data.relationships) {
-                mergedRelationshipModels = DataMergeHelper.mergeRelationships(mergedRelationshipModels, compositeModel.data.relationships, true);
+                mergedRelationshipModels = compositeModel.data.relationships;
                 for (var relKey in mergedRelationshipModels) {
                     var dataRelModel = mergedRelationshipModels[relKey];
                     dataRelModel.selfContext = 1;
@@ -62,10 +66,14 @@
                 var dataContext = dataContexts[i];
                 //apply contexts specific model on top of default
                 var specificCtxRelationshipModels = SharedUtils.DataObjectFalcorUtil.getRelationshipsByCtx(compositeModel, dataContext);
+                var mergedRelKeys = Object.keys(mergedRelationshipModels);
                 for (var relKey in specificCtxRelationshipModels) {
-                    var dataRelModel = mergedRelationshipModels[relKey];
-                    if (!_.isEmpty(dataRelModel)) {
-                        dataRelModel.selfContext = 0;
+                    if (mergedRelKeys.indexOf(relKey) >= 0) {
+                        mergedRelationshipModels[relKey] = specificCtxRelationshipModels[relKey];
+                    }
+
+                    if ("contextCoalesce" in specificCtxRelationshipModels[relKey].properties) {
+                        specificCtxRelationshipModels[relKey].selfContext = "self" in specificCtxRelationshipModels[relKey].properties.contextCoalesce[0] && 1;
                     }
                 }
                 mergedRelationshipModels = DataMergeHelper.mergeRelationships(mergedRelationshipModels, specificCtxRelationshipModels, true);
@@ -95,7 +103,7 @@
 
                 // RDF is not supporting coalesce between self context to other context.
                 // _prepareForSelfToContextCoalesce will do coalesce manually to link self context with other context.
-                DataTransformHelper._prepareForSelfToContextCoalesce(mergedAttributes, ctxAttributes, sortedAttributeModels);
+                //DataTransformHelper._prepareForSelfToContextCoalesce(mergedAttributes, ctxAttributes, sortedAttributeModels);
 
                 if (!_.isEmpty(ctxAttributes)) {
                     Object.keys(ctxAttributes).forEach((attrName) => {
@@ -1597,85 +1605,87 @@
             return referenceModels;
         };
 
-        DataTransformHelper._prepareForSelfToContextCoalesce = function (selfAttributes, contextualAttributes, attributeModels) {
-            if (selfAttributes && contextualAttributes) {
-                var ctxAttrKeys = Object.keys(contextualAttributes);
-                for (var attrKey in selfAttributes) {
-                    if (ctxAttrKeys.indexOf(attrKey) == -1) {
-                        selfAttributes[attrKey].properties = {
-                            "contextCoalesce": [
-                                {
-                                    "self": "Self"
-                                }
-                            ]
-                        };
-                    } else {
-                        if (selfAttributes[attrKey] && contextualAttributes[attrKey] && attributeModels && attributeModels[attrKey] && attributeModels[attrKey].isLocalizable) {
-                            var ctxValues = contextualAttributes[attrKey].values;
-                            if (ctxValues && ctxValues.length) {
-                                var localeCoalescedCtxValues = ctxValues.filter(item => item.properties && item.properties.localeCoalescePath);
 
-                                if (localeCoalescedCtxValues && localeCoalescedCtxValues.length) {
-                                    var selfValues = selfAttributes[attrKey].values;
-                                    if (selfValues && selfValues.length) {
-                                        var localeCoalescedSelfValues = selfValues.filter(item => item.properties && item.properties.localeCoalescePath);
 
-                                        if (localeCoalescedSelfValues.length) {
-                                            let selfLocaleCoalescePath = AttributeHelper.getLocaleCoalescePath(selfAttributes[attrKey]);
-                                            let ctxLocaleCoalescePath = AttributeHelper.getLocaleCoalescePath(contextualAttributes[attrKey]);
-                                            var selfFallbackPaths = DataHelper.getFallbackPathsFromCoalescePath(selfLocaleCoalescePath);
-                                            var ctxFallbackPaths = DataHelper.getFallbackPathsFromCoalescePath(ctxLocaleCoalescePath);
+        // DataTransformHelper._prepareForSelfToContextCoalesce = function (selfAttributes, contextualAttributes, attributeModels) {
+        //     if (selfAttributes && contextualAttributes) {
+        //         var ctxAttrKeys = Object.keys(contextualAttributes);
+        //         for (var attrKey in selfAttributes) {
+        //             if (ctxAttrKeys.indexOf(attrKey) == -1) {
+        //                 selfAttributes[attrKey].properties = {
+        //                     "contextCoalesce": [
+        //                         {
+        //                             "self": "Self"
+        //                         }
+        //                     ]
+        //                 };
+        //             } else {
+        //                 if (selfAttributes[attrKey] && contextualAttributes[attrKey] && attributeModels && attributeModels[attrKey] && attributeModels[attrKey].isLocalizable) {
+        //                     var ctxValues = contextualAttributes[attrKey].values;
+        //                     if (ctxValues && ctxValues.length) {
+        //                         var localeCoalescedCtxValues = ctxValues.filter(item => item.properties && item.properties.localeCoalescePath);
 
-                                            if (ctxFallbackPaths.length > selfFallbackPaths.length) {
-                                                localeCoalescedSelfValues = [];
-                                            }
-                                        }
+        //                         if (localeCoalescedCtxValues && localeCoalescedCtxValues.length) {
+        //                             var selfValues = selfAttributes[attrKey].values;
+        //                             if (selfValues && selfValues.length) {
+        //                                 var localeCoalescedSelfValues = selfValues.filter(item => item.properties && item.properties.localeCoalescePath);
 
-                                        if (localeCoalescedSelfValues && !localeCoalescedSelfValues.length) {
-                                            selfAttributes[attrKey].properties = {
-                                                "contextCoalesce": [
-                                                    {
-                                                        "self": "Self"
-                                                    }
-                                                ]
-                                            };
+        //                                 if (localeCoalescedSelfValues.length) {
+        //                                     let selfLocaleCoalescePath = AttributeHelper.getLocaleCoalescePath(selfAttributes[attrKey]);
+        //                                     let ctxLocaleCoalescePath = AttributeHelper.getLocaleCoalescePath(contextualAttributes[attrKey]);
+        //                                     var selfFallbackPaths = DataHelper.getFallbackPathsFromCoalescePath(selfLocaleCoalescePath);
+        //                                     var ctxFallbackPaths = DataHelper.getFallbackPathsFromCoalescePath(ctxLocaleCoalescePath);
 
-                                            contextualAttributes[attrKey] = selfAttributes[attrKey];
-                                        }
-                                    }
-                                }
-                            } else if (contextualAttributes[attrKey] && contextualAttributes[attrKey].group && contextualAttributes[attrKey].group.length > 0) {
-                                // this is a nested attribute.
-                                var localeCoalescedCtxRows = contextualAttributes[attrKey].group.filter(function (ctxValueGroup) {
-                                    if (ctxValueGroup.properties && ctxValueGroup.properties.localeCoalescePath) {
-                                        return ctxValueGroup;
-                                    }
-                                });
-                                if (localeCoalescedCtxRows && localeCoalescedCtxRows.length) {
-                                    if (selfAttributes[attrKey] && selfAttributes[attrKey].group && selfAttributes[attrKey].group.length > 0) {
-                                        var localeCoalescedSelfChildRows = selfAttributes[attrKey].group.filter(function (selfValueGroup) {
-                                            if (selfValueGroup.properties && selfValueGroup.properties.localeCoalescePath) {
-                                                return selfValueGroup;
-                                            }
-                                        });
-                                        if (localeCoalescedSelfChildRows && !localeCoalescedSelfChildRows.length) {
-                                            selfAttributes[attrKey].properties = {
-                                                "contextCoalesce": [
-                                                    {
-                                                        "self": "Self"
-                                                    }
-                                                ]
-                                            };
-                                            contextualAttributes[attrKey] = selfAttributes[attrKey];
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        };
+        //                                     if (ctxFallbackPaths.length > selfFallbackPaths.length) {
+        //                                         localeCoalescedSelfValues = [];
+        //                                     }
+        //                                 }
+
+        //                                 if (localeCoalescedSelfValues && !localeCoalescedSelfValues.length) {
+        //                                     selfAttributes[attrKey].properties = {
+        //                                         "contextCoalesce": [
+        //                                             {
+        //                                                 "self": "Self"
+        //                                             }
+        //                                         ]
+        //                                     };
+
+        //                                     contextualAttributes[attrKey] = selfAttributes[attrKey];
+        //                                 }
+        //                             }
+        //                         }
+        //                     } else if (contextualAttributes[attrKey] && contextualAttributes[attrKey].group && contextualAttributes[attrKey].group.length > 0) {
+        //                         // this is a nested attribute.
+        //                         var localeCoalescedCtxRows = contextualAttributes[attrKey].group.filter(function (ctxValueGroup) {
+        //                             if (ctxValueGroup.properties && ctxValueGroup.properties.localeCoalescePath) {
+        //                                 return ctxValueGroup;
+        //                             }
+        //                         });
+        //                         if (localeCoalescedCtxRows && localeCoalescedCtxRows.length) {
+        //                             if (selfAttributes[attrKey] && selfAttributes[attrKey].group && selfAttributes[attrKey].group.length > 0) {
+        //                                 var localeCoalescedSelfChildRows = selfAttributes[attrKey].group.filter(function (selfValueGroup) {
+        //                                     if (selfValueGroup.properties && selfValueGroup.properties.localeCoalescePath) {
+        //                                         return selfValueGroup;
+        //                                     }
+        //                                 });
+        //                                 if (localeCoalescedSelfChildRows && !localeCoalescedSelfChildRows.length) {
+        //                                     selfAttributes[attrKey].properties = {
+        //                                         "contextCoalesce": [
+        //                                             {
+        //                                                 "self": "Self"
+        //                                             }
+        //                                         ]
+        //                                     };
+        //                                     contextualAttributes[attrKey] = selfAttributes[attrKey];
+        //                                 }
+        //                             }
+        //                         }
+        //                     }
+        //                 }
+        //             }
+        //         }
+        //     }
+        // };
 
         DataTransformHelper.prepareEntityForContextSave = function (data, contextModels, attributeModels, relationshipModels, contextData) {
             var firstDataContext = ContextHelper.getFirstDataContext(contextData);
