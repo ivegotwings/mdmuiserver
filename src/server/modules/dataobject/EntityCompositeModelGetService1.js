@@ -53,7 +53,6 @@ EntityCompositeModelGetService1.prototype = {
         return true;
     },
     _cloneAndPrepareRequestObject: function (request, types) {
-        var objectName = '';
         var internalRequest = falcorUtil.cloneObject(request);
         
         if (internalRequest.params && internalRequest.params.query) {
@@ -63,7 +62,7 @@ EntityCompositeModelGetService1.prototype = {
                 query.filters = {};
             }
 
-            objectName = query.id.replace('_entityCompositeModel', '');
+            query.id.replace('_entityCompositeModel', '');
 
             query.filters.typesCriterion = types;
         }
