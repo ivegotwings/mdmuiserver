@@ -88,12 +88,12 @@ It is responsible to "get" and "save" the attributes.
         <bedrock-pubsub event-name="on-buttonok-clicked" handler="_revertAll" target-id="cancelDialog"></bedrock-pubsub>
         <div id="rock-attribute-list-container"></div>
         <liquid-entity-data-get name="attributeGetDataService" operation="getbyids" apply-locale-coalesce="[[applyLocaleCoalesce]]" last-response="{{_attributeResponse}}"
-            on-response="_onEntityDataGetReceived" on-error="_onEntityDataGetFailed"></liquid-entity-data-get>
+            on-response="_onEntityDataGetReceived" on-error="_onEntityDataGetFailed" data-index="[[dataIndex]]" data-sub-index="[[dataSubIndex]]"></liquid-entity-data-get>
         
         
             <liquid-entity-govern-data-get id="attributeGetMessageService" operation="getbyids" request-data={{_attributeMessageRequest}}
             on-response="_onAttributesMessageReceived" on-error="_onEntityGetFailed"></liquid-entity-govern-data-get>
-        <liquid-entity-data-save name="attributeSaveDataService" operation="[[_entityDataOperation]]" request-data="{{_saveRequest}}"
+        <liquid-entity-data-save name="attributeSaveDataService" operation="[[_entityDataOperation]]"  data-index="[[dataIndex]]" data-sub-index="[[dataSubIndex]]"  request-data="{{_saveRequest}}"
             last-response="{{_saveResponse}}" on-response="_onSaveResponse" on-error="_onSaveError"></liquid-entity-data-save>
         
             <liquid-entity-model-composite-get on-error="_onEntityModelCompositeGetFailed" name="compositeAttributeModelGet" request-data="{{_attributeModelRequest}}"
@@ -113,8 +113,6 @@ It is responsible to "get" and "save" the attributes.
                 <pebble-button id="save" disabled="[[readonly]]" class="focus btn btn-success" button-text="Save" on-tap="_save" elevation=1
                     raised></pebble-button>
             </div>
-            <liquid-rest id="contextModelGet" url="/data/pass-through/entitymodelservice/getcontext" method="POST" request-data="{{_contextModelGetReq}}"
-                on-liquid-response="_onContextModelGetResponse" on-liquid-error="_onContextModelGetFailed"></liquid-rest>
     
         <liquid-entity-data-get name="relatedEntityGet" operation="getbyids" on-response="_relatedEntityGetResponse" exclude-in-progress></liquid-entity-data-get>
 
@@ -297,16 +295,6 @@ It is responsible to "get" and "save" the attributes.
                         value: function () { return {}; }
                     },
 
-                    _contextModels: {
-                        type: Object,
-                        value: function () { return {}; }
-                    },
-
-                    _contextModelGetReq: {
-                        type: Object,
-                        value: function () { return {}; }
-                    },
-
                     applyLocaleCoalesce: {
                         type: Boolean,
                         value: false
@@ -319,6 +307,18 @@ It is responsible to "get" and "save" the attributes.
                     
                     _relatedEntityGetResponse: {
                         type: Object
+                    },
+                    dataIndex: {
+                        type: String,
+                        value: "entityData"
+                    },
+                    dataSubIndex: {
+                        type: String,
+                        value: "data"
+                    },
+                    loadGovernData:{                    
+                       type: Boolean,
+                       value: true
                     }
                 },
                 behaviors: [
@@ -359,8 +359,7 @@ It is responsible to "get" and "save" the attributes.
                     this._modeChanged(e.detail.mode);
                 },
                 get attributeList() {
-                    this._attributeList = this._attributeList || this.shadowRoot.querySelector('rock-attribute-list');
-                    return this._attributeList;
+                    return this.shadowRoot.querySelector('rock-attribute-list');
                 },
                 _modeChanged: function (mode, updateList) {
                     if (!mode) return;
@@ -371,9 +370,6 @@ It is responsible to "get" and "save" the attributes.
                     if(updateList && this.attributeList) {
                         this.attributeList.mode = mode;
                     }
-                  
-                    this.mode = mode;
-                  
                 },
                 _contextChanged: function (valueContexts) {
                     if (valueContexts != undefined) {
@@ -414,7 +410,7 @@ It is responsible to "get" and "save" the attributes.
 
                     return clonedContextData;
                 },
-                _onCompositeModelGetResponse: function (e) {
+                _onCompositeModelGetResponse: async function (e) {
                     var _attributeModelResponse = this._attributeModelResponse || {};
                     var itemContext = this.getFirstItemContext();
                     var entityId = itemContext.id;
@@ -437,12 +433,6 @@ It is responsible to "get" and "save" the attributes.
 
                                 let contextData = this._getContextDataWithDefaultLocale();
                                 let req = DataRequestHelper.createEntityGetRequest(contextData);
-                                this._contextModelGetReq = DataRequestHelper.createContextModelGetRequest(itemContext.type);
-
-                                var liquidElement = this.$$('#contextModelGet');
-                                if (liquidElement) {
-                                    liquidElement.generateRequest();
-                                }
 
                                 var messageReq = DataHelper.cloneObject(req);
 
@@ -450,7 +440,7 @@ It is responsible to "get" and "save" the attributes.
 
                                 this.set("_attributeMessageRequest", messageReq);
                                 let liquidGovernGet = this.$.attributeGetMessageService;
-                                if (liquidGovernGet) {
+                                if (liquidGovernGet && this.loadGovernData) {
                                     liquidGovernGet.generateRequest();
                                 }
                                 let liquidDataGet = this.shadowRoot.querySelector("[name=attributeGetDataService]");
@@ -459,7 +449,7 @@ It is responsible to "get" and "save" the attributes.
                                 liquidDataGet.generateRequest();
                                 this._showNoAttributeMessage = false;
                             } else {
-                                var values = DataTransformHelper.transformAttributes({}, this._attributeModels, {}, this.contextData, "array", true);
+                                var values = await DataTransformHelper.transformAttributes({}, this._attributeModels, this.contextData, "array", true);
                                 this._attributeValues = values;
                                 this.mode = 'edit';
                             }
@@ -499,7 +489,7 @@ It is responsible to "get" and "save" the attributes.
                         var entity = _attributeResponse.content.entities[0];
 
                         if (entity) {
-                            attributes = DataTransformHelper.transformAttributes(entity, this._attributeModels, this._contextModels, this.contextData, "array", true);
+                            attributes = await DataTransformHelper.transformAttributes(entity, this._attributeModels, this.contextData, "array", true);
                         }
                     }
                     this._attributeValues = attributes;
@@ -569,10 +559,10 @@ It is responsible to "get" and "save" the attributes.
                     toastElement.autoClose = true;
                     toastElement.show();
                 },
-                updateEntity: function (attributesJSON) {
+                updateEntity: async function (attributesJSON) {
                     var newEntity = {};
                     var originalEntity = this._attributeResponse.content.entities[0];
-                    newEntity = DataTransformHelper.prepareEntityForAttributesSave(originalEntity, attributesJSON, this.contextData, this._attributeModels, this._contextModels);
+                    newEntity = await DataTransformHelper.prepareEntityForAttributesSave(originalEntity, attributesJSON, this.contextData, this._attributeModels);
                     this._entityDataOperation = "update";
 
                     if (!_.isEmpty(newEntity)) {
@@ -597,7 +587,7 @@ It is responsible to "get" and "save" the attributes.
 
                             this.set("_entityGovernRequest", req);
                             var liquidGovernGet = this.$.entityGovernService;
-                            if (liquidGovernGet) {
+                            if (liquidGovernGet && this.loadGovernData) {
                                 liquidGovernGet.generateRequest();
                             }
                         } else {
@@ -641,7 +631,7 @@ It is responsible to "get" and "save" the attributes.
                         return _.isEmpty(value);
                     }
                 },
-                _save: function (e) {
+                _save: async function (e) {
                     if (e.currentTarget.disabled == true) {
                         return;
                     }
@@ -672,12 +662,10 @@ It is responsible to "get" and "save" the attributes.
                     this.logInfo("AttributeManageSave", "attributes", JSON.stringify(attributesJSON, null, 2));
                     var newEntity = {};
                     if (this.responseHasEntities()) {
-                        newEntity = this.updateEntity(attributesJSON);
+                        newEntity = await this.updateEntity(attributesJSON);
                     } else if (this.isNewEntity()) {
                         newEntity = this.createNewEntity(attributesJSON);
                     }
-                    //this return isnt useful for now
-                    return newEntity;
                 },
                 _saveEntity: function () {
                     var liquidSave = this.shadowRoot.querySelector("[name=attributeSaveDataService]");
@@ -697,7 +685,7 @@ It is responsible to "get" and "save" the attributes.
 
                     if (!(liquidSave && liquidSave.operation == 'create')) {
                         var liquidGovernGet = this.$.attributeGetMessageService;
-                        if (liquidGovernGet) {
+                        if (liquidGovernGet && this.loadGovernData) {
                             liquidGovernGet.generateRequest();
                         }
                     }
@@ -880,7 +868,7 @@ It is responsible to "get" and "save" the attributes.
                                     liquidSave.operation = "create";
                                 }
                                 var liquidGovernGet = this.$.entityGovernService;
-                                if (liquidGovernGet) {
+                                if (liquidGovernGet && this.loadGovernData) {
                                     liquidGovernGet.generateRequest();
                                 }
                             }
@@ -939,22 +927,6 @@ It is responsible to "get" and "save" the attributes.
                 },
                 _onGlobalEdit: function (e) {
                     this._modeChanged('edit', true);
-                },
-                _onContextModelGetResponse: function (e) {
-                    const res = e.detail.response;
-                    var response = res && res.response;
-
-                    if (response) {
-                        var entityModels = response.entityModels;
-
-                        if (entityModels && entityModels.length) {
-                            this._contextModels = entityModels[0].data ? entityModels[0].data.contexts : undefined;
-                        }
-                    }
-                },
-
-                _onContextModelGetFailed: function (e) {
-                    // Error msg . . .
                 },
 
                 _onSourceInfoOpen: function (e) {
