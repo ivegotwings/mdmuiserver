@@ -109,7 +109,7 @@ Custom property | Description | Default
                     <div>
                         <pebble-button id="[[ctx.id]]-toggle-button" popover="[[ctx.id]]-popover" lov="[[ctx.id]]-lov" icon="[[ctx.icon]]" button-text="[[ctx.title]]"
                             class="dropdownText dropdownIcon btn dropdown tooltip-bottom" noink raised no-overlap vertical-offset="-211"
-                            horizontal-offset="11" dropdown-icon on-tap="_onToggleButtonTap">
+                            horizontal-offset="11" dropdown-icon on-tap="_onToggleButtonTap" disabled$="[[ctx.readonly]]">
                         </pebble-button>
                     </div>
                     <template is="dom-if" if="[[_compareRequestType(ctx.dataRequestType, 'entity')]]">
@@ -353,6 +353,18 @@ Custom property | Description | Default
                 value: function() {
                     return [];
                 }
+            },
+            _selectedClassificationsConfig: {
+                type: Object,
+                value: function() {
+                    return {};
+                }
+            },
+            dynamicDimensionsConfig: {
+                type: Object,
+                value: function() {
+                    return {};
+                }
             }
         },
 
@@ -392,9 +404,82 @@ Custom property | Description | Default
                 if(defaultLocale && defaultLocale.locale){
                     await localeManager.getByNameAsync(defaultLocale.locale);
                 }
+                if(!_.isEmpty(this.dynamicDimensionsConfig)) {
+                    configData = this._prepareConfigForDynamicDimensions(configData);
+                }
 
                 this.configData = {};
                 this.set('configData', configData);
+            }
+        },
+
+        _prepareConfigForDynamicDimensions: function(configData) {
+            if(this.dynamicDimensionsConfig) {
+                var selectedDimensions = this.dynamicDimensionsConfig.selectedDimensions;
+                var readonlyDimensions = this.dynamicDimensionsConfig.readonlyDimensions;
+                var contextDimensions = this.dynamicDimensionsConfig.contextDimensions;
+
+                for(var i = 0; i < configData.length; i++) {
+                    if(configData[i].dataMappings && configData[i].dataMappings.type &&
+                       configData[i].dataMappings.type.length) {
+                        //Attribute mappings selected dimensions
+                        if(selectedDimensions) {
+                            var selectedDimension = selectedDimensions[configData[i].dataMappings.type[0]];
+                            if (!_.isEmpty(selectedDimension)) {
+                                if (configData[i].displayType != "dialog") {
+                                    configData[i].selectedItem = {
+                                        "id": selectedDimension[0],
+                                        "title": selectedDimension[0],
+                                        "type": configData[i].dataMappings.type[0]
+                                    }
+                                } else {
+                                    var selectedClassificationsConfig = {
+                                        "classifications": [selectedDimension[0].split(">>")],
+                                        "path": selectedDimension[0]
+                                    };
+                                    this._selectedClassificationsConfig[configData[i].id] = configData[i].selectedItem = selectedClassificationsConfig;
+                                }
+                            }
+                        }
+
+                        //Readonly dimensions
+                        if(readonlyDimensions.indexOf(configData[i].dataMappings.type[0]) != -1) {
+                            configData[i].readonly = true;
+                        }
+                    }
+                }
+
+                //Additional dimensions
+                if(contextDimensions) {
+                    for(var i = 0; i < contextDimensions.length; i++) {
+                        configData.push(this._prepareDimensionTemplate(contextDimensions[i]));
+                    }
+                }
+            }
+
+            return configData
+        },
+
+        _prepareDimensionTemplate: function(dimension) {
+            return {
+                "id": dimension,
+                "title": dimension,
+                "icon": "pebble-icon:Source",
+                "visible": true,
+                "hidden": false,
+                "dimensionType": "data",
+                "dataRequestType": "entity",
+                "dataMappings": {
+                    "id": "name",
+                    "title": "name",
+                    "subtitle": "",
+                    "image": "",
+                    "icon": "",
+                    "type": [
+                        dimension
+                    ]
+                },
+                "default": ""
             }
         },
 
@@ -637,6 +722,12 @@ Custom property | Description | Default
                                                     }
                                                 }
                                             }
+                                        }
+
+                                        //Apply selectedItems from config
+                                        if(!selectedItems || selectedItems.length == 0 && !_.isEmpty(configDataItem.selectedItem)) {
+                                            rockClassification.selectedClassifications = configDataItem.selectedItem.classifications;
+                                            selectedItems.push(configDataItem.selectedItem.path);
                                         }
 
                                         selectedDimensions[entityTypes[j]] = selectedItems;
@@ -1556,7 +1647,12 @@ Custom property | Description | Default
                 }
                 toolTip = buttonText; //Set tooltip
                 if(!buttonText) {
-                    buttonText = toolTip = currentClassification.parentElement.title;
+                    var configClassificationId = currentClassification.id.replace("-contextTree", "");
+                    if(this._selectedClassificationsConfig[configClassificationId]) {
+                        buttonText = toolTip = this._selectedClassificationsConfig[configClassificationId].path;
+                    } else {
+                        buttonText = toolTip = currentClassification.parentElement.title;
+                    }
                 }
                 if(currentClassification.selectedClassifications.length > 1) {
                     buttonText = currentClassification.selectedClassifications.length + " " + buttonText;
@@ -1587,6 +1683,10 @@ Custom property | Description | Default
             selectedClassifications = this._getPathsForClassificationTree(contextTree.selectedClassifications);
             //If refresh needs every time on dialog open, then remove >> selectedClassifications.length == 0
             if (contextTree && selectedClassifications.length == 0) {
+                var configClassificationId = this._currentDimensionSelector.id.replace("-toggle-button", "");
+                if(this._selectedClassificationsConfig[configClassificationId]) {
+                    selectedClassifications = this._selectedClassificationsConfig[configClassificationId].classifications;
+                }
                 contextTree.selectedClassifications = selectedClassifications;
                 contextTree.generateRequest();
             }
@@ -1632,6 +1732,7 @@ Custom property | Description | Default
 
         _getClassificationTaxonomy: function(configTaxonomy, taxonomy) {
             this.clearClassificationSelection(); //Clear classification on taxonomy change
+            this._updateSelectedDimensions();
             if(taxonomy) {
                 return taxonomy
             }

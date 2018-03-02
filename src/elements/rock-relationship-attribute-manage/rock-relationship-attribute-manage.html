@@ -170,7 +170,7 @@ It is responsible to "get" and "save" the relationship attributes.
                         value: ''
                     },
                     applyContextCoalesce: {
-                        type: String,
+                        type: Boolean,
                         value: false
                     },
                     /**
@@ -469,37 +469,34 @@ It is responsible to "get" and "save" the relationship attributes.
                 _onEntityGetFailed: function (e) {
                     this.logError("RelationshipAttributeManageGetFail", e);
                 },
-                _attributeResponseChanged: function (_attributeResponse) {
+                _attributeResponseChanged: async function (_attributeResponse) {
                     this.logInfo("RelationshipAttributeManageResponseChange", "response", JSON.stringify(_attributeResponse, null, 2));
 
                     var attributes = [];
 
                     if (DataHelper.validateGetEntitiesResponse(_attributeResponse) && this.relationshipAttributeModels) {
                         var entity = _attributeResponse.content.entities[0];
-                        var relationships = EntityHelper.getRelationshipsBasedOnContext(entity, this.getFirstDataContext(), this._selfContext);
+                        var relationships = EntityHelper.getCoalescedRelationshipByType(entity, this.contextData, this._relationshipName, this.applyContextCoalesce);
                         var relationshipId = this._relationshipId;
                         if (relationships && !_.isEmpty(relationships)) {
-                            var relationshipEntities = relationships[this._relationshipName];
-                            var relationship = relationshipEntities.find(function (rel) {
+                            var relationship = relationships.find(function (rel) {
                                 return rel.relTo.id == relationshipId;
                             });
                             var relData = { "data": {} };
                             if (relationship) {
                                 relData.data.attributes = relationship.attributes;
                             }
-                            attributes = DataTransformHelper.transformAttributes(relData, this.relationshipAttributeModels, {}, this.contextData, "array", true);
+                            attributes = await DataTransformHelper.transformAttributes(relData, this.relationshipAttributeModels, this.contextData, "array", true);
                             //Removed the code for rock-title bar
                         }
                     }
                     this._attributeValues = attributes;
                 },
-                _save: function (e) {
+                _save: async function (e) {
                     //TODO: Needs to check with Vishal.
                     if (e.currentTarget.disabled) {
                         return;
                     }
-
-                    RUFUtilities.pebbleAppToast.fitInto = RUFUtilities.appCommon.shadowRoot.querySelector("#toastArea");
 
                     //check if any changes
                     //if none, then return operationResult with warning message else proceed
@@ -513,30 +510,34 @@ It is responsible to "get" and "save" the relationship attributes.
 
                     var changedAttributeElements = attributeList.getChangedAttributeElements();
                     if (changedAttributeElements == undefined || changedAttributeElements.length == 0) {
-                        RUFUtilities.appCommon.toastText = "No changes to save";
                         var toastElement = RUFUtilities.pebbleAppToast;
+                        toastElement.fitInto = RUFUtilities.appCommon.shadowRoot.querySelector("#toastArea");
                         toastElement.toastType = "information";
                         toastElement.heading = "Information";
                         toastElement.autoClose = true;
+
+                        RUFUtilities.appCommon.toastText = "No changes to save";
+
                         toastElement.show();
                         return {
                             "message": "No changes to save"
                         };
                     }
+                    
 
-                    var attributesJSON = [];
+                    var relationshipAttributesJSON = [];
                     for (var i = 0; i < changedAttributeElements.length; i++) {
                         var attributeElement = changedAttributeElements[i];
-                        var attributeJSON = attributeElement.attributeObject;
-                        attributesJSON.push(attributeJSON);
+                        var relationshipAttributeJSON = attributeElement.attributeObject;
+                        relationshipAttributesJSON.push(relationshipAttributeJSON);
                     }
 
-                    this.logInfo("AttributeManageSave", "attributes", JSON.stringify(attributesJSON, null, 2));
+                    this.logInfo("AttributeManageSave", "attributes", JSON.stringify(relationshipAttributesJSON, null, 2));
                     var firstValueContext = this.getFirstValueContext();
                     var newEntity = {};
                     if (this._attributeResponse && this._attributeResponse.content && this._attributeResponse.content.entities && this._attributeResponse.content.entities.length > 0) {
                         var originalEntity = this._attributeResponse.content.entities[0];
-                        newEntity = DataTransformHelper.prepareEntityForRelationshipSave(originalEntity, attributesJSON, this.contextData, this._relationshipModels, this._contextModels);
+                        newEntity = await DataTransformHelper.prepareEntityForRelationshipSave(originalEntity, relationshipAttributesJSON, this.contextData, this._relationshipModels, this._contextModels);
                         this._entityDataOperation = "update";
 
                         if (!_.isEmpty(newEntity)) {
@@ -564,9 +565,6 @@ It is responsible to "get" and "save" the relationship attributes.
                         }
 
                     }
-
-                    //this return isnt useful for now
-                    return newEntity;
                 },
                 _saveEntity: function () {
                     var liquidSave = this.shadowRoot.querySelector("[name=attributeSaveDataService]");
