@@ -118,7 +118,7 @@ Custom property | Description | Default
                             horizontal-align="[[horizontalAlign]]">
                             <rock-entity-lov id="[[ctx.id]]-lov"
                                              r-data="[[ctx]]"
-                                             readonly$=[[readonly]]
+                                             readonly=[[readonly]]
                                              config-data-item-id="[[ctx.id]]"
                                              id-field="[[ctx.dataMappings.id]]"
                                              title-pattern="[[ctx.dataMappings.title]]"
@@ -153,7 +153,7 @@ Custom property | Description | Default
                     <template is="dom-if" if="[[_compareRequestType(ctx.dataRequestType, 'entity-context')]]">
                         <pebble-popover title="[[ctx.title]]" id="[[ctx.id]]-popover" for="[[ctx.id]]-toggle-button" no-overlap
                             horizontal-align="[[horizontalAlign]]">
-                            <rock-context-lov id="[[ctx.id]]-lov" r-data="[[ctx]]" readonly$=[[readonly]] entity-id="[[entityId]]" entity-type="[[entityType]]"
+                            <rock-context-lov id="[[ctx.id]]-lov" r-data="[[ctx]]" readonly=[[readonly]] entity-id="[[entityId]]" entity-type="[[entityType]]"
                                 context-name="[[ctx.id]]" config-data-item-id="[[ctx.id]]" request-data="[[ctx.dataRequest]]"
                                 selected-items="[[_getSelectedItems(ctx.selectedItem)]]" external-data-formatter="[[_entityContextExternalDataFormatter]]"
                                 selected-item-info=[[ctx.selectedItemInfo]] multi-select="[[!allSingleSelect]]" show-action-buttons></rock-context-lov>
@@ -165,7 +165,7 @@ Custom property | Description | Default
                     <template is="dom-if" if="[[_compareRequestType(ctx.dataRequestType, 'entity-model')]]">
                              <pebble-popover title="[[ctx.title]]" id="[[ctx.id]]-popover" for="[[ctx.id]]-toggle-button" no-overlap
                                  horizontal-align="[[horizontalAlign]]">
-                                 <rock-entity-model-lov id="[[ctx.id]]-lov" readonly$=[[readonly]] config-data-item-id="[[ctx.id]]"
+                                 <rock-entity-model-lov id="[[ctx.id]]-lov" readonly=[[readonly]] config-data-item-id="[[ctx.id]]"
                                      id-field="[[ctx.dataMappings.id]]" title-pattern="[[ctx.dataMappings.title]]"
                                      type-field="[[ctx.dataMappings.type]]" request-data="[[ctx.dataRequest]]"
                                      selected-items="[[_getSelectedItems(ctx.selectedItem)]]" multi-select="[[!allSingleSelect]]" no-sub-title
@@ -395,10 +395,15 @@ Custom property | Description | Default
             }
         },
 
-        onConfigLoaded: function(componentConfig) {
+        onConfigLoaded: async function(componentConfig) {
             if(componentConfig && componentConfig.config) {
                 configData = DataHelper.convertObjectToArray(componentConfig.config);
 
+                var localeManager = ComponentHelper.getLocaleManager();
+                var defaultLocale = DataHelper.getDefaultValContext();
+                if(defaultLocale && defaultLocale.locale){
+                    await localeManager.getByNameAsync(defaultLocale.locale);
+                }
                 if(!_.isEmpty(this.dynamicDimensionsConfig)) {
                     configData = this._prepareConfigForDynamicDimensions(configData);
                 }
@@ -526,6 +531,13 @@ Custom property | Description | Default
                 formattedSelectedItem["id"] = selectedItem.id ? selectedItem.id : this._default.id;
                 formattedSelectedItem["title"] = selectedItem.title ? selectedItem.title : this._default.title;
                 formattedSelectedItem["type"] = selectedItem.type ? selectedItem.type : this._default.type;
+
+                if(selectedItem.type == "locale"){
+                    var _localeObj = ComponentHelper.getLocaleManager().getByName(selectedItem.id);
+                    if(!_.isEmpty(_localeObj) && _localeObj.externalName){
+                        formattedSelectedItem["title"] = _localeObj.externalName;
+                    }
+                }
 
                 formattedSelectedItems.push(formattedSelectedItem);
 
@@ -1063,13 +1075,16 @@ Custom property | Description | Default
                                     "typesCriterion": [
                                         ctxKey
                                     ]
-                                }
+                                },
+                                "valueContexts":[]
                             },
                             "fields": {
                                 "attributes": ['_ALL']
                             }
                         }
                     };
+
+                    reqData.params.query.valueContexts.push(DataHelper.getDefaultValContext());
 
                     var ctxToBeLoaded = this._contextDataToBeLoaded(ctxKey);
                     var ctxExtName = ctxKey;
@@ -1539,11 +1554,18 @@ Custom property | Description | Default
                     }, this);
                 } else {
                     this.selectedDimensions[ctxKey].forEach(function (dim) {
-                        selectedItems.push({
+                        var ctxObj = {
                             "id": dim,
                             "title": dim,
                             "type": ctxKey
-                        });
+                        }
+                        if(ctxKey == "locale"){
+                            var _localeObj = ComponentHelper.getLocaleManager().getByName(dim);
+                            if(!_.isEmpty(_localeObj)){
+                                ctxObj.title = _localeObj.externalName ? _localeObj.externalName : dim;
+                            }
+                        }
+                        selectedItems.push(ctxObj);
                     }, this);
                 }
 
