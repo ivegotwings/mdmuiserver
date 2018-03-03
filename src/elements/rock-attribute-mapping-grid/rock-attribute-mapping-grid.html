@@ -19,9 +19,12 @@
 <link rel="import" href="../pebble-textbox/pebble-textbox.html">
 <link rel="import" href="../pebble-popover/pebble-popover.html">
 <link rel="import" href="../pebble-dialog/pebble-dialog.html">
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
 
 <link rel="import" href="../rock-attribute-model-lov/rock-attribute-model-lov.html">
 <link rel="import" href="../rock-classification-tree/rock-classification-tree.html">
+<link rel="import" href="../rock-dimension-selector/rock-dimension-selector.html">
+<link rel="import" href="../rock-value-mappings-manage/rock-value-mappings-grid.html">
 
 <!--
 <b><i>Content development is under progress... </b></i>
@@ -138,8 +141,8 @@
             }
 
             #gridManage {
-                text-align: right;
                 font-size: 0;
+                padding: 10px;
             }
 
             #gridManage pebble-icon {
@@ -154,18 +157,40 @@
                 display: inline-block;
                 vertical-align: middle;
             }
+
+            #context-header {
+                box-shadow: 0 1px 7px 0 var(--palette-cloudy-blue, #c1cad4);
+                padding: 15px;
+                margin: 10px;
+                height: 55px;
+            }
+
+            rock-dimension-selector {
+                --dimension-selector-simple-button: {
+                    width: 120px;
+                }
+            }
         </style>
-        <liquid-rest id="getMappings" url="/data/cop/getMappings" method="POST" request-data="[[_getMappingsRequest]]" on-liquid-response="_onGetMappingsResponse"
+        <pebble-spinner active="[[_loading]]"></pebble-spinner>
+        <liquid-rest id="getMappings" url="/data/cop/getMappings" method="POST" on-liquid-response="_onGetMappingsResponse"
             on-liquid-error="_onMappingsError"></liquid-rest>
-        <liquid-rest id="saveMappings" url="/data/cop/saveMappings" method="POST" request-data="[[_saveMappingsRequest]]" on-liquid-response="_onMappingsSaveResponse"
+        <liquid-rest id="saveMappings" url="/data/cop/saveMappings" method="POST" on-liquid-response="_onMappingsSaveResponse"
             on-liquid-error="_onMappingsError"></liquid-rest>
         <div id="grid-heading">
             <strong>Attribute Mapping</strong>
         </div>
+        <div id="context-header">
+            <span class="pull-right">
+                <rock-dimension-selector id="dimensionSelector" context-data="[[contextData]]" app-name="app-business-function-mapping" all-single-select></rock-dimension-selector>
+                <bedrock-pubsub event-name="dimension-selector-data-changed" handler="_onDimensionsChanged" target-id="dimensionSelector"></bedrock-pubsub>
+            </span>
+        </div>
         <div id="gridManage">
-            <span class="gridCountMsg">Showing [[_getGridRecordsCount(_gridData)]] items</span>
-            <pebble-icon class="iconButton pebble-icon-size-16 tooltip-bottom m-r-10" icon="pebble-icon:Add" id="add" data-tooltip="Add" raised on-tap="_onAddTap"></pebble-icon>
-            <pebble-icon class="iconButton pebble-icon-size-16 tooltip-bottom" icon="pebble-icon:Delete" id="delete" data-tooltip="Delete" raised on-tap="_onDeleteTap"></pebble-icon>
+            <span class="gridCountMsg">[[_getGridRecordsCountMessage(_gridData)]]</span>
+            <span class="pull-right">
+                <pebble-icon class="iconButton pebble-icon-size-16 tooltip-bottom m-r-10" icon="pebble-icon:action-add" id="add" data-tooltip="Add" raised on-tap="_onAddTap"></pebble-icon>
+                <pebble-icon class="iconButton pebble-icon-size-16 tooltip-bottom" icon="pebble-icon:action-delete" id="delete" data-tooltip="Delete" raised on-tap="_onDeleteTap"></pebble-icon>
+            </span>
         </div>
         <div id="grid-container">
             <template is="dom-if" if="[[_isDataAvailable(_gridData)]]">
@@ -183,7 +208,7 @@
                                     title="[[item.attributeModel.title]]"></pebble-textbox>
                             </div>
                             <div id="iconDiv" slot="cell-slot-content">
-                                <pebble-icon class="dropdown-icon pebble-icon-size-10" id="txtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:Down"
+                                <pebble-icon class="dropdown-icon pebble-icon-size-10" id="txtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:navigation-action-down"
                                     on-tap="_showAttributesLOV"></pebble-icon>
                             </div>
                             <div id="buttonDiv" slot="cell-slot-content">
@@ -198,20 +223,23 @@
                 </pebble-popover>
             </template>
         </div>
-        <div id="actions-container" class="m-t-20" align="center">
-            <pebble-button class="action-button btn btn-secondary m-r-5" id="skip" button-text="Cancel" raised on-tap="_onCancelTap"></pebble-button>
-            <pebble-button class="action-button-focus dropdownText btn btn-success m-r-5" id="save" button-text="Save" raised on-tap="_onSaveTap"></pebble-button>
-            <pebble-button class="action-button btn btn-primary m-r-5" id="import" button-text="Import" raised on-tap="_onImportTap"></pebble-button>
-        </div>
-        <pebble-dialog id="confirmationDialog" dialog-title="Confirmation" modal alert-box show-cancel show-ok no-cancel-on-outside-click
+        <!-- Value mapping dialog -->
+        <pebble-dialog id="valueMappingsDialog" dialog-title="VALUE MAPPINGS" modal show-close-icon no-cancel-on-outside-click
             no-cancel-on-esc-key>
-            <p>Mappings saved recently, import may not process on latest mappings, do you still want to continue?</p>
         </pebble-dialog>
-        <bedrock-pubsub event-name="on-buttonok-clicked" handler="_onImportConfirm" target-id="confirmationDialog"></bedrock-pubsub>
-        <liquid-entity-model-get name="liquidAttributeModelGet" operation="getbyids" request-data={{attributeModelRequest}} on-response="_onAttributeModelGetResponse"
+
+        <!-- Value mapping events -->
+        <bedrock-pubsub event-name="value-mapping-cancel" handler="_onCancelOrSaveValueMappings" target-id=""></bedrock-pubsub>
+
+        <div id="actions-container" class="m-t-20" align="center">
+            <pebble-button class="action-button btn btn-secondary m-r-5" id="back" button-text="Back" raised on-tap="_onBackTap"></pebble-button>
+            <pebble-button class="action-button btn btn-primary m-r-5" id="skipandimport" button-text="Skip & Import" raised on-tap="_onImportTap"></pebble-button>
+            <pebble-button class="action-button-focus dropdownText btn btn-success m-r-5" id="save" button-text="Save" raised on-tap="_onSaveTap"></pebble-button>
+            <pebble-button class="action-button-focus dropdownText btn btn-success m-r-5" id="saveandimport" button-text="Save & Import" raised on-tap="_onSaveAndImportTap"></pebble-button>
+        </div>
+        <liquid-entity-model-get name="liquidAttributeModelGet" operation="getbyids" on-response="_onAttributeModelGetResponse"
             on-error="_onError"></liquid-entity-model-get>
-        <liquid-entity-model-get name="liquidEntityManageModelGet" operation="getbyids" request-data={{entityManageModelRequest}}
-            on-response="_onEntityManageModelGetResponse" on-error="_onEntityManageModelGetError"></liquid-entity-model-get>
+        <liquid-entity-model-get name="liquidEntityManageModelGet" operation="getbyids" on-response="_onEntityManageModelGetResponse" on-error="_onEntityManageModelGetError"></liquid-entity-model-get>
     </template>
     <script>
         (function () {
@@ -224,7 +252,12 @@
                     /**
                       * <b><i>Content development is under progress... </b></i> 
                       */
-                    mappingsRequestData: {
+                    mappingConfig: {
+                        type: Object,
+                        value: function () { return {}; }
+                    },
+
+                    mappingData: {
                         type: Object,
                         value: function () { return {}; }
                     },
@@ -234,8 +267,7 @@
                     */
                     selectedItem: {
                         type: Object,
-                        notify: true,
-                        reflectToAttribute: true
+                        notify: true
                     },
                     /**
                       * <b><i>Content development is under progress... </b></i> 
@@ -254,15 +286,6 @@
                         type: Array,
                         value: function () { return []; }
                     },
-                    /**
-                     * Specifies the request object for an attribute model request.
-                     */
-                    attributeModelRequest: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    },
                     copContext: {
                         type: Object,
                         value: function () { return {}; }
@@ -279,20 +302,40 @@
                             return [];
                         }
                     },
-                    isMappingsChanged: {
-                        type: Boolean,
-                        value: false
-                    },
                     _refChangeDeletedMappings: {
                         type: Array,
                         value: function () {
                             return [];
                         }
+                    },
+
+                    _currentTaxonomy: {
+                        type: String,
+                        value: ""
+                    },
+
+                    _taxonomies: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+
+                    _contexts: {
+                        type: Array,
+                        value: function() {
+                            return [];
+                        }
+                    },
+
+                    _loading: {
+                        type: Boolean,
+                        value: false
                     }
                 },
 
                 observers: [
-                    '_dataChanged(contextData, mappingsRequestData, copContext)'
+                    '_dataChanged(contextData, mappingConfig, mappingData, copContext)'
                 ],
 
                 behaviors: [
@@ -307,33 +350,98 @@
                     'deselecting-all-items': '_onDeselectingAllItems',
                 },
 
-                _dataChanged: function (contextData, mappingsRequestData, copContext) {
-                    if (!_.isEmpty(contextData) && !_.isEmpty(mappingsRequestData) && !_.isEmpty(copContext)) {
-                        //To-do: Contexts hardcoded here, will be removed once context header logic is implemented
-                        this.selectedContexts = [
-                            {
-                                "type": "taxonomy",
-                                "value": "_ALL"
-                            },
-                            {
-                                "type": "classification",
-                                "value": "_ALL"
-                            }
-                        ];
-                        var types = ["attributemapping"];
+                attached() {
+                    //this._confirmationDialog = this.shadowRoot.querySelector("#confirmationDialog");
+                },
 
-                        var req = DataRequestHelper.createMappingsGetRequest(contextData, copContext, this.selectedContexts, types);
-                        req.params.rsconnect.headers.entities = mappingsRequestData.headerFields;
+                get getMappingsLiq() {
+                    this._getMappingsLiq = this._getMappingsLiq || this.shadowRoot.querySelector("#getMappings");
+                    return this._getMappingsLiq;
+                },
+
+                get saveMappingsLiq() {
+                    this._saveMappingsLiq = this._saveMappingsLiq || this.shadowRoot.querySelector("#saveMappings");
+                    return this._saveMappingsLiq;
+                },
+
+                get liquidAttributeModelGetLiq() {
+                    this._liquidAttributeModelGet = this._liquidAttributeModelGet || this.shadowRoot.querySelector("[name=liquidAttributeModelGet]");
+                    return this._liquidAttributeModelGet;
+                },
+
+                get liquidEntityManageModelGetLiq() {
+                    this._liquidEntityManageModelGet = this._liquidEntityManageModelGet || this.shadowRoot.querySelector("[name=liquidEntityManageModelGet]");
+                    return this._liquidEntityManageModelGet;
+                },
+
+                get attributeModelLov() {
+                    this._attributeModelLov = this._attributeModelLov || this.shadowRoot.querySelector("#attributeModelLov");;
+                    return this._attributeModelLov;
+                },
+
+                get popover() {
+                    this._popover = this._popover || this.shadowRoot.querySelector("#attributesPopover");
+                    return this._popover;
+                },
+
+                get mappingGrid() {
+                    this._mappingGrid = this._mappingGrid || this.shadowRoot.querySelector("#mapping-grid");
+                    return this._mappingGrid;
+                },
+
+                get dimensionSelector() {
+                    this._dimensionSelector = this._dimensionSelector || this.shadowRoot.querySelector("#dimensionSelector");
+                    return this._dimensionSelector;
+                },
+
+                get valueMappingsDialog() {
+                    this._valueMappingsDialog = this._valueMappingsDialog || this.shadowRoot.querySelector("#valueMappingsDialog");
+                    return this._valueMappingsDialog;
+                },
+
+                _dataChanged: function () {
+                    this._getMappings();
+                },
+
+                _getMappings: function() {
+                    if (!_.isEmpty(this.contextData) && !_.isEmpty(this.mappingData) && !_.isEmpty(this.mappingConfig) && !_.isEmpty(this.copContext)) {
+                        this._loading = true;
+                        this._taxonomies = this.mappingData.taxonomies;
+                        this._contexts = this.mappingData.contexts;
+                        var selectedContexts = this._prepareContexts();
+                        var types = ["attributemapping"];
+                        var req = DataRequestHelper.createMappingsGetRequest(this.contextData, this.copContext, selectedContexts, types);
+                        req.params.rsconnect.headers.entities = this.mappingData.headerFields;
                         req.params.query.contexts[0].ownershipdata = this.ownershipdata && this.ownershipdata != "undefined" ? this.ownershipdata : "";
-                        this.set("_getMappingsRequest", req);
-                        var getMappings = this.shadowRoot.querySelector("#getMappings");
-                        if (getMappings) {
-                            getMappings.generateRequest();
+
+                        if(this.getMappingsLiq) {
+                            this.getMappingsLiq.requestData = req;
+                            this.getMappingsLiq.generateRequest();
                         }
                     }
                 },
 
+                _prepareContexts: function() {
+                    var contexts = [];
+                    for(var i = 0; i < this._contexts.length; i++) {
+                        var context = {};
+                        if(this.selectedDimensions && 
+                           this.selectedDimensions[this._contexts[i]] && 
+                           this.selectedDimensions[this._contexts[i]].length) {
+                            context.type = this._contexts[i];
+                            context.value = this.selectedDimensions[this._contexts[i]][0];
+                        } else {
+                            context.type = this._contexts[i];
+                            context.value = "_ALL";
+                        }
+                        contexts.push(context);
+                    }
+
+                    return contexts;
+                },
+
                 _onGetMappingsResponse: function (e, detail) {
+                    this._loading = false;
                     if ( !DataHelper.isValidObjectPath(detail, "response.response.status") || 
                           detail.response.response.status.toLowerCase() != "success") {
                         this.showErrorToast("Unable to fetch attribute mappings, please contact administrator.");
@@ -345,7 +453,6 @@
                     if (response.entities) {
                         if (response.entities.length > 0 && DataHelper.isValidObjectPath(response, "entities.0.data.contexts.0.attributes")) {
                             this._mappingAttributes = response.entities[0].data.contexts[0].attributes;
-                            this._setHeaderFields(this._mappingAttributes);
                             for (var key in this._mappingAttributes) {
                                 destinationAttributes.push(key);
                             }
@@ -357,27 +464,12 @@
                         attributes.push("externalName");
                         var modelGetRequest = DataRequestHelper.createGetAttributeModelRequest(destinationAttributes, attributes);
 
-                        this.set("attributeModelRequest", modelGetRequest);
-
-                        var liquidModelGet = this.shadowRoot.querySelector("[name=liquidAttributeModelGet]");
-                        if (liquidModelGet) {
-                            liquidModelGet.generateRequest();
+                        if(this.liquidAttributeModelGetLiq) {
+                            this.liquidAttributeModelGetLiq.requestData = modelGetRequest;
+                            this.liquidAttributeModelGetLiq.generateRequest();
+                            this._loading = true;
                         }
                     }
-                },
-
-                //Remove context fields
-                _setHeaderFields: function (attributes) {
-                    var nonContextFields = [];
-                    // Todo - This logic will be removed, will get based on context mapping
-                    var contextFields = ["Classification", "Taxonomy"];
-                    for(var i = 0; i < this.mappingsRequestData.headerFields.length; i++) {
-                        if(contextFields.indexOf(this.mappingsRequestData.headerFields[i]) == -1) {
-                            nonContextFields.push(this.mappingsRequestData.headerFields[i]);
-                        }
-                    }
-
-                    this.mappingsRequestData.headerFields = nonContextFields;
                 },
 
                 _onAttributeModelGetResponse: function (e) {
@@ -403,11 +495,9 @@
                     types.push(this.getFirstItemContext().type);
                     var modelGetRequest = DataRequestHelper.createGetManageModelRequest(types);
 
-                    this.set("entityManageModelRequest", modelGetRequest);
-
-                    var liquidModelGet = this.shadowRoot.querySelector("[name=liquidEntityManageModelGet]");
-                    if (liquidModelGet) {
-                        liquidModelGet.generateRequest();
+                    if(this.liquidEntityManageModelGetLiq) {
+                        this.liquidEntityManageModelGetLiq.requestData = modelGetRequest;
+                        this.liquidEntityManageModelGetLiq.generateRequest();
                     }
                 },
 
@@ -422,6 +512,7 @@
                 _onEntityManageModelGetError: function (e, detail) {
                     this.logError("Entity manage model get error", detail);
                     this.showSuccessToast("Unable to get entity manage model, please contact administrator.");
+                    this._loading = false;
                 },
 
                 _getAttributeModelForHeaderField: function (field) {
@@ -439,7 +530,7 @@
                 _prepareGridData: function () {
                     var gridData = [];
                     var contextFields = [];
-                    var headerFields = this.mappingsRequestData.headerFields;
+                    var headerFields = this.mappingData.headerFields;
                     var itemContext = this.getFirstItemContext();
                     var entityType = itemContext.type;
                     for (var i = 0; i < headerFields.length; i++) {
@@ -479,24 +570,24 @@
                     }
 
                     this.set("_gridData", sortedData);
+                    this._loading = false;
                 },
 
                 _showAttributesLOV: function (e) {
                     var rowId = e.currentTarget.rowId;
                     if (rowId >= 0) {
-                        var lov = this.shadowRoot.querySelector("#attributeModelLov");
-                        var popover = this.shadowRoot.querySelector("#attributesPopover");
-                        if (lov && popover) {
+                        var lov = this.attributeModelLov;
+                        if (lov && this.popover) {
                             lov.currentRowId = rowId;
-                            popover.for = "attributes-text_" + rowId;
-                            popover.show();
+                            this.popover.for = "attributes-text_" + rowId;
+                            this.popover.show();
                             lov.reset();
                         }
                     }
                 },
 
                 _onAttributeSelection: function (e, detail) {
-                    var lov = this.shadowRoot.querySelector("#attributeModelLov");
+                    var lov = this.attributeModelLov;
                     if (lov) {
                         var rowId = lov.currentRowId;
                         if (rowId >= 0) {
@@ -519,9 +610,10 @@
                             }
                         }
                     }
-                    var popover = this.shadowRoot.querySelector("#attributesPopover");
-                    popover.for = "";
-                    popover.hide();
+                    if(this.popover) {
+                        this.popover.for = "";
+                        this.popover.hide();
+                    }
                 },
 
                 _setRowAsDeletedOnSelectionChange: function(row) {
@@ -566,7 +658,8 @@
 
                 _fireDeleteEvent: function (e) {
                     this._deletedMappings.push(e.model.item);
-                    var grid = this.shadowRoot.querySelector("#mapping-grid");
+                    var grid = this.mappingGrid;
+                    if(!grid) return;
                     var index = grid.items.indexOf(e.model.item);
                     grid.items.splice(index, 1);
 
@@ -576,7 +669,7 @@
                 _fireCloneEvent: function (e) {
                     var icon = e.currentTarget;
                     var row = this._getParentRow(icon);
-                    var grid = this.shadowRoot.querySelector("#mapping-grid");
+                    var grid = this.mappingGrid;
                     if (row && grid) {
                         var rowIndex = row.index;
                         var rowItem = row.item;
@@ -603,15 +696,18 @@
                         return;
                     }
                     this._currentEditIndex = index;
-                    var table = this.shadowRoot.querySelector("pebble-data-table");
-                    var ironListComponent = table.shadowRoot.querySelector('#list');
+                    var grid = this.mappingGrid;
+
+                    if(!grid) return;
+
+                    var ironListComponent = Polymer.dom(grid.shadowRoot.querySelector('#list'));
                     if (ironListComponent) {
-                        var prevItem = Polymer.dom(ironListComponent).querySelector('div.item.gridCurrentEditRow');
+                        var prevItem = ironListComponent.querySelector('div.item.gridCurrentEditRow');
                         if (prevItem) {
                             prevItem.classList.remove('gridCurrentEditRow');
                             prevItem.style.zIndex = null;
                         }
-                        var item = Polymer.dom(table.shadowRoot.querySelector('#list')).querySelector('div.item:nth-of-type(' + index + ')');
+                        var item = ironListComponent.querySelector('div.item:nth-of-type(' + index + ')');
                         if (item) {
                             item.classList.add('gridCurrentEditRow');
                             item.style.zIndex = 2;
@@ -619,43 +715,60 @@
                     }
                 },
 
-                _onSaveTap: function (e) {
+                _onSaveAndImportTap: function() {
+                    this.isSaveAndImport = true;
+                    this._onSaveTap();
+                },
+
+                _onSaveTap: function () {
+                    this._loading = true;
+                    if(!this.saveMappingsLiq) return;
+
+                    this._loading = true;
                     var mappings = this._transformGridDataToSaveMappings();
-                    if (!_.isEmpty(mappings)) {
-                        var saveRequest = DataRequestHelper.createMappingsSaveRequest(this.contextData, this.copContext, this.selectedContexts, "attributemapping")
-                        if (!_.isEmpty(saveRequest)) {
-                            saveRequest.entity.data.contexts[0].attributes = mappings;
-                            saveRequest.entity.data.contexts[0].context.ownershipdata = this.ownershipdata && this.ownershipdata != "undefined" ? this.ownershipdata : "";
-                            this.set("_saveMappingsRequest", saveRequest);
-                            var saveMappings = this.shadowRoot.querySelector("#saveMappings");
-                            if (saveMappings) {
-                                saveMappings.generateRequest();
-                            }
-                        }
-                    } else {
-                        this.showSuccessToast("There are no changes in mappings to save.");
+                    if (_.isEmpty(mappings)) {
+                        this._loading = false;
+                        return this.showSuccessToast("There are no changes in mappings to save.");
+                    }
+                    var saveRequest = DataRequestHelper.createMappingsSaveRequest(this.contextData, this.copContext, this.selectedContexts, "attributemapping")
+                    if (!_.isEmpty(saveRequest)) {
+                        saveRequest.entity.data.contexts[0].attributes = mappings;
+                        saveRequest.entity.data.contexts[0].context.ownershipdata = this.ownershipdata && this.ownershipdata != "undefined" ? this.ownershipdata : "";
+                        this.saveMappingsLiq.requestData = saveRequest;
+                        this.saveMappingsLiq.generateRequest();
                     }
                 },
 
                 _onMappingsSaveResponse: function (e, detail) {
                     var response = detail.response.response;
                     if (response && response.status == "success") {
-                        this.isMappingsChanged = true;
-                        this._resetMappings(); //Call this on save mappings success
-                        this.showSuccessToast("Attribute mappings saved successfully.");
+                        this.async(function() {
+                            this._resetMappings(); //Call this on save mappings success
+                            if(this.isSaveAndImport) {
+                                this.showSuccessToast("Attribute mappings submitted and imported the file successfully.");
+                                this._onImportTap();
+                                this.isSaveAndImport = false;
+                            } else {
+                                this.showSuccessToast("Attribute mappings submitted successfully.");
+                            }
+                            this._loading = false;
+                        }, 10000);
                         return;
                     }
 
-                    this.showErrorToast("Unable to save attribute mappings, please contact administrator.");
+                    this._loading = false;
+                    this.showErrorToast("Unable to submit attribute mappings, please contact administrator.");
                 },
 
                 _onMappingsError: function (e, detail) {
                     this.logError("Mapping get/save error", detail);
                     this.showErrorToast("Unable to perform mappings operation, please contact administrator.");
+                    this._loading = false;
                 },
 
                 _resetMappings: function () {
                     this._deletedMappings = [];
+                    this._refChangeDeletedMappings = [];
                     for (var i = 0; i < this._gridData.length; i++) {
                         this._gridData[i].action = "";
                     }
@@ -754,23 +867,15 @@
                     return unique.hashCode();
                 },
 
-                _onCancelTap: function (e) {
-                    var eventName = "field-map-cancel";
+                _onBackTap: function (e) {
+                    var eventName = "field-map-back";
                     var eventDetail = {
                         "name": eventName,
                     };
                     this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
                 },
 
-                _onImportTap: function (e) {
-                    if (this.isMappingsChanged) {
-                        this.shadowRoot.querySelector("#confirmationDialog").open();
-                        return;
-                    }
-                    this._onImportConfirm();
-                },
-
-                _onImportConfirm: function (e, detail) {
+                _onImportTap: function () {
                     var eventName = "field-map-import";
                     var eventDetail = {
                         "name": eventName,
@@ -831,11 +936,35 @@
                                 "attribute": valueMappingAttribute,
                                 "supportsValueMapping": entityModelAttribute.properties.supportsValueMapping,
                                 "valueMappingContext": entityModelAttribute.properties.valueMappingContext,
-                                "valueMappingTypeName": entityModelAttribute.properties.valueMappingTypeName
+                                "valueMappingTypeName": entityModelAttribute.properties.valueMappingTypeName,
+                                "selectedDimensions": this.dimensionSelector.selectedDimensions
                             }
-                            //Trigger Event
-                            this.fireBedrockEvent("on-value-mapping-tap", valueMappings, { ignoreId: true });
+
+                            valueMappings.headerFields = this.mappingData.headerFields
+                            valueMappings.taxonomies = this.mappingData.taxonomies
+                            valueMappings.contexts = this.mappingData.contexts
+
+                            if (this.valueMappingsDialog) {
+                                var component = {
+                                    "name": "rock-value-mappings-grid",
+                                    "path": "/../../src/elements/rock-value-mappings-manage/rock-value-mappings-grid.html",
+                                    "properties": {
+                                        "mapping-data": valueMappings,
+                                        "context-data": this.contextData,
+                                        "cop-context": this.copContext,
+                                        "mapping-config": this.mappingConfig
+                                    }
+                                };
+                                ComponentHelper.loadContent(this.valueMappingsDialog, component, this);
+                                this.valueMappingsDialog.open();
+                            }
                         }
+                    }
+                },
+
+                _onCancelOrSaveValueMappings: function () {
+                    if(this.valueMappingsDialog) {
+                        this.valueMappingsDialog.close();
                     }
                 },
 
@@ -854,41 +983,41 @@
                 },
 
                 _onDeleteTap: function () {
-                    var grid = this.shadowRoot.querySelector("#mapping-grid");
-                    if (grid) {
-                        var selectedItems = grid.getSelectedItems();
-                        if (selectedItems.length == 0) {
-                            //Show message if needed - Please select an item for delete
-                            return;
-                        }
-                        var gridData = [];
-                        for (var i = 0; i < this._gridData.length; i++) {
-                            var isDelete = false;
-                            for (var j = 0; j < selectedItems.length; j++) {
-                                if (this._gridData[i].excelColumnName.toLowerCase() == selectedItems[j].excelColumnName.toLowerCase() &&
-                                    this._gridData[i].index == selectedItems[j].index) {
-                                    isDelete = true;
-                                    break;
-                                }
-                            }
+                    var grid = this.mappingGrid;
+                    if (!grid) return;
 
-                            if (!isDelete) {
-                                gridData.push(this._gridData[i]);
-                            } else {
-                                if (this._gridData[i].action != "new") {
-                                    this._gridData[i].action = "deleted";
-                                    this._deletedMappings.push(this._gridData[i]);
-                                }
-                            }
-                        }
-
-                        //Reset row index
-                        for(var i = 0; i < gridData.length; i++) {
-                            gridData[i].index = i;
-                        }
-
-                        this.set("_gridData", gridData);
+                    var selectedItems = grid.getSelectedItems();
+                    if (selectedItems.length == 0) {
+                        //Show message if needed - Please select an item for delete
+                        return;
                     }
+                    var gridData = [];
+                    for (var i = 0; i < this._gridData.length; i++) {
+                        var isDelete = false;
+                        for (var j = 0; j < selectedItems.length; j++) {
+                            if (this._gridData[i].excelColumnName.toLowerCase() == selectedItems[j].excelColumnName.toLowerCase() &&
+                                this._gridData[i].index == selectedItems[j].index) {
+                                isDelete = true;
+                                break;
+                            }
+                        }
+
+                        if (!isDelete) {
+                            gridData.push(this._gridData[i]);
+                        } else {
+                            if (this._gridData[i].action != "new") {
+                                this._gridData[i].action = "deleted";
+                                this._deletedMappings.push(this._gridData[i]);
+                            }
+                        }
+                    }
+
+                    //Reset row index
+                    for(var i = 0; i < gridData.length; i++) {
+                        gridData[i].index = i;
+                    }
+
+                    this.set("_gridData", gridData);
                 },
 
                 _onRowChange: function (e, detail) {
@@ -932,12 +1061,43 @@
                     }
                 },
 
-                _getGridRecordsCount: function() {
-                    if(!this._gridData) {
-                        return 0;
+                _getGridRecordsCountMessage: function () {
+                    if (!this._gridData || this._gridData.length == 0) {
+                        return "Showing 0 results";
                     }
 
-                    return this._gridData.length;
+                    return "Showing 1 - "+ this._gridData.length +" items of total "+ this._gridData.length +" results";
+                },
+
+                _onDimensionsChanged: function(e, detail) {
+                    this._loading = true;
+                    if(detail && detail.dimensions && 
+                       detail.dimensions.taxonomy && 
+                       detail.dimensions.taxonomy.length) {
+                        if(this._currentTaxonomy != detail.dimensions.taxonomy[0]) {
+                            this._currentTaxonomy = detail.dimensions.taxonomy[0];
+
+                            if(this.dimensionSelector) {
+                                for(var i = 0; i < this._taxonomies.length; i++) {
+                                    if(this._taxonomies[i].name.toLowerCase() == this._currentTaxonomy.toLowerCase()) {
+                                        this.dimensionSelector.classificationTaxonomy = this._taxonomies[i].id;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    //Load mappings
+                    this._loadMappings();
+                },
+
+                _loadMappings: function() {
+                    if(this.dimensionSelector) {
+                        this.selectedDimensions = this.dimensionSelector.selectedDimensions;
+                        this._resetMappings(); // Reset before get
+                        this._getMappings(); // Get mappings based on dimensions
+                    }
                 }
             });
         })();

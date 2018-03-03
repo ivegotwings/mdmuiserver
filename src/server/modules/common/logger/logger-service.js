@@ -1,9 +1,12 @@
 'use strict'
-
+var caller = require('caller');
 var log4js = require('log4js');
 var path = require("path");
 var executionContext = require('../context-manager/execution-context');
 var LOGGER_CONFIG = require('./logger-config.js');
+var isEmpty = require('../utils/isEmpty');
+
+const loggerLevels = ["fatal", "error", "warn", "info", "debug"];
 
 var uuidV1 = require('uuid/v1');
 
@@ -14,6 +17,143 @@ var LoggerService = function (options) {
 };
 
 LoggerService.prototype = {
+  _getPattern: function () {
+    var pattern = "%d{ISO8601_WITH_TZ_OFFSET} [%p]";
+    for (var i = 0; i < this._formatKeys.length; i++) {
+      if ((i == 4) || (i == 12)) {
+        pattern += "%n";
+      }
+      if (this._formatKeys[i] == "newTimestamp") {
+        pattern += " %d{ISO8601_WITH_TZ_OFFSET}";
+      } else {
+        pattern += " [%X{" + this._formatKeys[i] + "}]";
+      }
+    }
+    return pattern;
+  },
+  _getModuleLogConfig: function (callerModuleName, calleeServiceName) {
+    var moduleLogConfig = LOGGER_CONFIG.getModulesObject();
+
+    var setting = {
+      callerModuleName: callerModuleName ? callerModuleName : 'none',
+      calleeServiceName: calleeServiceName ? calleeServiceName : 'none',
+      config: moduleLogConfig.default
+    };
+    
+    if(calleeServiceName && moduleLogConfig[calleeServiceName]) {
+      setting.config = moduleLogConfig[calleeServiceName];
+    }
+    else if(callerModuleName && moduleLogConfig[callerModuleName]) {
+      setting.config = moduleLogConfig[callerModuleName];
+    }
+
+    //console.log('module setting', JSON.stringify(setting));
+
+    return setting;
+  },
+  _getFormattedObject: function (msg, obj, moduleSetting) {
+    var formattedObj = {};
+
+    formattedObj["className"] = "UI";
+
+    //Tenent ID
+    var securityContext = executionContext.getSecurityContext();
+    if (securityContext && securityContext.tenantId) {
+      formattedObj["tenantId"] = securityContext.tenantId;
+    }
+
+    // User Id
+    if (securityContext && securityContext.headers && securityContext.headers.userId) {
+      formattedObj["userId"] = securityContext.headers.userId;
+    }
+
+    //Caller module name
+    if (moduleSetting.callerModuleName) {
+      formattedObj["callerServiceName"] = moduleSetting.callerModuleName;
+    }
+    
+    //Callee service name
+    if (moduleSetting.calleeServiceName) {
+      formattedObj["calleeServiceName"] = moduleSetting.calleeServiceName;
+    }
+
+    //Request Id
+    if (obj.requestId) {
+      formattedObj["requestId"] = obj.requestId;
+    }
+
+    //Inclusive time
+    if (obj.taken) {
+      formattedObj["inclusiveTime"] = obj.taken;
+    }
+
+    //Format Log Message
+    var finalMessage = "[" + msg + "] ";
+    if (obj.request && obj.request.body) {
+      finalMessage += "[Request - " + JSON.stringify(obj.request.body) + "] ";
+    }
+    if (obj.response) {
+      finalMessage += "[Response - " + JSON.stringify(obj.response) + "]";
+    }
+    if (obj.detail) {
+      finalMessage += "[Detail - " + JSON.stringify(obj.detail) + "] ";
+    }
+
+    formattedObj["logMessage"] = finalMessage;
+
+    return formattedObj;
+  },
+  _log: async function (level, msg, obj, callerModuleName, calleeServiceName) {
+    if (!this._isConfigured) {
+      throw "Logger is not configured. Please call logger.configure before using log method";
+    }
+
+    var moduleSetting = this._getModuleLogConfig(callerModuleName, calleeServiceName);
+
+    if(isEmpty(moduleSetting) || isEmpty(moduleSetting.config)) {
+      console.error('Module setting not found...No logging would happen in system');
+      return;
+    }
+
+    if (loggerLevels.indexOf(level) > loggerLevels.indexOf(moduleSetting.config.level)) {
+      return;
+    }
+
+    if (!obj) {
+      obj = {};
+    }
+
+    var formattedObject = this._getFormattedObject(msg, obj, moduleSetting);
+
+    this._logger.clearContext();
+
+    for (var i = 0; i < this._formatKeys.length; i++) {
+      var element = this._formatKeys[i];
+      if (formattedObject.hasOwnProperty(element)) {
+        this._logger.addContext(element, formattedObject[element]);
+      } else {
+        this._logger.addContext(element, "");
+      }
+    }
+
+    switch (level) {
+      case 'debug':
+        this._logger.debug(formattedObject);
+        break;
+      case 'info':
+        this._logger.info(formattedObject);
+        break;
+      case 'warn':
+        this._logger.warn(formattedObject);
+        break;
+      case 'error':
+        this._logger.error(formattedObject);
+        break;
+      default:
+        this._logger.fatal(formattedObject);
+        break;
+    }
+  },
   configure: function (config) {
     this._config = config;
     this._isConfigured = true;
@@ -50,148 +190,36 @@ LoggerService.prototype = {
   getConfig: function () {
     return this._config;
   },
-  info: function (msg, obj, service) {
-    return this._log(msg, obj, service, 'info');
+  info: function (msg, obj, callerModuleName, calleeServiceName) {
+    return this._log('info', msg, obj, callerModuleName);
   },
-  fatal: function (msg, obj, service) {
-    return this._log(msg, obj, service, 'fatal');
+  fatal: function (msg, obj, callerModuleName, calleeServiceName) {
+    return this._log('fatal', msg, obj, callerModuleName, calleeServiceName);
   },
-  warn: function (msg, obj, service) {
-    return this._log(msg, obj, service, 'warn');
+  warn: function (msg, obj, callerModuleName, calleeServiceName) {
+    return this._log('warn', msg, obj, callerModuleName, calleeServiceName);
   },
-  error: function (msg, obj, service) {
-    return this._log(msg, obj, service, 'error');
+  error: function (msg, obj, callerModuleName, calleeServiceName) {
+    //console.log('new error: ', msg, 'module: ', callerModuleName);
+    return this._log('error', msg, obj, callerModuleName, calleeServiceName);
   },
-  debug: function (msg, obj, service) {
-    return this._log(msg, obj, service, 'debug');
+  debug: function (msg, obj, callerModuleName, calleeServiceName) {
+    return this._log('debug', msg, obj, callerModuleName, calleeServiceName);
   },
-  log: function (msg, obj, level, service) {
-    return this._log(msg, obj, service, level);
+  log: function (level, msg, obj, callerModuleName, calleeServiceName) {
+    return this._log(level, msg, obj, callerModuleName, calleeServiceName);
   },
-  _log: async function (msg, obj, serviceName, level) {
-    if (!this._isConfigured) {
-      throw "Logger is not configured. Please call logger.configure before using log method";
-    }
-
-    if (!obj) {
-      obj = {};
-    }
-
-    if(!serviceName){
-      serviceName = this._getLogServiceName(obj);
-    }
-    if (this._isLogLevelEnabled(level, serviceName)) {
-      var formattedObject = this._getFormattedObject(msg, obj, serviceName);
-      //Clear all the contexts
-      this._logger.clearContext();
-      for (var i = 0; i < this._formatKeys.length; i++) {
-        var element = this._formatKeys[i];
-        if (formattedObject.hasOwnProperty(element)) {
-          this._logger.addContext(element, formattedObject[element]);
-        } else {
-          this._logger.addContext(element, "");
-        }
-      }
-
-      switch (level) {
-        case 'debug':
-          this._logger.debug(formattedObject);
-          break;
-        case 'info':
-          this._logger.info(formattedObject);
-          break;
-        case 'warn':
-          this._logger.warn(formattedObject);
-          break;
-        case 'error':
-          this._logger.error(formattedObject);
-          break;
-        default:
-          this._logger.fatal(formattedObject);
-          break;
-      }
-    }
-  },
-  _isLogLevelEnabled: function (level, serviceName) {
-    var loggerLevels = ["fatal", "error", "warn", "info", "debug"];
-    var modulesObject = LOGGER_CONFIG.getModulesObject();
-    if (modulesObject[serviceName] && modulesObject[serviceName].level) {
-      if (loggerLevels.indexOf(level) <= loggerLevels.indexOf(modulesObject[serviceName].level)) {
-        return true;
-      }
-    }
-  },
-  _getPattern: function () {
-    var pattern = "%d{ISO8601_WITH_TZ_OFFSET} [%p]";
-    for (var i = 0; i < this._formatKeys.length; i++) {
-      if ((i == 4) || (i == 12)) {
-        pattern += "%n";
-      }
-      if (this._formatKeys[i] == "newTimestamp") {
-        pattern += " %d{ISO8601_WITH_TZ_OFFSET}";
-      } else {
-        pattern += " [%X{" + this._formatKeys[i] + "}]";
-      }
-    }
-    return pattern;
-  },
-  _getFormattedObject: function (msg, obj, serviceName) {
-    var formattedObj = {};
-    formattedObj["className"] = "UI";
-    //Tenent ID
-    var securityContext = executionContext.getSecurityContext();
-    if (securityContext && securityContext.tenantId) {
-      formattedObj["tenantId"] = securityContext.tenantId;
-    }
-    //Module/Service name
-    if (serviceName) {
-      formattedObj["calleeServiceName"] = serviceName;
-    }
-    //Format Log Message
-    var finalMessage = "[" + msg + "] ";
-    if(obj.request && obj.request.body){
-        finalMessage += "[Request - " + JSON.stringify(obj.request.body) + "] ";
-    }
-    if(obj.response){
-        finalMessage += "[Response - " + JSON.stringify(obj.response) + "]";
-    }
-    if(obj.detail){
-        finalMessage += "[Detail - " + JSON.stringify(obj.detail) + "] ";
-    }
-    if(obj.taken){
-        finalMessage += "[Time Taken - " + obj.taken + "] ";
-    }
-    formattedObj["logMessage"] = finalMessage;
-    return formattedObj;
-  },
-  _getLogServiceName: function (obj) {
-    var _serviceName = "";
-    //Extract service from URL
-    if (obj.url) {
-      var moduleSettings = LOGGER_CONFIG.getModulesObject();
-      for (var logService in moduleSettings) {
-        if (moduleSettings[logService]) {
-          var element = moduleSettings[logService];
-          if (obj.url.indexOf(logService) > -1) {
-            _serviceName = logService;
-          }
-        }
-      }
-    }
-    return _serviceName;
-  },
-  //Log any RDF request
-  logRequest: function (url, options) {
+  logRequest: function (serviceName, options) {
     var internalRequestId = uuidV1();
     var requestLog = {
       "requestId": internalRequestId,
-      "url": url,
+      "service": serviceName,
       "request": options
     }
-    this.debug("RDF_REQUEST_INITIATED", requestLog);
+    this.debug("RDF_REQUEST_INITIATED", requestLog, "df-rest-service", serviceName);
     return internalRequestId;
   },
-  logError: function (internalRequestId, url, options, result) {
+  logError: function (internalRequestId, serviceName, options, result) {
     var isErrorResponse = false;
 
     //check if response object has error status
@@ -212,37 +240,46 @@ LoggerService.prototype = {
 
     if (isErrorResponse) {
       var errorLog = {
-        "url": url,
+        "service": serviceName,
         "requestId": internalRequestId,
         "request": options,
         "response": result,
       };
-      this.error("RDF_ERROR", errorLog);
+      this.error("RDF_ERROR", errorLog, "df-rest-service", serviceName);
     }
-  },
 
-  logException: function (internalRequestId, url, options, error) {
+    return isErrorResponse;
+  },
+  logException: function (internalRequestId, serviceName, options, error) {
     var exceptionJson = {
-      "url": url,
+      "service": serviceName,
       "detail": error,
       "requestId": internalRequestId,
       "request": options
     };
-    this.fatal("RDF_CALL_EXCEPTION", exceptionJson);
+    this.fatal("RDF_CALL_EXCEPTION", exceptionJson, "df-rest-service", serviceName);
   },
-
-  logResponse: function (internalRequestId, url, options, result, hrstart) {
+  logResponseCompletedInfo: function (internalRequestId, serviceName, hrstart) {
     var hrend = process.hrtime(hrstart);
     var taken = hrend[1] / 1000000;
     var responseLog = {
-      "url": url,
-      "taken": taken,
-      "requestId": internalRequestId
+      "requestId": internalRequestId,
+      "service": serviceName,
+      "taken": taken
     };
-    this.info("RDF_RESPONSE_COMPLETED", responseLog);
+    //this.info("RDF_RESPONSE_COMPLETED", responseLog, "df-rest-service", serviceName);
+  },
+  logResponse: function (internalRequestId, serviceName, response) {
+    var responseLog = {
+      "requestId": internalRequestId,
+      "service": serviceName,
+      "response": response
+    }
+    this.debug("RDF_RESPONSE", responseLog, "df-rest-service", serviceName);
+  },
+  getCurrentModule: function () {
+    return path.basename(path.dirname(caller(1)));
   }
-
-
 };
 
 var loggerServiceInstance = new LoggerService();

@@ -18,7 +18,6 @@
 
 <link rel="import" href="../rock-grid/remote-data.html">
 <link rel="import" href="../rock-grid/rock-grid.html">
-<link rel="import" href="../rock-business-function-dialog/rock-business-function-dialog.html">
 <link rel="import" href="../rock-grid-data-sources/entity-variant-grid-datasource.html">
 
 <!--
@@ -78,7 +77,7 @@
                 float: right;
             }
         </style>
-        <pebble-accordion header-text="Entity Family" default-icon="pebble-icon:RightArrow" open-icon="pebble-icon:Expand">
+        <pebble-accordion header-text="Entity Family" default-icon="pebble-icon:action-scope-take-selection" open-icon="pebble-icon:action-expand">
             <div class="container" id="entity-variant-container">
                 <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{_attributeModelRequest}}" on-entity-model-composite-get-response="_onCompositeModelGetResponse">
                 </liquid-entity-model-composite-get>
@@ -94,11 +93,10 @@
                 <pebble-vertical-divider class="divider"></pebble-vertical-divider>
                 <div class="right">
                     <pebble-button class="btn btn-primary m-r-10 m-t-10 pull-right" button-text="Variant Configurator" on-tap="_openVariantDialog"></pebble-button>
-                    <rock-business-function-dialog id="bFDialog" name="variant-create" context-data="[[contextData]]"></rock-business-function-dialog>
                     <div class="grid-container">
-                        <entity-variant-grid-datasource id="gridSource" request="[[gridRequest]]" data-source$="{{dataSource}}" current-record-size="{{currentRecordSize}}"
-                            buffer-record-size="{{size}}" data-formatter$="{{dataFormatter}}"></entity-variant-grid-datasource>
-                        <rock-grid id="grid" data-source$="{{dataSource}}" data-source-id$="gridSource" config="{{gridConfig}}" page-size="15" current-record-size="{{currentRecordSize}}"
+                        <entity-variant-grid-datasource id="gridSource" request="[[gridRequest]]" data-source="{{dataSource}}" current-record-size="{{currentRecordSize}}"
+                            buffer-record-size="{{size}}" data-formatter="{{dataFormatter}}"></entity-variant-grid-datasource>
+                        <rock-grid id="grid" data-source="{{dataSource}}" data-source-id="gridSource" config="{{gridConfig}}" page-size="15" current-record-size="{{currentRecordSize}}"
                             grid-data-size="{{size}}" attribute-models="[[_attributeModels]]"></rock-grid>
                         <bedrock-pubsub event-name="grid-edit-item" handler="_onGridEdit" target-id="grid"></bedrock-pubsub>
                     </div>
@@ -221,7 +219,8 @@
                     },
                 },
                 behaviors: [
-                    RUFBehaviors.UIBehavior
+                    RUFBehaviors.UIBehavior,
+                    RUFBehaviors.AppBehavior
                 ],
                 observers: [
                     '_onGridConfigChange(gridConfig)',
@@ -292,8 +291,9 @@
                         if (this.selectedItems && this.gridConfig && !_.isEmpty(this.gridConfig)) {
                             var request = this._getGridRequest();
                             this.gridRequest = request;
-                            if (this.shadowRoot.querySelector("#grid")) {
-                                this.shadowRoot.querySelector("#grid").reRenderGrid();
+                            const grid = this.shadowRoot.querySelector("#grid");
+                            if (grid) {
+                                grid.reRenderGrid();
                             }
                         }
                     });
@@ -308,7 +308,7 @@
                     }
                 },
 
-                _saveAction: function (e) {
+                _saveAction: async function (e) {
                     var entities = [];
                     for (var i = 0; i < this.editableItems.length; i++) {
                         var entity = this.editableItems[i];
@@ -319,7 +319,7 @@
                         var originalEntity = this._entities.find(function (ent) {
                             return ent.id == entity.id;
                         });
-                        var newEntity = DataTransformHelper.prepareEntityForAttributesSave(originalEntity, attrs, this.contextData);
+                        var newEntity = await DataTransformHelper.prepareEntityForAttributesSave(originalEntity, attrs, this.contextData);
                         entities.push(newEntity);
                     }
                     var attributeSaveDataService = this.shadowRoot.querySelector('[name="attributeSaveDataService"]');
@@ -330,19 +330,19 @@
                 },
                 _onSaveResponse: function (e) {
                     this.isEditMode = false;
-                    var that = this;
+                    const grid = this.shadowRoot.querySelector("#grid")
                     this.editableItems.forEach(function (item) {
-                        that.shadowRoot.querySelector("#grid").changeRowToViewMode(item.index);
+                        grid.setRowMode(item.index, 'view');
                     });
                 },
 
                 _cancelAction: function (e) {
                     this.isEditMode = false;
-                    var that = this;
+                    const grid = this.shadowRoot.querySelector("#grid");
                     this.editableItems.forEach(function (item) {
-                        that.shadowRoot.querySelector("#grid").changeRowToViewMode(item.index);
+                        grid.setRowMode(item.index, 'view');
                     });
-                    this.shadowRoot.querySelector("#grid").reRenderGrid();
+                    grid.reRenderGrid();
                 },
                 _onGridEdit: function (e, detail, sender) {
                     if (!this.editableItems) {
@@ -422,20 +422,19 @@
                         this.push('selectedItems', treeData[0]);
                     }
                 },
-                _getAttributeFormattedData: function (data) {
+                _getAttributeFormattedData: async function (data) {
                     var formattedEntities = [];
                     if (data && data.content) {
                         var entities = data.content.entities;
                         this._entities = DataHelper.cloneObject(entities);
                         if (entities && entities.length > 0) {
-                            formattedEntities = DataTransformHelper.transformEntitiesToGridFormat(entities, this._attributeModels, this.contextData);
+                            formattedEntities = await DataTransformHelper.transformEntitiesToGridFormat(entities, this._attributeModels, this.contextData);
                         }
                     }
                     return formattedEntities;
                 },
                 _openVariantDialog: function () {
-                    this.shadowRoot.querySelector("#bFDialog").sharedData = { "context-data": this.contextData };
-                    this.shadowRoot.querySelector("#bFDialog").open();
+                    this.openBusinessFunctionDialog({ name: 'variant-create' });
                 },
                 _onGridConfigChange: function () {
                     if (_.isEmpty(this.gridConfig)) {
