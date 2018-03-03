@@ -18,6 +18,7 @@ function createSecurityContext(req) {
         'headers': {
             "clientId": clientId ? clientId : "",
             "ownershipData": req.headers["x-rdp-ownershipdata"],
+            "ownershipEditData": req.headers["x-rdp-ownershipeditdata"],
             "userId": uid,
             "firstName": req.headers["x-rdp-firstname"],
             "lastName": req.headers["x-rdp-lastname"],

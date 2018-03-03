@@ -316,6 +316,19 @@ function createGetRequest(reqData) {
         maxRecords: 2000
     };
 
+    /**
+     * entity properties are not returned when attributes sent empty.
+     * properties come when we have either properties in fields or
+     * atlease one attribute. 
+     * Temperory: Hence sending properties: "_ALL" in fields when there are 
+     * no attributes in fields and when it is only entity data get.
+     * TODO: Need to find a better way to inject properties into request only
+     * when request come with properties from client side.
+     */
+    if(reqData.dataIndex === "entityData" && fields.attributes && fields.attributes.length === 0) {
+        fields.properties = ["_ALL"];
+    }
+
     var filters = {};
 
     if (reqData.dataObjectType) {
