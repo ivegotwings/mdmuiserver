@@ -50,14 +50,13 @@
         </style>
         <style>
         </style>
-        <rock-titlebar icon="pebble-icon:Dashboard" main-title="[[mainTitle]]" sub-title="[[subTitle]]" config="[[_titlebarConfig]]"
+        <rock-titlebar icon="pebble-icon:view-dashboard" main-title="[[mainTitle]]" sub-title="[[subTitle]]" config="[[_titlebarConfig]]"
             non-minimizable="[[appConfig.nonMinimizable]]" non-closable="[[appConfig.nonClosable]]">
             <div id="dimensionContainer" align="right">
                 <rock-dimension-selector id="dimensionSelector" entity-id="[[_entityId]]" entity-type="[[_entityType]]" app-name="[[appName]]" context-data="[[contextData]]"></rock-dimension-selector>
             </div>
         </rock-titlebar>
-        <liquid-entity-data-get name="attributeGetDataServiceForTitleBar" operation="getbyids" request-data="{{titleAttributeRequest}}"
-            on-response="_onTitleAttributesGetResponse"></liquid-entity-data-get>
+        <liquid-entity-data-get name="attributeGetDataServiceForTitleBar" operation="getbyids" data-index="[[dataIndex]]" data-sub-index="[[dataSubIndex]]" on-response="_onTitleAttributesGetResponse"></liquid-entity-data-get>
         <bedrock-pubsub event-name="dimension-selector-data-changed" handler="_onDimensionsChanged" target-id="dimensionSelector"></bedrock-pubsub>
     </template>
 <script>
@@ -116,6 +115,14 @@
                     value: function () {
                         return {};
                     }
+                },
+                dataIndex:{
+                    type: String,
+                    value: "entityData"
+                },
+                dataSubIndex:{
+                    type: String,
+                    value: "data"
                 }
             }
         }
@@ -124,6 +131,11 @@
         */
         connectedCallback() {
             super.connectedCallback();
+        }
+
+        get attributeGetDataServiceForTitleBarLiq() {
+            this._attributeGetDataServiceForTitleBar = this._attributeGetDataServiceForTitleBar || this.shadowRoot.querySelector("[name=attributeGetDataServiceForTitleBar]");
+            return this._attributeGetDataServiceForTitleBar;
         }
         /**
         *
@@ -141,7 +153,7 @@
                         "app": appName
                     }];
                 }
-
+                
                 this.requestConfig('rock-entity-titlebar', context);
             }
         }
@@ -149,6 +161,11 @@
             if (componentConfig && componentConfig.config) {
                 this._titlebarConfig = componentConfig.config;
 
+                //Set the data-index and data-sub-index for liquid-entity-model-get call using liquid-entity-data-get
+                if(componentConfig.config["dataIndex"] && componentConfig.config["dataSubIndex"]){
+                    this.dataIndex = componentConfig.config["dataIndex"];
+                    this.dataSubIndex = componentConfig.config["dataSubIndex"];
+                }
                 if(this.contextData && this.contextData.ItemContexts && this.contextData.ItemContexts.length) {
                     var entity = this.contextData.ItemContexts[0];
                     this._entityId = entity.id;
@@ -159,26 +176,25 @@
 
         refreshTitleBar() {
             var config = this._titlebarConfig;
-            if (config) {
-                var attributeNames = new Array();
-                if (config.titleAttribute != "") {
-                    attributeNames.push(config.titleAttribute);
-                }
-                if (config.subtitleAttribute != "") {
-                    attributeNames.push(config.subtitleAttribute);
-                }
-                if (attributeNames.length > 0) {
-                    if (this.contextData && this.contextData.ItemContexts && this.contextData.ItemContexts.length > 0) {
-                        var itemContext = this.contextData.ItemContexts[0];
-                        //add attribute names in item context
-                        itemContext.attributeNames = attributeNames;
-                        var req = DataRequestHelper.createEntityGetRequest(this.contextData, true, true);
-                        this.set("titleAttributeRequest", req);
-                        var liquidDataGet = this.shadowRoot.querySelector("[name=attributeGetDataServiceForTitleBar]");
-                        if (liquidDataGet) {
-                            liquidDataGet.generateRequest();
-                        }
-                    }
+            if (!config || !this.attributeGetDataServiceForTitleBarLiq) return;
+            
+            var attributeNames = new Array();
+            if (config.titleAttribute != "") {
+                attributeNames.push(config.titleAttribute);
+            }
+            if (config.subtitleAttribute != "") {
+                attributeNames.push(config.subtitleAttribute);
+            }
+            if (attributeNames.length > 0) {
+                if (this.contextData && this.contextData.ItemContexts && this.contextData.ItemContexts.length > 0) {
+                    var itemContext = this.contextData.ItemContexts[0];
+                    //add attribute names in item context
+                    itemContext.attributeNames = attributeNames;
+                    
+                    var req = DataRequestHelper.createEntityGetRequest(this.contextData, true, true);
+
+                    this.attributeGetDataServiceForTitleBarLiq.requestData = req;
+                    this.attributeGetDataServiceForTitleBarLiq.generateRequest();    
                 }
             }
         }
@@ -199,7 +215,6 @@
         }
 
         async setTitleBar(entity) {
-            var titlebar = this.shadowRoot.querySelector('rock-titlebar');
             var config = this._titlebarConfig;
 
             let titleAttribute = !_.isEmpty(config.titleAttribute) ? EntityHelper.getAttribute(entity, config.titleAttribute) : undefined;
@@ -211,8 +226,7 @@
             mainTitle = mainTitle ? mainTitle : entity.id;
             
             if(!subTitle){
-                var entityTypeManager = new EntityTypeManager();
-                subTitle = await entityTypeManager.getTypeExternalNameByIdAsync(entity.type)
+                subTitle = await EntityTypeManager.getInstance().getTypeExternalNameByIdAsync(entity.type);
             }
 
             if (!mainTitle || mainTitle == "") {
@@ -251,18 +265,18 @@
             this.fireBedrockEvent('dimension-selector-data-changed', e.detail);
         }
 
+        get dimensionSelector() {
+            this._dimensionSelector = this._dimensionSelector || this.shadowRoot.querySelector("#dimensionSelector");
+
+            return this._dimensionSelector;
+        }
+
         getDimensionSelectorConfig() {
-            var dimensionSelector = this.shadowRoot.querySelector("#dimensionSelector");
-            if(dimensionSelector) {
-                return dimensionSelector.getDimensionSelectorConfig();
-            }
+            return this.dimensionSelector ? this.dimensionSelector.getDimensionSelectorConfig() : null;
         }
 
         getSelectedDimensions() {
-            var dimensionSelector = this.shadowRoot.querySelector("#dimensionSelector");
-            if(dimensionSelector) {
-                return dimensionSelector.getSelectedDimensions();
-            }
+            return this.dimensionSelector ? this.dimensionSelector.getSelectedDimensions() : null;
         }
     }
     customElements.define(RockEntityTitlebar.is, RockEntityTitlebar);

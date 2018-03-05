@@ -165,21 +165,32 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
             //var valCtxItem = { 'source': CONST_ANY, 'locale': CONST_ANY }; //TODO: How to find out val contexts keys from the flat list of values object..??
 
             var valCtxItems = {};
-            for (let item of attr.group) {
-                var source = item.source || undefined;
-                var locale = item.locale || undefined;
-                var localeCoalesce = undefined;
+            if(reqData.dataIndex === "entityModel") {
+                for(let valCtxKey of reqData.valCtxKeys) {
+                    var valCtxItem = falcorUtil.getOrCreate(valCtxItems, valCtxKey, {});
+                    var group = falcorUtil.getOrCreate(valCtxItem, 'group', []);
 
-                var valCtxKey = falcorUtil.createCtxKey({ 'source': source, 'locale': locale });
-                var valCtxItem = falcorUtil.getOrCreate(valCtxItems, valCtxKey, {});
-                var group = falcorUtil.getOrCreate(valCtxItem, 'group', []);
+                    for(let item of attr.group) {
+                        group.push(item);
+                    }
+                }
+            } else {
+                for (let item of attr.group) {
+                    var source = item.source || undefined;
+                    var locale = item.locale || undefined;
+                    var localeCoalesce = undefined;
 
-                var localeCoalesceValCtxKey = falcorUtil.createCtxKey({ 'source': source, 'localeCoalesce': true, 'locale': locale });
-                var localeCoalesceValCtxItem = falcorUtil.getOrCreate(valCtxItems, localeCoalesceValCtxKey, {});
-                var localeCoalescegroup = falcorUtil.getOrCreate(localeCoalesceValCtxItem, 'group', []);
+                    var valCtxKey = falcorUtil.createCtxKey({ 'source': source, 'locale': locale });
+                    var valCtxItem = falcorUtil.getOrCreate(valCtxItems, valCtxKey, {});
+                    var group = falcorUtil.getOrCreate(valCtxItem, 'group', []);
 
-                group.push(item);
-                localeCoalescegroup.push(item);
+                    var localeCoalesceValCtxKey = falcorUtil.createCtxKey({ 'source': source, 'localeCoalesce': true, 'locale': locale });
+                    var localeCoalesceValCtxItem = falcorUtil.getOrCreate(valCtxItems, localeCoalesceValCtxKey, {});
+                    var localeCoalescegroup = falcorUtil.getOrCreate(localeCoalesceValCtxItem, 'group', []);
+
+                    group.push(item);
+                    localeCoalescegroup.push(item);
+                }
             }
 
             for(var valCtxKey in valCtxItems) {

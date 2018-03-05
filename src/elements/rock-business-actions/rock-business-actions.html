@@ -10,7 +10,6 @@
 <link rel="import" href="../liquid-rest/liquid-rest.html">
 
 <link rel="import" href="../rock-component-config-behavior/rock-component-config-behavior.html">
-<link rel="import" href="../rock-business-function-dialog/rock-business-function-dialog.html" />
 
 <!--
 @group rock Elements
@@ -26,11 +25,6 @@
             button-text="[[buttonText]]" actions-data="[[businessActions]]">
         </pebble-actions>
         <bedrock-pubsub event-name="pebble-actions-action-click" handler="_onActionItemTap" target-id=""></bedrock-pubsub>
-        <rock-business-function-dialog id="rollupDialog" context-data="[[contextData]]"></rock-business-function-dialog>
-        <rock-business-function-dialog id="wfTransitionDialog" context-data="[[contextData]]"></rock-business-function-dialog>
-        <rock-business-function-dialog id="wfAssignmentDialog" context-data="[[contextData]]"></rock-business-function-dialog>
-        <rock-business-function-dialog id="rePublishDialog" context-data="[[contextData]]"></rock-business-function-dialog>
-
         <liquid-entity-model-get id="entityGetWorkflowDefinition" operation="getbyids" request-id="req1" request-data={{workflowDefinitionRequest}}
             on-response="_onDefinitionReceived" on-error="_onDefinitionGetFailed"></liquid-entity-model-get>
         <liquid-rest id="entityWfAssignment" url="/data/pass-through/entitygovernservice/workflowChangeAssignment" method="POST"
@@ -38,7 +32,12 @@
     </template>
     <script>
         class RockBusinessActions
-            extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.ComponentContextBehavior, RUFBehaviors.ComponentConfigBehavior], Polymer.Element) {
+            extends Polymer.mixinBehaviors([
+                RUFBehaviors.UIBehavior,
+                RUFBehaviors.AppBehavior,
+                RUFBehaviors.ComponentContextBehavior, 
+                RUFBehaviors.ComponentConfigBehavior
+            ], Polymer.Element) {
             static get is() { return 'rock-business-actions' }
             ready() {
                 super.ready();
@@ -68,7 +67,7 @@
                     },
                     buttonIcon: {
                         type: String,
-                        value: "pebble-icon:Actions"
+                        value: "pebble-icon:action-take-task"
                     },
                     isSingleEntityProcess: {
                         type: Boolean,
@@ -175,27 +174,20 @@
             }
 
             triggerProcess(selectedDetails, workflowCriterion) {
-                var selectedItems = selectedDetails.selectedItems;
-                var selectionMode = selectedDetails.selectionMode;
-                var selectionQuery = selectedDetails.selectionQuery;
-                this._workflowCriterion = workflowCriterion || {};
+                if (!this._currentAction || !this._currentAction.data) return;
 
-                var eventName;
-                if (this._currentAction && this._currentAction.data) {
-                    eventName = this._currentAction.data.eventName;
-                }
+                const { eventName, componentName, subComponentName } = this._currentAction.data;
 
                 if (!eventName) {
                     this.showErrorToast("Unknown action triggered, system cannot do the process.");
                     return;
                 }
 
-                var asyncAvailable = false;
-                if (eventName == "action-takeTask" ||
-                    eventName == "action-releaseTask" ||
-                    eventName == "action-wfTransitions") {
-                    asyncAvailable = true;
-                }
+                const { selectedItems, selectionMode, selectionQuery } = selectedDetails;
+                
+                this._workflowCriterion = workflowCriterion || {};
+
+                const asyncAvailable = eventName == "action-takeTask" || eventName == "action-releaseTask" || eventName == "action-wfTransitions";
 
                 if (!asyncAvailable || (asyncAvailable && selectionMode == "count")) {
                     if (DataHelper.isEmptyObject(selectedItems)) {
@@ -213,111 +205,118 @@
                         );
                         return;
                     }
-                } else { //Check needed when async not available
-                    if (!DataHelper.isEmptyObject(selectedItems) && selectedItems.length > 20) {
-                        this.showErrorToast("Maximum 20 entities can be selected.");
-                        return;
-                    }
+                } else if (!DataHelper.isEmptyObject(selectedItems) && selectedItems.length > 20) {
+                    this.showErrorToast("Maximum 20 entities can be selected.");
+                    return;
                 }
 
                 if (!DataHelper.isEmptyObject(selectedItems)) {
                     this._selectedItems = selectedItems;
                 }
 
-                if (this._currentAction) {
-                    if (this._currentAction.data.eventName == "action-takeTask") {
-                        this._showAssignmentDialog(this._currentAction, "take", selectionMode, selectionQuery);
-                    } else if (this._currentAction.data.eventName == "action-releaseTask") {
-                        this._showAssignmentDialog(this._currentAction, "release", selectionMode, selectionQuery);
-                    } else if (this._currentAction.data.eventName == "action-wfTransitions") {
+                let detail = null;
+                let sharedData = null;
+
+                switch(eventName) {
+                    case 'action-takeTask':
+                        return this._showAssignmentDialog(this._currentAction, "take", selectionMode, selectionQuery);
+                    case 'action-releaseTask':
+                        return this._showAssignmentDialog(this._currentAction, "release", selectionMode, selectionQuery);
+                    case 'action-compare-entities':
+                        return this._compareEntities();
+                    case 'action-wfTransitions':
                         //Fetch the wf details from the URL
-                        var wfName = this._workflowCriterion.workflowName;
-                        var wfActivityName = this._workflowCriterion.workflowActivityName;
-                        var wfActivityExternalName = this._workflowCriterion.workflowActivityExternalName;
-                        var user = this._workflowCriterion.userId; // ?
+                        const { 
+                            userId,
+                            workflowName,
+                            wfActivityName, 
+                            workflowActivityName, 
+                            workflowActivityExternalName
+                        } = this._workflowCriterion;
 
-                        var currentWorkflow = {
-                            "name": wfName,
-                            "activityName": wfActivityName
-                        }
-
-                        var transitionDialog = this.shadowRoot.querySelector("#wfTransitionDialog");
-                        transitionDialog.name = this._currentAction.data.componentName;
-                        transitionDialog.sharedData = {
+                        detail = {
+                            name: componentName,
+                            mergeTitle: true,
+                            title: workflowActivityExternalName
+                        };
+                        
+                        sharedData = {
                             "selection-mode": selectionMode,
                             "selection-query": selectionQuery,
                             "selected-entities": this._selectedItems,
-                            "context-data": this.contextData,
-                            "current-workflow": currentWorkflow
-                        };
-                        transitionDialog.open();
-                        var existingTitle = transitionDialog.getTitle();
-                        transitionDialog.setTitle(existingTitle + " - " + wfActivityExternalName);
-                    } else if (this._currentAction.data.eventName == "action-rollup") {
-                        var rollupDialog = this.shadowRoot.querySelector("#rollupDialog");
-                        rollupDialog.name = this._currentAction.data.componentName;
-                        rollupDialog.subName = this._currentAction.data.subComponentName;
-                        rollupDialog.sharedData = {
-                            "context-data": this.contextData,
-                            "selected-entities": this._selectedItems
-                        };
-                        rollupDialog.open();
-                    } else if (this._currentAction.data.eventName == "action-re-publish") {
-                        var rePublishDialog = this.shadowRoot.querySelector("#rePublishDialog");
-                        rePublishDialog.name = "rock-wizard-re-publish";
-                        rePublishDialog.sharedData = {
-                            "context-data": this.contextData,
-                            "selected-entities": this._selectedItems
-                        };
-                        rePublishDialog.open();
-
-                    } else if (this._currentAction.data.eventName == "action-compare-entities") {
-                        if (this._currentAction && this._currentAction.data) {
-                            var mainApp = RUFUtilities.mainApp;
-                            var dataRoute = this._currentAction.data.dataRoute;
-                            var entityIds = [];
-                            var entityTypes = [];
-
-                            this._selectedItems.forEach(function (selectedItem) {
-                                if (selectedItem) {
-                                    entityIds.push(selectedItem.id);
-
-                                    if (entityTypes.indexOf(selectedItem.type) < 0) {
-                                        entityTypes.push(selectedItem.type);
-                                    }
-                                }
-                            }, this);
-
-                            var compareEntitiesContextId = ElementHelper.getRandomId();
-                            var compareEntititesContextData = {
-                                "entityIds": entityIds,
-                                "entityTypes": entityTypes,
-                                "contextData": this.contextData
+                            "current-workflow": {
+                                "name": workflowName,
+                                "activityName": workflowActivityName
                             }
-
-                            sessionStorage.setItem(compareEntitiesContextId, JSON.stringify(compareEntititesContextData));
-                            ComponentHelper.setQueryParamsWithoutEncode({ "compareEntitiesContextId": compareEntitiesContextId });
-                            mainApp.changePageRoutePath(dataRoute);
-                        }
-                    }
+                        };
+                        break;
+                    case 'action-rollup':
+                        detail = {
+                            name: componentName,
+                            subName: subComponentName
+                        };
+                        
+                        sharedData = {"selected-entities": this._selectedItems};
+                        break;
+                    case 'action-re-publish':
+                        detail = {
+                            name: componentName,
+                            subName: subComponentName
+                        };
+                        
+                        sharedData = { "selected-entities": this._selectedItems};
+                        break;
                 }
+
+                this.openBusinessFunctionDialog(detail, sharedData);
+            }
+
+            _compareEntities() {
+                var mainApp = RUFUtilities.mainApp;
+                var dataRoute = this._currentAction.data.dataRoute;
+                var entityIds = [];
+                var entityTypes = [];
+
+                this._selectedItems.forEach(function (selectedItem) {
+                    entityIds.push(selectedItem.id);
+
+                    if (entityTypes.indexOf(selectedItem.type) < 0) {
+                        entityTypes.push(selectedItem.type);
+                    }
+                });
+
+                var compareEntitiesContextId = ElementHelper.getRandomId();
+                var compareEntititesContextData = {
+                    "entityIds": entityIds,
+                    "entityTypes": entityTypes,
+                    "contextData": this.contextData
+                }
+
+                sessionStorage.setItem(compareEntitiesContextId, JSON.stringify(compareEntititesContextData));
+                ComponentHelper.setQueryParamsWithoutEncode({ "compareEntitiesContextId": compareEntitiesContextId });
+                mainApp.changePageRoutePath(dataRoute);
             }
 
             _showAssignmentDialog(detail, action, selectionMode, selectionQuery) {
-                var assignmentDialog = this.shadowRoot.querySelector("#wfAssignmentDialog");
-                assignmentDialog.name = detail.data.componentName;
-                assignmentDialog.sharedData = {
+                const { 
+                    workflowName, 
+                    workflowShortName, 
+                    workflowActivityName,
+                    workflowActivityExternalName
+                } = this._workflowCriterion;
+                
+                const sharedData = {
                     "selection-mode": selectionMode,
                     "selection-query": selectionQuery,
                     "selected-entities": this._selectedItems,
-                    "context-data": this.contextData,
                     "assignment-Action": action,
-                    "workflow-external-name": this._workflowCriterion.workflowName,
-                    "workflow-activity-external-name": this._workflowCriterion.workflowActivityExternalName,
-                    "workflow-name": this._workflowCriterion.workflowShortName,
-                    "workflow-activity-name": this._workflowCriterion.workflowActivityName
+                    "workflow-external-name": workflowName,
+                    "workflow-activity-external-name": workflowActivityExternalName,
+                    "workflow-name": workflowShortName,
+                    "workflow-activity-name": workflowActivityName
                 };
-                assignmentDialog.open();
+
+                this.openBusinessFunctionDialog({name: detail.data.componentName}, sharedData);
             }
 
             _toggleActionItems() {
@@ -374,59 +373,59 @@
 
                 this._failedWorkflows = [];
                 this._doneWorkflows = [];
-                if (detail) {
-                    if (detail.data.eventName.indexOf("context") != -1) {
-                        this.fireBedrockEvent("on-context-manage-tap", detail, { ignoreId: true });
-                        return;
-                    }
+                if (!detail) return;
 
-                    if (_.isEmpty(this.workflowInfo)) {
-                        this.showErrorToast("Workflow details not available, cannot perform the operation now.");
-                        return;
-                    }
+                if (detail.data.eventName.indexOf("context") != -1) {
+                    this.fireBedrockEvent("on-context-manage-tap", detail, { ignoreId: true });
+                    return;
+                }
 
-                    if (detail.data.eventName == "action-takeTask") {
-                        this._currentWorkflowAction = "take";
-                    }
-                    if (detail.data.eventName == "action-releaseTask") {
-                        this._currentWorkflowAction = "release";
-                    }
+                if (_.isEmpty(this.workflowInfo)) {
+                    this.showErrorToast("Workflow details not available, cannot perform the operation now.");
+                    return;
+                }
 
-                    if (this.workflowInfo && this.workflowInfo.data) {
-                        var foundWorkflowNames = [];
-                        var runningInstances = [];
+                if (detail.data.eventName == "action-takeTask") {
+                    this._currentWorkflowAction = "take";
+                }
+                if (detail.data.eventName == "action-releaseTask") {
+                    this._currentWorkflowAction = "release";
+                }
 
-                        //Note: Here, workflow runtime data would be always in the context of workflow so no need to check for data.attributes
-                        var contexts = this.workflowInfo.data && this.workflowInfo.data.contexts ? this.workflowInfo.data.contexts : [];
+                if (this.workflowInfo && this.workflowInfo.data) {
+                    var foundWorkflowNames = [];
+                    var runningInstances = [];
 
-                        for (var i = 0; i < contexts.length; i++) {
-                            var currContextItem = contexts[i];
-                            var currContext = currContextItem.context;
-                            var currWorkflowName = currContext.workflow;
-                            var contextAttrs = currContextItem.attributes;
+                    //Note: Here, workflow runtime data would be always in the context of workflow so no need to check for data.attributes
+                    var contexts = this.workflowInfo.data && this.workflowInfo.data.contexts ? this.workflowInfo.data.contexts : [];
 
-                            if (currWorkflowName) {
-                                var runtimeInstance = {
-                                    "name": currWorkflowName,
-                                    "activityName": AttributeHelper.getFirstAttributeValue(contexts[i].attributes.activities.group[0].activityName)
-                                };
+                    for (var i = 0; i < contexts.length; i++) {
+                        var currContextItem = contexts[i];
+                        var currContext = currContextItem.context;
+                        var currWorkflowName = currContext.workflow;
+                        var contextAttrs = currContextItem.attributes;
 
-                                runningInstances[currWorkflowName] = {};
-                                runningInstances[currWorkflowName] = runtimeInstance;
-                                foundWorkflowNames.push(currWorkflowName);
-                            }
+                        if (currWorkflowName) {
+                            var runtimeInstance = {
+                                "name": currWorkflowName,
+                                "activityName": AttributeHelper.getFirstAttributeValue(contexts[i].attributes.activities.group[0].activityName)
+                            };
+
+                            runningInstances[currWorkflowName] = {};
+                            runningInstances[currWorkflowName] = runtimeInstance;
+                            foundWorkflowNames.push(currWorkflowName);
                         }
-                        if (foundWorkflowNames.length > 0) {
-                            this.set("_runningInstances", runningInstances);
-                            this.set("_foundWorkflowNames", foundWorkflowNames);
-                            var itemContext = this.getFirstItemContext();
-                            itemContext.workflowNames = foundWorkflowNames;
+                    }
+                    if (foundWorkflowNames.length > 0) {
+                        this.set("_runningInstances", runningInstances);
+                        this.set("_foundWorkflowNames", foundWorkflowNames);
+                        var itemContext = this.getFirstItemContext();
+                        itemContext.workflowNames = foundWorkflowNames;
 
-                            this.workflowDefinitionRequest = DataRequestHelper.createWorkflowDefinitionGetRequest(this.contextData);
-                            this.shadowRoot.querySelector("#entityGetWorkflowDefinition").generateRequest();
-                        } else {
-                            this.showErrorToast("Entity is not available in any workflow.");
-                        }
+                        this.workflowDefinitionRequest = DataRequestHelper.createWorkflowDefinitionGetRequest(this.contextData);
+                        this.shadowRoot.querySelector("#entityGetWorkflowDefinition").generateRequest();
+                    } else {
+                        this.showErrorToast("Entity is not available in any workflow.");
                     }
                 }
             }
@@ -463,6 +462,7 @@
                     this._generateAssignmentRequest();
                 }
             }
+            
             _onDefinitionGetFailed(e) {
                 Polymer.Base._error('workflow definition get failed with error ', e.detail);
             }
