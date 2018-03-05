@@ -1,0 +1,170 @@
+<link rel="import" href="../../../bower_components/polymer/polymer-element.html">
+
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+<link rel="import" href="../bedrock-helpers/context-helper.html">
+<link rel="import" href="../bedrock-helpers/data-request-helper.html">
+
+
+<script>
+    'use strict';
+    let ContextModelManager = (function () {
+
+        let _contextModels;
+        let _entityTypes;
+
+        async function _init() {
+            _entityTypes = await EntityTypeManager.getInstance().getTypesByDomainAsync("thing");
+            if (!_.isEmpty(_entityTypes)) {
+                _getContextModelBasedOnEntityTypes();
+            }
+        }
+
+        function _getContextModelBasedOnEntityTypes() {
+            var liquidEntityCustomElement = customElements.get("liquid-rest");
+            var liquidEntityModelGet = new liquidEntityCustomElement();
+
+            liquidEntityModelGet.url = "/data/pass-through/entitymodelservice/getcontext";
+            liquidEntityModelGet.method = "POST";
+
+            liquidEntityModelGet.addEventListener("liquid-response", _onContextModelGetReponse);
+            liquidEntityModelGet.addEventListener("liquid-error", _onContextModelGetFailed);
+
+            var contextData = {};
+            var itemContext = {
+                "type": "entityContextModel",
+                "ids": ""
+            };
+            // itemContext.domain = "thing";
+            contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+            contextData[ContextHelper.CONTEXT_TYPE_VALUE] = [];
+            contextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
+            var req = DataRequestHelper.createEntityGetRequest(contextData);
+            delete req.params.options.maxRecords;
+            req.params.fields.attributes = ["externalName"];
+            liquidEntityModelGet.requestData = req;
+            liquidEntityModelGet.generateRequest();
+        }
+
+        function _onContextModelGetReponse(ev) {
+            if (ev && ev.detail && ev.detail.response && ev.detail.response.response && ev.detail.response.response.entityModels) {
+                var entityModels = ev.detail.response.response.entityModels;
+                if (!_.isEmpty(entityModels)) {
+                    _contextModels = {};
+                    entityModels.forEach(element => {
+                        if (element && !_.isEmpty(element)) {
+                            _contextModels[element.name] = element;
+                        }
+                    });
+                }
+            }
+        }
+
+        function _onContextModelGetFailed(ev) {
+            console.log(ev)
+        }
+
+        function getContextModelBasedOnCurrentDataContext(contextModels, firstDataContext) {
+            var contextModel;
+            var partialContextModels = [];
+
+            if (!_.isEmpty(contextModels)) {
+                for (var i = 0; i < contextModels.length; i++) {
+                    var ctxModelItem = contextModels[i];
+                    if (ctxModelItem && ctxModelItem.context) {
+                        var dataContext = ctxModelItem.context;
+                        if (DataHelper.compareObjects(dataContext, firstDataContext)) {
+                            contextModel = ctxModelItem;
+                            break;
+                        } else {
+                            var numberOfExactMatch = 0;
+                            var isPartialMatch = false;
+                            if (Object.keys(dataContext).length == Object.keys(firstDataContext).length) {
+                                var dataCtxObjectKeys = Object.keys(firstDataContext);
+                                for (var j = 0; j < dataCtxObjectKeys.length; j++) {
+                                    if (dataContext[dataCtxObjectKeys[j]]) {
+                                        if (firstDataContext[dataCtxObjectKeys[j]] == dataContext[dataCtxObjectKeys[j]]) {
+                                            numberOfExactMatch++;
+                                        } else if (dataContext[dataCtxObjectKeys[j]].toLowerCase() == "_all") {
+                                            isPartialMatch = true;
+                                        } else {
+                                            isPartialMatch = false;
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                if (isPartialMatch) {
+                                    partialContextModels.push({
+                                        "numberOfExactMatch": numberOfExactMatch,
+                                        "ctxModelItem": ctxModelItem
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (partialContextModels && _.isEmpty(contextModel)) {
+                    if (partialContextModels.length == 1) {
+                        contextModel = partialContextModels[0].ctxModelItem;
+                    } else {
+                        var highestNumberOfMatch = 0;
+                        partialContextModels.forEach(function (ctxModel) {
+                            if (ctxModel.numberOfExactMatch > highestNumberOfMatch) {
+                                highestNumberOfMatch = ctxModel.numberOfExactMatch;
+                                contextModel = ctxModel.ctxModelItem;
+                            }
+                        }, this);
+                    }
+                }
+            }
+
+            return contextModel;
+        };
+
+        let contextModelManagerInstance;
+
+        class ContextModelManager {
+            constructor() {
+                if (!contextModelManagerInstance) {
+                    _init();
+                    contextModelManagerInstance = this;
+                }
+
+                return contextModelManagerInstance;
+            }
+
+            async getByEntityType(entityType) {
+                if (!_contextModels) {
+                    await _init();
+                }
+                return _contextModels[entityType];
+            }
+
+            async getContextModelsBasedOnEntityType(entityType) {
+                var contextModels = [];
+                var entityTypeContextModel = await this.getByEntityType(entityType);
+
+                if (entityTypeContextModel && entityTypeContextModel.data) {
+                    contextModels = entityTypeContextModel.data.contexts;
+                }
+
+                return contextModels;
+            }
+
+            async getContextModelByEntityTypeAndDataContext(entityType, dataContext) {
+                var contextModel;
+                var contextModels = await this.getContextModelsBasedOnEntityType(entityType);
+
+                if (!_.isEmpty(contextModels) && !_.isEmpty(dataContext)) {
+                    contextModel = getContextModelBasedOnCurrentDataContext(contextModels, dataContext);
+                }
+
+                return contextModel;
+            }
+        }
+
+        return contextModelManagerInstance = new ContextModelManager();
+    }());
+
+</script>

@@ -71,15 +71,15 @@ var SERVICE_CONFIG = {
             }
         },
         "entitymodelservice/create": {
-            "url": "/entityappmodelservice/create",
+            "url": "/entitymodelservice/create",
             "mode": "online"
         },
         "entitymodelservice/update": {
-            "url": "/entityappmodelservice/update",
+            "url": "/entitymodelservice/update",
             "mode": "online"
         },
         "entitymodelservice/delete": {
-            "url": "/entityappmodelservice/delete",
+            "url": "/entitymodelservice/delete",
             "mode": "online"
         },
         "entitygovernservice/get": {
