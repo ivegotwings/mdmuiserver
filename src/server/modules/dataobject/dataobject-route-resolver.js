@@ -20,7 +20,6 @@ const CONST_ALL = falcorUtil.CONST_ALL,
 const DataObjectManageService = require('./DataObjectManageService');
 const ConfigurationService = require('./ConfigurationService');
 const EntityCompositeModelGetService = require('./EntityCompositeModelGetService');
-const EntityCompositeModelGetService1 = require('./EntityCompositeModelGetService1');
 const EventService = require('../event-service/EventService');
 const EntityHistoryEventService = require('../event-service/EntityHistoryEventService');
 
@@ -45,7 +44,6 @@ if (runOffline) {
 
 const dataObjectManageService = new DataObjectManageService(options);
 const entityCompositeModelGetService = new EntityCompositeModelGetService(options);
-const entityCompositeModelGetService1 = new EntityCompositeModelGetService1(options);
 const configurationService = new ConfigurationService(options);
 const eventService = new EventService(options);
 const entityHistoryEventService = new EntityHistoryEventService(options);
@@ -364,9 +362,6 @@ function _getService(dataObjectType) {
 
     if (dataObjectType == 'entityCompositeModel') {
         return entityCompositeModelGetService;
-    }
-    if (dataObjectType == 'entityCompositeModel1') {
-        return entityCompositeModelGetService1;
     }
     if (dataObjectType == 'uiConfig') {
         return configurationService;
