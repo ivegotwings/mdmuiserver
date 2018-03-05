@@ -70,16 +70,26 @@ var SERVICE_CONFIG = {
                 "fieldToCompareInData": "id"
             }
         },
+        "entitymodelservice/getcomposite": {
+            "url": "/entityappmodelservice/getcomposite",
+            "mode": "online",
+            "offlineSettings": {
+                "operation": "get",
+                "requestPathToSelectDataFile": "params.query.filters.typesCriterion",
+                "requestPathToFilterData": "params.query.id",
+                "fieldToCompareInData": "id"
+            }
+        },
         "entitymodelservice/create": {
-            "url": "/entityappmodelservice/create",
+            "url": "/entitymodelservice/create",
             "mode": "online"
         },
         "entitymodelservice/update": {
-            "url": "/entityappmodelservice/update",
+            "url": "/entitymodelservice/update",
             "mode": "online"
         },
         "entitymodelservice/delete": {
-            "url": "/entityappmodelservice/delete",
+            "url": "/entitymodelservice/delete",
             "mode": "online"
         },
         "entitygovernservice/get": {
