@@ -16,59 +16,71 @@
 
             var mergedAttributeModels = {};
 
-            //put default model as base
-            if (compositeModel && compositeModel.data && compositeModel.data.attributes) {
-                mergedAttributeModels = DataMergeHelper.mergeAttributes(mergedAttributeModels, compositeModel.data.attributes, true);
-                for (var attrKey in mergedAttributeModels) {
-                    var dataAttrModel = mergedAttributeModels[attrKey];
-                    dataAttrModel.selfContext = 1;
-                }
-            }
-
-            if (!_.isEmpty(firstDataContext)) {
-                //apply contexts specific model on top of default
-                var specificCtxAttributeModels = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(compositeModel, firstDataContext);
-                var mergedAttrKeys = Object.keys(mergedAttributeModels);
-                for (var attrKey in specificCtxAttributeModels) {
-                    if (mergedAttrKeys.indexOf(attrKey) >= 0) {
-                        mergedAttributeModels[attrKey] = specificCtxAttributeModels[attrKey];
+            // If context is available and if it is get coalesce then all self attributes will be already coalesced in a context
+            // So self attributes can be filtered from coleased attributes.
+            // If same attribute is present in self as well as in a context with some different properties then API should take care about merging of this attribute.
+            if (compositeModel && "data" in compositeModel) {
+                if (!_.isEmpty(firstDataContext)) {
+                    var specificCtxAttributeModels = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(compositeModel, firstDataContext);
+                    var mergedAttrKeys = Object.keys(mergedAttributeModels);
+                    for (var attrKey in specificCtxAttributeModels) {
+                        if ("contextCoalesce" in specificCtxAttributeModels[attrKey].properties) {
+                            specificCtxAttributeModels[attrKey].selfContext = "self" in specificCtxAttributeModels[attrKey].properties.contextCoalesce[0] && 1;
+                        }
+                    }
+                    mergedAttributeModels = specificCtxAttributeModels;
+                } else {
+                    if ("attributes" in compositeModel.data) {
+                        mergedAttributeModels = compositeModel.data.attributes;
+                        for (var attrKey in mergedAttributeModels) {
+                            mergedAttributeModels[attrKey].selfContext = 1;
+                        }
                     }
                 }
-                mergedAttributeModels = DataMergeHelper.mergeAttributes(mergedAttributeModels, specificCtxAttributeModels, true);
+
+                if (!_.isEmpty(mergedAttributeModels)) {
+                    this._fillModels(mergedAttributeModels);
+                }
             }
 
+<<<<<<< HEAD
 
             this._fillModels(mergedAttributeModels, false, editPermission);
 
+=======
+>>>>>>> ff88fbb564e213350cfc15bf784e63d42c586434
             //console.log(mergedAttributeModels);
             return mergedAttributeModels;
         };
 
         DataTransformHelper.transformRelationshipModels = function (compositeModel, contextData) {
-            var dataContexts = ContextHelper.getDataContexts(contextData);
+            var firstDataContext = ContextHelper.getFirstDataContext(contextData);
 
             var mergedRelationshipModels = {};
 
-            //put default model as base
-            if (compositeModel.data && compositeModel.data.relationships) {
-                mergedRelationshipModels = DataMergeHelper.mergeRelationships(mergedRelationshipModels, compositeModel.data.relationships, true);
-                for (var relKey in mergedRelationshipModels) {
-                    var dataRelModel = mergedRelationshipModels[relKey];
-                    dataRelModel.selfContext = 1;
-                }
-            }
 
-            for (var i = 0; i < dataContexts.length; i++) {
-                var dataContext = dataContexts[i];
-                //apply contexts specific model on top of default
-                var specificCtxRelationshipModels = SharedUtils.DataObjectFalcorUtil.getRelationshipsByCtx(compositeModel, dataContext);
-                for (var relKey in specificCtxRelationshipModels) {
-                    var dataRelModel = mergedRelationshipModels[relKey];
-                    if (!_.isEmpty(dataRelModel)) {
-                        dataRelModel.selfContext = 0;
+            // If context is available and if it is get coalesce then all self relationships will be already coalesced in a context
+            // So self relationships can be filtered from coleased relationships.
+            // If same relationship is present in self as well as in a context with some different properties then API should take care about merging of this relationship.
+            if (compositeModel && "data" in compositeModel) {
+                if (!_.isEmpty(firstDataContext)) {
+                    var specificCtxRelationshipModels = SharedUtils.DataObjectFalcorUtil.getRelationshipsByCtx(compositeModel, firstDataContext);
+                    var mergedRelKeys = Object.keys(mergedRelationshipModels);
+                    for (var relKey in specificCtxRelationshipModels) {
+                        if ("contextCoalesce" in specificCtxRelationshipModels[relKey].properties) {
+                            specificCtxRelationshipModels[relKey].selfContext = "self" in specificCtxRelationshipModels[relKey].properties.contextCoalesce[0] && 1;
+                        }
+                    }
+                    mergedRelationshipModels = specificCtxRelationshipModels;
+                } else {
+                    if ("relationships" in compositeModel.data) {
+                        mergedRelationshipModels = compositeModel.data.relationships;
+                        for (var relKey in mergedRelationshipModels) {
+                            var dataRelModel = mergedRelationshipModels[relKey];
+                            dataRelModel.selfContext = 1;
+                        }
                     }
                 }
-                mergedRelationshipModels = DataMergeHelper.mergeRelationships(mergedRelationshipModels, specificCtxRelationshipModels, true);
             }
 
             //console.log(mergedAttributeModels);
@@ -93,10 +105,6 @@
 
             if (firstDataContext) {
                 var ctxAttributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, firstDataContext);
-
-                // RDF is not supporting coalesce between self context to other context.
-                // _prepareForSelfToContextCoalesce will do coalesce manually to link self context with other context.
-                DataTransformHelper._prepareForSelfToContextCoalesce(mergedAttributes, ctxAttributes, sortedAttributeModels);
 
                 if (!_.isEmpty(ctxAttributes)) {
                     Object.keys(ctxAttributes).forEach((attrName) => {
@@ -1589,86 +1597,6 @@
             }
 
             return referenceModels;
-        };
-
-        DataTransformHelper._prepareForSelfToContextCoalesce = function (selfAttributes, contextualAttributes, attributeModels) {
-            if (selfAttributes && contextualAttributes) {
-                var ctxAttrKeys = Object.keys(contextualAttributes);
-                for (var attrKey in selfAttributes) {
-                    if (ctxAttrKeys.indexOf(attrKey) == -1) {
-                        selfAttributes[attrKey].properties = {
-                            "contextCoalesce": [
-                                {
-                                    "self": "Self"
-                                }
-                            ]
-                        };
-                    } else {
-                        if (selfAttributes[attrKey] && contextualAttributes[attrKey] && attributeModels && attributeModels[attrKey] && attributeModels[attrKey].isLocalizable) {
-                            var ctxValues = contextualAttributes[attrKey].values;
-                            if (ctxValues && ctxValues.length) {
-                                var localeCoalescedCtxValues = ctxValues.filter(item => item.properties && item.properties.localeCoalescePath);
-
-                                if (localeCoalescedCtxValues && localeCoalescedCtxValues.length) {
-                                    var selfValues = selfAttributes[attrKey].values;
-                                    if (selfValues && selfValues.length) {
-                                        var localeCoalescedSelfValues = selfValues.filter(item => item.properties && item.properties.localeCoalescePath);
-
-                                        if (localeCoalescedSelfValues.length) {
-                                            let selfLocaleCoalescePath = AttributeHelper.getLocaleCoalescePath(selfAttributes[attrKey]);
-                                            let ctxLocaleCoalescePath = AttributeHelper.getLocaleCoalescePath(contextualAttributes[attrKey]);
-                                            var selfFallbackPaths = DataHelper.getFallbackPathsFromCoalescePath(selfLocaleCoalescePath);
-                                            var ctxFallbackPaths = DataHelper.getFallbackPathsFromCoalescePath(ctxLocaleCoalescePath);
-
-                                            if (ctxFallbackPaths.length > selfFallbackPaths.length) {
-                                                localeCoalescedSelfValues = [];
-                                            }
-                                        }
-
-                                        if (localeCoalescedSelfValues && !localeCoalescedSelfValues.length) {
-                                            selfAttributes[attrKey].properties = {
-                                                "contextCoalesce": [
-                                                    {
-                                                        "self": "Self"
-                                                    }
-                                                ]
-                                            };
-
-                                            contextualAttributes[attrKey] = selfAttributes[attrKey];
-                                        }
-                                    }
-                                }
-                            } else if (contextualAttributes[attrKey] && contextualAttributes[attrKey].group && contextualAttributes[attrKey].group.length > 0) {
-                                // this is a nested attribute.
-                                var localeCoalescedCtxRows = contextualAttributes[attrKey].group.filter(function (ctxValueGroup) {
-                                    if (ctxValueGroup.properties && ctxValueGroup.properties.localeCoalescePath) {
-                                        return ctxValueGroup;
-                                    }
-                                });
-                                if (localeCoalescedCtxRows && localeCoalescedCtxRows.length) {
-                                    if (selfAttributes[attrKey] && selfAttributes[attrKey].group && selfAttributes[attrKey].group.length > 0) {
-                                        var localeCoalescedSelfChildRows = selfAttributes[attrKey].group.filter(function (selfValueGroup) {
-                                            if (selfValueGroup.properties && selfValueGroup.properties.localeCoalescePath) {
-                                                return selfValueGroup;
-                                            }
-                                        });
-                                        if (localeCoalescedSelfChildRows && !localeCoalescedSelfChildRows.length) {
-                                            selfAttributes[attrKey].properties = {
-                                                "contextCoalesce": [
-                                                    {
-                                                        "self": "Self"
-                                                    }
-                                                ]
-                                            };
-                                            contextualAttributes[attrKey] = selfAttributes[attrKey];
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
         };
 
         DataTransformHelper.prepareEntityForContextSave = async function (data, attributeModels, relationshipModels, contextData) {
