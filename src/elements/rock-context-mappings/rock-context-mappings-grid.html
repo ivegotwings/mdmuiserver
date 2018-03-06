@@ -199,9 +199,6 @@
         <bedrock-pubsub event-name="context-build-path-cancel" handler="_onCancelBuildPath" target-id=""></bedrock-pubsub>
         <bedrock-pubsub event-name="context-build-path-select" handler="_onSelectBuildPath" target-id=""></bedrock-pubsub>
 
-        <!-- Context get -->
-        <liquid-rest id="contextModelGet" url="/data/pass-through/entitymodelservice/getcontext" method="POST" request-data="{{_contextModelGetReq}}"
-            on-liquid-response="_onContextModelGetResponse" on-liquid-error="_onContextModelGetFailed"></liquid-rest>
         <liquid-entity-data-get id="initiateEntitySearch" operation="initiatesearch" request-data="{{entityGetrequest}}" last-response="{{initiateSearchResponse}}"
             on-error="_onGetSearchError" on-response="_onInitiateEntitySearchResponse" exclude-in-progress></liquid-entity-data-get>
         <liquid-entity-data-get id="getEntitySearchResultDetail" operation="getsearchresultdetail" request-data="{{entityGetrequest}}"
@@ -302,6 +299,13 @@
                     _loading: {
                         type: Boolean,
                         value: false
+                    },
+
+                    _contextPathFields: {
+                        type: Array,
+                        value: function() {
+                            return [];
+                        }
                     }
                 },
                 observers: [
@@ -312,85 +316,83 @@
                     RUFBehaviors.ComponentContextBehavior
                 ],
 
-                _onMappingsDataChange: function () {
+                _onMappingsDataChange: async function () {
                     if (!_.isEmpty(this.contextData) && !_.isEmpty(this.mappingData) && !_.isEmpty(this.mappingConfig) && !_.isEmpty(this.copContext)) {
                         this._loading = true;
                         var itemContext = ContextHelper.getFirstItemContext(this.contextData);
                         if (itemContext) {
                             this.entityType = itemContext.type;
-                            this._contextModelGetReq = DataRequestHelper.createContextModelGetRequest(itemContext.type);
-
-                            var liquidElement = this.$$('#contextModelGet');
-                            if (liquidElement) {
-                                liquidElement.generateRequest();
-                            }
+                            var contextModels = await ContextModelManager.getContextModelsBasedOnEntityType(this.entityType);
+                            this._setContexts(contextModels);
                         }
                     }
                 },
 
-                _onContextModelGetResponse: function (e) {
-                    var response = e.detail.response.response;
+                _setContexts: function (contexts) {
+                    if (contexts && contexts.length) {
+                        var _ctxKeys = [];
+                        var contextCoalesceInfo = [];
 
-                    if (response) {
-                        var entityModels = response.entityModels;
-
-                        if (entityModels && entityModels.length) {
-                            var contexts = entityModels[0].data ? entityModels[0].data.contexts : undefined;
-                            var _ctxKeys = [];
-
-                            if (contexts) {
-                                var _contexts = [];
-                                contexts.forEach(function (context) {
-                                    _contexts.push(context.context);
-
-                                    var ctxKeys = Object.keys(context.context);
-                                    if (ctxKeys && ctxKeys.length) {
-                                        ctxKeys.forEach(function (ctxKey) {
-                                            if (_ctxKeys.indexOf(ctxKey) < 0) {
-                                                _ctxKeys.push(ctxKey);
-                                            }
-                                        }, this);
-                                    }
-                                }, this);
-
-                                this._contexts = _contexts;
+                        var _contexts = [];
+                        contexts.forEach(function (context) {
+                            _contexts.push(context.context);
+                            if (context && context.properties &&
+                                context.properties.coalesceInfo && context.properties.coalesceInfo.length) {
+                                contextCoalesceInfo = contextCoalesceInfo.concat(context.properties.coalesceInfo)
                             }
 
-                            var _ctxIds = [];
-                            if (_ctxKeys && _ctxKeys.length) {
-                                _ctxKeys.forEach(function (item) {
-                                    if (item) {
-                                        _ctxIds.push(item);
+                            var ctxKeys = Object.keys(context.context);
+                            if (ctxKeys && ctxKeys.length) {
+                                ctxKeys.forEach(function (ctxKey) {
+                                    if (_ctxKeys.indexOf(ctxKey) < 0) {
+                                        _ctxKeys.push(ctxKey);
                                     }
                                 }, this);
                             }
+                        }, this);
 
-                            this.contexts = _ctxIds;
+                        this._contexts = _contexts;
 
-                            //Fetch taxonomy type entities
-                            var contextData = DataHelper.cloneObject(this.contextData);
-                            var firstItemContext = ContextHelper.getFirstItemContext(contextData);
-                            if (firstItemContext) {
-                                firstItemContext.type = "taxonomy";
-                                firstItemContext.attributeNames = ["_ALL"];
-                                var req = DataRequestHelper.createEntityGetRequest(contextData);
-                                delete req.params.options;
-                                this.entityGetrequest = req;
+                        var _ctxIds = [];
+                        if (_ctxKeys && _ctxKeys.length) {
+                            _ctxKeys.forEach(function (item) {
+                                if (item) {
+                                    _ctxIds.push(item);
+                                }
+                            }, this);
+                        }
 
-                                //Trigger request
-                                var taxonomyGetElement = this.$$("#initiateEntitySearch");
-                                if (taxonomyGetElement) {
-                                    taxonomyGetElement.generateRequest();
+                        this.contexts = _ctxIds;
+
+                        //Collect path contexts
+                        contextCoalesceInfo.forEach(function(contextCoalesce) {
+                            if (contextCoalesce.isPath) {
+                                if (this._contextPathFields.indexOf(contextCoalesce.contextKey) == -1) {
+                                    this._contextPathFields.push(contextCoalesce.contextKey);
                                 }
                             }
-                        }
-                    }
-                },
+                        }, this);
 
-                _onContextModelGetFailed: function (e, detail) {
-                    this.logError("Context get error", detail);
-                    this.showSuccessToast("Unable to get context details, please contact administrator.");
-                    this._loading = false;
+                        //Fetch taxonomy type entities
+                        var contextData = DataHelper.cloneObject(this.contextData);
+                        var firstItemContext = ContextHelper.getFirstItemContext(contextData);
+                        if (firstItemContext) {
+                            firstItemContext.type = "taxonomy";
+                            firstItemContext.attributeNames = ["_ALL"];
+                            var req = DataRequestHelper.createEntityGetRequest(contextData);
+                            delete req.params.options;
+                            this.entityGetrequest = req;
+
+                            //Trigger request
+                            var taxonomyGetElement = this.$$("#initiateEntitySearch");
+                            if (taxonomyGetElement) {
+                                taxonomyGetElement.generateRequest();
+                            }
+                        }
+                    } else {
+                        this.showErrorToast("Contexts not available, please contact administrator.");
+                        this._loading = false;
+                    }
                 },
 
                 _onInitiateEntitySearchResponse: function (e, detail) {
@@ -561,8 +563,7 @@
                 },
 
                 _setBuildPath: function (rowData, rowId) {
-                    var pathFields = this.mappingConfig["fields-require-buildpath"];
-                    if (pathFields && pathFields.indexOf(rowData.context.toLowerCase()) != -1) {
+                    if (this._contextPathFields && this._contextPathFields.indexOf(rowData.context.toLowerCase()) != -1) {
                         rowData.isPath = true;
                     } else {
                         rowData.isPath = false;
