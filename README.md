@@ -403,6 +403,18 @@ Internally this command runs
 
 Terminal command
 
+cd into ui-platform directory. On terminal type gulp prod-client-build. Let the process
+complete, ensure build is successful.
+
+cd into \ui-platform\web-server
+
+in terminal type pm2 start ecosystem.config.js --env development --update-env
+
+Make sure you have only one server instance running. 
+
+
+
+
 `npm run build`
 
 This command performs HTML, CSS,and JS minification on the application
