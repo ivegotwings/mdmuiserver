@@ -362,6 +362,10 @@ function createGetRequest(reqData) {
         options: options
     };
 
+    if(reqData.intent) {
+        params.intent = reqData.intent;
+    }
+
     var request = {
         dataIndex: reqData.dataIndex,
         dataSubIndex: reqData.dataSubIndex,
@@ -465,7 +469,7 @@ async function get(dataObjectIds, reqData) {
                     var dataObjectType = dataObject.type;
 
                     var dataObjectResponseJson = buildResponse(dataObject, reqData);
-
+                    
                     byIdsJson[dataObject.id] = dataObjectResponseJson;
                 }
 
@@ -523,7 +527,8 @@ async function getByIds(pathSet, operation) {
             'valFields': pathSet.valFields === undefined ? [] : pathSet.valFields,
             'mapKeys': pathSet.mapKeys == undefined ? [] : pathSet.mapKeys,
             'jsonData': operation == "getJsonData" ? true : false,
-            'operation': operation
+            'operation': operation,
+            "intent": pathSet.intent === undefined ? undefined : pathSet.intent[0]
         }
 
         var jsonGraphResponse = response['jsonGraph'] = {};
