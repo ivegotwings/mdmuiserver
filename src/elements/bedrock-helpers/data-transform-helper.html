@@ -870,7 +870,7 @@
                 var model = attributeModelObjects[attributeName];
 
                 model.isNestedChild = isNestedChild;
-
+                
                 if (model.properties && (model.properties.isReferenceType || model.properties.dataType === "nested" || model.isNestedChild)) {
                     model.properties.isLocalizable = true;
                 }
@@ -1980,56 +1980,75 @@
 
         DataTransformHelper._updateValuesAndCoalesceInfo = function (values, valContext, clonedValCtx, fallbackLocales) {
             var _values = DataHelper.cloneObject(values);
-            var locales = [{name:valContext.locale}];
-            var fallbackLocaleObj = {};
-            if(fallbackLocales && fallbackLocales.length > 0){
-                for(var i = 0;i<fallbackLocales.length; i++){
-                    if(fallbackLocales[i].name != valContext.locale){
-                        fallbackLocales[i]["index"] = i;
-                        locales.push(fallbackLocales[i])
-                    }
-                }
-            }
+            var defaultValues = values.filter(value => value.locale === DataHelper.getDefaultLocale());
             var isReferenceData = false;
-            var _filteredLocale;
+            var attrValues = [];
             if(!_.isEmpty(_values) && _values.length > 0){
                 if(_values[0] && _values[0].properties && _values[0].properties.referenceData){
                     isReferenceData = true;
                 }
             }
-            for(var i=locales.length-1; i>-1; i--){
-               _filteredLocale = _values.filter(value => value.locale === locales[i].name);
-                if(isReferenceData){
-                    for(var j=0; j<_filteredLocale.length; j++){
-                        var _referenceData = _filteredLocale[j].properties.referenceData;
-                        var existingCol = _filteredLocale[j].locale;
-                        if(existingCol != valContext.locale){
-                            _filteredLocale[j]["localeCoalesce"] = existingCol;
-                            _filteredLocale[j]["fallbackLocaleIndex"] = locales[i]["index"];
+
+            if(isReferenceData){
+                var locales = [{name:valContext.locale}];
+                var fallbackLocaleObj = {};
+                var _filteredLocale;
+                if(fallbackLocales && fallbackLocales.length > 0){
+                    for(var i = 0;i<fallbackLocales.length; i++){
+                        if(fallbackLocales[i].name != valContext.locale){
+                            fallbackLocales[i]["index"] = i;
+                            locales.push(fallbackLocales[i])
                         }
-                        fallbackLocaleObj[_referenceData] = _filteredLocale[j];
-                    }
-                }else if(_filteredLocale.length>0){
-                    fallbackLocaleObj[valContext.locale] = _filteredLocale[0];
-                    if(locales[i].hasOwnProperty("index")){
-                        fallbackLocaleObj[valContext.locale]["localeCoalesce"] = locales[i].name;
-                        fallbackLocaleObj[valContext.locale]["fallbackLocaleIndex"] = locales[i]["index"];
                     }
                 }
-            }
-                
-            var output = [];
-            var _fallbackLocale = {}
-            for(_fallbackLocale in fallbackLocaleObj){
-                _fallbackLocale = fallbackLocaleObj[_fallbackLocale];
-                if(_fallbackLocale && _fallbackLocale['localeCoalesce']){
-                    DataTransformHelper._updateValueContextAndCoalesceInfo(_fallbackLocale, valContext, fallbackLocales, _fallbackLocale["fallbackLocaleIndex"])
-                    delete _fallbackLocale["fallbackLocaleIndex"];
-                    delete _fallbackLocale['localeCoalesce'];
+                for(var i=locales.length-1; i>-1; i--){
+                    _filteredLocale = _values.filter(value => value.locale === locales[i].name);
+                    if(_filteredLocale && _filteredLocale.length > 0){
+                        for(var j=0; j<_filteredLocale.length; j++){
+                            var _referenceData = _filteredLocale[j].properties.referenceData;
+                            var existingCol = _filteredLocale[j].locale;
+                            if(existingCol != valContext.locale){
+                                _filteredLocale[j]["localeCoalesce"] = existingCol;
+                                _filteredLocale[j]["fallbackLocaleIndex"] = locales[i]["index"];
+                            }
+                            fallbackLocaleObj[_referenceData] = _filteredLocale[j];
+                        }
+                    }
                 }
-                output.push(_fallbackLocale);
+                    
+                var output = [];
+                var _fallbackLocale = {}
+                for(_fallbackLocale in fallbackLocaleObj){
+                    _fallbackLocale = fallbackLocaleObj[_fallbackLocale];
+                    if(_fallbackLocale && _fallbackLocale['localeCoalesce']){
+                        DataTransformHelper._updateValueContextAndCoalesceInfo(_fallbackLocale, valContext, fallbackLocales, _fallbackLocale["fallbackLocaleIndex"])
+                        delete _fallbackLocale["fallbackLocaleIndex"];
+                        delete _fallbackLocale['localeCoalesce'];
+                    }
+                    output.push(_fallbackLocale);
+                }
+                attrValues =  output;
+            }else{
+                attrValues = _values.filter(value => value.locale === valContext.locale);
+                if (_.isEmpty(attrValues)) {
+                    for (let j = 0; j < fallbackLocales.length; j++) {
+                        var fbl = fallbackLocales[j].name;
+                        clonedValCtx.locale = fbl;
+                        attrValues = _values.filter(value => value.locale === clonedValCtx.locale);
+                        if (!_.isEmpty(attrValues)) {
+                            for (let x = 0; x < attrValues.length; x++) {
+                                var val = attrValues[x];
+                                DataTransformHelper._updateValueContextAndCoalesceInfo(val, valContext, fallbackLocales, j);
+                            }
+                            break;
+                        }
+                        else {
+                            continue;
+                        }
+                    }
+                }
+                attrValues = attrValues.concat(defaultValues);
             }
-            attrValues =  output;
             return attrValues;
         };
 
