@@ -23,12 +23,15 @@ function prepareNotificationObject(data) {
                     var serviceName = attributes['serviceName'];
                     var requestId = attributes['requestId'];
                     var description = attributes["description"];
+                    var importType = attributes["ImportType"];
 
                     var desc = "";
                     if (description && description.values && description.values.length) {
                         desc = description.values[0].value;
                     }
-
+                    if (importType && importType.values && importType.values.length) {
+                        notificationInfo.type = importType.values[0].value;
+                    }
                     if (!isEmpty(serviceName) && !isEmpty(requestStatus) && !isEmpty(requestId)) {
                         notificationInfo.requestId = requestId.values[0].value;
                         notificationInfo.status = requestStatus.values[0].value;
@@ -120,10 +123,10 @@ module.exports = function (app) {
        //  console.log("notification response", res)
         var notificationObject = req.body.notificationObject;
         if (notificationObject) {
-            var notificationInfo = prepareNotificationObject(notificationObject.data);
-            // console.log('------------------ notification object ---------------------');
-            // console.log(JSON.stringify(notificationInfo));
-            // console.log('-------------------------------------------------------------------\n\n');
+             var notificationInfo = prepareNotificationObject(notificationObject.data);
+             //console.log('------------------ notification object ---------------------');
+             //console.log(JSON.stringify(notificationInfo));
+             //console.log('-------------------------------------------------------------------\n\n');
 
             if (!isEmpty(notificationInfo)) {
 
