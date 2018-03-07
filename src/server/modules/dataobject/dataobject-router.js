@@ -33,10 +33,6 @@ var DataObjectRouterBase = Router.createClass(
             get: async (pathSet) => await resolver.getByIds(pathSet, "getAttrs")
         },
         {
-            route: "root[{keys:dataIndexes}][{keys:dataSubIndexes}][{keys:dataObjectTypes}].byIds[{keys:dataObjectIds}].data.contexts[{keys:ctxKeys}].attributes[{keys:attrNames}].valContexts[{keys:valCtxKeys}][{keys:valFields}].intent[{keys:intent}]",
-            get: async (pathSet) => await resolver.getByIds(pathSet, "getAttrs")
-        },
-        {
             route: "root[{keys:dataIndexes}][{keys:dataSubIndexes}][{keys:dataObjectTypes}].byIds[{keys:dataObjectIds}].data.contexts[{keys:ctxKeys}].relationships[{keys:relTypes}].relIds",
             get: async (pathSet) => await resolver.getByIds(pathSet, "getRelIdOnly")
         },

@@ -362,6 +362,10 @@ function createGetRequest(reqData) {
         options: options
     };
 
+    if(reqData.dataIndex === "entityData") {
+        params.intent = "write";
+    }
+
     if(reqData.intent) {
         params.intent = reqData.intent;
     }
@@ -527,8 +531,7 @@ async function getByIds(pathSet, operation) {
             'valFields': pathSet.valFields === undefined ? [] : pathSet.valFields,
             'mapKeys': pathSet.mapKeys == undefined ? [] : pathSet.mapKeys,
             'jsonData': operation == "getJsonData" ? true : false,
-            'operation': operation,
-            "intent": pathSet.intent === undefined ? undefined : pathSet.intent[0]
+            'operation': operation
         }
 
         var jsonGraphResponse = response['jsonGraph'] = {};

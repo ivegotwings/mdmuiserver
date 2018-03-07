@@ -208,7 +208,6 @@ DataObjectFalcorUtil.getPathKeys = function () {
     return {
         "root": "root",
         "byIds": "byIds",
-        "intent": "intent",
         "searchResults": "searchResults",
         "searchResultItems": "items",
         "dataIndexInfo": {
