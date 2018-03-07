@@ -109,6 +109,17 @@ var DFServiceBase = function (options) {
         return ownershipData;
     };
 
+    this.getOwnershipEditData = function () {
+        var ownershipEditData = "";
+        var securityContext = executionContext.getSecurityContext();
+
+        if (securityContext && securityContext.headers && securityContext.headers.ownershipEditData) {
+            ownershipEditData = securityContext.headers.ownershipEditData;
+        }
+
+        return ownershipEditData;
+    };
+
     this.getTenantId = function () {
         var tenantId = "";
         var securityContext = executionContext.getSecurityContext();
@@ -138,6 +149,7 @@ var DFServiceBase = function (options) {
                 headers["x-rdp-clientid"] = securityContext.headers.clientId || "";
                 headers["x-rdp-tenantid"] = tenantId;
                 headers["x-rdp-ownershipdata"] = securityContext.headers.ownershipData || "";
+                headers["x-rdp-ownershipeditdata"] = securityContext.headers.ownershipEditData || "";
                 headers["x-rdp-userid"] = userId.indexOf("_user") < 0 ? userId + "_user" : userId;
                 headers["x-rdp-username"] = securityContext.headers.userName || "";
                 headers["x-rdp-useremail"] = securityContext.headers.userEmail || "";
