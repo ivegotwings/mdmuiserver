@@ -124,9 +124,9 @@ module.exports = function (app) {
         var notificationObject = req.body.notificationObject;
         if (notificationObject) {
              var notificationInfo = prepareNotificationObject(notificationObject.data);
-             console.log('------------------ notification object ---------------------');
-             console.log(JSON.stringify(notificationInfo));
-             console.log('-------------------------------------------------------------------\n\n');
+             //console.log('------------------ notification object ---------------------');
+             //console.log(JSON.stringify(notificationInfo));
+             //console.log('-------------------------------------------------------------------\n\n');
 
             if (!isEmpty(notificationInfo)) {
 
