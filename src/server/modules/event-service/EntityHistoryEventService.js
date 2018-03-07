@@ -92,7 +92,7 @@ EntityHistoryEventservice.prototype = {
         internalIds.attributeList = [];
         internalIds.relationshipList = [];
         internalIds.entityTypeList = [];
-        internalIds.userMailIdList = [];
+        internalIds.userIdList = [];
         internalIds.currentEntityType = "";
 
         for (var i = 0; i < events.length; i++) {
@@ -140,7 +140,7 @@ EntityHistoryEventservice.prototype = {
         //Resolve all internal ids to external names...
         var attributesKeyValue = {};
         var relationshipKeyValue = {};
-        var userNamebyEmailKeyValue = {};
+        var userNamebyIdKeyValue = {};
         var entityTypeKeyValue = {};
 
         if (internalIds.attributeList.length > 0) {
@@ -151,12 +151,12 @@ EntityHistoryEventservice.prototype = {
             }
         }
 
-        if (internalIds.userMailIdList.length > 0) {
-            var userDetailResponse = await this._fetchUserDetails(internalIds.userMailIdList, valContexts, dataContexts);
+        if (internalIds.userIdList.length > 0) {
+            var userDetailResponse = await this._fetchUserDetails(internalIds.userIdList);
             if (this._isValidObjectPath(userDetailResponse, "response.entityModels")) {
                 var userList = userDetailResponse.response.entityModels;
                 if (userList && userList.length > 0) {
-                    userNamebyEmailKeyValue = this._getUserNamebyEmail(userList);
+                    userNamebyIdKeyValue = this._getUserNamebyId(userList);
                 }
             }
         }
@@ -177,10 +177,9 @@ EntityHistoryEventservice.prototype = {
                 entityTypeExternalName = undefined, relToTypeExternalName = undefined;
 
             if (historyRecord.user) {
-                userName = userNamebyEmailKeyValue[historyRecord.user];
-
+                userName = userNamebyIdKeyValue[historyRecord.user];
                 if(!userName) {
-                    userName = historyRecord.user;
+                    userName = historyRecord.user.replace(/_user$/, "");
                 }
             }
                 
@@ -430,14 +429,10 @@ EntityHistoryEventservice.prototype = {
 
         if (this._isValidObjectPath(event, 'properties.modifiedBy')) {
             user = event.properties.modifiedBy;
-            if (user.substr(user.length - 5) == "_user") {
-                user = user.slice(0, -5)
+            if(internalIds.userIdList.indexOf(user) == -1) {
+                internalIds.userIdList.push(user);
             }
             historyObj.user = user;
-
-            if(internalIds.userMailIdList.indexOf(user) == -1) {
-                internalIds.userMailIdList.push(user);
-            }
         };
 
         if (this._isValidObjectPath(event, 'properties.modifiedDate')) {
@@ -490,33 +485,28 @@ EntityHistoryEventservice.prototype = {
         return response
     },
 
-    _fetchUserDetails: async function (userMailIdList, valContexts, dataContexts) {
-        var req = {
+    _fetchUserDetails: async function (userIdList) {
+         var req = {
             "params": {
                 "query": {
+                    "ids": userIdList,
                     "filters": {
                         "typesCriterion": [
                             "user"
-                        ],
-                        "propertiesCriterion": [
-                            {
-                                "email": {
-                                    "exacts": userMailIdList
-                                }
-                            }
                         ]
                     }
                 },
                 "fields": {
-                    "attributes": [
-                        "_ALL"
+                    "properties":[
+                        "firstName","lastName"
                     ],
-                    "relationships": [
+                    // attributes are added to get the properties
+                    "attributes": [
                         "_ALL"
                     ]
                 }
             }
-        }
+        };
         response = await this.post("entitymodelservice/get", req);
         return response
     },
@@ -603,12 +593,12 @@ EntityHistoryEventservice.prototype = {
         }
     },
 
-    _getUserNamebyEmail: function (userList) {
+    _getUserNamebyId: function (userList) {
         var userNames = {};
         for (var m = 0; m < userList.length; m++) {
             var userRecord = userList[m];
             if (this._isValidObjectPath(userRecord, 'properties.firstName'))
-                userNames[userRecord.name] = userRecord.properties.firstName;
+                userNames[userRecord.id] = userRecord.properties.firstName + ' ' + userRecord.properties.lastName;
         }
         return userNames;
     },
