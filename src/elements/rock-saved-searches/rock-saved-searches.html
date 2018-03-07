@@ -132,7 +132,7 @@
         </div>
         <!--Tabs section-->
         <template is="dom-if" if="[[!noTabs]]">
-            <rock-tabs id="rock-saved-searches-tabs" config="[[_tabConfig]]" selected-tab="{{_selectedTab}}" deferred-render></rock-tabs>
+            <rock-tabs id="rock-saved-searches-tabs" config="[[_tabConfig]]" selected-tab="{{_selectedTab}}"></rock-tabs>
         </template>
         <!--Create/Update section-->
         <template is="dom-if" if="[[noTabs]]">
@@ -372,6 +372,11 @@
                     '_onContextDataChange(contextData, appName)'
                 ],
 
+                get rockTabs() {
+                    this._rockTabs = this._rockTabs || this.shadowRoot.querySelector('rock-tabs');
+                    return this._rockTabs;
+                },
+
                 _onContextDataChange: function (contextData, appName) {
                     Polymer.RenderStatus.afterNextRender(this,()=>{
                             if (contextData && !_.isEmpty(contextData) && appName != undefined) {
@@ -437,15 +442,7 @@
                     if (this._originalSearches && this._originalSearchMappings) {
                         var userContext = ContextHelper.getFirstUserContext(this.contextData);
                         this.savedSearches = DataTransformHelper.transformScopes(this._originalSearches, this._originalSearchMappings, userContext, "favoriteSavedSearches");
-                        
-                        const rockTabs = this.shadowRoot.querySelector('rock-tabs');
-                        Polymer.Async.microTask.run(() => {
-                            //Reload tabs to get updated tags
-                            if (rockTabs && rockTabs.shadowRoot.querySelector('rock-saved-searches-tags')) {
-                                rockTabs.readyToRender(true);
-                                rockTabs.reloadTabs();
-                            }
-                        });
+                        this.reloadTabs();
                     }
                 },
 
@@ -470,35 +467,32 @@
                 * Fired when filter tag triggers a tag-item-select event.
                 */
                 _onTagItemSelect: function (e) {
-
                     var eventName = "rock-saved-search-click";
                     this.fireBedrockEvent(eventName, e.detail, { ignoreId: true });
                 },
 
                 // On tab change populate searches
-                // Note - this will be removed once we integrated with liquid
                 _onSelectedTabChange: function () {
-                    const rockTabs = this.shadowRoot.querySelector('rock-tabs');
-                    if (rockTabs) {
-                        setTimeout(() => {
-                            rockTabs.shadowRoot.querySelector('pebble-tab-group').notifyResize();
-                        }, 600); //Delayed to populate the tabs properly                        
-                    }
+                    this.reloadTabs();
                 },
 
                 // On saved searches change, populate searches and select respected search tab
                 _onSavedSearchesChange: function () {
                     this._populateAllSearches();
-                    const rockTabs = this.shadowRoot.querySelector('rock-tabs');
-                    if (this.savedSearchId && rockTabs) {
+                    if (this.savedSearchId && this.rockTabs) {
                         var listName = this._getSearchListNameBySearchId();
-                        rockTabs.selectedTabIndex = tabs[listName];
+                        this.rockTabs.selectedTabIndex = tabs[listName];
                     }
+                    this.reloadTabs();
+                },
 
-                    if (rockTabs) {
-                        rockTabs.readyToRender(true);
-                        rockTabs.reloadTabs();
-                    }
+                reloadTabs: function() {
+                    this._debouncer = Polymer.Debouncer.debounce(this._debouncer, Polymer.Async.timeOut.after(1000), () => {
+                        if(this.rockTabs) {
+                            this.rockTabs.readyToRender(true);
+                            this.rockTabs.reloadTabs();
+                        }
+                    });
                 },
 
                 // Populate all searches
@@ -801,7 +795,7 @@
                     }
                     setTimeout(() => {
                         this.generateRequest(this._searchRequest);
-                    }, 0); //Todo - This async will be removed once Notification is integrated                    
+                    }, 0); //Todo - This async will be removed once Notification is integrated
                 },
 
                 // Can be used to create and update the saved search.
