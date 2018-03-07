@@ -908,7 +908,13 @@
                 if (model.dataType !== "nested" && model.dataType !== "string") {
                     model.properties.isLocalizable = false;
                 }
+                if(model.dataType =="boolean") {
+                    if(model.trueText==undefined || model.falseText == undefined) {
+                    model.trueText = "TRUE";
+                    model.falseText = "FALSE";
+                    }
 
+                }
                 model.name = attributeName;
             }
         };
@@ -1983,28 +1989,76 @@
         };
 
         DataTransformHelper._updateValuesAndCoalesceInfo = function (values, valContext, clonedValCtx, fallbackLocales) {
-            var model = {};
-            var defaultValues = values.filter(value => value.locale === DataHelper.getDefaultLocale());
             var _values = DataHelper.cloneObject(values);
-            var attrValues = _values.filter(value => value.locale === valContext.locale);
-            if (_.isEmpty(attrValues)) {
-                for (let j = 0; j < fallbackLocales.length; j++) {
-                    var fbl = fallbackLocales[j].name;
-                    clonedValCtx.locale = fbl;
-                    attrValues = _values.filter(value => value.locale === clonedValCtx.locale);
-                    if (!_.isEmpty(attrValues)) {
-                        for (let x = 0; x < attrValues.length; x++) {
-                            var val = attrValues[x];
-                            DataTransformHelper._updateValueContextAndCoalesceInfo(val, valContext, fallbackLocales, j);
-                        }
-                        break;
-                    }
-                    else {
-                        continue;
-                    }
+            var defaultValues = values.filter(value => value.locale === DataHelper.getDefaultLocale());
+            var isReferenceData = false;
+            var attrValues = [];
+            if(!_.isEmpty(_values) && _values.length > 0){
+                if(_values[0] && _values[0].properties && _values[0].properties.referenceData){
+                    isReferenceData = true;
                 }
             }
-            attrValues = attrValues.concat(defaultValues);
+
+            if(isReferenceData){
+                var locales = [{name:valContext.locale}];
+                var fallbackLocaleObj = {};
+                var _filteredLocale;
+                if(fallbackLocales && fallbackLocales.length > 0){
+                    for(var i = 0;i<fallbackLocales.length; i++){
+                        if(fallbackLocales[i].name != valContext.locale){
+                            fallbackLocales[i]["index"] = i;
+                            locales.push(fallbackLocales[i])
+                        }
+                    }
+                }
+                for(var i=locales.length-1; i>-1; i--){
+                    _filteredLocale = _values.filter(value => value.locale === locales[i].name);
+                    if(_filteredLocale && _filteredLocale.length > 0){
+                        for(var j=0; j<_filteredLocale.length; j++){
+                            var _referenceData = _filteredLocale[j].properties.referenceData;
+                            var existingCol = _filteredLocale[j].locale;
+                            if(existingCol != valContext.locale){
+                                _filteredLocale[j]["localeCoalesce"] = existingCol;
+                                _filteredLocale[j]["fallbackLocaleIndex"] = locales[i]["index"];
+                            }
+                            fallbackLocaleObj[_referenceData] = _filteredLocale[j];
+                        }
+                    }
+                }
+                    
+                var output = [];
+                var _fallbackLocale = {}
+                for(_fallbackLocale in fallbackLocaleObj){
+                    _fallbackLocale = fallbackLocaleObj[_fallbackLocale];
+                    if(_fallbackLocale && _fallbackLocale['localeCoalesce']){
+                        DataTransformHelper._updateValueContextAndCoalesceInfo(_fallbackLocale, valContext, fallbackLocales, _fallbackLocale["fallbackLocaleIndex"])
+                        delete _fallbackLocale["fallbackLocaleIndex"];
+                        delete _fallbackLocale['localeCoalesce'];
+                    }
+                    output.push(_fallbackLocale);
+                }
+                attrValues =  output;
+            }else{
+                attrValues = _values.filter(value => value.locale === valContext.locale);
+                if (_.isEmpty(attrValues)) {
+                    for (let j = 0; j < fallbackLocales.length; j++) {
+                        var fbl = fallbackLocales[j].name;
+                        clonedValCtx.locale = fbl;
+                        attrValues = _values.filter(value => value.locale === clonedValCtx.locale);
+                        if (!_.isEmpty(attrValues)) {
+                            for (let x = 0; x < attrValues.length; x++) {
+                                var val = attrValues[x];
+                                DataTransformHelper._updateValueContextAndCoalesceInfo(val, valContext, fallbackLocales, j);
+                            }
+                            break;
+                        }
+                        else {
+                            continue;
+                        }
+                    }
+                }
+                attrValues = attrValues.concat(defaultValues);
+            }
             return attrValues;
         };
 
