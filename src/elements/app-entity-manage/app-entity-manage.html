@@ -125,11 +125,11 @@
             <bedrock-pubsub event-name="refresh-entity-thumbnail" handler="_refreshEntityThumbnail"></bedrock-pubsub>
             <bedrock-pubsub event-name="on-context-manage-tap" handler="_onContextManageTap"></bedrock-pubsub>
             <rock-sidebar id="rockSideBar" position="right" slot="rock-sidebar" collapsable>
-                <rock-entity-sidebar id="entityManageSidebar" context-data="[[contextData]]"></rock-entity-sidebar>
+            <rock-entity-sidebar id="entityManageSidebar" context-data="[[contextData]]"></rock-entity-sidebar> 
             </rock-sidebar>
-
+            
             <div class="content">
-                <template is="dom-if" if="true" id="tabsTemplate">
+                <template is="dom-if" if="[[_loadComponents]]" id="tabsTemplate">
                     <div class="tab-wrap">
                         <rock-entity-detail-tabs id="rockDetailTabs" view-mode="{{viewMode}}" context-data="[[contextData]]" readonly="[[readonly]]"></rock-entity-detail-tabs>
                     </div>
@@ -157,6 +157,7 @@
         <liquid-entity-model-composite-get id="compositeAttrModelGet" on-entity-model-composite-get-response="_onAttributeCompositeModelGetResponse" on-error="_onCompositeModelGetError"></liquid-entity-model-composite-get>
         <liquid-entity-model-get id="getRelDomains" operation="getbyids" on-response="_onRelModelsReceived" on-error="_onModelGetFailed"></liquid-entity-model-get>
         <liquid-entity-model-get id="getEntityDomain" operation="getbyids" on-response="_onDomainReceived" on-error="_onDomainGetFailed"></liquid-entity-model-get>
+        <liquid-entity-data-get id="getEntity" operation="getbyids" data-index="entityData" data-sub-index="data" on-response="_onEntityGetResponse"></liquid-entity-data-get>
     </template>
     <script>
         (function () {
@@ -242,7 +243,7 @@
                         type: String,
                         value: ""
                     },
-                    appService:{
+                     appService:{
                         type:String,
                         value: "entityappservice"
                     },
@@ -253,14 +254,28 @@
                     dataSubIndex: {
                         type: String,
                         value: "data"
+                    },
+                    _entityReceived: {
+                        type: Boolean,
+                        value: false
+                    },
+                    _loadComponents: {
+                        type: Boolean,
+                        value: false
                     }
                 },
                 behaviors: [
                     RUFBehaviors.AppBehavior,
                     RUFBehaviors.ComponentContextBehavior
                 ],
+                observers: [
+                    "_componentsReceived(domain, _entityReceived)"
+                ],
                 attached: function () {
                     this._searchTimeStamp = new Date().toLocaleString();
+                    //Get the domain and set it
+                    this.getDomain();
+                    this.getEntity();
                     this._initializeComponent();
                 },
                 _initializeComponent() {
@@ -272,7 +287,7 @@
                 /**
                  * Function to raise a request to get the domain of the given entity type
                  */
-                getDomain: function () {
+                 getDomain: function () {
                     var req = {
                         "params": {
                             "query": {
@@ -292,29 +307,74 @@
                     }
                 },
 
+                getEntity: function(){
+                    var req = {
+                        "params": {
+                            "intent": "write",
+                            "query": {
+                                "id": this._entityId,
+                                "filters": {
+                                    "typesCriterion": [this._entityType]
+                                }
+                            }
+                        }
+                    };
+
+                    var entityGet = this.shadowRoot.querySelector("#getEntity");
+                    if (entityGet) {
+                        entityGet.requestData = req;
+                        entityGet.generateRequest();
+                    }
+                },
+
                 /**
                  * Function to set the domain in the contextData
-                 */
+                 */  
                 _onDomainReceived: function (e, detail) {
                     var responseContent = DataHelper.validateAndGetResponseContent(detail.response)
-                    if (responseContent) {
+                    if (responseContent && responseContent.entityModels && responseContent.entityModels.length > 0) {
                         this.domain = responseContent.entityModels[0].domain;
                     }
                     if (this.domain) {
                         this.contextData[ContextHelper.CONTEXT_TYPE_DOMAIN] = [{
-                            "domain": this.domain
+                                "domain": this.domain
                         }];
-
+                        
                         //Reset the context data to notify the children 
-                        var contextData = DataHelper.cloneObject(this.contextData);
+                        var contextData = DataHelper.cloneObject(this.contextData);                        
                         this.contextData = {};
                         this.set("contextData", contextData);
+                    }                    	                     
+                },
+
+                _onEntityGetResponse: function(e, detail) {
+                    var responseContent = DataHelper.validateAndGetResponseContent(detail.response);
+                    if(responseContent && responseContent.entities && responseContent.entities.length > 0) {
+                        var entity = responseContent.entities[0];
+                        if(entity.properties && DataHelper.isValidObjectPath(entity.properties, "writePermission") && entity.properties.writePermission === false) {
+                            var firstItemContext = ContextHelper.getFirstItemContext(this.contextData) || {};
+                            firstItemContext["permissionContext"] = {
+                                "writePermission": false
+                            }
+                        }
+
+                        //Reset the context data to notify the children 
+                        var contextData = DataHelper.cloneObject(this.contextData);                        
+                        this.contextData = {};
+                        this.set("contextData",contextData);
+                        this._entityReceived = true;
+                    }
+                },
+
+                _componentsReceived: function() {
+                    if(this.domain && this._entityReceived) {
+                        this.set("_loadComponents", true);
                     }
                 },
 
                 /**
                  * Function to handle error during domain get
-                 */
+                 */ 
                 _onDomainGetFailed: function () {
                     this.showErrorToast("Unable to fetch domain. Please contact administrator.");
                 },
@@ -417,7 +477,7 @@
                 /**
                  *  After the page has loaded, update the title to display on the left nav
                  */
-                updateAppCurrentStatus: function (title) {
+                 updateAppCurrentStatus: function (title) {
                     var appStatus = this.getAppCurrentStatus();
                     appStatus.title = this.getNavbarTitle(title);
                     var eventData = {
@@ -426,12 +486,12 @@
                     };
                     this.dispatchEvent(new CustomEvent('bedrock-event', { detail:eventData, bubbles:true, composed:true }));
                 },
-
+                
                 _onContextManageTap: function (e, detail) {
                     if (!detail || !detail.data) return;
-
+                    
                     const { componentName, properties } = detail.data;
-
+                    
                     var taxonomy = "";
                     if (DataHelper.isValidObjectPath(detail.data, 'properties.context.taxonomy')) {
                         taxonomy = properties.context.taxonomy;
@@ -488,19 +548,14 @@
                     this._reRenderOnDimensionChange();
                 },
                 _onComponentCreating: function (e, detail, sender) {
-                    //Load the screen components only after the domain has been set.
-                    if (this.domain) {
-                        var component = detail.data;
+                    var component = detail.data;
 
-                        if (component.properties) {
-                            //set context-data for all components no matter what
-                            if (!component.properties['context-data'] || _.isEmpty(component.properties['context-data'])) {
-                                component.properties['context-data'] = this.contextData;
-                            }
+                    if (component.properties) {
+                        //set context-data for all components no matter what
+                        if (!component.properties['context-data'] || _.isEmpty(component.properties['context-data'])) {
+                            component.properties['context-data'] = this.contextData;
                         }
-                    } else {
-                        this.getDomain();
-                    }
+                    } 
                 },
                 _searchEvent: function (e, detail, sender) {
                 },
@@ -541,7 +596,7 @@
                 },
                 _onDeleteConfirm: function (e) {
                     if (!this.entityDeleteLiquidRestLiq) return;
-
+                    
                     var itemContexts = DataHelper.cloneObject(this.getItemContexts());
 
                     //Prepare request
@@ -561,7 +616,7 @@
                         req.entity.id = itemContexts[0].id;
                         req.entity.type = itemContexts[0].type;
                     }
-                    
+
                     //Send request to delete the entity
                     this.entityDeleteLiquidRestLiq.requestData = req;
                     this.entityDeleteLiquidRestLiq.generateRequest();
@@ -670,11 +725,11 @@
                 },
                 _triggerLinkAssets: function (relationshipTypeName) {
                     if (!this.compositeRelModelGetLiq) return;
-
+                    
                     var request = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
                     delete request.params.fields.attributes;
                     request.params.fields.relationships = [relationshipTypeName];
-
+                    
                     this.compositeRelModelGetLiq.requestData = request;
                     this.compositeRelModelGetLiq.generateRequest();
                 },
@@ -744,7 +799,7 @@
                                 if (this.manageAttrGroups.length > 0) {
                                     if (this.manageAttrGroups.indexOf(attributes[key].properties.groupName) != -1) {
                                         groupAttributes.push(key);
-                                    }
+                                    }                                   
                                 }
                             }
                         }
@@ -766,7 +821,7 @@
                 },
                 _triggerManageRelationships: function (relationshipTypeName) {
                     if (!this.getRelDomainsLiq) return;
-
+                    
                     var req = {
                         "params": {
                             "query": {
@@ -778,7 +833,7 @@
                             "fields": {}
                         }
                     };
-
+                    
                     this.getRelDomainsLiq.requestData = req;
                     this.getRelDomainsLiq.generateRequest();
                 },
@@ -798,7 +853,7 @@
                     const { relType, relatedEntityTypes, mode, selfContext } = relationshipDetails;
 
                     const { id, type } = ContextHelper.getFirstItemContext(this.contextData);
-
+                    
                     const sharedData = {
                         mode,
                         "types-criterion": relatedEntityTypes,
@@ -807,14 +862,14 @@
                         "self-context": selfContext
                     };
 
-                    this.openBusinessFunctionDialog({
+                    this.openBusinessFunctionDialog({ 
                         name: 'rock-wizard-entity-relationship-add',
                         title: this.todoActionDialogTitle
                     }, sharedData);
                 },
                 _openManageAttributesDialog: function (label, attributeNames) {
                     var clonedContextData = DataHelper.cloneObject(this.contextData);
-
+                    
                     var itemContext = ContextHelper.getFirstItemContext(clonedContextData);
                     itemContext.attributeNames = attributeNames;
 
@@ -950,7 +1005,7 @@
                 },
                 _refreshRockEntityHeader: function (e) {
                     this._refreshTitleBar();
-                    this._entityHeader.refresh(this._invalidateEntityCache);
+                        this._entityHeader.refresh(this._invalidateEntityCache);
 
                     if (e) {
                         this._lastSavedTime = new Date().toLocaleString();
@@ -968,7 +1023,7 @@
                     this.openBusinessFunctionDialog({ name: 'rock-wizard-entity-upload' });
                 },
                 _refreshEntityThumbnail: function () {
-                    this._entityHeader.refreshThumbnail();
+                        this._entityHeader.refreshThumbnail();
                 },
                 _refreshActiveMenuItems: function () {
                     this._lastSavedTime = new Date().toLocaleString();
@@ -1003,15 +1058,15 @@
                     if (this._showNotificationToast) {
                         notificationObj.showToast(data);
                     } else if (dataIsDirty || controlIsDirty) {
-                        notificationObj.showToast(data);
+                         notificationObj.showToast(data);
                     } else {
                         //Refresh the current tab
                         if (this.detailTabs) {
                             this.detailTabs.refresh();
                         }
                         //Refresh the Rightsidebar
-                        this._refreshRightSidePanel();
-                        this._refreshRockEntityHeader();
+                        this._refreshRightSidePanel();   
+                        this._refreshRockEntityHeader();                     
                     }
                 },
 
