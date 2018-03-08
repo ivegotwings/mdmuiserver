@@ -181,15 +181,15 @@
         </div>
         <div id="context-header">
             <span class="pull-right">
-                <rock-dimension-selector id="dimensionSelector" context-data="[[contextData]]" app-name="app-business-function-mapping" all-single-select></rock-dimension-selector>
+                <rock-dimension-selector id="dimensionSelector" context-data="[[contextData]]" app-name="app-business-function-mapping" domain="[[mappingData.domain]]" all-single-select></rock-dimension-selector>
                 <bedrock-pubsub event-name="dimension-selector-data-changed" handler="_onDimensionsChanged" target-id="dimensionSelector"></bedrock-pubsub>
             </span>
         </div>
         <div id="gridManage">
             <span class="gridCountMsg">[[_getGridRecordsCountMessage(_gridData)]]</span>
             <span class="pull-right">
-                <pebble-icon class="iconButton pebble-icon-size-16 tooltip-bottom m-r-10" icon="pebble-icon:Add" id="add" data-tooltip="Add" raised on-tap="_onAddTap"></pebble-icon>
-                <pebble-icon class="iconButton pebble-icon-size-16 tooltip-bottom" icon="pebble-icon:Delete" id="delete" data-tooltip="Delete" raised on-tap="_onDeleteTap"></pebble-icon>
+                <pebble-icon class="iconButton pebble-icon-size-16 tooltip-bottom m-r-10" icon="pebble-icon:action-add" id="add" data-tooltip="Add" raised on-tap="_onAddTap"></pebble-icon>
+                <pebble-icon class="iconButton pebble-icon-size-16 tooltip-bottom" icon="pebble-icon:action-delete" id="delete" data-tooltip="Delete" raised on-tap="_onDeleteTap"></pebble-icon>
             </span>
         </div>
         <div id="grid-container">
@@ -208,11 +208,11 @@
                                     title="[[item.attributeModel.title]]"></pebble-textbox>
                             </div>
                             <div id="iconDiv" slot="cell-slot-content">
-                                <pebble-icon class="dropdown-icon pebble-icon-size-10" id="txtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:Down"
+                                <pebble-icon class="dropdown-icon pebble-icon-size-10" id="txtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:navigation-action-down"
                                     on-tap="_showAttributesLOV"></pebble-icon>
                             </div>
                             <div id="buttonDiv" slot="cell-slot-content">
-                                <pebble-icon class="action-button-focus pebble-icon-size-16 tooltip-right m-l-20" data-tooltip="Value Mapping" icon="pebble-icon:value-mapping" id="btnValueMappings_[[index]]" raised on-tap="_onTapValueMapping" data-args$="[[item.attributeModel.id]]" disabled$="[[!_isValueMappingsAvailable(item.attributeModel)]]"></pebble-icon>
+                                <pebble-icon class="action-button-focus pebble-icon-size-16 tooltip-right m-l-20" data-tooltip="Value Mapping" icon="pebble-icon:value-mapping" id="btnValueMappings_[[index]]" raised on-tap="_onTapValueMapping" data-args$="[[item.attributeModel.id]]" hidden$="[[!_isValueMappingsAvailable(item.attributeModel)]]"></pebble-icon>
                             </div>
                         </template>
                     </data-table-column>
@@ -267,8 +267,7 @@
                     */
                     selectedItem: {
                         type: Object,
-                        notify: true,
-                        reflectToAttribute: true
+                        notify: true
                     },
                     /**
                       * <b><i>Content development is under progress... </b></i> 
@@ -330,6 +329,16 @@
                     },
 
                     _loading: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    _isSaveAndImport: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    _isMappingsSaved: {
                         type: Boolean,
                         value: false
                     }
@@ -409,11 +418,11 @@
                         this._loading = true;
                         this._taxonomies = this.mappingData.taxonomies;
                         this._contexts = this.mappingData.contexts;
-                        var selectedContexts = this._prepareContexts();
+                        this.selectedContexts = this._prepareContexts();
                         var types = ["attributemapping"];
-                        var req = DataRequestHelper.createMappingsGetRequest(this.contextData, this.copContext, selectedContexts, types);
+                        var req = DataRequestHelper.createMappingsGetRequest(this.contextData, this.copContext, this.selectedContexts, types);
                         req.params.rsconnect.headers.entities = this.mappingData.headerFields;
-                        req.params.query.contexts[0].ownershipdata = this.ownershipdata && this.ownershipdata != "undefined" ? this.ownershipdata : "";
+                        req.params.query.contexts[0].ownershipdata = this.ownershipdata && this.ownershipdata != "undefined" ? this.ownershipdata : "_ALL";
 
                         if(this.getMappingsLiq) {
                             this.getMappingsLiq.requestData = req;
@@ -518,7 +527,7 @@
 
                 _getAttributeModelForHeaderField: function (field) {
                     for (var key in this._mappingAttributes) {
-                        if (!_.isEmpty(this._mappingAttributes[key])) {
+                        if (!_.isEmpty(this._mappingAttributes[key]) && this._mappingAttributes[key].values) {
                             for (var i = 0; i < this._mappingAttributes[key].values.length; i++) {
                                 if (this._mappingAttributes[key].values[i].value.toLowerCase() == field.toLowerCase()) {
                                     return this._attributeModels[key];
@@ -717,7 +726,7 @@
                 },
 
                 _onSaveAndImportTap: function() {
-                    this.isSaveAndImport = true;
+                    this._isSaveAndImport = true;
                     this._onSaveTap();
                 },
 
@@ -727,14 +736,14 @@
 
                     this._loading = true;
                     var mappings = this._transformGridDataToSaveMappings();
-                    if (_.isEmpty(mappings)) {
+                    if (_.isEmpty(mappings) && (!this._isMappingsSaved || !this._isSaveAndImport)) {
                         this._loading = false;
                         return this.showSuccessToast("There are no changes in mappings to save.");
                     }
                     var saveRequest = DataRequestHelper.createMappingsSaveRequest(this.contextData, this.copContext, this.selectedContexts, "attributemapping")
                     if (!_.isEmpty(saveRequest)) {
                         saveRequest.entity.data.contexts[0].attributes = mappings;
-                        saveRequest.entity.data.contexts[0].context.ownershipdata = this.ownershipdata && this.ownershipdata != "undefined" ? this.ownershipdata : "";
+                        saveRequest.entity.data.contexts[0].context.ownershipdata = this.ownershipdata && this.ownershipdata != "undefined" ? this.ownershipdata : "_ALL";
                         this.saveMappingsLiq.requestData = saveRequest;
                         this.saveMappingsLiq.generateRequest();
                     }
@@ -745,11 +754,12 @@
                     if (response && response.status == "success") {
                         this.async(function() {
                             this._resetMappings(); //Call this on save mappings success
-                            if(this.isSaveAndImport) {
+                            if(this._isSaveAndImport) {
                                 this.showSuccessToast("Attribute mappings submitted and imported the file successfully.");
                                 this._onImportTap();
-                                this.isSaveAndImport = false;
+                                this._isSaveAndImport = false;
                             } else {
+                                this._isMappingsSaved = true;
                                 this.showSuccessToast("Attribute mappings submitted successfully.");
                             }
                             this._loading = false;
@@ -900,10 +910,10 @@
 
                     if (btnValueMapping) {
                         if (isValueMappingAvailable) {
-                            btnValueMapping.removeAttribute("disabled");
+                            btnValueMapping.removeAttribute("hidden");
                             btnValueMapping.setAttribute("data-args", attrModel.id);
                         } else {
-                            btnValueMapping.setAttribute("disabled", "");
+                            btnValueMapping.setAttribute("hidden", "");
                             btnValueMapping.setAttribute("data-args", "");
                         }
                     }
@@ -941,9 +951,10 @@
                                 "selectedDimensions": this.dimensionSelector.selectedDimensions
                             }
 
-                            valueMappings.headerFields = this.mappingData.headerFields
-                            valueMappings.taxonomies = this.mappingData.taxonomies
-                            valueMappings.contexts = this.mappingData.contexts
+                            valueMappings.headerFields = this.mappingData.headerFields;
+                            valueMappings.taxonomies = this.mappingData.taxonomies;
+                            valueMappings.contexts = this.mappingData.contexts;
+                            valueMappings.domain = this.mappingData.domain;
 
                             if (this.valueMappingsDialog) {
                                 var component = {

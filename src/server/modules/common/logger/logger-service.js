@@ -20,9 +20,9 @@ LoggerService.prototype = {
   _getPattern: function () {
     var pattern = "%d{ISO8601_WITH_TZ_OFFSET} [%p]";
     for (var i = 0; i < this._formatKeys.length; i++) {
-      if ((i == 4) || (i == 12)) {
-        pattern += "%n";
-      }
+      // if ((i == 4) || (i == 12)) {
+      //   pattern += "%n";
+      // }
       if (this._formatKeys[i] == "newTimestamp") {
         pattern += " %d{ISO8601_WITH_TZ_OFFSET}";
       } else {

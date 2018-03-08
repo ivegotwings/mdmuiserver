@@ -98,7 +98,7 @@ The user can view the past data but cannot modify it. However he/she can add or 
     <div id="dimensionGridContainer">
       <div id="dimensionFilters">
         <template is="dom-repeat" items="[[_updatedDimensionConfigs]]" as="configDataItem" notify-dom-change>
-          <pebble-accordion header-text="[[configDataItem.title]]" default-icon="pebble-icon:RightArrow" open-icon="pebble-icon:Expand">
+          <pebble-accordion header-text="[[configDataItem.title]]" default-icon="pebble-icon:action-scope-take-selection" open-icon="pebble-icon:action-expand">
             <!--div class="header-content">
               <pebble-checkbox id="[[configDataItem.id]]Chk" on-change="_onSelectAll"></pebble-checkbox>
             </div-->
@@ -118,7 +118,7 @@ The user can view the past data but cannot modify it. However he/she can add or 
         </template>        
       </div>
       <div id="dimensionGrid">
-        <!--pebble-button icon="pebble-icon:Actions" class="dropdownText dropdownIcon btn dropdown-success pull-right" menu-button
+        <!--pebble-button icon="pebble-icon:action-take-task" class="dropdownText dropdownIcon btn dropdown-success pull-right" menu-button
           dropdown-icon button-text="Action" on-click=""></pebble-button-->
         <div class="clearfix"></div>
         <rock-grid  config="[[_gridConfig]]" 
@@ -137,6 +137,7 @@ The user can view the past data but cannot modify it. However he/she can add or 
     <liquid-entity-data-get verbose name="attributeGetDataService" operation="getbyids" request-data="{{_request}}" on-response="[[_onAttributesGetResponse]]"></liquid-entity-data-get>
     <!--liquid-entity-data-save name="attributeSaveDataService" operation="update" request-data="{{_saveRequest}}" last-response="{{saveResponse}}"
       on-response="_onSaveResponse"></liquid-entity-data-save-->
+    <liquid-entity-model-get id="userModelGet" operation="getbyids" on-response="_onUserModelGetResponse"></liquid-entity-model-get>
   </template>
   <script>
     (function () {
@@ -250,6 +251,13 @@ The user can view the past data but cannot modify it. However he/she can add or 
             value: function () {
               return {};
             }
+          },
+
+          _gridData: {
+              type: Array,
+              value: function () {
+                  return [];
+              }
           }
         },
         behaviors: [
@@ -393,15 +401,25 @@ The user can view the past data but cannot modify it. However he/she can add or 
         },
         _entityExternalDataFormatter: function (data) {
             if(data && data.length > 0){
+              var localeManager = ComponentHelper.getLocaleManager();
               data.forEach(function(element){
-                  if(element && element.title){
-                    var title = element.title;
-                    element.id = title.charAt(0).toLowerCase() + title.slice(1);
+                  if(element && !_.isEmpty(element)){
+                    if(element.title){
+                      var title = element.title;
+                      element.id = title.charAt(0).toLowerCase() + title.slice(1);
+                    }
+                    if(element.type == "locale"){
+                      var localeObj = localeManager.getByName(element.id);
+                      if (!_.isEmpty(localeObj) && localeObj.externalName) {
+                        element.title = localeObj.externalName;
+                      }
+                    }
                   }
                 }.bind(this))
             }
             return data;
         },
+
         _onDimensionChange: function (e) {
           if (e.currentTarget.selectedItems) {
             this._onSelectionChange();
@@ -535,13 +553,14 @@ The user can view the past data but cannot modify it. However he/she can add or 
              this.rDataSource({page: 0, pageSize: this.totalCount, resetSearch:true}, this._onAttributesGetResponse.bind(this), this._onAttributesGetErrorResponse.bind(this))
             }
         },
+        
         _onAttributesGetResponse:function(res){
-            if (res && res.status && (res.status == "success")) {
-              var dimGrid = this.shadowRoot.querySelector('rock-grid');
+            if (res && res.status && (res.status == "success")) {              
               var data = [];
               var modelObject = JSON.parse(this.attributeModelObject);
               var relationshipName = modelObject.relationshipName;
               var attrName = modelObject.name;
+              var userIdList = [];
 
               if (res.content && res.content.events && res.content.events.length > 0) {
                 var events = res.content.events;
@@ -591,32 +610,67 @@ The user can view the past data but cannot modify it. However he/she can add or 
                          if(_attribute.properties.changeType){
                             var changeType = _attribute.properties.changeType;
                             if((changeType == "addAttributeToContext") || (changeType == "addValueToAttribute") || (changeType == "addAttributeToRelationship")){
-                              record.icon = "pebble-icon:Add";
+                              record.icon = "pebble-icon:action-add";
                             }else if(changeType == "deleteAttributeValuesFromContext"){
-                              record.icon = 'pebble-icon:Delete';
+                              record.icon = 'pebble-icon:action-delete';
                               record[attrName] = "";
                             }else{
-                              record.icon = 'pebble-icon:Edit';
+                              record.icon = 'pebble-icon:action-edit';
                             }
                          }
                       }
                       if(eventObj.properties && eventObj.properties.modifiedDate){
                         record.Time = FormatHelper.convertFromISODateTimeToClientFormat(eventObj.properties.modifiedDate, 'datetime');
                       }
+                      if(eventObj.properties && eventObj.properties.modifiedBy){
+                        var userId = eventObj.properties.modifiedBy;
+                        if(userIdList.indexOf(userId) == -1){
+                          userIdList.push(userId);
+                        }
+                        record.userId = userId; 
+                      }
                       data.push(record);
                     }
-                })
-
-                if (data) {
-                  dimGrid.data = data;
-                  if (dimGrid._getIronDataTable()) {
-                    dimGrid._getIronDataTable()._sizeChanged(data.length, 0);
-                    dimGrid.reRenderGrid();
-                  }
+                });
+                this._gridData = data;
+                if(userIdList.length > 0){
+                    this._getUserList(userIdList);
+                } else{
+                    this._populateGrid();
                 }
               }
             }
         },
+
+        _getUserList:function(userIdList){
+          var req = {
+                "params": {
+                  "query": {
+                      "ids": userIdList,
+                      "filters": {
+                          "typesCriterion": [
+                              "user"
+                          ]
+                      }
+                  },
+                  "fields": {
+                    "properties":[
+                      "firstName","lastName"
+                    ],
+                    // attributes are added to get the properties
+                    "attributes": [
+                        "_ALL"
+                    ]
+                  }
+              }
+          };
+          var liqUserModelsGet = this.$$("#userModelGet");
+          if (liqUserModelsGet) {
+            liqUserModelsGet.requestData = req;
+            liqUserModelsGet.generateRequest();
+          }
+        },
+
         _onAttributesGetErrorResponse: function(e){
           console.error(e);
         },
@@ -862,25 +916,40 @@ The user can view the past data but cannot modify it. However he/she can add or 
               }
             }
           }
-
         },
 
-        _getGridConfig: function () {
-          var config = this.getParentAppConfig('rock-dimension-grid', '', 'dimension-gridConfig');
-
-          if (!_.isEmpty(config)) {
-            var columns = config.tabular.columns;
-            var modelObject = JSON.parse(this.attributeModelObject);
-            if (!_.isEmpty(columns)) {
-              for (var i = 0; i < columns.length; i++) {
-                if (columns[i].header.toLowerCase() == "value") {
-                  columns[i].name = modelObject.name;
+        _onUserModelGetResponse: function(e){
+          var response = e.detail.response;
+          if(DataHelper.validateGetModelsResponse(response)){
+            var isUserFound = false;
+            const userModels = response.content.entityModels;            
+            this._gridData.forEach(function(item){    
+              if(item.userId) {            
+                for(let index = 0; index < userModels.length; index++){
+                  if(item.userId == userModels[index].id){
+                    item.user = userModels[index].properties.firstName + ' ' + userModels[index].properties.lastName;
+                    isUserFound = true;
+                    break;
+                  }
+                }
+                if(!isUserFound){
+                  item.user = item.userId.replace(/_user$/, "");
                 }
               }
+            });  
+          }
+          this._populateGrid(); 
+        },
+
+        _populateGrid: function(){
+          if (this._gridData) {
+            var dimGrid = this.shadowRoot.querySelector('rock-grid');
+            dimGrid.data = this._gridData;
+            if (dimGrid._getIronDataTable()) {
+              dimGrid._getIronDataTable()._sizeChanged(this._gridData.length, 0);
+              dimGrid.reRenderGrid();
             }
           }
-
-          return config;
         }
       });
     })();
