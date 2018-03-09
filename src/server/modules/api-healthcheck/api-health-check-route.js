@@ -10,8 +10,8 @@ if (runOffline) {
 const apiHealthCheckService = new ApiHealthCheckService(options);
 
 var ApiHealthCheckServiceRouter = function (app) {
-    app.get('*/data/healthcheck/*', async function (req, res) {
-        var response = await apiHealthCheckService.call(req.url);
+    app.use('*/data/healthcheck/*', async function (req, res) {
+        var response = await apiHealthCheckService.call(req.originalUrl);
         res.status(200).send(response);
     });
 };

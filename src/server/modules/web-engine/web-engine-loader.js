@@ -237,6 +237,7 @@ async function renderAuthenticatedPage(req, res) {
     var userEmail = req.header("x-rdp-useremail");
     var userName = req.header("x-rdp-username");
     var ownershipData = req.header("x-rdp-ownershipdata");
+    var ownershipeditdata = req.header("x-rdp-ownershipeditdata");
 
     if (tenantId && userId) {
         var fullName = "";
@@ -268,7 +269,8 @@ async function renderAuthenticatedPage(req, res) {
                 roleId: userRoles,
                 fullName: fullName, 
                 userName: userName, 
-                ownershipData: ownershipData, 
+                ownershipData: ownershipData,
+                ownershipeditdata: ownershipeditdata,
                 noPreload: noPreload,
                 versionInfo: JSON.stringify(versionInfo)
             });

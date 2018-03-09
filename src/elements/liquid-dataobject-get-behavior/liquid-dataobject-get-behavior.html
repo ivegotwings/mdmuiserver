@@ -93,7 +93,7 @@
                 dataIndexInfo = dataIndexInfo.dataSubIndexInfo[dataSubIndex];
             }
 
-            if(this.returnObjectsCollectionName == "Unknown") {
+            if (this.returnObjectsCollectionName == "Unknown") {
                 this.returnObjectsCollectionName = dataIndexInfo.collectionName;
             }
 
@@ -291,7 +291,7 @@
             var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
 
             var relTypes = reqData.params.fields.relationships === undefined ? [] : reqData.params.fields.relationships;
-            
+
             var isRelationshipsRequested = relTypes.length > 0 || false;
             var dataObjectFields = ['id', 'name', 'version', 'type', 'properties', 'domain'];
 
@@ -397,7 +397,7 @@
                 if (!resultSizePkg) {
                     return {};
                 }
-                
+
                 resultSize = resultSizePkg.json[pathKeys.root][dataIndex][dataSubIndex][pathKeys.searchResults][reqId].resultRecordSize;
 
                 var from = reqData.params.options && reqData.params.options.from !== undefined ? reqData.params.options.from : 0;
@@ -566,14 +566,21 @@
         },
         _formatData: async function (dataIndex, dataObjects, includeTypeExternalName) {
             var utils = SharedUtils.DataObjectFalcorUtil;
-            var formattedDataObjects = [];         
-            var entityTypeManager = EntityTypeManager.getInstance();
+            var formattedDataObjects = [];
+
+            var entityTypeManager = undefined;
+
+            if (includeTypeExternalName) {
+                entityTypeManager = EntityTypeManager.getInstance();
+            }
+
             for (var dataObjectId in dataObjects) {
                 var dataObject = dataObjects[dataObjectId];
                 var formattedDataObject = utils.transformToExternal(dataObject);
-                if(includeTypeExternalName && formattedDataObject.type){
+                if (includeTypeExternalName && formattedDataObject.type && entityTypeManager) {
                     formattedDataObject["typeExternalName"] = await entityTypeManager.getTypeExternalNameByIdAsync(formattedDataObject.type);
                 }
+
                 formattedDataObjects.push(formattedDataObject);
             }
 
@@ -760,22 +767,18 @@
                 for (var dataObjectIdIdx in resDataObjects) {
                     var resDataObject = resDataObjects[dataObjectIdIdx];
 
-                    for (var ctxKeyIdx in ctxKeys) {
-                        var ctxKey = ctxKeys[ctxKeyIdx];
-                        for (var relTypeIdx in relTypes) {
-                            var relType = relTypes[relTypeIdx];
+                    for (var relTypeIdx in relTypes) {
+                        var relType = relTypes[relTypeIdx];
+                        var totalRelIds = [];
+                        for (var ctxKeyIdx in ctxKeys) {
+                            var ctxKey = ctxKeys[ctxKeyIdx];
                             var relIds = utils.getNestedObject(resDataObject, ['data', 'contexts', ctxKey, 'relationships', relType, 'relIds']);
 
                             if (!relIds) {
                                 continue;
                             }
 
-                            //Keep relIds total count in order to return with the final response...
-                            var relCountObject = this._relIdsCountOfRelGetRequest[dataObjectIdIdx];
-                            if (!relCountObject) {
-                                relCountObject = this._relIdsCountOfRelGetRequest[dataObjectIdIdx] = {};
-                            }
-                            relCountObject[relType] = relIds.length;
+                            totalRelIds.concat(relIds);
 
                             var from = reqData.params.options && reqData.params.options.from !== undefined ? reqData.params.options.from : 0;
                             var to = reqData.params.options && reqData.params.options.to !== undefined ? reqData.params.options.to : relIds.length - 1;
@@ -818,6 +821,13 @@
                                 //throw "requested range is not available for relationships";
                             }
                         }
+
+                        //Keep relIds total count in order to return with the final response...
+                        var relCountObject = this._relIdsCountOfRelGetRequest[dataObjectIdIdx];
+                        if (!relCountObject) {
+                            relCountObject = this._relIdsCountOfRelGetRequest[dataObjectIdIdx] = {};
+                        }
+                        relCountObject[relType] = [... new Set(totalRelIds)].length;
                     }
                 }
             }

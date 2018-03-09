@@ -11,7 +11,7 @@
 
     (function () {
 
-        DataTransformHelper.transformAttributeModels = function (compositeModel, contextData) {
+        DataTransformHelper.transformAttributeModels = function (compositeModel, contextData, editPermission) {
             var firstDataContext = ContextHelper.getFirstDataContext(contextData);
 
             var mergedAttributeModels = {};
@@ -39,7 +39,7 @@
                 }
 
                 if (!_.isEmpty(mergedAttributeModels)) {
-                    this._fillModels(mergedAttributeModels);
+                    this._fillModels(mergedAttributeModels, false, editPermission);
                 }
             }
 
@@ -61,8 +61,9 @@
                     var specificCtxRelationshipModels = SharedUtils.DataObjectFalcorUtil.getRelationshipsByCtx(compositeModel, firstDataContext);
                     var mergedRelKeys = Object.keys(mergedRelationshipModels);
                     for (var relKey in specificCtxRelationshipModels) {
-                        if ("contextCoalesce" in specificCtxRelationshipModels[relKey].properties) {
-                            specificCtxRelationshipModels[relKey].selfContext = "self" in specificCtxRelationshipModels[relKey].properties.contextCoalesce[0] && 1;
+                        var relationshipModel = specificCtxRelationshipModels[relKey][0];
+                        if (relationshipModel && "contextCoalesce" in relationshipModel.properties) {
+                            specificCtxRelationshipModels[relKey].selfContext = "self" in relationshipModel.properties.contextCoalesce[0] && 1;
                         }
                     }
                     mergedRelationshipModels = specificCtxRelationshipModels;
@@ -865,12 +866,16 @@
             }
         };
 
-        DataTransformHelper._fillModels = function (attributeModelObjects, isNestedChild) {
+        DataTransformHelper._fillModels = function (attributeModelObjects, isNestedChild, editPermission) {
             for (var attributeName in attributeModelObjects) {
                 var model = attributeModelObjects[attributeName];
 
                 model.isNestedChild = isNestedChild;
-                
+
+                if (editPermission === false) {
+                    model.properties.hasWritePermission = false;
+                }
+
                 if (model.properties && (model.properties.isReferenceType || model.properties.dataType === "nested" || model.isNestedChild)) {
                     model.properties.isLocalizable = true;
                 }
@@ -904,10 +909,10 @@
                 if (model.dataType !== "nested" && model.dataType !== "string") {
                     model.properties.isLocalizable = false;
                 }
-                if(model.dataType =="boolean") {
-                    if(model.trueText==undefined || model.falseText == undefined) {
-                    model.trueText = "TRUE";
-                    model.falseText = "FALSE";
+                if (model.dataType == "boolean") {
+                    if (_.isEmpty(model.trueText) || _.isEmpty(model.falseText)) {
+                        model.trueText = "TRUE";
+                        model.falseText = "FALSE";
                     }
 
                 }
@@ -1672,6 +1677,11 @@
                         newCtxItem.context = firstDataContext;
                         newCtxItem.attributes = data.attributes;
                         newCtxItem.relationships = data.relationships;
+                        
+                        if (_.isEmpty(data.contexts)) {
+                            data.contexts = [];
+                        }
+                        
                         data.contexts.push(newCtxItem);
                     }
                     delete data.attributes;
@@ -1989,31 +1999,31 @@
             var defaultValues = values.filter(value => value.locale === DataHelper.getDefaultLocale());
             var isReferenceData = false;
             var attrValues = [];
-            if(!_.isEmpty(_values) && _values.length > 0){
-                if(_values[0] && _values[0].properties && _values[0].properties.referenceData){
+            if (!_.isEmpty(_values) && _values.length > 0) {
+                if (_values[0] && _values[0].properties && _values[0].properties.referenceData) {
                     isReferenceData = true;
                 }
             }
 
-            if(isReferenceData){
-                var locales = [{name:valContext.locale}];
+            if (isReferenceData) {
+                var locales = [{ name: valContext.locale }];
                 var fallbackLocaleObj = {};
                 var _filteredLocale;
-                if(fallbackLocales && fallbackLocales.length > 0){
-                    for(var i = 0;i<fallbackLocales.length; i++){
-                        if(fallbackLocales[i].name != valContext.locale){
+                if (fallbackLocales && fallbackLocales.length > 0) {
+                    for (var i = 0; i < fallbackLocales.length; i++) {
+                        if (fallbackLocales[i].name != valContext.locale) {
                             fallbackLocales[i]["index"] = i;
                             locales.push(fallbackLocales[i])
                         }
                     }
                 }
-                for(var i=locales.length-1; i>-1; i--){
+                for (var i = locales.length - 1; i > -1; i--) {
                     _filteredLocale = _values.filter(value => value.locale === locales[i].name);
-                    if(_filteredLocale && _filteredLocale.length > 0){
-                        for(var j=0; j<_filteredLocale.length; j++){
+                    if (_filteredLocale && _filteredLocale.length > 0) {
+                        for (var j = 0; j < _filteredLocale.length; j++) {
                             var _referenceData = _filteredLocale[j].properties.referenceData;
                             var existingCol = _filteredLocale[j].locale;
-                            if(existingCol != valContext.locale){
+                            if (existingCol != valContext.locale) {
                                 _filteredLocale[j]["localeCoalesce"] = existingCol;
                                 _filteredLocale[j]["fallbackLocaleIndex"] = locales[i]["index"];
                             }
@@ -2021,20 +2031,20 @@
                         }
                     }
                 }
-                    
+
                 var output = [];
                 var _fallbackLocale = {}
-                for(_fallbackLocale in fallbackLocaleObj){
+                for (_fallbackLocale in fallbackLocaleObj) {
                     _fallbackLocale = fallbackLocaleObj[_fallbackLocale];
-                    if(_fallbackLocale && _fallbackLocale['localeCoalesce']){
+                    if (_fallbackLocale && _fallbackLocale['localeCoalesce']) {
                         DataTransformHelper._updateValueContextAndCoalesceInfo(_fallbackLocale, valContext, fallbackLocales, _fallbackLocale["fallbackLocaleIndex"])
                         delete _fallbackLocale["fallbackLocaleIndex"];
                         delete _fallbackLocale['localeCoalesce'];
                     }
                     output.push(_fallbackLocale);
                 }
-                attrValues =  output;
-            }else{
+                attrValues = output;
+            } else {
                 attrValues = _values.filter(value => value.locale === valContext.locale);
                 if (_.isEmpty(attrValues)) {
                     for (let j = 0; j < fallbackLocales.length; j++) {
