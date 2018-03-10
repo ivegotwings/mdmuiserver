@@ -872,10 +872,10 @@
 
                 model.isNestedChild = isNestedChild;
 
-                if(editPermission === false) {
+                if (editPermission === false) {
                     model.properties.hasWritePermission = false;
                 }
-                
+
                 if (model.properties && (model.properties.isReferenceType || model.properties.dataType === "nested" || model.isNestedChild)) {
                     model.properties.isLocalizable = true;
                 }
@@ -909,8 +909,8 @@
                 if (model.dataType !== "nested" && model.dataType !== "string") {
                     model.properties.isLocalizable = false;
                 }
-                if(model.dataType =="boolean") {
-                    if(_.isEmpty(model.trueText) || _.isEmpty(model.falseText)) {
+                if (model.dataType == "boolean") {
+                    if (_.isEmpty(model.trueText) || _.isEmpty(model.falseText)) {
                         model.trueText = "TRUE";
                         model.falseText = "FALSE";
                     }
@@ -1610,6 +1610,8 @@
                 var primaryContext = undefined;
 
                 if (additionalContexts) {
+                    // If context model has additional context then need to check that current selected contexts is fully additional contexts or it has primary context as well.
+                    // primary context = current selected contexts - additional contexts.(Relative complement of additional contexts in current selected contexts).
                     primaryContext = DataTransformHelper.getPrimaryContextFromAdditionalContext(additionalContexts, firstDataContext);
 
                     if (!_.isEmpty(primaryContext)) {
@@ -1650,6 +1652,18 @@
                                 data.contexts.push(primaryContextData);
                             }
                         }
+                    } else {
+                        // If context model has additional context for current selected contexts and it doesn't have primary context it means all contexts defined in context model are part of additional contexts.
+                        // In this case relationship has to be added based on relationship model.
+                        // If relationship is mapped only at self level it has to saved at self level or if relationship is mapped at additional context level it has to saved at context level.
+                        if (data.contexts && data.contexts.length) {
+                            if (!("relationships" in data)) {
+                                data.relationships = {};
+                            }
+
+                            var relationships = data.contexts[0].relationships;
+                            DataTransformHelper._addRemoveRelationshipsBasedOnAdditionalContext(relationships, relationshipModels, additionalContexts, data);
+                        }
                     }
                 } else {
                     if (data.contexts && data.contexts.length) {
@@ -1677,6 +1691,11 @@
                         newCtxItem.context = firstDataContext;
                         newCtxItem.attributes = data.attributes;
                         newCtxItem.relationships = data.relationships;
+
+                        if (_.isEmpty(data.contexts)) {
+                            data.contexts = [];
+                        }
+
                         data.contexts.push(newCtxItem);
                     }
                     delete data.attributes;
@@ -1714,19 +1733,19 @@
         DataTransformHelper._addRemoveRelationshipsBasedOnAdditionalContext = function (relationships, relationshipModels, additionalContexts, primaryContextData) {
             if (relationships && relationshipModels && additionalContexts) {
                 Object.keys(relationshipModels).filter(function (relKey) {
-                    var relModel = relationshipModels[relKey];
+                    var relModel = relationshipModels[relKey][0];
                     if (relModel && relModel.properties && relationships[relKey]) {
                         var properties = relModel.properties;
                         var isPrimaryContext = false;
 
                         if (properties.instanceCoalesce) {
-                            if (!DataTransformHelper.isAdditionalContexts(additionalContexts, properties.instanceCoalesce, "instance")) {
+                            if (!DataTransformHelper._isAdditionalContexts(additionalContexts, properties.instanceCoalesce, "instance")) {
                                 isPrimaryContext = true;
                             }
                         }
 
                         if (properties.contextCoalesce) {
-                            if (!DataTransformHelper.isAdditionalContexts(additionalContexts, properties.contextCoalesce, "context")) {
+                            if (!DataTransformHelper._isAdditionalContexts(additionalContexts, properties.contextCoalesce, "context")) {
                                 isPrimaryContext = true;
                             }
                         }
@@ -1994,31 +2013,31 @@
             var defaultValues = values.filter(value => value.locale === DataHelper.getDefaultLocale());
             var isReferenceData = false;
             var attrValues = [];
-            if(!_.isEmpty(_values) && _values.length > 0){
-                if(_values[0] && _values[0].properties && _values[0].properties.referenceData){
+            if (!_.isEmpty(_values) && _values.length > 0) {
+                if (_values[0] && _values[0].properties && _values[0].properties.referenceData) {
                     isReferenceData = true;
                 }
             }
 
-            if(isReferenceData){
-                var locales = [{name:valContext.locale}];
+            if (isReferenceData) {
+                var locales = [{ name: valContext.locale }];
                 var fallbackLocaleObj = {};
                 var _filteredLocale;
-                if(fallbackLocales && fallbackLocales.length > 0){
-                    for(var i = 0;i<fallbackLocales.length; i++){
-                        if(fallbackLocales[i].name != valContext.locale){
+                if (fallbackLocales && fallbackLocales.length > 0) {
+                    for (var i = 0; i < fallbackLocales.length; i++) {
+                        if (fallbackLocales[i].name != valContext.locale) {
                             fallbackLocales[i]["index"] = i;
                             locales.push(fallbackLocales[i])
                         }
                     }
                 }
-                for(var i=locales.length-1; i>-1; i--){
+                for (var i = locales.length - 1; i > -1; i--) {
                     _filteredLocale = _values.filter(value => value.locale === locales[i].name);
-                    if(_filteredLocale && _filteredLocale.length > 0){
-                        for(var j=0; j<_filteredLocale.length; j++){
+                    if (_filteredLocale && _filteredLocale.length > 0) {
+                        for (var j = 0; j < _filteredLocale.length; j++) {
                             var _referenceData = _filteredLocale[j].properties.referenceData;
                             var existingCol = _filteredLocale[j].locale;
-                            if(existingCol != valContext.locale){
+                            if (existingCol != valContext.locale) {
                                 _filteredLocale[j]["localeCoalesce"] = existingCol;
                                 _filteredLocale[j]["fallbackLocaleIndex"] = locales[i]["index"];
                             }
@@ -2026,20 +2045,20 @@
                         }
                     }
                 }
-                    
+
                 var output = [];
                 var _fallbackLocale = {}
-                for(_fallbackLocale in fallbackLocaleObj){
+                for (_fallbackLocale in fallbackLocaleObj) {
                     _fallbackLocale = fallbackLocaleObj[_fallbackLocale];
-                    if(_fallbackLocale && _fallbackLocale['localeCoalesce']){
+                    if (_fallbackLocale && _fallbackLocale['localeCoalesce']) {
                         DataTransformHelper._updateValueContextAndCoalesceInfo(_fallbackLocale, valContext, fallbackLocales, _fallbackLocale["fallbackLocaleIndex"])
                         delete _fallbackLocale["fallbackLocaleIndex"];
                         delete _fallbackLocale['localeCoalesce'];
                     }
                     output.push(_fallbackLocale);
                 }
-                attrValues =  output;
-            }else{
+                attrValues = output;
+            } else {
                 attrValues = _values.filter(value => value.locale === valContext.locale);
                 if (_.isEmpty(attrValues)) {
                     for (let j = 0; j < fallbackLocales.length; j++) {
