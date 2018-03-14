@@ -11,6 +11,7 @@
 <link rel="import" href="../rock-dimension-selector/rock-dimension-selector.html" />
 <link rel="import" href="../rock-layout/rock-header/rock-header.html" />
 <link rel="import" href="../rock-entity-search-discovery/rock-entity-search-discovery.html" />
+<link rel="import" href="../rock-component-config-behavior/rock-component-config-behavior.html">
 
 <dom-module id="app-entity-discovery">
     <template>
@@ -28,7 +29,7 @@
             }
         </style>
         <rock-layout>
-            <rock-titlebar slot="rock-titlebar" icon="pebble-icon:search-entity" main-title="Entity Search & Refine" non-minimizable="[[appConfig.nonMinimizable]]"
+            <rock-titlebar slot="rock-titlebar" icon="pebble-icon:search-entity" main-title="[[titlebarHeader]]" non-minimizable="[[appConfig.nonMinimizable]]"
                 non-closable="[[appConfig.nonClosable]]">
                 <div id="dimensionContainer" align="right">
                     <rock-dimension-selector id="dimensionSelector" context-data="[[contextData]]" app-name="app-entity-discovery" domain="[[domain]]" all-single-select></rock-dimension-selector>
@@ -101,14 +102,22 @@
                         value: function() {
                             return [];
                         }
+                    },
+                    titlebarHeader: {
+                        type:String,
+                        value: ""
                     }
 
                 },
 
                 behaviors: [
-                    RUFBehaviors.AppBehavior                    
+                    RUFBehaviors.AppBehavior,
+                    RUFBehaviors.ComponentConfigBehavior                    
                 ],
-
+                
+                observers: [
+                    "_onContextDataChange(contextData,domain)"
+                ],
                 ready: function () {
 
                     var domain = DataHelper.getParamValue('domain');
@@ -141,7 +150,28 @@
                         this._selectedDimensions = dimensionSelector.selectedDimensions;
                     }
                 },
-
+                
+                _onContextDataChange:function() {
+                    if (!_.isEmpty(this.contextData) && this.domain) {
+                        var context = DataHelper.cloneObject(this.contextData);
+                        //App specific
+                        var appName = ComponentHelper.getCurrentActiveAppName();
+                        if (appName) {
+                            context[ContextHelper.CONTEXT_TYPE_APP] = [{
+                                "app": appName
+                            }];
+                        }
+                        context[ContextHelper.CONTEXT_TYPE_DOMAIN] = [{
+                                "domain": this.domain
+                        }];
+                        this.requestConfig('rock-entity-discovery-titlebar', context);
+                    }
+                },
+                onConfigLoaded:function(componentConfig) {
+                    if (componentConfig && componentConfig.config) {
+                        this.titlebarHeader = componentConfig.config.title;
+                    }
+                },
                 created: function () {
                     var userContext = {
                         "role": this.roleId,
@@ -211,6 +241,11 @@
                 },
                 _onDimensionsChanged: function (e) {
                     var newDimensions = e.detail.dimensions;
+                    newDimensions["app"] = ["app-entity-discovery"];
+
+                    if(this.domain) {
+                        newDimensions["domain"] = [this.domain];
+                    }
                     ContextHelper.updateContextData(this.contextData, newDimensions);
                     this._onContextChanged();
                 }

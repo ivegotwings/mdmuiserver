@@ -10,9 +10,8 @@ if (runOffline) {
 const versionService = new VersionService(options);
 
 var VersionRouter = function (app) {
-    app.post('/data/version/updateRuntimeVersion', async function (req, res) {
+    app.use('/data/version/updateRuntimeVersion', async function (req, res) {
         var response = await versionService.updateRuntimeVersion(req);
-        //console.log(response);
         res.status(200).send(response);
     });
 };

@@ -179,11 +179,11 @@
                     <div class="layout horizontal">
                         <template is="dom-if" if="[[_getVisibility('rock-entity-type-model-lov')]]">
                             <div class="entityTypeFilterContainer m-r-10">
-                                <pebble-button id="entityTypeFilterButton" button-text="Entity Type" dropdown-icon noink
+                                <pebble-button id="entityTypeFilterButton" button-text="[[entityTypeFilterText]]" dropdown-icon noink
                                     class="dropdownText dropdownIcon btn dropdown-outline-primary dropdown-trigger" on-tap="_openEntityTypeFilterLov"></pebble-button>
                                 <pebble-popover id="entityTypeFilterPopover" for="entityTypeFilterButton" no-overlap  vertical-align="auto"
                                     horizontal-align="auto">
-                                    <rock-entity-type-model-lov id="entityTypeModelLov" domain="[[domain]]" select-all="true" allowed-entity-types="[[allowedEntityTypes]]" selected-items="{{_selectedEntityTypes}}"
+                                    <rock-entity-type-model-lov id="entityTypeModelLov" settings="[[_getComponentSettings('rock-entity-type-model-lov')]]" domain="[[domain]]" select-all="true" allowed-entity-types="[[allowedEntityTypes]]" selected-items="{{_selectedEntityTypes}}"
                                         show-action-buttons>
                                     </rock-entity-type-model-lov>                                
                                 </pebble-popover>
@@ -211,7 +211,8 @@
                                                     attribute-grid-data="{{attributeGridData}}"
                                                     workflow-criterion="[[_workflowCriterion]]" 
                                                     relationships-data="[[_relationshipsData]]"
-                                                    search-query="{{searchQuery}}">
+                                                    search-query="{{searchQuery}}"
+                                                    entity-type-filter-text="[[entityTypeFilterText]]">
                                                 </rock-query-builder>                                   
                                             </template>
                                         </div>
@@ -506,7 +507,10 @@
                             return [];
                         }
                     },
-
+                    entityTypeFilterText: {
+                        type: String,
+                        value: "Type"
+                    }
                 },
 
                 behaviors: [
@@ -517,25 +521,7 @@
 
                 _onContextDataChange: function() {
                     if(!_.isEmpty(this.contextData)) {
-                        var context = DataHelper.cloneObject(this.contextData);
-                        //App specific
-                        var appName = ComponentHelper.getCurrentActiveAppName();
-                        if(appName) {
-                            context[ContextHelper.CONTEXT_TYPE_APP] = [{
-                                "app": appName
-                            }];
-                        }
-
-                        if(this.domain) {
-                            context[ContextHelper.CONTEXT_TYPE_DOMAIN] = [{
-                                "domain": this.domain
-                            }];
-                        }
-                        //set the context data with the domain 
-                        if(!this.contextData.DomainContexts){
-                            this.set("contextData.DomainContexts",context.DomainContexts);
-                        }
-                        this.requestConfig('rock-entity-search-discovery', context);
+                        this.requestConfig('rock-entity-search-discovery', this.contextData);
                     }
                 },
 
@@ -571,6 +557,11 @@
 
                 _configDataChanged: function () {
                     if (!DataHelper.isEmptyObject(this.configData)) {
+                        if(this.configData && this.configData.componentSettings && this.configData.componentSettings["rock-entity-type-model-lov"]){
+                            if(this.configData.componentSettings["rock-entity-type-model-lov"].title){
+                                this.entityTypeFilterText = this.configData.componentSettings["rock-entity-type-model-lov"].title;
+                            }                           
+                        }                    
                         this._processTemplate = true;
                         Polymer.dom.flush();
                         
@@ -796,7 +787,7 @@
                         this._savedSearchButton.buttonText = "Saved Search";
                         this.savedSearchId = "";
                     }
-                    
+
                     // Clear SearchFilter
                     this.tags = []; // Todo
                     this._selectedSearchFilters = [];
@@ -811,7 +802,9 @@
                     //Clear the advanced search options
                     this.inputQueryString = "";
                     this.attributeGridData = new Array();
-                    this.set("_workflowCriterion", new Object());
+                    if(!this.workflowName){
+                        this.set("_workflowCriterion", new Object());
+                    }
                     this.set("_governDataCriterion", new Object());
                     
                     var queryBuilder = this.shadowRoot.querySelector("#queryBuilder");
@@ -1173,6 +1166,9 @@
                 },
 
                 _onSelectedEntityTypesChange: function (e, detail) {
+                    if(!Array.isArray(detail.data)){
+                        this._selectedEntityTypes = [detail.data];
+                    }
                     this._buildQueryString();
                 },
 
@@ -1249,8 +1245,7 @@
                         }
                     } else {
                         if (this._searchGridElement) {
-                            this._searchGridElement.contextData = {};
-                            this._searchGridElement.contextData = this.contextData;
+                            this._searchGridElement.refresh();
                         }
                     }
                 },
@@ -1353,6 +1348,9 @@
                         var queryParser = this.shadowRoot.querySelector("[id=queryParser]");
                         for(var i=0;i<attributeList.length;i++){
                             var value = attributeList[i].displayValue;
+                            if((DataHelper.isValidObjectPath(attributeList[i], 'options.dataType')) && attributeList[i].options.dataType == "boolean"){
+                                value = attributeList[i].booleanSearchValue;
+                            }
                             if(queryParser) {
                                 value = queryParser.formatValue(value);
                             }
@@ -1552,6 +1550,13 @@
                             this.shadowRoot.querySelector("#entityQuickManage").reload();
                         }
                     }, 0);
+                },
+                _getComponentSettings: function(componentName){
+                    if (typeof (this.configData) == "object") {
+                        if(this.configData.componentSettings) {
+                            return this.configData.componentSettings[componentName];
+                        }
+                    }
                 }
             });
         })();
