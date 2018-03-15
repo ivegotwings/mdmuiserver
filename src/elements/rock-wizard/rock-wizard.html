@@ -70,263 +70,263 @@ based on the given configuration.
         <bedrock-pubsub id="skip-event" handler="_onSkip"></bedrock-pubsub>
         <bedrock-pubsub id="cancel-event" handler="_onCancel"></bedrock-pubsub>
     </template>
-</dom-module>
-<script>
-    (function () {
-        'use strict';
 
-        Polymer({
-            is: 'rock-wizard',
-            properties: {
-                /*
-                 * Indicates the configuration information that the user provided.
-                 */
-                config: {
-                    type: Object,
-                    observer: '_configChanged',
-                    value: function () {
-                        return {};
+    <script>
+        (function () {
+            'use strict';
+
+            Polymer({
+                is: 'rock-wizard',
+                properties: {
+                    /*
+                    * Indicates the configuration information that the user provided.
+                    */
+                    config: {
+                        type: Object,
+                        observer: '_configChanged',
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    /**
+                     * If set as true , it indicates the component is in read only mode
+                     */
+                    readonly: {
+                        type: Boolean,
+                        value: false,
+                        observer: '_onReadonly'
+                    },
+                    _currentStepIndex: {
+                        type: Number,
+                        value: 0
+                    },
+
+                    _loading: {
+                            type: Boolean,
+                            value: true
+                        },
+                    /*
+                    * Indicates the properties of the object for the wizard.
+                    */
+                    properties: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    /*
+                    * Indicates the data that is shared between all the steps of the wizard.
+                    */
+                    hideStepper:{
+                        type:Boolean,
+                        value:false
+                    },
+                    sharedData: {
+                        type: Object,
+                        value: function() {
+                            return {};
+                        }
+                    },
+                    _stepperConfig: {
+                        type: Array,
+                        value: function() { return []; }
+                    }
+                },
+                behaviors: [
+                    RUFBehaviors.UIBehavior
+                ],
+                attached() {
+                    this.nextElementPubSub = this.shadowRoot.querySelector('#next-event');
+                    this.backElementPubSub = this.shadowRoot.querySelector('#back-event');
+                    this.skipElementPubSub = this.shadowRoot.querySelector('#skip-event');
+                    this.cancelElementPubSub = this.shadowRoot.querySelector('#cancel-event');
+                    this.stepContainerElement = this.shadowRoot.querySelector('#step-container');
+                },
+                _computeStepper:function(){
+                    return this.hideStepper;
+                },
+                /**
+                * Can be used to move forward to the next step.
+                */
+                goToNext: function () {
+                    if(this._currentStepIndex < this.config.steps.length-1) {
+                        this.goToStep(this._currentStepIndex + 1);
+                    } else {
+                        this.fire("cancel-event");
                     }
                 },
                 /**
-                 * If set as true , it indicates the component is in read only mode
-                 */
-                readonly: {
-                    type: Boolean,
-                    value: false,
-                    observer: '_onReadonly'
+                * Can be used to move backward to the previous step.
+                */
+                goToPrevious: function () {
+                    if(this._currentStepIndex > 0) {
+                        this.goToStep(this._currentStepIndex - 1);
+                    }
                 },
-                _currentStepIndex: {
-                    type: Number,
-                    value: 0
+                /**
+                * Can be used to go to a particular step in the wizard.
+                */
+                goToStep: function (stepIndex) {
+                    //load content based on current step config
+                    if(stepIndex >= 0 && stepIndex < this.config.steps.length) {
+                        this._currentStepIndex = stepIndex;
+                        var stepConfig = this.config.steps[stepIndex];
+                        this._renderComponent(stepConfig);
+                        this._addEventListeners(stepConfig);
+                        this._updateStepperSelectedStep(stepIndex);                    
+                    }
+                },
+                _updateStepperSelectedStep: function(stepIndex){
+                    var stepper = this.shadowRoot.querySelector('#pebbleStepper');
+                    if(stepper.selectedItem) {
+                        var previousItem = stepper.selectedItem;
+                        stepper.selectedItem.status = "completed";
+                    }
+                    stepper.selected = stepIndex;
+                    var stepperChildren = Polymer.FlattenedNodesObserver.getFlattenedNodes(stepper).filter(n => n.nodeType === Node.ELEMENT_NODE);
+                    var currentStepperChildren = stepperChildren[stepIndex];
+                    if(currentStepperChildren && currentStepperChildren != previousItem) {
+                        currentStepperChildren.status = "inprogress";
+                    };
+                    // if(stepper.selectedItem && stepper.selectedItem != previousItem) {
+                    //     stepper.selectedItem.status = "inprogress";
+                    // }
+                },
+                _configChanged: function(config) {
+                    if(config && config.steps && config.steps.length > 0) {
+                        var stepper = this.shadowRoot.querySelector('#pebbleStepper');
+                        stepper.selected = null;
+                        var stepperConfig = {};
+                        stepperConfig.items = []
+                        for(var i=0; i<config.steps.length; i++) {
+                            var step = {
+                                "index": i+1,
+                                "label": "",
+                                "status": "pending"
+                            };
+                            stepperConfig.items.push(step);
+                        }
+                        this.set("_stepperConfig", stepperConfig);
+                        this.shadowRoot.querySelector("#steps-template").render();
+                        this.goToStep(0);                   
+                    } 
+                },
+                _renderComponent: function(config) {
+                    var contentElement = this.stepContainerElement;
+                    if(config && config.component && contentElement) {
+                        if(this.sharedData){
+                            if(!config.component.properties){
+                                config.component.properties={};
+                            }
+                            for(var key in this.sharedData){
+                                if(!this.sharedData.hasOwnProperty(key)) continue;
+                                config.component.properties[i] = this.sharedData[i];
+                            }
+                            if(this.readonly){
+                                config.component.properties.mode = 'view';
+                                config.component.properties.readonly = this.readonly;
+                            }
+                        }
+                        ComponentHelper.loadContent(contentElement, config.component, this);  
+                        this._loading = false;                 
+                    }
                 },
 
-                _loading: {
-                        type: Boolean,
-                        value: true
-                    },
-                /*
-                 * Indicates the properties of the object for the wizard.
-                 */
-                properties: {
-                    type: Object,
-                    value: function () {
-                        return {};
+                _onNext: function(e, detail, sender) {
+                    var data=detail.data;
+                    this._loadSharedData();
+                    if(data && data.skipNext) {
+                        this._updateStepperSelectedStep(this._currentStepIndex + 1);
+                        this._currentStepIndex++;
+                    }
+                    if(this._currentStepIndex == this.config.steps.length-1) {
+                        if(!detail){
+                            detail={};
+                        }
+                        detail.closeBusinessFunction=true;
+                        this.dispatchEvent(new CustomEvent('next-step',{detail:detail,bubbles:true,composed:true}));
+                    } else{
+                        if(detail) {
+                            this.dispatchEvent(new CustomEvent('next-step', {detail:detail,bubbles:true,composed:true}));
+                        }
+                        this.goToNext();
                     }
                 },
-                /*
-                 * Indicates the data that is shared between all the steps of the wizard.
-                 */
-                hideStepper:{
-                    type:Boolean,
-                    value:false
-                },
-                sharedData: {
-                    type: Object,
-                    value: function() {
-                        return {};
+                _onBack: function(e, detail, sender) {
+                    if(this._currentStepIndex && this._currentStepIndex != 0) {
+                        this.goToPrevious();
+                    } else if(this._currentStepIndex ==0){
+                        this.dispatchEvent(new CustomEvent('first-step-cancelled',{bubbles:true,composed:true}));
                     }
                 },
-                _stepperConfig: {
-                    type: Array,
-                    value: function() { return []; }
-                }
-            },
-            behaviors: [
-                RUFBehaviors.UIBehavior
-            ],
-            attached() {
-                this.nextElementPubSub = this.shadowRoot.querySelector('#next-event');
-                this.backElementPubSub = this.shadowRoot.querySelector('#back-event');
-                this.skipElementPubSub = this.shadowRoot.querySelector('#skip-event');
-                this.cancelElementPubSub = this.shadowRoot.querySelector('#cancel-event');
-                this.stepContainerElement = this.shadowRoot.querySelector('#step-container');
-            },
-            _computeStepper:function(){
-                return this.hideStepper;
-            },
-            /**
-             * Can be used to move forward to the next step.
-             */
-            goToNext: function () {
-                if(this._currentStepIndex < this.config.steps.length-1) {
-                    this.goToStep(this._currentStepIndex + 1);
-                } else {
-                    this.fire("cancel-event");
-                }
-            },
-            /**
-             * Can be used to move backward to the previous step.
-             */
-            goToPrevious: function () {
-                if(this._currentStepIndex > 0) {
-                    this.goToStep(this._currentStepIndex - 1);
-                }
-            },
-            /**
-             * Can be used to go to a particular step in the wizard.
-             */
-            goToStep: function (stepIndex) {
-                //load content based on current step config
-                if(stepIndex >= 0 && stepIndex < this.config.steps.length) {
-                    this._currentStepIndex = stepIndex;
-                    var stepConfig = this.config.steps[stepIndex];
-                    this._renderComponent(stepConfig);
-                    this._addEventListeners(stepConfig);
-                    this._updateStepperSelectedStep(stepIndex);                    
-                }
-            },
-            _updateStepperSelectedStep: function(stepIndex){
-                var stepper = this.shadowRoot.querySelector('#pebbleStepper');
-                if(stepper.selectedItem) {
-                    var previousItem = stepper.selectedItem;
-                    stepper.selectedItem.status = "completed";
-                }
-                stepper.selected = stepIndex;
-                var stepperChildren = Polymer.FlattenedNodesObserver.getFlattenedNodes(stepper).filter(n => n.nodeType === Node.ELEMENT_NODE);
-                var currentStepperChildren = stepperChildren[stepIndex];
-                if(currentStepperChildren && currentStepperChildren != previousItem) {
-                    currentStepperChildren.status = "inprogress";
-                };
-                // if(stepper.selectedItem && stepper.selectedItem != previousItem) {
-                //     stepper.selectedItem.status = "inprogress";
-                // }
-            },
-            _configChanged: function(config) {
-                if(config && config.steps && config.steps.length > 0) {
-                    var stepper = this.shadowRoot.querySelector('#pebbleStepper');
-                    stepper.selected = null;
-                    var stepperConfig = {};
-                    stepperConfig.items = []
-                    for(var i=0; i<config.steps.length; i++) {
-                        var step = {
-                            "index": i+1,
-                            "label": "",
-                            "status": "pending"
-                        };
-                        stepperConfig.items.push(step);
-                    }
-                    this.set("_stepperConfig", stepperConfig);
-                    this.shadowRoot.querySelector("#steps-template").render();
-                    this.goToStep(0);                   
-                } 
-            },
-            _renderComponent: function(config) {
-                var contentElement = this.stepContainerElement;
-                if(config && config.component && contentElement) {
-                    if(this.sharedData){
-                        if(!config.component.properties){
-                            config.component.properties={};
-                        }
-                        for(var i in this.sharedData){
-                            config.component.properties[i] = this.sharedData[i];
-                        }
-                        if(this.readonly){
-                            config.component.properties.mode = 'view';
-                            config.component.properties.readonly = this.readonly;
-                        }
-                    }
-                    ComponentHelper.loadContent(contentElement, config.component, this);  
-                    this._loading = false;                 
-                }
-            },
-           
-            _onNext: function(e, detail, sender) {
-                var data=detail.data;
-                this._loadSharedData();
-                if(data && data.skipNext) {
-                    this._updateStepperSelectedStep(this._currentStepIndex + 1);
-                    this._currentStepIndex++;
-                }
-                if(this._currentStepIndex == this.config.steps.length-1) {
-                    if(!detail){
-                        detail={};
-                    }
-                    detail.closeBusinessFunction=true;
-                    this.dispatchEvent(new CustomEvent('next-step',{detail:detail,bubbles:true,composed:true}));
-                } else{
-                    if(detail) {
-                        this.dispatchEvent(new CustomEvent('next-step', {detail:detail,bubbles:true,composed:true}));
-                    }
+                _onSkip: function(e, detail, sender) {
+                    this._loadSharedData();
                     this.goToNext();
-                }
-            },
-            _onBack: function(e, detail, sender) {
-                if(this._currentStepIndex && this._currentStepIndex != 0) {
-                    this.goToPrevious();
-                } else if(this._currentStepIndex ==0){
-                    this.dispatchEvent(new CustomEvent('first-step-cancelled',{bubbles:true,composed:true}));
-                }
-            },
-            _onSkip: function(e, detail, sender) {
-                this._loadSharedData();
-                this.goToNext();
-            },
-            _onCancel: function(e, detail, sender) {
-                this.fire("cancel-event");
-            },
-            _onComponentCreating: function(e, detail, sender) {
-                
-            },
-            _addEventListeners: function(config) {
-                if(!config) return;
-                
-                this.appId = this.getAppId();
-                var nextEventName = config.nextEvent;
-                var backEventName = config.backEvent;
-                var skipEventName = config.skipEvent;
-                var cancelEventName = config.cancelEvent;
-                var nextElement = this.nextElementPubSub;
-                var backElement = this.backElementPubSub;
-                var skipElement = this.skipElementPubSub;
-                var cancelElement = this.cancelElementPubSub;
-                if(nextElement && nextEventName) {
-                    nextElement.eventName = nextEventName;
-                    nextElement.registerEvent();
-                }
-                if(backElement && backEventName) {
-                    backElement.eventName = backEventName;
-                    backElement.registerEvent();
-                }
-                if(skipElement && skipEventName) {
-                    skipElement.eventName = skipEventName;
-                    skipElement.registerEvent();
-                }
-                if(cancelElement && cancelEventName) {
-                    cancelElement.eventName = cancelEventName;
-                    cancelElement.registerEvent();
-                }
-            },
-            _loadSharedData: function() {
-                var contentElement = this.stepContainerElement;
-                var currentComponent=contentElement.firstElementChild;
-                var currentConfig=this.config.steps[this._currentStepIndex];
-                if(currentConfig.sharedProperties){
-                    var sharedProperties=currentConfig.sharedProperties;
-                    for(var key in sharedProperties){
-                        if(!sharedProperties.hasOwnProperty(key)) continue;
-                        
-                        this.sharedData[key]=currentComponent[sharedProperties[key]];
+                },
+                _onCancel: function(e, detail, sender) {
+                    this.fire("cancel-event");
+                },
+                _onComponentCreating: function(e, detail, sender) {
+                    
+                },
+                _addEventListeners: function(config) {
+                    if(!config) return;
+                    
+                    this.appId = this.getAppId();
+                    var nextEventName = config.nextEvent;
+                    var backEventName = config.backEvent;
+                    var skipEventName = config.skipEvent;
+                    var cancelEventName = config.cancelEvent;
+                    var nextElement = this.nextElementPubSub;
+                    var backElement = this.backElementPubSub;
+                    var skipElement = this.skipElementPubSub;
+                    var cancelElement = this.cancelElementPubSub;
+                    if(nextElement && nextEventName) {
+                        nextElement.eventName = nextEventName;
+                        nextElement.registerEvent();
                     }
-                }
-            },
-            /**
-            * Can be used to get if the current component loaded in the wizard is dirty or not.
-            */
-            getIsDirty: function() {
-                var content = this.stepContainerElement;
-                if(content && content.firstElementChild && content.firstElementChild.getIsDirty) {
-                    return content.firstElementChild.getIsDirty();
-                }
-                return false;
-            },
-            
-            _onReadonly: function () {
-                var content = this.stepContainerElement;
-                if(content && content.firstElementChild) {
-                    content.firstElementChild.readonly = this.readonly;
-                }
-            }  
-        });
-    })();
-</script>
+                    if(backElement && backEventName) {
+                        backElement.eventName = backEventName;
+                        backElement.registerEvent();
+                    }
+                    if(skipElement && skipEventName) {
+                        skipElement.eventName = skipEventName;
+                        skipElement.registerEvent();
+                    }
+                    if(cancelElement && cancelEventName) {
+                        cancelElement.eventName = cancelEventName;
+                        cancelElement.registerEvent();
+                    }
+                },
+                _loadSharedData: function() {
+                    var contentElement = this.stepContainerElement;
+                    var currentComponent=contentElement.firstElementChild;
+                    var currentConfig=this.config.steps[this._currentStepIndex];
+                    if(currentConfig.sharedProperties){
+                        var sharedProperties=currentConfig.sharedProperties;
+                        for(var i in sharedProperties){
+                            this.sharedData[i]=currentComponent[sharedProperties[i]];
+                        }
+                    }
+                },
+                /**
+                * Can be used to get if the current component loaded in the wizard is dirty or not.
+                */
+                getIsDirty: function() {
+                    var content = this.stepContainerElement;
+                    if(content && content.firstElementChild && content.firstElementChild.getIsDirty) {
+                        return content.firstElementChild.getIsDirty();
+                    }
+                    return false;
+                },
+                
+                _onReadonly: function () {
+                    var content = this.stepContainerElement;
+                    if(content && content.firstElementChild) {
+                        content.firstElementChild.readonly = this.readonly;
+                    }
+                }  
+            });
+        })();
+    </script>
+</dom-module>
