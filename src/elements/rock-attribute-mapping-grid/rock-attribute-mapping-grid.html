@@ -239,7 +239,7 @@
         </div>
         <liquid-entity-model-get name="liquidAttributeModelGet" operation="getbyids" on-response="_onAttributeModelGetResponse"
             on-error="_onError"></liquid-entity-model-get>
-        <liquid-entity-model-get name="liquidEntityManageModelGet" operation="getbyids" on-response="_onEntityManageModelGetResponse" on-error="_onEntityManageModelGetError"></liquid-entity-model-get>
+        <liquid-entity-model-composite-get name="liquidEntityManageModelGet" operation="getbyids" on-response="_onEntityManageModelGetResponse" on-error="_onEntityManageModelGetError"></liquid-entity-model-composite-get>
     </template>
     <script>
         (function () {
@@ -501,19 +501,47 @@
                 },
 
                 _getEntityManageModel: function () {
-                    var types = [];
-                    types.push(this.getFirstItemContext().type);
-                    var modelGetRequest = DataRequestHelper.createGetManageModelRequest(types);
-
+                    var modelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
+                    this._setFieldsAndContextsForRequest(modelGetRequest);
                     if(this.liquidEntityManageModelGetLiq) {
                         this.liquidEntityManageModelGetLiq.requestData = modelGetRequest;
                         this.liquidEntityManageModelGetLiq.generateRequest();
                     }
                 },
 
+                _setFieldsAndContextsForRequest: function(modelGetRequest) {
+                    //Set fields
+                    delete modelGetRequest.params.fields.relationships;
+                    delete modelGetRequest.params.fields.relationshipAttributes;
+                    modelGetRequest.params.fields.attributes = ["_ALL"];
+
+                    //Set contexts
+                    var contexts = {};
+                    for(var i = 0; i < this._contexts.length; i++) {
+                        if(this.selectedDimensions && 
+                           this.selectedDimensions[this._contexts[i]] && 
+                           this.selectedDimensions[this._contexts[i]].length) {
+                            contexts[this._contexts[i]] = this.selectedDimensions[this._contexts[i]][0];
+                        }
+                    }
+
+                    if(!_.isEmpty(contexts)) {
+                        modelGetRequest.params.query.contexts = [contexts];
+                    }
+                },
+
                 _onEntityManageModelGetResponse: function (e, detail) {
-                    if (detail && DataHelper.isValidObjectPath(detail, "response.content.entityModels.0.data.attributes")) {
-                        this._entityManageModelAttributes = detail.response.content.entityModels[0].data.attributes;
+                    if (detail && DataHelper.isValidObjectPath(detail, "response.content.entityModels.0.data")) {
+                        var contexts = detail.response.content.entityModels[0].data.contexts;
+                        var attributes = detail.response.content.entityModels[0].data.attributes || {};
+                        //Set context attributes if available
+                        if(contexts && contexts.length > 0) {
+                            if(contexts[0].attributes) {
+                                attributes = contexts[0].attributes || {};
+                            }
+                        }
+
+                        this._entityManageModelAttributes = attributes;
                     }
                     //Got the entityManageModel to set the ValueMappings button, now prepare grid
                     this._prepareGridData();
