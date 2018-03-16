@@ -119,33 +119,40 @@ EntityCompositeModelGetService.prototype = {
     _verifyAndPopulateWritePermission: function(modelObjects, isRelType) {
         var model = {};
         for(var objKey in modelObjects) {
-            var modelObj = modelObjects[objKey];
+            var modelObject = modelObjects[objKey];
 
-            if(isRelType && modelObj.length > 0) {
-                modelObj = modelObj[0];
+            if(isRelType && modelObject.length > 0) {
+                modelObject = modelObject;
+            } else {
+                modelObject = [modelObject];
             }
 
-            if(!modelObj.properties) {
-                modelObj.properties = {};
-            }
+            for(var i=0; i<modelObject.length; i++) {
+                var modelObj = modelObject[i];
 
-            if(modelObj.properties["readPermission"] === true) {
-                if(modelObj.properties["writePermission"] === true) {
-                    modelObj.properties['hasWritePermission'] = true;
-                } else {
-                    modelObj.properties['hasWritePermission'] = false;
+                if(!modelObj.properties) {
+                    modelObj.properties = {};
                 }
 
-                if(isRelType) {
-                    var relAttributes = modelObj.attributes;
-                    relAttributes = this._verifyAndPopulateWritePermission(relAttributes, false);
-                    modelObj = [modelObj];
-                }
+                if(modelObj.properties["readPermission"] === true) {
+                    if(modelObj.properties["writePermission"] === true) {
+                        modelObj.properties['hasWritePermission'] = true;
+                    } else {
+                        modelObj.properties['hasWritePermission'] = false;
+                    }
 
-                model[objKey] = modelObj
+                    if(isRelType) {
+                        var relAttributes = modelObj.attributes;
+                        relAttributes = this._verifyAndPopulateWritePermission(relAttributes, false);
+                        model[objKey] = model[objKey] || [];
+                        model[objKey].push(modelObj);
+                    } else {
+                        model[objKey] = modelObj;
+                    }
+                }
             }
         }
-
+        
         return model;
     }
 };
