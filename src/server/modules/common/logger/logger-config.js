@@ -232,7 +232,7 @@ var LOGGER_CONFIG = function () {
         },
         "/entityappservice/delete": {
             "level": "info"
-        },
+        }
         
     };
 
