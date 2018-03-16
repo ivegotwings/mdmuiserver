@@ -104,13 +104,13 @@ var LOGGER_CONFIG = function () {
         "/entityappmodelservice/getcomposite": {
             "level": "info"
         },
-        "/entityappmodelservice/create": {
+        "/entitymodelservice/create": {
             "level": "info"
         },
-        "/entityappmodelservice/update": {
+        "/entitymodelservice/update": {
             "level": "info"
         },
-        "/entityappmodelservice/delete": {
+        "/entitymodelservice/delete": {
             "level": "info"
         },
         "/entitygovernservice/create": {
@@ -149,10 +149,10 @@ var LOGGER_CONFIG = function () {
         "/requestmanageservice/get": {
             "level": "info"
         },
-        "/copservice/transform": {
+        "/rsConnectService/transform": {
             "level": "info"
         },
-        "/copservice/publish": {
+        "/rsConnectService/publish": {
             "level": "info"
         },
         "/matchservice/search": {
@@ -161,19 +161,19 @@ var LOGGER_CONFIG = function () {
         "/entitygovernservice/validate": {
             "level": "info"
         },
-        "/copservice/process": {
+        "/rsConnectService/process": {
             "level": "info"
         },
-        "/copservice/processmodel": {
+        "/rsConnectService/processmodel": {
             "level": "info"
         },
-        "/copservice/downloadModelExcel": {
+        "/rsConnectService/downloadModelExcel": {
             "level": "info"
         },
-        "/copservice/downloadDataExcel": {
+        "/rsConnectService/downloadDataExcel": {
             "level": "info"
         },
-        "/copservice/downloadDataJob": {
+        "/rsConnectService/downloadDataJob": {
             "level": "info"
         },
         "/entitygovernservice/getcontext": {
@@ -185,16 +185,16 @@ var LOGGER_CONFIG = function () {
         "/requesttrackingservice/get": {
             "level": "info"
         },
-        "/copservice/generateFieldMap": {
+        "/rsConnectService/generateFieldMap": {
             "level": "info"
         },
-        "/copservice/getHeaderFields": {
+        "/rsConnectService/getHeaderFields": {
             "level": "info"
         },
-        "/copservice/getMappings": {
+        "/rsConnectService/getMappings": {
             "level": "info"
         },
-        "/copservice/saveMappings": {
+        "/rsConnectService/saveMappings": {
             "level": "info"
         },
         "/binarystreamobjectservice/prepareUpload": {
@@ -224,10 +224,10 @@ var LOGGER_CONFIG = function () {
         "/binaryobjectservice/getById": {
             "level": "info"
         },
-        "/copservice/getprofile": {
+        "/rsConnectService/getprofile": {
             "level": "info"
         },
-        "/copservice/saveoverrides": {
+        "/rsConnectService/saveoverrides": {
             "level": "info"
         },
         "/entityappservice/delete": {
