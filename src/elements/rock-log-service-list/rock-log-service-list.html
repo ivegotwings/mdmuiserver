@@ -30,6 +30,9 @@
 <dom-module id="rock-log-service-list">
     <template>
             <style include="bedrock-style-common bedrock-style-gridsystem">
+                :host{
+                    display: block
+                }
                
                 rock-grid {
                     --rock-grid-height: 260px;
@@ -39,8 +42,11 @@
                         margin-right:0;
                         margin-bottom:0;
                     };
+                    --data-table-cell-width:{
+                        flex-basis: 0px;
+                    }
+                   
                 }
-
                 _:-ms-lang(x), _:-webkit-full-screen {
                     vertical-align: top;
                 }
@@ -62,8 +68,10 @@
                 height: 30px;
             }
             </style>
-            <input id="input" type="text" value="{{inputValue::input}}" placeholder="Enter Search text">
-            <rock-grid id="importlistGrid" no-header config="{{gridConfig}}" page-size="50" data="[[loggerArray]]"></rock-grid>
+            <rock-grid id="importlistGrid" config="{{gridConfig}}" attribute-models="{{_attributeModels}}" page-size="50" data="[[loggerArray]]">
+                    <pebble-toolbar id="toolbar" readonly="[[readonly]]" slot="toolbar" config-data="[[_toolbarConfig]]"></pebble-toolbar>
+                    <bedrock-pubsub event-name="toolbar-button-event" handler="_onToolbarEvent" target-id="toolbar"></bedrock-pubsub>
+            </rock-grid>
             <pebble-button id="statusIcon" class="btn btn-success log-save-button" button-text="Save" on-click="_handleSave"></pebble-button>
             <liquid-rest id="loggerConfigGet" url="/data/logger/get" method="GET" on-liquid-response="_onLoggerConfigGetResponse" on-liquid-error="_onLoggerConfigGetError"></liquid-rest>
             <liquid-rest id="loggerConfigSave" url="/data/logger/set" method="POST" on-liquid-response="_onLoggerConfigSaveResponse" on-liquid-error="_onLoggerConfigSaveError"></liquid-rest>
@@ -102,17 +110,58 @@
                             return {};
                         },
                     },
+                    _toolbarConfig: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        },
+                    },
                     loggerArray: {
                         type: Array,
                         value: function () {
                             return [];
                         }
                     },
-                    inputValue: {
-                        type: String,
-                        value: "",
-                        observer: "_onInputChange"
+                    _attributeModels: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
                     },
+                    logger: {
+                        type: Array,
+                        value: [{
+                            "value": "trace",
+                            "title": "trace"
+                        },
+                        {
+                            "value": "debug",
+                            "title": "debug"
+                        },
+                        {
+                            "value": "info",
+                            "title": "info"
+                        },
+                        {
+                            "value": "warn",
+                            "title": "warn"
+                        },
+                        {
+                            "value": "error",
+                            "title": "error"
+                        },
+                        {
+                            "value": "fatal",
+                            "title": "fatal"
+                        }]
+                    },
+                    attributeModelObject: {
+                        type: String,
+                        value: function () {
+                        return {};
+                        }
+                    },
+
 
                 },
                 behaviors: [
@@ -122,6 +171,9 @@
              
                 ready: function () {
                     this._getLoggerConfigData();
+                },
+                _onToolbarEvent: function (e, detail) {
+                    this.fireBedrockEvent("rock-toolbar-button-event", detail);
                 },
                 _onLoggerConfigGetResponse: function (e) {
                     this.set("loggerObj", e.detail.response);
@@ -139,21 +191,20 @@
                             _level = this.loggerObj[key].level;
                             if (keywordSearchText){
                                 if(key.indexOf(keywordSearchText) > -1) {
-                                    arr.push({ title: key, level: _level });
+                                    arr.push({ logName: key, logLevel: _level });
                                 }
                             }else{
-                                arr.push({ title: key, level: _level });
+                                arr.push({ logName: key, logLevel: _level });
                             }  
                         }                           
                     }
                     this.set("loggerArray", arr);
-                    
                 },
                 _handleSave: function () {
                     //todo need to handle save functionality
                     var finalObj = {};
                     for (var i = 0; i < this.loggerArray.length; i++) {
-                        finalObj[this.loggerArray[i]["title"]] = { level: this.loggerArray[i]["level"] }
+                        finalObj[this.loggerArray[i]["logName"]] = { level: this.loggerArray[i]["logLevel"] }
                     }
                     if(DataHelper.compareObjects(finalObj, this.loggerObj)){
                         this.showInformationToast("No changes to save.");
@@ -197,16 +248,57 @@
                     });                    
                 },
                 onConfigLoaded: function (componentConfig) {
-                    if(componentConfig && componentConfig.config) {
-                        this.config=componentConfig.config;
-                        this.set("gridConfig",this.config.gridConfig);
-                    }
-                },
-                _onInputChange: function(){
-                    if (this.inputValue && this.inputValue.trim() != "") {
-                        this._setLoggerData(this.inputValue)
-                    }else{
-                        this._setLoggerData()
+                    if (componentConfig && componentConfig.config) {
+                        this.config = componentConfig.config;
+                        if(this.config.gridConfig){
+                            var _gridConfig = this.config.gridConfig;
+                        }
+                        var _attributeModelObject = {
+                            "logLevel": {
+                                "name": "logLevel", "externalName": "Component Rule",
+                                "description": "",
+                                "dataType": "string",
+                                "groupName": "Basic",
+                                "displayType": "Dropdown",
+                                "displaySequence": "",
+                                "allowedValues": this.logger,
+                                "hasWritePermission": true,
+                            }
+
+                        };
+                        var buttonItems = {
+                            "basic": {
+                                "buttons": {
+                                    "edit": {
+                                        "name": "edit",
+                                        "icon": "pebble-icon:action-edit",
+                                        "text": "",
+                                        "visible": true,
+                                        "tooltip": "Edit",
+                                        "intent": "write"
+                                    }
+                                }
+                            }
+                        }
+                        var writePermission = true;
+                        if (_gridConfig.hasOwnProperty('hasWritePermission')) {
+                            writePermission = _gridConfig.hasWritePermission;
+                        };
+                        buttonItems = DataHelper.convertObjectToArray(buttonItems);
+                        for (var i = 0; i < buttonItems.length; i++) {
+                            buttonItems[i].buttons = DataHelper.convertObjectToArray(buttonItems[i].buttons);
+                            var buttons = buttonItems[i].buttons;
+                            if (!writePermission) {
+                                for (var j = 0; j < buttons.length; j++) {
+                                    if (buttons[j].intent === "write") {
+                                        buttons[j].visible = false;
+                                    }
+                                }
+                            }
+                        }
+                        this.set("_toolbarConfig", { buttonItems })
+                        this.set("_attributeModels", _attributeModelObject);
+                        this.set("gridConfig", _gridConfig);
                     }
                 }
             });
