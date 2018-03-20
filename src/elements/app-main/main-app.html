@@ -62,9 +62,6 @@ var Globals = Globals || {};
 Globals.requestCount = 0;
 Globals.responseCount = 0;
 
-
-pages= ["dashboard", "entity-discovery", "asset-discovery", "reference-discovery", "compare-entities", "system-healthcheck", "entity-manage", "govmodel-dashboard", "basemodel-dashboard"];
-
 </script>
 
 <!--
@@ -178,14 +175,6 @@ Main os app for riversand ui framework
                     RUFUtilities.mainApp   = Polymer.dom(document).querySelector("main-app");
                     this._userDetails = userDetail;
                     this._onUserDetailsChange();
-                    var pageurl =  location.href.substring(location.href.lastIndexOf('/') + 1, (location.href.indexOf('?') === -1 ? location.href.length: location.href.indexOf('?')));
-                    if(pages.indexOf(pageurl) !== -1) {
-                        this.page = pageurl;
-                        this.changePageRoutePath(pageurl);
-                    } else {
-                        this.page = 'dashboard';
-                        this.changePageRoutePath('dashboard');
-                    }
                 }
             },
             properties: {
@@ -217,6 +206,11 @@ Main os app for riversand ui framework
                 appRepository: {
                     type: Object,
                     notify: true
+                },
+                //only one instance of main-app component is expected so single pages array instance is fine
+                pages: {
+                    type: Object,
+                    value: []
                 },
                 globalSettings: {
                     type: Object,
@@ -508,7 +502,16 @@ Main os app for riversand ui framework
                 if (!cElement) {
                     Polymer.Async.timeOut.after(100).run(() => {
                         Polymer.RenderStatus.afterNextRender(this, () => {
-                            Polymer.importHref(Polymer.ResolveUrl.resolveUrl('../../src/elements/app-common/app-common.html'),null,null,true);
+                            Polymer.importHref(Polymer.ResolveUrl.resolveUrl('../../src/elements/app-common/app-common.html'), null, null, true);
+                            var localeManager = ComponentHelper.getLocaleManager();
+                            if (localeManager) {
+                                localeManager.preload();
+                            }
+                            var entityTypeManager = EntityTypeManager.getInstance();
+
+                            if (entityTypeManager) {
+                                entityTypeManager.preload();
+                            }
                         });
                     });
                 }
@@ -557,15 +560,35 @@ Main os app for riversand ui framework
                     this.page = page || '';
                 }
             },
+            _fillPages: function(pages, appRepository) {
+                if(_.isEmpty(this.pages) && !_.isEmpty(appRepository)) {
+                    for(let appName in appRepository) {
+                        let appConfig = appRepository[appName];
+                        if(!_.isEmpty(appConfig) && appConfig.data_route && pages.indexOf(appConfig.data_route) < 0) {
+                            pages.push(appConfig.data_route);
+                        }
+                    }
+                }
+            },
             _pageChanged: function (page, appRepository, queryParams) {
                 this._debouncer = Polymer.Debouncer.debounce(this._debouncer, Polymer.Async.timeOut.after(0), () => {
-                    if (page != undefined && queryParams != undefined && appRepository !=undefined) {
-                        var contentViewManager = this.contentViewManager;
-                        if (contentViewManager) {
-                            ComponentHelper.setQueryParamsWithoutEncode(queryParams);
-                            contentViewManager.openView(page, this.appRepository[page], this.queryParams, this.openAction);
+                    if (!_.isEmpty(page) && queryParams != undefined && !_.isEmpty(appRepository)) {
+                        this._fillPages(this.pages, appRepository);
+                        var pageurl =  location.href.substring(location.href.lastIndexOf('/') + 1, (location.href.indexOf('?') === -1 ? location.href.length: location.href.indexOf('?')));
+                        if(this.pages.indexOf(pageurl) !== -1) {
+                            this.page = pageurl;
+                            this.changePageRoutePath(pageurl);
+
+                            var contentViewManager = this.contentViewManager;
+                            if (contentViewManager) {
+                                ComponentHelper.setQueryParamsWithoutEncode(queryParams);
+                                contentViewManager.openView(page, this.appRepository[page], this.queryParams, this.openAction);
+                            }
+                            ComponentHelper.emptyDeleteQueue();
+                        } else {
+                            this.page = 'dashboard';
+                            this.changePageRoutePath('dashboard');
                         }
-                        ComponentHelper.emptyDeleteQueue();
                     }
                     this.dispatchEvent(new CustomEvent('bedrock-event', {
                         detail: {
