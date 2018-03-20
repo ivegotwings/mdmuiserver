@@ -35,7 +35,7 @@ var LOGGER_CONFIG = function () {
         "state-manager": {
             "level": "info"
         },
-        "service-base": {
+        "utils": {
             "level": "info"
         },
         "cop": {
@@ -86,9 +86,6 @@ var LOGGER_CONFIG = function () {
         "/entityappservice/update": {
             "level": "info"
         },
-        "/entityappservice/delete": {
-            "level": "info"
-        },
         "/entityappservice/getcombined": {
             "level": "info"
         },
@@ -104,13 +101,34 @@ var LOGGER_CONFIG = function () {
         "/entityappmodelservice/getcoalesce": {
             "level": "info"
         },
-        "/entityappmodelservice/create": {
+        "/entityappmodelservice/getcomposite": {
             "level": "info"
         },
-        "/entityappmodelservice/update": {
+        "/entitymodelservice/create": {
             "level": "info"
         },
-        "/entityappmodelservice/delete": {
+        "/entitymodelservice/update": {
+            "level": "info"
+        },
+        "/entitymodelservice/delete": {
+            "level": "info"
+        },
+        "/entitygovernservice/create": {
+            "level": "info"
+        },
+        "/entitygovernservice/update": {
+            "level": "info"
+        },
+        "/entitygovernservice/delete": {
+            "level": "info"
+        },
+        "/entitygovernservice/startWorkflow": {
+            "level": "info"
+        },
+        "/entitygovernservice/workflowChangeAssignment": {
+            "level": "info"
+        },
+        "/entitygovernservice/transitionWorkflow": {
             "level": "info"
         },
         "/configurationservice/get": {
@@ -128,6 +146,94 @@ var LOGGER_CONFIG = function () {
         "/configurationservice/delete": {
             "level": "info"
         },
+        "/requestmanageservice/get": {
+            "level": "info"
+        },
+        "/rsConnectService/transform": {
+            "level": "info"
+        },
+        "/rsConnectService/publish": {
+            "level": "info"
+        },
+        "/matchservice/search": {
+            "level": "info"
+        },
+        "/entitygovernservice/validate": {
+            "level": "info"
+        },
+        "/rsConnectService/process": {
+            "level": "info"
+        },
+        "/rsConnectService/processmodel": {
+            "level": "info"
+        },
+        "/rsConnectService/downloadModelExcel": {
+            "level": "info"
+        },
+        "/rsConnectService/downloadDataExcel": {
+            "level": "info"
+        },
+        "/rsConnectService/downloadDataJob": {
+            "level": "info"
+        },
+        "/entitygovernservice/getcontext": {
+            "level": "info"
+        },
+        "/eventservice/get": {
+            "level": "info"
+        },
+        "/requesttrackingservice/get": {
+            "level": "info"
+        },
+        "/rsConnectService/generateFieldMap": {
+            "level": "info"
+        },
+        "/rsConnectService/getHeaderFields": {
+            "level": "info"
+        },
+        "/rsConnectService/getMappings": {
+            "level": "info"
+        },
+        "/rsConnectService/saveMappings": {
+            "level": "info"
+        },
+        "/binarystreamobjectservice/prepareUpload": {
+            "level": "info"
+        },
+        "/binarystreamobjectservice/prepareDownload": {
+            "level": "info"
+        },
+        "/binarystreamobjectservice/create": {
+            "level": "info"
+        },
+        "/binaryobjectservice/get": {
+            "level": "info"
+        },
+        "/binaryobjectservice/create": {
+            "level": "info"
+        },
+        "/binaryobjectservice/update": {
+            "level": "info"
+        },
+        "/binaryobjectservice/delete": {
+            "level": "info"
+        },
+        "/bulkentityservice/createtask": {
+            "level": "info"
+        },
+        "/binaryobjectservice/getById": {
+            "level": "info"
+        },
+        "/rsConnectService/getprofile": {
+            "level": "info"
+        },
+        "/rsConnectService/saveoverrides": {
+            "level": "info"
+        },
+        "/entityappservice/delete": {
+            "level": "info"
+        }
+        
     };
 
     this.getModulesObject = function () {
