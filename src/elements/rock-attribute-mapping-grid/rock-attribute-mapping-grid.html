@@ -20,6 +20,7 @@
 <link rel="import" href="../pebble-popover/pebble-popover.html">
 <link rel="import" href="../pebble-dialog/pebble-dialog.html">
 <link rel="import" href="../pebble-spinner/pebble-spinner.html">
+<link rel="import" href="../pebble-actions/pebble-actions.html">
 
 <link rel="import" href="../rock-attribute-model-lov/rock-attribute-model-lov.html">
 <link rel="import" href="../rock-classification-tree/rock-classification-tree.html">
@@ -234,8 +235,9 @@
         <div id="actions-container" class="m-t-20" align="center">
             <pebble-button class="action-button btn btn-secondary m-r-5" id="back" button-text="Back" raised on-tap="_onBackTap"></pebble-button>
             <pebble-button class="action-button btn btn-primary m-r-5" id="skipandimport" button-text="Skip & Import" raised on-tap="_onImportTap"></pebble-button>
-            <pebble-button class="action-button-focus dropdownText btn btn-success m-r-5" id="save" button-text="Save" raised on-tap="_onSaveTap"></pebble-button>
-            <pebble-button class="action-button-focus dropdownText btn btn-success m-r-5" id="saveandimport" button-text="Save & Import" raised on-tap="_onSaveAndImportTap"></pebble-button>
+            <pebble-actions id="save" class="dropdownText dropdownIcon btn btn-actions dropdown-success" button-text="Save" actions-data="[[saveActions]]" vertical-align="bottom"></pebble-actions>
+            <pebble-actions id="saveandimport" class="dropdownText dropdownIcon btn btn-actions dropdown-success" button-text="Save & Import" actions-data="[[saveImportActions]]" vertical-align="bottom"></pebble-actions>
+            <bedrock-pubsub event-name="pebble-actions-action-click" handler="_onActionItemTap" target-id=""></bedrock-pubsub>
         </div>
         <liquid-entity-model-get name="liquidAttributeModelGet" operation="getbyids" on-response="_onAttributeModelGetResponse"
             on-error="_onError"></liquid-entity-model-get>
@@ -341,6 +343,61 @@
                     _isMappingsSaved: {
                         type: Boolean,
                         value: false
+                    },
+
+                    saveActions: {
+                        type: Array,
+                        value: function () {
+                            return [{
+                                "actions": [
+                                    {
+                                        "value": "self",
+                                        "text": "Save only for me",
+                                        "event": "save"
+                                    },
+                                    {
+                                        "value": "role",
+                                        "text": "Save for users with my role",
+                                        "event": "save"
+                                    },
+                                    {
+                                        "value": "all",
+                                        "text": "Save for all",
+                                        "event": "save"
+                                    }
+                                ]
+                            }]
+                        }
+                    },
+
+                    saveImportActions: {
+                        type: Array,
+                        value: function () {
+                            return [{
+                                "actions": [
+                                    {
+                                        "value": "self",
+                                        "text": "Save only for me & Import",
+                                        "event": "saveandimport"
+                                    },
+                                    {
+                                        "value": "role",
+                                        "text": "Save for users with my role & Import",
+                                        "event": "saveandimport"
+                                    },
+                                    {
+                                        "value": "all",
+                                        "text": "Save for all & Import",
+                                        "event": "saveandimport"
+                                    }
+                                ]
+                            }]
+                        }
+                    },
+
+                    selectedRole: {
+                        type: String,
+                        value: ""
                     }
                 },
 
@@ -753,6 +810,15 @@
                     }
                 },
 
+                _onActionItemTap(e, detail, sender) {
+                    this.selectedRole = detail.data.value;
+                    if(detail.data.event == "save") {
+                        this._onSaveTap();
+                    } else {
+                        this._onSaveAndImportTap();
+                    }
+                },
+
                 _onSaveAndImportTap: function() {
                     this._isSaveAndImport = true;
                     this._onSaveTap();
@@ -768,17 +834,42 @@
                         this._loading = false;
                         return this.showSuccessToast("There are no changes in mappings to save.");
                     }
-                    var saveRequest = DataRequestHelper.createMappingsSaveRequest(this.contextData, this.copContext, this.selectedContexts, "attributemapping")
+                    var updatedContextData = this._getRoleBasedContextData();
+                    var saveRequest = DataRequestHelper.createMappingsSaveRequest(updatedContextData, this.copContext, this.selectedContexts, "attributemapping")
                     if (!_.isEmpty(saveRequest)) {
                         saveRequest.entity.data.contexts[0].attributes = mappings;
-                        saveRequest.entity.data.contexts[0].context.ownershipdata = this.ownershipdata && this.ownershipdata != "undefined" ? this.ownershipdata : "_DEFAULT";
+                        var ownershipData = "_DEFAULT";
+                        if (this.selectedRole != "all" && this.ownershipdata && this.ownershipdata != "undefined") {
+                            ownershipData = this.ownershipdata;
+                        }
+                        saveRequest.entity.data.contexts[0].context.ownershipdata = ownershipData;
                         this.saveMappingsLiq.requestData = saveRequest;
                         this.saveMappingsLiq.generateRequest();
                     }
                 },
 
+                _getRoleBasedContextData: function() {
+                    var clonedContextData = DataHelper.cloneObject(this.contextData);
+                    if(this.selectedRole) {
+                        var userContext = ContextHelper.getFirstUserContext(clonedContextData) || {};
+                        var user = "_DEFAULT";
+                        var role = "_DEFAULT";
+
+                        if(this.selectedRole != "self") {
+                            if(this.selectedRole == "role") {
+                                role = userContext.role;
+                            }
+                            //Set user/role based on selection
+                            userContext.user = user;
+                            userContext.role = role;
+                        }
+                    }
+
+                    return clonedContextData;
+                },
+
                 _onMappingsSaveResponse: function (e, detail) {
-                    var response = detail.response.response;
+                    var response = detail && detail.response && detail.response.response ? detail.response.response : "";
                     if (response && response.status == "success") {
                         this.async(function() {
                             this._resetMappings(); //Call this on save mappings success
@@ -789,6 +880,8 @@
                             } else {
                                 this._isMappingsSaved = true;
                                 this.showSuccessToast("Attribute mappings submitted successfully.");
+                                //Load mappings
+                                this._loadMappings();
                             }
                             this._loading = false;
                         }, 10000);
