@@ -361,7 +361,7 @@
                 <template is="dom-if" if="{{loading}}">
                     <pebble-spinner active="[[loading]]"></pebble-spinner>
                 </template>
-                <template is="dom-repeat" items="{{items}}" as="item">
+                <template is="dom-repeat" items="[[displayItems]]" as="item">
                     <div class="item-container" id$="gridItem[[index]]">
                         <div class$="{{_computePrimaryClass(item)}}" tabindex$="[[tabIndex]]">
                             <pebble-checkbox on-tap="_tapEvent" class="button-container" checked="[[_isSelected(item,selectedItems, selectedItems.*)]]"
@@ -433,9 +433,6 @@
                     </div>
                 </template>
             </div>
-            <!-- this element will load more data when the user scrolls down and reached the lower threshold -->
-            <iron-scroll-threshold id="scrollThreshold" on-lower-threshold="_loadMoreData" scroll-target="scrollingRegion">
-            </iron-scroll-threshold>
         </div>
     </template>
     <script>
@@ -467,9 +464,44 @@
                         value: 'Tile'
                     }
                 },
+
                 behaviors: [
                     RUFBehaviors.GridItemViewBehavior
                 ],
+
+                created() {
+                    this._onScrollDebounce = _.throttle(this._onScroll.bind(this), 300);
+                },
+
+                attached() {
+                    Polymer.RenderStatus.afterNextRender(this, this._loadMoreData.bind(this));
+
+                    this.$.scrollingRegion.addEventListener('scroll', this._onScrollDebounce);
+                },
+
+                _onScroll() {
+                    const { scrollHeight, scrollTop, offsetHeight } = this.$.scrollingRegion;
+
+                    const scrollDiff = scrollHeight - offsetHeight - scrollTop;
+
+                    const PRELOAD_HEIGHT = 500;
+
+                    if (scrollTop && scrollDiff <= PRELOAD_HEIGHT) {
+                        return this._renderMoreItems();
+                    }
+                },
+
+                _renderMoreItems() {
+                    const itemsToPush = this.items.slice(this.displayItems.length, this.displayItems.length + 6);
+                    
+                    requestAnimationFrame(() => this.displayItems = this.displayItems.concat(itemsToPush));
+                },
+
+                _itemsChanged(items) {
+                    this.displayItems = items.slice(0, 12);
+
+                    RUFBehaviors.GridItemViewBehavior._itemsChanged(items);
+                },
                 
                 _onPopoverSelectionChange: function (e) {
                     this._disableGridCheckBox = false;
@@ -557,25 +589,6 @@
                 clearSelection: function () {
                     this.set('selectedItems', []);
                     RUFBehaviors.GridItemViewBehavior._clearSelection.call(this);
-                },
-                
-                _success: function (data) {
-                    if (data.length) {
-                        this.$.scrollThreshold.clearTriggers();
-                    }
-
-                    RUFBehaviors.GridItemViewBehavior._success.call(this, data);
-                },
-                
-                /**
-                 * <b><i>Content development is under progress... </b></i>
-                 */
-                scrollToIndex: function (index) {
-                    var item = this.shadowRoot.querySelector("#gridItem" + index);
-                    if (item) {
-                        var scrollRegion = this.shadowRoot.querySelector("#scrollingRegion");
-                        scrollRegion.scrollTop = item.offsetTop - 100;
-                    }
                 },
 
                 _computePrimaryClass: function (item) {
