@@ -1,0 +1,221 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-app-context-behavior/bedrock-app-context-behavior.html">
+
+<script>
+    /***
+    * `RUFBehaviors.MappingGridBehavior` provides common properties for rock-attribute-mapping-grid and rock-value-mapping-grid
+    *
+    *  ### Example
+    *
+    *     <dom-module id="x-app">
+    *        <template>
+    *        </template>
+    *        <script>
+    *           Polymer({
+    *             is: "x-app",
+    *
+    *             behaviors: [
+    *               RUFBehaviors.MappingGridBehavior
+    *             ],
+    *
+    *             properties: {
+    *              
+    *             }
+    *           });
+    *        &lt;/script>
+    *     </dom-module>
+    */
+
+    window.RUFBehaviors = window.RUFBehaviors || {};
+    /** @polymerBehavior RUFBehaviors.MappingGridBehavior */
+    RUFBehaviors.MappingGridBehavior = {
+        properties: {
+            contextData: {
+                type: Object,
+                value: function () { return {}; }
+            },
+
+            mappingConfig: {
+                type: Object,
+                value: function () { return {}; }
+            },
+
+            mappingData: {
+                type: Object,
+                value: function () { return {}; }
+            },
+
+            _deletedMappings: {
+                type: Array,
+                value: function () {
+                    return [];
+                }
+            },
+
+            _loading: {
+                type: Boolean,
+                value: false
+            },
+
+            _taxonomies: {
+                type: Array,
+                value: function () {
+                    return [];
+                }
+            },
+
+            _contexts: {
+                type: Array,
+                value: function() {
+                    return [];
+                }
+            },
+
+            _gridData: {
+                type: Array,
+                value: function () { return []; }
+            }
+        },
+
+        observers: [
+            "_onMappingsDataChange(mappingData, contextData, copContext, mappingConfig)"
+        ],
+
+        behaviors: [
+            RUFBehaviors.UIBehavior,
+            RUFBehaviors.ComponentContextBehavior
+        ],
+
+        get dimensionSelector() {
+            this._dimensionSelector = this._dimensionSelector || this.shadowRoot.querySelector("#dimensionSelector");
+            return this._dimensionSelector;
+        },
+
+        get getMappingsLiq() {
+            this._getMappingsLiq = this._getMappingsLiq || this.shadowRoot.querySelector("#getMappings");
+            return this._getMappingsLiq;
+        },
+
+        get liquidAttributeModelGetLiq() {
+            this._liquidAttributeModelGet = this._liquidAttributeModelGet || this.shadowRoot.querySelector("[name=liquidAttributeModelGet]");
+            return this._liquidAttributeModelGet;
+        },
+
+        _onMappingsDataChange() {
+            throw new Error('_onMappingsDataChange not implemented');
+        },
+
+        _sendMappingRequest(req) {
+            if(this.getMappingsLiq) {
+                this.getMappingsLiq.requestData = req;
+                this.getMappingsLiq.generateRequest();
+            }
+        },
+
+        _prepareContexts: function(inputContexts) {
+            var _contexts = [];
+            for(var i = 0; i < inputContexts.length; i++) {
+                var context = {};
+                if(this.selectedDimensions && 
+                    this.selectedDimensions[inputContexts[i]] && 
+                    this.selectedDimensions[inputContexts[i]].length) {
+                    context.type = inputContexts[i];
+                    context.value = this.selectedDimensions[inputContexts[i]][0];
+                } else {
+                    context.type = inputContexts[i];
+                    context.value = "_DEFAULT";
+                }
+                _contexts.push(context);
+            }
+
+            return _contexts;
+        },
+
+        _isValidResponseStatus(detail) {
+            return !DataHelper.isValidObjectPath(detail, "response.response.status") || 
+                        detail.response.response.status.toLowerCase() != "success";
+        },
+
+        _isDataAvailable: function (data) {
+            return data && data.length > 0;
+        },
+
+        _onAddTap: function (data) {
+            const gridData = Object.assign({
+                "source": "ui",
+                "action": "new",
+                "index": this._gridData.length
+            }, data);
+
+            this.push("_gridData", gridData);
+        },
+
+        _onDeleteTap: function (predicat) {
+            var grid = this.mappingGrid;
+            if (!grid) return;
+
+            var selectedItems = grid.getSelectedItems();
+            if (selectedItems.length == 0) {
+                //Show message if needed - Please select an item for delete
+                return;
+            }
+            var gridData = [];
+            for (var i = 0; i < this._gridData.length; i++) {
+                var isDelete = false;
+                for (var j = 0; j < selectedItems.length; j++) {
+                    if(predicat(this._gridData[i], selectedItems[j]) && this._gridData[i].index == selectedItems[j].index) {
+                        isDelete = true;
+                        break;
+                    }
+                }
+
+                if (!isDelete) {
+                    gridData.push(this._gridData[i]);
+                } else {
+                    if (this._gridData[i].action != "new") {
+                        this._gridData[i].action = "deleted";
+                        this._deletedMappings.push(this._gridData[i]);
+                    }
+                }
+            }
+
+            //Reset row index
+            for(var i = 0; i < gridData.length; i++) {
+                gridData[i].index = i;
+            }
+
+            this.set("_gridData", gridData);
+        },
+
+        _onDimensionsChanged: function(e, detail) {
+            if(detail && detail.dimensions && 
+                detail.dimensions.taxonomy && 
+                detail.dimensions.taxonomy.length) {
+                if(this._currentTaxonomy != detail.dimensions.taxonomy[0]) {
+                    this._currentTaxonomy = detail.dimensions.taxonomy[0];
+
+                    if(this.dimensionSelector) {
+                        for(var i = 0; i < this._taxonomies.length; i++) {
+                            if(this._taxonomies[i].name.toLowerCase() == this._currentTaxonomy.toLowerCase()) {
+                                this.dimensionSelector.classificationTaxonomy = this._taxonomies[i].id;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            this._loadMappings();
+        },
+
+        _loadMappings: function() {
+            if(this.dimensionSelector) {
+                this.selectedDimensions = this.dimensionSelector.selectedDimensions;
+                this._resetMappings(); // Reset before get
+                this._getMappings(); // Get mappings based on dimensions
+            }
+        }
+    };
+    /** @polymerBehavior */
+</script>
