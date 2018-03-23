@@ -4,8 +4,6 @@
 <link rel="import" href="../../../bower_components/iron-flex-layout/iron-flex-layout.html">
 <link rel="import" href="../../../bower_components/paper-item/paper-item.html">
 <link rel="import" href="../../../bower_components/shadycss/apply-shim.html">
-<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
-
 <link rel="import" href="../pebble-spinner/pebble-spinner.html">
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
 <link rel="import" href="../pebble-popover/pebble-popover.html">
@@ -16,6 +14,7 @@
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-styles-scroll-bar.html" />
 
 <link rel="import" href="../rock-image-viewer/rock-image-viewer.html">
+<link rel="import" href="./grid-item-view-behavior.html">
 
 <!--
 `grid-tile-view` Represents an element that displays the items in the `grid-tile-view`.
@@ -134,8 +133,6 @@
             .item-container {
                 display: inline-flex;
                 min-height: 302px;
-                min-width: 236px;
-                max-width: 260px;
                 display: -webkit-inline-flex;
                 border-radius: var(--default-border-radius, 3px);
                 width: calc(20% - 20px);
@@ -144,33 +141,39 @@
                 transition: all 0.3s;
             }
 
-            .item-container:hover {
-                box-shadow: 1px 2px 5px -1px var(--default-border-color, #c1cad4);
-            }
-
-            @media (max-width: 800px) {
+            @media (min-width: 1600px) {
                 .item-container {
-                    display: inline-flex;
-                    display: -webkit-inline-flex;
-                    border-radius: var(--default-border-radius, 3px);
-                    width: calc(50% - 16px);
-                }
-                .photoContent {
-                    width: auto;
+                    width: calc(100% / 6 - 20px);
                 }
             }
 
-            @media (max-width: 400px) {
-
+            @media (max-width: 1600px) {
                 .item-container {
-                    @apply --layout-flex;
+                    width: calc(100% / 5 - 20px);
+                }
+            }
+
+            @media (max-width: 1024px) {
+                .item-container {
+                    width: calc(100% / 3 - 20px);
+                }
+            }
+
+            @media (max-width: 768px) {
+                .item-container {
+                    width: calc(100% / 2 - 20px);
+                }
+            }
+
+            @media (max-width : 480px) {
+                .item-container {
                     width: 100%;
                 }
+            }            
 
-                .photoContent>.detail {
-                    opacity: 1;
-                }
-            }
+            .item-container:hover {
+                box-shadow: 1px 2px 5px -1px var(--default-border-color, #c1cad4);
+            }            
 
             .right {
                 float: right;
@@ -362,7 +365,7 @@
                 <template is="dom-if" if="{{loading}}">
                     <pebble-spinner active="[[loading]]"></pebble-spinner>
                 </template>
-                <template is="dom-repeat" items="{{items}}" as="item">
+                <template is="dom-repeat" items="[[displayItems]]" as="item">
                     <div class="item-container" id$="gridItem[[index]]">
                         <div class$="{{_computePrimaryClass(item)}}" tabindex$="[[tabIndex]]">
                             <pebble-checkbox on-tap="_tapEvent" class="button-container" checked="[[_isSelected(item,selectedItems, selectedItems.*)]]"
@@ -414,8 +417,8 @@
                                     <div class$="text-ellipsis [[_getStyleClass(item)]]">[[_computeTitle(item,tileItems.title)]]</div>
                                 </div>
                                 <div class="clearfix"></div>
-                                <div class="subtitle tooltip-bottom" data-tooltip$="[[_computeSubtitle(item,tileItems.subtitle)]]">
-                                    <div class$="text-ellipsis [[_getStyleClass(item)]]">[[_computeSubtitle(item,tileItems.subtitle)]]</div>
+                                <div class="subtitle tooltip-bottom" data-tooltip$="[[_computeTitle(item,tileItems.subtitle)]]">
+                                    <div class$="text-ellipsis [[_getStyleClass(item)]]">[[_computeTitle(item,tileItems.subtitle)]]</div>
                                 </div>
                                 <template is="dom-repeat" items="{{_getArrayFromObject(tileItems.fields)}}" as="field">
                                     <template is="dom-if" if="[[_isItemFieldEnabled(item,field)]]">
@@ -434,9 +437,6 @@
                     </div>
                 </template>
             </div>
-            <!-- this element will load more data when the user scrolls down and reached the lower threshold -->
-            <iron-scroll-threshold id="scrollThreshold" on-lower-threshold="_loadMoreData" scroll-target="scrollingRegion">
-            </iron-scroll-threshold>
         </div>
     </template>
     <script>
@@ -446,98 +446,11 @@
             Polymer({
                 is: 'grid-tile-view',
                 properties: {
-                    /**
-                     * Indicates an array of items that needs the display in the `grid-tile-view`.
-                     */
-                    items: {
-                        type: Array,
-                        value: function () {
-                            return [];
-                        },
-                        observer: "_itemsChanged",
-                        notify: true
-                    },
-                    /**
-                     * <b><i>Content development is under progress... </b></i>
-                     */
-                    gridTileDataSource: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        },
-                        notify: true
-                    },
-                    /**
-                     * Indicates the current page in the `grid-tile-view`.
-                     */
-                    page: {
-                        type: Number,
-                        value: 0,
-                        notify: true
-                    },
-                    /**
-                     * Indicates the page size in the `grid-tile-view`.
-                     */
-                    pageSize: {
-                        type: Number,
-                        value: 15,
-                        notify: true
-                    },
-
                     resultRecordSize: {
                         type: Number,
                         value: 0
                     },
-                    /**
-                     * Specifies whether or not to load the data. Set it to <b>true</b> to load the data.
-                     *
-                     */
-                    loading: {
-                        type: Boolean,
-                        value: false
-                    },
-                    /**
-                     * Specifies whether or not multiple items are selected at once. When it is set to <b>true</b>, multiple items are selected at once.
-                     * Otherwise, only one item is selected at a time.
-                     */
-                    multiSelection: {
-                        type: Boolean,
-                        value: false,
-                        notify: true
-                    },
-                    enableMultiSelection: {
-                        type: Boolean,
-                        value: false
-                    },
-                    /**
-                     * Indicates an array of the selected items. When it is <b>true</b>, this array contains the selected items.
-                     * However, if `selectedItems.inverted` is <b>true</b>, the array contains deselected items.
-                     */
-                    selectedItems: {
-                        type: Array,
-                        value: [],
-                        notify: true
-                    },
-                    /**
-                     * Indicates the currently selected item if the `multiSelection` is set to <b>false</b>.
-                     * It is set to "null" when no items are selected.
-                     */
-                    selectedItem: {
-                        type: Object,
-                        //value : {},
-                        notify: true
-                    },
-                    /**
-                     * Specifies whether or not the tapping a row selects the item.
-                     * The selection of the item places its data model in the set of selected items.
-                     * This is retrievable via the selection property.
-                     */
-                    selectionEnabled: {
-                        type: Boolean,
-                        value: false,
-                        notify: true
-                    },
-
+                    
                     /**
                      * Indicates the config of the `grid-tile-view`.
                      */
@@ -545,82 +458,59 @@
                         type: Object
                     },
 
-
-                    /**
-                     *  Indicates the supported actions in the `grid-tile-view`.
-                     *
-                     */
-                    actions: {
-                        type: Array,
-                        value: []
-                    },
-                    /**
-                     * <b><i>Content development is under progress... </b></i>
-                     */
-                    advanceSelectionEnabled: {
-                        type: Boolean,
-                        value: true
-                    },
-                    advanceSelectionOptions: {
-                        type: Array,
-                        value: function () {
-                            return [];
-                        }
-
-                    },
-                    selectionInfo: {
-                        type: Object,
-                        value: function () { return {} },
-                        notify: true
-                    },
-                    attributeModelObject: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    },
                     _disableGridCheckBox: {
                         type: Boolean,
                         value: false
+                    },
+
+                    _viewMode: {
+                        type: String,
+                        value: 'Tile'
                     }
                 },
-                observers: [
-                    '_pageChanged(gridTileDataSource, page)'
-                ],
+
                 behaviors: [
-                    RUFBehaviors.UIBehavior
+                    RUFBehaviors.GridItemViewBehavior
                 ],
-                _scrollToTop: function () {
-                    const scrollingRegion = this.shadowRoot.querySelector('#scrollingRegion');
-                    if (scrollingRegion) {
-                        scrollingRegion.scrollTop = 0;
+
+                created() {
+                    this._onScrollDebounce = _.throttle(this._onScroll.bind(this), 300);
+                },
+
+                attached() {
+                    Polymer.RenderStatus.afterNextRender(this, this._loadMoreData.bind(this));
+
+                    this.$.scrollingRegion.addEventListener('scroll', this._onScrollDebounce);
+                },
+
+                _onScroll() {
+                    const { scrollHeight, scrollTop, offsetHeight } = this.$.scrollingRegion;
+
+                    const scrollDiff = scrollHeight - offsetHeight - scrollTop;
+
+                    const PRELOAD_HEIGHT = 500;
+
+                    if (scrollTop && scrollDiff <= PRELOAD_HEIGHT) {
+                        return this._renderMoreItems();
                     }
                 },
+
+                _renderMoreItems() {
+                    const itemsToPush = this.items.slice(this.displayItems.length, this.displayItems.length + 6);
+                    
+                    requestAnimationFrame(() => this.displayItems = this.displayItems.concat(itemsToPush));
+                },
+
+                _itemsChanged(items) {
+                    this.displayItems = items.slice(0, 12);
+
+                    RUFBehaviors.GridItemViewBehavior._itemsChanged(items);
+                },
+                
                 _onPopoverSelectionChange: function (e) {
                     this._disableGridCheckBox = false;
-                    this.clearSelection();
-                    this._scrollToTop();
-                    if (e.detail) {
-                        if (e.detail.mode == "count") {
-                            var selectionCount = e.detail.itemCount;
-                            var items = this.items;
-                            var searchSelectedItems
-                            if (items.length >= selectionCount) {
-                                searchSelectedItems = items.slice(0, selectionCount);
-                                searchSelectedItems.forEach(function (value, key) {
-                                    if (value) {
-                                        this._selectItem(value);
-                                    }
-                                }.bind(this));
-                            } else {
-                                this.selectAll();
-                            }
-                        }
-                        if (e.detail.mode == "query") {
-                            this.selectAll()
-                            this._disableGridCheckBox = true;
-                        }
-                        this.set('selectionInfo', e.detail);
+                    if(RUFBehaviors.GridItemViewBehavior._onPopoverSelectionChange.call(this, e)) {
+                        this._disableGridCheckBox = true;
                     }
                 },
                 _loadMoreData: function () {
@@ -642,38 +532,10 @@
 
                 },
 
-                /**
-                 * This is an internal function, used to calculate the display name of an attribute.
-                 */
-                _getDisplayName: function (label) {
-                    return label;
-                },
-                /**
-                 * This is an internal function, used to calculate the class to apply trim or not.
-                 */
-                _computeClass: function (field) {
-                    if (field.noTrim) {
-                        return 'default';
-                    }
-                    return 'default trim';
-                },
-                /**
-                 * This is an internal function, returns true if number of fields to display is greater than 4.
-                 */
-                _areFieldsGreaterThan4: function (fields) {
-                    if (fields && fields.length > 4) {
-                        return true;
-                    }
-                    return false;
-                },
-                resetAdvanceSelection: function () {
-                    this._resetAdvanceSelection();
-                },
                 _resetAdvanceSelection: function () {
-                    var getGridSelectionPopover = this.shadowRoot.querySelector("#gridSelectionPopover");
-                    if (getGridSelectionPopover && getGridSelectionPopover.resetSelection) {
-                        getGridSelectionPopover.resetSelection();
-                        this.set('selectionInfo', '{}');
+                    const successReset = RUFBehaviors.GridItemViewBehavior._resetAdvanceSelection.call(this);
+                    
+                    if(successReset) {
                         this._disableGridCheckBox = false;
                     }
                 },
@@ -685,12 +547,7 @@
                     if (this.selectionInfo && this.selectionInfo.mode == "query") {
                         return;
                     }
-                    this._resetAdvanceSelection();
-                    if (this._isSelected(e.model.item, this.selectedItems)) {
-                        this._fireEvent('deselecting-item', e.model.item, this.deselectItem);
-                    } else {
-                        this._fireEvent('selecting-item', e.model.item, this.selectItem);
-                    }
+                    RUFBehaviors.GridItemViewBehavior._tapEvent.call(this, e);
                 },
                 /**
                  * This is an internal function, used to compute the image url based on the config.
@@ -704,12 +561,6 @@
                 _computeTitle: function (item, title) {
                     return item[title];
                 },
-                /**
-                 * This is an internal function, used to compute the id based on the config.
-                 */
-                _computeSubtitle: function (item, subtitle) {
-                    return item[subtitle];
-                },
 
                 /**
                  * Check for the field type and display the item details accordingly
@@ -717,10 +568,7 @@
                 _isItemFieldEnabled: function (item, field) {
                     if (field.type) {
                         var fieldTypes = field.type.toString();
-                        if (field.type == "All" || fieldTypes.indexOf(item.type) > -1)
-                            return true;
-                        else
-                            return false;
+                        return (field.type == "All" || fieldTypes.indexOf(item.type) > -1);
                     }
                     return true;
                 },
@@ -731,83 +579,7 @@
                 _computeValue: function (item, field) {
                     return item[field];
                 },
-                _getAttributeModel: function (field) {
-                    if (this.attributeModelObject && this.attributeModelObject[field.name]) {
-                        return this.attributeModelObject[field.name].properties;
-                    }
-                },
-                _setSelectedItem: function (item) {
-                    this.set('selectedItem', item);
-                },
-                _setSelectedItems: function (items) {
-                    this.set('selectedItems', items);
-                },
-                /**
-                 * Can be used to select the list item at the given index.
-                 *
-                 * @method selectItem
-                 * @param {(Object|number)} item The item object or its index
-                 */
-                selectItem: function (item) {
-                    if (this.advanceSelectionEnabled == true) {
-                        this._resetAdvanceSelection();
-                    }
-                    if (typeof item === 'number' && item >= 0 && this.items && this.items.length > item) {
-                        this._selectItem(this.items[item]);
-                    } else {
-                        this._selectItem(item);
-                    }
-                },
-                _selectItem: function (item) {
-                    this._setSelectedItem(item);
-                    if (this.multiSelection) {
-                        if (this.selectedItems.inverted) {
-                            var index;
-                            if ((index = this.selectedItems.indexOf(item)) > -1) {
-                                this.splice('selectedItems', index, 1);
-                            }
-                        } else {
-                            this.push('selectedItems', item);
-                        }
-                    } else {
-                        this.splice('selectedItems', 0, this.selectedItems.length, item);
-                    }
-                },
-                /**
-                 * Can be used to deselect the given item list if it is already selected.
-                 *
-                 * @method deselect
-                 * @param {(Object|number)} item The item object or its index
-                 */
-                deselectItem: function (item) {
-                    if (this.advanceSelectionEnabled == true) {
-                        this._resetAdvanceSelection();
-                    }
-                    if (typeof item === 'number' && item >= 0 && this.items && this.items.length > item) {
-                        this._deselectItem(this.items[item]);
-                    } else {
-                        this._deselectItem(item);
-                    }
-                },
-                _deselectItem: function (item) {
-                    this._setSelectedItem(null);
-                    var index = this.selectedItems.indexOf(item);
-                    if (this.selectedItems.inverted) {
-                        if (index === -1) {
-                            this.push('selectedItems', item);
-                        }
-                    } else {
-                        if (index > -1) {
-                            this.splice('selectedItems', index, 1);
-                        }
-                    }
-                },
-                _isSelected: function (item, selectedItems) {
-                    if (selectedItems && item) {
-                        var selected = selectedItems.indexOf(item) > -1;
-                        return selectedItems.inverted ? !selected : selected;
-                    }
-                },
+               
                 /*
                  * Can be used to select all the items in the list.
                  */
@@ -820,108 +592,7 @@
                  */
                 clearSelection: function () {
                     this.set('selectedItems', []);
-                    this.set('selectedItems.inverted', false);
-                    if (this.selectedItem !== undefined) {
-                        this._setSelectedItem(null);
-                    }
-                },
-                _fireEvent: function (eventName, item, defaultAction) {
-                    var e = this.dispatchEvent(new CustomEvent(eventName, { detail: { item: item }, cancelable: true, bubbles: true, composed: true }));
-                    if (!e.defaultPrevented) {
-                        defaultAction.call(this, item);
-                    }
-                },
-                _toggleSelectAll: function () {
-                    this._resetAdvanceSelection();
-                    if (this._isSelectAllChecked(this.selectedItems.length, this.selectedItems.inverted, this.items.length)) {
-                        this._fireEvent("deselecting-all-items", { items: this.selectedItems }, this.clearSelection);
-                    } else {
-                        this._fireEvent("selecting-all-items", { items: this.selectedItems }, this.selectAll);
-                    }
-                },
-                _isSelectAllChecked: function (selectedItemsLength, inverted, size) {
-                    return size > 0 && selectedItemsLength === (inverted ? 0 : size);
-                },
-                _isSelectAllIndeterminate: function (length, size) {
-                    return size > 0 && length > 0 && length < size;
-                },
-                _onActionsTap: function (e) {
-                    var id = 'action_list_' + e.model.item.id;
-                    this.shadowRoot.querySelector('#' + id).show();
-                },
-
-                _onActionItemTap: function (e) {
-                    var action = e.model.action;
-                    var eventName = action.eventName;
-                    if (!eventName) {
-                        if (action.name == 'delete') {
-                            eventName = "grid-delete-item";
-                        } else if (action.name == 'edit') {
-                            eventName = "grid-edit-item";
-                        } else if (action.name == 'sourceInfo') {
-                            var sourceInformation = this.$$("#action_" + e.model.item.id + "_" + action.name + "-popover");
-                            if (sourceInformation) {
-                                sourceInformation.show();
-                            }
-                        }
-                    }
-                    ComponentHelper.getComponentContainer(this).fireBedrockEvent(eventName, e.model.item);
-                    var id = 'action_list_' + e.model.item.id;
-                    this.shadowRoot.querySelector('#' + id).hide();
-                },
-                _pageChanged: function (gridTileDataSource, currentPage) {
-                    if (!(gridTileDataSource === undefined || currentPage === undefined)) {
-                        if (typeof (gridTileDataSource) == 'function' && currentPage > 0) {
-                            this.loading = true;
-                            var success = this._success.bind(this);
-                            var error = this._error.bind(this);
-                            gridTileDataSource({
-                                page: this.page,
-                                pageSize: this.pageSize,
-                                sortOrder: this.sortOrder,
-                                "viewMode": "Tile"
-                            }, success, error);
-                        }
-                    }
-                },
-                _success: function (data) {
-                    if (data.length > 0) {
-                        for (var i = 0; i < data.length; i++) {
-                            this.push('items', data[i]);
-                        }
-                        this.$.scrollThreshold.clearTriggers();
-                    } else {
-                        this.page = -1; // Future Enhancement
-                    }
-                    this.loading = false;
-                    this._enableMultiSelection();
-                },
-                _error: function () {
-                    this.loading = false;
-                },
-                _itemsChanged: function () {
-                    this._enableMultiSelection();
-                },
-                _enableMultiSelection: function () {
-                    if (this.multiSelection && this.items && this.items.length) {
-                        this.enableMultiSelection = true;
-                    } else {
-                        this.enableMultiSelection = false;
-                    }
-                },
-                /**
-                 * <b><i>Content development is under progress... </b></i>
-                 */
-                scrollToIndex: function (index) {
-                    var item = this.shadowRoot.querySelector("#gridItem" + index);
-                    if (item) {
-                        var scrollRegion = this.shadowRoot.querySelector("#scrollingRegion");
-                        scrollRegion.scrollTop = item.offsetTop - 100;
-                    }
-                },
-
-                _getArrayFromObject: function (obj) {
-                    return DataHelper.convertObjectToArray(obj);
+                    RUFBehaviors.GridItemViewBehavior._clearSelection.call(this);
                 },
 
                 _computePrimaryClass: function (item) {
@@ -933,39 +604,18 @@
                     return "photoContent";
                 },
 
-                _getStyleClass: function (item) {
-                    if (this._hasContextCoalescedValue(item)) {
-                        return "coalesced-value";
-                    }
-                },
-
                 _getActions: function (item) {
                     var actions = DataHelper.cloneObject(this.actions);
-                    if (!_.isEmpty(actions)) {
-                        if (this._hasContextCoalescedValue(item)) {
-                            actions.forEach(function(item){
-                                if(item.eventName == "delete-item") {
-                                    item.disabled = true;
-                                    item.tooltip = "Sourced relationship can not be deleted";
-                                }
-                            }, this);
-                            actions.push({
-                                "name": "sourceInfo",
-                                "icon": "pebble-icon:hierarchy",
-                                "text": "",
-                                "visible": true,
-                                "tooltip": "Source Info"
-                            });
-                        }
+                    if (this._addSourceInfoAction(actions, item)) {
+                        actions.forEach(function(item){
+                            if(item.eventName == "delete-item") {
+                                item.disabled = true;
+                                item.tooltip = "Sourced relationship can not be deleted";
+                            }
+                        });
                     }
 
                     return actions;
-                },
-
-                _hasContextCoalescedValue: function (item) {
-                    if (!_.isEmpty(item.contextCoalescePaths)) {
-                        return true;
-                    }
                 }
             });
         })();
