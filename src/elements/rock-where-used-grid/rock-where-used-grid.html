@@ -349,6 +349,15 @@ The following JSON object is a sample of data which binds the grid.
                 <pebble-button class="btn btn-primary m-r-10 tooltip-bottom" id="copy_btn" data-tooltip$="[[_clipboardTooltip]]"  button-text="Copy ID(s)" on-tap="_onTapCopyAction" on-mouseout="_onMouseoutCopyAction"></pebble-button>
               </div>
           </template>
+          <template is="dom-if" if="[[relationshipGridConfig.gridConfig.hasWritePermission]]">
+              <template is="dom-if" if="[[relationshipGridConfig.addNewRelationConfig]]"> 
+                <div class="text-right">
+                  <pebble-button icon="pebble-icon:action-add" disabled="[[readonly]]" id="addnewbutton_[[relationship]]" relationship="[[relationship]]"
+                  class="btn btn-primary m-r-10 auto-width addbutton" button-text="Add New" on-tap="_onAddNewRelClick"></pebble-button>
+                </div>
+                <bedrock-pubsub event-name="relationship-save" handler="_onRelationshipSave"></bedrock-pubsub>
+              </template>
+          </template>
           <template is="dom-if" if="[[_showToggle(relationshipGridConfig.governGridConfig)]]">
             <pebble-toggle-button class="toggle-button" noink checked="{{_loadGovernData}}">Govern Data</pebble-toggle-button>
             <template is="dom-if" if="[[_loadActions(_loadGovernData, relationshipGridConfig.governGridConfig)]]">
@@ -1168,6 +1177,65 @@ The following JSON object is a sample of data which binds the grid.
           if (relGrid) {
               relGrid.changeToEditMode();
           }
+        },
+        _onAddNewRelClick: function (item) {
+          
+          const { fromEntityTypes } = this.relationshipGridConfig;
+          var contextData = DataHelper.cloneObject(this.contextData);   
+          //delete this.contextData.ItemContexts[0];
+          contextData.ItemContexts[0] = {"type": fromEntityTypes[0]};
+          const sharedData = {
+            "context-data": contextData
+          };
+
+          this.openBusinessFunctionDialog({
+              name: 'rock-wizard-entity-create'
+          }, sharedData);
+        },
+        _onRelationshipSave: function(e){
+          this._createRelationshipsUp(e.detail);
+        },
+
+        _createRelationshipsUp: function (createdEntity) {
+
+          var upRelationshipRequests = [];
+          var rel = {
+              "direction": "both",
+              "relationshipType": this.relationshipGridConfig.relationshipModel.properties.relationshipType,
+              "relTo": {
+                  "id": this.contextData.ItemContexts[0].id,
+                  "type": this.contextData.ItemContexts[0].type
+              }
+          };
+          
+          var upRelationshipRequest = {
+              "id": createdEntity.id,
+              "type": createdEntity.type,
+              "data": {
+                  "relationships": {}
+              }
+          };
+
+          upRelationshipRequest.data.relationships[this.relationship] = [rel];
+          upRelationshipRequests.push(upRelationshipRequest);
+         
+          this._saveRequest = {
+              "entities": upRelationshipRequests
+          };
+          this._addClientStatus();
+          this._saveEntity();
+          var businessDialog = RUFUtilities.appCommon.shadowRoot.querySelector("rock-business-function-dialog");
+          if(businessDialog){
+            var dialog = businessDialog.dialog;
+            dialog.close();
+          }
+        },
+        _addClientStatus: function () {
+            var clientState = {};
+            clientState.notificationInfo = {};
+            clientState.notificationInfo.showNotificationToUser = true;
+            this._saveRequest["clientState"] = clientState;
+
         }
 
         // _requestForAddRelationshipList: function (relationship) {
