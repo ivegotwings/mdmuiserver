@@ -17,6 +17,7 @@
 <link rel="import" href="../pebble-textbox/pebble-textbox.html">
 <link rel="import" href="../pebble-lov/pebble-lov.html">
 <link rel="import" href="../pebble-dialog/pebble-dialog.html">
+<link rel="import" href="../pebble-actions/pebble-actions.html">
 
 <link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../bedrock-helpers/context-helper.html">
@@ -130,6 +131,10 @@
             #type-label {
                 font-weight: bold;
             }
+
+            pebble-actions {
+                text-transform: none;
+            }
         </style>
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
         <div id="grid-heading">
@@ -185,7 +190,8 @@
         <div id="actions-container" class="m-t-20" align="center">
             <pebble-button class="action-button btn btn-secondary" id="back" button-text="Back" raised on-tap="_onBackTap"></pebble-button>
             <pebble-button class="action-button btn btn-primary m-l-5" id="skip" button-text="Skip" raised on-tap="_onSkipTap"></pebble-button>
-            <pebble-button class="action-button-focus dropdownText btn btn-success m-l-5" id="saveandcontinue" button-text="Save & Continue" raised on-tap="_onSaveTap"></pebble-button>
+            <pebble-actions id="saveandcontinue" class="dropdownText dropdownIcon btn btn-actions dropdown-success" button-text="Save & Continue" actions-data="[[saveActions]]" vertical-align="bottom"></pebble-actions>
+            <bedrock-pubsub event-name="pebble-actions-action-click" handler="_onActionItemTap" target-id=""></bedrock-pubsub>
         </div>
 
         <!-- Build path dialog -->
@@ -197,13 +203,6 @@
         <!-- Build Path events -->
         <bedrock-pubsub event-name="context-build-path-cancel" handler="_onCancelBuildPath" target-id=""></bedrock-pubsub>
         <bedrock-pubsub event-name="context-build-path-select" handler="_onSelectBuildPath" target-id=""></bedrock-pubsub>
-
-        <liquid-entity-data-get id="initiateEntitySearch" operation="initiatesearch" request-data="{{entityGetrequest}}" last-response="{{initiateSearchResponse}}"
-            on-error="_onGetSearchError" on-response="_onInitiateEntitySearchResponse" exclude-in-progress></liquid-entity-data-get>
-        <liquid-entity-data-get id="getEntitySearchResultDetail" operation="getsearchresultdetail" request-data="{{entityGetrequest}}"
-            request-id="[[initiateSearchResponse.content.requestId]]" last-response="{{getEntitySearchResultsResponse}}" on-error="_onGetSearchError"
-            on-response="_onGetEntitySearchResultDetailResponse" exclude-in-progress></liquid-entity-data-get>
-        <liquid-entity-model-get id="getEntityTypeModel" operation="getbyids" on-response="_onEntityTypeModelReceived" on-error="_onEntityTypeModelFailed"></liquid-entity-model-get>
 
         <!-- Mappings get/save -->
         <liquid-rest id="getMappings" url="/data/cop/getMappings" method="POST" request-data="[[_getMappingsRequest]]" on-liquid-response="_onGetMappingsResponse"
@@ -307,9 +306,26 @@
                         }
                     },
 
-                    _domain: {
+                    domain: {
                         type: String,
                         value: "thing"
+                    },
+
+                    copFormat: {
+                        type: String,
+                        value: "Excel"
+                    },
+
+                    saveActions: {
+                        type: Array,
+                        value: function () {
+                            return []
+                        }
+                    },
+
+                    selectedRole: {
+                        type: String,
+                        value: ""
                     }
                 },
                 observers: [
@@ -326,101 +342,16 @@
                         var itemContext = ContextHelper.getFirstItemContext(this.contextData);
                         if (itemContext) {
                             this.entityType = itemContext.type;
-                            var contextModels = await ContextModelManager.getContextModelsBasedOnEntityType(this.entityType);
-                            this._setContexts(contextModels);
+                            this.contexts = this.mappingData.contexts;
+                            this.taxonomies = this.mappingData.taxonomies;
+                            this.domain = this.mappingData.domain;
+                            this.entityTypeExternalName = this.mappingData.entityTypeExternalName;
+                            this.contextExternalNames = this.mappingData.contextExternalNames;
+                            this.saveActions = this.mappingData.saveActions;
+                            this.fileFormat = this.mappingData.fileFormat;
+                            //Fetch context mappings now
+                            this._getMappings();
                         }
-                    }
-                },
-
-                _setContexts: function (contexts) {
-                    if (contexts && contexts.length) {
-                        var _ctxKeys = [];
-                        var contextCoalesceInfo = [];
-
-                        var _contexts = [];
-                        contexts.forEach(function (context) {
-                            _contexts.push(context.context);
-                            if (context && context.properties &&
-                                context.properties.coalesceInfo && context.properties.coalesceInfo.length) {
-                                contextCoalesceInfo = contextCoalesceInfo.concat(context.properties.coalesceInfo)
-                            }
-
-                            var ctxKeys = Object.keys(context.context);
-                            if (ctxKeys && ctxKeys.length) {
-                                ctxKeys.forEach(function (ctxKey) {
-                                    if (_ctxKeys.indexOf(ctxKey) < 0) {
-                                        _ctxKeys.push(ctxKey);
-                                    }
-                                }, this);
-                            }
-                        }, this);
-
-                        this._contexts = _contexts;
-
-                        var _ctxIds = [];
-                        if (_ctxKeys && _ctxKeys.length) {
-                            _ctxKeys.forEach(function (item) {
-                                if (item) {
-                                    _ctxIds.push(item);
-                                }
-                            }, this);
-                        }
-
-                        this.contexts = _ctxIds;
-
-                        //Collect path contexts
-                        contextCoalesceInfo.forEach(function(contextCoalesce) {
-                            if (contextCoalesce.isPath) {
-                                if (this._contextPathFields.indexOf(contextCoalesce.contextKey) == -1) {
-                                    this._contextPathFields.push(contextCoalesce.contextKey);
-                                }
-                            }
-                        }, this);
-
-                        //Fetch taxonomy type entities
-                        var contextData = DataHelper.cloneObject(this.contextData);
-                        var firstItemContext = ContextHelper.getFirstItemContext(contextData);
-                        if (firstItemContext) {
-                            firstItemContext.type = "taxonomy";
-                            firstItemContext.attributeNames = ["_ALL"];
-                            var req = DataRequestHelper.createEntityGetRequest(contextData);
-                            delete req.params.options;
-                            this.entityGetrequest = req;
-
-                            //Trigger request
-                            var taxonomyGetElement = this.$$("#initiateEntitySearch");
-                            if (taxonomyGetElement) {
-                                taxonomyGetElement.generateRequest();
-                            }
-                        }
-                    } else {
-                        this.showErrorToast("Contexts not available, please contact administrator.");
-                        this._loading = false;
-                    }
-                },
-
-                _onInitiateEntitySearchResponse: function (e, detail) {
-                    if (detail && detail.response && detail.response.status == "success") {
-                        var taxonomyGetElement = this.$$("#getEntitySearchResultDetail");
-                        if (taxonomyGetElement) {
-                            taxonomyGetElement.generateRequest();
-                        }
-                    } else {
-                        this._raiseTaxonomyError(detail);
-                    }
-                },
-
-                _onGetEntitySearchResultDetailResponse: function (e, detail) {
-                    if (detail && detail.response && detail.response.status == "success") {
-                        var response = detail.response;
-                        if (response.content && response.content.entities && response.content.entities.length) {
-                            this.taxonomies = detail.response.content.entities;
-                        }
-
-                        //Fetch context mappings now
-                        this._getMappings();
-                    } else {
-                        this._raiseTaxonomyError(detail);
                     }
                 },
 
@@ -459,61 +390,8 @@
                         }
                     }
 
-                    //Fetch externalNames
-                    var entityTypeModelGetEl = this.$$("#getEntityTypeModel");
-                    if (entityTypeModelGetEl) {
-                        var eTypes = [];
-                        eTypes.push(this.entityType); //entityType
-                        if (this.contexts && this.contexts.length) {
-                            for (var i = 0; i < this.contexts.length; i++) {
-                                eTypes.push(this.contexts[i]); //context
-                            }
-                        }
-                        entityTypeModelGetEl.requestData = DataRequestHelper.createGetModelRequest(eTypes, "entityType");
-                        entityTypeModelGetEl.generateRequest();
-                    }
-                },
-
-                _onEntityTypeModelReceived: function(e, detail) {
-                    if(detail && detail.response) {
-                        var response = detail.response;
-                        if(response.status == "success" && response.content && response.content.entityModels)
-                        {
-                            var entityModels = response.content.entityModels || [];
-                            var entityTypeExternalNames = {};
-                            for(var i = 0; i < entityModels.length; i++) {
-                                entityTypeExternalNames[entityModels[i].name] = entityModels[i].properties.externalName;
-
-                                //Get domain for the entityType
-                                if (entityModels[i].name == this.entityType) {
-                                    this._domain = entityModels[i].domain;
-                                }
-                            }
-
-                            this.entityTypeExternalName = entityTypeExternalNames[this.entityType];
-                            delete entityTypeExternalNames[this.entityType];
-                            this.contextExternalNames = entityTypeExternalNames; // Remaining context names
-                        }
-                    }
-
                     //Prepare grid now
                     this._prepareGridData();
-                },
-
-                _onEntityTypeModelFailed: function (e, detail) {
-                    this.logError("Entity type model get error", detail);
-                    //Prepare grid now
-                    this._prepareGridData();
-                },
-
-                _onGetSearchError: function (e, detail) {
-                    this._raiseTaxonomyError(detail);
-                },
-
-                _raiseTaxonomyError: function (detail) {
-                    this.logError("Taxonomy entity get error", detail);
-                    this.showSuccessToast("Unable to get taxonomy details, please contact administrator.");
-                    this._loading = false;
                 },
 
                 _prepareGridData: function () {
@@ -682,12 +560,16 @@
                     var eventName = "context-mapping-skip";
                     var eventDetail = {
                         "name": eventName,
-                        "domain": this._domain,
-                        "taxonomies": this.taxonomies,
-                        "contexts": this.contexts,
                         "nonContextFields": this._getNonTaxonomyFields()
                     };
                     this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                },
+
+                _onActionItemTap(e, detail, sender) {
+                    if(detail.data.event == "context-mappings-save") {
+                        this.selectedRole = detail.data.value;
+                        this._onSaveTap();
+                    }
                 },
 
                 _onSaveTap: function (e) {
@@ -704,10 +586,15 @@
                             "type": "entitytype",
                             "value": this.entityType
                         }];
-                        var saveRequest = DataRequestHelper.createMappingsSaveRequest(this.contextData, this.copContext, selectedContexts, "contextmapping")
+                        var saveRequest = DataRequestHelper.createMappingsSaveRequest(this.contextData, this.copContext, selectedContexts, "contextmapping", this.selectedRole);
                         if (!_.isEmpty(saveRequest)) {
                             saveRequest.entity.data.contexts[0].attributes = mappings;
-                            saveRequest.entity.data.contexts[0].context.ownershipdata = this.ownershipdata && this.ownershipdata != "undefined" ? this.ownershipdata : "_DEFAULT";
+                            var ownershipData = "_DEFAULT";
+                            if(this.selectedRole != "all" && this.ownershipdata && this.ownershipdata != "undefined") {
+                                ownershipData = this.ownershipdata;
+                            }
+                            saveRequest.entity.data.contexts[0].context.ownershipdata = ownershipData;
+                            saveRequest.entity.data.contexts[0].context.format = this.fileFormat;
                             this.set("_saveMappingsRequest", saveRequest);
                             var saveMappings = this.shadowRoot.querySelector("#saveMappings");
                             if (saveMappings) {
@@ -721,16 +608,13 @@
                 },
 
                 _onMappingsSaveResponse: function (e, detail) {
-                    var response = detail.response.response;
+                    var response = detail && detail.response && detail.response.response ? detail.response.response : "";
                     if (response && response.status == "success") {
                         this.showSuccessToast("Context mappings saved successfully.");
                         //Trigger event to goto next step
                         var eventName = "context-mapping-save";
                         var eventDetail = {
                             "name": eventName,
-                            "domain": this._domain,
-                            "taxonomies": this.taxonomies,
-                            "contexts": this.contexts,
                             "nonContextFields": this._getNonTaxonomyFields(true)
                         };
                         this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
