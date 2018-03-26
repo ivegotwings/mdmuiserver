@@ -585,6 +585,22 @@
             },
             lovSettings:{
                 type: Object
+            },
+            showNestedChildAttributes:{
+                type: Boolean,
+                value: false,
+                computed: '_getNestedChildAttributesVisibility(settings)'
+            },
+            showNestedAttributes:{
+                type: Boolean,
+                value: true,
+                computed: '_getNestedAttributesVisibility(settings)'
+            },
+            settings: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
             }
             }
         }      
@@ -1318,26 +1334,43 @@
             var response = e.detail.response;
             var referenceModels = {};
             var responseContent = DataHelper.validateAndGetResponseContent(detail.response);
-
-            if (responseContent && !_.isEmpty(responseContent.entityModels)) {  
-                var attributesList = responseContent.entityModels[0].data.attributes;            
-                var attributes = new Array();        
-                for(var obj in attributesList){
-                    var newItem = {
-                        name : obj,
-                        title : attributesList[obj].properties.externalName,
-                        dataType : attributesList[obj].properties.dataType,
-                        displayType : attributesList[obj].properties.displayType,
-                        groupName : attributesList[obj].properties.groupName,
-                        referenceEntityInfo : attributesList[obj].properties.referenceEntityInfo                           
-                    }                        
-                    attributes.push(newItem);
-                }              
+            if (responseContent && !_.isEmpty(responseContent.entityModels)) {
+                var attributesModel = new Array();
+                attributesModel.push(DataTransformHelper.transformAttributeModels(responseContent.entityModels[0], this.contextData));
+                var attributesList = DataHelper.convertObjectToArray(attributesModel[0]);
+                var finalAttributeList = new Array();
+                var attributes = new Array();
+                for (var i = 0; i < attributesList.length; i++) {
+                    var currentItem = attributesList[i];
+                    var nestedAttributeItems = [];
+                    if (currentItem.dataType == "nested" && (this.showNestedChildAttributes || this.showNestedAttributes)) {
+                        nestedAttributeItems = DataHelper.getNestedAttributeItems(currentItem,this.showNestedAttributes,this.showNestedChildAttributes);
+                        if (nestedAttributeItems.length > 0) {
+                            finalAttributeList = finalAttributeList.concat(nestedAttributeItems);
+                        }
+                    } else {
+                        finalAttributeList.push(currentItem);
+                    }
+                }
+                for(var j = 0; j < finalAttributeList.length; j++){
+                    currentItem = finalAttributeList[j];
+                        if(currentItem.dataType != "nested" ||  (currentItem.dataType == "nested" && this.showNestedAttributes)){
+                            var newItem = { 
+                                name: currentItem.name,
+                                title: currentItem.externalName,
+                                dataType: currentItem.dataType,
+                                displayType: currentItem.displayType,
+                                groupName: currentItem.groupName,
+                                referenceEntityInfo: currentItem.referenceEntityInfo
+                            }
+                            attributes.push(newItem);
+                        }
+                }
+            }              
                 var relEntityAttributeModelLov = this.shadowRoot.querySelector('#relEntityAttributeModelLov');
                 relEntityAttributeModelLov.items = new Array();
                 relEntityAttributeModelLov.items = attributes;
             }
-        }
         
        
         _onRelEntityAttributeGetFailed(e){
@@ -1635,6 +1668,22 @@
                 attributeValTxtbox.title = filterInputValue;
             }
         }
+        _getNestedAttributesVisibility(settings) {
+            if(settings){
+                if(!_.isEmpty(settings)){
+                    return settings.showNestedAttributes;
+                }
+                return false;
+            }
+        }
+      _getNestedChildAttributesVisibility(settings) {
+            if(settings){
+                if(!_.isEmpty(settings)){
+                    return settings.showNestedChildAttributes;
+                }
+                return false;
+            }
+        }   
     }
 
     customElements.define(RockQueryBuilder.is, RockQueryBuilder);  
