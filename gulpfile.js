@@ -40,7 +40,7 @@ const crisper = require('gulp-crisper');
 // Before using each plugin, install with `npm i --save-dev <package-name>`
 // const uglify = require('gulp-uglify');
 //const cssSlam = require('css-slam').gulp;
-//const htmlMinifier = require('gulp-html-minifier');
+const htmlMinifier = require('gulp-html-minifier');
 
 const minifyHTML = require('gulp-minify-html');
 
@@ -136,22 +136,24 @@ function clientBuild(relativeBuildPath, bundle, isES5, isDev) {
         dependenciesStream = dependenciesStream.pipe(gulpif(['**/*.js',"!bower_components/pdfjs-dist/**/*.js", "!bower_components/mocha/mocha.js", "!bower_components/jsoneditor/dist/jsoneditor.min.js", "!bower_components/resize-observer-polyfill/**/*.js"], babel({'presets': [['es2015', {'modules': false, 'compact': false, 'allowReturnOutsideFunction': true}]]})));
       }
 
-      if(bundle && !isDev) {          
+      if(bundle && !isDev) { 
         sourcesStream = sourcesStream
+        .pipe(gulpif("**/*.html", htmlMinifier({minifyCSS: true})))
         .pipe(gulpif("**/*.html", minifyHTML()))
         .pipe(gulpif("**/*.js", (babel({
           plugins: ["transform-class-properties"]
           }))))
-        .pipe(gulpif("**/*.js", uglify(uglifyOptions)))    
-
+        .pipe(gulpif("**/*.js", uglify(uglifyOptions)))
+        
         dependenciesStream = dependenciesStream
+          .pipe(gulpif("**/*.html", htmlMinifier({minifyCSS: true})))
           .pipe(gulpif("**/*.html", minifyHTML()))
           .pipe(gulpif(['**/*.js', "!bower_components/pdfjs-dist/**/*.js", "!bower_components/mocha/mocha.js", "!bower_components/jsoneditor/dist/jsoneditor.min.js", "!bower_components/resize-observer-polyfill/**/*.js"], (babel({
             plugins: ["transform-class-properties"]
             }))))
           .pipe(gulpif(["**/*.js", "!bower_components/resize-observer-polyfill/**/*.js"], uglify(uglifyOptions)))
-      }
-      
+    }
+
       sourcesStream = sourcesStream.pipe(sourcesStreamSplitter.rejoin());
       dependenciesStream = dependenciesStream.pipe(dependenciesStreamSplitter.rejoin());
       
