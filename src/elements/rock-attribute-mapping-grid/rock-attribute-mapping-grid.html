@@ -20,6 +20,7 @@
 <link rel="import" href="../pebble-popover/pebble-popover.html">
 <link rel="import" href="../pebble-dialog/pebble-dialog.html">
 <link rel="import" href="../pebble-spinner/pebble-spinner.html">
+<link rel="import" href="../pebble-actions/pebble-actions.html">
 
 <link rel="import" href="../rock-attribute-model-lov/rock-attribute-model-lov.html">
 <link rel="import" href="../rock-classification-tree/rock-classification-tree.html">
@@ -45,6 +46,10 @@
                 height: 20px;
                 width: 20px;
             }
+
+            pebble-actions {
+                text-transform: none;
+            }
         </style>
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
         <liquid-rest id="getMappings" url="/data/cop/getMappings" method="POST" on-liquid-response="_onGetMappingsResponse"
@@ -56,8 +61,8 @@
         </div>
         <div id="context-header">
             <span class="pull-right">
-                <rock-dimension-selector id="dimensionSelector" context-data="[[contextData]]" app-name="app-business-function-mapping" domain="[[mappingData.domain]]" all-single-select></rock-dimension-selector>
-                <bedrock-pubsub event-name="dimension-selector-data-changed" handler="_onDimensionsChanged" target-id="dimensionSelector"></bedrock-pubsub>
+                <rock-dimension-selector id="attributeDimensionSelector" context-data="[[contextData]]" app-name="app-business-function-mapping" domain="[[mappingData.domain]]" all-single-select></rock-dimension-selector>
+                <bedrock-pubsub event-name="dimension-selector-data-changed" handler="_onDimensionsChanged" target-id="attributeDimensionSelector"></bedrock-pubsub>
             </span>
         </div>
         <div id="gridManage">
@@ -70,13 +75,13 @@
         <div id="grid-container">
             <template is="dom-if" if="[[_isDataAvailable(_gridData)]]">
                 <pebble-data-table id="mapping-grid" items="{{_gridData}}" multi-selection selected-item="{{selectedItem}}">
-                    <data-table-column slot="column-slot" name="Excel Column Name">
+                    <data-table-column slot="column-slot" name="Excel Column Name" filter-by="excelColumnName">
                         <template>
                             <pebble-textbox slot="cell-slot-content" class="column-text" id="excelColumnName_[[index]]" no-label-float row-id="[[index]]" value="{{item.excelColumnName}}"
                                 title="{{item.excelColumnName}}" on-change="_onRowChange"></pebble-textbox>
                         </template>
                     </data-table-column>
-                    <data-table-column slot="column-slot" name="Mapped System Attribute Name">
+                    <data-table-column slot="column-slot" name="Mapped System Attribute Name" filter-by="attributeModel.title">
                         <template>
                             <div id="inputDiv" slot="cell-slot-content" on-tap="_onAttributeTap" index="[[index]]">
                                 <pebble-textbox readonly class="attributes-text" id="attributes-text_[[index]]" row-id="[[index]]" no-label-float value="[[item.attributeModel.title]]"
@@ -94,7 +99,7 @@
                 </pebble-data-table>
                 <bedrock-pubsub event-name="attribute-model-lov-selection-changed" handler="_onAttributeSelection" target-id="attributeModelLov"></bedrock-pubsub>
                 <pebble-popover class="attributes-popover" id="attributesPopover" for="" no-overlap vertical-align="auto" horizontal-align="auto">
-                    <rock-attribute-model-lov mode="all" id="attributeModelLov" context-data="[[contextData]]" no-sub-title></rock-attribute-model-lov>
+                    <rock-attribute-model-lov mode="all" id="attributeModelLov" context-data="[[contextData]]" exclude-nested-attributes no-sub-title></rock-attribute-model-lov>
                 </pebble-popover>
             </template>
         </div>
@@ -109,8 +114,9 @@
         <div id="actions-container" class="m-t-20" align="center">
             <pebble-button class="action-button btn btn-secondary m-r-5" id="back" button-text="Back" raised on-tap="_onBackTap"></pebble-button>
             <pebble-button class="action-button btn btn-primary m-r-5" id="skipandimport" button-text="Skip & Import" raised on-tap="_onImportTap"></pebble-button>
-            <pebble-button class="action-button-focus dropdownText btn btn-success m-r-5" id="save" button-text="Save" raised on-tap="_onSaveTap"></pebble-button>
-            <pebble-button class="action-button-focus dropdownText btn btn-success m-r-5" id="saveandimport" button-text="Save & Import" raised on-tap="_onSaveAndImportTap"></pebble-button>
+            <pebble-actions id="save" class="dropdownText dropdownIcon btn btn-actions dropdown-success m-r-5" button-text="Save" actions-data="[[saveActions]]" vertical-align="bottom"></pebble-actions>
+            <pebble-actions id="saveandimport" class="dropdownText dropdownIcon btn btn-actions dropdown-success" button-text="Save & Import" actions-data="[[saveImportActions]]" vertical-align="bottom"></pebble-actions>
+            <bedrock-pubsub event-name="pebble-actions-action-click" handler="_onActionItemTap" target-id=""></bedrock-pubsub>
         </div>
         <liquid-entity-model-get name="liquidAttributeModelGet" operation="getbyids" on-response="_onAttributeModelGetResponse"
             on-error="_onError"></liquid-entity-model-get>
@@ -138,7 +144,7 @@
                     taxonomy: {
                         type: String
                     },
-                    
+
                     copContext: {
                         type: Object,
                         value: function () { return {}; }
@@ -169,6 +175,23 @@
                     _isMappingsSaved: {
                         type: Boolean,
                         value: false
+                    },
+
+                    saveActions: {
+                        type: Array,
+                        value: function () {
+                            return []
+                        }
+                    },
+                    saveImportActions: {
+                        type: Array,
+                        value: function () {
+                            return []
+                        }
+                    },
+                    selectedRole: {
+                        type: String,
+                        value: ""
                     }
                 },
 
@@ -218,6 +241,11 @@
                     return this._valueMappingsDialog;
                 },
 
+                get dimensionSelector() {
+                    this._dimensionSelector = this._dimensionSelector || this.shadowRoot.querySelector("#attributeDimensionSelector");
+                    return this._dimensionSelector;
+                },
+
                 _onMappingsDataChange: function () {
                     this._getMappings();
                 },
@@ -227,11 +255,15 @@
                         this._loading = true;
                         this._taxonomies = this.mappingData.taxonomies;
                         this._contexts = this.mappingData.contexts;
+                        this.saveActions = this.mappingData.saveActions;
+                        this.saveImportActions = this.mappingData.saveImportActions;
+                        this.fileFormat = this.mappingData.fileFormat;
                         this.selectedContexts = this._prepareContexts(this._contexts);
                         var types = ["attributemapping"];
                         var req = DataRequestHelper.createMappingsGetRequest(this.contextData, this.copContext, this.selectedContexts, types);
                         req.params.rsconnect.headers.entities = this.mappingData.headerFields;
                         req.params.query.contexts[0].ownershipdata = this.ownershipdata && this.ownershipdata != "undefined" ? this.ownershipdata : "_DEFAULT";
+                        req.params.query.contexts[0].format = this.fileFormat;
 
                         this._sendMappingRequest(req);
                     }
@@ -530,6 +562,15 @@
                     }
                 },
 
+                _onActionItemTap(e, detail, sender) {
+                    this.selectedRole = detail.data.value;
+                    if(detail.data.event == "attribute-mappings-save") {
+                        this._onSaveTap();
+                    } else if(detail.data.event == "attribute-mappings-save-import") {
+                        this._onSaveAndImportTap();
+                    }
+                },
+
                 _onSaveAndImportTap: function() {
                     this._isSaveAndImport = true;
                     this._onSaveTap();
@@ -545,17 +586,22 @@
                         this._loading = false;
                         return this.showSuccessToast("There are no changes in mappings to save.");
                     }
-                    var saveRequest = DataRequestHelper.createMappingsSaveRequest(this.contextData, this.copContext, this.selectedContexts, "attributemapping")
+                    var saveRequest = DataRequestHelper.createMappingsSaveRequest(this.contextData, this.copContext, this.selectedContexts, "attributemapping", this.selectedRole)
                     if (!_.isEmpty(saveRequest)) {
                         saveRequest.entity.data.contexts[0].attributes = mappings;
-                        saveRequest.entity.data.contexts[0].context.ownershipdata = this.ownershipdata && this.ownershipdata != "undefined" ? this.ownershipdata : "_DEFAULT";
+                        var ownershipData = "_DEFAULT";
+                        if (this.selectedRole != "all" && this.ownershipdata && this.ownershipdata != "undefined") {
+                            ownershipData = this.ownershipdata;
+                        }
+                        saveRequest.entity.data.contexts[0].context.ownershipdata = ownershipData;
+                        saveRequest.entity.data.contexts[0].context.format = this.fileFormat;
                         this.saveMappingsLiq.requestData = saveRequest;
                         this.saveMappingsLiq.generateRequest();
                     }
                 },
 
                 _onMappingsSaveResponse: function (e, detail) {
-                    var response = detail.response.response;
+                    var response = detail && detail.response && detail.response.response ? detail.response.response : "";
                     if (response && response.status == "success") {
                         this.async(function() {
                             this._resetMappings(); //Call this on save mappings success
@@ -603,6 +649,7 @@
                                 } else {
                                     mappings[row.attributeModel.id] = self._populateMappingValue(row.excelColumnName, true);
                                 }
+                                mappings[row.attributeModel.id].properties.externalName = row.attributeModel.title;
                             }
                         }
                     });
@@ -636,6 +683,7 @@
                                 value.action = "delete";
                                 mappings[row.attributeModel.id] = value;
                             }
+                            mappings[row.attributeModel.id].properties.externalName = row.attributeModel.title;
                         }
                     });
 
@@ -769,7 +817,9 @@
                                         "mapping-data": valueMappings,
                                         "context-data": this.contextData,
                                         "cop-context": this.copContext,
-                                        "mapping-config": this.mappingConfig
+                                        "mapping-config": this.mappingConfig,
+                                        "save-actions": this.mappingData.saveValueMappingsActions,
+                                        "save-continue-actions": this.mappingData.saveValueMappingsContinueActions
                                     }
                                 };
                                 ComponentHelper.loadContent(this.valueMappingsDialog, component, this);
@@ -786,13 +836,13 @@
                 },
 
                 _onAddTap: function () {
-                    RUFBehaviors.MappingGridBehavior._onAddTap.call(this, {
+                    RUFBehaviors.MappingGridBehaviorImpl._onAddTap.call(this, {
                         "excelColumnName": ""
                     });
                 },
 
                 _onDeleteTap: function () {
-                    RUFBehaviors.MappingGridBehavior._onDeleteTap.call(this, (gridDataItem, selectedItem) =>{
+                    RUFBehaviors.MappingGridBehaviorImpl._onDeleteTap.call(this, (gridDataItem, selectedItem) =>{
                         return gridDataItem.excelColumnName.toLowerCase() === selectedItem.excelColumnName.toLowerCase();
                     })
                 },
@@ -845,8 +895,7 @@
                 },
 
                 _onDimensionsChanged: function(e, detail) {
-                    this._loading = true;
-                    RUFBehaviors.MappingGridBehavior._onDimensionsChanged.call(this, e, detail);
+                    RUFBehaviors.MappingGridBehaviorImpl._onDimensionsChanged.call(this, e, detail);
                 }
             });
         })();

@@ -269,12 +269,14 @@ The following JSON object is a sample of data which binds the grid.
 
       rock-grid {
         --rock-grid-height: 200px;
-        --pebble-grid-container:{
-          height:auto;
+        --pebble-grid-container: {
+          height: auto;
         }
       }
+
       /* temporary hot fix*/
-       /* rock-grid.expanded {
+
+      /* rock-grid.expanded {
         --rock-grid-height: inherit !important;
       }  */
 
@@ -371,7 +373,12 @@ The following JSON object is a sample of data which binds the grid.
               </template>
               <pebble-button icon="pebble-icon:action-add" disabled="[[readonly]]" id="button_[[relationship]]" relationship="[[relationship]]"
                 class="btn btn-primary m-r-10 auto-width addbutton" button-text="Add" on-tap="_onAddRelClick"></pebble-button>
-            </template>
+                <template is="dom-if" if="[[relationshipGridConfig.addNewRelationConfig]]"> 
+                  <pebble-button icon="pebble-icon:action-add" disabled="[[readonly]]" id="addnewbutton_[[relationship]]" relationship="[[relationship]]"
+                  class="btn btn-primary m-r-10 auto-width addbutton" button-text="Add New" on-tap="_onAddNewRelClick"></pebble-button>
+                  <bedrock-pubsub event-name="entity-created" handler="_onEntityCreated"></bedrock-pubsub>
+                </template>
+              </template>
             <pebble-popover for$="button_[[relationship]]" vertical-align="auto" horizontal-align="auto" no-overlap>
               <rock-entity-lov id="lov_[[relationship]]" data-index$="[[dataIndex]]" data-sub-index$="[[dataSubIndex]]" request-data="[[_requestForAddRelationshipList(relationship)]]"
                 id-field="[[_getIdField()]]" image-id-field="[[_getImageIdField()]]" title-pattern="[[_getTitlePattern()]]"
@@ -385,8 +392,8 @@ The following JSON object is a sample of data which binds the grid.
             <div class$="[[_applyClass(_quickManageEnabled)]]">
               <entity-relationship-grid-datasource id="datasource_[[relationship]]" request="[[_getRelationshipGridRequest(relationship)]]"
                 r-data-source="{{rDataSource}}" data-index$="[[dataIndex]]" data-sub-index$="[[dataSubIndex]]" r-data-formatter="{{rDataFormatter}}"
-                buffer-record-size="{{size}}" current-record-size="{{currentRecordSize}}" result-record-size="{{resultRecordSize}}"
-                total-count="{{totalCount}}" apply-context-coalesce="[[relationshipGridConfig.gridConfig.applyContextCoalesce]]"></entity-relationship-grid-datasource>
+                buffer-record-size="{{size}}" current-record-size="{{currentRecordSize}}" data-object-type="[[relationshipGridConfig.gridConfig.dataObjectType]]"
+                result-record-size="{{resultRecordSize}}" total-count="{{totalCount}}" apply-context-coalesce="[[relationshipGridConfig.gridConfig.applyContextCoalesce]]"></entity-relationship-grid-datasource>
 
               <rock-grid id$="[[relationship]]" class$="[[_getGridClass()]]" readonly="[[readonly]]" context-data="[[contextData]]" r-data-source="{{rDataSource}}"
                 r-data-source-id="datasource_[[relationship]]" config="{{relationshipGridConfig.gridConfig}}" attribute-models="[[_getRelationshipAttributeModels(relationship)]]"
@@ -1414,7 +1421,7 @@ The following JSON object is a sample of data which binds the grid.
 
                 // Add all updated relatinships in entity's current relationship reference.
                 if (relObjects) {
-                  relObjects.forEach(function(relItem){
+                  relObjects.forEach(function (relItem) {
                     existingRelationships.push(relItem);
                   }, this);
                 }
@@ -1971,12 +1978,8 @@ The following JSON object is a sample of data which binds the grid.
           }
         },
         _onGetDownloadUrlResponse: function (e) {
-          const a = document.createElement('a');
-          a.download = "";
-
           LiquidResponseHelper.downloadURLResponseMapper(e, downloadURL => {
-            a.href = downloadURL;
-            a.click();
+            window.open(downloadURL, "_blank");
           });
         },
         openGridMsgDialog: function (msg) {
@@ -2149,6 +2152,60 @@ The following JSON object is a sample of data which binds the grid.
         },
         _hasContextCoalescedValue: function (item) {
           return !_.isEmpty(item.contextCoalescePaths);
+        },
+        _onAddNewRelClick: function (item) {
+          
+          const { relatedEntityTypes } = this.relationshipGridConfig;
+          var contextData = DataHelper.cloneObject(this.contextData);   
+          //delete this.contextData.ItemContexts[0];
+          contextData.ItemContexts[0] = {"type": relatedEntityTypes[0]};
+          const sharedData = {
+            "context-data": contextData
+          };
+
+        this.openBusinessFunctionDialog({
+            name: 'rock-wizard-entity-create'
+        }, sharedData);
+        },
+        _onEntityCreated: function(e){
+          this._createRelationshipsDown(e.detail);
+        },
+
+        _createRelationshipsDown: function (createdEntity) {
+
+          var upRelationshipRequests = [];
+          var rel = {
+              "direction": "both",
+              "relationshipType": this.relationshipGridConfig.relationshipModel.properties.relationshipType,
+              "relTo": {
+                  "id": createdEntity.id,
+                  "type": createdEntity.type
+              }
+          };
+          
+          var {id : id, type: type } = this.contextData.ItemContexts[0];
+          var upRelationshipRequest = {id : id, type: type ,"data":{"relationships":{}}}
+
+          upRelationshipRequest.data.relationships[this.relationship] = [rel];
+          upRelationshipRequests.push(upRelationshipRequest);
+         
+          this._saveRequest = {
+              "entities": upRelationshipRequests
+          };
+          this._addClientStatus();
+          this._saveEntity();
+          var businessDialog = RUFUtilities.appCommon.shadowRoot.querySelector("rock-business-function-dialog");
+          if(businessDialog){
+            var dialog = businessDialog.dialog;
+            dialog.close();
+          }
+          
+        },
+        _addClientStatus: function () {
+            var clientState = {};
+            clientState.notificationInfo = {};
+            clientState.notificationInfo.showNotificationToUser = true;
+            this._saveRequest["clientState"] = clientState;
         }
       });
     })();
