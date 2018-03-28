@@ -877,7 +877,9 @@ function _removeUnnecessaryProperties(reqObject) {
         var rels = relationships[relKey];
         if (rels) {
           rels.forEach(function(rel) {
-            delete rel.properties.contextCoalesce;
+            if (rel.properties) {
+                delete rel.properties.contextCoalesce;
+            }
             if (rel.attributes) {
               _removePropertiesFromAttributes(rel.attributes);
             }
