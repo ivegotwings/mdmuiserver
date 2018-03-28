@@ -583,6 +583,22 @@
             },
             lovSettings:{
                 type: Object
+            },
+            showNestedChildAttributes:{
+                type: Boolean,
+                value: false,
+                computed: '_getNestedChildAttributesVisibility(settings)'
+            },
+            showNestedAttributes:{
+                type: Boolean,
+                value: true,
+                computed: '_getNestedAttributesVisibility(settings)'
+            },
+            settings: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
             }
             }
         }      
@@ -1238,17 +1254,22 @@
          *  Function to populate relationship attributes
          */
         _onRelationshipLovSelectionChanged(e){
-            var attributesList = e.detail.item.attributes;            
+            var attributesList = []; 
+            if(DataHelper.isValidObjectPath(e.detail, "item.attributes")) {
+                var relModel = DataTransformHelper.transformRelationshipAttributeModels(e.detail.item);
+                var currentAttributeItems = DataHelper.convertObjectToArray(relModel);
+                attributesList = this._getAttributeList(currentAttributeItems);
+            }
             var attributes = [];        
             for(var key in attributesList){
                 if(!attributesList.hasOwnProperty(key)) continue;
                 var newItem = {
                     name : key,
-                    title : attributesList[key].properties.externalName,
-                    dataType : attributesList[key].properties.dataType,
-                    displayType : attributesList[key].properties.displayType,
-                    groupName : attributesList[key].properties.groupName,
-                    referenceEntityInfo : attributesList[key].properties.referenceEntityInfo                           
+                    title : attributesList[key].externalName,
+                    dataType : attributesList[key].dataType,
+                    displayType : attributesList[key].displayType,
+                    groupName : attributesList[key].groupName,
+                    referenceEntityInfo : attributesList[key].referenceEntityInfo                           
                 }                        
                 attributes.push(newItem);
             }
@@ -1307,31 +1328,56 @@
                 hideBlock.style.display = "none";
             }
         }
+        _getAttributeList(attributeItems){
+            var attributeList = [];
+            for (var i = 0; i < attributeItems.length; i++) {
+                    var currentItem = attributeItems[i];
+                    var nestedAttributeItems = [];
+                    if (currentItem.dataType == "nested") {
+                        if(this.showNestedChildAttributes || this.showNestedAttributes){
+                            nestedAttributeItems = DataHelper.getNestedAttributeItems(currentItem,this.showNestedAttributes,this.showNestedChildAttributes);
+                            if (nestedAttributeItems.length > 0) {
+                                attributeList = attributeList.concat(nestedAttributeItems);
+                            }
+                        }
+                    } else{
+                        attributeList.push(currentItem);
+                    }
+                }
+            return attributeList;
+        }
 
         _onRelEntityAttributeGetReceived(e,detail){
             var response = e.detail.response;
             var referenceModels = {};
             var responseContent = DataHelper.validateAndGetResponseContent(detail.response);
-
-            if (responseContent && !_.isEmpty(responseContent.entityModels)) {  
-                var attributesList = responseContent.entityModels[0].data.attributes;            
-                var attributes = [];        
-                for(var obj in attributesList){
-                    var newItem = {
-                        name : obj,
-                        title : attributesList[obj].properties.externalName,
-                        dataType : attributesList[obj].properties.dataType,
-                        displayType : attributesList[obj].properties.displayType,
-                        groupName : attributesList[obj].properties.groupName,
-                        referenceEntityInfo : attributesList[obj].properties.referenceEntityInfo                           
-                    }                        
-                    attributes.push(newItem);
-                }              
+            if (responseContent && !_.isEmpty(responseContent.entityModels)) {
+                var attributesModel = [];
+                attributesModel.push(DataTransformHelper.transformAttributeModels(responseContent.entityModels[0], this.contextData));
+                if(attributesModel && attributesModel.length > 0){
+                    var attributesList = DataHelper.convertObjectToArray(attributesModel[0]);
+                }
+                var finalAttributeList = this._getAttributeList(attributesList);
+                var attributes = [];
+                for(var j = 0; j < finalAttributeList.length; j++){
+                    var currentItem = finalAttributeList[j];
+                        if(currentItem.dataType != "nested" ||  (currentItem.dataType == "nested" && this.showNestedAttributes)){
+                            var newItem = { 
+                                name: currentItem.name,
+                                title: currentItem.externalName,
+                                dataType: currentItem.dataType,
+                                displayType: currentItem.displayType,
+                                groupName: currentItem.groupName,
+                                referenceEntityInfo: currentItem.referenceEntityInfo
+                            }
+                            attributes.push(newItem);
+                        }
+                }
+            }              
                 var relEntityAttributeModelLov = this.shadowRoot.querySelector('#relEntityAttributeModelLov');
                 relEntityAttributeModelLov.items = [];
                 relEntityAttributeModelLov.items = attributes;
             }
-        }
         
        
         _onRelEntityAttributeGetFailed(e){
@@ -1629,6 +1675,22 @@
                 attributeValTxtbox.title = filterInputValue;
             }
         }
+        _getNestedAttributesVisibility(settings) {
+            if(settings){
+                if(!_.isEmpty(settings)){
+                    return settings.showNestedAttributes;
+                }
+                return false;
+            }
+        }
+      _getNestedChildAttributesVisibility(settings) {
+            if(settings){
+                if(!_.isEmpty(settings)){
+                    return settings.showNestedChildAttributes;
+                }
+                return false;
+            }
+        }   
     }
 
     customElements.define(RockQueryBuilder.is, RockQueryBuilder);  
