@@ -835,32 +835,57 @@ function _prependAuthorizationType(reqObject) {
 
 function _removeUnnecessaryProperties(reqObject) {
     if (reqObject && reqObject.entity && reqObject.entity.data) {
-        var data = reqObject.entity.data;
-
-        if (data.attributes) {
-            _removePropertiesFromAttributes(data.attributes);
-        }
-
-        if (data.contexts) {
-            data.contexts.forEach(function (ctx) {
-                if (ctx && ctx.attributes) {
-                    _removePropertiesFromAttributes(ctx.attributes);
-                }
-            }, this);
-        }
-    }
-}
-
-function _removePropertiesFromAttributes(attributes) {
-    if (attributes) {
-        for (var attrKey in attributes) {
-            var attr = attributes[attrKey];
-            if (attr.properties) {
-                delete attr.properties
+      var data = reqObject.entity.data;
+  
+      if (data.attributes) {
+        _removePropertiesFromAttributes(data.attributes);
+      }
+  
+      if (data.relationships) {
+        _removePropertiesFromRelationships(data.relationships);
+      }
+  
+      if (data.contexts) {
+        data.contexts.forEach(function(ctx) {
+          if (ctx) {
+            if (ctx.attributes) {
+              _removePropertiesFromAttributes(ctx.attributes);
             }
-        }
+            if (ctx.relationships) {
+              _removePropertiesFromRelationships(ctx.relationships);
+            }
+          }
+        }, this);
+      }
     }
-}
+  }
+  
+  function _removePropertiesFromAttributes(attributes) {
+    if (attributes) {
+      for (var attrKey in attributes) {
+        var attr = attributes[attrKey];
+        if (attr.properties) {
+          delete attr.properties;
+        }
+      }
+    }
+  }
+  
+  function _removePropertiesFromRelationships(relationships) {
+    if (relationships) {
+      for (var relKey in relationships) {
+        var rels = relationships[relKey];
+        if (rels) {
+          rels.forEach(function(rel) {
+            delete rel.properties.contextCoalesce;
+            if (rel.attributes) {
+              _removePropertiesFromAttributes(rel.attributes);
+            }
+          }, this);
+        }
+      }
+    }
+  }
 
 module.exports = {
     initiateSearch: initiateSearch,
