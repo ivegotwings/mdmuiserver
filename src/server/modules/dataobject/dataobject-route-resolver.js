@@ -118,7 +118,7 @@ async function initiateSearch(callPath, args) {
                     }
                 }
             } else {
-                if(request.params.isRelatedEntitySearch) {
+                if (request.params.isRelatedEntitySearch) {
                     isRelatedEntitySearch = true;
                     delete request.params.isRelatedEntitySearch;
                 }
@@ -166,7 +166,7 @@ async function initiateSearch(callPath, args) {
         var res = undefined;
         if (isCombinedQuerySearch) {
             res = await service.getCombined(request);
-        } else if(isRelatedEntitySearch) {
+        } else if (isRelatedEntitySearch) {
             //console.log('request raw str', JSON.stringify(request, null, 4));
             res = await service.getRelated(request);
             //console.log('response raw str', JSON.stringify(res, null, 4));
@@ -325,7 +325,7 @@ function createGetRequest(reqData) {
      * TODO: Need to find a better way to inject properties into request only
      * when request come with properties from client side.
      */
-    if(reqData.dataIndex === "entityData" && fields.attributes && fields.attributes.length === 0) {
+    if (reqData.dataIndex === "entityData" && fields.attributes && fields.attributes.length === 0) {
         fields.properties = ["_ALL"];
     }
 
@@ -362,11 +362,11 @@ function createGetRequest(reqData) {
         options: options
     };
 
-    if(reqData.dataIndex === "entityData") {
+    if (reqData.dataIndex === "entityData") {
         params.intent = "write";
     }
 
-    if(reqData.intent) {
+    if (reqData.intent) {
         params.intent = reqData.intent;
     }
 
@@ -410,7 +410,7 @@ async function get(dataObjectIds, reqData) {
         var service = _getService(reqData.dataObjectType);
         var request = createGetRequest(reqData);
 
-        if ((request.dataIndex == "entityModel" && reqData.dataObjectType == 'entityCompositeModel') || (request.dataIndex == "entityData" && !isEmpty(request.dataSubIndex) && request.dataSubIndex == "coalescedData")) {
+        if ((request.dataIndex == "entityModel" && reqData.dataObjectType == 'entityCompositeModel' && request.dataSubIndex == "coalescedEntityModel") || (request.dataIndex == "entityData" && !isEmpty(request.dataSubIndex) && request.dataSubIndex == "coalescedData")) {
             if (!isEmpty(request.params.query.contexts)) {
                 isCoalesceGet = true;
             }
@@ -453,7 +453,7 @@ async function get(dataObjectIds, reqData) {
         var dataIndexInfo = pathKeys.dataIndexInfo[request.dataIndex];
 
         if (!isEmpty(dataIndexInfo.dataSubIndexInfo)) {
-            if(isEmpty(request.dataSubIndex)) {
+            if (isEmpty(request.dataSubIndex)) {
                 dataIndexInfo = dataIndexInfo.dataSubIndexInfo["data"];
             } else {
                 dataIndexInfo = dataIndexInfo.dataSubIndexInfo[request.dataSubIndex];
@@ -473,7 +473,7 @@ async function get(dataObjectIds, reqData) {
                     var dataObjectType = dataObject.type;
 
                     var dataObjectResponseJson = buildResponse(dataObject, reqData);
-                    
+
                     byIdsJson[dataObject.id] = dataObjectResponseJson;
                 }
 
@@ -536,8 +536,8 @@ async function getByIds(pathSet, operation) {
 
         var jsonGraphResponse = response['jsonGraph'] = {};
         var rootJson = jsonGraphResponse[pathKeys.root] = {};
-            var indexJSON = rootJson[reqData.dataIndex] = {};
-            var dataJson = indexJSON[reqData.dataSubIndex] = {};
+        var indexJSON = rootJson[reqData.dataIndex] = {};
+        var dataJson = indexJSON[reqData.dataSubIndex] = {};
 
         // system flow supports only 1 type at time for bulk get..this is needed to make sure we have specialized code flow for the given data object types
         for (let dataObjectType of reqDataObjectTypes) {
@@ -568,7 +568,7 @@ async function processData(dataIndex, dataSubIndex, dataObjects, dataObjectActio
             dataIndexInfo = dataIndexInfo.dataSubIndexInfo[dataSubIndex];
         }
 
-        
+
         var jsonGraphResponse = response['jsonGraph'] = {};
         var rootJson = jsonGraphResponse[pathKeys.root] = {};
         rootJson[dataIndex] = {};
@@ -657,7 +657,7 @@ async function processData(dataIndex, dataSubIndex, dataObjects, dataObjectActio
                         var dataObjectResponseJson = buildResponse(dataObject, reqData, responsePaths);
                         byIdsJson[dataObjectId] = dataObjectResponseJson;
 
-                        if(!response.paths) {                          
+                        if (!response.paths) {
                             response['paths'] = [];
                         }
 
@@ -835,59 +835,59 @@ function _prependAuthorizationType(reqObject) {
 
 function _removeUnnecessaryProperties(reqObject) {
     if (reqObject && reqObject.entity && reqObject.entity.data) {
-      var data = reqObject.entity.data;
-  
-      if (data.attributes) {
-        _removePropertiesFromAttributes(data.attributes);
-      }
-  
-      if (data.relationships) {
-        _removePropertiesFromRelationships(data.relationships);
-      }
-  
-      if (data.contexts) {
-        data.contexts.forEach(function(ctx) {
-          if (ctx) {
-            if (ctx.attributes) {
-              _removePropertiesFromAttributes(ctx.attributes);
-            }
-            if (ctx.relationships) {
-              _removePropertiesFromRelationships(ctx.relationships);
-            }
-          }
-        }, this);
-      }
+        var data = reqObject.entity.data;
+
+        if (data.attributes) {
+            _removePropertiesFromAttributes(data.attributes);
+        }
+
+        if (data.relationships) {
+            _removePropertiesFromRelationships(data.relationships);
+        }
+
+        if (data.contexts) {
+            data.contexts.forEach(function (ctx) {
+                if (ctx) {
+                    if (ctx.attributes) {
+                        _removePropertiesFromAttributes(ctx.attributes);
+                    }
+                    if (ctx.relationships) {
+                        _removePropertiesFromRelationships(ctx.relationships);
+                    }
+                }
+            }, this);
+        }
     }
-  }
-  
-  function _removePropertiesFromAttributes(attributes) {
+}
+
+function _removePropertiesFromAttributes(attributes) {
     if (attributes) {
-      for (var attrKey in attributes) {
-        var attr = attributes[attrKey];
-        if (attr.properties) {
-          delete attr.properties;
+        for (var attrKey in attributes) {
+            var attr = attributes[attrKey];
+            if (attr.properties) {
+                delete attr.properties;
+            }
         }
-      }
     }
-  }
-  
-  function _removePropertiesFromRelationships(relationships) {
+}
+
+function _removePropertiesFromRelationships(relationships) {
     if (relationships) {
-      for (var relKey in relationships) {
-        var rels = relationships[relKey];
-        if (rels) {
-          rels.forEach(function(rel) {
-            if (rel.properties) {
-                delete rel.properties.contextCoalesce;
+        for (var relKey in relationships) {
+            var rels = relationships[relKey];
+            if (rels) {
+                rels.forEach(function (rel) {
+                    if (rel.properties) {
+                        delete rel.properties.contextCoalesce;
+                    }
+                    if (rel.attributes) {
+                        _removePropertiesFromAttributes(rel.attributes);
+                    }
+                }, this);
             }
-            if (rel.attributes) {
-              _removePropertiesFromAttributes(rel.attributes);
-            }
-          }, this);
         }
-      }
     }
-  }
+}
 
 module.exports = {
     initiateSearch: initiateSearch,

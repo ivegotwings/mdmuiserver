@@ -3,6 +3,8 @@
 <link rel="import" href="../bedrock-grid-datasource-behavior/bedrock-grid-datasource-behavior.html">
 <link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
+<link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
+
 
 <!--
 <b><i>Content development is under progress... </b></i>
@@ -11,8 +13,16 @@
 -->
 <dom-module id="entity-relationship-grid-datasource">
     <template>
-        <liquid-entity-data-get id="getEntityRelationships" operation="getbyids" data-index$="[[dataIndex]]" data-sub-index$="[[dataSubIndex]]" request-data="[[request]]" last-response="{{entityRelationshipsResponse}}" exclude-in-progress include-type-external-name>
-        </liquid-entity-data-get>
+        <template is="dom-if" if="[[!_isDataObjectTypeModel()]]">
+            <liquid-entity-data-get id="getEntityRelationships" operation="getbyids" request-data="[[request]]" last-response="{{entityRelationshipsResponse}}"
+                exclude-in-progress include-type-external-name>
+            </liquid-entity-data-get>
+        </template>
+        <template is="dom-if" if="[[_isDataObjectTypeModel()]]">
+            <liquid-entity-model-get id="getEntityModelRelationships" operation="getbyids" request-data="[[request]]" last-response="{{entityRelationshipsResponse}}"
+                exclude-in-progress include-type-external-name>
+            </liquid-entity-model-get>
+        </template>
     </template>
     <script>
         Polymer({
@@ -22,11 +32,9 @@
                     type: Boolean,
                     value: false
                 },
-                _getEntityRelationshipsElement: {
-                    type: Object,
-                    value: function () {
-                        return {}
-                    }
+                dataObjectType: {
+                    type: Boolean,
+                    value: "entity"
                 },
                 _success: {
                     type: Function
@@ -39,27 +47,16 @@
                     value: function () {
                         return {}
                     }
-                },
-                dataIndex: {
-                    type: String,
-                    value: "entityData"
-                },
-                dataSubIndex: {
-                    type: String,
-                    value: "data"
                 }
             },
 
             behaviors: [
                 RUFBehaviors.GridDataSourceBehavior
             ],
-          /**
-            * <b><i>Content development is under progress... </b></i> 
-            */
+            /**
+              * <b><i>Content development is under progress... </b></i> 
+              */
             ready: function () {
-                this._getEntityRelationshipsElement = Polymer.dom(this).node.shadowRoot.querySelector(
-                    "liquid-entity-data-get[id='getEntityRelationships']");
-
                 this.rDataSource = this._dataSource.bind(this);
             },
 
@@ -67,7 +64,11 @@
                 // Attach one-time event
                 this._success = success;
                 this._error = error;
-                DataHelper.oneTimeEvent(this._getEntityRelationshipsElement, 'response', this._onRelationshipsReponse
+
+                let liquidElement = this.dataObjectType && this.dataObjectType.toLowerCase() == "entitymodel" ? this.shadowRoot.querySelector('#getEntityModelRelationships') : this.shadowRoot.querySelector('#getEntityRelationships');
+                liquidElement.returnObjectsCollectionName = 'entities';
+
+                DataHelper.oneTimeEvent(liquidElement, 'response', this._onRelationshipsReponse
                     .bind(this));
 
                 // Set Options
@@ -77,50 +78,57 @@
                 var requestOptions = this._prepareRequestOptions(options);
                 this.set("request.params.options", requestOptions);
 
-                if(this.applyContextCoalesce) {
-                    this._getEntityRelationshipsElement.useDataCoalesce = true;
+                if (this.applyContextCoalesce) {
+                    liquidElement.useDataCoalesce = true;
                 }
 
                 // Make Request
-                this._getEntityRelationshipsElement.generateRequest();
+                liquidElement.generateRequest();
             },
 
             _onRelationshipsReponse: async function (event) {
-                    var totalRelCount = undefined;
+                var totalRelCount = undefined;
 
-                    // Format ResponseData
-                    var entityRelationships = await this._formatResponse(this.entityRelationshipsResponse,event);
-                    if (typeof (entityRelationships) == 'undefined') {
-                        entityRelationships = [];
-                    } else {
-                        //Get the total count of relationships
-                        var resp = this.entityRelationshipsResponse;
-                        if (resp) {
-                            if (resp.content && resp.content.entities) {
-                                var entities = resp.content.entities;
-                                if (entities && entities.length > 0) {
-                                    var entity = entities[0];
-                                    var relationshipsTotalCount = entity.relationshipsTotalCount;
-                                    if(relationshipsTotalCount && event.detail.request) {
-                                        var currentRel = event.detail.request.requestData.params.fields.relationships[0];
-                                        totalRelCount = relationshipsTotalCount[currentRel];
-                                    }
+                // Format ResponseData
+                var entityRelationships = await this._formatResponse(this.entityRelationshipsResponse, event);
+                if (typeof (entityRelationships) == 'undefined') {
+                    entityRelationships = [];
+                } else {
+                    //Get the total count of relationships
+                    var resp = this.entityRelationshipsResponse;
+                    if (resp) {
+                        if (resp.content && resp.content.entities) {
+                            var entities = resp.content.entities;
+                            if (entities && entities.length > 0) {
+                                var entity = entities[0];
+                                var relationshipsTotalCount = entity.relationshipsTotalCount;
+                                if (relationshipsTotalCount && event.detail.request) {
+                                    var currentRel = event.detail.request.requestData.params.fields.relationships[0];
+                                    totalRelCount = relationshipsTotalCount[currentRel];
                                 }
                             }
                         }
                     }
+                }
 
-                    // UpdateCurrent RecordSize
-                    this._updateCurrentRecordSize(this._options, entityRelationships,totalRelCount, totalRelCount);
+                // UpdateCurrent RecordSize
+                this._updateCurrentRecordSize(this._options, entityRelationships, totalRelCount, totalRelCount);
 
-                    // Invoke Callback
-                    this._success(entityRelationships);
+                // Invoke Callback
+                this._success(entityRelationships);
             },
-          /**
-            * <b><i>Content development is under progress... </b></i> 
-            */
-            resetDataSource: function() {
+            /**
+              * <b><i>Content development is under progress... </b></i> 
+              */
+            resetDataSource: function () {
                 this._resetDataSource();
+            },
+
+            _isDataObjectTypeModel: function() {
+                if(!_.isEmpty(this.dataObjectType) && this.dataObjectType.toLowerCase() == "entitymodel") {
+                    return true;
+                }
+                return false;
             }
         });
     </script>
