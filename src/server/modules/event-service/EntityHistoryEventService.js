@@ -222,7 +222,9 @@ EntityHistoryEventservice.prototype = {
                     message = "<span class='userName'>" + userName + "</span> removed <span class='activity-property'>" + attributeExternalName + "</span>";
                 } else {
                     message = "<span class='userName'>" + userName + "</span> changed <span class='activity-property'>" + attributeExternalName + "</span>";
-                    
+                    if(historyRecord.previousValues) {
+                        message += " from <span class='prev-attribute-value'>" + historyRecord.previousValues + "</span>";
+                    }
                     if(historyRecord.attributeValues) {
                         message += " to <span class='attribute-value'>" + historyRecord.attributeValues + "</span>";
                     }
@@ -290,13 +292,28 @@ EntityHistoryEventservice.prototype = {
         historyList.push(historyObj)
         return historyList;
     },
-
+    _getCombinedAttributeValues:function(attrObj){
+        var attrValues="";
+        if (attrObj && attrObj.values) {
+            var attributeValues = attrObj.values;
+            for (var k = 0; k < attributeValues.length; k++) {
+                var attrbuteValue = attributeValues[k];
+                if (attrbuteValue && attrbuteValue.value !== undefined) {
+                    if (k > 0) {
+                        attrValues = attrValues + ',';
+                    }
+                    attrValues = attrValues + attrbuteValue.value
+                }
+            }
+        }
+        return attrValues;
+    },
     _createAttributeUpdateHistoryEvent: function (event, attributes, defaultAttribute, internalIds) {
         var historyList = [];
         var historyObj = {};
         for (var attribute in attributes) {
             if (attributes.hasOwnProperty(attribute)) {
-                if (defaultAttribute.indexOf(attribute) < 0) {
+                if ((defaultAttribute.indexOf(attribute) < 0) && (attribute.indexOf("previous-") < 0)) {
                     internalIds.attributeList.push(attribute);
                     var attrObj = attributes[attribute]
                     historyObj = {};
@@ -305,22 +322,12 @@ EntityHistoryEventservice.prototype = {
                     historyObj.eventType = "attributeUpdate";
                     historyObj.internalAttributeId = attribute;
                     historyObj.attributeValues = undefined;
-                    
-                    var attrValues="";
-                    if (attrObj && attrObj.values) {
-                        var attributeValues = attrObj.values;
-                        for (var k = 0; k < attributeValues.length; k++) {
-                            var attrbuteValue = attributeValues[k];
-                            if (attrbuteValue && attrbuteValue.value !== undefined) {
-                                if (k > 0) {
-                                    attrValues = attrValues + ',';
-                                }
-                                attrValues = attrValues + attrbuteValue.value
-                            }
-                        }
-                        historyObj.attributeValues = attrValues;
+
+                    if(attributes.hasOwnProperty("previous-"+attribute)){
+                        historyObj.previousValues = this._getCombinedAttributeValues(attributes["previous-"+attribute]);
                     }
-                   
+                    
+                    historyObj.attributeValues = this._getCombinedAttributeValues(attrObj);
                     historyList.push(historyObj);
                 }
             }
@@ -362,23 +369,7 @@ EntityHistoryEventservice.prototype = {
                                         historyObj.relationshipType = relationship;
                                         historyObj.internalRelToId = relTorelationship.relTo.id;
                                         historyObj.relToType = relTorelationship.relTo.type;
-                                        historyObj.attributeValues = undefined;
-
-                                        var attrValues = "";
-                                        if (attrObj && attrObj.values) {
-                                            var attributeValues = attrObj.values;
-                                            for (var l = 0; l < attributeValues.length; l++) {
-                                                var attrbuteValue = attributeValues[l];
-                                                if (attrbuteValue && attrbuteValue.value !== undefined) {
-                                                    if (l > 0) {
-                                                        attrValues = attrValues + ',';
-                                                    }
-                                                    attrValues = attrValues + attrbuteValue.value
-                                                }
-                                            }
-                                            historyObj.attributeValues = attrValues;
-                                        }
-
+                                        historyObj.attributeValues = this._getCombinedAttributeValues(attrObj);
                                         historyList.push(historyObj);
                                     }
                                 }

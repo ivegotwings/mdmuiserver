@@ -67,6 +67,7 @@ The user can view the past data but cannot modify it. However he/she can add or 
         height: 100%;
         padding-right: 10px;
         overflow: auto;
+        @apply --dimension-filters;
       }
 
       #dimensionGrid {
@@ -93,7 +94,7 @@ The user can view the past data but cannot modify it. However he/she can add or 
 
       rock-grid {
         --rock-grid-height: 350px;
-      }
+      }   
     </style>
     <div id="dimensionGridContainer">
       <div id="dimensionFilters">
@@ -102,12 +103,12 @@ The user can view the past data but cannot modify it. However he/she can add or 
             <!--div class="header-content">
               <pebble-checkbox id="[[configDataItem.id]]Chk" on-change="_onSelectAll"></pebble-checkbox>
             </div-->
-            <template is="dom-if" if="[[_isContextLovType(configDataItem)]]">
+            <template is="dom-if" if="[[_compareRequestType(configDataItem.dataRequestType, 'entity-context')]]">
               <rock-context-lov id="[[configDataItem.id]]" entity-id="[[entityId]]" entity-type="[[entityType]]"
                 context-name="[[configDataItem.id]]" config-data-item-id="[[configDataItem.id]]" on-selection-changed="_onDimensionChange" 
                 multi-select no-sub-title></rock-context-lov>
             </template>
-            <template is="dom-if" if="[[!_isContextLovType(configDataItem)]]">
+            <template is="dom-if" if="[[_compareRequestType(configDataItem.dataRequestType, 'entity')]]">
               <rock-entity-lov id="[[configDataItem.id]]" r-data="[[configDataItem]]" config-data-item-id="[[configDataItem.id]]" id-field="[[configDataItem.dataMappings.id]]"
                 title-pattern="[[configDataItem.dataMappings.title]]" request-data="[[configDataItem.dataRequest]]"
                 type-field="[[configDataItem.dataMappings.type]]" sort-field="[[configDataItem.dataMappings.sort]]" external-data-formatter="[[_entityExternalDataFormatter]]"
@@ -129,7 +130,7 @@ The user can view the past data but cannot modify it. However he/she can add or 
       <div class="clearfix"></div>
     </div>
     <!--div class="action-container m-t-10">
-      <pebble-button class="btn btn-secondary m-r-10" button-text="Cancel" on-tap="_cancelAction" noink></pebble-button>
+      <pebble-button class="btn btn-secondary m-r-5" button-text="Cancel" on-tap="_cancelAction" noink></pebble-button>
       <pebble-button class="btn btn-success" button-text="Save" on-tap="_saveAction" noink></pebble-button>
     </div-->
     <entity-dimension-grid-datasource id="searchGridDatasource" context-data="[[contextData]]" value-contexts="{{_valueContexts}}" contexts="{{_contexts}}"
@@ -390,14 +391,8 @@ The user can view the past data but cannot modify it. However he/she can add or 
             this._onSelectionChange();
           }, 0)
         },
-
-        _isContextLovType: function(configContext){
-            if(this._dataContextModelObjects){
-              if(this._dataContextModelObjects[configContext.id]){
-                return true;
-              }
-            }
-            return false;
+        _compareRequestType: function (dataRequestType, entityTypeInfo) {
+          return dataRequestType === entityTypeInfo;
         },
         _entityExternalDataFormatter: function (data) {
             if(data && data.length > 0){
@@ -561,66 +556,78 @@ The user can view the past data but cannot modify it. However he/she can add or 
               var relationshipName = modelObject.relationshipName;
               var attrName = modelObject.name;
               var userIdList = [];
+              var localeManager = ComponentHelper.getLocaleManager();
 
               if (res.content && res.content.events && res.content.events.length > 0) {
                 var events = res.content.events;
                 var columns = DataHelper.convertObjectToArray(this._gridConfig.itemConfig.fields);
                 events.forEach(function (eventObj) {
-                    var _attribute;
-                    if(relationshipName){
-                      var _relationshipDataArray = EntityHelper.getRelationshipByType(eventObj, null, relationshipName, true);
-                      if(_relationshipDataArray && _relationshipDataArray.length > 0){
-                        var relAttributes = _relationshipDataArray[0].attributes;
-                        if(relAttributes && relAttributes[attrName]){
-                            _attribute = relAttributes[attrName];
-                            var relProperties = _relationshipDataArray[0].properties;
-                            if(_attribute && relProperties){
-                              _attribute.properties = relProperties;
-                            }
-                        }
-                      }
-                    }else{
-                      _attribute = EntityHelper.getAttribute(eventObj, attrName);
-                    }
-                    if(_attribute && _attribute.values){
-                      var firstValue = _attribute.values[0];
-                      var record = {};
-                      for (let i = 0; i < columns.length; i++) {
-                        const column = columns[i];
-                        var attrKey = column.name.toLowerCase();
-                        if(firstValue[attrKey]){
-                          record[column.name] = firstValue[attrKey];
-                        }
-                      }
-                      var attrValue = _attribute.values[0].value;
-                      if(_attribute.values.length > 1){
-                          for (let i = 1; i < _attribute.values.length; i++) {
-                            attrValue += ", " + _attribute.values[i].value;
+                  var _attribute;
+                  if(relationshipName){
+                    var _relationshipDataArray = EntityHelper.getRelationshipByType(eventObj, null, relationshipName, true);
+                    if(_relationshipDataArray && _relationshipDataArray.length > 0){
+                      var relAttributes = _relationshipDataArray[0].attributes;
+                      if(relAttributes && relAttributes[attrName]){
+                          _attribute = relAttributes[attrName];
+                          var relProperties = _relationshipDataArray[0].properties;
+                          if(_attribute && relProperties){
+                            _attribute.properties = relProperties;
                           }
                       }
+                    }
+                  }else{
+                    _attribute = EntityHelper.getAttribute(eventObj, attrName);
+                  }
+                  if(_attribute && _attribute.values && _attribute.values.length > 0){
+                    var firstValue, record, attrKey, attrValue, temporalDivElement;
+                    for (let j = 0; j < _attribute.values.length; j++) {
+                      firstValue = _attribute.values[j];
+                      record = {};
+                      for (let i = 0; i < columns.length; i++) {
+                        const column = columns[i];
+                        attrKey = column.name.toLowerCase();
+                        if(firstValue[attrKey]){
+                          record[column.name] = firstValue[attrKey];
+                          if(attrKey == "locale"){
+                            var localeObj = localeManager.getByName(firstValue[attrKey]);
+                            if (!_.isEmpty(localeObj) && localeObj.externalName) {
+                              record[column.name] = localeObj.externalName;
+                            }
+                          }
+                        }
+                      }
+                      attrValue = "";
+                      if(_attribute.values[j].value){
+                        attrValue = _attribute.values[j].value;
+                      }
+                      // if(_attribute.values.length > 1){
+                      //     for (let i = 1; i < _attribute.values.length; i++) {
+                      //       attrValue += ", " + _attribute.values[i].value;
+                      //     }
+                      // }
                       // TO-DO
                       // need to replace with rich text editor
                       // temporary solution - stipe html tags from value and display only text
-                      var temporalDivElement = document.createElement("div");
+                      temporalDivElement = document.createElement("div");
                       temporalDivElement.innerHTML = attrValue;
                       record[attrName] = temporalDivElement.textContent || temporalDivElement.innerText || "";
                       temporalDivElement = null;
                       
                       if(_attribute.properties){
-                         if(_attribute.properties.changeType){
+                        if(_attribute.properties.changeType){
                             var changeType = _attribute.properties.changeType;
                             if((changeType == "addAttributeToContext") 
                                 || (changeType == "addValueToAttribute")
                                 || (changeType == "addContext") 
                                 || (changeType == "addAttributeToRelationship")){
-                              record.icon = "pebble-icon:action-add";
+                                record.icon = "pebble-icon:action-add";
                             }else if((changeType == "deleteAttributeValuesFromContext") || (changeType == "deleteAttributeFromContext")){
-                              record.icon = 'pebble-icon:action-delete';
-                              record[attrName] = "";
+                                record.icon = 'pebble-icon:action-delete';
+                                record[attrName] = "";
                             }else{
-                              record.icon = 'pebble-icon:action-edit';
+                                record.icon = 'pebble-icon:action-edit';
                             }
-                         }
+                        }
                       }
                       if(eventObj.properties && eventObj.properties.modifiedDate){
                         record.Time = FormatHelper.convertFromISODateTimeToClientFormat(eventObj.properties.modifiedDate, 'datetime');
@@ -634,6 +641,7 @@ The user can view the past data but cannot modify it. However he/she can add or 
                       }
                       data.push(record);
                     }
+                  }
                 });
                 this._gridData = data;
                 if(userIdList.length > 0){

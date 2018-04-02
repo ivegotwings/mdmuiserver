@@ -27,7 +27,7 @@
         </attribute-model-datasource>
         <pebble-lov id="attributeModelLov" page-size="[[pageSize]]" multi-select="[[multiSelect]]" show-image="[[showImage]]" show-color="[[showColor]]"
             no-sub-title="[[noSubTitle]]" show-action-buttons="[[showActionButtons]]" r-data-source="{{rDataSource}}" items="[[items]]"
-            selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" on-selection-changed="_onLovSelectionChanged">
+            selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" on-selection-changed="_onLovSelectionChanged" deleted-items-count="[[_getDeletedItemsCount(deletedItems)]]">
         </pebble-lov>
     </template>
     <script>
@@ -152,6 +152,24 @@
                     value: function () {
                         return {};
                     }
+                },
+                showNestedChildAttributes:{
+                    type: Boolean,
+                    value: false,
+                },
+                showNestedAttributes:{
+                    type: Boolean,
+                    value: true,
+                },
+                excludeNestedAttributes: {
+                    type: Boolean,
+                    value: false
+                },
+                deletedItems: {
+                    type: Array,
+                    value: function() {
+                        return [];
+                    }
                 }
             },
 
@@ -237,10 +255,6 @@
                             this._notFoundEntityTypes = [];
                         }
 
-                        if(this.mode === "self") {
-                            contextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
-                        }
-
                         if (contextData && contextData.ItemContexts) {
                             for (var i = 0; i < this.contextData.ItemContexts.length; i++) {
 
@@ -261,7 +275,7 @@
             _getAttributeFormattedData: function (data) {
                 if (data && data.content && !_.isEmpty(data.content.entityModels)) {
                     var items = [];
-                    var attributeModels = data.content.entityModels;
+                    var attributeModels = this.excludeNestedAttributes ? this._excludeNestedAttributeModels(data.content.entityModels) : data.content.entityModels;
                     for (var i = 0; i < attributeModels.length; i++) {
                         var attributeModel = attributeModels[i];
                         var item = {
@@ -288,19 +302,28 @@
                             this._notFoundEntityTypes.push(requestData.params.query.name);
                         }
                     }
-
+                
                     if (this._currentItems.length == this._currentIndex) {
                         var currentItems = this._currentItems;
                         currentItems = currentItems.reduce(function (array1, array2) {
                             return array1.concat(array2);
-                        })
+                        });
+                        var filteredCurrentItems = [];
+                        currentItems = _.unique(currentItems);
                         for (var i = 0; i < currentItems.length; ++i) {
-                            for (var j = i + 1; j < currentItems.length; ++j) {
-                                if (currentItems[i].title === currentItems[j].title)
-                                    currentItems.splice(j--, 1);
+                            var currentItem = currentItems[i];
+                            if (currentItem.dataType == "nested") {
+                                if(this.showNestedChildAttributes || this.showNestedAttributes){
+                                    var nestedAttributeItems = [];
+                                    nestedAttributeItems = DataHelper.getNestedAttributeItems(currentItem,this.showNestedAttributes,this.showNestedChildAttributes);
+                                    if(nestedAttributeItems.length > 0){
+                                        filteredCurrentItems = filteredCurrentItems.concat(nestedAttributeItems)
+                                    }
+                                }
+                            }else{
+                                filteredCurrentItems.push(currentItem);
                             }
                         }
-
                         var property, dataType, sortType, multiSortProperties;
                         if(!_.isEmpty(this.sortDetails)) {
                             property = this.sortDetails.property;
@@ -321,8 +344,7 @@
                                 "dataType": "string"
                             }];
                         }
-
-                        this.items = DataHelper.sort(currentItems, property, dataType, sortType, multiSortProperties);
+                        this.items = DataHelper.sort(filteredCurrentItems, property, dataType, sortType, multiSortProperties);
 
                         if (this._notFoundEntityTypes && this._notFoundEntityTypes.length) {
                             var messageContent = this._notFoundEntityTypes.join(", ");
@@ -331,6 +353,28 @@
                     }
                 }
             },
+
+            _excludeNestedAttributeModels: function(attributeModels) {
+                var models = [];
+                attributeModels.forEach(function(attributeModel) {
+                    if(!attributeModel.properties || attributeModel.properties.dataType != "nested") {
+                        models.push(attributeModel);
+                    } else {
+                        this.deletedItems.push(attributeModel);
+                        //Notify deleted items to LOV
+                        var temp = this.deletedItems;
+                        this.deletedItems = [];
+                        this.deletedItems = temp;
+                    }
+                }, this);
+
+                return models;
+            },
+
+            _getDeletedItemsCount: function() {
+                return this.deletedItems ? this.deletedItems.length : 0;
+            },
+
             _prepareKeywordsCriteria: function (searchText) {
                 if (searchText) {
                     var keywordsCriterion = {};
