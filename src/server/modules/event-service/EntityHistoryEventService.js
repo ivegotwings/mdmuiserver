@@ -88,6 +88,7 @@ EntityHistoryEventservice.prototype = {
         var historyListToBeReturned = [];
         var defaultAttribute = ['clientId', 'relatedRequestId', 'eventSubType', 'entityType', 'entityId', 'eventType', 'entityAction', 'taskId'];
         var defaultRelationship = ['eventTarget'];
+        var defaultRelationshipAttributes = ['typeExternalName', 'id', 'name']
         var internalIds = {};
         internalIds.attributeList = [];
         internalIds.relationshipList = [];
@@ -109,7 +110,7 @@ EntityHistoryEventservice.prototype = {
 
             if (this._isValidObjectPath(event, 'data.relationships')) {
                 var relationships = event.data.relationships;
-                var relatioshipsHistoryEvent = this._createRelationshipHistoryEvent(event, relationships, defaultRelationship, internalIds)
+                var relatioshipsHistoryEvent = this._createRelationshipHistoryEvent(event, relationships, defaultRelationship, internalIds, defaultRelationshipAttributes)
                 Array.prototype.push.apply(historyList, relatioshipsHistoryEvent);
             }
 
@@ -238,7 +239,10 @@ EntityHistoryEventservice.prototype = {
             } else if(historyRecord.eventType == "relationshipAttributeUpdate"){
                 if (historyRecord.data.attributes.action.values[0].value == "delete") {
                     message = "<span class='userName'>" + userName + "</span> removed <span class='activity-property'>" + attributeExternalName + "</span> for <a href='?id="+ historyRecord.internalRelToId+"&type=" + historyRecord.relToType + "'>" + relToTypeExternalName + ": " + historyRecord.internalRelToId + "</a> having <span class='activity-property'>" + relationshipExternalName + "</span> relationship";
-                } else {
+                }else if(historyRecord.previousValues) {
+                    message = "<span class='userName'>" + userName + "</span> changed <span class='activity-property'>" + attributeExternalName + "</span>"+" from <span class='prev-attribute-value'>" + historyRecord.previousValues + "</span> to <span class='attribute-value'>" + historyRecord.attributeValues + "</span> for <a href='?id="+ historyRecord.internalRelToId+"&type=" + historyRecord.relToType + "'>" + relToTypeExternalName + ": " + historyRecord.internalRelToId + "</a> having <span class='activity-property'>" + relationshipExternalName + "</span> relationship";
+                    message += " from <span class='prev-attribute-value'>" + historyRecord.previousValues + "</span>";
+                } else{
                     message = "<span class='userName'>" + userName + "</span> changed <span class='activity-property'>" + attributeExternalName + "</span> to <span class='attribute-value'>" + historyRecord.attributeValues + "</span> for <a href='?id="+ historyRecord.internalRelToId+"&type=" + historyRecord.relToType + "'>" + relToTypeExternalName + ": " + historyRecord.internalRelToId + "</a> having <span class='activity-property'>" + relationshipExternalName + "</span> relationship";
                 }
             }
@@ -336,7 +340,7 @@ EntityHistoryEventservice.prototype = {
         return historyList;
     },
 
-    _createRelationshipHistoryEvent: function (event, relatioships, defaultRelationship, internalIds) {
+    _createRelationshipHistoryEvent: function (event, relatioships, defaultRelationship, internalIds, defaultAttribute) {
         var historyList = [];
         var historyObj = {}
         for (var relationship in relatioships) {
@@ -359,7 +363,7 @@ EntityHistoryEventservice.prototype = {
                             if((isRelAttributeUpdate || relTorelationship.attributes) && !relationshipChangeType.startsWith("deleteRelationship")) {
                                 var relAttributes = relTorelationship.attributes;
                                 for (var attribute in relAttributes) {
-                                    if (relAttributes.hasOwnProperty(attribute)) {
+                                    if (relAttributes.hasOwnProperty(attribute) && (defaultAttribute.indexOf(attribute) < 0) && (attribute.indexOf("previous-") < 0)) {
                                         var attrObj = relAttributes[attribute]
                                         historyObj = {};
                                         this._populateHistoryRecord(event, relTorelationship, historyObj, internalIds);
@@ -370,6 +374,9 @@ EntityHistoryEventservice.prototype = {
                                         historyObj.internalRelToId = relTorelationship.relTo.id;
                                         historyObj.relToType = relTorelationship.relTo.type;
                                         historyObj.attributeValues = this._getCombinedAttributeValues(attrObj);
+                                        if(relAttributes.hasOwnProperty("previous-"+attribute)){
+                                            historyObj.previousValues = this._getCombinedAttributeValues(relAttributes["previous-"+attribute]);
+                                        }
                                         historyList.push(historyObj);
                                     }
                                 }
