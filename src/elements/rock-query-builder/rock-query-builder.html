@@ -402,7 +402,7 @@
 
         ready() {
             super.ready();  
-
+            
             this._close = this._close.bind(this);
             var that = this;
             Polymer.Async.timeOut.after(3000).run(() => {
@@ -548,11 +548,18 @@
             },
             relationshipsData: {
                 type: Object,
-                value: function() { return {}; }
+                value: function() { return {}; },
+                observer: "_updateRelationshipData"
+            },
+            relEntityData: {
+                type: Object,
+                value: function() { return {}; },
+                observer: "_updateRelEntityData"
             },
             workflowCriterion: {
                 type: Object,
-                value: function () { return {}; }
+                value: function () { return {}; },
+                observer: "_updateWorkflowData"
             },
             selectedRelEntity:{
                 type: String,
@@ -682,6 +689,8 @@
             if(this.reset) {
                 this._onResetAllGrids(); 
                 this.reset = false;
+            } else {
+                this.reRenderGrid();
             }
             
             if(this.selectedRelEntity){
@@ -1019,6 +1028,27 @@
             this.set("workflowGridData", [rowData]);
         }
 
+        _populateRelEntityGridData(relEntityData) {
+            var selectedRelEntity = relEntityData.relEntityType;
+
+            this.set("selectedRelEntity", selectedRelEntity);
+
+            if(!_.isEmpty(relEntityData.selectedAttributes)) {
+                var relEntityGridData = [];
+                for(let i=0;i<relEntityData.selectedAttributes.length; i++) {
+                    var attribute = relEntityData.selectedAttributes[i];
+                    var rowData = {
+                        "name": attribute.longName,
+                        "value": attribute.displayValue,
+                        "attributeModel": attribute.options
+                    };
+                    relEntityGridData.push(rowData);
+                }
+
+                this.set("relEntityGridData", relEntityGridData);
+            }
+        }
+
         /**
         * Function to read the input query string
         * //TODO - For enabling copy paste of the query into the searchbar
@@ -1125,7 +1155,7 @@
                     entityTypeExternalNames.push(selectedEntityTypes[i].id);
                 }
             }
-            var selectedEntityStr = entityTypeExternalNames.join();
+                        var selectedEntityStr = entityTypeExternalNames.join();
 
             if(selectedEntityStr.length <= 0){
                 return this.entityTypeFilterText
@@ -1263,22 +1293,25 @@
                 var currentAttributeItems = DataHelper.convertObjectToArray(relModel);
                 attributesList = this._getAttributeList(currentAttributeItems);
             }
-            var attributes = [];        
-            for(var key in attributesList){
-                if(!attributesList.hasOwnProperty(key)) continue;
-                var newItem = {
-                    name : key,
-                    title : attributesList[key].externalName,
-                    dataType : attributesList[key].dataType,
-                    displayType : attributesList[key].displayType,
-                    groupName : attributesList[key].groupName,
-                    referenceEntityInfo : attributesList[key].referenceEntityInfo                           
-                }                        
-                attributes.push(newItem);
+            var attributes = [];
+            for(let i=0; i<attributesList.length; i++){
+                var currentItem = attributesList[j];
+                if(currentItem.dataType != "nested" ||  (currentItem.dataType == "nested" && this.showNestedAttributes)) {
+                    var newItem = {
+                        name : attributesList[i].name,
+                        title : attributesList[i].externalName,
+                        dataType : attributesList[i].dataType,
+                        displayType : attributesList[i].displayType,
+                        groupName : attributesList[i].groupName,
+                        referenceEntityInfo : attributesList[i].referenceEntityInfo
+                    }
+                    attributes.push(newItem);
+                }
             }
 
            //Populate the relAttributeModelLov
            var relAttributeModelLov = this.shadowRoot.querySelector('#relAttributeModelLov');
+           relAttributeModelLov.items = [];
            relAttributeModelLov.items = attributes;
             
            //Close the relationshipModelLov
@@ -1286,7 +1319,33 @@
            relationshipPopover.close();
            
            //Display the related entity
-           this.populateRelatedEntity(e);           
+           this.populateRelatedEntity(e);
+        }
+
+        _updateRelationshipData() {
+            if(!_.isEmpty(this.relationshipsData)) {
+                this._getRelationshipModels();
+            }
+        }
+
+        _updateRelEntityData() {
+            if(!_.isEmpty(this.relEntityData)) {
+                var e = {
+                    detail: {
+                        item: {
+                            relEntityType : this.relEntityData.relEntityType
+                        }
+                    }
+                };
+
+                this.populateRelatedEntity(e);
+            }
+        }
+
+        _updateWorkflowData() {
+            if(!_.isEmpty(this.workflowCriterion)) {
+                this._getWorkflowMappings();
+            }
         }
                 
         /**
@@ -1377,10 +1436,14 @@
                         }
                 }
             }              
-                var relEntityAttributeModelLov = this.shadowRoot.querySelector('#relEntityAttributeModelLov');
-                relEntityAttributeModelLov.items = [];
-                relEntityAttributeModelLov.items = attributes;
+            var relEntityAttributeModelLov = this.shadowRoot.querySelector('#relEntityAttributeModelLov');
+            relEntityAttributeModelLov.items = [];
+            relEntityAttributeModelLov.items = attributes;
+
+            if(!_.isEmpty(this.relEntityData)) {
+                this._populateRelEntityGridData(this.relEntityData);
             }
+        }
         
        
         _onRelEntityAttributeGetFailed(e){
@@ -1579,7 +1642,7 @@
                 }
 
                 //Populate the Workflow Activity Lov
-                var workflowActivities = [];   
+                var workflowActivities = [];
                 for(var i=0;i<wfAttributes.length;i++){
                     var newItem = {
                         name : AttributeHelper.getFirstAttributeValue(wfAttributes[i].activityName),
