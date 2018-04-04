@@ -61,8 +61,9 @@
         </div>
         <div id="context-header">
             <span class="pull-right">
-                <rock-dimension-selector id="attributeDimensionSelector" context-data="[[contextData]]" app-name="app-business-function-mapping" domain="[[mappingData.domain]]" all-single-select></rock-dimension-selector>
+                <rock-dimension-selector id="attributeDimensionSelector" context-data="[[contextData]]" app-name="app-business-function-mapping" domain="[[mappingData.domain]]" all-single-select show-confirmation$="[[_isMappingsChanged]]" confirmation-message="[[_dirtyCheckConfirmationMessage]]"></rock-dimension-selector>
                 <bedrock-pubsub event-name="dimension-selector-data-changed" handler="_onDimensionsChanged" target-id="attributeDimensionSelector"></bedrock-pubsub>
+                <bedrock-pubsub event-name="dimension-selector-confirmation-ok" handler="_onDimensionConfirmationOK" target-id="attributeDimensionSelector"></bedrock-pubsub>
             </span>
         </div>
         <div id="gridManage">
@@ -103,7 +104,7 @@
                 </pebble-data-table>
                 <bedrock-pubsub event-name="attribute-model-lov-selection-changed" handler="_onAttributeSelection" target-id="attributeModelLov"></bedrock-pubsub>
                 <pebble-popover class="attributes-popover" id="attributesPopover" for="" no-overlap vertical-align="auto" horizontal-align="auto">
-                    <rock-attribute-model-lov mode="all" id="attributeModelLov" context-data="[[contextData]]" exclude-nested-attributes no-sub-title></rock-attribute-model-lov>
+                    <rock-attribute-model-lov mode="self" no-sub-title id-field="name" title-pattern="externalName" id="attributeModelLov" context-data="[[modelContextData]]" exclude-nested-attributes no-sub-title></rock-attribute-model-lov>
                 </pebble-popover>
             </template>
         </div>
@@ -114,6 +115,13 @@
 
         <!-- Value mapping events -->
         <bedrock-pubsub event-name="value-mapping-cancel" handler="_onCancelOrSaveValueMappings" target-id=""></bedrock-pubsub>
+
+        <!--Dirty check dialog-->
+        <pebble-dialog id="attribute-mappings-dirty-check-Dialog" dialog-title="Confirmation" modal alert-box show-cancel show-ok no-cancel-on-outside-click
+            no-cancel-on-esc-key>
+            <p>[[_dirtyCheckConfirmationMessage]]</p>
+        </pebble-dialog>
+        <bedrock-pubsub event-name="on-buttonok-clicked" handler="_discardAttributeChanges" target-id="attribute-mappings-dirty-check-Dialog"></bedrock-pubsub>
 
         <div id="actions-container" class="m-t-20" align="center">
             <pebble-button class="action-button btn btn-secondary m-r-5" id="back" button-text="Back" raised on-tap="_onBackTap"></pebble-button>
@@ -235,11 +243,6 @@
                     return this._mappingGrid;
                 },
 
-                get dimensionSelector() {
-                    this._dimensionSelector = this._dimensionSelector || this.shadowRoot.querySelector("#dimensionSelector");
-                    return this._dimensionSelector;
-                },
-
                 get valueMappingsDialog() {
                     this._valueMappingsDialog = this._valueMappingsDialog || this.shadowRoot.querySelector("#valueMappingsDialog");
                     return this._valueMappingsDialog;
@@ -268,7 +271,13 @@
                         req.params.rsconnect.headers.entities = this.mappingData.headerFields;
                         req.params.query.contexts[0].ownershipdata = this.ownershipdata && this.ownershipdata != "undefined" ? this.ownershipdata : "_DEFAULT";
                         req.params.query.contexts[0].format = this.fileFormat;
-
+                        if(_.isEmpty(this.modelContextData)) {
+                            this.modelContextData = DataHelper.cloneObject(this.contextData);
+                        } else {
+                            if(this.attributeModelLov) {
+                                this.attributeModelLov.refresh();
+                            }
+                        }
                         this._sendMappingRequest(req);
                     }
                 },
@@ -467,6 +476,7 @@
                                     attributeTxtbox.value = detail.data.title;
                                     attributeTxtbox.title = detail.data.title;
                                     this._setValueMappings(detail.data, rowId);
+                                    this._isMappingsChanged = true;
                                 }
                             }
                         }
@@ -614,9 +624,9 @@
                             if(this._isSaveAndImport) {
                                 this.showSuccessToast("Attribute mappings submitted and imported the file successfully.");
                                 this._onImportTap();
-                                this._isSaveAndImport = false;
                             } else {
                                 this._isMappingsSaved = true;
+                                this._isMappingsChanged = false;
                                 this.showSuccessToast("Attribute mappings submitted successfully.");
                             }
                             this._loading = false;
@@ -737,20 +747,23 @@
                     return unique.hashCode();
                 },
 
+                _discardAttributeChanges: function() {
+                    RUFBehaviors.MappingGridBehaviorImpl._triggerEvent.call(this);
+                },
+
                 _onBackTap: function (e) {
-                    var eventName = "field-map-back";
-                    var eventDetail = {
-                        "name": eventName,
-                    };
-                    this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                    this.currentEventName = "field-map-back";
+                    RUFBehaviors.MappingGridBehaviorImpl._triggerDirtyCheck.call(this, "attribute");
                 },
 
                 _onImportTap: function () {
-                    var eventName = "field-map-import";
-                    var eventDetail = {
-                        "name": eventName,
-                    };
-                    this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                    this.currentEventName = "field-map-import";
+                    if(this._isSaveAndImport) {
+                        RUFBehaviors.MappingGridBehaviorImpl._triggerEvent.call(this, "attribute");
+                        this._isSaveAndImport = false;
+                    } else {
+                        RUFBehaviors.MappingGridBehaviorImpl._triggerDirtyCheck.call(this, "attribute");
+                    }
                 },
 
                 _isReadonly: function (item) {
@@ -866,6 +879,7 @@
                                 if (row.item["action"] != "new") {
                                     row.item["action"] = "updated";
                                 }
+                                this._isMappingsChanged = true;
                             }
                         }
                     }

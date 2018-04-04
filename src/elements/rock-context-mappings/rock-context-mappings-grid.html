@@ -21,6 +21,7 @@
 
 <link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../bedrock-helpers/context-helper.html">
+<link rel="import" href="../bedrock-mapping-grid-behavior/bedrock-mapping-grid-behavior.html">
 
 <link rel="import" href="../rock-context-mappings/rock-context-path-builder.html">
 
@@ -194,6 +195,13 @@
             <bedrock-pubsub event-name="pebble-actions-action-click" handler="_onActionItemTap" target-id=""></bedrock-pubsub>
         </div>
 
+        <!--Dirty check dialog-->
+        <pebble-dialog id="context-mappings-dirty-check-Dialog" dialog-title="Confirmation" modal alert-box show-cancel show-ok no-cancel-on-outside-click
+            no-cancel-on-esc-key>
+            <p>[[_dirtyCheckConfirmationMessage]]</p>
+        </pebble-dialog>
+        <bedrock-pubsub event-name="on-buttonok-clicked" handler="_discardContextChanges" target-id="context-mappings-dirty-check-Dialog"></bedrock-pubsub>
+
         <!-- Build path dialog -->
         <pebble-dialog id="buildPathDialog" dialog-title="CONTEXT PATH SELECTION" modal show-close-icon no-cancel-on-outside-click
             no-cancel-on-esc-key>
@@ -332,8 +340,7 @@
                     "_onMappingsDataChange(mappingConfig, mappingData, contextData, copContext)"
                 ],
                 behaviors: [
-                    RUFBehaviors.UIBehavior,
-                    RUFBehaviors.ComponentContextBehavior
+                    RUFBehaviors.MappingGridBehavior
                 ],
 
                 _onMappingsDataChange: async function () {
@@ -424,6 +431,14 @@
                     this.set("gridContexts", contexts);
                     this.set("_gridData", gridData);
                     this._loading = false;
+
+                    //Before redirecting to next, set the grid
+                    if(this._discardChanges) {
+                        this._discardChanges = false;
+                        this.async(function() {
+                            RUFBehaviors.MappingGridBehaviorImpl._triggerEvent.call(this);
+                        }, 500);
+                    }
                 },
 
                 _getContextExternalName: function(contextName) {
@@ -511,6 +526,7 @@
                     popover.for = "";
                     popover.hide();
 
+                    this._isMappingsChanged = true;
                     var lov = this.shadowRoot.querySelector(lovId);
                     if (lov) {
                         var rowId = lov.currentRowId;
@@ -549,20 +565,22 @@
                 },
 
                 _onBackTap: function (e) {
-                    var eventName = "context-mapping-back";
-                    var eventDetail = {
-                        "name": eventName,
-                    };
-                    this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                    this.currentEventName = "context-mapping-back";
+                    RUFBehaviors.MappingGridBehaviorImpl._triggerDirtyCheck.call(this, "context");
+                },
+
+                _discardContextChanges: function() {
+                    this._discardChanges = true;
+                    this._prepareGridData(); //Discarded the changes
                 },
 
                 _onSkipTap: function (e) {
-                    var eventName = "context-mapping-skip";
-                    var eventDetail = {
-                        "name": eventName,
+                    this.currentEventName = "context-mapping-skip";
+                    this.currentEventDetails = {
+                        "name": this.currentEventName,
                         "nonContextFields": this._getNonTaxonomyFields()
                     };
-                    this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                    RUFBehaviors.MappingGridBehaviorImpl._triggerDirtyCheck.call(this, "context");
                 },
 
                 _onActionItemTap(e, detail, sender) {
@@ -619,6 +637,7 @@
                         };
                         this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
                         this._loading = false;
+                        this._isMappingsChanged = false;
                         return;
                     }
 
@@ -703,7 +722,7 @@
                         "excelColumn": "",
                         "index": this._gridData.length
                     });
-
+                    this._isMappingsChanged = true;
                     //Notify Grid data
                     var temp = this._gridData;
                     this._gridData = [];
@@ -738,7 +757,7 @@
                         for (var i = 0; i < gridData.length; i++) {
                             gridData[i].index = i;
                         }
-
+                        this._isMappingsChanged = true;
                         this.set("_gridData", gridData);
                     }
                 },
