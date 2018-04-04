@@ -47,8 +47,6 @@ It manages the current extensions and creates the new extensions.
                 text-align: center;
                 z-index: 9999;
             }
-
-            
         </style>
         <div class="extensions-container" align="center">
             <div class="tree-heading">Classification selection</div>
@@ -63,8 +61,8 @@ It manages the current extensions and creates the new extensions.
         <liquid-entity-data-get id="taxonomyGetDataService" operation="getbyids" request-data="{{_taxonomyRequest}}" on-response="_onTaxonomyResponse"></liquid-entity-data-get>
         <liquid-entity-data-save id="attributeSaveDataService" operation="update" data-index$="[[dataIndex]]" data-sub-index$="[[dataSubIndex]]"
             request-data="{{_saveRequest}}" on-response="_onSaveResponse"></liquid-entity-data-save>
-        <liquid-rest id="contextLiquid" url="[[_getContextURL]]" method="POST" request-data="{{requestData}}"
-            on-liquid-response="_onResponseReceived" exclude-in-progress>
+        <liquid-rest id="contextLiquid" url="[[_getContextURL]]" method="POST" request-data="{{requestData}}" on-liquid-response="_onResponseReceived"
+            exclude-in-progress>
         </liquid-rest>
         <liquid-rest id="taxonomyModelGet" url="/data/pass-through/entitymodelservice/get" method="POST" request-data="{{_taxonomyModelRequest}}"
             on-liquid-response="_onTaxonomyModelGetResponse"></liquid-rest>
@@ -168,7 +166,7 @@ It manages the current extensions and creates the new extensions.
 
                     _getContextURL: {
                         type: String,
-                        value: "/data/pass-through/entitymodelservice/get"
+                        value: "/data/pass-through/entityservice/getcontext"
                     }
                 },
 
@@ -276,9 +274,9 @@ It manages the current extensions and creates the new extensions.
                         req.params.fields.attributes = [];
                         delete req.params.options;
                         this.set('requestData', req);
-                        
-                        if(!_.isEmpty(this.dataIndex) && this.dataIndex.toLowerCase() == "enttitymodel") {
-                            this._getContextURL = "/data/pass-through/entitymodelservice/get"
+
+                        if (!_.isEmpty(this.dataIndex) && this.dataIndex.toLowerCase() == "enttitymodel") {
+                            this._getContextURL = "/data/pass-through/entitymodelservice/getcontext"
                         }
 
                         this.shadowRoot.querySelector("#contextLiquid").generateRequest();
@@ -295,14 +293,24 @@ It manages the current extensions and creates the new extensions.
                             var entity = res.entities[0];
                             if (entity && entity.data) {
                                 var contexts = entity.data.contexts;
+                                var firstDataContext = this.getFirstDataContext(this.contextData);
+                                var primaryContext = this._getPrimaryContext(firstDataContext);
+
                                 for (var i = 0; i < contexts.length; i++) {
                                     var context = contexts[i].context;
-                                    var item = context["classification"];
-                                    if (item) {
-                                        if (context["taxonomy"] == this._taxonomyExtName) {
-                                            this._entityCurrrentClassifications.push(item);
-                                            var arr = item.split(">>");
-                                            items.push(arr);
+                                    if (context) {
+                                        if (!_.isEmpty(primaryContext)) {
+                                            if (!_.isEqual(primaryContext, this._getPrimaryContext(context))) {
+                                                continue;
+                                            }
+                                        }
+                                        var item = context["classification"];
+                                        if (item) {
+                                            if (context["taxonomy"] == this._taxonomyExtName) {
+                                                this._entityCurrrentClassifications.push(item);
+                                                var arr = item.split(">>");
+                                                items.push(arr);
+                                            }
                                         }
                                     }
                                 }
@@ -372,10 +380,12 @@ It manages the current extensions and creates the new extensions.
                     var contexts = [];
                     var deletedcontexts = [];
                     var categoryPathSeperator = this.appSetting('dataDefaults').categoryPathSeparator;
+                    var firstDataContext = this.getFirstDataContext(this.contextData);
+                    var primaryContext = this._getPrimaryContext(firstDataContext);
 
                     // Update - For selected items
                     for (var i in selectedItems) {
-                        var context = {};
+                        var context = primaryContext;
                         var valuePath = selectedItems[i].valuePath;
                         if (valuePath) {
                             valuePath = valuePath.replace(/#@#/g, categoryPathSeperator);
@@ -392,7 +402,7 @@ It manages the current extensions and creates the new extensions.
 
                     // Delete - For existing items 
                     for (var i in this._entityCurrrentClassifications) {
-                        var context = {};
+                        var context = primaryContext;
                         var isSelected = false;
 
                         for (var j in selectedItems) {
@@ -465,6 +475,19 @@ It manages the current extensions and creates the new extensions.
                         return true;
                     }
                     return false;
+                },
+
+                _getPrimaryContext: function (dataContext) {
+                    var primaryContext = {};
+                    if (!_.isEmpty(dataContext)) {
+                        Object.keys(dataContext).forEach(function (item) {
+                            //TODO:: For now "taxonomy" and "classification" dimensions are considered as additional for extension manage. Need to correct it with proper design.
+                            if (item.toLowerCase() != "taxonomy" && item.toLowerCase() != "classification") {
+                                primaryContext[item] = dataContext[item];
+                            }
+                        }, this);
+                    }
+                    return primaryContext;
                 }
 
             });
