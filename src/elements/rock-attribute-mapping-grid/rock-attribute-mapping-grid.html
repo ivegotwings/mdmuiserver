@@ -61,8 +61,9 @@
         </div>
         <div id="context-header">
             <span class="pull-right">
-                <rock-dimension-selector id="attributeDimensionSelector" context-data="[[contextData]]" app-name="app-business-function-mapping" domain="[[mappingData.domain]]" all-single-select></rock-dimension-selector>
+                <rock-dimension-selector id="attributeDimensionSelector" context-data="[[contextData]]" app-name="app-business-function-mapping" domain="[[mappingData.domain]]" all-single-select show-confirmation$="[[_isMappingsChanged]]" confirmation-message="[[_dirtyCheckConfirmationMessage]]"></rock-dimension-selector>
                 <bedrock-pubsub event-name="dimension-selector-data-changed" handler="_onDimensionsChanged" target-id="attributeDimensionSelector"></bedrock-pubsub>
+                <bedrock-pubsub event-name="dimension-selector-confirmation-ok" handler="_onDimensionConfirmationOK" target-id="attributeDimensionSelector"></bedrock-pubsub>
             </span>
         </div>
         <div id="gridManage">
@@ -99,7 +100,7 @@
                 </pebble-data-table>
                 <bedrock-pubsub event-name="attribute-model-lov-selection-changed" handler="_onAttributeSelection" target-id="attributeModelLov"></bedrock-pubsub>
                 <pebble-popover class="attributes-popover" id="attributesPopover" for="" no-overlap vertical-align="auto" horizontal-align="auto">
-                    <rock-attribute-model-lov mode="self" no-sub-title id-field="name" title-pattern="externalName" id="attributeModelLov" context-data="[[contextData]]" exclude-nested-attributes no-sub-title></rock-attribute-model-lov>
+                    <rock-attribute-model-lov mode="self" no-sub-title id-field="name" title-pattern="externalName" id="attributeModelLov" context-data="[[modelContextData]]" exclude-nested-attributes no-sub-title></rock-attribute-model-lov>
                 </pebble-popover>
             </template>
         </div>
@@ -114,7 +115,7 @@
         <!--Dirty check dialog-->
         <pebble-dialog id="attribute-mappings-dirty-check-Dialog" dialog-title="Confirmation" modal alert-box show-cancel show-ok no-cancel-on-outside-click
             no-cancel-on-esc-key>
-            <p>Are you sure you want to discard the unsaved changes.</p>
+            <p>[[_dirtyCheckConfirmationMessage]]</p>
         </pebble-dialog>
         <bedrock-pubsub event-name="on-buttonok-clicked" handler="_discardAttributeChanges" target-id="attribute-mappings-dirty-check-Dialog"></bedrock-pubsub>
 
@@ -199,6 +200,10 @@
                     selectedRole: {
                         type: String,
                         value: ""
+                    },
+                    _dirtyCheckConfirmationMessage: {
+                        type: String,
+                        value: "Are you sure you want to discard the unsaved changes."
                     }
                 },
 
@@ -238,11 +243,6 @@
                     return this._mappingGrid;
                 },
 
-                get dimensionSelector() {
-                    this._dimensionSelector = this._dimensionSelector || this.shadowRoot.querySelector("#dimensionSelector");
-                    return this._dimensionSelector;
-                },
-
                 get valueMappingsDialog() {
                     this._valueMappingsDialog = this._valueMappingsDialog || this.shadowRoot.querySelector("#valueMappingsDialog");
                     return this._valueMappingsDialog;
@@ -271,9 +271,12 @@
                         req.params.rsconnect.headers.entities = this.mappingData.headerFields;
                         req.params.query.contexts[0].ownershipdata = this.ownershipdata && this.ownershipdata != "undefined" ? this.ownershipdata : "_DEFAULT";
                         req.params.query.contexts[0].format = this.fileFormat;
-
-                        if(this.attributeModelLov) {
-                            this.attributeModelLov.refresh();
+                        if(_.isEmpty(this.modelContextData)) {
+                            this.modelContextData = DataHelper.cloneObject(this.contextData);
+                        } else {
+                            if(this.attributeModelLov) {
+                                this.attributeModelLov.refresh();
+                            }
                         }
                         this._sendMappingRequest(req);
                     }
@@ -740,6 +743,10 @@
                     var entityType = itemContext.type;
                     var unique = source + entityType;
                     return unique.hashCode();
+                },
+
+                _onDimensionConfirmationOK: function() {
+                    this._isMappingsChanged = false; //Changes discarded on dimension selector
                 },
 
                 _discardAttributeChanges: function() {

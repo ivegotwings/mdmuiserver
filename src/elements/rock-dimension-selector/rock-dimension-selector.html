@@ -168,6 +168,12 @@ Custom property | Description | Default
                 </div>
             </template>
         </div>
+        <pebble-dialog id="confirmation-dialog" dialog-title="Confirmation" modal alert-box show-cancel show-ok no-cancel-on-outside-click
+            no-cancel-on-esc-key>
+            <p>[[confirmationMessage]]</p>
+        </pebble-dialog>
+        <bedrock-pubsub event-name="on-buttonok-clicked" handler="_onTapConfirmationOK" target-id="confirmation-dialog"></bedrock-pubsub>
+        <bedrock-pubsub event-name="on-buttoncancel-clicked" handler="_onTapConfirmationCancel" target-id="confirmation-dialog"></bedrock-pubsub>
         <liquid-rest id="contextModelGet" url="/data/pass-through/entitymodelservice/getcontext" method="POST" request-data="{{_contextModelGetReq}}"
             on-liquid-response="_onContextModelGetResponse" on-liquid-error="_onContextModelGetFailed"></liquid-rest>
         <liquid-rest id="entityModelGet" url="/data/pass-through/entitymodelservice/get" method="POST" request-data="{{_entityModelRequest}}"
@@ -361,6 +367,14 @@ Custom property | Description | Default
                     value: function () {
                         return {};
                     }
+                },
+                confirmationMessage: {
+                    type: String,
+                    value: "Do you want to update selection?"
+                },
+                showConfirmation: {
+                    type: Boolean,
+                    value: false
                 }
             },
 
@@ -373,6 +387,11 @@ Custom property | Description | Default
                 '_configChanged(configData, entityType)',
                 '_prepareContext(appName, domain, entityType)'
             ],
+
+            get confirmationDialog() {
+                this._confirmationDialog = this._confirmationDialog || this.shadowRoot.querySelector("#confirmation-dialog");
+                return this._confirmationDialog;
+            },
 
             _prepareContext: function () {
 
@@ -565,8 +584,20 @@ Custom property | Description | Default
             },
 
             _onEntityLovConfirmButtonTapped: function (event) {
+                this._isClassificationSelectionTriggered = false;
+                this._currentLovEvent = event;
+                if(this.showConfirmation) {
+                    if(this.confirmationDialog) {
+                        this.confirmationDialog.open();
+                    }
+                    return;
+                }
+                this._triggerLovConfirmButtonTapped();
+            },
+
+            _triggerLovConfirmButtonTapped: function(togglePopover = true) {
                 if (!this.allMultiSelect) {
-                    var currentLovId = event.detail.data.id;
+                    var currentLovId = this._currentLovEvent.detail.data.id;
                     var currentRockLov = this.shadowRoot.querySelector("#" + currentLovId);
                     var switchToMultiSelect = true;
 
@@ -598,7 +629,9 @@ Custom property | Description | Default
                 }
 
                 this._updateSelectedDimensions();
-                this._toggleLovPopover(this._currentDimensionSelector.popover);
+                if(togglePopover) {
+                    this._toggleLovPopover(this._currentDimensionSelector.popover);
+                }
             },
 
             _onContextLovSelectedInfoApplied: function () {
@@ -1692,9 +1725,12 @@ Custom property | Description | Default
 
                 var currentContextId = this._currentDimensionSelector.id.replace("-toggle-button", "-contextTree");
                 var contextTree = this.shadowRoot.querySelector("#" + currentContextId);
-                selectedClassifications = this._getPathsForClassificationTree(contextTree.selectedClassifications);
+                //selectedClassifications = this._getPathsForClassificationTree(contextTree.selectedClassifications);
+                if(this.selectedDimensions && this.selectedDimensions["classification"] && this.selectedDimensions["classification"].length) {
+                    selectedClassifications = [this.selectedDimensions["classification"][0].split(">>")];
+                }
                 //If refresh needs every time on dialog open, then remove >> selectedClassifications.length == 0
-                if (contextTree && selectedClassifications.length == 0) {
+                if (contextTree) {
                     var configClassificationId = this._currentDimensionSelector.id.replace("-toggle-button", "");
                     if (this._selectedClassificationsConfig[configClassificationId]) {
                         selectedClassifications = this._selectedClassificationsConfig[configClassificationId].classifications;
@@ -1732,6 +1768,34 @@ Custom property | Description | Default
             },
 
             _selectClassification: function (e) {
+                this._isClassificationSelectionTriggered = true;
+                if(this.showClassificationConfirmation) {
+                    if(this.confirmationDialog) {
+                        this.confirmationDialog.open();
+                    }
+                    return;
+                }
+                this._triggerClassificationChange();
+            },
+
+            _onTapConfirmationOK: function(event) {
+                if(this._isClassificationSelectionTriggered) {
+                    this._triggerClassificationChange();
+                } else {
+                    this._triggerLovConfirmButtonTapped(false);
+                }
+                this.fireBedrockEvent("dimension-selector-confirmation-ok", event);
+            },
+
+            _onTapConfirmationCancel: function(event) {
+                if (this._isClassificationSelectionTriggered) {
+                    this._onCancelClassificationSelection();
+                }
+
+                this.fireBedrockEvent("dimension-selector-confirmation-cancel", event);
+            },
+
+            _triggerClassificationChange: function() {
                 var currentContextId = this._currentDimensionSelector.id.replace("-toggle-button", "-contextTree");
                 var contextTree = this.$$("#" + currentContextId);
                 if (contextTree) {
