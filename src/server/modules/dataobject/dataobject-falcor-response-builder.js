@@ -502,6 +502,50 @@ function buildResponse(dataObject, reqData, paths) {
         var dataContextsJson = dataJson['contexts'] = {};
 
         if (data && data.contexts) {
+
+            // if user performs self attribute update being additional context selected then UI will not saw updated value it will saw old value.
+            // Since attribute update is happening with selection of additional context and updated attribute is not mapped to additional context update is happening in self context only.
+            // Because of that only "self" context response is getting updated with new value in falcor.
+            // It has to be updated in a current selected context also to be consistent on UI.
+            if ("webProcessingOptions" in data && data.webProcessingOptions.prepareCoalescedResponse) {
+                var currentSelectedContextInfo = data.webProcessingOptions.currentSelectedContext;
+                
+                if (currentSelectedContextInfo) {
+                    let currentSelectedContextKey = falcorUtil.createCtxKey(currentSelectedContextInfo);
+                    var currentSelectedContext = data.contexts.filter(v => falcorUtil.createCtxKey(v.context) == currentSelectedContextKey);
+                    var ctxAttributes;
+    
+                    if (currentSelectedContext && currentSelectedContext.length) {
+                        if (currentSelectedContext.attributes) {
+                            ctxAttributes = currentSelectedContext.attributes;
+                        } else {
+                            ctxAttributes = currentSelectedContext.attributes = {};
+                        }
+                    } else {
+                        currentSelectedContext = {
+                            "context": currentSelectedContextInfo,
+                            "attributes": {}
+                        };
+                        data.contexts.push(currentSelectedContext);
+                        ctxAttributes = currentSelectedContext.attributes;
+                    }
+    
+                    for (let ctxItem of data.contexts) {
+                        if ("attributes" in ctxItem) {
+                            var ctx = ctxItem.context;
+                            var ctxKey = falcorUtil.createCtxKey(ctx);
+                            if (ctxKey != currentSelectedContextKey) {
+                                for (let attr in ctxItem.attributes) {
+                                    if (!ctxAttributes[attr]) {
+                                        ctxAttributes[attr] = ctxItem.attributes[attr];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             for (let contextItem of data.contexts) {
                 var currContext = contextItem.context;
 
