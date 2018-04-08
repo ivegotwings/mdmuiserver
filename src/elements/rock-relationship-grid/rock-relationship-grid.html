@@ -269,12 +269,14 @@ The following JSON object is a sample of data which binds the grid.
 
       rock-grid {
         --rock-grid-height: 200px;
-        --pebble-grid-container:{
-          height:auto;
+        --pebble-grid-container: {
+          height: auto;
         }
       }
+
       /* temporary hot fix*/
-       /* rock-grid.expanded {
+
+      /* rock-grid.expanded {
         --rock-grid-height: inherit !important;
       }  */
 
@@ -371,7 +373,12 @@ The following JSON object is a sample of data which binds the grid.
               </template>
               <pebble-button icon="pebble-icon:action-add" disabled="[[readonly]]" id="button_[[relationship]]" relationship="[[relationship]]"
                 class="btn btn-primary m-r-10 auto-width addbutton" button-text="Add" on-tap="_onAddRelClick"></pebble-button>
-            </template>
+                <template is="dom-if" if="[[relationshipGridConfig.addNewRelationConfig]]"> 
+                  <pebble-button icon="pebble-icon:action-add" disabled="[[readonly]]" id="addnewbutton_[[relationship]]" relationship="[[relationship]]"
+                  class="btn btn-primary m-r-10 auto-width addbutton" button-text="Add New" on-tap="_onAddNewRelClick"></pebble-button>
+                  <bedrock-pubsub event-name="entity-created" handler="_onEntityCreated"></bedrock-pubsub>
+                </template>
+              </template>
             <pebble-popover for$="button_[[relationship]]" vertical-align="auto" horizontal-align="auto" no-overlap>
               <rock-entity-lov id="lov_[[relationship]]" data-index$="[[dataIndex]]" data-sub-index$="[[dataSubIndex]]" request-data="[[_requestForAddRelationshipList(relationship)]]"
                 id-field="[[_getIdField()]]" image-id-field="[[_getImageIdField()]]" title-pattern="[[_getTitlePattern()]]"
@@ -385,8 +392,8 @@ The following JSON object is a sample of data which binds the grid.
             <div class$="[[_applyClass(_quickManageEnabled)]]">
               <entity-relationship-grid-datasource id="datasource_[[relationship]]" request="[[_getRelationshipGridRequest(relationship)]]"
                 r-data-source="{{rDataSource}}" data-index$="[[dataIndex]]" data-sub-index$="[[dataSubIndex]]" r-data-formatter="{{rDataFormatter}}"
-                buffer-record-size="{{size}}" current-record-size="{{currentRecordSize}}" result-record-size="{{resultRecordSize}}"
-                total-count="{{totalCount}}" apply-context-coalesce="[[relationshipGridConfig.gridConfig.applyContextCoalesce]]"></entity-relationship-grid-datasource>
+                buffer-record-size="{{size}}" current-record-size="{{currentRecordSize}}" data-object-type="[[relationshipGridConfig.gridConfig.dataObjectType]]"
+                result-record-size="{{resultRecordSize}}" total-count="{{totalCount}}" apply-context-coalesce="[[relationshipGridConfig.gridConfig.applyContextCoalesce]]"></entity-relationship-grid-datasource>
 
               <rock-grid id$="[[relationship]]" class$="[[_getGridClass()]]" readonly="[[readonly]]" context-data="[[contextData]]" r-data-source="{{rDataSource}}"
                 r-data-source-id="datasource_[[relationship]]" config="{{relationshipGridConfig.gridConfig}}" attribute-models="[[_getRelationshipAttributeModels(relationship)]]"
@@ -405,7 +412,7 @@ The following JSON object is a sample of data which binds the grid.
               <bedrock-pubsub event-name="grid-bulk-relationship-edit-items" handler="_onBulkRelationshipEdit" target-id="[[relationship]]"></bedrock-pubsub>
               <bedrock-pubsub event-name="grid-custom-toolbar-event" handler="_onCustomToolbarEvent" target-id="[[relationship]]"></bedrock-pubsub>
               <div id="buttonContainer" align="center" hidden>
-                <pebble-button id="cancel" class="button btn btn-secondary m-r-10" button-text="Cancel" on-tap="_revertAll" elevation=1 raised></pebble-button>
+                <pebble-button id="cancel" class="button btn btn-secondary m-r-5" button-text="Cancel" on-tap="_revertAll" elevation=1 raised></pebble-button>
                 <pebble-button id="save" class="focus btn btn-success" disabled="[[readonly]]" button-text="Save" on-tap="_save" elevation=1
                   raised></pebble-button>
               </div>
@@ -715,7 +722,6 @@ The following JSON object is a sample of data which binds the grid.
         },
 
         behaviors: [
-          RUFBehaviors.UIBehavior,
           RUFBehaviors.AppBehavior,
           RUFBehaviors.ComponentContextBehavior
         ],
@@ -757,11 +763,7 @@ The following JSON object is a sample of data which binds the grid.
           }
         },
         _hasWritePermissions: function (gridConfig) {
-          if (gridConfig["hasWritePermission"]) {
-            return true;
-          }
-
-          return false;
+          return gridConfig["hasWritePermission"];
         },
         _getRelationshipGrid: function () {
           return this.shadowRoot.querySelector("rock-grid");
@@ -1379,22 +1381,20 @@ The following JSON object is a sample of data which binds the grid.
             buttonContainer.hidden = false;
           }
         },
-        _save: function (e) {
+        _save: async function (e) {
           if (e.currentTarget.disabled == true) {
             return;
           }
+
           var currentRel = e.target.__dataHost.parentModel.relationship; //e.model.relationship;
           var currentRelGrid = this.shadowRoot.querySelector('rock-grid[id=' + currentRel + ']');
-          var entityId = DataHelper.getParamValue('id');
-          var relConfig = this.relationshipGridConfig;
-          var utils = SharedUtils.DataObjectFalcorUtil;
 
-          if (currentRelGrid && relConfig) {
-            var gridData = currentRelGrid.getModifiedData();
+          if (currentRelGrid) {
+            var modifiedRelData = currentRelGrid.getModifiedData();
             var originalEntity;
 
             //Check whether any row is modified or not.
-            if (!gridData || (gridData && gridData.length == 0)) {
+            if (!modifiedRelData || (modifiedRelData && modifiedRelData.length == 0)) {
               this.showInformationToast("No changes to save");
               return;
             }
@@ -1409,85 +1409,32 @@ The following JSON object is a sample of data which binds the grid.
 
             if (originalEntity) {
               this._originalEntity = DataHelper.cloneObject(originalEntity);
-              var relationships = EntityHelper.getRelationshipByType(originalEntity, this.getFirstDataContext(), currentRel, relConfig.selfContext);
-              var modifiedRelData = gridData;
-              var relAndRelEntityAttributes = this._getAttributeList(currentRel);
-              var valueContext = this.getFirstValueContext();
 
               if (!_.isEmpty(modifiedRelData)) {
-                modifiedRelData.forEach(function (modItem) {
-                  var key = "";
-                  var relObject;
+                var existingRelationships = EntityHelper.getRelationshipByRelationshipType(originalEntity, this.getFirstDataContext(), currentRel);
+                var relObjects = this._getUpdatedRelationshipsFromModifiedGridData(originalEntity, existingRelationships, modifiedRelData, currentRel);
 
-                  if (!_.isEmpty(relationships)) {
-                    relationships.forEach(function (relItem) {
-                      if (relItem.relTo && relItem.relTo.id && relItem.relTo.id == modItem["Related Entity"]) {
-                        relObject = relItem;
-                      }
-                    }, this);
-                  }
+                // Remove all relationships exist in entity's current relationship reference, it may possible that only few relationships are modified.
+                if (existingRelationships) {
+                  existingRelationships.length = 0;
+                }
 
-                  if (relObject) {
-
-                    var relAttributes = relObject.attributes ? relObject.attributes : relObject.attributes = {};
-
-                    relAndRelEntityAttributes.relationshipAttributes.forEach(function (relAttr) {
-                      if (relAttr) {
-                        var relAttribute = relAttributes ? relAttributes[relAttr] : undefined;
-                        if (relAttribute) {
-                          relAttribute.values[0].value = modItem[relAttr];
-                        } else {
-                          if (modItem[relAttr]) {
-                            relAttributes[relAttr] = {};
-                            relAttributes[relAttr].values = [{
-                              "value": modItem[relAttr],
-                              "source": valueContext.source,
-                              "locale": valueContext.locale
-                            }];
-                          }
-                        }
-                      }
-                    }, this);
-                  } else {
-                    var relId = modItem["Related Entity"];
-                    var relToType = modItem['type'];
-
-                    if (relId && relToType) {
-                      var relationship = {};
-
-                      relationship.direction = "both";
-                      relationship.operation = "association";
-
-                      relationship.attributes = {};
-
-                      if (relAndRelEntityAttributes) {
-                        relAndRelEntityAttributes.relationshipAttributes.forEach(function (
-                          relAttr) {
-                          if (relAttr) {
-                            relationship.attributes[relAttr] = {};
-                            relationship.attributes[relAttr].values = [{
-                              "value": modItem[relAttr],
-                              "source": valueContext.source,
-                              "locale": valueContext.locale
-                            }];
-                          }
-                        }, this);
-                      }
-
-                      relationship.relTo = {};
-                      relationship.relTo.id = relId;
-                      relationship.relTo.type = relToType;
-                      relationship.relTo.properties = modItem['properties'];
-                      relationships.push(relationship);
-                    }
-                  }
-                }, this);
+                // Add all updated relatinships in entity's current relationship reference.
+                if (relObjects) {
+                  relObjects.forEach(function (relItem) {
+                    existingRelationships.push(relItem);
+                  }, this);
+                }
               }
+
+              // Prepare entity for context save where relationships will be filtered or modified by context model. 
+              await DataTransformHelper.prepareEntityForContextSave(originalEntity.data, {}, this._relationshipModels, this.contextData)
             }
 
             this._saveRequest = {
               "entities": [DataHelper.cloneObject(originalEntity)]
             };
+
             if (this.doSyncValidation) {
               var req = DataRequestHelper.createSyncValidationRequest(originalEntity.id, originalEntity.type, originalEntity.data);
               this.set('_entityGovernRequest', req);
@@ -1501,6 +1448,90 @@ The following JSON object is a sample of data which binds the grid.
             }
           }
         },
+
+        _getUpdatedRelationshipsFromModifiedGridData: function (originalEntity, existingRelationships, modifiedRelData, currentRel) {
+          var relObjects = [];
+
+          if (modifiedRelData) {
+            var relAndRelEntityAttributes = this._getAttributeList(currentRel);
+            var valueContext = this.getFirstValueContext();
+
+            // Get updated relationships by adding or updating exiting relationship data.
+            modifiedRelData.forEach(function (modItem) {
+              var relObject;
+              // Find out if modified relaitionship is exist in current entity data.
+              if (!_.isEmpty(existingRelationships)) {
+                existingRelationships.forEach(function (relItem) {
+                  if ("relTo" in relItem && relItem.relTo.id == modItem["Related Entity"]) {
+                    relObject = relItem;
+                  }
+                }, this);
+              }
+
+              // ADD and UPDATE case will be diceded based upon modified relationship is exist in entity.
+              if (relObject) {
+                // UPDATE
+                // Existing relatsionship update.
+                var relAttributes = relObject.attributes ? relObject.attributes : relObject.attributes = {};
+
+                if ("relationshipAttributes" in relAndRelEntityAttributes) {
+                  relAndRelEntityAttributes.relationshipAttributes.forEach(function (relAttr) {
+                    if (relAttr) {
+                      var relAttribute = relAttributes ? relAttributes[relAttr] : undefined;
+                      if (relAttribute) {
+                        relAttribute.values[0].value = modItem[relAttr];
+                      } else {
+                        if (modItem[relAttr]) {
+                          relAttributes[relAttr] = {};
+                          relAttributes[relAttr].values = [{
+                            "value": modItem[relAttr],
+                            "source": valueContext.source,
+                            "locale": valueContext.locale
+                          }];
+                        }
+                      }
+                    }
+                  }, this);
+                }
+              } else {
+                // ADD
+                // Add new relationship.
+                var relId = modItem["Related Entity"];
+                var relToType = modItem['type'];
+
+                if (relId && relToType) {
+                  relObject = {};
+                  relObject.direction = "both";
+                  relObject.operation = "association";
+                  relObject.attributes = {};
+
+                  if (relAndRelEntityAttributes) {
+                    relAndRelEntityAttributes.relationshipAttributes.forEach(function (relAttr) {
+                      if (relAttr) {
+                        relObject.attributes[relAttr] = {};
+                        relObject.attributes[relAttr].values = [{
+                          "value": modItem[relAttr],
+                          "source": valueContext.source,
+                          "locale": valueContext.locale
+                        }];
+                      }
+                    }, this);
+                  }
+
+                  relObject.relTo = {};
+                  relObject.relTo.id = relId;
+                  relObject.relTo.type = relToType;
+                  relObject.relTo.properties = modItem['properties'];
+                }
+              }
+
+              relObjects.push(relObject);
+            }, this);
+          }
+
+          return relObjects;
+        },
+
         _onEntityGovernResponse: function (e) {
           if (e && e.detail && e.detail.response && e.detail.response.response && e.detail.response.response.status == "success") {
             var res = e.detail.response.response;
@@ -1809,7 +1840,6 @@ The following JSON object is a sample of data which binds the grid.
             relGrid.set('config.mode', "read");
             relGrid.reRenderGrid();
           }
-          this._changeRelationshipToReadMode();
           var relationshipLov = Polymer.dom(this).node.shadowRoot.querySelector('rock-entity-lov[id=lov_' + this.relationship + ']');
           if (relationshipLov) {
             var gridData = relGrid.getData();
@@ -1877,12 +1907,11 @@ The following JSON object is a sample of data which binds the grid.
             };
 
             return req;
-          } else {
-            var messageDiv = this.$.messageCard;
-            if (messageDiv) {
-              messageDiv.textContent = "Relationships are not configured for current entity type: " + this.relationshipTitle;
-              this._isMessageAvailable = true;
-            }
+          }
+          var messageDiv = this.$.messageCard;
+          if (messageDiv) {
+            messageDiv.textContent = "Relationships are not configured for current entity type: " + this.relationshipTitle;
+            this._isMessageAvailable = true;
           }
         },
         _getIdField: function () {
@@ -1948,12 +1977,8 @@ The following JSON object is a sample of data which binds the grid.
           }
         },
         _onGetDownloadUrlResponse: function (e) {
-          const a = document.createElement('a');
-          a.download = "";
-
           LiquidResponseHelper.downloadURLResponseMapper(e, downloadURL => {
-            a.href = downloadURL;
-            a.click();
+            window.open(downloadURL, "_blank");
           });
         },
         openGridMsgDialog: function (msg) {
@@ -2125,9 +2150,62 @@ The following JSON object is a sample of data which binds the grid.
           }
         },
         _hasContextCoalescedValue: function (item) {
-          if (!_.isEmpty(item.contextCoalescePaths)) {
-            return true;
+          return !_.isEmpty(item.contextCoalescePaths);
+        },
+        _onAddNewRelClick: function (item) {
+          
+          const { relatedEntityTypes } = this.relationshipGridConfig;
+          var contextData = DataHelper.cloneObject(this.contextData);   
+          //delete this.contextData.ItemContexts[0];
+          contextData.ItemContexts[0] = {"type": relatedEntityTypes[0]};
+          const sharedData = {
+            "context-data": contextData,
+            "title": "Create New "+contextData.ItemContexts[0].type
+          };
+
+        this.openBusinessFunctionDialog({
+            name: 'rock-wizard-entity-create'
+        }, sharedData);
+        },
+        _onEntityCreated: function(e){
+          this._createRelationshipsDown(e.detail);
+        },
+
+        _createRelationshipsDown: function (createdEntity) {
+
+          var upRelationshipRequests = [];
+          var rel = {
+              "direction": "both",
+              "relationshipType": this.relationshipGridConfig.relationshipModel.properties.relationshipType,
+              "relTo": {
+                  "id": createdEntity.id,
+                  "type": createdEntity.type
+              }
+          };
+          
+          var {id : id, type: type } = this.contextData.ItemContexts[0];
+          var upRelationshipRequest = {id : id, type: type ,"data":{"relationships":{}}}
+
+          upRelationshipRequest.data.relationships[this.relationship] = [rel];
+          upRelationshipRequests.push(upRelationshipRequest);
+         
+          this._saveRequest = {
+              "entities": upRelationshipRequests
+          };
+          this._addClientStatus();
+          this._saveEntity();
+          var businessDialog = RUFUtilities.appCommon.shadowRoot.querySelector("rock-business-function-dialog");
+          if(businessDialog){
+            var dialog = businessDialog.dialog;
+            dialog.close();
           }
+          
+        },
+        _addClientStatus: function () {
+            var clientState = {};
+            clientState.notificationInfo = {};
+            clientState.notificationInfo.showNotificationToUser = true;
+            this._saveRequest["clientState"] = clientState;
         }
       });
     })();

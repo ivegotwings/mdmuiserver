@@ -19,7 +19,7 @@
 
 <dom-module id="rock-search-query-parser">
   <template>
-    <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{_attributeModelRequest}}" on-entity-model-composite-get-response="_onCompositeModelGetResponse">
+    <liquid-entity-model-composite-get name="compositeAttributeModelGet" on-entity-model-composite-get-response="_onCompositeModelGetResponse">
     </liquid-entity-model-composite-get>
   </template>
   <script>
@@ -42,12 +42,6 @@
           },
 
           parsedQuery: {
-            type: Object,
-            value: function () {
-              return {};
-            }
-          },
-          _attributeModelRequest: {
             type: Object,
             value: function () {
               return {};
@@ -79,6 +73,11 @@
           RUFBehaviors.UIBehavior,
           RUFBehaviors.ComponentContextBehavior
         ],
+
+        get compositeAttributeModelGetLiq() {
+          this._compositeAttributeModelGetLiq = this._compositeAttributeModelGetLiq || this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
+          return this._compositeAttributeModelGetLiq;
+        },
 
         parseQueryToFilters: function (query) {
           var parsedQuery = this.parseQuery(query);
@@ -145,10 +144,9 @@
 
               var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(clonedContextData);
 
-              this.set("_attributeModelRequest", compositeModelGetRequest);
-              var liquidModelGet = this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
-              if (liquidModelGet && compositeModelGetRequest) {
-                liquidModelGet.generateRequest();
+              if (this.compositeAttributeModelGetLiq && compositeModelGetRequest) {
+                this.compositeAttributeModelGetLiq.requestData = compositeModelGetRequest;
+                this.compositeAttributeModelGetLiq.generateRequest();
               }
             }
           }
@@ -194,7 +192,7 @@
               this.searchFilters["attributesCriterion"] = !_.isEmpty(attrsCriterion) ? attrsCriterion : undefined;
               this.searchFilters["relationshipsCriterion"] = !_.isEmpty(relationshipsCriterion) ? [relationshipsCriterion] : undefined;
               this.searchFilters["compositeModels"] = compositeModels;
-              this.searchFilters["relationshipModels"] = this._relationshipModels;
+              this.searchFilters["relationshipModels"] = this._mergeRelationships(this._relationshipModels);
               this.fireBedrockEvent('on-search-filters', this.searchFilters);
             }
           }
@@ -258,9 +256,11 @@
                             if(valSplitByAnd.length > 1) {
                               attrVal["exacts"] = valSplitByAnd;
                               attrVal["operator"] = "_AND"
-                            } else {
+                            } else if(valSplitByOr.length > 1) {
                               attrVal["exacts"] = valSplitByOr;
                               attrVal["operator"] = "_OR"
+                            } else {
+                              attrVal["exact"] = containsStr;
                             }
                             delete attrVal[key];
                           }
@@ -306,14 +306,6 @@
                     if(!attrModel.isLocalizable) {
                       attrVal["valueContexts"] = [ defaultValCtx ];
                     }
-
-                    if(!_.isEmpty(selectedContext)) {
-                      if(attrModel.selfContext) {
-                        attrVal["nonContextual"] = true;
-                      } else {
-                        attrVal["contexts"] = selectedContext;
-                      }
-                    }
                   }
                 } else {
                   //TODO: Need to change. 
@@ -326,6 +318,27 @@
                     attrVal["contains"] = attrVal["equals"];
                     attrVal["type"] = "_STRING";
                     delete attrVal["equals"];
+                  }
+                }
+                if (attrName.indexOf(".") > -1) {
+                  var attrLevels = attrName.split(".");
+                  var nestedAttributeObj = {};
+                  if (attrLevels.length > 0) {
+                    for (var j = attrLevels.length; j > 0; j--) {
+                      var keyIndex = j - 1;
+                      var _currentLevel = attrLevels[keyIndex];
+                      if (_.isEmpty(nestedAttributeObj)) {
+                        nestedAttributeObj[_currentLevel] = attrVal;
+                      } else {
+                        nestedAttributeObj = { "attributes": [nestedAttributeObj] };
+                        var clonedNestedAttribute = DataHelper.cloneObject(nestedAttributeObj);
+                        nestedAttributeObj[_currentLevel] = clonedNestedAttribute;
+                        if (nestedAttributeObj["attributes"] != undefined) {
+                          delete nestedAttributeObj["attributes"];
+                        }
+                      }
+                    }
+                    attribute = nestedAttributeObj;
                   }
                 }
 
@@ -435,6 +448,15 @@
           }
 
           return value;
+        },
+
+        _mergeRelationships: function(relationshipModels) {
+          var mergedRelationships = {};
+          Object.keys(relationshipModels).forEach(function(entityType) {
+            mergedRelationships = DataMergeHelper.mergeRelationships(mergedRelationships, relationshipModels[entityType], true);
+          });
+
+          return mergedRelationships;
         }
       });
     })();

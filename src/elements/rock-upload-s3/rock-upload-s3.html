@@ -69,14 +69,14 @@
 
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
 
-        <liquid-rest id="prepareUploadLiquid" url="/data/binarystreamobjectservice/prepareUpload" method="POST" request-data={{_prepareUploadRequest}}
+        <liquid-rest id="prepareUploadLiquid" url="/data/binarystreamobjectservice/prepareUpload" method="POST"
             on-liquid-response="_onPrepareUploadLiquidSuccess" on-liquid-error="_onPrepareUploadLiquidFailure"></liquid-rest>
         <liquid-rest id="createUploadedFilesLiquid" url="/data/binarystreamobjectservice/create" method="POST" request-data={{_createUploadedFilesRequest}}
             on-liquid-response="_onCreateUploadedFilesLiquidSuccess" on-liquid-error="_onCreateUploadedFilesLiquidFailure"></liquid-rest>
 
         <div id="content-upload">
             <div class="placeHolder">
-                <pebble-bulk-file-upload method="PUT" accept="" no-auto="true" s3-upload="true" max-file-size="5000000000" max-files=350></pebble-bulk-file-upload>
+                <pebble-bulk-file-upload method="PUT" accept="" no-auto="true" s3-upload="true" max-file-size="5000000000" max-files="350" headers="{{_headersObj}}"></pebble-bulk-file-upload>
                 <bedrock-pubsub event-name="pebble-bulk-file-upload-started" handler="_onUploadStarted"></bedrock-pubsub>
                 <bedrock-pubsub event-name="pebble-bulk-file-upload-success" handler="_onUploadSuccess"></bedrock-pubsub>
                 <bedrock-pubsub event-name="pebble-bulk-file-upload-failed" handler="_onUploadFailed"></bedrock-pubsub>
@@ -97,10 +97,6 @@
                     target: {
                         type: String,
                         value: ''
-                    },
-                    _prepareUploadRequest: {
-                        type: Object,
-                        value: function () { return {}; }
                     },
                     _createUploadedFilesRequest: {
                         type: Object,
@@ -126,6 +122,10 @@
                     businessFunctionData: {
                         type: Object,
                         value: function () { return {}; }
+                    },
+                    _headersObj: {
+                        type: Object,
+                        value: function () { return {}; }
                     }
                 },
                 behaviors: [
@@ -136,9 +136,21 @@
                   */
                 ready: function () {
                 },
+
+                get prepareUploadLiquid() {
+                    this._prepareUploadLiquid = this._prepareUploadLiquid || this.shadowRoot.querySelector("#prepareUploadLiquid");
+                    return this._prepareUploadLiquid;
+                },
+
+                get bulkEditUploadElement() {
+                    this._bulkEditUploadElement = this._bulkEditUploadElement || this.shadowRoot.querySelector('pebble-bulk-file-upload');
+                    return this._bulkEditUploadElement;
+                },
+
                 _onUploadStarted: function (e, uploadedFiles, sender) {
                     var prepareUploadRequest = [];
                     this.files = [];
+                    this._headersObj = {};
                     Object.keys(uploadedFiles).forEach(key => {
                         var file = uploadedFiles[key]
                         if (!file.error) {
@@ -166,10 +178,10 @@
                         }
                     });
 
-                    if (prepareUploadRequest.length > 0) {
-                        this.set("_prepareUploadRequest", prepareUploadRequest);
-                        var liq = this.shadowRoot.querySelector("#prepareUploadLiquid");
+                    if(prepareUploadRequest.length > 0) {
+                        var liq = this.prepareUploadLiquid;
                         if (liq) {
+                            liq.requestData = prepareUploadRequest;
                             liq.generateRequest();
                         }
                     }
@@ -177,7 +189,7 @@
                 _onPrepareUploadLiquidSuccess: function (e) {
                     var response = e.detail.response;
                     var canUpload = false;
-
+                    
                     if (response && response.response) {
                         var binarystreamobjects = response.response.binaryStreamObjects;
                         if (binarystreamobjects) {
@@ -185,6 +197,14 @@
                                 var data = binarystreamobject.data;
 
                                 if (data && data.properties && data.properties.uploadURL && data.properties.uploadURL.length > 0) {
+                                    if(data.properties.headers && data.properties.headers.length > 0){
+                                        var headers = data.properties.headers;
+                                        var headerObj = {}
+                                        for (let i = 0; i < headers.length; i++) {
+                                            headerObj = Object.assign(headerObj, headers[i]);
+                                        }
+                                        this._headersObj = headerObj;
+                                    }
                                     for (let file of this.files) {
                                         if (file.s3ObjectKey == data.properties.objectKey) {
                                             file.uploadTarget = data.properties.uploadURL;
@@ -198,14 +218,14 @@
                     }
 
                     if (canUpload) {
-                        this.shadowRoot.querySelector('pebble-bulk-file-upload').uploadFiles(this.files);
+                        this.bulkEditUploadElement.uploadFiles(this.files);
                     }
                     else {
                         console.warn("Unexpected response:" + e.detail.response);
                         this.showErrorToast("Unable to upload. Please check the service or contact your administrator.");
                         this._isDirty = false;
                         this._loading = false;
-                        this.shadowRoot.querySelector('pebble-bulk-file-upload').reset();
+                        this.bulkEditUploadElement.reset();
                     }
                 },
                 _onPrepareUploadLiquidFailure: function (e) {
@@ -213,7 +233,7 @@
                     this.showErrorToast("Unable to upload. Please check the service or contact your administrator.");
                     this._loading = false;
                     this._isDirty = false;
-                    this.shadowRoot.querySelector('pebble-bulk-file-upload').reset();
+                    this.bulkEditUploadElement.reset();
                 },
                 _onUploadSuccess: function (e, succeededFilesData, sender) {
                     this._isDirty = true;
@@ -232,6 +252,11 @@
                             {
                                 "name": "closeFunction",
                                 "text": "Take Me back to Where I started"
+                            },
+                            {
+                                "name": "nextAction",
+                                "text": "Take me to User Dashboard",
+                                "dataRoute": "dashboard"
                             },
                             {
                                 "name": "nextAction",
@@ -261,7 +286,7 @@
                     this.showErrorToast("Unable to upload. Please check the service or contact your administrator.");
                     this._loading = false;
                     this._isDirty = false;
-                    this.shadowRoot.querySelector('pebble-bulk-file-upload').reset();
+                    this.bulkEditUploadElement.reset();
                 },
                 /**
                   * <b><i>Content development is under progress... </b></i> 

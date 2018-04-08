@@ -11,24 +11,24 @@
             if (element) {
                 return ComponentHelper._fireBedrockEvent(name, data, settings, element);
             }
-            else {
-                var eventNameRegistries= ['universal'];
-                var currentAppId = ComponentHelper.getCurrentActiveApp() ? ComponentHelper.getCurrentActiveApp().id : "";
-                if (currentAppId) {
-                    eventNameRegistries.push(currentAppId);
-                }
-                eventNameRegistries.forEach((registry) => {
-                    var eventIndex = RUFUtilities.pubsubEventNameRegistry[registry].indexOf(name);
-                    if (eventIndex !== -1) {
-                        var listeners = RUFUtilities.pubsubListenerRegistry[registry][eventIndex];
-                        listeners.forEach((listener) => {
-                            if (listener && listener.element) {
-                                ComponentHelper.fireBedrockEvent(name, data, settings, listener.element);
-                            }
-                        })
-                    }
-                });
+            
+            var eventNameRegistries= ['universal'];
+            const activeApp = ComponentHelper.getCurrentActiveApp();
+            var currentAppId = activeApp ? activeApp.id : "";
+            if (currentAppId) {
+                eventNameRegistries.push(currentAppId);
             }
+            eventNameRegistries.forEach((registry) => {
+                var eventIndex = RUFUtilities.pubsubEventNameRegistry[registry].indexOf(name);
+                if (eventIndex !== -1) {
+                    var listeners = RUFUtilities.pubsubListenerRegistry[registry][eventIndex];
+                    listeners.forEach((listener) => {
+                        if (listener && listener.element) {
+                            ComponentHelper.fireBedrockEvent(name, data, settings, listener.element);
+                        }
+                    })
+                }
+            });
         };
         ComponentHelper._fireBedrockEvent = function (name, data, settings, element) {
             if ((!settings || !settings.ignoreId) && element.id) {
@@ -41,14 +41,10 @@
 
             if (settings && settings.appId) {
                 name = name + "-" + settings.appId;
-            } else {
-                if (settings && settings.isMainApp) {
-                    name = name + "-" + element.appId;
-                } else {
-                    if (element.appId) {
-                        name = name + "-" + element.getAppId();
-                    }
-                }
+            } else if (settings && settings.isMainApp) {
+                name = name + "-" + element.appId;
+            } else if (element.appId) {
+                name = name + "-" + element.getAppId();
             }
             return element.fire('bedrock-event' + "-" + name, data, { cancelable: cancelable });
         };
@@ -60,6 +56,8 @@
         };
 
         ComponentHelper.clearNode = function(contentElement) {
+            if(!contentElement) return;
+            
             var rangeObj = new Range();
             rangeObj.selectNodeContents(contentElement);
             rangeObj.deleteContents();
@@ -76,12 +74,10 @@
         };
 
         ComponentHelper.emptyDeleteQueue = function() {
-            var deleteNodes = ComponentHelper.deleteQueue.filter((n) => {return !!n.parentNode})
-            deleteNodes.forEach((n) => {
-                ComponentHelper.removeNode(n);
-            });
+            var deleteNodes = ComponentHelper.deleteQueue.filter(n => !!n.parentNode);
+            deleteNodes.forEach(n => ComponentHelper.removeNode(n));
             ComponentHelper.deleteQueue = [];
-        }
+        };
 
         ComponentHelper.loadContent = function (contentElement, component, element, callback) {
             if(!contentElement) return;
@@ -132,26 +128,20 @@
                     createComponent(cElement);
                 }, function (e) {
                     console.log('dynamic component load failed with exception', e);  //import failed
-                },
-                    true
-                );
+                }, true);
             }
 
         };
 
-        ComponentHelper._componentCreating = function (component, element) {
-            //event to let consumer change component configuration before creating it
-            var eventName = "component-creating";
-            var eventData = component;
-            var eventDetail = {
-                name: eventName,
-                data: eventData
-            }
-            this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true }, element);
+        ComponentHelper._componentCreating = function (...arg) {
+            this._onComponentCreate('component-creating', ...arg);
         };
 
-        ComponentHelper._componentCreated = function (component, element) {
-            var eventName = "component-created";
+        ComponentHelper._componentCreated = function (...arg) {
+            this._onComponentCreate('component-created', ...arg);
+        };
+
+        ComponentHelper._onComponentCreate = function(eventName, component, element) {
             var eventData = component;
             var eventDetail = {
                 name: eventName,
@@ -169,9 +159,8 @@
                     if (activeContentView) {
                         var viewComponent = activeContentView.shadowRoot.querySelector("#content-view-container").querySelector(".view-component");
                         return viewComponent;
-                    } else {
-                        return mainApp;
                     }
+                    return mainApp;
                 }
             }
         };
@@ -182,8 +171,6 @@
             if(currentActiveApp && DataHelper.isValidObjectPath(currentActiveApp, 'appConfig.component.name')) {
                 return currentActiveApp.appConfig.component.name;
             }
-
-            return undefined;
         };
 
         ComponentHelper.getAppById = function (appId) {
@@ -195,7 +182,7 @@
             
             if (!openedContentViews) return null;
             
-            return openedContentViews.find(function (element) {
+            return [].find.call(openedContentViews, element => {
                 var viewComponent = element.shadowRoot.querySelector("#content-view-container").querySelector(".view-component");
                 return viewComponent && viewComponent.id == appId;
             });
@@ -217,30 +204,14 @@
         };
 
         ComponentHelper.getAppContainerById = function (appId) {
-            var contentView = undefined;
+            var contentView;
             if (appId) {
                 var app = ComponentHelper.getAppById(appId);
                 if (app) {
-                    contentView = ComponentHelper.getComponentContainer(app);
+                    contentView = ComponentHelper.getParentElement(app);
                 }
             }
             return contentView;
-        };
-
-        ComponentHelper.getComponentContainer = function (element) {
-            var parentNode = element.parentNode;
-            if (parentNode) {
-                if (parentNode.isRufComponent) {
-                    return parentNode;
-                }
-                else if (parentNode.host && parentNode.host.isRufComponent) {
-                    return parentNode.host;
-                }
-                else {
-                    return this.getComponentContainer(parentNode);
-                }
-            }
-            return parentNode;
         };
 
         ComponentHelper.getProgressBar = function () {
@@ -261,25 +232,23 @@
         };
 
         ComponentHelper.getParentElement = function (component) {
-            if (component) {
-                var parentNode = component.parentNode;
-                if (parentNode) {
-                    if (parentNode.isRufComponent) {
-                        return parentNode;
-                    }
-                    else if (parentNode.host && parentNode.host.isRufComponent) {
-                        return parentNode.host;
-                    }
-                    else {
-                        return ComponentHelper.getParentElement(parentNode);
-                    }
+            if (!component) return;
+            
+            var parentNode = component.parentNode;
+            if (parentNode) {
+                if (parentNode.isRufComponent) {
+                    return parentNode;
                 }
+                if (parentNode.host && parentNode.host.isRufComponent) {
+                    return parentNode.host;
+                }
+                return ComponentHelper.getParentElement(parentNode);
             }
         };
 
         ComponentHelper.closeCurrentApp = function (action) {
             var activeApp = ComponentHelper.getCurrentActiveApp();
-            var contentView = ComponentHelper.getComponentContainer(activeApp);
+            var contentView = ComponentHelper.getParentElement(activeApp);
             var manager;
             if (contentView) {
                 manager = contentView.manager;
