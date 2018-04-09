@@ -176,6 +176,11 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
                 }
             } else {
                 for (let item of attr.group) {
+                    // If nested attributes item is marked as deleted it should not be added in cache again.
+                    if("action" in item && item.action.toLowerCase() == "delete") {
+                        continue;
+                    }
+
                     var source = item.source || undefined;
                     var locale = item.locale || undefined;
                     var localeCoalesce = undefined;
