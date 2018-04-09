@@ -503,7 +503,7 @@ function buildResponse(dataObject, reqData, paths) {
 
         if (data && data.contexts) {
 
-            // if user performs self attribute update being additional context selected then UI will not saw updated value it will saw old value.
+            // If user performs self attribute update being additional context selected then UI will not saw updated value it will saw old value.
             // Since attribute update is happening with selection of additional context and updated attribute is not mapped to additional context update is happening in self context only.
             // Because of that only "self" context response is getting updated with new value in falcor.
             // It has to be updated in a current selected context also to be consistent on UI.
