@@ -168,6 +168,12 @@ Custom property | Description | Default
                 </div>
             </template>
         </div>
+        <pebble-dialog id="confirmation-dialog" dialog-title="Confirmation" modal alert-box show-cancel show-ok no-cancel-on-outside-click
+            no-cancel-on-esc-key>
+            <p>[[confirmationMessage]]</p>
+        </pebble-dialog>
+        <bedrock-pubsub event-name="on-buttonok-clicked" handler="_onTapConfirmationOK" target-id="confirmation-dialog"></bedrock-pubsub>
+        <bedrock-pubsub event-name="on-buttoncancel-clicked" handler="_onTapConfirmationCancel" target-id="confirmation-dialog"></bedrock-pubsub>
         <liquid-rest id="contextModelGet" url="/data/pass-through/entitymodelservice/getcontext" method="POST" request-data="{{_contextModelGetReq}}"
             on-liquid-response="_onContextModelGetResponse" on-liquid-error="_onContextModelGetFailed"></liquid-rest>
         <liquid-rest id="entityModelGet" url="/data/pass-through/entitymodelservice/get" method="POST" request-data="{{_entityModelRequest}}"
@@ -361,6 +367,14 @@ Custom property | Description | Default
                     value: function () {
                         return {};
                     }
+                },
+                confirmationMessage: {
+                    type: String,
+                    value: "Do you want to update selection?"
+                },
+                showConfirmation: {
+                    type: Boolean,
+                    value: false
                 }
             },
 
@@ -373,6 +387,11 @@ Custom property | Description | Default
                 '_configChanged(configData, entityType)',
                 '_prepareContext(appName, domain, entityType)'
             ],
+
+            get confirmationDialog() {
+                this._confirmationDialog = this._confirmationDialog || this.shadowRoot.querySelector("#confirmation-dialog");
+                return this._confirmationDialog;
+            },
 
             _prepareContext: function () {
 
@@ -565,8 +584,20 @@ Custom property | Description | Default
             },
 
             _onEntityLovConfirmButtonTapped: function (event) {
+                this._isClassificationSelectionTriggered = false;
+                this._currentLovEvent = event;
+                if(this.showConfirmation) {
+                    if(this.confirmationDialog) {
+                        this.confirmationDialog.open();
+                    }
+                    return;
+                }
+                this._triggerLovConfirmButtonTapped();
+            },
+
+            _triggerLovConfirmButtonTapped: function(togglePopover = true) {
                 if (!this.allMultiSelect) {
-                    var currentLovId = event.detail.data.id;
+                    var currentLovId = this._currentLovEvent.detail.data.id;
                     var currentRockLov = this.shadowRoot.querySelector("#" + currentLovId);
                     var switchToMultiSelect = true;
 
@@ -598,7 +629,9 @@ Custom property | Description | Default
                 }
 
                 this._updateSelectedDimensions();
-                this._toggleLovPopover(this._currentDimensionSelector.popover);
+                if(togglePopover) {
+                    this._toggleLovPopover(this._currentDimensionSelector.popover);
+                }
             },
 
             _onContextLovSelectedInfoApplied: function () {
@@ -751,7 +784,7 @@ Custom property | Description | Default
 
                         // this._updateToggleButtonText(configDataItem, rockLov);
                     }
-                    
+
                     this.set("selectedDimensions", selectedDimensions);
 
                     var eventDetail = {
@@ -913,9 +946,19 @@ Custom property | Description | Default
                 if (response) {
                     var entityModels = response.entityModels;
 
-                    if (entityModels && entityModels.length) {
-                        var contexts = entityModels[0].data ? entityModels[0].data.contexts : undefined;
+                    if (!_.isEmpty(entityModels)) {
+                        var entityModel = entityModels[0];
+                        var contexts = "data" in entityModel ? entityModel.data.contexts : undefined;
                         var _ctxKeys = [];
+
+                        var globalCoalescePath = DataHelper.isValidObjectPath(entityModel, "properties.globalCoalescePath") && entityModel.properties.globalCoalescePath;
+
+                        if (!_.isEmpty(globalCoalescePath)) {
+                            this._contextHierarchy = globalCoalescePath.split(">>");
+                        } else {
+                            this.showErrorToast("Global coalesce path is not defined in:" + entityModel.id);
+                        }
+
 
                         if (contexts) {
                             var _contexts = [];
@@ -937,8 +980,6 @@ Custom property | Description | Default
 
                         var _ctxIds = [];
                         if (_ctxKeys && _ctxKeys.length) {
-                            //TODO: Nikhil has to provide full colase path in context model and it has to applied as _contextHierarchy.
-                            this._contextHierarchy = ["dcountry", "dchannel", "country", "channel", "taxonomy", "classification"];//_ctxKeys;
                             _ctxKeys.forEach(function (item) {
                                 if (item) {
                                     _ctxIds.push(item);
@@ -1310,7 +1351,7 @@ Custom property | Description | Default
                     if (elementInfo) {
                         var ctxType = elementInfo.id;
                         if (this.domHost) {
-                            var filteredCtx = this.domHost._getContextsBasedOnEntityContexts();
+                            var filteredCtx = this.domHost._getExistingContextsOfEntity();
                         }
 
                         if (filteredCtx && filteredCtx.length) {
@@ -1339,18 +1380,17 @@ Custom property | Description | Default
                 var filteredData = [];
                 if (data && data.length) {
                     var elementInfo = this.rData;
-
-                    if (elementInfo) {
-
+                    var domHost = this.domHost;
+                    if (elementInfo && domHost) {
                         if (elementInfo.useContextModel) {
-                            var ctxType = elementInfo.id;
-                            var filteredCtx = this.domHost._getContextsBasedOnEntityContexts();
+                            var currentContextType = elementInfo.id;
+                            var filteredCtx = domHost._getExistingContextsOfEntityContext(domHost._entityContexts, domHost.selectedDimensions, currentContextType);
 
                             if (filteredCtx && filteredCtx.length) {
-                                var flattenedCtx = this.domHost._getFlattenedContexts(filteredCtx, true);
+                                var flattenedCtx = domHost._getFlattenedContexts(filteredCtx, true);
 
-                                if (flattenedCtx && flattenedCtx[ctxType]) {
-                                    var existingContext = flattenedCtx[ctxType];
+                                if (flattenedCtx && flattenedCtx[currentContextType]) {
+                                    var existingContext = flattenedCtx[currentContextType];
 
                                     if (existingContext && existingContext.length) {
                                         data.forEach(function (item) {
@@ -1365,8 +1405,6 @@ Custom property | Description | Default
                         } else {
                             filteredData = data;
                         }
-                    } else {
-                        filteredData = data;
                     }
                 }
 
@@ -1448,10 +1486,9 @@ Custom property | Description | Default
                 return filteredCtx;
             },
 
-            _getContextsBasedOnEntityContexts: function () {
+            _getExistingContextsOfEntity: function () {
                 var filteredCtx = [];
                 if (this._entityContexts && this._currentContexts) {
-
                     for (var ctxIndex = 0; ctxIndex <= this._entityContexts.length; ctxIndex++) {
                         var ctx = this._entityContexts[ctxIndex];
                         var isMatch = false;
@@ -1488,6 +1525,40 @@ Custom property | Description | Default
 
                         if (isMatch) {
                             filteredCtx.push(ctx);
+                        }
+                    }
+                }
+
+                return filteredCtx;
+            },
+
+            _getExistingContextsOfEntityContext: function (entityContexts, currentSelectedContexts, currentContextType) {
+                var filteredCtx = [];
+                if (entityContexts) {
+                    var partialContext = this._getPartialContextForEntityContext(currentSelectedContexts, currentContextType);
+
+                    for (var ctxIndex = 0; ctxIndex <= entityContexts.length; ctxIndex++) {
+                        var ctx = entityContexts[ctxIndex];
+                        var isMatch = false;
+
+                        if (ctx) {
+                            if (!_.isEmpty(partialContext)) {
+                                var matched = _.every(partialContext, function (val, key) {
+                                    if (_.isArray(val)) {
+                                        return _.some(val, function (v) {
+                                            return _.isEqual(v, ctx[key]);
+                                        });
+                                    } else {
+                                        return _.isEqual(val, ctx[key]);
+                                    }
+                                });
+
+                                if (matched) {
+                                    filteredCtx.push(ctx);
+                                }
+                            } else {
+                                filteredCtx.push(ctx);
+                            }
                         }
                     }
                 }
@@ -1692,9 +1763,12 @@ Custom property | Description | Default
 
                 var currentContextId = this._currentDimensionSelector.id.replace("-toggle-button", "-contextTree");
                 var contextTree = this.shadowRoot.querySelector("#" + currentContextId);
-                selectedClassifications = this._getPathsForClassificationTree(contextTree.selectedClassifications);
+                //selectedClassifications = this._getPathsForClassificationTree(contextTree.selectedClassifications);
+                if(this.selectedDimensions && this.selectedDimensions["classification"] && this.selectedDimensions["classification"].length) {
+                    selectedClassifications = [this.selectedDimensions["classification"][0].split(">>")];
+                }
                 //If refresh needs every time on dialog open, then remove >> selectedClassifications.length == 0
-                if (contextTree && selectedClassifications.length == 0) {
+                if (contextTree) {
                     var configClassificationId = this._currentDimensionSelector.id.replace("-toggle-button", "");
                     if (this._selectedClassificationsConfig[configClassificationId]) {
                         selectedClassifications = this._selectedClassificationsConfig[configClassificationId].classifications;
@@ -1732,6 +1806,34 @@ Custom property | Description | Default
             },
 
             _selectClassification: function (e) {
+                this._isClassificationSelectionTriggered = true;
+                if(this.showClassificationConfirmation) {
+                    if(this.confirmationDialog) {
+                        this.confirmationDialog.open();
+                    }
+                    return;
+                }
+                this._triggerClassificationChange();
+            },
+
+            _onTapConfirmationOK: function(event) {
+                if(this._isClassificationSelectionTriggered) {
+                    this._triggerClassificationChange();
+                } else {
+                    this._triggerLovConfirmButtonTapped(false);
+                }
+                this.fireBedrockEvent("dimension-selector-confirmation-ok", event);
+            },
+
+            _onTapConfirmationCancel: function(event) {
+                if (this._isClassificationSelectionTriggered) {
+                    this._onCancelClassificationSelection();
+                }
+
+                this.fireBedrockEvent("dimension-selector-confirmation-cancel", event);
+            },
+
+            _triggerClassificationChange: function() {
                 var currentContextId = this._currentDimensionSelector.id.replace("-toggle-button", "-contextTree");
                 var contextTree = this.$$("#" + currentContextId);
                 if (contextTree) {
@@ -1776,6 +1878,24 @@ Custom property | Description | Default
                         }
                     }
                 }
+            },
+
+            _getPartialContextForEntityContext: function (dataContext, ctxType) {
+                var partialContext = {};
+                if (!_.isEmpty(dataContext)) {
+                    for (let item of this._contextHierarchy) {
+                        if (item == ctxType) {
+                            break;
+                        }
+
+                        if (item.toLowerCase() != "locale" && item.toLowerCase() != "source") {
+                            if (!_.isEmpty(dataContext[item])) {
+                                partialContext[item] = dataContext[item];
+                            }
+                        }
+                    }
+                }
+                return partialContext;
             }
         });
     </script>
