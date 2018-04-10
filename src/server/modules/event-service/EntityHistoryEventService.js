@@ -241,8 +241,7 @@ EntityHistoryEventservice.prototype = {
                     message = "<span class='userName'>" + userName + "</span> removed <span class='activity-property'>" + attributeExternalName + "</span> for <a href='?id="+ historyRecord.internalRelToId+"&type=" + historyRecord.relToType + "'>" + relToTypeExternalName + ": " + historyRecord.internalRelToId + "</a> having <span class='activity-property'>" + relationshipExternalName + "</span> relationship";
                 }else if(historyRecord.previousValues) {
                     message = "<span class='userName'>" + userName + "</span> changed <span class='activity-property'>" + attributeExternalName + "</span>"+" from <span class='prev-attribute-value'>" + historyRecord.previousValues + "</span> to <span class='attribute-value'>" + historyRecord.attributeValues + "</span> for <a href='?id="+ historyRecord.internalRelToId+"&type=" + historyRecord.relToType + "'>" + relToTypeExternalName + ": " + historyRecord.internalRelToId + "</a> having <span class='activity-property'>" + relationshipExternalName + "</span> relationship";
-                    message += " from <span class='prev-attribute-value'>" + historyRecord.previousValues + "</span>";
-                } else{
+                } else {
                     message = "<span class='userName'>" + userName + "</span> changed <span class='activity-property'>" + attributeExternalName + "</span> to <span class='attribute-value'>" + historyRecord.attributeValues + "</span> for <a href='?id="+ historyRecord.internalRelToId+"&type=" + historyRecord.relToType + "'>" + relToTypeExternalName + ": " + historyRecord.internalRelToId + "</a> having <span class='activity-property'>" + relationshipExternalName + "</span> relationship";
                 }
             }
