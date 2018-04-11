@@ -103,6 +103,15 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
             attrExpires = -10000;
         }
 
+        if (attr.action && attr.action == "delete") {
+            if (reqData.operation == "create" || reqData.operation == "update") {
+                attrExpires = -10000;
+            }
+            else {
+                continue; // do not populate values for "deleted" attributes during get operation..
+            }
+        }
+
         if (attr.values) {
             var valCtxItems = {};
             for (let val of attr.values) {
@@ -129,10 +138,6 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
                 }
                 values.push(val);
                 localeCoalesceValues.push(val);
-            }
-
-            if (attr.action && attr.action == "delete") {
-                attrExpires = 0;
             }
 
             for (var valCtxKey in valCtxItems) {
