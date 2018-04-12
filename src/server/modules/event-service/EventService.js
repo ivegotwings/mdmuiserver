@@ -71,7 +71,6 @@ Eventservice.prototype = {
                 if(request.params && request.params.query) {
                     delete request.params.query.valueContexts;
                 }
-
                 var eventServiceGetUrl = 'eventservice/get';
                 response = await this.post(eventServiceGetUrl, request);
             }
@@ -106,16 +105,6 @@ Eventservice.prototype = {
                     break;
                 }
             }
-
-            //Temporary fix for the RDF query limitation to get task list when there are more than 30K records and needs sorting...
-            var dateTimeRangeFrom = moment().subtract('2', 'days').format('YYYY-MM-DDTHH:mm:ss.SSS-0500')
-            var dateTimeRangeTo = moment().format('YYYY-MM-DDTHH:mm:ss.SSS-0500');
-            attributesCriteria.push({
-                "createdOn": {
-                    "gte": dateTimeRangeFrom,
-                    "lte": dateTimeRangeTo
-                }
-            });
 
             delete request.params.options.from;
             delete request.params.options.to;
@@ -499,12 +488,9 @@ Eventservice.prototype = {
     //Task summarization processor temp changes...
     getImportTaskList: async function (request) {
         var response = {};
-        
         try {
-
             var importTaskListGetRequest = this._generateImportTaskListGetRequest(request);
             
-            //console.log('Request tracking get request to RDF', JSON.stringify(importTaskListGetRequest));
             var importTaskListGetUrl = 'requesttrackingservice/get';
             response = await this.post(importTaskListGetUrl, importTaskListGetRequest);
 
@@ -567,6 +553,7 @@ Eventservice.prototype = {
             };
             attributesCriteria.push(eventSubTypeCriterion);
         }
+        // hhhhoooolllll
         req.params.query.filters.attributesCriterion = attributesCriteria;
 
         req.params.sort = {
@@ -742,6 +729,16 @@ Eventservice.prototype = {
         if(requestedKeywordCriteria) {
             req.params.query.filters.keywordsCriterion = requestedKeywordCriteria;
         }
+
+        //checking for propertiesCriterion
+        if(inputRequest.params.query.filters.propertiesCriterion) {
+            var propertiesCriterion = inputRequest.params.query.filters.propertiesCriterion;
+            // console.log('length', propertiesCriterion.length);
+            if(propertiesCriterion.length>0) {
+                req.params.query.filters.propertiesCriterion = propertiesCriterion;
+            }
+        }
+        
 
         req.params.sort = {
             "properties": [{
