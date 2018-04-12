@@ -214,9 +214,11 @@
                                                     attribute-grid-data="{{attributeGridData}}"
                                                     workflow-criterion="[[_workflowCriterion]]" 
                                                     relationships-data="[[_relationshipsData]]"
+                                                    rel-entity-data="[[_relEntityData]]"
                                                     search-query="{{searchQuery}}"
                                                     lov-settings="[[_getComponentSettings('rock-entity-type-model-lov')]]"
-                                                    entity-type-filter-text="[[entityTypeFilterText]]" settings="[[_getComponentSettings('rock-query-builder')]]">
+                                                    entity-type-filter-text="[[entityTypeFilterText]]"
+                                                    settings="[[_getComponentSettings('rock-query-builder')]]">
                                                 </rock-query-builder>                                   
                                             </template>
                                         </div>
@@ -505,6 +507,12 @@
                             return {};
                         }
                     },
+                    _relEntityData: {
+                        type: Object,
+                        value: function (){
+                            return {};
+                        }
+                    },
                     _relationshipSearchFilters: {
                         type: Array,
                         value: function () {
@@ -771,7 +779,7 @@
                     if(queryBuilder){
                         queryBuilder.onOpenQueryBuilder();
                     }
-                    this._queryBuilderEnabled = true; 
+                    this._queryBuilderEnabled = true;
                     var that = this;
                     Polymer.Async.timeOut.after(3000).run(() => {
                         if (that.queryBuilderHidden) {
@@ -973,6 +981,7 @@
                 _formatSavedSearchTags: function(searchFilters, attributeModels) {
                     if(searchFilters.length > 0) {
                         var tags = [];
+                        searchFilters = this.getFilterValue(searchFilters);
                         for(var i = 0; i < searchFilters.length; i++) {
                             var filter = searchFilters[i];
                             if(!_.isEmpty(filter)) {
@@ -989,7 +998,9 @@
                                         tag.options = DataHelper.cloneObject(attrModel);
                                     }
                                     tag.value = attribute;
-                                    if(attribute.type === "_STRING") {
+                                    if(attribute.hasvalue != undefined){
+                                        tag.displayValue = attribute.hasvalue ? "!%&has value!%&" : "!%&has no vlaue!%&";
+                                    }else if(attribute.type === "_STRING") {
                                         if(attribute.exacts) {
                                             tag.displayValue = this._entitySearchFilterElement.formatFilterCollectionDisplay(attribute.exacts);
                                         } else if(attribute.contains) {
@@ -1007,9 +1018,9 @@
                                         tag.displayValue = attribute.eq;
                                     } else if(attribute.type === "_DATETIME") {
                                         if(attribute.lte === attribute.gte) {
-                                            tag.displayValue = attribute.gte;
+                                            tag.displayValue = FormatHelper.convertFromISODateTime(attribute.gte, tag.options.dataType);
                                         } else {
-                                            tag.displayValue = attribute.gte + " - " + attribute.lte;
+                                            tag.displayValue = FormatHelper.convertFromISODateTime(attribute.gte, tag.options.dataType) + " - " + FormatHelper.convertFromISODateTime(attribute.lte, tag.options.dataType);
                                         }
                                     }
                                 }
@@ -1340,10 +1351,10 @@
                     
                     var queryBuilder = this.shadowRoot.querySelector("#queryBuilder");
                     var queryBuilderData = {};
-                    queryBuilderData.workflowGridData = workflowGridData;
                     if(queryBuilder){
                         queryBuilderData = queryBuilder.getQueryBuilderData();
-                    }  
+                    }
+                    queryBuilderData.workflowGridData = workflowGridData;
 
                     //User has input some keyword search criteria
                     var keywordSearchStr = "";
@@ -1425,6 +1436,9 @@
                         this._searchBarElement.query = this._searchQuery;
                         this._searchBarElement.searchText = this._searchQuery;
                         this._searchBarElement.setAttribute("placeholder","");
+                        if(queryStr.indexOf("!%&") > -1){
+                            queryStr = queryStr.replace( /!%&|=/g, "" );
+                        }
                         this._searchBarElement.setAttribute("placeholder",queryStr);
                     }
                     if(parsableQueryStr) {
@@ -1481,16 +1495,35 @@
                     var selectedEntityTypes = this._getSelectedEntityTypes(typesCriterion);
                     this.set("_selectedEntityTypes",selectedEntityTypes);
                     if(this._isSavedSearchLoad) {
+                        this._queryBuilderEnabled = true;
                         var attributeModels = searchFilters.compositeModels;
                         var relationshipModels = searchFilters.relationshipModels;
+                        this.set("_workflowCriterion", workflowCriterion);
                         this._isSavedSearchLoad = false;
-                        this._setRelationshipsData(relationshipSearchFilters, relationshipModels);
+                        this._setRelationshipsData(relationshipSearchFilters, relationshipModels, attributeModels);
                         this._populateHeaderControls(attributeModels);
+                        this._queryBuilderEnabled = false;
                     }
                     if(this._entitySearchFilterElement && this._entitySearchFilterElement.refresh) {
                         this._entitySearchFilterElement.refresh();
                     }                    
                     this.refresh();
+                },
+                getFilterValue:function(value,prevKey){
+                    var filerValues = [];
+                    for(var i=0;i<value.length;i++){
+                        var currentKey = Object.keys(value[i]);
+                        var currentAttribute = value[i][currentKey].attributes;
+                        var updatedKey = prevKey ? prevKey +"."+ currentKey : currentKey
+                        if(!currentAttribute){
+                            var filerValue = {};
+                            filerValue[updatedKey] = value[i][currentKey];
+                            filerValues.push(filerValue);
+                        }else{
+                            filerValues = filerValues.concat(this.getFilterValue(currentAttribute,updatedKey));
+                        }
+                    }
+                    return filerValues;
                 },
                 _setWorkflowGridData: function(workflowCriterion) {
                     var workflowListArray = [];
@@ -1513,23 +1546,40 @@
                     
                     return workflowListArray;
                 },
-                _setRelationshipsData: function(relationshipSearchFilters, relationshipModels) {
+                _setRelationshipsData: function(relationshipSearchFilters, relationshipModels, compositeModels) {
                     var relationshipsData = {};
+                    var relEntityData = {};
                     if(!_.isEmpty(relationshipSearchFilters)) {
                         var relationshipfilterObj = relationshipSearchFilters[0];
                         var relationshipName = Object.keys(relationshipfilterObj)[0];
                         var relationshipLongName = relationshipModels[relationshipName][0].properties.externalName;
-                        var attributes = relationshipfilterObj[relationshipName].attributes;
+                        var relData = relationshipfilterObj[relationshipName];
+                        var attributes = relData.attributes;
                         var attrModels = [];
                         for(var key in relationshipModels[relationshipName][0].attributes) {
                             attrModels.push(relationshipModels[relationshipName][0].attributes[key]);
                         }
-                        var relationshipTags = this._formatSavedSearchTags(attributes, attrModels);
+
+                        if(relData.relTo && relData.relTo.type) {
+                            relEntityData.relEntityType = relData.relTo.type;
+                            if(DataHelper.isValidObjectPath(relData, "query.filters.attributesCriterion")) {
+                                let relEntityTags = this._formatSavedSearchTags(relData.query.filters.attributesCriterion, compositeModels);
+                                relEntityData.selectedAttributes = relEntityTags;
+                            }
+                        }
+
                         relationshipsData.relationshipName = relationshipName;
                         relationshipsData.relationshipLongName = relationshipLongName;
-                        relationshipsData.selectedAttributes = relationshipTags;
+                        if(!_.isEmpty(attributes)) {
+                            var relationshipTags = this._formatSavedSearchTags(attributes, attrModels);
+                            relationshipsData.selectedAttributes = relationshipTags;
+                        }
 
                         this.set("_relationshipsData", relationshipsData);
+
+                        if(!_.isEmpty(relEntityData)) {
+                            this.set("_relEntityData", relEntityData);
+                        }
                     }
                 },
 
