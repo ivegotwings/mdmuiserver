@@ -38,6 +38,11 @@
                 value: function () { return {}; }
             },
 
+            modelContextData: {
+                type: Object,
+                value: function () { return {}; }
+            },
+
             mappingConfig: {
                 type: Object,
                 value: function () { return {}; }
@@ -77,6 +82,16 @@
             _gridData: {
                 type: Array,
                 value: function () { return []; }
+            },
+
+            _isMappingChanged: {
+                type: Boolean,
+                value: false
+            },
+
+            _dirtyCheckConfirmationMessage: {
+                type: String,
+                value: "Are you sure you want to discard the unsaved changes?"
             }
         },
 
@@ -125,7 +140,7 @@
         },
 
         _isValidResponseStatus(detail) {
-            return DataHelper.isValidObjectPath(detail, "response.response.status") || 
+            return DataHelper.isValidObjectPath(detail, "response.response.status") && 
                         detail.response.response.status.toLowerCase() == "success";
         },
 
@@ -141,6 +156,7 @@
             }, data);
 
             this.push("_gridData", gridData);
+            this._isMappingChanged = true;
         },
 
         _onDeleteTap: function (predicat) {
@@ -169,6 +185,7 @@
                         this._gridData[i].action = "deleted";
                         this._deletedMappings.push(this._gridData[i]);
                     }
+                    this._isMappingChanged = true;
                 }
             }
 
@@ -203,6 +220,16 @@
                     }
                 }
             }
+            //Update data contexts
+            if((dimensions.taxonomy && dimensions.taxonomy.length > 0) &&
+               (dimensions.classification && dimensions.classification.length > 0)) {
+                var dataContexts = [{
+                    "taxonomy": dimensions.taxonomy[0],
+                    "classification": dimensions.classification[0]
+                }];
+                this.modelContextData[ContextHelper.CONTEXT_TYPE_DATA] = dataContexts;
+            }
+
             this.debounce('loadMappings', function () {
                 //Load mappings
                 this._loadMappings();
@@ -215,6 +242,43 @@
                 this._resetMappings(); // Reset before get
                 this._getMappings(); // Get mappings based on dimensions
             }
+        },
+
+        _triggerDirtyCheck: function (component) {
+            if (this._isMappingChanged) {
+                this._openDirtyCheckDialog(component);
+                return;
+            }
+
+            this._triggerEvent();
+        },
+
+        _openDirtyCheckDialog: function(component) {
+            var id = "#" + component + "-mappings-dirty-check-Dialog";
+            var dialog = this.shadowRoot.querySelector(id);
+
+            if(dialog) {
+                dialog.open();
+            }
+        },
+
+        _triggerEvent: function () {
+            var eventDetail = {};
+            if (!this.currentEventDetails) {
+                this.currentEventDetails = {
+                    "name": this.currentEventName
+                }
+            }
+            this.fireBedrockEvent(this.currentEventName, this.currentEventDetails, { ignoreId: true });
+
+            //reset
+            this.currentEventName = "";
+            this.currentEventDetails = {};
+            this._isMappingChanged = false;
+        },
+
+        _onDimensionConfirmationOK: function () {
+            this._isMappingChanged = false; //Changes discarded on dimension selector
         }
     };
 

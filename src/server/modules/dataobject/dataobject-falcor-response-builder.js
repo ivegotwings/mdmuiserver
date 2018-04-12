@@ -103,6 +103,15 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
             attrExpires = -10000;
         }
 
+        if (attr.action && attr.action == "delete") {
+            if (reqData.operation == "create" || reqData.operation == "update") {
+                attrExpires = -10000;
+            }
+            else {
+                continue; // do not populate values for "deleted" attributes during get operation..
+            }
+        }
+
         if (attr.values) {
             var valCtxItems = {};
             for (let val of attr.values) {
@@ -129,10 +138,6 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
                 }
                 values.push(val);
                 localeCoalesceValues.push(val);
-            }
-
-            if (attr.action && attr.action == "delete") {
-                attrExpires = 0;
             }
 
             for (var valCtxKey in valCtxItems) {
@@ -176,6 +181,11 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
                 }
             } else {
                 for (let item of attr.group) {
+                    // If nested attributes item is marked as deleted it should not be added in cache again.
+                    if("action" in item && item.action.toLowerCase() == "delete") {
+                        continue;
+                    }
+
                     var source = item.source || undefined;
                     var locale = item.locale || undefined;
                     var localeCoalesce = undefined;
@@ -502,6 +512,50 @@ function buildResponse(dataObject, reqData, paths) {
         var dataContextsJson = dataJson['contexts'] = {};
 
         if (data && data.contexts) {
+
+            // If user performs self attribute update being additional context selected then UI will not saw updated value it will saw old value.
+            // Since attribute update is happening with selection of additional context and updated attribute is not mapped to additional context update is happening in self context only.
+            // Because of that only "self" context response is getting updated with new value in falcor.
+            // It has to be updated in a current selected context also to be consistent on UI.
+            if ("webProcessingOptions" in data && data.webProcessingOptions.prepareCoalescedResponse) {
+                var currentSelectedContextInfo = data.webProcessingOptions.currentSelectedContext;
+                
+                if (currentSelectedContextInfo) {
+                    let currentSelectedContextKey = falcorUtil.createCtxKey(currentSelectedContextInfo);
+                    var currentSelectedContext = data.contexts.filter(v => falcorUtil.createCtxKey(v.context) == currentSelectedContextKey);
+                    var ctxAttributes;
+    
+                    if (currentSelectedContext && currentSelectedContext.length) {
+                        if (currentSelectedContext.attributes) {
+                            ctxAttributes = currentSelectedContext.attributes;
+                        } else {
+                            ctxAttributes = currentSelectedContext.attributes = {};
+                        }
+                    } else {
+                        currentSelectedContext = {
+                            "context": currentSelectedContextInfo,
+                            "attributes": {}
+                        };
+                        data.contexts.push(currentSelectedContext);
+                        ctxAttributes = currentSelectedContext.attributes;
+                    }
+    
+                    for (let ctxItem of data.contexts) {
+                        if ("attributes" in ctxItem) {
+                            var ctx = ctxItem.context;
+                            var ctxKey = falcorUtil.createCtxKey(ctx);
+                            if (ctxKey != currentSelectedContextKey) {
+                                for (let attr in ctxItem.attributes) {
+                                    if (!ctxAttributes[attr]) {
+                                        ctxAttributes[attr] = ctxItem.attributes[attr];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             for (let contextItem of data.contexts) {
                 var currContext = contextItem.context;
 

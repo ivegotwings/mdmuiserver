@@ -46,8 +46,9 @@
         </div>
         <div id="context-header">
             <span class="pull-right">
-                <rock-dimension-selector id="valueDimensionSelector" context-data="[[contextData]]" app-name="app-business-function-mapping" domain="[[mappingData.domain]]" all-single-select></rock-dimension-selector>
+                <rock-dimension-selector id="valueDimensionSelector" context-data="[[contextData]]" app-name="app-business-function-mapping" domain="[[mappingData.domain]]" all-single-select show-confirmation$="[[_isMappingChanged]]" confirmation-message="[[_dirtyCheckConfirmationMessage]]"></rock-dimension-selector>
                 <bedrock-pubsub event-name="dimension-selector-data-changed" handler="_onDimensionsChanged" target-id="valueDimensionSelector"></bedrock-pubsub>
+                <bedrock-pubsub event-name="dimension-selector-confirmation-ok" handler="_onDimensionConfirmationOK" target-id="valueDimensionSelector"></bedrock-pubsub>
             </span>
         </div>
         <div id="gridManage">
@@ -91,6 +92,14 @@
             <pebble-actions id="saveandback" class="dropdownText dropdownIcon btn btn-actions dropdown-success" button-text="Save & Continue" actions-data="[[saveContinueActions]]" vertical-align="bottom"></pebble-actions>
             <bedrock-pubsub event-name="pebble-actions-action-click" handler="_onActionItemTap" target-id=""></bedrock-pubsub>
         </div>
+
+        <!--Dirty check dialog-->
+        <pebble-dialog id="value-mappings-dirty-check-Dialog" dialog-title="Confirmation" modal alert-box show-cancel show-ok no-cancel-on-outside-click
+            no-cancel-on-esc-key>
+            <p>[[_dirtyCheckConfirmationMessage]]</p>
+        </pebble-dialog>
+        <bedrock-pubsub event-name="on-buttonok-clicked" handler="_discardValueChanges" target-id="value-mappings-dirty-check-Dialog"></bedrock-pubsub>
+
         <liquid-entity-model-get name="liquidAttributeModelGet" operation="getbyids" on-response="_onAttributeModelGetResponse"
             on-error="_onAttributeModelError"></liquid-entity-model-get>
         <liquid-entity-model-get name="liquidReferenceManageModelGet" operation="getbyids"
@@ -326,7 +335,7 @@
                     var types = [this.mappingData.valueMappingTypeName];
 
                     var req = DataRequestHelper.createMappingsGetRequest(this.contextData, this.copContext, this.selectedContexts, types, "valueMapping");
-                    req.params.query.contexts[0]["Ownership Data"] = this.ownershipdata && this.ownershipdata != "undefined" ? this.ownershipdata : "_DEFAULT";
+                    req.params.query.contexts[0]["Ownership Data"] = this.ownershipData && this.ownershipData != "undefined" ? this.ownershipData : "_DEFAULT";
                     delete req.params.query.contexts[0].service;
                     
                     this._sendMappingRequest(req);
@@ -402,11 +411,12 @@
                 },
 
                 _onCancelTap: function () {
-                    var eventName = "value-mapping-cancel";
-                    var eventDetail = {
-                        "name": eventName,
-                    };
-                    this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                    this.currentEventName = "value-mapping-cancel";
+                    RUFBehaviors.MappingGridBehaviorImpl._triggerDirtyCheck.call(this, "value");
+                },
+
+                _discardValueChanges: function() {
+                    RUFBehaviors.MappingGridBehaviorImpl._triggerEvent.call(this);
                 },
 
                 _showReferenceLOV: function (e) {
@@ -462,6 +472,7 @@
                             row.item["governedValue"] = data.title;
                             governTxtbox.value = data.title;
                             governTxtbox.title = data.title;
+                            this._isMappingChanged = true;
                         }
                     }
                 },
@@ -508,6 +519,7 @@
                                 if (row.item["action"] != "new") {
                                     row.item["action"] = "updated";
                                 }
+                                this._isMappingChanged = true;
                             }
                         }
                     }
@@ -546,8 +558,8 @@
                             var saveRequest = DataRequestHelper.createMappingsSaveRequest(this.contextData, this.copContext, this.selectedContexts, this.mappingData.valueMappingTypeName, this.selectedRole, "valueMapping");
                             saveRequest.entity.data.contexts[0].attributes = mappings[key];
                             var ownershipData = "_DEFAULT";
-                            if (this.selectedRole != "all" && this.ownershipdata && this.ownershipdata != "undefined") {
-                                ownershipData = this.ownershipdata;
+                            if (this.selectedRole != "all" && this.ownershipData && this.ownershipData != "undefined") {
+                                ownershipData = this.ownershipData;
                             }
                             saveRequest.entity.data.contexts[0].context["Ownership Data"] = ownershipData;
                             delete saveRequest.entity.data.contexts[0].context.service;
@@ -645,6 +657,7 @@
                 _resetMappings: function () {
                     this._deletedMappings = [];
                     this._refChangeDeletedMappings = [];
+                    this._isMappingChanged = false;
                     for (var i = 0; i < this._gridData.length; i++) {
                         this._gridData[i].action = "";
                     }
