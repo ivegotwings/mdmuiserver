@@ -1,9 +1,10 @@
 'use strict';
 
+const logger = require('../common/logger/logger-service');
+
 module.exports = function(app) {
        app.post('/data/sendlogs', function (req, res) {
-            //Method will be invoked in batch of 10 messages or when client browser unloads
-            //console.log(JSON.stringify(req.body));
+            logger.info(req.body[0].message);
         }
     );
 };

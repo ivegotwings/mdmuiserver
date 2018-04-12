@@ -1,10 +1,11 @@
 (function () {
     window.RUFUtilities = window.RUFUtilities || {};
     RUFUtilities.Logger = {};
+    RUFUtilities.Logger.levelInfo = "3";
     var log4JSLogger;
     var loglevel = getQueryStringValue("loglevel") || "0";
 
-    RUFUtilities.initializeLogger = function (sessionId) {
+    RUFUtilities.initializeLogger = function (loglevel) {
         log4JSLogger = log4javascript.getLogger("RUFLogging");
         var ajaxAppender = new log4javascript.AjaxAppender("/data/sendlogs");
 
@@ -27,9 +28,9 @@
         }
 
         ajaxAppender.addHeader("Content-Type", "application/json");
-        ajaxAppender.setBatchSize(10);
+       // ajaxAppender.setBatchSize(10);
         ajaxAppender.sendAllOnUnload = true;
-        ajaxAppender.setSessionId(sessionId);
+        ajaxAppender.setSessionId();
         var jsonLayout = new log4javascript.JsonLayout();
         ajaxAppender.setLayout(jsonLayout);
         log4JSLogger.addAppender(ajaxAppender);
