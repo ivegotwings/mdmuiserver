@@ -553,7 +553,6 @@ Eventservice.prototype = {
             };
             attributesCriteria.push(eventSubTypeCriterion);
         }
-        // hhhhoooolllll
         req.params.query.filters.attributesCriterion = attributesCriteria;
 
         req.params.sort = {
@@ -731,9 +730,8 @@ Eventservice.prototype = {
         }
 
         //checking for propertiesCriterion
-        if(inputRequest.params.query.filters.propertiesCriterion) {
-            var propertiesCriterion = inputRequest.params.query.filters.propertiesCriterion;
-            // console.log('length', propertiesCriterion.length);
+        var propertiesCriterion = inputRequest.params.query.filters.propertiesCriterion;
+        if(propertiesCriterion) {
             if(propertiesCriterion.length>0) {
                 req.params.query.filters.propertiesCriterion = propertiesCriterion;
             }
