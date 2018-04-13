@@ -28,12 +28,13 @@
         }
 
         ajaxAppender.addHeader("Content-Type", "application/json");
-       // ajaxAppender.setBatchSize(10);
+        ajaxAppender.setBatchSize(3);
         ajaxAppender.sendAllOnUnload = true;
         ajaxAppender.setSessionId();
         var jsonLayout = new log4javascript.JsonLayout();
         ajaxAppender.setLayout(jsonLayout);
         log4JSLogger.addAppender(ajaxAppender);
+        log4javascript.logLog.setQuietMode(true);
     };
 
     //Usage: RUFUtilities.Logger.trace(message[, message2, ... ][, exception])
