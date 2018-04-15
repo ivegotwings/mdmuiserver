@@ -756,6 +756,7 @@
                         var attributeRefIds = [];
                         var selectedLocales = [];
                         var localeCoalescePath = undefined;
+                        var os = undefined;
                         var osid = undefined;
                         var ostype = undefined;
 
@@ -784,7 +785,8 @@
                                 }
                             }
 
-                            if (!_.isEmpty(attributeValue.osid) && !_.isEmpty(attributeValue.ostype)) {
+                            if (!_.isEmpty(attributeValue.os) && !_.isEmpty(attributeValue.osid) && !_.isEmpty(attributeValue.ostype)) {
+                                os = attributeValue.os;
                                 osid = attributeValue.osid;
                                 ostype = attributeValue.ostype;
                             }
@@ -797,7 +799,8 @@
                                 attributeJSON.selectedLocales = selectedLocales;
                             }
 
-                            if (!_.isEmpty(osid) && !_.isEmpty(ostype)) {
+                            if (!_.isEmpty(os) && !_.isEmpty(osid) && !_.isEmpty(ostype)) {
+                                attributeJSON.os = os;
                                 attributeJSON.osid = osid;
                                 attributeJSON.ostype = ostype;
                             }
@@ -811,6 +814,7 @@
                         var attrValues = DataTransformHelper.transformNestedAttributes(attribute, childAttributeModels, false, dataContext, valueContext);
                         if (!_.isEmpty(attrValues)) {
                             attributeJSON["value"] = attrValues;
+                            attributeJSON.os = attrValues[0].os;
                             attributeJSON.osid = attrValues[0].osid;
                             attributeJSON.ostype = attrValues[0].ostype;
                         }
@@ -822,6 +826,7 @@
                         if (!DataHelper.isEmptyObject(localeCoalescePath)) {
                             attributeJSON.properties = attributeJSON.properties || {};
                             attributeJSON.properties.localeCoalescePath = localeCoalescePath;
+                            attributeJSON.properties.localeCoalescePathExternalName = AttributeHelper.getLocaleCoalescePath(attribute, "localeCoalescePathExternalName");
                         }
                     }
 
@@ -2040,7 +2045,7 @@
             }
         };
 
-        DataTransformHelper.transformDataToCoalescedData = async function (data, request) {
+        DataTransformHelper.transformDataToLocaleCoalescedData = async function (data, request) {
             if (!_.isEmpty(data) && !_.isEmpty(data.entities)) {
                 var entitiesData = DataHelper.cloneObject(data);
                 if (request && request.params && request.params.query && request.params.query.valueContexts && request.params.query.valueContexts.length > 0) {
@@ -2054,13 +2059,13 @@
                             var entity = entitiesData.entities[i];
                             if (entity.data) {
                                 if (entity.data.attributes) {
-                                    DataTransformHelper._updateAttributesWithCoalesceInfo(entity.data.attributes, valContext, clonedValCtx, fallBackLocales);
+                                    DataTransformHelper._updateAttributesWithLocaleCoalesceInfo(entity.data.attributes, valContext, clonedValCtx, fallBackLocales);
                                 }
                                 if (!_.isEmpty(entity.data.contexts)) {
                                     for (let k = 0; k < entity.data.contexts.length; k++) {
                                         var ctx = entity.data.contexts[k];
                                         if (ctx.attributes) {
-                                            DataTransformHelper._updateAttributesWithCoalesceInfo(ctx.attributes, valContext, clonedValCtx, fallBackLocales);
+                                            DataTransformHelper._updateAttributesWithLocaleCoalesceInfo(ctx.attributes, valContext, clonedValCtx, fallBackLocales);
                                         }
                                     }
                                 }
@@ -2073,16 +2078,16 @@
             return data;
         };
 
-        DataTransformHelper._updateAttributesWithCoalesceInfo = function (attributes, valContext, clonedValCtx, fallbackLocales) {
+        DataTransformHelper._updateAttributesWithLocaleCoalesceInfo = function (attributes, valContext, clonedValCtx, fallbackLocales) {
             for (let attributeName in attributes) {
                 var attribute = attributes[attributeName];
                 if (attribute.values) {
-                    var attrValues = DataTransformHelper._updateValuesAndCoalesceInfo(attribute.values, valContext, clonedValCtx, fallbackLocales);
+                    var attrValues = DataTransformHelper._updateValuesAndLocaleCoalesceInfo(attribute.values, valContext, clonedValCtx, fallbackLocales);
                     if (attrValues) {
                         attribute.values = attrValues;
                     }
                 } else if (attribute.group && attribute.group.length > 0) {
-                    var currentLocaleGroup = DataTransformHelper._updateValuesAndCoalesceInfo(attribute.group, valContext, clonedValCtx, fallbackLocales);
+                    var currentLocaleGroup = DataTransformHelper._updateValuesAndLocaleCoalesceInfo(attribute.group, valContext, clonedValCtx, fallbackLocales);
                     if (currentLocaleGroup) {
                         attribute.group = currentLocaleGroup;
                     }
@@ -2090,7 +2095,7 @@
             }
         };
 
-        DataTransformHelper._updateValuesAndCoalesceInfo = function (values, valContext, clonedValCtx, fallbackLocales) {
+        DataTransformHelper._updateValuesAndLocaleCoalesceInfo = function (values, valContext, clonedValCtx, fallbackLocales) {
             var _values = DataHelper.cloneObject(values);
             var defaultValues = values.filter(value => value.locale === DataHelper.getDefaultLocale());
             var isReferenceData = false;
@@ -2133,7 +2138,7 @@
                 for (_fallbackLocale in fallbackLocaleObj) {
                     _fallbackLocale = fallbackLocaleObj[_fallbackLocale];
                     if (_fallbackLocale && _fallbackLocale['localeCoalesce']) {
-                        DataTransformHelper._updateValueContextAndCoalesceInfo(_fallbackLocale, valContext, fallbackLocales, _fallbackLocale["fallbackLocaleIndex"])
+                        DataTransformHelper._updateValueContextAndLocaleCoalesceInfo(_fallbackLocale, valContext, fallbackLocales, _fallbackLocale["fallbackLocaleIndex"])
                         delete _fallbackLocale["fallbackLocaleIndex"];
                         delete _fallbackLocale['localeCoalesce'];
                     }
@@ -2150,7 +2155,7 @@
                         if (!_.isEmpty(attrValues)) {
                             for (let x = 0; x < attrValues.length; x++) {
                                 var val = attrValues[x];
-                                DataTransformHelper._updateValueContextAndCoalesceInfo(val, valContext, fallbackLocales, j);
+                                DataTransformHelper._updateValueContextAndLocaleCoalesceInfo(val, valContext, fallbackLocales, j);
                             }
                             break;
                         }
@@ -2159,16 +2164,108 @@
                         }
                     }
                 }
-                attrValues = attrValues.concat(defaultValues);
             }
             return attrValues;
         };
 
-        DataTransformHelper._updateValueContextAndCoalesceInfo = function (value, valContext, fallbackLocales, localeIndex) {
+        DataTransformHelper._updateValueContextAndLocaleCoalesceInfo = function (value, valContext, fallbackLocales, localeIndex) {
             AttributeHelper.populateValueContext(value, valContext);
             value.properties = value.properties || {};
             value.properties["localeCoalescePath"] = DataHelper.buildLocaleCoalescePath(valContext.locale, fallbackLocales, localeIndex);
             value.properties["localeCoalescePathExternalName"] = DataHelper.buildLocaleCoalescePathExternalname(value.properties["localeCoalescePath"]);
+        };
+
+        DataTransformHelper.transformDataToContextCoalescedData = function(data) {
+            if (!_.isEmpty(data) && !_.isEmpty(data.entities)) {
+                var entitiesData = DataHelper.cloneObject(data);
+                for (let i = 0; i < entitiesData.entities.length; i++) {
+                    var entity = entitiesData.entities[i];
+                    if (entity.data && !_.isEmpty(entity.data.contexts)) {
+                        for (let k = 0; k < entity.data.contexts.length; k++) {
+                            var ctx = entity.data.contexts[k];
+                            if (!_.isEmpty(ctx.attributes)) {
+                                DataTransformHelper._updateAttributesWithContextCoalesce(ctx.attributes);
+                            }
+                            if (!_.isEmpty(ctx.relationships)) {
+                                DataTransformHelper._updateRelationshipsWithContextCoalesce(ctx.relationships);
+                            }
+                        }
+                    }
+                }
+
+                return entitiesData;
+            }
+        };
+
+        DataTransformHelper._updateAttributesWithContextCoalesce = function(attributes) {
+            Object.keys(attributes).forEach(function(attrName) {
+                var attribute = attributes[attrName];
+                attribute.properties = attribute.properties || {};
+                var valueWithContextCoalesce;
+                if(!_.isEmpty(attribute.values)) {
+                    DataTransformHelper._updateValuesWithContextCoalesce(attribute.values);
+                    valueWithContextCoalesce = attribute.values.find(value => value.contextCoalesce !== undefined);
+                }
+
+                if(!_.isEmpty(attribute.group)) {
+                    DataTransformHelper._updateValuesWithContextCoalesce(attribute.group);
+                    valueWithContextCoalesce = attribute.group.find(value => value.contextCoalesce !== undefined);
+                }
+
+                if(valueWithContextCoalesce) {
+                    attribute.properties["contextCoalesce"] = valueWithContextCoalesce.contextCoalesce;
+                }
+            });
+        };
+
+        DataTransformHelper._updateRelationshipsWithContextCoalesce = function(relationships) {
+            Object.keys(relationships).forEach(function(relName) {
+                var relationship = relationships[relName];
+                if(relationship.length > 0) {
+                    for(let i=0; i<relationship.length; i++) {
+                        var relObj = relationship[i];
+                        var contextCoalesce = [];
+                        relObj.properties = relObj.properties || {};
+                        if(relObj.os === "contextCoalesce" && relObj.osctxpath) {
+                            var ctxCoalesceObj = DataTransformHelper._parseOsCtxPath(relObj.osctxpath);
+                            if(!_.isEmpty(ctxCoalesceObj)) {
+                                contextCoalesce.push(ctxCoalesceObj);
+                                relObj.properties["contextCoalesce"] = contextCoalesce;
+                            }
+                        }
+                    }
+                }
+            });
+        };
+
+        DataTransformHelper._updateValuesWithContextCoalesce = function(values) {
+            for(let i=0; i<values.length; i++) {
+                var contextCoalesce = [];
+                var value = values[i];
+                if(value.os === "contextCoalesce" && value.osctxpath) {
+                    var ctxCoalesceObj = DataTransformHelper._parseOsCtxPath(value.osctxpath);
+                    if(!_.isEmpty(ctxCoalesceObj)) {
+                        contextCoalesce.push(ctxCoalesceObj);
+                        value["contextCoalesce"] = contextCoalesce;
+                    }
+                }
+            }
+        };
+
+        DataTransformHelper._parseOsCtxPath = function(ctxPath) {
+            var ctxPaths = ctxPath.split("##");
+            var ctxCoalesceObj = {};
+            if(ctxPaths.length > 0) {
+                for(let i=0; i<ctxPaths.length; i++) {
+                    var path = ctxPaths[i];
+                    var paths = path.split("@@");
+                    if(paths.length === 2) {
+                        ctxCoalesceObj[paths[0]] = paths[1];
+                    }
+                }
+            }
+
+            return ctxCoalesceObj;
         };
     })();
 
