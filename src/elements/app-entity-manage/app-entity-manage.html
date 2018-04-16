@@ -274,9 +274,14 @@
                 ],
                 attached: function () {
                     this._searchTimeStamp = new Date().toLocaleString();
-                    //Get the domain and set it
-                    this.getDomain();
-                    this._initializeComponent();
+                    // Do not load any componets for delted entities.
+                    if(this._entityType.indexOf("delete") !== 0) {
+                        //Get the domain and set it
+                        this.getDomain();
+                        this._initializeComponent();
+                    } else {
+                        this.showInformationToast("This entity has been deleted and hence cannot be viewed/edited.");
+                    }
                 },
                 _initializeComponent() {
                     this._entityTitlebar = this.shadowRoot.querySelector('#entityTitlebar');
@@ -313,6 +318,7 @@
                             "intent": "write",
                             "query": {
                                 "id": this._entityId,
+                                "valueContexts": [DataHelper.getDefaultValContext()],
                                 "filters": {
                                     "typesCriterion": [this._entityType]
                                 }
@@ -466,7 +472,7 @@
                         this.queryParams = customArgs.queryParams;
                     }
                     return {
-                        title: this.getNavbarTitle(this._entityTitlebar.mainTitle),
+                        title: this._entityTitlebar ? this.getNavbarTitle(this._entityTitlebar.mainTitle) : "",
                         subTitle: this.getIsDirty() ? "Draft" : this._lastSavedTime && this._lastSavedTime != "" ? "Last Saved" : "Last Opened",
                         subTitleValue: this._lastSavedTime && this._lastSavedTime != "" ? this._lastSavedTime : new Date().toLocaleString(),
                         queryParams: this.queryParams
@@ -999,13 +1005,32 @@
                         this._toggleStepper(dataContexts);
                     }
 
-                    this._debouncer = Polymer.Debouncer.debounce(this._debouncer, Polymer.Async.timeOut.after(30), () => {
-                        if (this.detailTabs) {
-                            this.detailTabs.readyToRender(true);
-                            this.detailTabs.reloadTabs();
+                    //Loading the details tab                    
+                    this._loadDetailTabs(1);    
+                },
+
+                /**
+                 * Function to retry loading the detailTabs 
+                 */ 
+                _loadDetailTabs: function (retryCount) {
+                    Polymer.Async.timeOut.after(30).run(() => {
+                        if(!this.detailTabs) {
+                            if(retryCount < 50) {
+                                this._loadDetailTabs(++retryCount);
+                            } else {
+                                console.warn("The details tab did not load for entity id "+ this._entityId + " with entity type "+ this._entityType);
+                                this.showWarningToast("Please click on the refresh button to reload the details tab");                            
+                            }
+                        } else {
+                            this._debouncer = Polymer.Debouncer.debounce(this._debouncer, Polymer.Async.timeOut.after(30), () => {
+                                this.detailTabs.readyToRender(true);
+                                this.detailTabs.reloadTabs();
+                            });                           
+                            return;
                         }
                     });
                 },
+
                 _onWorkflowTransitionComplete: function (e) {
                     this._refreshRockEntityHeader();
                     this._refreshRightSidePanel();

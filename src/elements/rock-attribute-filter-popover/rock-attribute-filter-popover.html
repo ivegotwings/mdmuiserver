@@ -7,6 +7,7 @@
 <link rel="import" href="../bedrock-app-context-behavior/bedrock-app-context-behavior.html">
 <link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-helpers/format-helper.html">
 
 <link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../pebble-popover/pebble-popover.html">
@@ -86,10 +87,10 @@
                     </div>
                 </template>
                 <template is="dom-if" if="{{_showTagModifier('referencelist',currentFilterObj.displayType)}}">
-                    <rock-entity-lov id="rockEntityLov" multi-select show-action-buttons selected-items="{{_selectedItems}}"></rock-entity-lov>
+                    
                 </template>
                 <template is="dom-if" if="{{_showTagModifier('boolean',currentFilterObj.displayType)}}">
-                    <pebble-boolean class="text-center" id="booleanDisplay" value="{{booleanvalue}}" required></pebble-boolean>
+                    <pebble-boolean class="text-center" id="booleanDisplay" true-text="TRUE" false-text="FALSE" value="{{booleanvalue}}" required></pebble-boolean>
                     <div class="PebbleButtonPadding text-center m-t-15">
                     <pebble-button class="btn btn-secondary m-r-5" target-id="filterPopover" on-tap="_closeLov" raised elevation="1" button-text="Close"></pebble-button>
                     <pebble-button class="btn btn-success" button-text="Apply" raised elevation="1" on-tap="_onUpdateValue"></pebble-button>
@@ -126,6 +127,7 @@
                 <pebble-button class="btn btn-success" button-text="Apply" raised elevation="1" on-tap="_onUpdateValue" disabled="{{_updateDisable}}"></pebble-button>
                 </div>
             </template>
+            <rock-entity-lov id="rockEntityLov" hidden multi-select show-action-buttons selected-items="{{_selectedItems}}"></rock-entity-lov>
             </pebble-popover>
             <bedrock-pubsub event-name="on-popover-close" handler="_onFilterPopoverClose" target-id="filterPopover"></bedrock-pubsub>
             <bedrock-pubsub event-name="entity-lov-confirm-button-tap" handler="_onLOVConfirmTap" target-id="rockEntityLov"></bedrock-pubsub>
@@ -164,6 +166,12 @@
 
             static get properties() {
                 return {
+                    contextData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
                     currentFilterObj: {
                         type: Object,
                         notify: true                
@@ -256,6 +264,8 @@
             } else if (this.currentFilterObj.dataType.toLowerCase() == "integer" || this.currentFilterObj.dataType.toLowerCase() == "decimal"){
                 this.currentFilterObj.displayType = "numeric";
             } 
+
+            this.currentFilterObj.displayType = this.currentFilterObj.displayType || "textbox";
             
             if (this.currentFilterObj.displayType.toLowerCase() == displayType.toLowerCase()) {
                 return true;
@@ -273,6 +283,13 @@
             }
             var scope = Polymer.dom(this).getOwnerRoot();
             var target = Polymer.dom(scope).querySelector('#' + forTarget);
+
+            var filterPopover = this._filterPopover;
+            var lovComponent = filterPopover.querySelector('#rockEntityLov');
+
+            if(lovComponent) {
+                lovComponent.setAttribute("hidden", "");
+            }
 
             //DateTime Control
             if (this.currentFilterObj.displayType.toLowerCase() == "datetime" || this.currentFilterObj.displayType.toLowerCase() == "date"){
@@ -300,10 +317,8 @@
                 rangePicker.show(true);
                 return; 
             }
-            
-            var filterPopover = this._filterPopover;
             filterPopover.for = "";
-            if(forTarget) {               
+            if(forTarget) {
                 filterPopover.positionTarget = target;
                 filterPopover.show(true);
             }
@@ -313,7 +328,7 @@
             if (displayType == "textbox") {
                 Polymer.Async.microTask.run(() => {
                     var collectionInput = filterPopover.querySelector('#textCollection').shadowRoot.querySelector("#txtInputTag"); 
-                    this.txtBoxCollection = new Array();
+                    this.txtBoxCollection = [];
                     if(filterInputValue) {
                         var filterInputValues = filterInputValue.split(' '+ 'or' +' ');
                         //If the value has already been added, show it in the textbox for updating
@@ -337,13 +352,13 @@
                     filterInput.value = filterInputValue;
                     this.booleanvalue = filterInputValue;
                 }
-            } else if (displayType == "referencelist") {    
-                var lovComponent = filterPopover.querySelector('#rockEntityLov');  
+            } else if (displayType == "referencelist") {
                 if(lovComponent) {
+                    lovComponent.removeAttribute("hidden");
                     var titlePattern = "";
                     var subTitlePattern = "";
                     if(this.currentFilterObj.referenceEntityInfo && this.currentFilterObj.referenceEntityInfo.length) {
-                        titlePattern = this.currentFilterObj.referenceEntityInfo[0].listTitle;
+                        titlePattern = this.currentFilterObj.referenceEntityInfo[0].listTitle || "{entity.name}";
                         subTitlePattern = this.currentFilterObj.referenceEntityInfo[0].listSubTitle;
                     }
                     lovComponent.idField = "id";
@@ -476,7 +491,7 @@
                 filterInputValue = filterInput.value;
             } else if (displayType === "boolean") {
                 filterInput = filterPopover.querySelector('#booleanDisplay');
-                filterInputValue = filterInput.value;
+                filterInputValue = FormatHelper.checkTrueBooleanVal(this.booleanvalue, "TRUE", "FALSE");
             } else if(displayType === "numeric"){
                 if (this.radioGroup.selected == "range") {
                     if (!(this.gte || this.lte)) {
@@ -522,7 +537,7 @@
             }
        
             var eventDetail = {
-                "filterInputValue": filterInputValue,
+                "filterInputValue": filterInputValue.join(" or "),
                 "selectedItems" : this._selectedItems
             }
             

@@ -132,7 +132,7 @@
         </div>
         <!--Tabs section-->
         <template is="dom-if" if="[[!noTabs]]">
-            <rock-tabs id="rock-saved-searches-tabs" config="[[_tabConfig]]" deferred-render reload-always></rock-tabs>
+            <rock-tabs id="rock-saved-searches-tabs" config="[[_tabConfig]]" deferred-render></rock-tabs>
         </template>
         <!--Create/Update section-->
         <template is="dom-if" if="[[noTabs]]">
@@ -248,7 +248,8 @@
                         type: Object,
                         value: function () {
                             return {};
-                        }
+                        },
+                        notify: true
                     },
 
                     // Indicates saved searches
@@ -383,11 +384,10 @@
                             var request = DataHelper.cloneObject(this._searchRequest);
                             if (!this._isSearchRequestInProcess) {
                                 //Raise initial request for search and on search response raise for mappings
-                                var that = this;
                                 this._load = true;
                                 Polymer.Async.timeOut.after(10).run(() => {
-                                     that.generateRequest(request);
-                                     that._isSearchRequestInProcess = true;
+                                     this.generateRequest(request);
+                                     this._isSearchRequestInProcess = true;
                                 });
                             }
                         }
@@ -485,22 +485,16 @@
                 // Populate all searches
                 _populateAllSearches: function () {
                     if (this.savedSearches) {
-                        if (this.savedSearches[_mySearch]) {
-                            for (var idx = 0; idx < this.savedSearches[_mySearch].length; idx++) {
-                                this._allSavedSearches[_mySearch][this.savedSearches[_mySearch][idx].id] = this.savedSearches[_mySearch][idx];
-                            }
-                        }
+                        this._populateSearchesByType(_mySearch);
+                        this._populateSearchesByType(_favSearch);
+                        this._populateSearchesByType(_sharedSearch);
+                    }
+                },
 
-                        if (this.savedSearches[_favSearch]) {
-                            for (var idx = 0; idx < this.savedSearches[_favSearch].length; idx++) {
-                                this._allSavedSearches[_favSearch][this.savedSearches[_favSearch][idx].id] = this.savedSearches[_favSearch][idx];
-                            }
-                        }
-
-                        if (this.savedSearches[_sharedSearch]) {
-                            for (var idx = 0; idx < this.savedSearches[_sharedSearch].length; idx++) {
-                                this._allSavedSearches[_sharedSearch][this.savedSearches[_sharedSearch][idx].id] = this.savedSearches[_sharedSearch][idx];
-                            }
+                _populateSearchesByType(searchType) {
+                    if (this.savedSearches[searchType]) {
+                        for (var idx = 0, l = this.savedSearches[searchType].length; idx < l; idx++) {
+                            this._allSavedSearches[searchType][this.savedSearches[searchType][idx].id] = this.savedSearches[searchType][idx];
                         }
                     }
                 },
@@ -567,16 +561,15 @@
                     if (DataHelper.isValidObjectPath(detail, "response.content.configObjects")) {
                         var searchItems = detail.response.content.configObjects;
 
+                        const _error = () => this.showErrorToast("Search name is already exists, please create search with different name.");
+
                         if (searchItems.length > 0 && type == "create") {
-                            this.showErrorToast("Search name is already exists, please create search with different name.");
-                            return;
+                            return _error();
                         }
-                        else {
-                            for (var i = 0; i < searchItems.length; i++) {
-                                if (searchItems[i] && searchItems[i].id != searchInfo["saved-search-info"].selectedSearch.searchid) {
-                                    this.showErrorToast("Search name is already exists, please create search with different name.");
-                                    return;
-                                }
+                        
+                        for (var i = 0; i < searchItems.length; i++) {
+                            if (searchItems[i] && searchItems[i].id != searchInfo["saved-search-info"].selectedSearch.searchid) {
+                                return _error();
                             }
                         }
                     }
@@ -623,14 +616,16 @@
 
                     // Original search details updated based on the changes
                     originalSearch.name = this._getSavedSearchContextName(searchInfo["saved-search-info"].name);
-                    originalSearch.data.contexts[0].jsonData.config.name = searchInfo["saved-search-info"].name;
-                    originalSearch.data.contexts[0].jsonData.config.accesstype = searchInfo["saved-search-info"].accesstype;
-                    originalSearch.data.contexts[0].jsonData.config.dimensions = searchInfo["dimensions"];
-                    originalSearch.data.contexts[0].jsonData.config.displayQuery = searchInfo["display-query"];
-                    originalSearch.data.contexts[0].jsonData.config.internalQuery = searchInfo["internal-query"];
-                    originalSearch.data.contexts[0].jsonData.config.governData = searchInfo["govern-data"];
-                    originalSearch.data.contexts[0].context.user = user.user;
-                    originalSearch.data.contexts[0].context.role = user.role;
+
+                    const { jsonData, context } = originalSearch.data.contexts[0];
+                    jsonData.config.name = searchInfo["saved-search-info"].name;
+                    jsonData.config.accesstype = searchInfo["saved-search-info"].accesstype;
+                    jsonData.config.dimensions = searchInfo["dimensions"];
+                    jsonData.config.displayQuery = searchInfo["display-query"];
+                    jsonData.config.internalQuery = searchInfo["internal-query"];
+                    jsonData.config.governData = searchInfo["govern-data"];
+                    context.user = user.user;
+                    context.role = user.role;
                 },
 
                 _onInitiateSearchResponse: function (e) {
@@ -803,10 +798,9 @@
 
                 // Context for create saved search
                 _prepareCreateContext: function (_clonedContextData, searchInfo) {
-                    var context = {};
                     var userContext = ContextHelper.getFirstUserContext(_clonedContextData);
                     var user = this._getUserRolePerAccessType(searchInfo["saved-search-info"], userContext);
-                    context = {
+                    var context = {
                         "app": this.appName,
                         "service": "_ALL",
                         "component": "_ALL",
@@ -815,9 +809,7 @@
                         "role": user.role
                     };
 
-                    var data = {};
-
-                    data = {
+                    var data = {
                         "config": {
                             "id": ElementHelper.getRandomString(),
                             "accesstype": searchInfo["saved-search-info"].accesstype,
@@ -833,15 +825,19 @@
                         }
                     };
 
+                    return this._prepareContextData(_clonedContextData, context, data);
+                },
+
+                _prepareContextData(clonedContextData, context, data) {
                     var _contextsObject = {
                         "context": context,
                         "jsonData": data
                     }
 
                     //Set context
-                    _clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = [_contextsObject];
+                    clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = [_contextsObject];
 
-                    return _clonedContextData;
+                    return clonedContextData;
                 },
 
                 _getSavedSearchContextName: function (searchName) {
@@ -877,9 +873,8 @@
 
                 // Context for create mappings
                 _prepareCreateMappingContext: function (clonedContextData, tag) {
-                    var context = {};
                     var userContext = ContextHelper.getFirstUserContext(clonedContextData);
-                    context = {
+                    var context = {
                         "app": this.appName,
                         "service": "_ALL",
                         "component": "_ALL",
@@ -888,24 +883,13 @@
                         "user": userContext.user
                     };
 
-                    var data = {};
-
-                    data = {
+                    var data = {
                         "config": {
                             "favoriteSavedSearches": [tag.searchname]
                         }
                     };
 
-                    var contextsObject = {
-                        "context": context,
-                        "jsonData": data
-                    }
-
-
-                    //Set context
-                    clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = [contextsObject];
-
-                    return clonedContextData;
+                    return this._prepareContextData(clonedContextData, context, data);
                 },
 
                 refresh: function () {

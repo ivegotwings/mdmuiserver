@@ -146,6 +146,7 @@
         flex: 1;
         transition: opacity 200ms;
         -webkit-transition: opacity 200ms;
+        @apply --list;
       }
 
       .data-table-cell {
@@ -630,7 +631,8 @@
         }
       },
 
-      observers: ['_itemsChanged(items.*)',
+      observers: [
+        '_itemsChanged(items.*)',
         '_currentPageChanged(rDataSource, _currentPage)',
         '_resetData(rDataSource, filter.*, sortOrder.*)'
       ],
@@ -914,10 +916,13 @@
 
           //this.debounce("filter-changed", function () {
           var str = e.detail.value;
-          var length = str.replace(/\s/g, '').length;
-          if (length > 0 && length < this.minFilterLength) {
-            return;
+          if(typeof(str) === "string") {
+            var length = str.replace(/\s/g, '').length;
+            if (length > 0 && length < this.minFilterLength) {
+              return;
+            }
           }
+
           for (var i = 0; i < this.filter.length; i++) {
             if (this.filter[i].path === e.detail.filterBy) {
               this.set('filter.' + i + '.filter', e.detail.value);
@@ -1072,67 +1077,58 @@
         } else if (!this._isPageLoading(page)) {
           this._addLoadingPage(page);
 
-          var success = function (items, size) {
-            
-            this.push('_cachedPages', page);
-
-            if (size !== undefined) {
-              this.size = size;
-            }
-            var start = this.deletedItems && page ? page * this.pageSize - this.deletedItems.length : page * this.pageSize;
-
-            for (var i = 0; i < items.length; i++) {
-              var index = start + i;
-              var item = items[i];
-
-              this.set('_cachedItems.' + index, item);
-
-              // TODO: send an issue/pr to iron-list, that makes sure the internal
-              // collection stays up-to-date when `items` change.
-              // When _collection gets out-of-sync things like selection and
-              // notifying [[item]] bindings break.
-              if (this.$.list._collection) {
-                this.$.list._collection.store[index] = item;
-                if (item && typeof item == 'object') {
-                  this.$.list._collection.omap.set(item, index);
-                } else {
-                  this.$.list._collection.pmap[item] = index;
-                }
-              }
-            }
-            if (items.length < this.pageSize && this.deletedItems.length) {
-              //In case, we get less items then pagesize and there are some deleted items. Then calling this function which  will add an offset to current page value so that if we have deleted items then also our datasource logic may work fine
-              this._deletedItemsChanged();
-            }
-            // resize required for variable row height items.
-            // debouncing for optimizing when multiple requests are running at
-            // the same time.
-            this._debouncerLoadPage = Polymer.Debouncer.debounce(this._debouncerLoadPage, Polymer.Async.timeOut.after(100), () => {
-              this.$.list.notifyResize();
-            });
-
-            this._removeLoadingPage(page);
-            
-            if(this.multiSelection && this._cachedItems && this._cachedItems.length) {
-              this.enableMultiSelection = true;
-            } else {
-              this.enableMultiSelection = false;
-            }
-
-          }.bind(this);
-
-          var err = function () {
-            this._removeLoadingPage(page);
-          }.bind(this);
-
           rDataSource({
-            page: page,
+            page,
             pageSize: this.pageSize,
             filter: this.filter,
             sortOrder: this.sortOrder,
             viewMode: "tabular"
-          }, success, err);
+          }, this.success.bind(this, page), err => this._removeLoadingPage(page));
         }
+      },
+
+      success(page, items, size) {
+        this.push('_cachedPages', page);
+
+        if (size !== undefined) {
+          this.size = size;
+        }
+        var start = this.deletedItems && page ? page * this.pageSize - this.deletedItems.length : page * this.pageSize;
+        
+        for (var i = 0; i < items.length; i++) {
+          var index = start + i;
+          var item = items[i];
+
+          this.set('_cachedItems.' + index, item);
+
+          // TODO: send an issue/pr to iron-list, that makes sure the internal
+          // collection stays up-to-date when `items` change.
+          // When _collection gets out-of-sync things like selection and
+          // notifying [[item]] bindings break.
+          if (this.$.list._collection) {
+            this.$.list._collection.store[index] = item;
+            if (item && typeof item == 'object') {
+              this.$.list._collection.omap.set(item, index);
+            } else {
+              this.$.list._collection.pmap[item] = index;
+            }
+          }
+        }
+        
+        if (items.length < this.pageSize && this.deletedItems.length) {
+          //In case, we get less items then pagesize and there are some deleted items. Then calling this function which  will add an offset to current page value so that if we have deleted items then also our datasource logic may work fine
+          this._deletedItemsChanged();
+        }
+        // resize required for variable row height items.
+        // debouncing for optimizing when multiple requests are running at
+        // the same time.
+        this._debouncerLoadPage = Polymer.Debouncer.debounce(this._debouncerLoadPage, Polymer.Async.timeOut.after(100), () => {
+          this.$.list.notifyResize();
+        });
+
+        this._removeLoadingPage(page);
+        
+        this.enableMultiSelection = !!(this.multiSelection && this._cachedItems && this._cachedItems.length);
       },
 
       _sizeChanged: function (size, oldSize) {
@@ -1259,11 +1255,10 @@
           // https://nemisj.com/focusable/
           // tabIndex is not reliable in IE.
           return target.tabIndex >= 0;
-        } else {
-          // unreliable with Shadow, document.activeElement doesn't go inside
-          // the shadow root.
-          return target.contains(Polymer.dom(document.activeElement).node) || target.tagName.toUpperCase() === 'A';
         }
+        // unreliable with Shadow, document.activeElement doesn't go inside
+        // the shadow root.
+        return target.contains(Polymer.dom(document.activeElement).node) || target.tagName.toUpperCase() === 'A';
       },
 
       /**
@@ -1323,24 +1318,19 @@
         // Mobile devices don't move focus from body unless it's an input element that is focused, so this element will never get focused.
         if (this._isFocusable(e.target)) {
           return;
-        } else {
-          if (this.rowDetail && this.detailsEnabled) {
-            if (this._isExpanded(e.model.item, this._expandedItems)) {
-              this._fireEvent('collapsing-item', e.model.item, this.collapseItem);
-            } else {
-              this._fireEvent('expanding-item', e.model.item, this.expandItem);
-            }
+        }
+        if (this.rowDetail && this.detailsEnabled) {
+          if (this._isExpanded(e.model.item, this._expandedItems)) {
+            this._fireEvent('collapsing-item', e.model.item, this.collapseItem);
+          } else {
+            this._fireEvent('expanding-item', e.model.item, this.expandItem);
           }
+        }
 
-          if (this.selectionEnabled) {
-            this._debounceSelectionChanged = Polymer.Debouncer.debounce(this._debounceSelectionChanged, Polymer.Async.timeOut.after(250), () => {
-              if (this._isSelected(e.model.item, this.selectedItems)) {
-                this._fireEvent('deselecting-item', e.model.item, this.deselectItem);
-              } else {
-                this._fireEvent('selecting-item', e.model.item, this.selectItem);
-              }
-            });
-          }
+        if (this.selectionEnabled) {
+          this._debounceSelectionChanged = Polymer.Debouncer.debounce(this._debounceSelectionChanged, Polymer.Async.timeOut.after(250), () => {
+            this._toggleSelectingEvent(e);
+          });
         }
       },
 
@@ -1356,13 +1346,17 @@
           return;
         }
         this._resetAdvanceSelection();
+        this._toggleSelectingEvent(e);
+      },
+
+      _toggleSelectingEvent(e) {
         if (this._isSelected(e.model.item, this.selectedItems)) {
           this._fireEvent('deselecting-item', e.model.item, this.deselectItem);
         } else {
           this._fireEvent('selecting-item', e.model.item, this.selectItem);
         }
-
       },
+
       getData: function () {
         var filteredData = [];
         var allData = this._cachedItems;
@@ -1392,16 +1386,15 @@
       getSelectedItems: function () {
         if (!this.selectedItems.inverted) {
           return this.selectedItems;
-        } else {
-          var items = this.getData();
-          this.selectedItems.forEach(function (item) {
-            var index = items.indexOf(item);
-            if (index > -1) {
-              items.splice(index, 1);
-            }
-          });
-          return items;
         }
+        var items = this.getData();
+        this.selectedItems.forEach(function (item) {
+          var index = items.indexOf(item);
+          if (index > -1) {
+            items.splice(index, 1);
+          }
+        });
+        return items;
       },
       deleteItems: function (items) {
         for (var i = 0; i < items.length; i++) {
@@ -1409,13 +1402,12 @@
             var index = this.items.indexOf(items[i]);
             this.push("deletedItems", items[i]);
             this.splice("items", index, 1);
-          } else {
-            var index = this._cachedItems.indexOf(items[i]);
-            this.push("deletedItems", items[i]);
-            this.splice("_cachedItems", index, 1);
+            continue;
           }
+          var index = this._cachedItems.indexOf(items[i]);
+          this.push("deletedItems", items[i]);
+          this.splice("_cachedItems", index, 1);
         }
-
 
         this._deletedItemsChanged();
       },
@@ -1429,9 +1421,8 @@
       _getRowHeader: function (index) {
         if (this.rows && this.rows.length && this.rows[index]) {
           return this.rows[index].header;
-        } else {
-          return "";
         }
+        return "";
       },
       _isRowHeader: function (column) {
         if (column && column.columnObject) {
@@ -1449,11 +1440,7 @@
         this.scrollTop += e.deltaY;
         this.scrollLeft += e.deltaX;
 
-        if (e.deltaX == -0) {
-          this._freezeDataTableCells(true);
-        } else {
-          this._freezeDataTableCells();
-        }
+        this._freezeDataTableCells(e.deltaX == -0);
       },
 
       _freezeDataTableCells: function (isVertical) {
@@ -1562,7 +1549,7 @@
         if(e.detail.y > gridbottomPosition){
           if(this.setIntervelDragDownFlag){
             this.setIntervelDragDown = setInterval(function(){
-            this.$.list.scrollTop = 5 + this.$.list.scrollTop;
+              this.$.list.scrollTop = 5 + this.$.list.scrollTop;
             }.bind(this), 35);
             this.setIntervelDragDownFlag = false;
           }
@@ -1573,7 +1560,7 @@
         if(e.detail.y < gridTopPosition){
           if(this.setIntervelDragUpFlag){
             this.setIntervelDragUp = setInterval(function(){
-            this.$.list.scrollTop = this.$.list.scrollTop - 5;
+              this.$.list.scrollTop = this.$.list.scrollTop - 5;
             }.bind(this), 35);
             this.setIntervelDragUpFlag = false;
           }
@@ -1597,18 +1584,14 @@
           this.loading = true;
           setTimeout(() => {
             this.loading = false;
-            this.set("_cachedItems", []);
             this.set("_cachedItems", data);
             this.$.list.scrollToIndex(detail.droppedAtIndex - this.topVirtualDomRowCount); 
            }, 300);
-          
         }
       },
       _computePrimaryClass: function(item){
-        if(item.isprimary){
-            if(item.isprimary == "true"){
-                return "isPrimary"
-            }
+        if(item.isprimary == "true"){
+            return "isPrimary"
         }
         return "";
       }   

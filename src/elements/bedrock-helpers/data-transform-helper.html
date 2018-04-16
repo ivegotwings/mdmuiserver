@@ -13,34 +13,123 @@
 
         DataTransformHelper.transformAttributeModels = function (compositeModel, contextData, editPermission) {
             var firstDataContext = ContextHelper.getFirstDataContext(contextData);
+            var mergedAttributeModels = {};
+            // If context is available and if it is get coalesce then all self attributes will be already coalesced in a context
+            // So self attributes can be filtered from coleased attributes.
+            // If same attribute is present in self as well as in a context with some different properties then API should take care about merging of this attribute.
+            if (compositeModel && "data" in compositeModel) {
+                mergedAttributeModels = DataTransformHelper._getAttributeModelsBasedOnContext(compositeModel, firstDataContext)
+                if (!_.isEmpty(mergedAttributeModels)) {
+                    this._fillModels(mergedAttributeModels, false, editPermission);
+                }
+            }
 
+            //console.log(mergedAttributeModels);
+            return mergedAttributeModels;
+        };
+
+        DataTransformHelper.transformAttributeModelsAsync = async function (compositeModel, contextData, editPermission) {
+            var firstDataContext = ContextHelper.getFirstDataContext(contextData);
+            var itemContext;
             var mergedAttributeModels = {};
 
             // If context is available and if it is get coalesce then all self attributes will be already coalesced in a context
             // So self attributes can be filtered from coleased attributes.
             // If same attribute is present in self as well as in a context with some different properties then API should take care about merging of this attribute.
             if (compositeModel && "data" in compositeModel) {
-                if (!_.isEmpty(firstDataContext)) {
-                    var specificCtxAttributeModels = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(compositeModel, firstDataContext);
-                    var mergedAttrKeys = Object.keys(mergedAttributeModels);
-                    for (var attrKey in specificCtxAttributeModels) {
-                        if ("contextCoalesce" in specificCtxAttributeModels[attrKey].properties) {
-                            specificCtxAttributeModels[attrKey].selfContext = "self" in specificCtxAttributeModels[attrKey].properties.contextCoalesce[0] && 1;
-                        }
-                    }
-                    mergedAttributeModels = specificCtxAttributeModels;
-                } else {
-                    if ("attributes" in compositeModel.data) {
-                        mergedAttributeModels = compositeModel.data.attributes;
-                        for (var attrKey in mergedAttributeModels) {
-                            mergedAttributeModels[attrKey].selfContext = 1;
-                        }
-                    }
+                mergedAttributeModels = DataTransformHelper._getAttributeModelsBasedOnContext(compositeModel, firstDataContext)
+                if (!_.isEmpty(firstDataContext) && DataHelper.isValidObjectPath(contextData, "ItemContexts.0")) {
+                    itemContext = contextData.ItemContexts[0];
+                    mergedAttributeModels = await DataTransformHelper._populateModelContextCoalesceProperty(mergedAttributeModels, firstDataContext, itemContext)
                 }
-
                 if (!_.isEmpty(mergedAttributeModels)) {
                     this._fillModels(mergedAttributeModels, false, editPermission);
                 }
+            }
+            //console.log(mergedAttributeModels);
+            return mergedAttributeModels;
+        };
+        DataTransformHelper._getAttributeModelsBasedOnContext = function (compositeModel, firstDataContext) {
+            var mergedAttributeModels = {};
+            if (!_.isEmpty(firstDataContext)) {
+                var specificCtxAttributeModels = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(compositeModel, firstDataContext);
+                var specificCtxAttributeModel;
+                for (var attrKey in specificCtxAttributeModels) {
+                    specificCtxAttributeModel = specificCtxAttributeModels[attrKey];
+                    if ("contextCoalesce" in specificCtxAttributeModel.properties) {
+                        specificCtxAttributeModel.selfContext = "self" in specificCtxAttributeModel.properties.contextCoalesce[0] && 1;
+                    }
+                }
+                mergedAttributeModels = specificCtxAttributeModels;
+            } else {
+                if ("attributes" in compositeModel.data) {
+                    mergedAttributeModels = compositeModel.data.attributes;
+                    for (var attrKey in mergedAttributeModels) {
+                        mergedAttributeModels[attrKey].selfContext = 1;
+                    }
+                }
+            }
+            return mergedAttributeModels;
+        }
+
+        DataTransformHelper._populateModelContextCoalesceProperty = async function (attributeModels, dataContext, itemContext) {
+            var transformedAttributesModel = {};
+            var additionalContexts = [];
+            var primaryContexts = [];
+            var _attributeModels = DataHelper.cloneObject(attributeModels);
+            var dataContextKeys;
+            var contextCoalesceKeys;
+
+            if (!_.isEmpty(dataContext)) {
+                var dataContextKeys = Object.keys(dataContext);
+                var contextModel = await ContextModelManager.getContextModelByEntityTypeAndDataContext(itemContext.type, dataContext);
+                if (contextModel) {
+                    additionalContexts = contextModel.properties ? contextModel.properties.additionalcontexts : undefined;
+                    primaryContexts = DataTransformHelper.getPrimaryContextKeysFromContextModel(contextModel, additionalContexts);
+                }
+                for (var attributeModelName in _attributeModels) {
+                    attributeModel = _attributeModels[attributeModelName];
+                    if (attributeModel) {
+                        attributeModel.modelContextCoalesce = false;
+                        if (!_.isEmpty(additionalContexts)) {
+                            if (attributeModel && attributeModel.properties && attributeModel.properties.contextCoalesce) {
+                                if (DataTransformHelper._isPartialPrimaryContexts(primaryContexts, attributeModel.properties.contextCoalesce)) {
+                                    attributeModel.modelContextCoalesce = true;
+                                }
+                            }
+                        } else {
+                            if (DataHelper.isValidObjectPath(attributeModel, "properties.contextCoalesce.0")) {
+                                contextCoalesceKeys = Object.keys(attributeModel.properties.contextCoalesce[0])
+                                if (_.difference(dataContextKeys, contextCoalesceKeys).length > 0) {
+                                    attributeModel.modelContextCoalesce = true;
+                                }
+                            }
+
+                        }
+                    }
+                    transformedAttributesModel[attributeModelName] = attributeModel;
+                }
+
+            } else {
+                transformedAttributesModel = _attributeModels;
+            }
+
+            return transformedAttributesModel;
+
+        };
+
+        DataTransformHelper.transformRelationshipAttributeModels = function (relationshipModel, contextData, editPermission) {
+
+            var mergedAttributeModels = {};
+            if (relationshipModel && "attributes" in relationshipModel) {
+                mergedAttributeModels = relationshipModel.attributes;
+                for (var attrKey in mergedAttributeModels) {
+                    mergedAttributeModels[attrKey].selfContext = 1;
+                }
+            }
+
+            if (!_.isEmpty(mergedAttributeModels)) {
+                this._fillModels(mergedAttributeModels, false, editPermission);
             }
 
             //console.log(mergedAttributeModels);
@@ -321,6 +410,9 @@
                         if (attributeJSON.attrProperties) {
                             attr.properties = attributeJSON.attrProperties;
                         }
+                        if (attributeJSON.action === "delete") {
+                            attr.action = "delete";
+                        }
                     }
                 } else {
                     attr = this.createAttributeInstance(attributeJSON, firstValueContext);
@@ -396,6 +488,9 @@
                 relationship.relTo.type = relToType;
                 relationships.push(relationship);
             }
+            
+            relationships.length = 0;
+            relationships.push(relationship);
 
             var attributes = {};
             for (let i = 0; i < relationshipAttributesJSON.length; i++) {
@@ -638,11 +733,16 @@
 
                 if (attributeModel.name) {
                     var attribute = attributes[attributeModel.name];
-                    if (attribute && attribute.values) {
 
-                        if (!_.isEmpty(additionalContexts)) {
-                            this.removeCoalescePropertiesFromAttributeBasedOnAdditionalContext(attribute, attributeModel, additionalContexts, primaryContexts);
+                    if (!_.isEmpty(additionalContexts)) {
+                        if (attribute && attribute.properties && attribute.properties.contextCoalesce) {
+                            if (!DataTransformHelper._isPartialPrimaryContexts(primaryContexts, attribute.properties.contextCoalesce)) {
+                                delete attribute.properties.contextCoalesce;
+                            }
                         }
+                    }
+
+                    if (attribute && attribute.values) {
 
                         var currentLocale = valueContext.locale;
                         if (!attributeModel.isLocalizable) {
@@ -656,6 +756,7 @@
                         var attributeRefIds = [];
                         var selectedLocales = [];
                         var localeCoalescePath = undefined;
+                        var os = undefined;
                         var osid = undefined;
                         var ostype = undefined;
 
@@ -684,7 +785,8 @@
                                 }
                             }
 
-                            if (!_.isEmpty(attributeValue.osid) && !_.isEmpty(attributeValue.ostype)) {
+                            if (!_.isEmpty(attributeValue.os) && !_.isEmpty(attributeValue.osid) && !_.isEmpty(attributeValue.ostype)) {
+                                os = attributeValue.os;
                                 osid = attributeValue.osid;
                                 ostype = attributeValue.ostype;
                             }
@@ -697,7 +799,8 @@
                                 attributeJSON.selectedLocales = selectedLocales;
                             }
 
-                            if (!_.isEmpty(osid) && !_.isEmpty(ostype)) {
+                            if (!_.isEmpty(os) && !_.isEmpty(osid) && !_.isEmpty(ostype)) {
+                                attributeJSON.os = os;
                                 attributeJSON.osid = osid;
                                 attributeJSON.ostype = ostype;
                             }
@@ -711,6 +814,7 @@
                         var attrValues = DataTransformHelper.transformNestedAttributes(attribute, childAttributeModels, false, dataContext, valueContext);
                         if (!_.isEmpty(attrValues)) {
                             attributeJSON["value"] = attrValues;
+                            attributeJSON.os = attrValues[0].os;
                             attributeJSON.osid = attrValues[0].osid;
                             attributeJSON.ostype = attrValues[0].ostype;
                         }
@@ -722,6 +826,7 @@
                         if (!DataHelper.isEmptyObject(localeCoalescePath)) {
                             attributeJSON.properties = attributeJSON.properties || {};
                             attributeJSON.properties.localeCoalescePath = localeCoalescePath;
+                            attributeJSON.properties.localeCoalescePathExternalName = AttributeHelper.getLocaleCoalescePath(attribute, "localeCoalescePathExternalName");
                         }
                     }
 
@@ -880,10 +985,6 @@
                     model.properties.isLocalizable = true;
                 }
 
-                if (model.properties.isCollection && model.properties.dataType !== "nested") {
-                    model.properties.isLocalizable = false;
-                }
-
                 for (var prop in model.properties) {
                     model[prop] = model.properties[prop];
                 }
@@ -893,10 +994,7 @@
                     delete childAttributeModels.id;
                     this._fillModels(childAttributeModels, true);
                 }
-                // //temp code, to be removed before merging to master
-                // if(attributeName == 'disclaimercopy') {
-                //     model.displayType = 'richtexteditor';
-                // }
+
                 if (!model.dataType) {
                     model.dataType = "string";
                 }
@@ -1294,11 +1392,13 @@
                                 }
 
                             } else {
-                                var data = entityModels[i].data;
-                                if (typeof (data) !== "undefined") {
-                                    attributeValue = DataTransformHelper._transformEntityAttributesForLovSchema(data.contexts, lovColumnNameValueCollection[columnName]);
-                                    if (attributeValue && attributeValue.value) {
-                                        formattedEntityModel[columnName] = attributeValue.value;
+                                if (entityModels[i].data) {
+                                    var fieldPattern = lovColumnNameValueCollection[columnName];
+                                    if (typeof (fieldPattern) === "string" && !DataHelper.isEmptyObject(fieldPattern)) {
+                                        attributeValue = DataTransformHelper.getLovFieldPatternValue(entityModels[i], fieldPattern, columnName);
+                                    }
+                                    if (attributeValue) {
+                                        formattedEntityModel[columnName] = attributeValue;
                                     }
                                 }
                             }
@@ -1535,7 +1635,7 @@
                 }
 
                 if (lovColumnName === "fontStyle") {
-                    return !_.isEmpty(DataTransformHelper.getContextCoalescePaths(attribute.properties)) ? "italic" : undefined;
+                    return (attribute && !_.isEmpty(DataTransformHelper.getContextCoalescePaths(attribute.properties))) ? "italic" : undefined;
                 }
 
                 if (lovColumnName === "locale") {
@@ -1610,6 +1710,8 @@
                 var primaryContext = undefined;
 
                 if (additionalContexts) {
+                    // If context model has additional context then need to check that current selected contexts is fully additional contexts or it has primary context as well.
+                    // primary context = current selected contexts - additional contexts.(Relative complement of additional contexts in current selected contexts).
                     primaryContext = DataTransformHelper.getPrimaryContextFromAdditionalContext(additionalContexts, firstDataContext);
 
                     if (!_.isEmpty(primaryContext)) {
@@ -1650,6 +1752,18 @@
                                 data.contexts.push(primaryContextData);
                             }
                         }
+                    } else {
+                        // If context model has additional context for current selected contexts and it doesn't have primary context it means all contexts defined in context model are part of additional contexts.
+                        // In this case relationship has to be added based on relationship model.
+                        // If relationship is mapped only at self level it has to saved at self level or if relationship is mapped at additional context level it has to saved at context level.
+                        if (data.contexts && data.contexts.length) {
+                            if (_.isEmpty(data.relationships)) {
+                                data.relationships = {};
+                            }
+
+                            var relationships = data.contexts[0].relationships;
+                            DataTransformHelper._addRemoveRelationshipsBasedOnAdditionalContext(relationships, relationshipModels, additionalContexts, data);
+                        }
                     }
                 } else {
                     if (data.contexts && data.contexts.length) {
@@ -1677,11 +1791,11 @@
                         newCtxItem.context = firstDataContext;
                         newCtxItem.attributes = data.attributes;
                         newCtxItem.relationships = data.relationships;
-                        
+
                         if (_.isEmpty(data.contexts)) {
                             data.contexts = [];
                         }
-                        
+
                         data.contexts.push(newCtxItem);
                     }
                     delete data.attributes;
@@ -1719,19 +1833,19 @@
         DataTransformHelper._addRemoveRelationshipsBasedOnAdditionalContext = function (relationships, relationshipModels, additionalContexts, primaryContextData) {
             if (relationships && relationshipModels && additionalContexts) {
                 Object.keys(relationshipModels).filter(function (relKey) {
-                    var relModel = relationshipModels[relKey];
+                    var relModel = relationshipModels[relKey][0];
                     if (relModel && relModel.properties && relationships[relKey]) {
                         var properties = relModel.properties;
                         var isPrimaryContext = false;
 
                         if (properties.instanceCoalesce) {
-                            if (!DataTransformHelper.isAdditionalContexts(additionalContexts, properties.instanceCoalesce, "instance")) {
+                            if (!DataTransformHelper._isAdditionalContexts(additionalContexts, properties.instanceCoalesce, "instance")) {
                                 isPrimaryContext = true;
                             }
                         }
 
                         if (properties.contextCoalesce) {
-                            if (!DataTransformHelper.isAdditionalContexts(additionalContexts, properties.contextCoalesce, "context")) {
+                            if (!DataTransformHelper._isAdditionalContexts(additionalContexts, properties.contextCoalesce, "context")) {
                                 isPrimaryContext = true;
                             }
                         }
@@ -1745,28 +1859,7 @@
             }
         };
 
-        DataTransformHelper.removeCoalescePropertiesFromAttributeBasedOnAdditionalContext = function (attribute, attributeModel, additionalContexts, primaryContexts) {
-            if (attribute && attributeModel && additionalContexts) {
-                if (attributeModel.properties) {
-                    var properties = attributeModel.properties;
-                    var isAdditionalContextAttribute = true;
 
-                    if (properties.instanceCoalesce) {
-                        isAdditionalContextAttribute = DataTransformHelper._isAdditionalContexts(additionalContexts, properties.instanceCoalesce, "instance");
-                    }
-
-                    if (properties.contextCoalesce) {
-                        isAdditionalContextAttribute = DataTransformHelper._isAdditionalContexts(additionalContexts, properties.contextCoalesce, "context");
-                    }
-
-                    if (!isAdditionalContextAttribute && attribute.properties && attribute.properties.contextCoalesce) {
-                        if (!DataTransformHelper._isPartialPrimaryContexts(primaryContexts, attribute.properties.contextCoalesce)) {
-                            delete attribute.properties.contextCoalesce;
-                        }
-                    }
-                }
-            }
-        };
 
         DataTransformHelper.removeCoalescePropertiesFromRelationshipBasedOnAdditionalContext = function (relationships, relModel, additionalContexts, primaryContexts) {
             if (relationships && relModel && additionalContexts) {
@@ -1824,7 +1917,8 @@
                         isPartialPrimaryContext = true;
                     } else {
                         primaryContexts.forEach(function (ctx) {
-                            if (contextKeys.indexOf(ctx) < 0) {
+                            var filteredCtxs = contextKeys.filter(v => v.toLowerCase() == ctx.toLowerCase());
+                            if (_.isEmpty(filteredCtxs)) {
                                 isPartialPrimaryContext = true;
                             }
                         }, this);
@@ -1888,6 +1982,13 @@
                     }
                 }, this);
             }
+
+            if (primaryContexts.length == 0) {
+                // "Self" is not a part of dimension selector and context models.
+                // Till the time it will become part of a context model and dimension selector "Self" (context) has to be passed hard coded if primary contetxs is empty.
+                primaryContexts.push("self")
+            }
+
             return primaryContexts;
         };
 
@@ -1944,7 +2045,7 @@
             }
         };
 
-        DataTransformHelper.transformDataToCoalescedData = async function (data, request) {
+        DataTransformHelper.transformDataToLocaleCoalescedData = async function (data, request) {
             if (!_.isEmpty(data) && !_.isEmpty(data.entities)) {
                 var entitiesData = DataHelper.cloneObject(data);
                 if (request && request.params && request.params.query && request.params.query.valueContexts && request.params.query.valueContexts.length > 0) {
@@ -1958,13 +2059,13 @@
                             var entity = entitiesData.entities[i];
                             if (entity.data) {
                                 if (entity.data.attributes) {
-                                    DataTransformHelper._updateAttributesWithCoalesceInfo(entity.data.attributes, valContext, clonedValCtx, fallBackLocales);
+                                    DataTransformHelper._updateAttributesWithLocaleCoalesceInfo(entity.data.attributes, valContext, clonedValCtx, fallBackLocales);
                                 }
                                 if (!_.isEmpty(entity.data.contexts)) {
                                     for (let k = 0; k < entity.data.contexts.length; k++) {
                                         var ctx = entity.data.contexts[k];
                                         if (ctx.attributes) {
-                                            DataTransformHelper._updateAttributesWithCoalesceInfo(ctx.attributes, valContext, clonedValCtx, fallBackLocales);
+                                            DataTransformHelper._updateAttributesWithLocaleCoalesceInfo(ctx.attributes, valContext, clonedValCtx, fallBackLocales);
                                         }
                                     }
                                 }
@@ -1977,16 +2078,16 @@
             return data;
         };
 
-        DataTransformHelper._updateAttributesWithCoalesceInfo = function (attributes, valContext, clonedValCtx, fallbackLocales) {
+        DataTransformHelper._updateAttributesWithLocaleCoalesceInfo = function (attributes, valContext, clonedValCtx, fallbackLocales) {
             for (let attributeName in attributes) {
                 var attribute = attributes[attributeName];
                 if (attribute.values) {
-                    var attrValues = DataTransformHelper._updateValuesAndCoalesceInfo(attribute.values, valContext, clonedValCtx, fallbackLocales);
+                    var attrValues = DataTransformHelper._updateValuesAndLocaleCoalesceInfo(attribute.values, valContext, clonedValCtx, fallbackLocales);
                     if (attrValues) {
                         attribute.values = attrValues;
                     }
                 } else if (attribute.group && attribute.group.length > 0) {
-                    var currentLocaleGroup = DataTransformHelper._updateValuesAndCoalesceInfo(attribute.group, valContext, clonedValCtx, fallbackLocales);
+                    var currentLocaleGroup = DataTransformHelper._updateValuesAndLocaleCoalesceInfo(attribute.group, valContext, clonedValCtx, fallbackLocales);
                     if (currentLocaleGroup) {
                         attribute.group = currentLocaleGroup;
                     }
@@ -1994,7 +2095,7 @@
             }
         };
 
-        DataTransformHelper._updateValuesAndCoalesceInfo = function (values, valContext, clonedValCtx, fallbackLocales) {
+        DataTransformHelper._updateValuesAndLocaleCoalesceInfo = function (values, valContext, clonedValCtx, fallbackLocales) {
             var _values = DataHelper.cloneObject(values);
             var defaultValues = values.filter(value => value.locale === DataHelper.getDefaultLocale());
             var isReferenceData = false;
@@ -2037,7 +2138,7 @@
                 for (_fallbackLocale in fallbackLocaleObj) {
                     _fallbackLocale = fallbackLocaleObj[_fallbackLocale];
                     if (_fallbackLocale && _fallbackLocale['localeCoalesce']) {
-                        DataTransformHelper._updateValueContextAndCoalesceInfo(_fallbackLocale, valContext, fallbackLocales, _fallbackLocale["fallbackLocaleIndex"])
+                        DataTransformHelper._updateValueContextAndLocaleCoalesceInfo(_fallbackLocale, valContext, fallbackLocales, _fallbackLocale["fallbackLocaleIndex"])
                         delete _fallbackLocale["fallbackLocaleIndex"];
                         delete _fallbackLocale['localeCoalesce'];
                     }
@@ -2054,7 +2155,7 @@
                         if (!_.isEmpty(attrValues)) {
                             for (let x = 0; x < attrValues.length; x++) {
                                 var val = attrValues[x];
-                                DataTransformHelper._updateValueContextAndCoalesceInfo(val, valContext, fallbackLocales, j);
+                                DataTransformHelper._updateValueContextAndLocaleCoalesceInfo(val, valContext, fallbackLocales, j);
                             }
                             break;
                         }
@@ -2063,15 +2164,114 @@
                         }
                     }
                 }
-                attrValues = attrValues.concat(defaultValues);
             }
             return attrValues;
         };
 
-        DataTransformHelper._updateValueContextAndCoalesceInfo = function (value, valContext, fallbackLocales, localeIndex) {
+        DataTransformHelper._updateValueContextAndLocaleCoalesceInfo = function (value, valContext, fallbackLocales, localeIndex) {
             AttributeHelper.populateValueContext(value, valContext);
             value.properties = value.properties || {};
             value.properties["localeCoalescePath"] = DataHelper.buildLocaleCoalescePath(valContext.locale, fallbackLocales, localeIndex);
+            value.properties["localeCoalescePathExternalName"] = DataHelper.buildLocaleCoalescePathExternalname(value.properties["localeCoalescePath"]);
+        };
+
+        DataTransformHelper.transformDataToContextCoalescedData = function(data) {
+            if (!_.isEmpty(data) && !_.isEmpty(data.entities)) {
+                var entitiesData = DataHelper.cloneObject(data);
+                for (let i = 0; i < entitiesData.entities.length; i++) {
+                    var entity = entitiesData.entities[i];
+                    if (entity.data && !_.isEmpty(entity.data.contexts)) {
+                        for (let k = 0; k < entity.data.contexts.length; k++) {
+                            var ctx = entity.data.contexts[k];
+                            if (!_.isEmpty(ctx.attributes)) {
+                                DataTransformHelper._updateAttributesWithContextCoalesce(ctx.attributes);
+                            }
+                            if (!_.isEmpty(ctx.relationships)) {
+                                DataTransformHelper._updateRelationshipsWithContextCoalesce(ctx.relationships);
+                            }
+                        }
+                    }
+                }
+
+                return entitiesData;
+            }
+        };
+
+        DataTransformHelper._updateAttributesWithContextCoalesce = function(attributes) {
+            Object.keys(attributes).forEach(function(attrName) {
+                var attribute = attributes[attrName];
+                attribute.properties = attribute.properties || {};
+                var valueWithContextCoalesce;
+                var valueWithInstanceCoalesce;
+                if(!_.isEmpty(attribute.values)) {
+                    DataTransformHelper._updateValuesWithContextCoalesce(attribute.values);
+                    valueWithContextCoalesce = attribute.values.find(value => value.contextCoalesce !== undefined);
+                    valueWithInstanceCoalesce = attribute.values.find(value => value.instanceCoalesce !== undefined);
+                }
+
+                if(!_.isEmpty(attribute.group)) {
+                    DataTransformHelper._updateValuesWithContextCoalesce(attribute.group);
+                    valueWithContextCoalesce = attribute.group.find(value => value.contextCoalesce !== undefined);
+                    valueWithInstanceCoalesce = attribute.group.find(value => value.instanceCoalesce !== undefined);
+                }
+
+                if(valueWithContextCoalesce) {
+                    attribute.properties["contextCoalesce"] = valueWithContextCoalesce.contextCoalesce;
+                }
+                if(valueWithInstanceCoalesce) {
+                    attribute.properties["instanceCoalesce"] = valueWithInstanceCoalesce.instanceCoalesce;
+                }
+            });
+        };
+
+        DataTransformHelper._updateRelationshipsWithContextCoalesce = function(relationships) {
+            Object.keys(relationships).forEach(function(relName) {
+                var relationship = relationships[relName];
+                if(relationship.length > 0) {
+                    for(let i=0; i<relationship.length; i++) {
+                        var relObj = relationship[i];
+                        var contextCoalesce = [];
+                        relObj.properties = relObj.properties || {};
+                        if((relObj.os === "contextCoalesce" || relObj.os === "instanceCoalesce") && relObj.osctxpath) {
+                            var ctxCoalesceObj = DataTransformHelper._parseOsCtxPath(relObj.osctxpath);
+                            if(!_.isEmpty(ctxCoalesceObj)) {
+                                contextCoalesce.push(ctxCoalesceObj);
+                                relObj.properties[relObj.os] = contextCoalesce;
+                            }
+                        }
+                    }
+                }
+            });
+        };
+
+        DataTransformHelper._updateValuesWithContextCoalesce = function(values) {
+            for(let i=0; i<values.length; i++) {
+                var contextCoalesce = [];
+                var value = values[i];
+                if((value.os === "contextCoalesce" || value.os === "instanceCoalesce") && value.osctxpath) {
+                    var ctxCoalesceObj = DataTransformHelper._parseOsCtxPath(value.osctxpath);
+                    if(!_.isEmpty(ctxCoalesceObj)) {
+                        contextCoalesce.push(ctxCoalesceObj);
+                        value[value.os] = contextCoalesce;
+                    }
+                }
+            }
+        };
+
+        DataTransformHelper._parseOsCtxPath = function(ctxPath) {
+            var ctxPaths = ctxPath.split("##");
+            var ctxCoalesceObj = {};
+            if(ctxPaths.length > 0) {
+                for(let i=0; i<ctxPaths.length; i++) {
+                    var path = ctxPaths[i];
+                    var paths = path.split("@@");
+                    if(paths.length === 2) {
+                        ctxCoalesceObj[paths[0]] = paths[1];
+                    }
+                }
+            }
+
+            return ctxCoalesceObj;
         };
     })();
 

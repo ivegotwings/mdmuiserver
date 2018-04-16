@@ -4,7 +4,6 @@
 
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html" />
 <link rel="import" href="../bedrock-app-behavior/bedrock-app-behavior.html" />
-<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-helpers/format-helper.html">
 <link rel="import" href="../bedrock-helpers/context-helper.html">
 <link rel="import" href="../liquid-rest/liquid-rest.html" />
@@ -59,38 +58,40 @@
                     <rock-dimension-selector id="dimensionSelector" context-data="[[contextData]]" app-name="app-task-detail" domain="[[domain]]" all-multi-select></rock-dimension-selector>
                 </div>
             </rock-titlebar>
-            <div class="flex">
-                <div class="summary-container">
-                    <template is="dom-if" if="[[_isTaskDetailsLoading]]">
-                        <pebble-accordion header-text="Summary & Filters" default-icon="pebble-icon:action-scope-take-selection" open-icon="pebble-icon:action-expand">
-                            <rock-task-summary id="rockTaskSummary" task-details="[[_taskDetails]]"></rock-task-summary>
-                        </pebble-accordion>
+            <template is="dom-if" if="[[_isContextUpdateCompleted]]">
+                <div class="flex">
+                    <div class="summary-container">
+                        <!-- <template is="dom-if" if="[[_isTaskDetailsLoading]]"> -->
+                            <pebble-accordion header-text="Summary & Filters" default-icon="pebble-icon:action-scope-take-selection" open-icon="pebble-icon:action-expand">
+                                <rock-task-summary id="rockTaskSummary" task-details="[[_taskDetails]]"></rock-task-summary>
+                            </pebble-accordion>
+                        <!-- </template> -->
+                        <pebble-horizontal-divider></pebble-horizontal-divider>
+                    </div>
+                    <template is="dom-if" if="[[_showInProgressTasks]]">
+                        <!--<div class="p-l-20 p-r-20">Content Development in Progress</div>-->
                     </template>
-                    <pebble-horizontal-divider></pebble-horizontal-divider>
-                </div>
-                <template is="dom-if" if="[[_showInProgressTasks]]">
-                    <!--<div class="p-l-20 p-r-20">Content Development in Progress</div>-->
-                </template>
-                <template is="dom-if" if="[[_loadCompletedTasks(_showCompletedTasks)]]">
-                    <div class="flex">
-                        <rock-entity-search-discovery id="entitySearchDiscoveryGrid" context-data="[[contextData]]" entity-id-list="[[entityIdList]]" 
-                            requested-entity-types="[[entityTypeList]]" allowed-entity-types=[[entityTypeList]] domain="[[domain]]"></rock-entity-search-discovery>
-                    </div>
-                </template>
-                <template is="dom-if" if="[[_loadErrorTasks(_showErroredTasks)]]">
-                    <div class="flex">
-                        <rock-task-error-grid id="jobEntityDetailGrid" task-id="[[taskId]]" context-data="[[contextData]]">
-                        </rock-task-error-grid>
-                    </div>
-                </template>
-                <template is="dom-if" if="[[_showMessage]]">
-                    <div class="flex">
-                        <div class="col-12 text-center">
-                            <div id="messagePanel" class="message-box">[[_message]]</div>
+                    <template is="dom-if" if="[[_loadCompletedTasks(_showCompletedTasks)]]">
+                        <div class="flex">
+                            <rock-entity-search-discovery id="entitySearchDiscoveryGrid" context-data="[[contextData]]" entity-id-list="[[entityIdList]]" 
+                                requested-entity-types="[[entityTypeList]]" allowed-entity-types=[[entityTypeList]] domain="[[domain]]"></rock-entity-search-discovery>
                         </div>
-                    </div>
-                </template>
-            </div>
+                    </template>
+                    <template is="dom-if" if="[[_loadErrorTasks(_showErroredTasks)]]">
+                        <div class="flex">
+                            <rock-task-error-grid id="jobEntityDetailGrid" task-id="[[taskId]]" context-data="[[contextData]]">
+                            </rock-task-error-grid>
+                        </div>
+                    </template>
+                    <template is="dom-if" if="[[_showMessage]]">
+                        <div class="flex">
+                            <div class="col-12 text-center">
+                                <div id="messagePanel" class="message-box">[[_message]]</div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </template>
         </rock-layout>
         <bedrock-pubsub event-name="dimension-selector-data-changed" handler="_onDimensionsChanged" target-id="dimensionSelector"></bedrock-pubsub>        
         <bedrock-pubsub event-name="show-inprogress" handler="_onInProgressClick" target-id="rockTaskSummary"></bedrock-pubsub>
@@ -108,12 +109,6 @@
 
                 properties: {
                     contextData:{
-                        type:Object,
-                        value:function(){
-                            return {};
-                        }
-                    },
-                    _taskDetailsGetRequest:{
                         type:Object,
                         value:function(){
                             return {};
@@ -151,7 +146,7 @@
 
                     _loading: {
                         type: Boolean,
-                        value: true
+                        value: false
                     },
 
                     _isTaskDetailsLoading: {
@@ -192,6 +187,10 @@
                     domain: {
                         type: String,
                         value: "thing"
+                    },
+                    _isContextUpdateCompleted: {
+                        type: Boolean,
+                        value: false
                     }
                 },
 
@@ -201,9 +200,6 @@
 
                 ready: function () {
                     this.taskId = DataHelper.getParamValue("id");
-                    this._taskDetailsGetRequest = {
-                        "taskId": this.taskId
-                    };
 
                     this._message = this._defaultMessage;
                 },
@@ -277,7 +273,7 @@
                 _initiateTaskDetailsGetRequest: function () {
                     this._taskDetailsGet = this._taskDetailsGet || this.shadowRoot.querySelector("#taskDetailsGet");
                     if(this._taskDetailsGet) {
-                        this._taskDetailsGet.requestData = this._taskDetailsGetRequest;
+                        this._taskDetailsGet.requestData = { "taskId": this.taskId };
                         this._taskDetailsGet.generateRequest();
                     }
                 },
@@ -348,6 +344,7 @@
                 },
 
                 _onTaskDetailsGetError: function (e, detail) {
+                    this._loading = false;
                     // Show Error Toast
                 },
 
@@ -391,6 +388,7 @@
                     var contextData = this.contextData;
                     this.contextData = {}; // To notify
                     this.contextData = contextData;
+                    this._isContextUpdateCompleted = true; //To load full component
                 },
 
                 _onRefreshClick: function () {
@@ -407,6 +405,11 @@
 
                 _onDimensionsChanged: function (e) {
                     var newDimensions = e.detail.dimensions;
+                    newDimensions["app"] = ["app-task-detail"];
+
+                    if(this.domain) {
+                        newDimensions["domain"] = [this.domain];
+                    }
                     ContextHelper.updateContextData(this.contextData, newDimensions);
                     this._onContextChanged();
                 }

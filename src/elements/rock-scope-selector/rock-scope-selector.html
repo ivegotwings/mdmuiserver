@@ -81,7 +81,7 @@
 
         rock-tabs {
             --rock-tab-content: {
-                @apply(--scope-tab-content);
+                @apply --scope-tab-content;
             };
         }
 
@@ -592,18 +592,17 @@
                 if (DataHelper.isValidObjectPath(detail, "response.content.configObjects")) {
                     var scopeItems = detail.response.content.configObjects;
 
-                    if (scopeItems.length > 0 && type == "create") {
+                    const _error = ()=> {
                         this._setLoading(false);
                         this.showErrorToast("Scope name already exists, please create scope with a different name.");
-                        return;
+                    };
+
+                    if (scopeItems.length > 0 && type == "create") {
+                        return _error();
                     }
-                    else {
-                        for (var i = 0; i < scopeItems.length; i++) {
-                            if (scopeItems[i] && scopeItems[i].id != scopeInfo["scope-info"].selectedScope.scopeid) {
-                                this._setLoading(false);
-                                this.showErrorToast("Scope name already exists, please create scope with a different name.");
-                                return;
-                            }
+                    for (var i = 0; i < scopeItems.length; i++) {
+                        if (scopeItems[i] && scopeItems[i].id != scopeInfo["scope-info"].selectedScope.scopeid) {
+                            return _error();
                         }
                     }
                 }
@@ -801,9 +800,14 @@
                 this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
             },
 
+            get configSaveServiceLiq() {
+                this._configSaveServiceLiq = this._configSaveServiceLiq ||this.shadowRoot.querySelector('[name="configSaveService"]');
+                return this._configSaveServiceLiq;
+            },
+
             // Can be used to generate the save requests.
             generateSaveRequest: function (reqData, operation) {
-                var configSaveService = this.shadowRoot.querySelector('[name="configSaveService"]');
+                var configSaveService = this.configSaveServiceLiq;
 
                 if (configSaveService) {
                     configSaveService.operation = operation;
@@ -930,11 +934,10 @@
 
             // Context for create scope
             _prepareCreateContext: function (_clonedContextData, _scopeDetails) {
-                var context = {};
                 var userContext = ContextHelper.getFirstUserContext(_clonedContextData);
                 var user = this._getUserRolePerAccessType(_scopeDetails["scope-info"], userContext);
 
-                context = {
+                var context = {
                     "app": this.appName,
                     "service": "_ALL",
                     "component": "_ALL",
@@ -943,9 +946,7 @@
                     "role": user.role
                 };
 
-                var data = {};
-
-                data = {
+                var data = {
                     "config": {
                         "id": ElementHelper.getRandomString(),
                         "accesstype": _scopeDetails["scope-info"].accesstype,
@@ -958,22 +959,13 @@
                     }
                 };
 
-                var _contextsObject = {
-                    "context": context,
-                    "jsonData": data
-                }
-
-                //Set context
-                _clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = [_contextsObject];
-
-                return _clonedContextData;
+                return this._prepareContextsData(_clonedContextData, context, data);
             },
 
             // Context for create mappings
             _prepareCreateMappingContext: function (clonedContextData, tag) {
-                var context = {};
                 var userContext = ContextHelper.getFirstUserContext(clonedContextData);
-                context = {
+                var context = {
                     "app": this.appName,
                     "service": "_ALL",
                     "component": "_ALL",
@@ -982,11 +974,13 @@
                     "user": userContext.user
                 };
 
-                var data = {};
-
-                data = { "config": {} };
+                var data = { "config": {} };
                 data.config[favScopesName] = [tag.scopename];
+                
+                return this._prepareContextsData(clonedContextData, context, data);
+            },
 
+            _prepareContextsData(clonedContextData, context, data) {
                 var contextsObject = {
                     "context": context,
                     "jsonData": data
@@ -994,7 +988,6 @@
 
                 //Set context
                 clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = [contextsObject];
-
                 return clonedContextData;
             },
 

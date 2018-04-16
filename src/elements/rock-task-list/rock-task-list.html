@@ -44,11 +44,6 @@
                 .alignRight {
                     margin-left: auto;
                 }
-
-                #refreshButton {
-                    color: var(--icon-color, #757575);
-                }
-
                 rock-grid {
                     --rock-grid-height: 260px;
                     --pebble-grid-container:{
@@ -81,6 +76,9 @@
                     --pebble-icon-dimension:{
                         width: 12px;
                         height: 12px;
+                    };
+                    --pebble-button-left-icon: {
+                        margin-right: 5px;
                     }
                 }
 
@@ -92,6 +90,9 @@
                 /*IE edge specific fix for refresh icon for task-list*/
                 _:-ms-lang(x), _:-webkit-full-screen {
                     vertical-align: top;
+                }
+                .refreshbutton{
+                    vertical-align: middle;
                 }
             </style>
             <div class="search-container">
@@ -114,7 +115,7 @@
                     <pebble-dropdown class="dropdown" label="Status" items="[[eventSubTypes]]" selected-value="{{selectedEventSubType}}"></pebble-dropdown>
                 </div>
                 <div class="col text-right">
-                    <pebble-button id="refreshButton" icon="pebble-icon:refresh" class="pebble-icon-size-16 iconButton tooltip-bottom m-r-10"
+                    <pebble-button id="refreshButton" icon="pebble-icon:refresh" class="pebble-icon-size-16 iconButton tooltip-bottom m-r-10 refreshbutton"
                         data-tooltip$="Refresh" on-tap="_refreshList"></pebble-button>
                     <template is="dom-if" if="[[userToggleAllowed]]">
                         <pebble-toggle-button checked="{{!getAllUsersEvents}}">Show Only My Tasks</pebble-toggle-button>
@@ -328,6 +329,8 @@
                     RUFBehaviors.UIBehavior,
                     RUFBehaviors.ComponentConfigBehavior
                 ],
+                observers: ['_contextDataChanged(contextData)'],
+                
                 /**
                  * <b><i>Content development is under progress... </b></i> 
                  */
@@ -335,19 +338,13 @@
                     this._dataFormatter = this._getEventFormattedData.bind(this);
                 },
                 isGenericTasklist: function (taskType) {
-                    if(!taskType){
-                        return true;
-                    }
-                    else{
-                        return false;
-                    }
+                    return !taskType;
                 },
                 _onChangeTaskType: function(taskType){
                     if(taskType){
                         this.set("selectedEventType", taskType);
                     }
                 },
-                observers: ['_contextDataChanged(contextData)'],
 
                 _contextDataChanged: function (contextData) {
                     Polymer.RenderStatus.afterNextRender(this,()=>{
@@ -426,9 +423,11 @@
                     this._load = true;
                     this.set("request", req);
                     this.set("gridConfig",this.config.gridConfig);
-                    Polymer.Async.timeOut.after(10).run(() => {
-                        this.shadowRoot.querySelector("#importlistGrid").reloadListData();
-                    });
+                    Polymer.Async.timeOut.after(10).run(this._reloadListData.bind(this));
+                },
+
+                _reloadListData() {
+                    this.shadowRoot.querySelector("#importlistGrid").reloadListData();
                 },
                 _addEventTypeCriterion: function (attributesCriterion) {
                     if (this.selectedEventType) {
@@ -537,6 +536,10 @@
                                     }
                                 };
                                 break;
+                            case "ASSET_IMPORT_RECORD":
+                                //DO NOT ADD TASK TYPE FOR ASSET IMPORT RECORDS..
+                                //ASSET IMPORT RECORD GET IS STILL BY EVENTS.
+                                break;
                             default: 
                                 taskTypeCriterion = {
                                     "taskType": {
@@ -625,14 +628,12 @@
                     return events;
                 },
                 _getAttributeNamesFromListConfig: function (config) {
-                    var listItems = config.itemConfig;
-                    var attributeNames = [];
-                    attributeNames.push(listItems.image);
-                    attributeNames.push(listItems.title);
-                    attributeNames.push(listItems.subtitle);
-                    attributeNames.push(listItems.id);
-                    for (var i in listItems.fields) {
-                        var field = listItems.fields[i];
+                    const {image, title, subtitle, id, fields} = config.itemConfig;
+                    var attributeNames = [image, title, subtitle, id];
+                    for (var key in fields) {
+                        if(!fields.hasOwnProperty(key)) continue;
+                        
+                        var field = fields[key];
                         attributeNames.push(field.name);
                     }
 
@@ -698,7 +699,7 @@
                             attributes.push("isSummaryFromTaskProcessor");
                         }
 
-                        this.shadowRoot.querySelector("#importlistGrid").reloadListData();
+                        this._reloadListData();
                     }
                 },
                 _onEventSubTypeFilterChanged: function (selectedEventSubType) {
@@ -716,7 +717,7 @@
 
                         this._addEventSubTypeCriterion(attributesCriteria);
 
-                        this.shadowRoot.querySelector("#importlistGrid").reloadListData();
+                        this._reloadListData();
                     }
                 },
                 _onSearch: function (e, detail) {
@@ -730,7 +731,7 @@
                             delete req.params.query.filters.keywordsCriterion;
                         }
 
-                        this.shadowRoot.querySelector("#importlistGrid").reloadListData();
+                        this._reloadListData();
                     }
                 },
                 _userStateChanged: function (getAllUsersEvents) {
@@ -752,7 +753,7 @@
                                 }
                             }
                         }
-                        this.shadowRoot.querySelector("#importlistGrid").reloadListData();
+                        this._reloadListData();
                     }
                 },
                 _sortByDesecnding: function () {
@@ -773,12 +774,12 @@
                             }
                         }
 
-                        this.shadowRoot.querySelector("#importlistGrid").reloadListData();
+                        this._reloadListData();
                     }
                 },
                 _refreshList: function () {
                     this.shadowRoot.querySelector("#eventDataSource").resetDataSource();
-                    this.shadowRoot.querySelector("#importlistGrid").reloadListData();
+                    this._reloadListData();
                 },
                 _getExternalEventSubType: function (internalEventSubType) {
                     var eventSubFilterMap = this.eventSubTypeMap;
@@ -803,7 +804,7 @@
 
                         var req = this.request;
                         delete req.params.query.filters.keywordsCriterion;
-                        this.shadowRoot.querySelector("#importlistGrid").reloadListData();
+                        this._reloadListData();
 
                         this._resetSearchEnabled = false;
                     }

@@ -46,7 +46,6 @@
             }
             .placeHolder {
                 width: 880px;
-                height: 400px;
                 margin: 0 auto;
                 box-shadow: 0 0 10px 0 var(--cloudy-blue-color, #c1cad4);
                 position: relative;
@@ -139,7 +138,7 @@
                             <rock-classification-tree id="contextTree" multi-select="true" taxonomy="[[taxonomy]]" context-data="[[contextData]]" selected-classifications="{{_selectedCategories}}"></rock-classification-tree>
                         </div>
                         <div id="exportActions" class="p-b-10 p-t-10" align="center">
-                            <pebble-button id="cancel" class="close btn btn-secondary m-r-5" button-text="Cancel" raised on-tap="_onCancelDownloadSelection"></pebble-button>
+                            <pebble-button id="cancel" class="close btn btn-secondary m-r-10" button-text="Cancel" raised on-tap="_onCancelDownloadSelection"></pebble-button>
                             <pebble-button id="download" class="apply btn btn-success" button-text="Download" raised on-tap="_exportSelectedCategory"></pebble-button>
                         </div>
                     </div>
@@ -182,6 +181,12 @@
         <liquid-entity-data-get id="taxonomyGetDataService" operation="getbyids" request-data="{{_taxonomyRequest}}" on-response="_onTaxonomyResponse"></liquid-entity-data-get>
         <liquid-rest id="taxonomyModelGet" url="/data/pass-through/entitymodelservice/get" method="POST" request-data="{{_taxonomyModelRequest}}"
             on-liquid-response="_onTaxonomyModelGetResponse"></liquid-rest>
+        <liquid-entity-data-get id="initiateEntitySearch" operation="initiatesearch" request-data="{{entityGetrequest}}" last-response="{{initiateSearchResponse}}"
+            on-error="_onGetSearchError" on-response="_onInitiateEntitySearchResponse" exclude-in-progress></liquid-entity-data-get>
+        <liquid-entity-data-get id="getEntitySearchResultDetail" operation="getsearchresultdetail" request-data="{{entityGetrequest}}"
+            request-id="[[initiateSearchResponse.content.requestId]]" last-response="{{getEntitySearchResultsResponse}}" on-error="_onGetSearchError"
+            on-response="_onGetEntitySearchResultDetailResponse" exclude-in-progress></liquid-entity-data-get>
+        <liquid-entity-model-get id="getEntityTypeModel" operation="getbyids" on-response="_onEntityTypeModelReceived" on-error="_onEntityTypeModelFailed"></liquid-entity-model-get>
     </template>
     <script>
         (function () {
@@ -347,7 +352,8 @@
                         type: Array,
                         value: function () {
                             return [];
-                        }
+                        },
+                        notify: true
                     },
                     /**
                       * <b><i>Content development is under progress... </b></i> 
@@ -430,9 +436,6 @@
                 },
                 _contextChanged: function (contextData) {
                     if (!_.isEmpty(contextData)) {
-                        //this contexts is coming from COP returned entities
-                        var itemContext = this.getFirstItemContext();
-                        var entityType = itemContext.type;
                         this._showView("entity-import");
                         this._getTaxonomyManageModel();
                     }
@@ -616,35 +619,188 @@
                         this._onCOPProcessComplete();
                     }
                 },
+
+                _setContexts: async function () {
+                    var itemContext = this.getFirstItemContext();
+                    this.entityType = itemContext.type;
+                    var contexts = await ContextModelManager.getContextModelsBasedOnEntityType(this.entityType);
+
+                    if (contexts && contexts.length) {
+                        var _ctxKeys = [];
+                        var contextCoalesceInfo = [];
+
+                        var _contexts = [];
+                        contexts.forEach(function (context) {
+                            _contexts.push(context.context);
+                            if (context && context.properties &&
+                                context.properties.coalesceInfo && context.properties.coalesceInfo.length) {
+                                contextCoalesceInfo = contextCoalesceInfo.concat(context.properties.coalesceInfo)
+                            }
+
+                            var ctxKeys = Object.keys(context.context);
+                            if (ctxKeys && ctxKeys.length) {
+                                ctxKeys.forEach(function (ctxKey) {
+                                    if (_ctxKeys.indexOf(ctxKey) < 0) {
+                                        _ctxKeys.push(ctxKey);
+                                    }
+                                }, this);
+                            }
+                        }, this);
+
+                        this._contexts = _contexts;
+
+                        var _ctxIds = [];
+                        if (_ctxKeys && _ctxKeys.length) {
+                            _ctxKeys.forEach(function (item) {
+                                if (item) {
+                                    _ctxIds.push(item);
+                                }
+                            }, this);
+                        }
+
+                        this.contexts = _ctxIds;
+
+                        //Fetch taxonomy type entities
+                        var contextData = DataHelper.cloneObject(this.contextData);
+                        var firstItemContext = ContextHelper.getFirstItemContext(contextData);
+                        if (firstItemContext) {
+                            firstItemContext.type = "taxonomy";
+                            firstItemContext.attributeNames = ["_ALL"];
+                            var req = DataRequestHelper.createEntityGetRequest(contextData);
+                            delete req.params.options;
+                            this.entityGetrequest = req;
+
+                            //Trigger request
+                            var taxonomyGetElement = this.$$("#initiateEntitySearch");
+                            if (taxonomyGetElement) {
+                                taxonomyGetElement.generateRequest();
+                            }
+                        }
+                    } else {
+                        this.showErrorToast("Contexts not available, please contact administrator.");
+                        this._loading = false;
+
+                    }
+                },
+
+                _onInitiateEntitySearchResponse: function (e, detail) {
+                    if (detail && detail.response && detail.response.status == "success") {
+                        var taxonomyGetElement = this.$$("#getEntitySearchResultDetail");
+                        if (taxonomyGetElement) {
+                            taxonomyGetElement.generateRequest();
+                        }
+                    } else {
+                        this._raiseTaxonomyError(detail);
+                    }
+                },
+
+                _onGetEntitySearchResultDetailResponse: function (e, detail) {
+                    if (detail && detail.response && detail.response.status == "success") {
+                        var response = detail.response;
+                        if (response.content && response.content.entities && response.content.entities.length) {
+                            this.taxonomies = detail.response.content.entities;
+
+                            //Fetch externalNames
+                            var entityTypeModelGetEl = this.$$("#getEntityTypeModel");
+                            if (entityTypeModelGetEl) {
+                                var eTypes = [];
+                                eTypes.push(this.entityType); //entityType
+                                if (this.contexts && this.contexts.length) {
+                                    for (var i = 0; i < this.contexts.length; i++) {
+                                        eTypes.push(this.contexts[i]); //context
+                                    }
+                                }
+                                entityTypeModelGetEl.requestData = DataRequestHelper.createGetModelRequest(eTypes, "entityType");
+                                entityTypeModelGetEl.generateRequest();
+                            }
+                        }
+                    } else {
+                        this._raiseTaxonomyError(detail);
+                    }
+                },
+
+                _onGetSearchError: function (e, detail) {
+                    this._raiseTaxonomyError(detail);
+                },
+
+                _raiseTaxonomyError: function (detail) {
+                    this.logError("Taxonomy entity get error", detail);
+                    this.showSuccessToast("Unable to get taxonomy details, please contact administrator.");
+                    this._loading = false;
+                },
+
+                _onEntityTypeModelReceived: function(e, detail) {
+                    if(detail && detail.response) {
+                        var response = detail.response;
+                        if(response.status == "success" && response.content && response.content.entityModels)
+                        {
+                            var entityModels = response.content.entityModels || [];
+                            var entityTypeExternalNames = {};
+                            for(var i = 0; i < entityModels.length; i++) {
+                                entityTypeExternalNames[entityModels[i].name] = entityModels[i].properties.externalName;
+
+                                //Get domain for the entityType
+                                if (entityModels[i].name == this.entityType) {
+                                    this.domain = entityModels[i].domain;
+                                }
+                            }
+
+                            this.entityTypeExternalName = entityTypeExternalNames[this.entityType];
+                            delete entityTypeExternalNames[this.entityType];
+                            this.contextExternalNames = entityTypeExternalNames; // Remaining context names
+                        }
+                    }
+                    this._loadMappingComponent();
+                },
+
+                _onEntityTypeModelFailed: function (e, detail) {
+                    this.logError("Entity type model get error", detail);
+                    this._loadMappingComponent();
+                },
+
+                _loadMappingComponent: function() {
+                    this._hideView("entity-import");
+                    this._hideButtons();
+                    this._loading = false;
+                    this._isDirty = false;
+
+                    if(this.skipContextMapping) {
+                        this._importMappingComponent(); //Attribute Mappings
+                    } else {
+                        this._importContextComponent(); //Context Mappings
+                    }
+                },
+
                 _onCOPSuccess: function (e) {
                     var response = e.detail.response;
                     var statusMessage = DataHelper.validateAndGetMessage(response);
                     if (statusMessage == "") {
                         var res = response.response ? response.response : response;
                         if (this._currentCOPService == "getHeaderFields") {
-                            var headerFields = [];
+                            this.headerFields = [];
+                            this.attributeFields = [];
+                            this.fileFormat = "";
+                            this.skipContextMapping = false;
                             var workAutomationId = "";
-                            if(DataHelper.isValidObjectPath(res, "dataObjectOperationResponse.statusDetail.message.headers.Entities")) {
-                                headerFields = res.dataObjectOperationResponse.statusDetail.message.headers.Entities;
+                            if(DataHelper.isValidObjectPath(res, "dataObjectOperationResponse.statusDetail.message.headers")) {
+                                var response = res.dataObjectOperationResponse.statusDetail.message.headers;
+                                this.headerFields = response.entities;
+                                this.fileFormat = response.format || "Excel";
+                                this.skipContextMapping = response.skipContextMapping;
                             }
 
                             if(DataHelper.isValidObjectPath(res, "dataObjectOperationResponse.statusDetail.message.workAutomationId")) {
                                 workAutomationId = res.dataObjectOperationResponse.statusDetail.message.workAutomationId;
                             }
 
-                            if(!headerFields || headerFields.length == 0) {
+                            if(!this.headerFields || this.headerFields.length == 0) {
                                 this.showErrorToast("Unable to continue with mappings customization, please contact administrator.");
                                 this._loading = false;
                                 this._isDirty = false;
                                 return;
                             }
-
-                            this._hideView("entity-import");
-                            this._hideButtons();
-                            this._importContextComponent(headerFields);
-                            this._loading = false;
-                            this._isDirty = false;
-                            return;
+                            //Fetch contexts, taxonomies, external names and domain
+                            this._setContexts();
                         } else if (this._currentCOPService == "transform" && res.entities && res.entities.length > 0) {
                             this._entities = res.entities;
                             var maxNoOfRows = this._gridConfig.itemConfig.maxNoOfRows;
@@ -690,6 +846,13 @@
                     this._isDirty = false;
                 },
                 _onCOPProcessComplete: function () {
+                    var _entityType = "";
+                    if(!_.isEmpty(this.contextData)) {
+                        var _itemContext = ContextHelper.getFirstItemContext(this.contextData);
+                        if(_itemContext){
+                            _entityType = _itemContext.type;
+                        }
+                    }
                     var data = {
                         "messages": [
                             {
@@ -711,6 +874,14 @@
                                 "dataRoute": "task-detail",
                                 "queryParams": {
                                     "id": this._workAutomationId
+                                }
+                            },
+                            {
+                                "name": "nextAction",
+                                "text": "Upload more entities",
+                                "dataRoute": "upload-excel",
+                                "queryParams": {
+                                    "type": _entityType
                                 }
                             }
                         ]
@@ -1129,12 +1300,20 @@
                     this.showErrorToast("Failed to download category model template. Please contact administrator.");
                     this._downloadInProgress = false;
                 },
-                _importContextComponent: function (headerFields) {
+                _importContextComponent: function () {
                     this._showView("context-mappings");
                     var copCtx = DataHelper.cloneObject(this.copContext);
                     var mappingData = {
-                        "headerFields": headerFields
+                        "headerFields": this.headerFields,
+                        "contexts": this.contexts,
+                        "taxonomies": this.taxonomies,
+                        "domain": this.domain,
+                        "entityTypeExternalName": this.entityTypeExternalName,
+                        "contextExternalNames": this.contextExternalNames,
+                        "saveActions": this._getMappingsSaveActions("context-mappings-save", " & Continue"),
+                        "fileFormat": this.fileFormat
                     }
+
                     var component = {
                         "name": "rock-context-mappings-grid",
                         "path": "/../../src/elements/rock-context-mappings/rock-context-mappings-grid.html",
@@ -1154,10 +1333,15 @@
                     this._showView("mappings");
                     var copCtx = DataHelper.cloneObject(this.copContext);
                     var mappingData = {
-                        "headerFields": this.attributeFields,
+                        "headerFields": this.attributeFields && this.attributeFields.length > 0 ? this.attributeFields : this.headerFields,
                         "taxonomies": this.taxonomies,
                         "contexts": this.contexts,
-                        "domain": this.domain
+                        "domain": this.domain,
+                        "saveActions": this._getMappingsSaveActions("attribute-mappings-save"),
+                        "saveImportActions": this._getMappingsSaveActions("attribute-mappings-save-import", " & Import"),
+                        "saveValueMappingsActions": this._getMappingsSaveActions("value-mappings-save"),
+                        "saveValueMappingsContinueActions": this._getMappingsSaveActions("value-mappings-save-continue", " & Continue"),
+                        "fileFormat": this.fileFormat
                     }
 
                     var component = {
@@ -1190,8 +1374,13 @@
                     this._generateCopRequest(url, this._fileDetails);
                 },
                 _onFieldMappingsBack: function (e, detail) {
-                    this._hideView("mappings");
-                    this._showView("context-mappings");
+                    if(this.skipContextMapping) {
+                        this._hideView("mappings");
+                        this._showView("entity-import");
+                    } else {
+                        this._hideView("mappings");
+                        this._showView("context-mappings");
+                    }
                 },
                 _onFieldMappingsImport: function (e, detail) {
                     this._customizeMappings = false;
@@ -1207,11 +1396,32 @@
                     this._showView("entity-import");
                 },
                 _onContextMappingsSkipOrSave: function(e, detail) {
-                    this.taxonomies = detail.taxonomies;
-                    this.contexts = detail.contexts;
                     this.attributeFields = detail.nonContextFields;
-                    this.domain = detail.domain;
                     this._importMappingComponent();
+                },
+                _getMappingsSaveActions: function(eventName, addOnText) {
+                    eventName = eventName || "";
+                    addOnText = addOnText || "";
+
+                    return [{
+                        "actions": [
+                            {
+                                "value": "self",
+                                "text": "Save only for me" + addOnText,
+                                "event": eventName
+                            },
+                            {
+                                "value": "role",
+                                "text": "Save for users with my role" + addOnText,
+                                "event": eventName
+                            },
+                            {
+                                "value": "all",
+                                "text": "Save for all" + addOnText,
+                                "event": eventName
+                            }
+                        ]
+                    }]
                 }
             });
         })();

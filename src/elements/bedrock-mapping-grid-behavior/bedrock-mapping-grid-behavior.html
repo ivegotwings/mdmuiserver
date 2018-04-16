@@ -1,0 +1,287 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-app-context-behavior/bedrock-app-context-behavior.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+
+<script>
+    /***
+    * `RUFBehaviors.MappingGridBehavior` provides common properties for rock-attribute-mapping-grid and rock-value-mapping-grid
+    *
+    *  ### Example
+    *
+    *     <dom-module id="x-app">
+    *        <template>
+    *        </template>
+    *        <script>
+    *           Polymer({
+    *             is: "x-app",
+    *
+    *             behaviors: [
+    *               RUFBehaviors.MappingGridBehavior
+    *             ],
+    *
+    *             properties: {
+    *              
+    *             }
+    *           });
+    *        &lt;/script>
+    *     </dom-module>
+    */
+
+    window.RUFBehaviors = window.RUFBehaviors || {};
+    /** @polymerBehavior RUFBehaviors.MappingGridBehavior */
+    RUFBehaviors.MappingGridBehaviorImpl = {
+        properties: {
+            contextData: {
+                type: Object,
+                value: function () { return {}; }
+            },
+
+            modelContextData: {
+                type: Object,
+                value: function () { return {}; }
+            },
+
+            mappingConfig: {
+                type: Object,
+                value: function () { return {}; }
+            },
+
+            mappingData: {
+                type: Object,
+                value: function () { return {}; }
+            },
+
+            _deletedMappings: {
+                type: Array,
+                value: function () {
+                    return [];
+                }
+            },
+
+            _loading: {
+                type: Boolean,
+                value: false
+            },
+
+            _taxonomies: {
+                type: Array,
+                value: function () {
+                    return [];
+                }
+            },
+
+            _contexts: {
+                type: Array,
+                value: function() {
+                    return [];
+                }
+            },
+
+            _gridData: {
+                type: Array,
+                value: function () { return []; }
+            },
+
+            _isMappingChanged: {
+                type: Boolean,
+                value: false
+            },
+
+            _dirtyCheckConfirmationMessage: {
+                type: String,
+                value: "Are you sure you want to discard the unsaved changes?"
+            }
+        },
+
+        observers: [
+            "_onMappingsDataChange(mappingData, contextData, copContext, mappingConfig)"
+        ],
+
+        get getMappingsLiq() {
+            this._getMappingsLiq = this._getMappingsLiq || this.shadowRoot.querySelector("#getMappings");
+            return this._getMappingsLiq;
+        },
+
+        get liquidAttributeModelGetLiq() {
+            this._liquidAttributeModelGet = this._liquidAttributeModelGet || this.shadowRoot.querySelector("[name=liquidAttributeModelGet]");
+            return this._liquidAttributeModelGet;
+        },
+
+        _onMappingsDataChange() {
+            throw new Error('_onMappingsDataChange not implemented');
+        },
+
+        _sendMappingRequest(req) {
+            if(this.getMappingsLiq) {
+                this.getMappingsLiq.requestData = req;
+                this.getMappingsLiq.generateRequest();
+            }
+        },
+
+        _prepareContexts: function(inputContexts) {
+            var _contexts = [];
+            for(var i = 0; i < inputContexts.length; i++) {
+                var context = {};
+                if(this.selectedDimensions && 
+                    this.selectedDimensions[inputContexts[i]] && 
+                    this.selectedDimensions[inputContexts[i]].length) {
+                    context.type = inputContexts[i];
+                    context.value = this.selectedDimensions[inputContexts[i]][0];
+                } else {
+                    context.type = inputContexts[i];
+                    context.value = "_DEFAULT";
+                }
+                _contexts.push(context);
+            }
+
+            return _contexts;
+        },
+
+        _isValidResponseStatus(detail) {
+            return DataHelper.isValidObjectPath(detail, "response.response.status") && 
+                        detail.response.response.status.toLowerCase() == "success";
+        },
+
+        _isDataAvailable: function (data) {
+            return data && data.length > 0;
+        },
+
+        _onAddTap: function (data) {
+            const gridData = Object.assign({
+                "source": "ui",
+                "action": "new",
+                "index": this._gridData.length
+            }, data);
+
+            this.push("_gridData", gridData);
+            this._isMappingChanged = true;
+        },
+
+        _onDeleteTap: function (predicat) {
+            var grid = this.mappingGrid;
+            if (!grid) return;
+
+            var selectedItems = grid.getSelectedItems();
+            if (selectedItems.length == 0) {
+                //Show message if needed - Please select an item for delete
+                return;
+            }
+            var gridData = [];
+            for (var i = 0; i < this._gridData.length; i++) {
+                var isDelete = false;
+                for (var j = 0; j < selectedItems.length; j++) {
+                    if(predicat(this._gridData[i], selectedItems[j]) && this._gridData[i].index == selectedItems[j].index) {
+                        isDelete = true;
+                        break;
+                    }
+                }
+
+                if (!isDelete) {
+                    gridData.push(this._gridData[i]);
+                } else {
+                    if (this._gridData[i].action != "new") {
+                        this._gridData[i].action = "deleted";
+                        this._deletedMappings.push(this._gridData[i]);
+                    }
+                    this._isMappingChanged = true;
+                }
+            }
+
+            //Reset row index
+            for(var i = 0; i < gridData.length; i++) {
+                gridData[i].index = i;
+            }
+
+            this.set("_gridData", gridData);
+        },
+
+        _onDimensionsChanged: function(e, detail) {
+            if(!detail && !detail.dimensions) {
+                return;
+            }
+            var dimensions = detail.dimensions;
+            if((!dimensions.taxonomy || dimensions.taxonomy.length == 0) &&
+               (!dimensions.classification || dimensions.classification.length == 0)) {
+                return;
+            }
+            if(dimensions.taxonomy && 
+               dimensions.taxonomy.length) {
+                if(this._currentTaxonomy != dimensions.taxonomy[0]) {
+                    this._currentTaxonomy = dimensions.taxonomy[0];
+                    if(this.dimensionSelector) {
+                        for(var i = 0; i < this._taxonomies.length; i++) {
+                            if(this._taxonomies[i].name.toLowerCase() == this._currentTaxonomy.toLowerCase()) {
+                                this.dimensionSelector.classificationTaxonomy = this._taxonomies[i].id;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            //Update data contexts
+            if((dimensions.taxonomy && dimensions.taxonomy.length > 0) &&
+               (dimensions.classification && dimensions.classification.length > 0)) {
+                var dataContexts = [{
+                    "taxonomy": dimensions.taxonomy[0],
+                    "classification": dimensions.classification[0]
+                }];
+                this.modelContextData[ContextHelper.CONTEXT_TYPE_DATA] = dataContexts;
+            }
+
+            this.debounce('loadMappings', function () {
+                //Load mappings
+                this._loadMappings();
+            }, 1000);
+        },
+
+        _loadMappings: function() {
+            if(this.dimensionSelector) {
+                this.selectedDimensions = this.dimensionSelector.selectedDimensions;
+                this._resetMappings(); // Reset before get
+                this._getMappings(); // Get mappings based on dimensions
+            }
+        },
+
+        _triggerDirtyCheck: function (component) {
+            if (this._isMappingChanged) {
+                this._openDirtyCheckDialog(component);
+                return;
+            }
+
+            this._triggerEvent();
+        },
+
+        _openDirtyCheckDialog: function(component) {
+            var id = "#" + component + "-mappings-dirty-check-Dialog";
+            var dialog = this.shadowRoot.querySelector(id);
+
+            if(dialog) {
+                dialog.open();
+            }
+        },
+
+        _triggerEvent: function () {
+            var eventDetail = {};
+            if (!this.currentEventDetails) {
+                this.currentEventDetails = {
+                    "name": this.currentEventName
+                }
+            }
+            this.fireBedrockEvent(this.currentEventName, this.currentEventDetails, { ignoreId: true });
+
+            //reset
+            this.currentEventName = "";
+            this.currentEventDetails = {};
+            this._isMappingChanged = false;
+        },
+
+        _onDimensionConfirmationOK: function () {
+            this._isMappingChanged = false; //Changes discarded on dimension selector
+        }
+    };
+
+    /** @polymerBehavior */
+    RUFBehaviors.MappingGridBehavior = [RUFBehaviors.UIBehavior, RUFBehaviors.ComponentContextBehavior, RUFBehaviors.MappingGridBehaviorImpl];
+</script>

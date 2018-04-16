@@ -33,16 +33,11 @@
 <link rel="import" href="../liquid-dataobject-preload/liquid-dataobject-preload.html">
 <link rel="import" href="../liquid-config-get/liquid-config-get.html">
 <link rel="import" href="../rock-login/rock-login.html">
-<link rel="import" href="../rock-content-view-manager/rock-content-view-manager.html">
 <link rel="import" href="../rock-app-repository/rock-app-repository.html">
-
 <link rel="import" href="../rock-business-function-elements/rock-business-function-elements.html">
 <link rel="import" href="../rock-component-config-behavior/rock-component-config-behavior.html">
 <link rel="import" href="../bedrock-style-manager/bedrock-style-theme-provider.html">
 <link rel="import" href="../bedrock-helpers/bedrock-helpers.html">
-
-<link rel="import" href="../bedrock-notification-receiver/bedrock-notification-receiver.html">
-<link rel="import" href="../bedrock-dataobject-notification-handler/bedrock-dataobject-notification-handler.html">
 
 <script type="text/javascript" src="../../scripts/fileDownloader.js"></script>
 <script type="text/javascript" src="../../scripts/Base64.js"></script>
@@ -61,9 +56,6 @@ var Globals = Globals || {};
 
 Globals.requestCount = 0;
 Globals.responseCount = 0;
-
-
-pages= ["dashboard", "entity-discovery", "asset-discovery", "reference-discovery", "compare-entities", "system-healthcheck", "entity-manage", "govmodel-dashboard", "basemodel-dashboard"];
 
 </script>
 
@@ -178,14 +170,6 @@ Main os app for riversand ui framework
                     RUFUtilities.mainApp   = Polymer.dom(document).querySelector("main-app");
                     this._userDetails = userDetail;
                     this._onUserDetailsChange();
-                    var pageurl =  location.href.substring(location.href.lastIndexOf('/') + 1, (location.href.indexOf('?') === -1 ? location.href.length: location.href.indexOf('?')));
-                    if(pages.indexOf(pageurl) !== -1) {
-                        this.page = pageurl;
-                        this.changePageRoutePath(pageurl);
-                    } else {
-                        this.page = 'dashboard';
-                        this.changePageRoutePath('dashboard');
-                    }
                 }
             },
             properties: {
@@ -217,6 +201,11 @@ Main os app for riversand ui framework
                 appRepository: {
                     type: Object,
                     notify: true
+                },
+                //only one instance of main-app component is expected so single pages array instance is fine
+                pages: {
+                    type: Object,
+                    value: []
                 },
                 globalSettings: {
                     type: Object,
@@ -445,7 +434,6 @@ Main os app for riversand ui framework
                 location.reload();
             },
             onViewOpen: function (e, customArgs) {
-
                 var queryParams;
 
                 if (!customArgs || !customArgs.config) {
@@ -454,37 +442,36 @@ Main os app for riversand ui framework
 
                 if (!isEmpty(this.queryParams)) {
                     queryParams = this.queryParams;
-                }
-                for (var i = 0; i < this.menuItems.length; i++) {
-                    if (this.menuItems[i].data_route == customArgs.config.data_route) {
-                        if (!queryParams) {
-                            return;
-                        } else if (JSON.stringify(queryParams) == JSON.stringify(this.menuItems[i].queryParams)) {
-                            return;
-                        }
-                    }
-                    if (this.menuItems[i].menuItems) {
-                        for (var j = 0; j < this.menuItems[i].menuItems.length; j++) {
-                            if (this.menuItems[i].menuItems[j].data_route == customArgs.config.data_route) {
-                                if (!queryParams) {
-                                    return;
-                                } else if (JSON.stringify(queryParams) == JSON.stringify(this.menuItems[i].menuItems[
-                                    j].queryParams)) {
+                    RUFUtilities.notinnavmenu  = RUFUtilities.notinnavmenu ? RUFUtilities.notinnavmenu : _.difference(Object.keys(this.appRepository), RUFUtilities.menuTitles);
+                    if (RUFUtilities.notinnavmenu.indexOf(customArgs.config.data_route) === -1) {
+                        for (var i = 0; i < this.menuItems.length; i++) {
+                            if (this.menuItems[i].data_route == customArgs.config.data_route) {
+                                if (!queryParams || JSON.stringify(queryParams) == JSON.stringify(this.menuItems[i].queryParams)) {
                                     return;
                                 }
+                            }
+
+                            if (this.menuItems[i].menuItems) {
+                                for (var j = 0; j < this.menuItems[i].menuItems.length; j++) {
+                                    if (this.menuItems[i].menuItems[j].data_route == customArgs.config.data_route) {
+                                        if (!queryParams || JSON.stringify(queryParams) == JSON.stringify(this.menuItems[i].menuItems[
+                                            j].queryParams)) {
+                                            return;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } 
+                    for (i = 0; i < this.activeItems.length; i++) {
+                        if (this.activeItems[i].data_route == customArgs.config.data_route) {
+                            if (!queryParams || JSON.stringify(queryParams) == JSON.stringify(this.activeItems[i].queryParams)) {
+                                return;
                             }
                         }
                     }
                 }
-                for (i = 0; i < this.activeItems.length; i++) {
-                    if (this.activeItems[i].data_route == customArgs.config.data_route) {
-                        if (!queryParams) {
-                            return;
-                        } else if (JSON.stringify(queryParams) == JSON.stringify(this.activeItems[i].queryParams)) {
-                            return;
-                        }
-                    }
-                }
+
                 var config = DataHelper.cloneObject(customArgs.config);
                 config.queryParams = queryParams;
                 this.push("activeItems", config);
@@ -508,7 +495,16 @@ Main os app for riversand ui framework
                 if (!cElement) {
                     Polymer.Async.timeOut.after(100).run(() => {
                         Polymer.RenderStatus.afterNextRender(this, () => {
-                            Polymer.importHref(Polymer.ResolveUrl.resolveUrl('../../src/elements/app-common/app-common.html'),null,null,true);
+                            Polymer.importHref(Polymer.ResolveUrl.resolveUrl('../../src/elements/app-common/app-common.html'), null, null, true);
+                            var localeManager = ComponentHelper.getLocaleManager();
+                            if (localeManager) {
+                                localeManager.preload();
+                            }
+                            var entityTypeManager = EntityTypeManager.getInstance();
+
+                            if (entityTypeManager) {
+                                entityTypeManager.preload();
+                            }
                         });
                     });
                 }
@@ -557,15 +553,38 @@ Main os app for riversand ui framework
                     this.page = page || '';
                 }
             },
+            _fillPages: function(pages, appRepository) {
+                if(_.isEmpty(this.pages) && !_.isEmpty(appRepository)) {
+                    for(let appName in appRepository) {
+                        let appConfig = appRepository[appName];
+                        if(!_.isEmpty(appConfig) && appConfig.data_route && pages.indexOf(appConfig.data_route) < 0) {
+                            pages.push(appConfig.data_route);
+                        }
+                    }
+                }
+            },
             _pageChanged: function (page, appRepository, queryParams) {
                 this._debouncer = Polymer.Debouncer.debounce(this._debouncer, Polymer.Async.timeOut.after(0), () => {
-                    if (page != undefined && queryParams != undefined && appRepository !=undefined) {
-                        var contentViewManager = this.contentViewManager;
-                        if (contentViewManager) {
-                            ComponentHelper.setQueryParamsWithoutEncode(queryParams);
-                            contentViewManager.openView(page, this.appRepository[page], this.queryParams, this.openAction);
+                    if (page != undefined && queryParams != undefined && !_.isEmpty(appRepository)) {
+                        this._fillPages(this.pages, appRepository);
+                        var pageurl =  location.href.substring(location.href.lastIndexOf('/') + 1, (location.href.indexOf('?') === -1 ? location.href.length: location.href.indexOf('?')));
+                        if(this.pages.indexOf(pageurl) !== -1) {
+                            this.page = pageurl;
+                            this.changePageRoutePath(pageurl);
+                            var that = this;
+                            Polymer.importHref(Polymer.ResolveUrl.resolveUrl('../../src/elements/rock-content-view-manager/rock-content-view-manager.html'), function() { 
+                                that.contentViewManager = that.shadowRoot.querySelector('#contentViewManager');
+                                var contentViewManager = that.contentViewManager;
+                                if (contentViewManager) {
+                                    ComponentHelper.setQueryParamsWithoutEncode(queryParams);
+                                    contentViewManager.openView(page, that.appRepository[page], that.queryParams, that.openAction);
+                                }
+                            }, null, true);
+                            ComponentHelper.emptyDeleteQueue();
+                        } else {
+                            this.page = 'dashboard';
+                            this.changePageRoutePath('dashboard');
                         }
-                        ComponentHelper.emptyDeleteQueue();
                     }
                     this.dispatchEvent(new CustomEvent('bedrock-event', {
                         detail: {

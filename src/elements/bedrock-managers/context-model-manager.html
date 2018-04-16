@@ -11,6 +11,7 @@
 
         let _contextModels;
         let _entityTypes;
+        let _promiseResolve;
 
         async function _init() {
             _entityTypes = await EntityTypeManager.getInstance().getTypesByDomainAsync("thing");
@@ -19,8 +20,18 @@
             }
         }
 
+        function _preInit() {
+            return new Promise((resolve, reject) => {
+                _promiseResolve = resolve;
+                _init();
+            });
+        }
+
         function _getContextModelBasedOnEntityTypes() {
             var liquidEntityCustomElement = customElements.get("liquid-rest");
+
+            if(typeof liquidEntityCustomElement !== 'function') return;
+
             var liquidEntityModelGet = new liquidEntityCustomElement();
 
             liquidEntityModelGet.url = "/data/pass-through/entitymodelservice/getcontext";
@@ -55,6 +66,10 @@
                             _contextModels[element.name] = element;
                         }
                     });
+                }
+
+                if (_promiseResolve) {
+                    _promiseResolve();
                 }
             }
         }
@@ -127,7 +142,7 @@
         class ContextModelManager {
             constructor() {
                 if (!contextModelManagerInstance) {
-                    _init();
+                    _preInit();
                     contextModelManagerInstance = this;
                 }
 
@@ -136,9 +151,12 @@
 
             async getByEntityType(entityType) {
                 if (!_contextModels) {
-                    await _init();
+                    if(await _preInit()) {
+                        return _contextModels[entityType];
+                	}
                 }
-                return _contextModels[entityType];
+
+                return  _contextModels ? _contextModels[entityType] : undefined;
             }
 
             async getContextModelsBasedOnEntityType(entityType) {

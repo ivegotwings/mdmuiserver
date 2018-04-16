@@ -121,6 +121,9 @@
                 --pebble-icon-dimension:{
                     width: 12px;
                     height: 12px;
+                };
+                --pebble-button-left-icon: {
+                    margin-right: 5px;
                 }
             }
 
@@ -179,7 +182,7 @@
                     <div class="layout horizontal">
                         <template is="dom-if" if="[[_getVisibility('rock-entity-type-model-lov')]]">
                             <div class="entityTypeFilterContainer m-r-10">
-                                <pebble-button id="entityTypeFilterButton" button-text="Entity Type" dropdown-icon noink
+                                <pebble-button id="entityTypeFilterButton" button-text="[[entityTypeFilterText]]" dropdown-icon noink
                                     class="dropdownText dropdownIcon btn dropdown-outline-primary dropdown-trigger" on-tap="_openEntityTypeFilterLov"></pebble-button>
                                 <pebble-popover id="entityTypeFilterPopover" for="entityTypeFilterButton" no-overlap  vertical-align="auto"
                                     horizontal-align="auto">
@@ -211,7 +214,11 @@
                                                     attribute-grid-data="{{attributeGridData}}"
                                                     workflow-criterion="[[_workflowCriterion]]" 
                                                     relationships-data="[[_relationshipsData]]"
-                                                    search-query="{{searchQuery}}">
+                                                    rel-entity-data="[[_relEntityData]]"
+                                                    search-query="{{searchQuery}}"
+                                                    lov-settings="[[_getComponentSettings('rock-entity-type-model-lov')]]"
+                                                    entity-type-filter-text="[[entityTypeFilterText]]"
+                                                    settings="[[_getComponentSettings('rock-query-builder')]]">
                                                 </rock-query-builder>                                   
                                             </template>
                                         </div>
@@ -237,11 +244,11 @@
                             <bedrock-pubsub event-name="rock-saved-search-click" handler="_loadSavedSearch" target-id=""></bedrock-pubsub>
                         </template>
                     </div>
-                    <div class="layout horizontal p-t-10">                    
+                    <div class="layout horizontal p-t-15">                    
                         <template is="dom-if" if="[[_getVisibility('rock-entity-search-filter')]]">
                             <div class="flex searchFilterTag">
                                 <rock-entity-search-filter id="entitySearchFilter" attributes-type="mapped" selected-search-filters="{{_selectedSearchFilters}}" context-data="{{contextData}}"
-                                    types-criterion="[[_typesCriterion]]" tags="{{tags}}" filters-config="[[_getAttributeSortDetails(configData)]]"></rock-entity-search-filter>
+                                    types-criterion="[[_typesCriterion]]" tags="{{tags}}" filters-config="[[_getAttributeSortDetails(configData)]]" settings="[[_getComponentSettings('rock-entity-search-filter')]]"></rock-entity-search-filter>
                                 <bedrock-pubsub event-name="tag-item-added" handler="_showResetSearch"></bedrock-pubsub>
                                 <bedrock-pubsub event-name="tag-item-remove" handler="_showResetSearch"></bedrock-pubsub>
                                 <bedrock-pubsub event-name="build-query" handler="_buildQueryString"></bedrock-pubsub>                            
@@ -500,13 +507,22 @@
                             return {};
                         }
                     },
+                    _relEntityData: {
+                        type: Object,
+                        value: function (){
+                            return {};
+                        }
+                    },
                     _relationshipSearchFilters: {
                         type: Array,
                         value: function () {
                             return [];
                         }
                     },
-
+                    entityTypeFilterText: {
+                        type: String,
+                        value: "Type"
+                    }
                 },
 
                 behaviors: [
@@ -517,25 +533,7 @@
 
                 _onContextDataChange: function() {
                     if(!_.isEmpty(this.contextData)) {
-                        var context = DataHelper.cloneObject(this.contextData);
-                        //App specific
-                        var appName = ComponentHelper.getCurrentActiveAppName();
-                        if(appName) {
-                            context[ContextHelper.CONTEXT_TYPE_APP] = [{
-                                "app": appName
-                            }];
-                        }
-
-                        if(this.domain) {
-                            context[ContextHelper.CONTEXT_TYPE_DOMAIN] = [{
-                                "domain": this.domain
-                            }];
-                        }
-                        //set the context data with the domain 
-                        if(!this.contextData.DomainContexts){
-                            this.set("contextData.DomainContexts",context.DomainContexts);
-                        }
-                        this.requestConfig('rock-entity-search-discovery', context);
+                        this.requestConfig('rock-entity-search-discovery', this.contextData);
                     }
                 },
 
@@ -571,6 +569,11 @@
 
                 _configDataChanged: function () {
                     if (!DataHelper.isEmptyObject(this.configData)) {
+                        if(this.configData && this.configData.componentSettings && this.configData.componentSettings["rock-entity-type-model-lov"]){
+                            if(this.configData.componentSettings["rock-entity-type-model-lov"].title){
+                                this.entityTypeFilterText = this.configData.componentSettings["rock-entity-type-model-lov"].title;
+                            }                           
+                        }                    
                         this._processTemplate = true;
                         Polymer.dom.flush();
                         
@@ -776,8 +779,14 @@
                     if(queryBuilder){
                         queryBuilder.onOpenQueryBuilder();
                     }
-                    this._queryBuilderEnabled = true; 
-                        
+                    this._queryBuilderEnabled = true;
+                    var that = this;
+                    Polymer.Async.timeOut.after(3000).run(() => {
+                        if (that.queryBuilderHidden) {
+                            that._queryBuilderEnabled = false;
+                            that.queryBuilderHidden = false;
+                        }
+                    });
                 },
 
                 _hideQueryBuilder: function (e) {                    
@@ -793,10 +802,10 @@
 
                     // Clear SavedSearch
                     if(this._savedSearchButton) {
-                        this._savedSearchButton.buttonText = "Saved Search";
+                        this._savedSearchButton.buttonText = "Load Saved Search";
                         this.savedSearchId = "";
                     }
-                    
+
                     // Clear SearchFilter
                     this.tags = []; // Todo
                     this._selectedSearchFilters = [];
@@ -810,8 +819,10 @@
 
                     //Clear the advanced search options
                     this.inputQueryString = "";
-                    this.attributeGridData = new Array();
-                    this.set("_workflowCriterion", new Object());
+                    this.attributeGridData = [];
+                    if(!this.workflowName){
+                        this.set("_workflowCriterion", new Object());
+                    }
                     this.set("_governDataCriterion", new Object());
                     
                     var queryBuilder = this.shadowRoot.querySelector("#queryBuilder");
@@ -970,6 +981,7 @@
                 _formatSavedSearchTags: function(searchFilters, attributeModels) {
                     if(searchFilters.length > 0) {
                         var tags = [];
+                        searchFilters = this.getFilterValue(searchFilters);
                         for(var i = 0; i < searchFilters.length; i++) {
                             var filter = searchFilters[i];
                             if(!_.isEmpty(filter)) {
@@ -986,7 +998,9 @@
                                         tag.options = DataHelper.cloneObject(attrModel);
                                     }
                                     tag.value = attribute;
-                                    if(attribute.type === "_STRING") {
+                                    if(attribute.hasvalue != undefined){
+                                        tag.displayValue = attribute.hasvalue ? "!%&has value!%&" : "!%&has no vlaue!%&";
+                                    }else if(attribute.type === "_STRING") {
                                         if(attribute.exacts) {
                                             tag.displayValue = this._entitySearchFilterElement.formatFilterCollectionDisplay(attribute.exacts);
                                         } else if(attribute.contains) {
@@ -1004,9 +1018,9 @@
                                         tag.displayValue = attribute.eq;
                                     } else if(attribute.type === "_DATETIME") {
                                         if(attribute.lte === attribute.gte) {
-                                            tag.displayValue = attribute.gte;
+                                            tag.displayValue = FormatHelper.convertFromISODateTime(attribute.gte, tag.options.dataType);
                                         } else {
-                                            tag.displayValue = attribute.gte + " - " + attribute.lte;
+                                            tag.displayValue = FormatHelper.convertFromISODateTime(attribute.gte, tag.options.dataType) + " - " + FormatHelper.convertFromISODateTime(attribute.lte, tag.options.dataType);
                                         }
                                     }
                                 }
@@ -1173,6 +1187,9 @@
                 },
 
                 _onSelectedEntityTypesChange: function (e, detail) {
+                    if(!Array.isArray(detail.data)){
+                        this._selectedEntityTypes = [detail.data];
+                    }
                     this._buildQueryString();
                 },
 
@@ -1249,8 +1266,7 @@
                         }
                     } else {
                         if (this._searchGridElement) {
-                            this._searchGridElement.contextData = {};
-                            this._searchGridElement.contextData = this.contextData;
+                            this._searchGridElement.refresh();
                         }
                     }
                 },
@@ -1258,7 +1274,10 @@
                     this._buildQueryString();
                 },
                 attached: function () {		
-                     this._setGridHeight();		
+                     this._setGridHeight();	
+                     this.queryBuilderHidden = true;
+                     this._showQueryBuilder();
+
                  },		
                  _setGridHeight: function () {		
                      var rockGridHeight = 0;		
@@ -1314,7 +1333,7 @@
                 * Getting the active selected entities when typescriterion changes
                 **/
                 _getActiveEntityTypes: function(activeEntities){
-                    var selectedEntityTypes = new Array();
+                    var selectedEntityTypes = [];
                     if(activeEntities && !_.isEmpty(activeEntities)){
                         selectedEntityTypes = this._getSelectedEntityTypes(activeEntities);  
                     }
@@ -1332,10 +1351,10 @@
                     
                     var queryBuilder = this.shadowRoot.querySelector("#queryBuilder");
                     var queryBuilderData = {};
-                    queryBuilderData.workflowGridData = workflowGridData;
                     if(queryBuilder){
                         queryBuilderData = queryBuilder.getQueryBuilderData();
-                    }  
+                    }
+                    queryBuilderData.workflowGridData = workflowGridData;
 
                     //User has input some keyword search criteria
                     var keywordSearchStr = "";
@@ -1345,7 +1364,7 @@
                     //this binding not working it returns null
                     //hardbinding directly to behavior
                     var entityTypes =  RUFBehaviors.QueryBuilderBehavior.getSelectedEntityTypes(this._selectedEntityTypes); 
-                    var attributeListArray = new Array();
+                    var attributeListArray = [];
 
                     if(detail) {
                         var attributeList = detail;
@@ -1353,6 +1372,9 @@
                         var queryParser = this.shadowRoot.querySelector("[id=queryParser]");
                         for(var i=0;i<attributeList.length;i++){
                             var value = attributeList[i].displayValue;
+                            if((DataHelper.isValidObjectPath(attributeList[i], 'options.dataType')) && attributeList[i].options.dataType == "boolean"){
+                                value = attributeList[i].booleanSearchValue;
+                            }
                             if(queryParser) {
                                 value = queryParser.formatValue(value);
                             }
@@ -1414,6 +1436,9 @@
                         this._searchBarElement.query = this._searchQuery;
                         this._searchBarElement.searchText = this._searchQuery;
                         this._searchBarElement.setAttribute("placeholder","");
+                        if(queryStr.indexOf("!%&") > -1){
+                            queryStr = queryStr.replace( /!%&|=/g, "" );
+                        }
                         this._searchBarElement.setAttribute("placeholder",queryStr);
                     }
                     if(parsableQueryStr) {
@@ -1470,16 +1495,35 @@
                     var selectedEntityTypes = this._getSelectedEntityTypes(typesCriterion);
                     this.set("_selectedEntityTypes",selectedEntityTypes);
                     if(this._isSavedSearchLoad) {
+                        this._queryBuilderEnabled = true;
                         var attributeModels = searchFilters.compositeModels;
                         var relationshipModels = searchFilters.relationshipModels;
+                        this.set("_workflowCriterion", workflowCriterion);
                         this._isSavedSearchLoad = false;
-                        this._setRelationshipsData(relationshipSearchFilters, relationshipModels);
+                        this._setRelationshipsData(relationshipSearchFilters, relationshipModels, attributeModels);
                         this._populateHeaderControls(attributeModels);
+                        this._queryBuilderEnabled = false;
                     }
                     if(this._entitySearchFilterElement && this._entitySearchFilterElement.refresh) {
                         this._entitySearchFilterElement.refresh();
                     }                    
                     this.refresh();
+                },
+                getFilterValue:function(value,prevKey){
+                    var filerValues = [];
+                    for(var i=0;i<value.length;i++){
+                        var currentKey = Object.keys(value[i]);
+                        var currentAttribute = value[i][currentKey].attributes;
+                        var updatedKey = prevKey ? prevKey +"."+ currentKey : currentKey
+                        if(!currentAttribute){
+                            var filerValue = {};
+                            filerValue[updatedKey] = value[i][currentKey];
+                            filerValues.push(filerValue);
+                        }else{
+                            filerValues = filerValues.concat(this.getFilterValue(currentAttribute,updatedKey));
+                        }
+                    }
+                    return filerValues;
                 },
                 _setWorkflowGridData: function(workflowCriterion) {
                     var workflowListArray = [];
@@ -1502,23 +1546,40 @@
                     
                     return workflowListArray;
                 },
-                _setRelationshipsData: function(relationshipSearchFilters, relationshipModels) {
+                _setRelationshipsData: function(relationshipSearchFilters, relationshipModels, compositeModels) {
                     var relationshipsData = {};
+                    var relEntityData = {};
                     if(!_.isEmpty(relationshipSearchFilters)) {
                         var relationshipfilterObj = relationshipSearchFilters[0];
                         var relationshipName = Object.keys(relationshipfilterObj)[0];
                         var relationshipLongName = relationshipModels[relationshipName][0].properties.externalName;
-                        var attributes = relationshipfilterObj[relationshipName].attributes;
+                        var relData = relationshipfilterObj[relationshipName];
+                        var attributes = relData.attributes;
                         var attrModels = [];
                         for(var key in relationshipModels[relationshipName][0].attributes) {
                             attrModels.push(relationshipModels[relationshipName][0].attributes[key]);
                         }
-                        var relationshipTags = this._formatSavedSearchTags(attributes, attrModels);
+
+                        if(relData.relTo && relData.relTo.type) {
+                            relEntityData.relEntityType = relData.relTo.type;
+                            if(DataHelper.isValidObjectPath(relData, "query.filters.attributesCriterion")) {
+                                let relEntityTags = this._formatSavedSearchTags(relData.query.filters.attributesCriterion, compositeModels);
+                                relEntityData.selectedAttributes = relEntityTags;
+                            }
+                        }
+
                         relationshipsData.relationshipName = relationshipName;
                         relationshipsData.relationshipLongName = relationshipLongName;
-                        relationshipsData.selectedAttributes = relationshipTags;
+                        if(!_.isEmpty(attributes)) {
+                            var relationshipTags = this._formatSavedSearchTags(attributes, attrModels);
+                            relationshipsData.selectedAttributes = relationshipTags;
+                        }
 
                         this.set("_relationshipsData", relationshipsData);
+
+                        if(!_.isEmpty(relEntityData)) {
+                            this.set("_relEntityData", relEntityData);
+                        }
                     }
                 },
 
@@ -1548,8 +1609,10 @@
                 updateContext: function (contextType, contexts) {
                     this.contextData[contextType] = contexts;
                     setTimeout(() => {
-                        if (this.shadowRoot.querySelector("#entityQuickManage")) {
-                            this.shadowRoot.querySelector("#entityQuickManage").reload();
+                        var quickManage = this.shadowRoot.querySelector("#entityQuickManage");
+                        if (quickManage) {
+                            quickManage.reload();
+                            quickManage.showExpandIcon = false;
                         }
                     }, 0);
                 },
