@@ -837,6 +837,10 @@ function _removeUnnecessaryProperties(reqObject) {
     if (reqObject && reqObject.entity && reqObject.entity.data) {
         var data = reqObject.entity.data;
 
+        if(data.webProcessingOptions) {
+            delete data.webProcessingOptions;
+        }
+
         if (data.attributes) {
             _removePropertiesFromAttributes(data.attributes);
         }

@@ -116,6 +116,13 @@
                     value: function () {
                         return {};
                     }
+                },
+
+                _preSelectedItems: {
+                    type: Array,
+                    value: function() {
+                        return [];
+                    }
                 }
             },
 
@@ -150,6 +157,7 @@
                     };
                     this.set('requestData', req);
                     this.generateRequest();
+                    this._preSelectedItems = this.selectedItems;
                 }
             },
             reset: function () {
@@ -185,6 +193,7 @@
                     if (res) {
                         let dataCollection = res.entities || res.entityModels;
                         if (!_.isEmpty(dataCollection)) {
+                            let selectedItems = this._preSelectedItems;
                             var entity = dataCollection[0];
                             if (entity && entity.data && !_.isEmpty(entity.data.contexts)) {
                                 var contexts = entity.data.contexts;
@@ -196,7 +205,7 @@
                                             items.push({ "id": item, "title": item, "type": this.contextName });
 
                                             if (this.selectedItemInfo && !_.isEmpty(this.selectedItemInfo) &&
-                                                (!this.selectedItems || this.selectedItems.length == 0)) {
+                                                (!selectedItems || selectedItems.length == 0)) {
                                                 var isMatch = true;
                                                 for (var key in this.selectedItemInfo) {
                                                     if (context[key] != this.selectedItemInfo[key]) {
@@ -205,27 +214,39 @@
                                                     }
                                                 }
                                                 if (isMatch) {
-                                                    this.selectedItems = [{ "id": item, "title": item, "type": this.contextName }];
-                                                    var eventDetail = {
-                                                        selectedItems: this.selectedItems
-                                                    }
-                                                    this.fireBedrockEvent("context-lov-selected-info-applied", eventDetail);
+                                                    selectedItems = [{ "id": item, "title": item, "type": this.contextName }];
                                                 }
                                             }
                                         }
                                     }
                                 }
+                            }
+
+                            if (items && this.externalDataFormatter && typeof this.externalDataFormatter == "function") {
+                                items = this.externalDataFormatter(items);
+                            }
+
+                            if (!_.isEmpty(items)) {
+                                if (_.isEmpty(selectedItems)) {
+                                    selectedItems = this.selectedItems;
+                                }
+
+                                if (!_.isEmpty(selectedItems)) {
+                                    let existingSelectedItem = items.find(v => v.title == selectedItems[0].title);
+                                    this.selectedItems = existingSelectedItem ? [existingSelectedItem] : [];
+                                }
                             } else {
-                                this.selectedItems = [];
-                                this.fireBedrockEvent("context-lov-selected-info-applied");
+                                this.selectedItems = this._preSelectedItems = [];
+                                this.selectedItemInfo = undefined;
                             }
                         }
                     }
                 }
 
-                if (items && this.externalDataFormatter && typeof this.externalDataFormatter == "function") {
-                    items = this.externalDataFormatter(items);
+                var eventDetail = {
+                    selectedItems: this.selectedItems
                 }
+                this.fireBedrockEvent("context-lov-selected-info-applied", eventDetail);
 
                 this.items = items;
             },
@@ -244,6 +265,8 @@
             },
 
             _onLovConfirmButtonTapped: function (event) {
+                this.selectedItemInfo = undefined;
+                this._preSelectedItems = [];
                 var eventDetail = {
                     data: {
                         id: this.id
