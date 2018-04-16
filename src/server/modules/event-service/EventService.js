@@ -535,6 +535,7 @@ Eventservice.prototype = {
         var types = ["externalevent"];
         var req = this._getRequestJson(types);
 
+        //Below value context for event request and all events are always stored with en-US locale..do not apply tenant-config based default locale here
         if (attributeNames && attributeNames.length > 0) {
             req.params.fields.attributes = attributeNames;
             req.params.query.valueContexts = [{
