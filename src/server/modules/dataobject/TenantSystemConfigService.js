@@ -26,6 +26,7 @@ TenantSystemConfigService.prototype = {
         var tenantConfigResponse;
         var tenantConfigMetadata;
 
+        //rdf returns tenant config only if the tenant is dataplatform
         tenantConfigResponse = await this.post(url, tenantConfigRequest, "dataplatform");
         tenantConfigMetadata = this.getTenantMetadata(tenantConfigResponse);
         
@@ -38,15 +39,16 @@ TenantSystemConfigService.prototype = {
         return cacheKey;
     },
     getTenantMetadata: function(config){
+        
+        var tenantMetadata={};
         if(falcorUtil.isValidObjectPath(config, "response.configObjects.0")){
             var configObject = config.response.configObjects[0];
-            var tenantMetadata={};
             var {defaultValueLocale, defaultValueSource, timezone} = configObject.data.jsonData; 
             tenantMetadata.defaultValueLocale = defaultValueLocale;
             tenantMetadata.defaultValueSource = defaultValueSource;
             tenantMetadata.timezone = timezone;
-            return tenantMetadata;
         }
+        return tenantMetadata;
     }
 }
 
