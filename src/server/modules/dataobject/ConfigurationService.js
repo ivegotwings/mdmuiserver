@@ -37,7 +37,7 @@ ConfigurationService.prototype = {
         if (!this._validate(request)) {
             return;
         }
-
+        var tenantConfigResponse=null;
         var responses = [];
         var serviceUrl = RDF_SERVICE_NAME + "/" + serviceOperation;
         //console.log('request to config service ', JSON.stringify(request, null, 2));
@@ -92,37 +92,6 @@ ConfigurationService.prototype = {
             }
         };
         
-        var tenantConfigResponse=null;
-        if(requestContext.component == "global-settings"){
-            var tenantConfigRequest = {
-            "params": {
-                "query": {
-                    "id": requestContext.tenant,
-                    "filters": {
-                        "typesCriterion": [
-                        "tenantserviceconfig"
-                        ]
-                    }
-                },
-                "fields": {
-                    "properties": [
-                        "_ALL"
-                    ]
-                },
-                "options": {
-                    "totalRecords": 100
-                }
-                }
-            };
-            //console.log("calling tenantSystemConfigService");
-            var tenantConfigResponse = await this.tenantSystemConfigService.get(RDF_SERVICE_NAME + "/get", tenantConfigRequest);
-            console.log(tenantConfigResponse)
-            if (!tenantConfigResponse) {
-                var errorMsg = "".concat('Tenant config not found for :', requestContext.tenant);
-                logger.error(errorMsg, null, logger.getCurrentModule());
-                throw new Error(errorMsg);
-            }
-        }
         //console.log('base config request', JSON.stringify(baseConfigRequest, null, 2));
 
         var baseConfigResponse = await this.baseConfigService.get(RDF_SERVICE_NAME + "/get", baseConfigRequest);
@@ -145,13 +114,50 @@ ConfigurationService.prototype = {
 
         //Remove all nodes having key-value "visible:false"
         falcorUtil.deepRemoveNodesByKeyVal(finalConfigObject, "visible", false);
+
+        
+        if(requestContext.component == "global-settings"){
+            tenantConfigResponse = await this._getTenantSystemConfig(requestContext);
+        }
         if(tenantConfigResponse){
-            finalConfigObject.data.contexts[0].jsonData.config.tenantConfig = tenantConfigResponse; 
+            if (falcorUtil.isValidObjectPath(finalConfigObject, "data.contexts.0.jsonData.config")) {
+                finalConfigObject.data.contexts[0].jsonData.config.tenantSettings = tenantConfigResponse; 
+            }
         }
         var response = { "response": { "status": "success", "configObjects": [finalConfigObject] } };
 
         //console.log('response data ', JSON.stringify(response));
         return response;
+    },
+    _getTenantSystemConfig: async function(requestContext){
+        var tenantConfigRequest = {
+            "params": {
+                "query": {
+                    "id": requestContext.tenant,
+                    "filters": {
+                        "typesCriterion": [
+                        "tenantserviceconfig"
+                        ]
+                    }
+                },
+                "fields": {
+                    "properties": [
+                        "_ALL"
+                    ]
+                },
+                "options": {
+                    "totalRecords": 100
+                }
+                }
+            };
+            //console.log("calling tenantSystemConfigService");
+            var tenantConfigResponse = await this.tenantSystemConfigService.get(RDF_SERVICE_NAME + "/get", tenantConfigRequest);
+            if (!tenantConfigResponse) {
+                var errorMsg = "".concat('Tenant config not found for :', requestContext.tenant);
+                logger.error(errorMsg, null, logger.getCurrentModule());
+                throw new Error(errorMsg);
+            }
+            return tenantConfigResponse;
     },
     _getAndMergeNearestConfig: async function (requestContext, mergedConfigObject, isBase) {
         var tenant = requestContext.tenant;
