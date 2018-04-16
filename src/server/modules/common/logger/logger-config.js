@@ -1,5 +1,7 @@
 'use strict';
 require('../df-rest-service/df-rest-service-config.js');
+var stateManager = require('../state-manager/state-manager.js');
+
 var LOGGER_CONFIG = function () {
     /*  Log fomrat should be in following order
     ["RequestId", "GUID", "TenantId", "CallerServiceName", "CalleeServiceName", 
@@ -13,7 +15,7 @@ var LOGGER_CONFIG = function () {
         "objectType", "className", "method", "newTimestamp", "action",
         "inclusiveTime", "logMessage"];
 
-    this._modulesObject = {
+    this.baseTemplate = {
         "api-healthcheck": {
             "level": "info"
         },
@@ -236,11 +238,31 @@ var LOGGER_CONFIG = function () {
         
     };
 
-    this.getModulesObject = function () {
-        return this._modulesObject;
+    this.getBaseModulesObject = function () {
+        return this.baseTemplate;
+    }
+
+    this.getModulesObject = async function (key) {
+        var _obj = await stateManager.get(key);
+        if(!_obj) {
+            _obj = await stateManager.get("ALL-TENANT-ALL-USER");
+            if (!_obj) {
+                _obj = await stateManager.get("ALL-USER");
+                if (!_obj) {
+                    _obj = await stateManager.get("All-TENANT");
+                }
+            }
+        }
+        if (!_obj) {
+            return this.baseTemplate;
+        } else {
+            return _obj;
+        }
+
     };
-    this.setModulesObject = function (_obj) {
-        this._modulesObject = _obj;
+
+    this.setModulesObject = async function (key, template) {
+         await stateManager.set(key, template);
     };
 };
 
