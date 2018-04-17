@@ -73,7 +73,7 @@
           RUFBehaviors.UIBehavior,
           RUFBehaviors.ComponentContextBehavior
         ],
-        
+
         get compositeAttributeModelGetLiq() {
           this._compositeAttributeModelGetLiq = this._compositeAttributeModelGetLiq || this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
           return this._compositeAttributeModelGetLiq;
@@ -111,6 +111,9 @@
           var relationshipName = queryObject.entityRelationships && queryObject.entityRelationships.relationshipName ? queryObject.entityRelationships.relationshipName : undefined;
           this.searchFilters["relationshipName"] = relationshipName;
           if (relationshipName) {
+            if(relationshipName.indexOf("!%&") >  -1){
+              relationshipName = relationshipName.replace( /!%&/g, "" );
+            }
             itemContext.relationships = [relationshipName];
             this._relationshipAttributes = queryObject.entityRelationships && queryObject.entityRelationships.attributes ? queryObject.entityRelationships.attributes : undefined;
             var relationshipAttributes = this._relationshipAttributes ? this._getAttributeNames(this._relationshipAttributes) : ["_ALL"];
@@ -169,30 +172,37 @@
             this.push('_currentItems', attributeModels);
 
             if (this._currentItems.length == this._currentIndex) {
-              var compositeModels = [];
+              var compositeModelsWithNestedAttrs = [];
               for (var i = 0; i < this._currentItems.length; i++) {
                 var currentItem = this._currentItems[i];
                 var keys = Object.keys(currentItem);
                 if (keys && keys.length > 0) {
                   for (var j = 0; j < keys.length; j++) {
                     var key = keys[j];
-                    if (!(compositeModels.find(obj => obj.name === key))) {
-                      compositeModels.push(currentItem[key]);
+                    if (!(compositeModelsWithNestedAttrs.find(obj => obj.name === key))) {
+                      if (currentItem[key].dataType == "nested") {
+                        var nestedAttributeItems = [];
+                        nestedAttributeItems = DataHelper.getNestedAttributeItems(currentItem[key],true,true);
+                        if(nestedAttributeItems.length > 0){
+                          compositeModelsWithNestedAttrs = compositeModelsWithNestedAttrs.concat(nestedAttributeItems)
+                        }
+                      }else{
+                        compositeModelsWithNestedAttrs.push(currentItem[key]);
+                      }
                     }
                   }
                 }
               }
-
               if (!_.isEmpty(this._relToEntityTypes)) {
                 delete this._relationshipModels[this._relToEntityTypes[0]]
               }
 
-              var attrsCriterion = this._prepareAttrsCriterion(compositeModels, this._entityAttributes);
-              var relationshipsCriterion = this._prepareRelationshipsCriterion(this._relationshipModels, this._relationshipAttributes, this._relatedEntityAttributes, this._relToEntityTypes, compositeModels);
+              var attrsCriterion = this._prepareAttrsCriterion(compositeModelsWithNestedAttrs, this._entityAttributes);
+              var relationshipsCriterion = this._prepareRelationshipsCriterion(this._relationshipModels, this._relationshipAttributes, this._relatedEntityAttributes, this._relToEntityTypes, compositeModelsWithNestedAttrs);
               this.searchFilters["attributesCriterion"] = !_.isEmpty(attrsCriterion) ? attrsCriterion : undefined;
               this.searchFilters["relationshipsCriterion"] = !_.isEmpty(relationshipsCriterion) ? [relationshipsCriterion] : undefined;
-              this.searchFilters["compositeModels"] = compositeModels;
-              this.searchFilters["relationshipModels"] = this._relationshipModels;
+              this.searchFilters["compositeModels"] = compositeModelsWithNestedAttrs;
+              this.searchFilters["relationshipModels"] = this._mergeRelationships(this._relationshipModels);
               this.fireBedrockEvent('on-search-filters', this.searchFilters);
             }
           }
@@ -248,7 +258,10 @@
                         if(operator) attrVal["operator"] = operator;
                         delete attrVal[key];
                       } else {
-                        if (displayType === "referencelist" || displayType === "textbox" || displayType === "numeric") {
+                        if(val.indexOf("!%&") > -1){
+                          attrVal["hasvalue"] = val == "!%&has value!%&" ? true : false;
+                          delete attrVal[key];
+                        }else if (displayType === "referencelist" || displayType === "textbox" || displayType === "numeric") {
                           if(key === "equals") {
                             var valSplitByOr = val.split(' or ');
                             var valSplitByAnd = val.split(' and ');
@@ -306,14 +319,6 @@
                     if(!attrModel.isLocalizable) {
                       attrVal["valueContexts"] = [ defaultValCtx ];
                     }
-
-                    if(!_.isEmpty(selectedContext)) {
-                      if(attrModel.selfContext) {
-                        attrVal["nonContextual"] = true;
-                      } else {
-                        attrVal["contexts"] = selectedContext;
-                      }
-                    }
                   }
                 } else {
                   //TODO: Need to change. 
@@ -336,6 +341,11 @@
                       var keyIndex = j - 1;
                       var _currentLevel = attrLevels[keyIndex];
                       if (_.isEmpty(nestedAttributeObj)) {
+                        var attrData = attrVal["contains"];
+                        if(attrData && (attrData.indexOf("!%&") > -1)){
+                          attrVal = {};
+                          attrVal["hasvalue"] = attrData == "!%&has value!%&" ? true : false;
+                        }
                         nestedAttributeObj[_currentLevel] = attrVal;
                       } else {
                         nestedAttributeObj = { "attributes": [nestedAttributeObj] };
@@ -362,6 +372,10 @@
           var relationshipsCriterion = {};
           if (relType) {
             var rel;
+            if(relType.indexOf("!%&") > -1){
+              var isNoRelationshipSearchRequest = true;
+              relType = relType.replace( /!%&/g, "" );
+            }
             if(!_.isEmpty(relationshipModels)) {
               for(var entityType in relationshipModels) {
                 if(relationshipModels[entityType] && relationshipModels[entityType][relType] && relationshipModels[entityType][relType].length > 0) {
@@ -373,15 +387,20 @@
             var relOwnership = rel && rel.properties ? rel.properties.relationshipOwnership : undefined;
             if(!_.isEmpty(relToEntityTypes)) {
               relationshipsCriterion[relType] = relationshipsCriterion[relType] || {};
-              relationshipsCriterion[relType]["relTo"] = {
-                "type": relToEntityTypes[0]
-              };
-              relationshipsCriterion[relType]["query"] = {
-                "filters": {
-                    "typesCriterion": relToEntityTypes
-                  }
-              };
-
+              if(isNoRelationshipSearchRequest){
+                relationshipsCriterion[relType]["hasvalue"] = false;
+              }else{
+                relationshipsCriterion[relType]["relTo"] = {
+                  "type": relToEntityTypes[0]
+                };
+              }
+                
+                relationshipsCriterion[relType]["query"] = {
+                  "filters": {
+                      "typesCriterion": relToEntityTypes
+                    }
+                };
+              
               if (!_.isEmpty(relatedEntityAttributes)) {
                 var relEntityAttrsCriterion = this._prepareAttrsCriterion(compositeModels, relatedEntityAttributes);
 
@@ -418,6 +437,9 @@
           for(let i=0; i<attributes.length; i++) {
             var attribute = attributes[i];
             for(var attrName in attribute) {
+              if(attrName.indexOf(".") > -1){
+                attrName = attrName.split(".")[0];
+              }
               attributeNames.push(attrName);
             }
           }
@@ -456,6 +478,15 @@
           }
 
           return value;
+        },
+
+        _mergeRelationships: function(relationshipModels) {
+          var mergedRelationships = {};
+          Object.keys(relationshipModels).forEach(function(entityType) {
+            mergedRelationships = DataMergeHelper.mergeRelationships(mergedRelationships, relationshipModels[entityType], true);
+          });
+
+          return mergedRelationships;
         }
       });
     })();

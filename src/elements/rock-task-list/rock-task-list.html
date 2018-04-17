@@ -44,11 +44,6 @@
                 .alignRight {
                     margin-left: auto;
                 }
-
-                #refreshButton {
-                    color: var(--icon-color, #757575);
-                }
-
                 rock-grid {
                     --rock-grid-height: 260px;
                     --pebble-grid-container:{
@@ -96,10 +91,13 @@
                 _:-ms-lang(x), _:-webkit-full-screen {
                     vertical-align: top;
                 }
+                .refreshbutton{
+                    vertical-align: middle;
+                }
             </style>
             <div class="search-container">
                 <rock-search-bar id="searchBar" placeholder="Enter Search text"></rock-search-bar>
-                <div class="resetsearch" hidden$="[[!_resetSearchEnabled]]">
+                <div class="resetsearch">
                     <pebble-button icon="pebble-icon:reset" class="btn-link pebble-icon-color-blue" on-tap="_resetSearch" button-text="Reset Search"></pebble-button>
                 </div>
                 <bedrock-pubsub event-name="rock-search" handler="_onSearch" target-id="searchBar"></bedrock-pubsub>
@@ -109,21 +107,36 @@
         <template is="dom-if" if="[[_load]]">
         <div class="row-wrap align-items-center">
                 <template is="dom-if" if="{{isGenericTasklist(taskType)}}">
-                    <div class="col-4">
-                        <pebble-dropdown class="dropdown" label="Type" items="[[eventTypes]]" selected-value="{{selectedEventType}}"></pebble-dropdown>
+                    <div class="col-3">
+                        <pebble-dropdown class="dropdown" label="Type" items="[[eventTypes]]" selected-index="{{selectedIndexEventType}}" selected-value="{{selectedEventType}}"></pebble-dropdown>
                     </div>
                 </template>
-                <div class="col-3">
-                    <pebble-dropdown class="dropdown" label="Status" items="[[eventSubTypes]]" selected-value="{{selectedEventSubType}}"></pebble-dropdown>
+                <div class="col-2">
+                    <pebble-dropdown class="dropdown" label="Status" items="[[eventSubTypes]]" selected-index="{{selectedIndexEventSubType}}" selected-value="{{selectedEventSubType}}"></pebble-dropdown>
                 </div>
+                <!-- Adding another dropdown for filtering -->
+                
+                <div class="col-3">
+                    <template is="dom-if" if="{{durationFilterVisibility}}">
+                            <pebble-dropdown class="dropdown" label="Show tasks of last" items="[[durationFilters]]" selected-index="{{selectedIndexDurationFilter}}" selected-value="{{selectedDurationFilter}}"></pebble-dropdown>
+                    </template> 
+                </div>
+
                 <div class="col text-right">
-                    <pebble-button id="refreshButton" icon="pebble-icon:refresh" class="pebble-icon-size-16 iconButton tooltip-bottom m-r-10"
-                        data-tooltip$="Refresh" on-tap="_refreshList"></pebble-button>
                     <template is="dom-if" if="[[userToggleAllowed]]">
                         <pebble-toggle-button checked="{{!getAllUsersEvents}}">Show Only My Tasks</pebble-toggle-button>
                     </template>
-                </div>
-            </div>    
+            </div>
+            <!-- <div class="col text-right">
+                <pebble-button id="refreshButton" icon="pebble-icon:refresh" class="pebble-icon-size-16 iconButton tooltip-bottom m-r-10"
+                data-tooltip$="Refresh" on-tap="_refreshList"></pebble-button>
+            </div> -->
+
+            </div>
+            
+            <!-- <div class="row-wrap">
+
+            </div> -->
             <rock-grid id="importlistGrid" no-header config="{{gridConfig}}" page-size="50" r-data-source="{{dataSource}}" data-source-id="eventDataSource"></rock-grid>
         </template>
         <bedrock-pubsub event-name="refresh-tasklist" handler="_refreshList"></bedrock-pubsub>
@@ -165,6 +178,15 @@
                                 "title": "Errored"
                             }
                         ]
+                    },
+
+                    durationFilters: {
+                        type: Array,
+                        value: []
+                    },
+                    durationFilterVisibility: {
+                        type: Boolean,
+                        value: true
                     },
                     /**
                      * <b><i>Content development is under progress... </b></i> 
@@ -310,6 +332,23 @@
                         value: "ALL",
                         observer: "_onEventSubTypeFilterChanged"
                     },
+                    selectedDurationFilter: {
+                        type: Number,
+                        value: -1,
+                        observer: "_onDurationFilterChanged"
+                    },
+                    selectedIndexDurationFilter: {
+                        type: Number,
+                        value: -1
+                    },
+                    selectedIndexEventSubType: {
+                        type: Number,
+                        value: 0
+                    },
+                    selectedIndexEventType: {
+                        type: Number,
+                        value: 5
+                    },
                     /**
                      * <b><i>Content development is under progress... </b></i> 
                      */
@@ -364,10 +403,29 @@
                     });                    
                 },
                 onConfigLoaded: function (componentConfig) {
+                    if(componentConfig.config.gridConfig.itemConfig.fields.durationFilter)  {
+                        this.durationFilterVisibility = true;
+                        this._setDurationFilterData(componentConfig.config.gridConfig.itemConfig.fields.durationFilter);
+                    } else {
+                                console.error("Duration Filter Configs Not found");
+                                this.durationFilterVisibility = false;
+                            }
                     if(componentConfig && componentConfig.config) {
                         this.config=componentConfig.config;
                         this._setEventRequest();
                     }
+                },
+                _setDurationFilterData: function(durationFilter) {
+                    this.selectedDurationFilter = durationFilter.defaultDurationVal;
+                    var durationFilters = [];
+                    for(let durationFilterArrIndex=0; durationFilterArrIndex < durationFilter.values.length; durationFilterArrIndex++) {
+                        var dropdownObj = {
+                            "value": durationFilter.values[durationFilterArrIndex],
+                            "title": durationFilter.values[durationFilterArrIndex] + ' days'
+                        }
+                        durationFilters.push(dropdownObj);
+                    }
+                    this.durationFilters = durationFilters;
                 },
                 _setUserToggleAllowed: function (config) {
                     return !!config.userToggleAllowed;
@@ -376,6 +434,17 @@
                     return config.defaultJobStatus;
                 },
                 _setEventRequest: function () {
+
+                    var tenantSettings = this.appSetting("tenantSettings");
+                    var defaultLocale = "en-US";
+                    var defaultSource = "internal";
+                    if(tenantSettings  && tenantSettings.defaultValueLocale){ 
+                        defaultLocale = tenantSettings.defaultValueLocale;
+                    }
+                    if(tenantSettings  && tenantSettings.defaultValueSource){ 
+                        defaultSource = tenantSettings.defaultValueSource;
+                    }  
+
                     var contextData = DataHelper.cloneObject(this.contextData);
                     var itemContext = {
                         "type": "externalevent"
@@ -383,19 +452,20 @@
                     contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
                     var req = DataRequestHelper.createEntityGetRequest(contextData);
                     req.params.query.valueContexts = [{
-                        "source": "internal",
-                        "locale": "en-US"
+                        "source": defaultSource,
+                        "locale": defaultLocale
                     }];
+                    var propertiesCriterion = [];
+                    this._addDurationFilter(propertiesCriterion);
+                    req.params.query.filters.propertiesCriterion = propertiesCriterion;  
 
                     var attributesCriteria = [];
-
                     this._addEventTypeCriterion(attributesCriteria);
                     this._addEventSubTypeCriterion(attributesCriteria);
                     this._addTaskTypeCriterion(attributesCriteria);
                     this._addIntegrationTypeCriterion(attributesCriteria);
 
                     req.params.query.filters.attributesCriterion = attributesCriteria;
-
                     if (this.config.dataRequest && this.config.dataRequest.attributes) {
                         req.params.fields.attributes = this.config.dataRequest.attributes;
                     } else {
@@ -480,6 +550,23 @@
                         };
 
                         attributesCriterion.push(eventSubTypeCriterion);
+                    }
+                },
+                _addDurationFilter: function (propertiesCriterion) {
+                    if (this.selectedDurationFilter) {
+                        var daysStr = this.selectedDurationFilter;
+                        var daysInt = parseInt(daysStr);
+                        //Logic to get the current date and subtract the filter days and sed to request
+                        var today = moment();
+                        var filterDate = today.subtract(daysInt, "days");
+                        filterDate = filterDate.format('YYYY-MM-DDTHH:mm:ss.SSS-0500');
+                        var createdDate = {
+                        "createdDate": {
+                                    "gte": filterDate,
+                                    "type": "_datetime"
+                        }
+                    }
+                        propertiesCriterion.push(createdDate);
                     }
                 },
                 _addTaskTypeCriterion: function (attributesCriterion) {
@@ -661,6 +748,12 @@
                 },
                 _onEventTypeFilterChanged: function (selectedEventType) {
                     if (this.request && !_.isEmpty(this.request) && selectedEventType) {
+                        //Filtering only values from {value, titles} array elements                
+                        var eventTypesValues = this.eventTypes.map((elm, index)=> {
+	                        return elm.value;
+                        });
+                        //Setting the Selected Index to trigger an observable change at pebble-boolean (_selectedIndexChanged)
+                        this.set('selectedIndexEventType', eventTypesValues.indexOf(selectedEventType));
                         var req = this.request;
 
                         var attributesCriteria = req.params.query.filters.attributesCriterion;
@@ -706,6 +799,12 @@
                 },
                 _onEventSubTypeFilterChanged: function (selectedEventSubType) {
                     if (this.request && !_.isEmpty(this.request) && selectedEventSubType) {
+                        //Filtering only values from {value, titles} array elements  
+                        var eventSubTypesValues = this.eventSubTypes.map((elm, index)=> {
+	                        return elm.value;
+                        });
+                        //Setting the Selected Index to trigger an observable change at pebble-boolean (_selectedIndexChanged)
+                        this.set('selectedIndexEventSubType', eventSubTypesValues.indexOf(selectedEventSubType));
 
                         var req = this.request;
                         var attributesCriteria = req.params.query.filters.attributesCriterion;
@@ -721,6 +820,28 @@
 
                         this._reloadListData();
                     }
+                },
+                _onDurationFilterChanged: function(selectedDurationFilter) {
+                    if (this.request && !_.isEmpty(this.request) && selectedDurationFilter) {
+                        //Filtering only values from {value, titles} array elements  
+                        var durationFilterValues = this.config.gridConfig.itemConfig.fields.durationFilter.values;
+                        var selectedIndexDurationFilter = durationFilterValues.indexOf(selectedDurationFilter);
+                        //Setting the Selected Index to trigger an observable change at pebble-boolean (_selectedIndexChanged)
+                        this.set('selectedIndexDurationFilter', selectedIndexDurationFilter);
+                        var req = this.request;
+                        var propertiesCriterion = req.params.query.filters.propertiesCriterion;
+
+                        for (let i in propertiesCriterion) {
+                            if (propertiesCriterion[i].createdDate) {
+                                propertiesCriterion.splice(i, 1);
+                                break;
+                            }
+                    }
+
+                        this._addDurationFilter(propertiesCriterion);
+
+                        this._reloadListData();
+}
                 },
                 _onSearch: function (e, detail) {
                     if (this.request && !_.isEmpty(this.request)) {
@@ -801,7 +922,19 @@
 
                         var rockSearchBar = this.shadowRoot.querySelector('#searchBar');
                         if (rockSearchBar) {
+                            rockSearchBar.searchText = "";
                             rockSearchBar.query = "";
+
+                            //reseting filters to defaults
+                            if(this.config.gridConfig.itemConfig.fields.durationFilter)  {
+                                var defaultFilter = this.config.gridConfig.itemConfig.fields.durationFilter;
+                                this.set('selectedDurationFilter', defaultFilter.defaultDurationVal);
+                                this.set('selectedEventSubType', 'ALL');
+                                this.set('selectedEventType', 'USER_ENTITY_IMPORT');
+                            } else {
+                                this.showErrorToast("Configs Not found");
+                            }
+
                         }
 
                         var req = this.request;

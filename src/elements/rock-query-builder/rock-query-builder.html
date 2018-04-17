@@ -37,9 +37,6 @@
             border-radius: 3px;
             box-shadow: 0 0 var(--popup-box-shadow-size,8px) 0 var(--popup-box-shadow,#8A98A3);               
             background-color: #fff;
-            padding: 15px;
-            height: 434px;
-            overflow-y: auto;
         }      
         .queryBuilderContainer paper-card {
             width: 100%;
@@ -69,11 +66,11 @@
             width: 100%;
             margin: 10px auto 0 auto;
             box-shadow: 0 0 var(--popup-box-shadow-size,8px) 0 var(--popup-box-shadow,#8A98A3);
-            padding-bottom: 15px;
+            padding-bottom:15px;
+            position: relative
         }
         .actionButtons {
             text-align: center;
-            padding-top : 15px;
         }
         #attributesSearchGrid {
             --rock-grid-height: 60px;
@@ -113,9 +110,12 @@
             background-color: var(--palette-white, #ffffff) !important;
         }
         pebble-data-table {
-            max-height: 75px;
+            max-height: 69px;
             --pebble-data-table-header : {
                  display: none;
+            };
+            --list:{
+                min-height:70px;
             }           
         }
 
@@ -167,7 +167,30 @@
         }
 
         .card-content {
-            padding: 0px;
+            max-height:315px;
+            overflow-y:auto;
+        }
+        paper-card{
+            --paper-card-content:{
+                padding-bottom:0;
+            }
+        }
+        pebble-toggle-button {
+          --pebble-toggle-button-checked-bar-color: var(--success-color, #4caf50);
+          --pebble-toggle-button-checked-button-color: var(--success-color, #4caf50);
+          --pebble-toggle-button-checked-ink-color: var(--success-color, #4caf50);
+          min-width: 130px;
+      }
+        #overlay-div {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0,0,0,0.1);
+            z-index: 2;
         }
     </style>   
         <div class="queryBuilderContainer" style="opacity: 0">
@@ -176,6 +199,13 @@
 
                 <!-- Entity Type search -->
                 <pebble-button id="entityTypeFilterButton" icon="pebble-icon:filter" button-text="{{selectedEntityTypeNames}}" title="{{selectedEntityTypeNames}}" dropdown-icon="" noink="" class="dropdownText dropdownIcon btn dropdown-outline-primary dropdown-trigger" is-ruf-component="" target-id="productSearchPopover" on-tap="_openLov"></pebble-button>
+                <template is="dom-if" if="{{_isRelationshipsExistsSearchEnabled}}">
+                        <pebble-toggle-button class="m-l-20 m-b-10" checked={{_hasRelationshipChecked}}>[[_toggleButtonText]]</pebble-toggle-button>
+                </template>
+                <template is="dom-if" if="{{!_isRelationshipsExistsSearchEnabled}}">
+                        <pebble-button class="queryHeadingButton m-b-5" on-tap="" button-text="HAVING"></pebble-button>
+                </template>
+                <pebble-button id="relationshipButton" button-text="{{selectedRelationshipName}}" title="{{selectedRelationshipName}}" dropdown-icon="" noink="" class="dropdownText dropdownIcon btn dropdown-primary dropdown-trigger" is-ruf-component="" target-id="relationshipPopover" on-tap="_openRelationshipModelLov"></pebble-button>
                 <pebble-popover id="productSearchPopover" for="entityTypeFilterButton" vertical-align="auto" horizontal-align="auto">
                     <rock-entity-type-model-lov id="entityTypeLov" settings="[[lovSettings]]" domain="[[domain]]" select-all="true" allowed-entity-types="{{allowedEntityTypes}}" selected-items="{{selectedEntityTypes}}"></rock-entity-type-model-lov>    
                     <div class="PebbleButtonPadding text-center m-t-10">
@@ -227,7 +257,7 @@
                 </template>
 
                 <!-- filter options -->
-                <rock-attribute-filter-popover id="rockfilter" context-data="[[contextData]]"></rock-attribute-filter-popover>
+                <rock-attribute-filter-popover id="rockfilter" context-data="[[contextData]]" attribute-values-exists-search-enabled=[[_isAttributeValuesExistsSearchEnabled]]></rock-attribute-filter-popover>
                 <bedrock-pubsub event-name="on-filter-update" handler="onUpdateFilter" target-id="rockfilter"></bedrock-pubsub>
 
 
@@ -236,8 +266,6 @@
                 - Relationships (nested)
                 - WF search within relationships -->
                 <div class="queryHeading">
-                    <pebble-button class="queryHeadingButton m-b-5" on-tap="" button-text="HAVING"></pebble-button> <br/>
-                    <pebble-button id="relationshipButton" button-text="{{selectedRelationshipName}}" title="{{selectedRelationshipName}}" dropdown-icon="" noink="" class="dropdownText dropdownIcon btn dropdown-primary dropdown-trigger" is-ruf-component="" target-id="relationshipPopover" on-tap="_openRelationshipModelLov"></pebble-button>
                     <liquid-entity-model-composite-get id="liquidModelGet" request-data={{relationshipRequest}} on-entity-model-composite-get-response="_onModelReceived" on-error="_onModelGetFailed" exclude-in-progress></liquid-entity-model-composite-get>        
                     <pebble-popover id="relationshipPopover" for="relationshipButton" vertical-align="auto" horizontal-align="auto">
                         <pebble-lov id="relationshipModelLov" on-selection-changed="_onRelationshipLovSelectionChanged" selected-item="{{selectedRelationship}}"></pebble-lov>    
@@ -248,6 +276,7 @@
                 </div>
 
             <div class="relationshipGridContainer">
+                    <div id="overlay-div" hidden=[[!enableOverlay]]></div>
                     <div class="queryHeading">
                         <pebble-button icon="pebble-icon:action-add-fill" class="queryHeadingButton m-l-10" target-id="relationship-grid" on-tap="_onAddRowClick" button-text="WITH"></pebble-button> 
                         <div class="queryHeadingReset m-r-10">
@@ -264,7 +293,7 @@
                             <data-table-column slot="column-slot">
                             <template>
                                 <div id="inputDiv" slot="cell-slot-content" on-tap="" index="[[index]]">
-                                    <pebble-textbox readonly id="relationship-text_[[index]]" row-id="[[index]]" value="{{item.name}}" no-label-float="true"></pebble-textbox>
+                                    <pebble-textbox readonly id="relationship-text_[[index]]" target-id="relationshipGrid" row-id="[[index]]" value="{{item.name}}" no-label-float="true"></pebble-textbox>
                                 </div>
                                 <div id="iconDiv" slot="cell-slot-content">
                                     <pebble-icon class="dropdown-icon pebble-icon-size-10" id="rtxtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:navigation-action-down" on-tap="_openRelationshipAttributeModelLov"></pebble-icon>
@@ -274,7 +303,7 @@
                             <data-table-column slot="column-slot">
                             <template>
                                 <div id="inputDiv" slot="cell-slot-content" on-tap="" index="[[index]]">
-                                    <pebble-textbox readonly id="relationship-value_[[index]]" row-id="[[index]]" value="{{item.value}}" no-label-float="true"></pebble-textbox>
+                                    <pebble-textbox readonly id="relationship-value_[[index]]" row-id="[[index]]" target-id="relationshipGrid" value="{{item.value}}" no-label-float="true"></pebble-textbox>
                                 </div>
                                 <div id="iconDiv" slot="cell-slot-content">
                                     <pebble-icon class="dropdown-icon pebble-icon-size-10" id="rtxtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:navigation-action-down" target-row-name="relationship-value_" on-tap="_onOpenFilterPopover"></pebble-icon>
@@ -309,7 +338,7 @@
                         <data-table-column slot="column-slot">
                             <template>
                                 <div id="inputDiv" slot="cell-slot-content" on-tap="" index="[[index]]">
-                                    <pebble-textbox readonly id="relEntity-text_[[index]]" row-id="[[index]]" value="{{item.name}}" no-label-float="true"></pebble-textbox>
+                                    <pebble-textbox readonly id="relEntity-text_[[index]]" target-id="relatedEntityGrid" row-id="[[index]]" value="{{item.name}}" no-label-float="true"></pebble-textbox>
                                 </div>
                                 <div id="iconDiv" slot="cell-slot-content">
                                     <pebble-icon class="dropdown-icon pebble-icon-size-10" id="rtxtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:navigation-action-down" on-tap="_openRelEntityAttributeModelLov"></pebble-icon>
@@ -319,7 +348,7 @@
                         <data-table-column slot="column-slot">
                             <template>
                                 <div id="inputDiv" slot="cell-slot-content" on-tap="" index="[[index]]">
-                                    <pebble-textbox readonly id="relEntity-value_[[index]]" row-id="[[index]]" value="{{item.value}}" no-label-float="true"></pebble-textbox>
+                                    <pebble-textbox readonly id="relEntity-value_[[index]]" row-id="[[index]]" target-id="relatedEntityGrid" value="{{item.value}}" no-label-float="true"></pebble-textbox>
                                 </div>
                                 <div id="iconDiv" slot="cell-slot-content">
                                     <pebble-icon class="dropdown-icon pebble-icon-size-10" id="rtxtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:navigation-action-down" target-row-name="relEntity-value_" on-tap="_onOpenFilterPopover"></pebble-icon>
@@ -379,13 +408,11 @@
         <liquid-entity-model-get id="getWorkflowMappingDefinition" operation="getbyids" request-id="req1" request-data={{workflowMappingDefinitionRequest}}
         on-response="_onWfMappingsReceived" on-error="_onMappingsGetFailed"></liquid-entity-model-get>
         <liquid-entity-model-get id="entityGetWorkflowDefinition" operation="getbyids" request-id="req1" request-data={{workflowDefinitionRequest}}
-        on-response="_onDefinitionReceived" on-error="_onDefinitionGetFailed"></liquid-entity-model-get>
-
-        <div class="actionButtons">
-            <pebble-button id="cancelButton" class="close btn btn-secondary m-r-5" button-text="Cancel" noink elevation="2" on-tap="_onClose"></pebble-button>
-            <pebble-button id="confirmButton" class="apply btn btn-success" button-text="Apply" noink elevation="2" on-tap="_onApply"></pebble-button>
-        </div>
-       
+        on-response="_onDefinitionReceived" on-error="_onDefinitionGetFailed"></liquid-entity-model-get> 
+            </div>
+            <div class="actionButtons p-b-15">
+                <pebble-button id="cancelButton" class="close btn btn-secondary m-r-5" button-text="Cancel" noink elevation="2" on-tap="_onClose"></pebble-button>
+                <pebble-button id="confirmButton" class="apply btn btn-success" button-text="Apply" noink elevation="2" on-tap="_onApply"></pebble-button>
             </div>
         </paper-card>
     </div>
@@ -399,7 +426,7 @@
 
         ready() {
             super.ready();  
-
+            this.relationshipsExistsSearchEnabledDefaultValue = this._isRelationshipsExistsSearchEnabled;
             this._close = this._close.bind(this);
             var that = this;
             Polymer.Async.timeOut.after(3000).run(() => {
@@ -545,11 +572,18 @@
             },
             relationshipsData: {
                 type: Object,
-                value: function() { return {}; }
+                value: function() { return {}; },
+                observer: "_updateRelationshipData"
+            },
+            relEntityData: {
+                type: Object,
+                value: function() { return {}; },
+                observer: "_updateRelEntityData"
             },
             workflowCriterion: {
                 type: Object,
-                value: function () { return {}; }
+                value: function () { return {}; },
+                observer: "_updateWorkflowData"
             },
             selectedRelEntity:{
                 type: String,
@@ -587,19 +621,51 @@
             showNestedChildAttributes:{
                 type: Boolean,
                 value: false,
-                computed: '_getNestedChildAttributesVisibility(settings)'
+                computed: '_getItemVisibility(settings,"showNestedChildAttributes")',
             },
             showNestedAttributes:{
                 type: Boolean,
                 value: true,
-                computed: '_getNestedAttributesVisibility(settings)'
+                computed: '_getItemVisibility(settings,"showNestedAttributes")',
+
             },
             settings: {
                 type: Object,
                 value: function () {
                     return {};
                 }
-            }
+            },
+            _toggleButtonText:{
+                type: String,
+                value: "Having"
+            },
+            _isRelationshipsExistsSearchEnabled:{
+                type: Boolean,
+                value: false,
+                computed: '_getItemVisibility(settings,"relationshipsExistsSearchEnabled")',
+                observer: "_onRelationshipsExistsSearchEnabledValueChanged"
+            },
+            relationshipsExistsSearchEnabledDefaultValue:{
+                type: Boolean,
+                value: false,
+            },
+            _isAttributeValuesExistsSearchEnabled:{
+                type: Boolean,
+                value: false
+            },
+            _hasRelationshipChecked:{
+                type: Boolean,
+                value: true,
+                observer: "_onToggleButtonChange"
+            },
+            enableOverlay:{
+                type: Boolean,
+                value: false
+            },
+            currenGridName:{
+                type:String,
+                value: ""
+            },
             }
         }      
          
@@ -679,6 +745,8 @@
             if(this.reset) {
                 this._onResetAllGrids(); 
                 this.reset = false;
+            } else {
+                this.reRenderGrid();
             }
             
             if(this.selectedRelEntity){
@@ -767,18 +835,26 @@
 
             var relModelLov = this.shadowRoot.querySelector('#relationshipModelLov');
             if(relModelLov.selectedItem) {
-                queryBuilderData.relationship = relModelLov.selectedItem.title;
-                queryBuilderData.relationshipShortName = relModelLov.selectedItem.id;
+              
+                if(this._isRelationshipsExistsSearchEnabled && !this._hasRelationshipChecked){
+                    queryBuilderData.relationship = "!%& No !%&" + relModelLov.selectedItem.title;
+                    queryBuilderData.relationshipShortName = "!%&"+relModelLov.selectedItem.id+"!%&";
+                }else{
+                    queryBuilderData.relationship = relModelLov.selectedItem.title;
+                    queryBuilderData.relationshipShortName = relModelLov.selectedItem.id;
+                }
             }
             if(this.relationshipGridData) {
-                queryBuilderData.relationshipGridData = this.relationshipGridData;
+                var _updatedRelationshipGridData = this._getUpdatedGridData(this.relationshipGridData);
+                queryBuilderData.relationshipGridData = _updatedRelationshipGridData;
             }
 
             if(this.selectedRelEntity){
                 queryBuilderData.relEntity = this.selectedRelEntity;
             }
             if(this.relEntityGridData) {
-                queryBuilderData.relEntityGridData = this.relEntityGridData;
+                var _updatedRelatedEntityGridData = this._getUpdatedGridData(this.relEntityGridData);
+                queryBuilderData.relEntityGridData = _updatedRelatedEntityGridData;
             }
             if(this.workflowGridData) {
                 queryBuilderData.workflowGridData = this.workflowGridData;
@@ -787,6 +863,21 @@
             return queryBuilderData;
         }
 
+        _getUpdatedGridData(gridData){
+            var _currentGridData = gridData;
+            if(!this._hasRelationshipChecked){
+                return [{"name": "","value": ""}]                        
+            }
+            _currentGridData.forEach(element => {
+                    if(element.isHasAttributeValueSearchRequest){
+                        if(element.value.indexOf("!%&") > -1){
+                            element.value = element.value.replace( /!%&/g, "" );
+                        }
+                        element.value = "!%&" +element.value +"!%&"
+                    }
+                });
+            return _currentGridData;
+        }
         _getRelationshipModels() {
             var clonedContextData = DataHelper.cloneObject(this.contextData);
             var entityTypes =  this.getSelectedEntityTypes(this.selectedEntityTypes);  
@@ -828,6 +919,9 @@
             this._currentItems[entityType] = relationshipModels;
             var keys = Object.keys(this._currentItems);
             if (keys && keys.length == this._currentIndex) {
+                if(this.relationshipsExistsSearchEnabledDefaultValue){
+                    this._isRelationshipsExistsSearchEnabled = true
+                }
                 var relationships = {};
                 for (let i = 0; i < keys.length; i++) {
                     var currentItem = this._currentItems[keys[i]];
@@ -843,7 +937,8 @@
                                         id: relType,
                                         title: rel[k].properties && rel[k].properties.externalName ? rel[k].properties.externalName : "",
                                         relEntityType: rel[k].properties.relatedEntityInfo[0].relEntityType,
-                                        attributes: rel[k].attributes
+                                        attributes: rel[k].attributes,
+                                        relationshipOwnership: rel[k].properties.relationshipOwnership
                                     };
                                     rels.push(newItem);
                                 }
@@ -980,6 +1075,11 @@
                         "value": attribute.displayValue,
                         "attributeModel": attribute.options
                     };
+                    if(attribute.displayValue.indexOf("!%&") > -1){
+                        rowData.value = attribute.displayValue.replace( /!%&/g, "" );
+                        rowData.isHasAttributeValueSearchRequest = true;
+                    }
+                   
                     relationshipGridData.push(rowData);
                 }
 
@@ -1014,6 +1114,31 @@
             };
 
             this.set("workflowGridData", [rowData]);
+        }
+
+        _populateRelEntityGridData(relEntityData) {
+            var selectedRelEntity = relEntityData.relEntityType;
+
+            this.set("selectedRelEntity", selectedRelEntity);
+
+            if(!_.isEmpty(relEntityData.selectedAttributes)) {
+                var relEntityGridData = [];
+                for(let i=0;i<relEntityData.selectedAttributes.length; i++) {
+                    var attribute = relEntityData.selectedAttributes[i];
+                    var rowData = {
+                        "name": attribute.longName,
+                        "value": attribute.displayValue,
+                        "attributeModel": attribute.options
+                    };
+                    if(attribute.displayValue.indexOf("!%&") > -1){
+                        rowData.value = attribute.displayValue.replace( /!%&/g, "" );
+                        rowData.isHasAttributeValueSearchRequest =true
+                    }
+                    relEntityGridData.push(rowData);
+                }
+
+                this.set("relEntityGridData", relEntityGridData);
+            }
         }
 
         /**
@@ -1122,7 +1247,7 @@
                     entityTypeExternalNames.push(selectedEntityTypes[i].id);
                 }
             }
-            var selectedEntityStr = entityTypeExternalNames.join();
+                        var selectedEntityStr = entityTypeExternalNames.join();
 
             if(selectedEntityStr.length <= 0){
                 return this.entityTypeFilterText
@@ -1180,6 +1305,9 @@
         */
         _getParentRow(element) {
             if (element) {
+                if(element.targetId){
+                    this.currenGridName = element.targetId;
+                }
                 if (element.is == "data-table-row") {
                     return element;
                 }
@@ -1254,28 +1382,39 @@
          *  Function to populate relationship attributes
          */
         _onRelationshipLovSelectionChanged(e){
-            var attributesList = []; 
+            var attributesList = [];
+            if(this.relationshipsExistsSearchEnabledDefaultValue){
+                if(DataHelper.isValidObjectPath(e.detail,"item.relationshipOwnership")){
+                    this._isRelationshipsExistsSearchEnabled = e.detail.item.relationshipOwnership == "owned" ? true : false;
+                }
+            }
+           
             if(DataHelper.isValidObjectPath(e.detail, "item.attributes")) {
                 var relModel = DataTransformHelper.transformRelationshipAttributeModels(e.detail.item);
                 var currentAttributeItems = DataHelper.convertObjectToArray(relModel);
                 attributesList = this._getAttributeList(currentAttributeItems);
             }
-            var attributes = [];        
-            for(var key in attributesList){
-                if(!attributesList.hasOwnProperty(key)) continue;
-                var newItem = {
-                    name : key,
-                    title : attributesList[key].externalName,
-                    dataType : attributesList[key].dataType,
-                    displayType : attributesList[key].displayType,
-                    groupName : attributesList[key].groupName,
-                    referenceEntityInfo : attributesList[key].referenceEntityInfo                           
-                }                        
-                attributes.push(newItem);
+            var attributes = [];
+            for(let i=0; i<attributesList.length; i++){
+                var currentItem = attributesList[i];
+                if(currentItem.dataType != "nested" ||  (currentItem.dataType == "nested" && this.showNestedAttributes)) {
+                    var newItem = {
+                        name : attributesList[i].name,
+                        title : attributesList[i].externalName,
+                        dataType : attributesList[i].dataType,
+                        displayType : attributesList[i].displayType,
+                        groupName : attributesList[i].groupName,
+                        referenceEntityInfo : attributesList[i].referenceEntityInfo,
+                        attributeHasValueChecked : true,
+                        attributeGroupName: "Relationship Attributes"
+                    }
+                    attributes.push(newItem);
+                }
             }
 
            //Populate the relAttributeModelLov
            var relAttributeModelLov = this.shadowRoot.querySelector('#relAttributeModelLov');
+           relAttributeModelLov.items = [];
            relAttributeModelLov.items = attributes;
             
            //Close the relationshipModelLov
@@ -1283,7 +1422,33 @@
            relationshipPopover.close();
            
            //Display the related entity
-           this.populateRelatedEntity(e);           
+           this.populateRelatedEntity(e);
+        }
+
+        _updateRelationshipData() {
+            if(!_.isEmpty(this.relationshipsData)) {
+                this._getRelationshipModels();
+            }
+        }
+
+        _updateRelEntityData() {
+            if(!_.isEmpty(this.relEntityData)) {
+                var e = {
+                    detail: {
+                        item: {
+                            relEntityType : this.relEntityData.relEntityType
+                        }
+                    }
+                };
+
+                this.populateRelatedEntity(e);
+            }
+        }
+
+        _updateWorkflowData() {
+            if(!_.isEmpty(this.workflowCriterion)) {
+                this._getWorkflowMappings();
+            }
         }
                 
         /**
@@ -1374,10 +1539,14 @@
                         }
                 }
             }              
-                var relEntityAttributeModelLov = this.shadowRoot.querySelector('#relEntityAttributeModelLov');
-                relEntityAttributeModelLov.items = [];
-                relEntityAttributeModelLov.items = attributes;
+            var relEntityAttributeModelLov = this.shadowRoot.querySelector('#relEntityAttributeModelLov');
+            relEntityAttributeModelLov.items = [];
+            relEntityAttributeModelLov.items = attributes;
+
+            if(!_.isEmpty(this.relEntityData)) {
+                this._populateRelEntityGridData(this.relEntityData);
             }
+        }
         
        
         _onRelEntityAttributeGetFailed(e){
@@ -1483,6 +1652,7 @@
                         row.item.name = e.detail.item.title;
                         relattributeTxtbox.value = row.item.name;
                         relattributeTxtbox.title = row.item.name;
+                        row.item.attributeModel["attributeHasValueChecked"] = true
                     }                               
                 }
             }
@@ -1576,7 +1746,7 @@
                 }
 
                 //Populate the Workflow Activity Lov
-                var workflowActivities = [];   
+                var workflowActivities = [];
                 for(var i=0;i<wfAttributes.length;i++){
                     var newItem = {
                         name : AttributeHelper.getFirstAttributeValue(wfAttributes[i].activityName),
@@ -1664,33 +1834,57 @@
               
             var attributeValTxtbox = this.root.querySelector("#"+ this.currentTargetRowName + this.currentTargetRowId);
             var row = this._getParentRow(attributeValTxtbox);
-
+            var _isHasAttributeValueSearchRequest = false
             if(row) {
                 row.item.selectedItems = eventDetail.detail.selectedItems;
                 row.item.value = "";
                 attributeValTxtbox.value = "";
-                attributeValTxtbox.title = "";                
-                row.item.value = filterInputValue;
+                attributeValTxtbox.title = "";  
+                if(this._isRelationshipsExistsSearchEnabled && (!eventDetail.detail.attributeHasValueChecked || _.isEmpty(filterInputValue))){
+                    if(_.isEmpty(filterInputValue)){
+                        filterInputValue = "has value"
+                    }
+                    if(!eventDetail.detail.attributeHasValueChecked){
+                        filterInputValue = "has no value"
+                    }
+                    _isHasAttributeValueSearchRequest = true;
+                }else{
+                    _isHasAttributeValueSearchRequest = false;
+                }
+                row.item.value = filterInputValue;   
                 attributeValTxtbox.value = filterInputValue;
                 attributeValTxtbox.title = filterInputValue;
+                if(this.relationshipGridData[this.currentTargetRowId] && this.currenGridName == "relationshipGrid"){
+                    this.relationshipGridData[this.currentTargetRowId]["isHasAttributeValueSearchRequest"] = _isHasAttributeValueSearchRequest;
+                }else if(this.relEntityGridData[this.currentTargetRowId] && this.currenGridName == "relatedEntityGrid"){
+                    this.relEntityGridData[this.currentTargetRowId]["isHasAttributeValueSearchRequest"] = _isHasAttributeValueSearchRequest;
+                }
             }
         }
-        _getNestedAttributesVisibility(settings) {
-            if(settings){
-                if(!_.isEmpty(settings)){
-                    return settings.showNestedAttributes;
-                }
-                return false;
-            }
+        _onToggleButtonChange(toggleState){
+        if(toggleState){
+          this._toggleButtonText =  "Having";
+          this.enableOverlay = false;
+        }else{
+            this.enableOverlay = true;
+            this._toggleButtonText = "Having No";
         }
-      _getNestedChildAttributesVisibility(settings) {
+      }
+      _onRelationshipsExistsSearchEnabledValueChanged(toggleState){
+        this._isAttributeValuesExistsSearchEnabled = toggleState ? true : false;
+      } 
+
+      _getItemVisibility(settings,val) {
             if(settings){
                 if(!_.isEmpty(settings)){
-                    return settings.showNestedChildAttributes;
+                    return settings[val];
                 }
-                return false;
             }
-        }   
+            if(val == "showNestedAttributes"){
+                return true;
+            }
+            return false;
+        }
     }
 
     customElements.define(RockQueryBuilder.is, RockQueryBuilder);  

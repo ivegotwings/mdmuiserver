@@ -4,10 +4,10 @@
     var log4JSLogger;
     var loglevel = getQueryStringValue("loglevel") || "0";
 
-    RUFUtilities.initializeLogger = function (sessionId) {
+    RUFUtilities.initializeLogger = function () {
         log4JSLogger = log4javascript.getLogger("RUFLogging");
         var ajaxAppender = new log4javascript.AjaxAppender("/data/sendlogs");
-
+        var loglevel = "3";
         switch (loglevel) {
             case "0": ajaxAppender.setThreshold(log4javascript.Level.OFF);
                 break;
@@ -27,13 +27,29 @@
         }
 
         ajaxAppender.addHeader("Content-Type", "application/json");
-        ajaxAppender.setBatchSize(10);
+        ajaxAppender.setBatchSize(3);
         ajaxAppender.sendAllOnUnload = true;
-        ajaxAppender.setSessionId(sessionId);
+        ajaxAppender.setSessionId();
         var jsonLayout = new log4javascript.JsonLayout();
         ajaxAppender.setLayout(jsonLayout);
         log4JSLogger.addAppender(ajaxAppender);
+        log4javascript.logLog.setQuietMode(true);
     };
+
+    RUFUtilities.Logger.logMessage = function(options) {
+        if(!options.level) {
+            options.level = "info";
+        }
+        RUFUtilities.Logger.info(JSON.stringify(options));
+    }
+
+    RUFUtilities.Logger.getOptions = function(message, requestData, level) {
+        return {
+                 message : message,
+                 requestData: requestData,
+                 level: level
+               };
+    }
 
     //Usage: RUFUtilities.Logger.trace(message[, message2, ... ][, exception])
     RUFUtilities.Logger.trace = function () {

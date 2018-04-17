@@ -154,8 +154,7 @@ var versionRoute = require('../version-service/version-route');
 versionRoute(app);
 
 logger.info('Web engine start - version routes are loaded');
-
-//app.use(express.static(path.join(buildPath, "../static"), { maxAge: "1s" }));
+//app.use(express.static(path.join(buildPath, "/build/ui-platform/static/es6-bundled"), { maxAge: "1s" }));
 app.use(express.static(buildPath, { maxAge: "1s" }));
 
 //register static file root ...index.html..

@@ -20,9 +20,9 @@ LoggerService.prototype = {
   _getPattern: function () {
     var pattern = "%d{ISO8601_WITH_TZ_OFFSET} [%p]";
     for (var i = 0; i < this._formatKeys.length; i++) {
-      // if ((i == 4) || (i == 12)) {
-      //   pattern += "%n";
-      // }
+      if ((i == 4) || (i == 12)) {
+        pattern += "%n";
+      }
       if (this._formatKeys[i] == "newTimestamp") {
         pattern += " %d{ISO8601_WITH_TZ_OFFSET}";
       } else {
@@ -32,7 +32,7 @@ LoggerService.prototype = {
     return pattern;
   },
   _getModuleLogConfig: function (callerModuleName, calleeServiceName) {
-    var moduleLogConfig = LOGGER_CONFIG.getModulesObject();
+    var moduleLogConfig = LOGGER_CONFIG.getBaseModulesObject();
 
     var setting = {
       callerModuleName: callerModuleName ? callerModuleName : 'none',
@@ -191,7 +191,7 @@ LoggerService.prototype = {
     return this._config;
   },
   info: function (msg, obj, callerModuleName, calleeServiceName) {
-    return this._log('info', msg, obj, callerModuleName);
+    return this._log('info', msg, obj, callerModuleName, calleeServiceName);
   },
   fatal: function (msg, obj, callerModuleName, calleeServiceName) {
     return this._log('fatal', msg, obj, callerModuleName, calleeServiceName);
@@ -267,7 +267,12 @@ LoggerService.prototype = {
       "service": serviceName,
       "taken": taken
     };
-    //this.info("RDF_RESPONSE_COMPLETED", responseLog, "df-rest-service", serviceName);
+
+    if(taken > 500) {
+    //  this.warn("RDXXXX", responseLog, )
+      this.warn("RDF_SLOW_RESPONSE_RECEIVED", responseLog, "df-rest-service", serviceName);
+    }
+    
   },
   logResponse: function (internalRequestId, serviceName, response) {
     var responseLog = {
