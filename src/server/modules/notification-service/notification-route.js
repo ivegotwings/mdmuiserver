@@ -119,16 +119,16 @@ module.exports = function (app) {
             console.log(JSON.stringify(req.body));
             console.log('-------------------------------------------------------------------\n\n');
         }
-       logger.info("NOTIFICATION_REQUEST",{ request:req}, "notification-service");
+       logger.debug("NOTIFICATION_REQUEST",{ request:req}, "notification-service");
        //  console.log("notification response", res)
         var notificationObject = req.body.notificationObject;
-        logger.info("NOTIFICATION_OBJECT: " + JSON.stringify(notificationObject));
+        logger.debug("NOTIFICATION_OBJECT", { detail:notificationObject}, "notification-service");
         if (notificationObject) {
              var notificationInfo = prepareNotificationObject(notificationObject.data);
              //console.log('------------------ notification object ---------------------');
              //console.log(JSON.stringify(notificationInfo));
              //console.log('-------------------------------------------------------------------\n\n');
-            logger.info("NOTIFICATION_INFO: " + JSON.stringify(notificationInfo));
+             logger.debug("NOTIFICATION_INFO", { detail:notificationInfo}, "notification-service");
             if (!isEmpty(notificationInfo)) {
 
                 if (notificationObject.properties) {
