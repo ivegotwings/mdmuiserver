@@ -122,12 +122,13 @@ module.exports = function (app) {
        logger.debug("NOTIFICATION_REQUEST",{ request:req}, "notification-service");
        //  console.log("notification response", res)
         var notificationObject = req.body.notificationObject;
+        logger.debug("NOTIFICATION_OBJECT",{ notificationObject:notificationObject}, "notification-service");
         if (notificationObject) {
              var notificationInfo = prepareNotificationObject(notificationObject.data);
              //console.log('------------------ notification object ---------------------');
              //console.log(JSON.stringify(notificationInfo));
              //console.log('-------------------------------------------------------------------\n\n');
-
+            logger.debug("NOTIFICATION_INFO",{ notificationINFO:notificationInfo}, "notification-service");
             if (!isEmpty(notificationInfo)) {
 
                 if (notificationObject.properties) {
