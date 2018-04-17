@@ -32,7 +32,7 @@ LoggerService.prototype = {
     return pattern;
   },
   _getModuleLogConfig: function (callerModuleName, calleeServiceName) {
-    var moduleLogConfig = LOGGER_CONFIG.getModulesObject();
+    var moduleLogConfig = LOGGER_CONFIG.getBaseModulesObject();
 
     var setting = {
       callerModuleName: callerModuleName ? callerModuleName : 'none',

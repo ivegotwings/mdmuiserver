@@ -1331,6 +1331,10 @@ The following JSON object is a config sample which configures the grid in all ab
 						type: Boolean,
 						value: false
 					},
+					defaultSortingEnabled: {
+						type: Boolean,
+						value: true
+					},
 					enableColumnSelect: {
 						type: Boolean,
 						value: false
@@ -2063,10 +2067,7 @@ The following JSON object is a config sample which configures the grid in all ab
 				},
 				_isToolbarSlotEmpty: function () {
 					var gridActionsEl = this._getSlotNode("gridActions");
-					if (gridActionsEl) {
-						return false;
-					}
-					return true;
+					return !gridActionsEl;
 				},
 				_columnValue: function (gridData, index) {
 					var cellData;
@@ -2077,8 +2078,13 @@ The following JSON object is a config sample which configures the grid in all ab
 						"colModel") {
 						cellData = this._formatValue(gridData[columnName], columnName);
 					} else if (this.config.schemaType == "attribute") {
-						if (gridData.attributes && gridData.attributes.hasOwnProperty(columnName)) {
-							cellData = this._formatValue(gridData.attributes[columnName].value, columnName);
+						const accessProperty = columnName === 'thumbnailid' ? 'properties' : 'attributes';
+
+						const _isValueObject = accessProperty === 'attributes';
+
+						if(gridData[accessProperty] && gridData[accessProperty][columnName]) {
+							const value = _isValueObject ? gridData[accessProperty][columnName].value : gridData[accessProperty][columnName];
+							cellData = this._formatValue(value, columnName);
 						} else if (defaultValue) {
 							cellData = defaultValue;
 						}
@@ -2469,7 +2475,7 @@ The following JSON object is a config sample which configures the grid in all ab
 					if (this._actions) {
 						var actions = this._actions;
 
-						if (this.config.mode.toLowerCase() == "edit") {
+						if (this.config && this.config.mode && this.config.mode.toLowerCase() == "edit") {
 							if (this.config.hasWritePermission != undefined && !this.config.hasWritePermission) {
 								for (var action in actions) {
 									if (actions[action].name == "delete") {
@@ -2477,7 +2483,7 @@ The following JSON object is a config sample which configures the grid in all ab
 									}
 								}
 							}
-						} else if (this.config.mode.toLowerCase() == "read") {
+						} else if (this.config && this.config.mode && this.config.mode.toLowerCase() == "read") {
 							actions = actions.filter(v => v.intent == "read");
 						}
 
@@ -2549,7 +2555,36 @@ The following JSON object is a config sample which configures the grid in all ab
 				_gridDataLoad: function () {
 					if (this.data) {
 						this.gridDataSize = this.currentRecordSize = this.data.length;
+						if(this.data.length > 0 && this.defaultSortingEnabled){
+							this._sortGridData();
+							this.defaultSortingEnabled = !this.defaultSortingEnabled;
+						}
 					}
+				},
+				_sortGridData: function(){
+                    var sortConfig = this.config.itemConfig.sort.default;
+                    if(sortConfig && sortConfig.length){
+						var gridData = this.data;
+						var direction = [];
+                        var field= [];
+						var sortData = {};
+						const sortCriteria = DataHelper.assignDefaultSequnceandSort(sortConfig);
+                        sortCriteria.map(function(item){
+                            if(item && item.sortType && item.field){
+                                direction.push(item.sortType);
+                                field.push(item.field);
+                            }
+                        });
+                        
+                        if(direction && field){
+                            sortData['directions'] = direction;
+                            sortData['fields'] = field;
+                        };
+                        if(gridData && !_.isEmpty(sortData)){
+                            gridData = gridData.sort(new DataHelper.sortingFunction(sortData).sort);
+                            this.set("data", gridData);
+                        }
+                    }
 				},
 				_onDialogOk: function (e) {
 					this.fireBedrockEvent("on-grid-msg-dialog-ok", e);
