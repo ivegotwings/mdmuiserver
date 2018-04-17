@@ -16,7 +16,7 @@ var DFRestService = function (options) {
 
     offlineRestService = new OfflineRestService(options);
 
-    this.post = async function (url, request, offlineCallback = this.defaultOfflineCallback) {
+    this.post = async function (url, request, tenant, offlineCallback = this.defaultOfflineCallback) {
         //console.log('DFRestService url', url);
         //console.log('DFRestService request', JSON.stringify(request));
         var serviceConfig = SERVICE_CONFIG.services[url];
@@ -38,7 +38,7 @@ var DFRestService = function (options) {
 
             if (mode == "online") {
                 _updateRequestObject(request);
-                return await this.requestJson(actualUrl, request);
+                return await this.requestJson(actualUrl, request, tenant);
             }
             else {
                 return await offlineCallback(url, request);

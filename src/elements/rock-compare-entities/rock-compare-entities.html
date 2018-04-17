@@ -37,7 +37,6 @@
             }
 
             rock-grid {
-                --rock-grid-height: 100%;
                 height: calc(100% - 40px);
                 display: block;
             }
@@ -57,7 +56,16 @@
                 <pebble-dropdown id="actionsButton" label="Filter By" selected-value="{{_selectedValue}}" items="[[_dropDownItems]]"></pebble-dropdown>
                 <bedrock-pubsub event-name="pebble-actions-action-click" handler="_onActionItemTap" target-id=""></bedrock-pubsub>
                 <rock-grid id="compareEntitiesGrid" data="{{_gridData}}" attribute-models="{{_attributeModels}}" config="{{_gridConfig}}"
-                    page-size="5"></rock-grid>
+                    page-size="5" enable-column-select=[[enableColumnSelect]]></rock-grid>
+                <template is="dom-if" if="[[showActionButtons]]">
+                    <div id="content-actions" class="p-b-10" align="center">
+                        <pebble-button class="action-button btn btn-secondary m-r-5" id="back" button-text="Back" raised on-tap="_onBackTap"></pebble-button>
+                        <template is="dom-if" if="[[_allowCreate(compareEntitiesContext)]]">
+                            <pebble-button class="action-button btn btn-primary m-r-5" id="create" button-text="Create" raised on-tap="_onCreateTap"></pebble-button>
+                        </template>
+                        <pebble-button class="action-button-focus dropdownText btn btn-success m-r-5" id="merge" button-text="Merge" raised on-tap="_onMergeTap"></pebble-button>
+                    </div>
+                </template>
                 <liquid-entity-data-get operation="getbyids" id="entityDataGet" request-data="{{_entityGetRequest}}" on-response="_onEntityDataGetSuccess"
                     on-error="_onEntityDataGetFailure">
                 </liquid-entity-data-get>
@@ -73,6 +81,19 @@
 
             static get properties() {
                 return {
+                    compareEntitiesContext: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        },
+                        observer: "_onCompareEntitiesContextChange"
+                    },
+                    attributeNames: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
                     contextData: {
                         type: Object,
                         value: function () {
@@ -185,6 +206,18 @@
                         value: function () {
                             return {};
                         }
+                    },
+                    showActionButtons: {
+                        type: Boolean,
+                        value: false
+                    },
+                    enableColumnSelect: {
+                        type: Boolean,
+                        value: false
+                    },
+                    _selectedEntityId: {
+                        type: String,
+                        value: null
                     }
                 };
             }
@@ -193,6 +226,7 @@
                 super();
 
                 this._onCompositeModelGetResponse = this._onCompositeModelGetResponse.bind(this);
+                this.addEventListener('column-selection-changed', this._onColumnSelectionChanged);
             }
 
             connectedCallback() {
@@ -203,7 +237,17 @@
                     pebbleDropDown.addEventListener('change', this._onDropdownChange.bind(this));
                 }
 
-                this._prepareContext();
+                this._triggerCompareEntitiesContextChange();
+            }
+
+            _onCompareEntitiesContextChange() {
+                if(!_.isEmpty(this.compareEntitiesContext)) {
+                    this._triggerCompareEntitiesContextChange(false); //Not from session
+                }
+            }
+
+            _triggerCompareEntitiesContextChange(fromSession = true) {
+                this._prepareContext(fromSession);
                 this._attributeModelGet();
             }
 
@@ -213,7 +257,7 @@
                     if (this._entityTypes && this._entityTypes.length) {
                         this._entityTypes.forEach(function (entityType) {
                             var modelCompositeGet = this.shadowRoot.querySelector('#attr_' + entityType);
-                            if (modelCompositeGet) {
+                            if (modelCompositeGet && this._modelGetTracker) {
                                 liquidElement.generateRequest();
                                 this._modelGetTracker++;
                             } else {
@@ -343,26 +387,37 @@
                 var columns = [];
                 var items = [];
 
-                var entities = e.detail.response.content.entities;
+                this.entities = e.detail.response.content.entities;
 
-                if (entities && entities.length) {
-                    await this._prepareGridColumnsModelAndData(entities, columns, items);
+                if (this.entities && this.entities.length) {
+                    await this._prepareGridColumnsModelAndData(this.entities, columns, items);
                 }
 
                 var gridConfig = this._getBaseGridConfig();
                 gridConfig.itemConfig.fields = _.extend({}, columns);
                 gridConfig.itemConfig.rows = this._rowsModel;
 
-                this._gridConfig = gridConfig;
+                this._gridConfig = this._getConfigWithUpdatedTitle(gridConfig, this.entities);
                 this._gridData = this._data = items;
 
                 this._loading = false;
             }
 
+            _getConfigWithUpdatedTitle(gridConfig, entities) {
+                if(!_.isEmpty(this.compareEntitiesContext) && this.compareEntitiesContext.matchConfig) {
+                    var title = this.compareEntitiesContext.matchConfig["compare-title"];
+                    if(title) {
+                        title = title.replace("{noOfEntities}", entities.length - 1);
+                        gridConfig.titleTemplates.compareEntitiesTitle = title;
+                    }
+                }
+
+                return gridConfig;
+            }
+
             async _prepareGridColumnsModelAndData(entities, columns, items) {
                 if (this._rowsModel && this._rowsModel) {
-
-                    columns.push({
+                    var rowHeader = {
                         "header": "attributes",
                         "name": "Attributes",
                         "sortable": false,
@@ -371,7 +426,14 @@
                         "readFrom": "properties",
                         "isRowHeader": true,
                         "visible": true
-                    });
+                    }
+                    if(this.enableColumnSelect) {
+                        rowHeader["selectable"] = {
+                            "isAction": false,
+                            "text": "Select for merge"
+                        }
+                    }
+                    columns.push(rowHeader);
 
                     var compositeModel = {
                         "data": {
@@ -381,20 +443,33 @@
 
                     var transformedAttrModels = DataTransformHelper.transformAttributeModels(compositeModel, this._contextData);
 
+                    //Add column for new entity - if compare triggered from entity create
+                    if(!_.isEmpty(this.compareEntitiesContext) && this.compareEntitiesContext.newEntity) {
+                        entities.unshift(this.compareEntitiesContext.newEntity);
+                    }
+
                     for(let i=0; i < this._rowsModel.length; i++) {
                         var item = {};
                         var row = this._rowsModel[i];
                         for (let entity of entities) {
                             var entityHeader = this._getEntityHeader(entity);
                             if (i == 0) {
-                                columns.push({
-                                    "header": entityHeader,
+                                var colDetails = {
+                                    "header": this._updateEntityHeader(entity.id, entityHeader),
                                     "name": entity.id,
                                     "sortable": false,
                                     "filterable": false,
                                     "readFrom": "properties",
                                     "visible": true
-                                });
+                                }
+
+                                if(this.enableColumnSelect && !_.isEmpty(this.compareEntitiesContext)) {
+                                    colDetails["selectable"] = {
+                                        "isAction": true,
+                                        "disable": this.compareEntitiesContext.newEntity.id == entity.id
+                                    };
+                                }
+                                columns.push(colDetails);
                             }
                             var attributes = await DataTransformHelper.transformAttributes(entity, transformedAttrModels, this._contextData);
 
@@ -532,10 +607,15 @@
                 };
             }
 
-            _prepareContext() {
+            _prepareContext(fromSession = true) {
+                var compareEntitiesContext = {};
 
-                var contextId = DataHelper.getParamValue('compareEntitiesContextId');
-                var compareEntitiesContext = JSON.parse(sessionStorage.getItem(contextId));
+                if(fromSession) {
+                    var contextId = DataHelper.getParamValue('compareEntitiesContextId');
+                    compareEntitiesContext = JSON.parse(sessionStorage.getItem(contextId));
+                } else {
+                    compareEntitiesContext = this.compareEntitiesContext;
+                }
 
                 if (compareEntitiesContext) {
                     var clonedContext = {};
@@ -548,7 +628,7 @@
                         var itemContext = {
                             'id': entityIds,
                             'type': entityTypes,
-                            'attributeNames': ["_ALL"]
+                            'attributeNames': this.attributeNames && this.attributeNames.length > 0 ? this.attributeNames : ["_ALL"]
                         };
 
                         clonedContext[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
@@ -648,6 +728,67 @@
                     }
                 }
                 return "<No Name>";
+            }
+
+            _updateEntityHeader(entityId, entityHeader) {
+                if(_.isEmpty(this.compareEntitiesContext)) {
+                    return entityHeader;
+                }
+                return entityId == this.compareEntitiesContext.newEntity.id ? "New "+ entityHeader : "Matched "+ entityHeader;
+            }
+
+            _onColumnSelectionChanged(e) {
+                if (e.detail.checked) {
+                    this._selectedEntityId = e.detail.value;
+                } else {
+                    this._selectedEntityId = "";
+                }
+            }
+
+            _onBackTap(e) {
+                this._reset();
+                var eventName = "compare-entities-back";
+                this.fireBedrockEvent(eventName, null);
+            }
+
+            _onCreateTap(e) {
+                //Already new entity details available, so just trigger the event
+                var eventName = "compare-entities-create";
+                this.fireBedrockEvent(eventName, null);
+            }
+
+            _onMergeTap(e) {
+                if(!this._selectedEntityId) {
+                    this.showErrorToast("Please select an entity for merge.");
+                    return;
+                }
+
+                var matchedEntity = {};
+                for(var i = 0; i < this.entities.length; i++) {
+                    if(this.entities[i].id == this._selectedEntityId) {
+                        matchedEntity = this.entities[i];
+                        break;
+                    }
+                }
+                var eventName = "compare-entities-merge";
+                this.fireBedrockEvent(eventName, {
+                    "matchedEntity": matchedEntity
+                });
+            }
+
+            _allowCreate(compareEntitiesContext) {
+                var allowCreate = false;
+                if(compareEntitiesContext && compareEntitiesContext.matchConfig) {
+                    allowCreate = compareEntitiesContext.matchConfig["allow-create"];
+                }
+                return allowCreate;
+            }
+
+            _reset() {
+                this._modelGetTracker = 0;
+                this.selectedEntities = [];
+                this._gridConfig = {};
+                this._gridData = this._data = [];
             }
         }
 
