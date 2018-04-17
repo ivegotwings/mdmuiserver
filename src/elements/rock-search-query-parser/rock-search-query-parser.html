@@ -111,6 +111,9 @@
           var relationshipName = queryObject.entityRelationships && queryObject.entityRelationships.relationshipName ? queryObject.entityRelationships.relationshipName : undefined;
           this.searchFilters["relationshipName"] = relationshipName;
           if (relationshipName) {
+            if(relationshipName.indexOf("!%&") >  -1){
+              relationshipName = relationshipName.replace( /!%&/g, "" );
+            }
             itemContext.relationships = [relationshipName];
             this._relationshipAttributes = queryObject.entityRelationships && queryObject.entityRelationships.attributes ? queryObject.entityRelationships.attributes : undefined;
             var relationshipAttributes = this._relationshipAttributes ? this._getAttributeNames(this._relationshipAttributes) : ["_ALL"];
@@ -255,7 +258,10 @@
                         if(operator) attrVal["operator"] = operator;
                         delete attrVal[key];
                       } else {
-                        if (displayType === "referencelist" || displayType === "textbox" || displayType === "numeric") {
+                        if(val.indexOf("!%&") > -1){
+                          attrVal["hasvalue"] = val == "!%&has value!%&" ? true : false;
+                          delete attrVal[key];
+                        }else if (displayType === "referencelist" || displayType === "textbox" || displayType === "numeric") {
                           if(key === "equals") {
                             var valSplitByOr = val.split(' or ');
                             var valSplitByAnd = val.split(' and ');
@@ -335,6 +341,11 @@
                       var keyIndex = j - 1;
                       var _currentLevel = attrLevels[keyIndex];
                       if (_.isEmpty(nestedAttributeObj)) {
+                        var attrData = attrVal["contains"];
+                        if(attrData && (attrData.indexOf("!%&") > -1)){
+                          attrVal = {};
+                          attrVal["hasvalue"] = attrData == "!%&has value!%&" ? true : false;
+                        }
                         nestedAttributeObj[_currentLevel] = attrVal;
                       } else {
                         nestedAttributeObj = { "attributes": [nestedAttributeObj] };
@@ -361,6 +372,10 @@
           var relationshipsCriterion = {};
           if (relType) {
             var rel;
+            if(relType.indexOf("!%&") > -1){
+              var isNoRelationshipSearchRequest = true;
+              relType = relType.replace( /!%&/g, "" );
+            }
             if(!_.isEmpty(relationshipModels)) {
               for(var entityType in relationshipModels) {
                 if(relationshipModels[entityType] && relationshipModels[entityType][relType] && relationshipModels[entityType][relType].length > 0) {
@@ -372,15 +387,20 @@
             var relOwnership = rel && rel.properties ? rel.properties.relationshipOwnership : undefined;
             if(!_.isEmpty(relToEntityTypes)) {
               relationshipsCriterion[relType] = relationshipsCriterion[relType] || {};
-              relationshipsCriterion[relType]["relTo"] = {
-                "type": relToEntityTypes[0]
-              };
-              relationshipsCriterion[relType]["query"] = {
-                "filters": {
-                    "typesCriterion": relToEntityTypes
-                  }
-              };
-
+              if(isNoRelationshipSearchRequest){
+                relationshipsCriterion[relType]["hasvalue"] = false;
+              }else{
+                relationshipsCriterion[relType]["relTo"] = {
+                  "type": relToEntityTypes[0]
+                };
+              }
+                
+                relationshipsCriterion[relType]["query"] = {
+                  "filters": {
+                      "typesCriterion": relToEntityTypes
+                    }
+                };
+              
               if (!_.isEmpty(relatedEntityAttributes)) {
                 var relEntityAttrsCriterion = this._prepareAttrsCriterion(compositeModels, relatedEntityAttributes);
 
