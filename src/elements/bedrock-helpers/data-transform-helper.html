@@ -488,7 +488,7 @@
                 relationship.relTo.type = relToType;
                 relationships.push(relationship);
             }
-            
+
             relationships.length = 0;
             relationships.push(relationship);
 
@@ -1311,7 +1311,7 @@
                     if (typeof (entities[i]) == "object") {
                         var formattedEntity = {};
                         Object.keys(lovColumnNameValueCollection).map(function (columnName) {
-                            var attributeValue;
+                            var columnValue;
                             if (lovColumnNameValueCollection[columnName] == "id") {
                                 formattedEntity[columnName] = entities[i].id;
                             } else if (lovColumnNameValueCollection[columnName] == "name") {
@@ -1329,10 +1329,10 @@
                                 if (entities[i].data) {
                                     var fieldPattern = lovColumnNameValueCollection[columnName];
                                     if (typeof (fieldPattern) === "string" && !DataHelper.isEmptyObject(fieldPattern)) {
-                                        attributeValue = DataTransformHelper.getLovFieldPatternValue(entities[i], fieldPattern, columnName);
+                                        columnValue = DataTransformHelper.getLovFieldPatternValue(entities[i], fieldPattern, columnName);
                                     }
-                                    if (attributeValue) {
-                                        formattedEntity[columnName] = attributeValue;
+                                    if (columnValue) {
+                                        formattedEntity[columnName] = columnValue;
                                     }
                                 }
                             }
@@ -1584,29 +1584,54 @@
             var patternedValue = "";
 
             if (typeof (fieldPattern) === "string" && !DataHelper.isEmptyObject(fieldPattern)) {
-                var attributesWithPattern = DataHelper.getWordsBetweenCurlies(fieldPattern);
+                var fieldPatterns = DataHelper.getWordsBetweenCurlies(fieldPattern);
 
-                if (!DataHelper.isEmptyObject(attributesWithPattern) && attributesWithPattern instanceof Array) {
-                    for (var j = 0; j < attributesWithPattern.length; j++) {
-                        var attributeValue = "";
+                if (!DataHelper.isEmptyObject(fieldPatterns) && fieldPatterns instanceof Array) {
+                    for (var j = 0; j < fieldPatterns.length; j++) {
 
-                        var attributeName = DataHelper.readAttributeFromPath(attributesWithPattern[j]);
-                        if (attributeName) {
-                            // Replace Field Pattern with Values
-                            attributeValue = DataTransformHelper._getLovAttributeValue(entity, attributeName, lovColumnName, contextData);
+                        var relationshipType = DataHelper.readPropertyFromPath(fieldPatterns[j], "relationships")
+                        if (relationshipType) {
+                            if (_.isEmpty(patternedValue)) {
+                                patternedValue = []
+                            }
+
+                            var temp = DataTransformHelper._getLovRelationships(entity, relationshipType);
+
+                            if (!_.isEmpty(temp)) {
+                                for (let rel of temp) {
+                                    patternedValue.push(rel);
+                                }
+                            }
+                        } else {
+                            var attributeValue = "";
+                            //var attributeName = DataHelper.readAttributeFromPath(attributesWithPattern[j]);
+                            var attributeName = DataHelper.readPropertyFromPath(fieldPatterns[j], "attributes")
+                            if (attributeName) {
+                                // Replace Field Pattern with Values
+                                attributeValue = DataTransformHelper._getLovAttributeValue(entity, attributeName, lovColumnName, contextData);
+                            }
+                            if (!attributeValue) {
+                                attributeValue = "";
+                            }
+                            fieldPattern = fieldPattern.replace(fieldPatterns[j], attributeValue);
                         }
-                        if (!attributeValue) {
-                            attributeValue = "";
-                        }
-                        fieldPattern = fieldPattern.replace(attributesWithPattern[j], attributeValue);
                     }
 
                     // Remove Curly Braces
-                    patternedValue = fieldPattern.replace(/[{}]/g, '');
+                    if (_.isEmpty(patternedValue) && !_.isArray(patternedValue)) {
+                        patternedValue = fieldPattern.replace(/[{}]/g, '');
+                    }
                 } else {
-                    var attributeName = DataHelper.readAttributeFromPath(fieldPattern);
+                    //var attributeName = DataHelper.readAttributeFromPath(attributesWithPattern[j]);
+                    var attributeName = DataHelper.readPropertyFromPath(fieldPattern, "attributes")
                     if (attributeName) {
                         return DataTransformHelper._getLovAttributeValue(entity, attributeName, lovColumnName, contextData);
+                    }
+
+                    //var attributeName = DataHelper.readAttributeFromPath(attributesWithPattern[j]);
+                    var relationshipType = DataHelper.readPropertyFromPath(fieldPattern, "relationships")
+                    if (relationshipType) {
+                        return DataTransformHelper._getLovRelationships(entity, relationshipType);
                     }
                 }
             } else {
@@ -1672,6 +1697,19 @@
 
             return attributeValue;
         };
+
+        DataTransformHelper._getLovRelationships = function (entity, relationshipType) {
+            var relationships;
+
+            if (entity && relationshipType) {
+                if (DataHelper.isValidObjectPath(entity, "data.relationships." + relationshipType)) {
+                    relationships = entity.data.relationships[relationshipType];
+                }
+            }
+
+            return relationships;
+        };
+
 
         DataTransformHelper.transformEntityModelsToReferenceModels = function (entityModels) {
             var referenceModels = {};
@@ -2175,7 +2213,7 @@
             value.properties["localeCoalescePathExternalName"] = DataHelper.buildLocaleCoalescePathExternalname(value.properties["localeCoalescePath"]);
         };
 
-        DataTransformHelper.transformDataToContextCoalescedData = function(data) {
+        DataTransformHelper.transformDataToContextCoalescedData = function (data) {
             if (!_.isEmpty(data) && !_.isEmpty(data.entities)) {
                 var entitiesData = DataHelper.cloneObject(data);
                 for (let i = 0; i < entitiesData.entities.length; i++) {
@@ -2197,44 +2235,44 @@
             }
         };
 
-        DataTransformHelper._updateAttributesWithContextCoalesce = function(attributes) {
-            Object.keys(attributes).forEach(function(attrName) {
+        DataTransformHelper._updateAttributesWithContextCoalesce = function (attributes) {
+            Object.keys(attributes).forEach(function (attrName) {
                 var attribute = attributes[attrName];
                 attribute.properties = attribute.properties || {};
                 var valueWithContextCoalesce;
                 var valueWithInstanceCoalesce;
-                if(!_.isEmpty(attribute.values)) {
+                if (!_.isEmpty(attribute.values)) {
                     DataTransformHelper._updateValuesWithContextCoalesce(attribute.values);
                     valueWithContextCoalesce = attribute.values.find(value => value.contextCoalesce !== undefined);
                     valueWithInstanceCoalesce = attribute.values.find(value => value.instanceCoalesce !== undefined);
                 }
 
-                if(!_.isEmpty(attribute.group)) {
+                if (!_.isEmpty(attribute.group)) {
                     DataTransformHelper._updateValuesWithContextCoalesce(attribute.group);
                     valueWithContextCoalesce = attribute.group.find(value => value.contextCoalesce !== undefined);
                     valueWithInstanceCoalesce = attribute.group.find(value => value.instanceCoalesce !== undefined);
                 }
 
-                if(valueWithContextCoalesce) {
+                if (valueWithContextCoalesce) {
                     attribute.properties["contextCoalesce"] = valueWithContextCoalesce.contextCoalesce;
                 }
-                if(valueWithInstanceCoalesce) {
+                if (valueWithInstanceCoalesce) {
                     attribute.properties["instanceCoalesce"] = valueWithInstanceCoalesce.instanceCoalesce;
                 }
             });
         };
 
-        DataTransformHelper._updateRelationshipsWithContextCoalesce = function(relationships) {
-            Object.keys(relationships).forEach(function(relName) {
+        DataTransformHelper._updateRelationshipsWithContextCoalesce = function (relationships) {
+            Object.keys(relationships).forEach(function (relName) {
                 var relationship = relationships[relName];
-                if(relationship.length > 0) {
-                    for(let i=0; i<relationship.length; i++) {
+                if (relationship.length > 0) {
+                    for (let i = 0; i < relationship.length; i++) {
                         var relObj = relationship[i];
                         var contextCoalesce = [];
                         relObj.properties = relObj.properties || {};
-                        if((relObj.os === "contextCoalesce" || relObj.os === "instanceCoalesce") && relObj.osctxpath) {
+                        if ((relObj.os === "contextCoalesce" || relObj.os === "instanceCoalesce") && relObj.osctxpath) {
                             var ctxCoalesceObj = DataTransformHelper._parseOsCtxPath(relObj.osctxpath);
-                            if(!_.isEmpty(ctxCoalesceObj)) {
+                            if (!_.isEmpty(ctxCoalesceObj)) {
                                 contextCoalesce.push(ctxCoalesceObj);
                                 relObj.properties[relObj.os] = contextCoalesce;
                             }
@@ -2244,13 +2282,13 @@
             });
         };
 
-        DataTransformHelper._updateValuesWithContextCoalesce = function(values) {
-            for(let i=0; i<values.length; i++) {
+        DataTransformHelper._updateValuesWithContextCoalesce = function (values) {
+            for (let i = 0; i < values.length; i++) {
                 var contextCoalesce = [];
                 var value = values[i];
-                if((value.os === "contextCoalesce" || value.os === "instanceCoalesce") && value.osctxpath) {
+                if ((value.os === "contextCoalesce" || value.os === "instanceCoalesce") && value.osctxpath) {
                     var ctxCoalesceObj = DataTransformHelper._parseOsCtxPath(value.osctxpath);
-                    if(!_.isEmpty(ctxCoalesceObj)) {
+                    if (!_.isEmpty(ctxCoalesceObj)) {
                         contextCoalesce.push(ctxCoalesceObj);
                         value[value.os] = contextCoalesce;
                     }
@@ -2258,14 +2296,14 @@
             }
         };
 
-        DataTransformHelper._parseOsCtxPath = function(ctxPath) {
+        DataTransformHelper._parseOsCtxPath = function (ctxPath) {
             var ctxPaths = ctxPath.split("##");
             var ctxCoalesceObj = {};
-            if(ctxPaths.length > 0) {
-                for(let i=0; i<ctxPaths.length; i++) {
+            if (ctxPaths.length > 0) {
+                for (let i = 0; i < ctxPaths.length; i++) {
                     var path = ctxPaths[i];
                     var paths = path.split("@@");
-                    if(paths.length === 2) {
+                    if (paths.length === 2) {
                         ctxCoalesceObj[paths[0]] = paths[1];
                     }
                 }
