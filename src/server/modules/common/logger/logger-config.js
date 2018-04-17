@@ -59,7 +59,7 @@ var LOGGER_CONFIG = function () {
             "level": "info"
         },
         "notification-service": {
-            "level": "debug"
+            "level": "info"
         },
         "pass-through": {
             "level": "info"
