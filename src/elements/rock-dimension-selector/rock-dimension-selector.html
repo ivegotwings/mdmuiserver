@@ -1441,14 +1441,15 @@ Custom property | Description | Default
                             var flattenedCtxKeys = Object.keys(flattenedCtx);
                             var dependentLovRelationships = {};
 
-                            this.configData.forEach(function (dim) {
-                                var item = dim.id;
+                            this._contextHierarchy.forEach(function (item) {
                                 var lovElement = this.$$('#' + item + '-lov');
 
                                 if (lovElement) {
                                     ctxData = lovElement.rData;
                                     var selectedItems = this._selectedDimensions[item];
 
+                                    //Prepare list of dependent lov's and it's relationships based on selected dimension.
+                                    // This list will be used when dependent lov will get reset with related entities which are mapped to current context as relationship.
                                     this._setDependentValCtxLovRelationships(ctxData, selectedItems, dependentLovRelationships);
 
                                     if (ctxData) {
@@ -1461,26 +1462,18 @@ Custom property | Description | Default
                                             var ctxToBeLoaded = flattenedCtx[item];
 
                                             if (reqData) {
-                                                if (ctxData.dimensionType.toLowerCase() == "value") {
-                                                    if (!_.isEmpty(dependentLovRelationships[item])) {
-                                                        reqData.params.query.ids = dependentLovRelationships[item];
-                                                    } else {
-                                                        delete reqData.params.query.ids;
+                                                if (ctxToBeLoaded && ctxToBeLoaded.length && ctxToBeLoaded.indexOf('_ALL') < 0 && ctxData.externalAttrName) {
+                                                    var attributesCriterion = [];
+                                                    var attrCriterion = {};
+                                                    attrCriterion[ctxData.externalAttrName] = {
+                                                        "exacts": ctxToBeLoaded
                                                     }
-                                                } else {
-                                                    if (ctxToBeLoaded && ctxToBeLoaded.length && ctxToBeLoaded.indexOf('_ALL') < 0 && ctxData.externalAttrName) {
-                                                        var attributesCriterion = [];
-                                                        var attrCriterion = {};
-                                                        attrCriterion[ctxData.externalAttrName] = {
-                                                            "exacts": ctxToBeLoaded
-                                                        }
 
-                                                        attributesCriterion.push(attrCriterion);
-                                                        reqData.params.query.filters.attributesCriterion = attributesCriterion;
-                                                        selectedItems = this._getSelectedCtxItems(item, ctxToBeLoaded);
-                                                    } else {
-                                                        delete reqData.params.query.filters.attributesCriterion;
-                                                    }
+                                                    attributesCriterion.push(attrCriterion);
+                                                    reqData.params.query.filters.attributesCriterion = attributesCriterion;
+                                                    selectedItems = this._getSelectedCtxItems(item, ctxToBeLoaded);
+                                                } else {
+                                                    delete reqData.params.query.filters.attributesCriterion;
                                                 }
 
                                                 lovElement.selectedItems = selectedItems;
@@ -1491,6 +1484,34 @@ Custom property | Description | Default
                                     }
                                 }
                             }, this);
+
+                            // if dimension is "value" type then need to check for "dependentLovRelationships" if this dimension is mapped as dependent Lov.
+                            var valueTypeDimensions = this.configData.filter(v => v.dimensionType == "value");
+                            if (valueTypeDimensions) {
+                                for (let valueTypeDimension of valueTypeDimensions) {
+                                    var ctxType = valueTypeDimension.id;
+                                    var lovElement = this.$$('#' + ctxType + '-lov');
+
+                                    if (lovElement) {
+                                        var ctxData = lovElement.rData;
+                                        var selectedItems = this._selectedDimensions[ctxType];
+                                        if (ctxData) {
+                                            var reqData = ctxData.dataRequest;
+                                            if (reqData) {
+                                                if (!_.isEmpty(dependentLovRelationships[ctxType])) {
+                                                    reqData.params.query.ids = dependentLovRelationships[ctxType];
+                                                } else {
+                                                    delete reqData.params.query.ids;
+                                                }
+                                            }
+                                        }
+
+                                        lovElement.selectedItems = selectedItems;
+                                        lovElement.requestData = reqData;
+                                        lovElement.reset();
+                                    }
+                                }
+                            }
                         }
                     }
                     this._setSelectedDimensions();
