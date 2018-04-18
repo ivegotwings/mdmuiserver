@@ -111,7 +111,7 @@ Custom property | Description | Default
                                 <rock-entity-lov id="[[ctx.id]]-lov" r-data="[[ctx]]" readonly=[[readonly]] config-data-item-id="[[ctx.id]]" id-field="[[ctx.dataMappings.id]]"
                                     title-pattern="[[ctx.dataMappings.title]]" request-data="[[ctx.dataRequest]]" selected-items="[[_getSelectedItems(ctx.selectedItem)]]"
                                     external-data-formatter="[[_entityExternalDataFormatter]]" type-field="[[ctx.dataMappings.type]]"
-                                    sort-field="[[ctx.dataMappings.sort]]" rel-to-field="[[ctx.dataMappings.relTo]]" multi-select="[[!allSingleSelect]]"
+                                    sort-field="[[ctx.dataMappings.sort]]" multi-select="[[!allSingleSelect]]"
                                     show-action-buttons></rock-entity-lov>
                             </pebble-popover>
                             <bedrock-pubsub event-name="entity-lov-confirm-button-tap" handler="_onEntityLovConfirmButtonTapped" target-id="[[ctx.id]]-lov"></bedrock-pubsub>
@@ -1202,6 +1202,12 @@ Custom property | Description | Default
                                     "fields": {
                                         "attributes": [
                                             "_ALL"
+                                        ],
+                                        "relationships": [
+                                            "_ALL"
+                                        ],
+                                        "relationshipAttributes": [
+                                            "_ALL"
                                         ]
                                     }
                                 }
@@ -1322,7 +1328,16 @@ Custom property | Description | Default
                         }
 
                         var titlePattern = "{entity.attributes." + externalAttrName + "}";
-                        var relToField = this._getRelToFieldForDependentValCtx(ctxKey);
+                        var mappedValueContexts = this._getMappedValueContextsBasedOnCtxType(ctxKey);
+
+                        if (mappedValueContexts) {
+                            var dependentRelationships = mappedValueContexts.map(v => v.valueContextRelationship);
+
+                            if (dependentRelationships) {
+                                reqData.params.fields.relationships = dependentRelationships;
+                                reqData.params.fields.relationshipAttributes = [this._getDefaultSelectedAttrName()];
+                            }
+                        }
 
                         ctxs[ctxKey] = {
                             "id": ctxKey,
@@ -1331,11 +1346,11 @@ Custom property | Description | Default
                             "externalAttrName": externalAttrName,
                             "dataRequestType": "entity",
                             "dataRequest": reqData,
+                            "mappedValueContexts": mappedValueContexts,
                             "dataMappings": {
                                 "id": "name",
                                 "title": titlePattern,
-                                "type": [ctxKey],
-                                "relTo": relToField
+                                "type": [ctxKey]
                             }
                         };
 
@@ -1409,20 +1424,13 @@ Custom property | Description | Default
                 });
             },
 
-            _getRelToFieldForDependentValCtx: function (currentContextType) {
-                var relToField = "";
-                var globalCtxInfo = this._contextHierarchyInfo && this._contextHierarchyInfo.find(v => v.contextKey == currentContextType);
-                if (globalCtxInfo && globalCtxInfo.mappedValueContexts) {
-                    for (let mappedValueContext of globalCtxInfo.mappedValueContexts) {
-                        var relationshipName = mappedValueContext.valueContextRelationship;
-                        var relatedEntityType = mappedValueContext.valueContext;
-
-                        if (relationshipName && relatedEntityType) {
-                            relToField = relToField + "{" + relatedEntityType + ".entity.relationships." + relationshipName + "}";
-                        }
+            _getMappedValueContextsBasedOnCtxType: function (currentContextType) {
+                if (currentContextType) {
+                    var globalCtxInfo = this._contextHierarchyInfo && this._contextHierarchyInfo.find(v => v.contextKey == currentContextType);
+                    if (globalCtxInfo && globalCtxInfo.mappedValueContexts) {
+                        return globalCtxInfo.mappedValueContexts
                     }
                 }
-                return relToField;
             },
 
             _contextDataToBeLoaded: function (contextKey) {
@@ -1530,14 +1538,10 @@ Custom property | Description | Default
 
             _setDependentValCtxLovRelationships: function (elementInfo, selectedItems, dependentLovRelationships) {
                 if (elementInfo) {
-                    var relationships = elementInfo.dataMappings.relTo;
+                    var mappedValueContexts = this._getMappedValueContextsBasedOnCtxType(elementInfo.id);
 
-                    if (relationships) {
-                        relationships = DataHelper.getWordsBetweenCurlies(relationships);
-                        var dependentCtxs = [];
-                        if (relationships && _.isArray(relationships)) {
-                            dependentCtxs = relationships.map(a => a.split(".")[0]);
-                        }
+                    if (mappedValueContexts) {
+                        var dependentCtxs = mappedValueContexts.map(a => a.valueContext);
 
                         if (dependentCtxs && selectedItems && selectedItems.length) {
                             for (let dctxs of dependentCtxs) {
@@ -1559,6 +1563,9 @@ Custom property | Description | Default
                                             delete dependentLovRelationships[dctxs];
                                             break;
                                         }
+                                    } else {
+                                        delete dependentLovRelationships[dctxs];
+                                        break;
                                     }
                                 }
                             }
@@ -1593,8 +1600,9 @@ Custom property | Description | Default
 
                     if (elementInfo) {
                         var ctxType = elementInfo.id;
+                        this.domHost._setDepenedencyAndPreSelectedItems(data, formattedData, elementInfo);
 
-                        if (elementInfo.dimensionType.toLowerCase() == "value" && !_.isEmpty(this.selectedItems) && DataHelper.isValidObjectPath(this.requestData, "params.query.ids")) {
+                        if (elementInfo.dimensionType.toLowerCase() == "value" && DataHelper.isValidObjectPath(this.requestData, "params.query.ids")) {
                             var selectedItemIds = this.selectedItems.map(v => v.id);
                             var selectedItems = [];
                             if (selectedItemIds) {
@@ -1604,8 +1612,24 @@ Custom property | Description | Default
                                     }
                                 }, this);
 
-                                if (selectedItems) {
+                                if (!_.isEmpty(selectedItems)) {
                                     this.selectedItems = selectedItems;
+                                } else {
+                                    var preSelectedItemId = this.domHost._selectedDimensions["PreSelectedItems"] && this.domHost._selectedDimensions["PreSelectedItems"][ctxType];
+                                    if (preSelectedItemId) {
+                                        var preselctedItem = data.find(v => v.id == preSelectedItemId);
+
+                                        if (preselctedItem) {
+                                            var name = preselctedItem.data.attributes[elementInfo.externalAttrName].values[0].value;
+                                            var item = formattedData.find(v => v.id == name);
+
+                                            if (item) {
+                                                this.selectedItems = [item];
+                                            }
+                                        }
+                                    } else {
+                                        this.selectedItems = [];
+                                    }
                                     this.domHost._setSelectedDimensions();
                                 }
                             }
@@ -1670,6 +1694,46 @@ Custom property | Description | Default
                 }
 
                 return filteredData;
+            },
+
+            _setDepenedencyAndPreSelectedItems: function (data, formattedData, elementInfo) {
+                var mappedValueContexts = elementInfo && elementInfo.mappedValueContexts;
+
+                if (mappedValueContexts && data && formattedData) {
+                    for (let d of data) {
+                        if (d.data && d.data.relationships) {
+                            for (let rel in d.data.relationships) {
+                                if (d.data.relationships[rel] && d.data.attributes[elementInfo.externalAttrName]) {
+                                    var name = d.data.attributes[elementInfo.externalAttrName].values[0].value;
+                                    var item = formattedData.find(v => v.id == name);
+
+                                    if (!item.relTo) {
+                                        item.relTo = [];
+                                    }
+
+                                    var mappedValueContext = mappedValueContexts.find(v => v.valueContextRelationship == rel);
+
+                                    for (let r of d.data.relationships[rel]) {
+                                        item.relTo.push(r);
+                                        if (r.attributes && mappedValueContext) {
+                                            var relAttr = r.attributes[this._getDefaultSelectedAttrName()];
+
+                                            if (relAttr && relAttr.values && relAttr.values[0].value == "true") {
+                                                if (!this._selectedDimensions["PreSelectedItems"]) {
+                                                    this._selectedDimensions["PreSelectedItems"] = {};
+                                                }
+
+                                                if (_.isEmpty(this._selectedDimensions["PreSelectedItems"][mappedValueContext.valueContext])) {
+                                                    this._selectedDimensions["PreSelectedItems"][mappedValueContext.valueContext] = r.relTo.id;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             },
 
             _getContextsBasedOnSelectedDimension: function () {
@@ -1977,6 +2041,10 @@ Custom property | Description | Default
                     }
                 }
                 return partialContext;
+            },
+
+            _getDefaultSelectedAttrName: function () {
+                return "isDefault";
             }
         });
     </script>
