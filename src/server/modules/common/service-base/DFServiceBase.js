@@ -25,10 +25,12 @@ var DFServiceBase = function (options) {
     this._baseHeaders = _dataConnection.getHeaders();
     this._timeout = _dataConnection.getTimeout();
 
-    this.requestJson = async function (serviceName, request) {
+    this.requestJson = async function (serviceName, request, tenant) {
         var timeout = request.timeout || this._timeout;
-
-        var tenantId = this.getTenantId();        
+        var tenantId = tenant;
+        if(!tenantId){
+            tenantId = this.getTenantId();  
+        }  
         var timeStamp = moment().toISOString();
 
         var url = this._serverUrl + '/' + tenantId + '/api' + serviceName + '?timeStamp=' + timeStamp;
