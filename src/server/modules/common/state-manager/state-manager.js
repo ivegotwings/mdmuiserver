@@ -22,16 +22,18 @@ var localStorage = {};
 async function get(key) {
     var data;
     var cacheKey = getCacheKey(key);
-
+    var redisError = false;
     if (isStateServerEnabled && client) {
-        var promise = client.get(cacheKey).then(function (dataString) {
-            //console.log('received data from redis: ', dataString);
-            data = dataString;
-        });
-
-        await Promise.resolve(promise);
+        try {
+            data = await client.get(cacheKey);
+        }
+        catch (err) {
+            console.log('redis fetch failed', err);
+            redisError = true;
+        }
     }
-    else if (localStorage[cacheKey]) {
+    
+    if (!(isStateServerEnabled && client) && localStorage[cacheKey] || redisError) {
         data = await localStorage[cacheKey];
     }
 
