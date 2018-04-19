@@ -334,6 +334,7 @@ gulp.task('app-nodemon', function (cb) {
 
   var stream = nodemon({
     script: appPath, // run ES5 code
+    nodeArgs: ['--inspect'],
     env: {
       'RUN_OFFLINE': runOffline,
       'NODE_CONFIG_DIR': './src/server/config',
