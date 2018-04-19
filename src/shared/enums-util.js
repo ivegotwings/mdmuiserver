@@ -16,8 +16,9 @@ Enums.actions = {
     RSConnectComplete:11,
     RSConnectFail:12,
     BusinessConditionSaveComplete:13,
-    BusinessConditionSaveFail:14
-
+    BusinessConditionSaveFail:14,
+    ModelImportComplete:15,
+    ModelImportFail:16
 }
 
 Enums.operations = {
