@@ -107,6 +107,14 @@ function getAction(serviceName, status, operation, description) {
                 action = enums.actions.RSConnectFail;
             }
         }
+
+        if (serviceName.toLowerCase() == "notificationManageService") {
+            if (status.toLowerCase() == "success") {
+                action = enums.actions.ModelImportComplete;
+            } else {
+                action = enums.actions.ModelImportFail;
+            }
+        }
     }
 
     return action;
