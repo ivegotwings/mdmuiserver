@@ -221,6 +221,10 @@ attributes during the single entity creation.
                         matchConfig: {
                             type: Object,
                             value: function () { return {}; }
+                        },
+                        enableMatchStep: {
+                            type: Boolean,
+                            value: false
                         }
                     },
                     observers: [
@@ -318,14 +322,16 @@ attributes during the single entity creation.
 
                             if(response.status && response.status.toLowerCase() == "success") {
                                 if(response.entities) {
-                                    // if(response.entities.length == 1) {
-                                    //     this._matchedEntity = response.entities[0];
-                                    //     this.shadowRoot.querySelector('#updateConfirmDialog').open();
-                                    //     return;
-                                    // } else if(response.entities.length > 1) {
-                                    //     this.showErrorToast("We found multiple entites matching in our system. Please check entity details or contact your administrator.");
-                                    //     return;
-                                    // }
+                                    if (!this.enableMatchStep) {
+                                        if (response.entities.length == 1) {
+                                            this._matchedEntity = response.entities[0];
+                                            this.shadowRoot.querySelector('#updateConfirmDialog').open();
+                                        } else if (response.entities.length > 1) {
+                                            this.showErrorToast("We found multiple entities matching in our system. Please check entity details or contact your administrator.");
+                                        }
+                                        return;
+                                    }
+
                                     var matchedEntityIds = response.entities.map(entity => entity.id);
                                     var entityType = ContextHelper.getFirstItemContext(this.contextData).type;
 
@@ -365,10 +371,12 @@ attributes during the single entity creation.
                     },
 
                     _updateEntity: function() {
-                        // var updateConfirmDialog = this.$.updateConfirmDialog;
-                        // if(updateConfirmDialog) {
-                        //     updateConfirmDialog.close();
-                        // }
+                        if (!this.enableMatchStep) {
+                            var updateConfirmDialog = this.$.updateConfirmDialog;
+                            if (updateConfirmDialog) {
+                                updateConfirmDialog.close();
+                            }
+                        }
                         var clientState = {};
                         clientState.notificationInfo = {};
                         clientState.notificationInfo.showNotificationToUser = false;
@@ -396,49 +404,52 @@ attributes during the single entity creation.
                     },
                     _onSaveResponse: function(e) {
                         var eventName = "onSave";
+                        var operation = e.detail.request.operation;
                         var eventDetail = {
                             name: eventName,
-                            data: { "skipNext": this.skipNext }
+                            data: { "skipNext": operation == "update" ? true : this.skipNext }
                         }
                         this._loading = true;
                         var itemCtx = this.getFirstItemContext();
-                            var msg="";
-                            if(e.detail.request.operation == "create") {
-                                msg = "Entity created successfully.";
-                            }
-                            if(e.detail.request.operation == "update") {
-                                msg = "Entity updated successfully.";
-                            }
-                            var data = {
-                                "messages": [
-                                    {
-                                        "message": msg
-                                    }
-                                ],
-                                "actions": [
-                                    {
-                                        "name": "closeFunction",
-                                        "text": "Take Me back to Where I started"
-                                    },
-                                    {
-                                        "name": "showEntity",
-                                        "text": "Show me the entity",
-                                        "dataRoute": "entity-manage",
-                                        "queryParams": { "id": itemCtx.id, "type": itemCtx.type}
-                                    },
-                                    {
-                                        "name": "createEntity",
-                                        "text": "Create one more",
-                                        "dataRoute": "entity-create",
-                                        "queryParams": { "type": itemCtx.type}
-                                    }
-                                ]
-                            };
-                            ComponentHelper.fireBedrockEvent("entity-created",{"id":itemCtx.id,"type":itemCtx.type} , { ignoreId: true });
-                        ComponentHelper.getParentElement(this).businessFunctionData=data;
-                        setTimeout(() =>{
+                        var msg = "";
+                        if (operation == "create") {
+                            msg = "Entity created successfully.";
+                        }
+                        if (operation == "update") {
+                            msg = "Entity updated successfully.";
+                        }
+                        var data = {
+                            "messages": [
+                                {
+                                    "message": msg
+                                }
+                            ],
+                            "actions": [
+                                {
+                                    "name": "closeFunction",
+                                    "text": "Take Me back to Where I started"
+                                },
+                                {
+                                    "name": "showEntity",
+                                    "text": "Show me the entity",
+                                    "dataRoute": "entity-manage",
+                                    "queryParams": { "id": itemCtx.id, "type": itemCtx.type }
+                                },
+                                {
+                                    "name": "createEntity",
+                                    "text": "Create one more",
+                                    "dataRoute": "entity-create",
+                                    "queryParams": { "type": itemCtx.type }
+                                }
+                            ]
+                        };
+                        ComponentHelper.fireBedrockEvent("entity-created", { "id": itemCtx.id, "type": itemCtx.type }, { ignoreId: true });
+                        ComponentHelper.getParentElement(this).businessFunctionData = data;
+                        setTimeout(() => {
                             this._loading = false;
-                            this.showSuccessToast(msg);
+                            if(operation != "update") {
+                                this.showSuccessToast(msg);
+                            }
                             this.fireBedrockEvent(eventName, eventDetail, {
                                 ignoreId: true
                             });
