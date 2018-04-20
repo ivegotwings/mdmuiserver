@@ -24,8 +24,10 @@ async function get(key) {
     var cacheKey = getCacheKey(key);
     var redisError = false;
     if (isStateServerEnabled && client) {
+        console.log('in if');
         try {
             data = await client.get(cacheKey);
+            console.log('in try: ', data);
         }
         catch (err) {
             console.log('redis fetch failed', err);
@@ -35,8 +37,8 @@ async function get(key) {
     
     if (!(isStateServerEnabled && client) && localStorage[cacheKey] || redisError) {
         data = await localStorage[cacheKey];
+        console.log('local storage enabled', data);
     }
-
     return data;
 }
 
