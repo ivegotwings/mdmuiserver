@@ -78,19 +78,19 @@ Custom property | Description | Default
                 align-items: center;
                 --pebble-button: {
                     font-weight: var(--font-medium, 500);
-                    color:var(--palette-cerulean-two, #026bc3);
+                    color: var(--palette-cerulean-two, #026bc3);
                     padding-top: 0px;
                     padding-right: 0px;
                     padding-bottom: 0px;
                     padding-left: 0px;
-                    width:120px;
-                };
-                --pebble-button-right-icon:{
-                    margin-right:5px;
-                };
+                    width: 120px;
+                }
+                --pebble-button-right-icon: {
+                    margin-right: 5px;
+                }
                 --pebble-icon-color: {
                     fill: var(--palette-cerulean-two, #026bc3);
-                };
+                }
             }
         </style>
         <div class="horizontal layout container">
@@ -230,13 +230,6 @@ Custom property | Description | Default
                     type: Boolean,
                     value: false
                 },
-
-                _currentDimensionSelector: {
-                    type: Object,
-                    value: function () {
-                        return {};
-                    }
-                },
                 entityId: {
                     type: Object,
                     value: function () {
@@ -248,6 +241,40 @@ Custom property | Description | Default
                     value: function () {
                         return {};
                     }
+                },
+                horizontalAlign: {
+                    type: String,
+                    value: "right"
+                },
+                classificationTaxonomy: {
+                    type: String,
+                    value: ""
+                },
+                hideContexts: {
+                    type: Array,
+                    value: function () {
+                        return [];
+                    }
+                },
+                components: {
+                    type: Array,
+                    value: function () {
+                        return [];
+                    }
+                },
+                dynamicDimensionsConfig: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                },
+                confirmationMessage: {
+                    type: String,
+                    value: "Do you want to update selection?"
+                },
+                showConfirmation: {
+                    type: Boolean,
+                    value: false
                 },
                 _default: {
                     type: Array,
@@ -323,24 +350,17 @@ Custom property | Description | Default
                     type: Boolean,
                     value: false
                 },
-                horizontalAlign: {
-                    type: String,
-                    value: "right"
-                },
-                classificationTaxonomy: {
-                    type: String,
-                    value: ""
-                },
-                hideContexts: {
-                    type: Array,
+                _currentDimensionSelector: {
+                    type: Object,
                     value: function () {
-                        return [];
+                        return {};
                     }
                 },
-                components: {
-                    type: Array,
+                _selectedDimensions: {
+                    type: Object,
+                    notify: true,
                     value: function () {
-                        return [];
+                        return {};
                     }
                 },
                 _selectedClassificationsConfig: {
@@ -348,20 +368,6 @@ Custom property | Description | Default
                     value: function () {
                         return {};
                     }
-                },
-                dynamicDimensionsConfig: {
-                    type: Object,
-                    value: function () {
-                        return {};
-                    }
-                },
-                confirmationMessage: {
-                    type: String,
-                    value: "Do you want to update selection?"
-                },
-                showConfirmation: {
-                    type: Boolean,
-                    value: false
                 }
             },
 
@@ -375,9 +381,110 @@ Custom property | Description | Default
                 '_prepareContext(appName, domain, entityType)'
             ],
 
+            onConfigLoaded: async function (componentConfig) {
+                if (componentConfig && componentConfig.config) {
+                    configData = DataHelper.convertObjectToArray(componentConfig.config);
+
+                    if (!_.isEmpty(this.dynamicDimensionsConfig)) {
+                        configData = this._prepareConfigForDynamicDimensions(configData);
+                    }
+
+                    this.configData = {};
+                    this.set('configData', configData);
+
+                    var localeManager = ComponentHelper.getLocaleManager();
+                    var defaultLocale = DataHelper.getDefaultValContext();
+                    if (defaultLocale && defaultLocale.locale) {
+                        await localeManager.getByNameAsync(defaultLocale.locale);
+                    }
+                }
+            },
+
             get confirmationDialog() {
                 this._confirmationDialog = this._confirmationDialog || this.shadowRoot.querySelector("#confirmation-dialog");
                 return this._confirmationDialog;
+            },
+
+            getDimensionSelectorConfig: function () {
+                return this.configData;
+            },
+
+            /**
+              * <b><i>Content development is under progress... </b></i> 
+              */
+            refresh: function () {
+                //Temporary fix until we decide how refresh has to be.
+                var configData = this.configData;
+                this.configData = undefined;
+                this.configData = configData;
+            },
+
+            refreshDimensionData: function () {
+                if (typeof (this.configData) !== "undefined") {
+                    for (var i = 0; i < this.configData.length; i++) {
+                        var configDataItem = this.configData[i];
+                        var rockLov;
+                        if (this._compareRequestType(configDataItem.dataRequestType, 'entity')) {
+                            rockLov = this.shadowRoot.querySelector("#" + configDataItem.id).querySelector("rock-entity-lov");
+                        }
+                        if (this._compareRequestType(configDataItem.dataRequestType, 'entity-context')) {
+                            rockLov = this.shadowRoot.querySelector("#" + configDataItem.id).querySelector("rock-context-lov");
+                        }
+                        if (this._compareRequestType(configDataItem.dataRequestType, 'entity-model')) {
+                            rockLov = this.shadowRoot.querySelector("#" + configDataItem.id).querySelector("rock-entity-model-lov");
+                        }
+                        if (rockLov) {
+                            rockLov.reset();
+                        }
+                    }
+                }
+            },
+
+            clearClassificationSelection: function () {
+                if (typeof (this.configData) !== "undefined") {
+                    for (var i = 0; i < this.configData.length; i++) {
+                        var configDataItem = this.configData[i];
+                        var rockClassification;
+                        var rockContainer = this.shadowRoot.querySelector("#" + configDataItem.id);
+
+                        if (rockContainer) {
+                            if (configDataItem.dataMappings.type.indexOf("classification") != -1) {
+                                rockClassification = rockContainer.querySelector("rock-classification-tree");
+                            }
+
+                            if (rockClassification) {
+                                rockClassification.selectedClassifications = [];
+                                this.selectedDimensions["classification"] = [];
+                                var currentDimensionButtonId = rockClassification.id.replace("-contextTree", "-toggle-button");
+                                var currentButton = this.shadowRoot.querySelector("#" + currentDimensionButtonId);
+                                if (currentButton) {
+                                    currentButton.buttonText = rockClassification.parentElement.title;
+                                    currentButton.setAttribute("data-tooltip", rockClassification.parentElement.title);
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+
+            _configChanged: function (configData, entityType) {
+                if (configData && configData.length) {
+                    if (!this._isContextLoad) {
+                        configData.forEach(function (item) {
+                            if (item && item.useContextModel) {
+                                this._isContextLoad = true;
+                            }
+                        }, this);
+                    }
+
+                    if (this._isContextLoad) {
+                        if (entityType) {
+                            this._entityTypeChanged(entityType);
+                        }
+                    } else {
+                        this._loadConfigBasedDimensions();
+                    }
+                }
             },
 
             _prepareContext: function () {
@@ -401,25 +508,6 @@ Custom property | Description | Default
 
                     if (!_.isEmpty(context)) {
                         this.requestConfig('rock-dimension-selector', context);
-                    }
-                }
-            },
-
-            onConfigLoaded: async function (componentConfig) {
-                if (componentConfig && componentConfig.config) {
-                    configData = DataHelper.convertObjectToArray(componentConfig.config);
-
-                    if (!_.isEmpty(this.dynamicDimensionsConfig)) {
-                        configData = this._prepareConfigForDynamicDimensions(configData);
-                    }
-
-                    this.configData = {};
-                    this.set('configData', configData);
-
-                    var localeManager = ComponentHelper.getLocaleManager();
-                    var defaultLocale = DataHelper.getDefaultValContext();
-                    if (defaultLocale && defaultLocale.locale) {
-                        await localeManager.getByNameAsync(defaultLocale.locale);
                     }
                 }
             },
@@ -494,40 +582,6 @@ Custom property | Description | Default
                 }
             },
 
-            getDimensionSelectorConfig: function () {
-                return this.configData;
-            },
-
-            _configChanged: function (configData, entityType) {
-                if (configData && configData.length) {
-                    if (!this._isContextLoad) {
-                        configData.forEach(function (item) {
-                            if (item && item.useContextModel) {
-                                this._isContextLoad = true;
-                            }
-                        }, this);
-                    }
-
-                    if (this._isContextLoad) {
-                        if (entityType) {
-                            this._entityTypeChanged(entityType);
-                        }
-                    } else {
-                        this._loadConfigBasedDimensions();
-                    }
-                }
-            },
-
-            /**
-              * <b><i>Content development is under progress... </b></i> 
-              */
-            refresh: function () {
-                //Temporary fix until we decide how refresh has to be.
-                var configData = this.configData;
-                this.configData = undefined;
-                this.configData = configData;
-            },
-
             _compareRequestType: function (dataRequestType, entityTypeInfo) {
                 return dataRequestType === entityTypeInfo;
             },
@@ -573,8 +627,8 @@ Custom property | Description | Default
             _onEntityLovConfirmButtonTapped: function (event) {
                 this._isClassificationSelectionTriggered = false;
                 this._currentLovEvent = event;
-                if(this.showConfirmation) {
-                    if(this.confirmationDialog) {
+                if (this.showConfirmation) {
+                    if (this.confirmationDialog) {
                         this.confirmationDialog.open();
                     }
                     return;
@@ -582,7 +636,7 @@ Custom property | Description | Default
                 this._triggerLovConfirmButtonTapped();
             },
 
-            _triggerLovConfirmButtonTapped: function(togglePopover = true) {
+            _triggerLovConfirmButtonTapped: function (togglePopover = true) {
                 if (!this.allMultiSelect) {
                     var currentLovId = this._currentLovEvent.detail.data.id;
                     var currentRockLov = this.shadowRoot.querySelector("#" + currentLovId);
@@ -616,7 +670,7 @@ Custom property | Description | Default
                 }
 
                 this._updateSelectedDimensions();
-                if(togglePopover) {
+                if (togglePopover) {
                     this._toggleLovPopover(this._currentDimensionSelector.popover);
                 }
             },
@@ -651,134 +705,6 @@ Custom property | Description | Default
 
             _onEntityLovCloseButtonTapped: function () {
                 this._toggleLovPopover(this._currentDimensionSelector.popover);
-            },
-
-            _updateSelectedDimensions: function () {
-                this._debouncer = Polymer.Debouncer.debounce(this._debouncer, Polymer.Async.timeOut.after(100), () => {
-                    this._setSelectedDimensions();
-                    if (this._isContextLoad) {
-                        this._updateCurrentContextState();
-                    }
-                });
-            },
-
-            refreshDimensionData: function () {
-                if (typeof (this.configData) !== "undefined") {
-                    for (var i = 0; i < this.configData.length; i++) {
-                        var configDataItem = this.configData[i];
-                        var rockLov;
-                        if (this._compareRequestType(configDataItem.dataRequestType, 'entity')) {
-                            rockLov = this.shadowRoot.querySelector("#" + configDataItem.id).querySelector("rock-entity-lov");
-                        }
-                        if (this._compareRequestType(configDataItem.dataRequestType, 'entity-context')) {
-                            rockLov = this.shadowRoot.querySelector("#" + configDataItem.id).querySelector("rock-context-lov");
-                        }
-                        if (this._compareRequestType(configDataItem.dataRequestType, 'entity-model')) {
-                            rockLov = this.shadowRoot.querySelector("#" + configDataItem.id).querySelector("rock-entity-model-lov");
-                        }
-                        if (rockLov) {
-                            rockLov.reset();
-                        }
-                    }
-                }
-            },
-
-            _setSelectedDimensions: function () {
-                var selectedDimensions = {};
-                var configData = this._contextToBeRendered;
-
-                if (typeof (configData) !== "undefined") {
-                    for (var i = 0; i < configData.length; i++) {
-                        var configDataItem = configData[i];
-                        var rockLov, rockClassification;
-                        var rockContainer = this.shadowRoot.querySelector("#" + configDataItem.id);
-
-                        if (rockContainer) {
-                            if (this._compareRequestType(configDataItem.dataRequestType, 'entity')) {
-                                if (configDataItem.displayType != "dialog") {
-                                    rockLov = rockContainer.querySelector("rock-entity-lov");
-                                } else {
-                                    rockClassification = rockContainer.querySelector("rock-classification-tree");
-                                }
-                            }
-                            if (this._compareRequestType(configDataItem.dataRequestType, 'entity-context')) {
-                                rockLov = rockContainer.querySelector("rock-context-lov");
-                            }
-
-                            if (this._compareRequestType(configDataItem.dataRequestType, 'entity-model')) {
-                                rockLov = rockContainer.querySelector("rock-entity-model-lov");
-                            }
-
-                            if (rockLov || rockClassification) { //typeof (rockLov) !== "undefined"
-                                const { dataMappings } = configDataItem;
-                                var entityTypes = dataMappings && dataMappings.type;
-
-                                if (entityTypes) {
-                                    for (var j = 0; j < entityTypes.length; j++) {
-                                        if (configDataItem.displayType != "dialog") {
-                                            var ctxKey = !_.isEmpty(configDataItem.contextKeyName) ? configDataItem.contextKeyName : entityTypes[j];
-                                            if (!rockLov.multiSelect) {
-                                                var selectedItem = !_.isEmpty(rockLov.selectedItem) ? rockLov.selectedItem : undefined;
-                                                var selectedItems = !_.isEmpty(rockLov.selectedItems) ? rockLov.selectedItems : undefined;
-                                                if (selectedItems) {
-                                                    rockLov.selectedItem = selectedItem ? selectedItem : selectedItems[0];
-                                                }
-                                                var itemId = this._getItemId(rockLov.selectedItem);
-                                                selectedDimensions[ctxKey] = itemId ? [itemId] : [];
-                                            } else {
-                                                selectedDimensions[ctxKey] = this._getItemsIdsByType(
-                                                    rockLov.selectedItems, entityTypes[j]);
-                                            }
-                                        } else {
-                                            var selectedItems = [];
-                                            if (rockClassification.selectedClassifications &&
-                                                rockClassification.selectedClassifications.length > 0) {
-                                                if (!rockClassification.multiSelect) {
-                                                    if (rockClassification.selectedClassifications[0]) {
-                                                        var valuePath = this._getClassificationValuePath(rockClassification.selectedClassifications[0]);
-                                                        if (valuePath) {
-                                                            selectedItems.push(valuePath);
-                                                        }
-                                                    }
-                                                } else {
-                                                    for (var k = 0; k < rockClassification.selectedClassifications.length; k++) {
-                                                        var valuePath = this._getClassificationValuePath(rockClassification.selectedClassifications[k]);
-                                                        if (valuePath) {
-                                                            selectedItems.push(valuePath);
-                                                        }
-                                                    }
-                                                }
-                                            }
-
-                                            //Apply selectedItems from config
-                                            if (!selectedItems || selectedItems.length == 0 && !_.isEmpty(configDataItem.selectedItem)) {
-                                                rockClassification.selectedClassifications = configDataItem.selectedItem.classifications;
-                                                selectedItems.push(configDataItem.selectedItem.path);
-                                            }
-
-                                            selectedDimensions[entityTypes[j]] = selectedItems;
-                                        }
-                                    }
-                                }
-
-                                if (configDataItem.displayType != "dialog") {
-                                    this._setLovTitle(rockLov);
-                                } else {
-                                    this._setClassificationTitle(rockClassification);
-                                }
-                            }
-                        }
-
-                        // this._updateToggleButtonText(configDataItem, rockLov);
-                    }
-
-                    this.set("selectedDimensions", selectedDimensions);
-
-                    var eventDetail = {
-                        'dimensions': selectedDimensions
-                    };
-                    this.fireBedrockEvent("dimension-selector-data-changed", eventDetail);
-                }
             },
 
             _toggleLovPopover: function (popoverId) {
@@ -828,22 +754,6 @@ Custom property | Description | Default
                     selectedItem: dimensionSelectedItem,
                     selectedItems: dimensionSelectedItems,
                 }
-            },
-            /**
-            * <b><i>Content development is under progress... </b></i>
-            */
-            getSelectedDimensions: function () {
-                // Todo.. DimensionSelector Grid will be affected
-                // var dimensionData = {};
-
-                // dimensionData.selectedContexts = [this._getSelectedValue(this.configData.catalogSelector.catalogItems,
-                // this.configData.catalogSelector.selectedCatalogItems)];
-                // dimensionData.selectedSources = [this._getSelectedValue(this.configData.sourceSelector.sourceItems,
-                // this.configData.sourceSelector.selectedSourceItems)];
-                // dimensionData.selectedLocales = [this._getSelectedValue(this.configData.localeSelector.localeItems,
-                // this.configData.localeSelector.selectedLocaleItems)];
-
-                // return dimensionData;
             },
 
             _getSelectedValue: function (data, selectedItems) {
@@ -904,7 +814,158 @@ Custom property | Description | Default
                 }
             },
 
-            // Dynamic conxtext loading . . .
+            _getClassificationValuePath: function (classification) {
+                var valuePath = "";
+                if (classification && classification.valuePath) {
+                    var categoryPathSeperator = this.appSetting('dataDefaults').categoryPathSeparator;
+                    var valuePath = classification.valuePath.replace(/#@#/g, categoryPathSeperator);
+                }
+
+                return valuePath;
+            },
+
+            _setClassificationTitle: function (currentClassification) {
+                if (!currentClassification) {
+                    return;
+                }
+
+                var currentDimensionButtonId = currentClassification.id.replace("-contextTree", "-toggle-button");
+                var buttonText = "";
+                var toolTip = "";
+                if (currentClassification.selectedClassifications && currentClassification.selectedClassifications.length > 0) {
+                    for (var i = 0; i < currentClassification.selectedClassifications.length; i++) {
+                        var valuePath = this._getClassificationValuePath(currentClassification.selectedClassifications[i]);
+                        if (buttonText) {
+                            buttonText = buttonText + ", " + valuePath;
+                        } else {
+                            buttonText = valuePath;
+                        }
+                    }
+                    toolTip = buttonText; //Set tooltip
+                    if (!buttonText) {
+                        var configClassificationId = currentClassification.id.replace("-contextTree", "");
+                        if (this._selectedClassificationsConfig[configClassificationId]) {
+                            buttonText = toolTip = this._selectedClassificationsConfig[configClassificationId].path;
+                        } else {
+                            buttonText = toolTip = currentClassification.parentElement.title;
+                        }
+                    }
+                    if (currentClassification.selectedClassifications.length > 1) {
+                        buttonText = currentClassification.selectedClassifications.length + " " + buttonText;
+                    }
+                    var currentButton = this.shadowRoot.querySelector("#" + currentDimensionButtonId);
+                    if (currentButton) {
+                        currentButton.buttonText = buttonText;
+                        currentButton.setAttribute("data-tooltip", toolTip);
+                    }
+                }
+            },
+
+            _isDialogType: function (displayType) {
+                if (displayType == "dialog") {
+                    return true;
+                }
+
+                return false;
+            },
+
+            _classificationDialogOpen: function () {
+                var classificationDialog = this.shadowRoot.querySelector("#" + this._currentDimensionSelector.popover);
+                var currentValuePath = "";
+                var selectedClassifications = [];
+
+                var currentContextId = this._currentDimensionSelector.id.replace("-toggle-button", "-contextTree");
+                var contextTree = this.shadowRoot.querySelector("#" + currentContextId);
+                //selectedClassifications = this._getPathsForClassificationTree(contextTree.selectedClassifications);
+                if (this.selectedDimensions && this.selectedDimensions["classification"] && this.selectedDimensions["classification"].length) {
+                    selectedClassifications = [this.selectedDimensions["classification"][0].split(">>")];
+                }
+                //If refresh needs every time on dialog open, then remove >> selectedClassifications.length == 0
+                if (contextTree) {
+                    var configClassificationId = this._currentDimensionSelector.id.replace("-toggle-button", "");
+                    if (this._selectedClassificationsConfig[configClassificationId]) {
+                        selectedClassifications = this._selectedClassificationsConfig[configClassificationId].classifications;
+                    }
+                    contextTree.selectedClassifications = selectedClassifications;
+                    contextTree.generateRequest();
+                }
+
+                if (classificationDialog) {
+                    classificationDialog.dialogTitle = "Select Classification";
+                    classificationDialog.open();
+                }
+            },
+
+            _getPathsForClassificationTree: function (selectedClassifications) {
+                var classificationPaths = [];
+                var valuePathSeperator = "#@#";
+                if (selectedClassifications && selectedClassifications.length > 0) {
+                    for (var i = 0; i < selectedClassifications.length; i++) {
+                        if (selectedClassifications[i] && selectedClassifications[i].valuePath) {
+                            var paths = selectedClassifications[i].valuePath.split(valuePathSeperator)
+                            classificationPaths.push(paths);
+                        }
+                    }
+                }
+
+                return classificationPaths;
+            },
+
+            _onCancelClassificationSelection: function () {
+                var classificationDialog = this.shadowRoot.querySelector("#" + this._currentDimensionSelector.popover);
+                if (classificationDialog) {
+                    classificationDialog.close();
+                }
+            },
+
+            _selectClassification: function (e) {
+                this._isClassificationSelectionTriggered = true;
+                if (this.showClassificationConfirmation) {
+                    if (this.confirmationDialog) {
+                        this.confirmationDialog.open();
+                    }
+                    return;
+                }
+                this._triggerClassificationChange();
+            },
+
+            _onTapConfirmationOK: function (event) {
+                if (this._isClassificationSelectionTriggered) {
+                    this._triggerClassificationChange();
+                } else {
+                    this._triggerLovConfirmButtonTapped(false);
+                }
+                this.fireBedrockEvent("dimension-selector-confirmation-ok", event);
+            },
+
+            _onTapConfirmationCancel: function (event) {
+                if (this._isClassificationSelectionTriggered) {
+                    this._onCancelClassificationSelection();
+                }
+
+                this.fireBedrockEvent("dimension-selector-confirmation-cancel", event);
+            },
+
+            _triggerClassificationChange: function () {
+                var currentContextId = this._currentDimensionSelector.id.replace("-toggle-button", "-contextTree");
+                var contextTree = this.$$("#" + currentContextId);
+                if (contextTree) {
+                    if (contextTree.selectedClassifications && contextTree.selectedClassifications.length > 0) {
+                        this._updateSelectedDimensions();
+                    }
+                }
+                this._onCancelClassificationSelection();
+            },
+
+            _getClassificationTaxonomy: function (configTaxonomy, taxonomy) {
+                this.clearClassificationSelection(); //Clear classification on taxonomy change
+                this._updateSelectedDimensions();
+                if (taxonomy) {
+                    return taxonomy
+                }
+                return configTaxonomy;
+            },
+
             _entityTypeChanged: function (entityType) {
                 if (!_.isEmpty(entityType)) {
 
@@ -939,12 +1000,15 @@ Custom property | Description | Default
                         var _ctxKeys = [];
 
                         var globalCoalescePath = DataHelper.isValidObjectPath(entityModel, "properties.globalCoalescePath") && entityModel.properties.globalCoalescePath;
+                        this._contextHierarchyInfo = DataHelper.isValidObjectPath(entityModel, "properties.coalesceInfo") && entityModel.properties.coalesceInfo;
 
                         if (!_.isEmpty(globalCoalescePath)) {
                             this._contextHierarchy = globalCoalescePath.split(">>");
                         } else {
                             this.showErrorToast("Global coalesce path is not defined in:" + entityModel.id);
                         }
+
+
 
 
                         if (contexts) {
@@ -1023,6 +1087,12 @@ Custom property | Description | Default
                                     "fields": {
                                         "attributes": [
                                             "_ALL"
+                                        ],
+                                        "relationships": [
+                                            "_ALL"
+                                        ],
+                                        "relationshipAttributes": [
+                                            "_ALL"
                                         ]
                                     }
                                 }
@@ -1092,12 +1162,12 @@ Custom property | Description | Default
             _onEntityModelGetResponse: function (e) {
                 var response = e.detail.response.response;
                 if (response && response.entityModels) {
-                    this._prepareModelBasedContexts(response.entityModels);
+                    this._prepareDynamicConfigBasedOnModelForContextsToBeRendered(response.entityModels);
                     this._updateSelectedDimensions();
                 }
             },
 
-            _prepareModelBasedContexts: function (entityModels) {
+            _prepareDynamicConfigBasedOnModelForContextsToBeRendered: function (entityModels) {
                 if (entityModels && entityModels.length) {
                     var ctxs = {};
                     entityModels.forEach(function (entityModel) {
@@ -1143,6 +1213,16 @@ Custom property | Description | Default
                         }
 
                         var titlePattern = "{entity.attributes." + externalAttrName + "}";
+                        var mappedValueContexts = this._getMappedValueContextsBasedOnCtxType(ctxKey);
+
+                        if (mappedValueContexts) {
+                            var dependentRelationships = mappedValueContexts.map(v => v.valueContextRelationship);
+
+                            if (dependentRelationships) {
+                                reqData.params.fields.relationships = dependentRelationships;
+                                reqData.params.fields.relationshipAttributes = [this._getDefaultSelectedAttrName()];
+                            }
+                        }
 
                         ctxs[ctxKey] = {
                             "id": ctxKey,
@@ -1151,6 +1231,7 @@ Custom property | Description | Default
                             "externalAttrName": externalAttrName,
                             "dataRequestType": "entity",
                             "dataRequest": reqData,
+                            "mappedValueContexts": mappedValueContexts,
                             "dataMappings": {
                                 "id": "name",
                                 "title": titlePattern,
@@ -1160,61 +1241,278 @@ Custom property | Description | Default
 
                     }, this);
 
-                    this.configData.forEach(function (item) {
-                        if (item) {
+                    this._mergeConfigAndDynamicConfigForContextRender(ctxs);
+                }
+            },
 
-                            var ctx = ctxs[item.id];
+            _mergeConfigAndDynamicConfigForContextRender: function (ctxs) {
+                this.configData.forEach(function (item) {
+                    if (item) {
 
-                            if (ctx) {
-                                var mergedCtx = undefined;
+                        var ctx = ctxs[item.id];
 
-                                if (item.dataRequestType == "entity-model" && "dataRequest" in ctx) {
-                                    delete ctx.dataRequest.params.query.valueContexts;
+                        if (ctx) {
+                            var mergedCtx = undefined;
+
+                            if (item.dataRequestType == "entity-model" && "dataRequest" in ctx) {
+                                delete ctx.dataRequest.params.query.valueContexts;
+                            }
+
+                            ctx = { "config": ctx };
+
+                            // Deleting external dataMappings id and title coming from config
+                            // Because assumption is for any entity-lov iExternalName attribute will be title of it.
+                            if ("dataMappings" in item) {
+                                delete item.dataMappings.id;
+                                delete item.dataMappings.title;
+                            }
+
+                            item = { "config": item };
+
+                            mergedCtx = SharedUtils.DataObjectFalcorUtil.mergeObjectsNoOverride(ctx, item, true);
+
+                            if (mergedCtx && mergedCtx.config) {
+                                ctx = mergedCtx.config;
+                            }
+                        } else {
+                            if (item.dimensionType == "data" && item.dataRequestType == "entity-context") {
+                                ctx = item;
+                                ctx.dataMappings = {
+                                    "id": "name",
+                                    "title": "name",
+                                    "type": [
+                                        item.id
+                                    ]
                                 }
+                                ctxs[item.id] = ctx;
+                            } else if (!this._isContextLoad) {
+                                ctxs[item.id] = item;
+                            }
+                        }
+                    }
+                }, this);
 
-                                ctx = { "config": ctx };
+                var parsedContexts = [];
+                this._contextHierarchy.forEach(function (ctxKey) {
+                    if (ctxs[ctxKey]) {
+                        parsedContexts.push(ctxs[ctxKey]);
+                    }
+                }, this);
 
-                                // Deleting external dataMappings id and title coming from config
-                                // Because assumption is for any entity-lov iExternalName attribute will be title of it.
-                                if ("dataMappings" in item) {
-                                    delete item.dataMappings.id;
-                                    delete item.dataMappings.title;
+                this._contextToBeRendered = undefined;
+                this._contextToBeRendered = parsedContexts;
+            },
+
+            _updateSelectedDimensions: function () {
+                this._debouncer = Polymer.Debouncer.debounce(this._debouncer, Polymer.Async.timeOut.after(100), () => {
+                    this._setSelectedDimensions();
+                    if (this._isContextLoad) {
+                        this._updateCurrentContextState();
+                    }
+                });
+            },
+
+            _setSelectedDimensions: function () {
+                var selectedDimensions = {};
+                var configData = this._contextToBeRendered;
+
+                if (typeof (configData) !== "undefined") {
+                    for (var i = 0; i < configData.length; i++) {
+                        var configDataItem = configData[i];
+                        var rockLov, rockClassification;
+                        var rockContainer = this.shadowRoot.querySelector("#" + configDataItem.id);
+
+                        if (rockContainer) {
+                            if (this._compareRequestType(configDataItem.dataRequestType, 'entity')) {
+                                if (configDataItem.displayType != "dialog") {
+                                    rockLov = rockContainer.querySelector("rock-entity-lov");
+                                } else {
+                                    rockClassification = rockContainer.querySelector("rock-classification-tree");
                                 }
+                            }
+                            if (this._compareRequestType(configDataItem.dataRequestType, 'entity-context')) {
+                                rockLov = rockContainer.querySelector("rock-context-lov");
+                            }
 
-                                item = { "config": item };
+                            if (this._compareRequestType(configDataItem.dataRequestType, 'entity-model')) {
+                                rockLov = rockContainer.querySelector("rock-entity-model-lov");
+                            }
 
-                                mergedCtx = SharedUtils.DataObjectFalcorUtil.mergeObjectsNoOverride(ctx, item, true);
+                            if (rockLov || rockClassification) { //typeof (rockLov) !== "undefined"
+                                const { dataMappings } = configDataItem;
+                                var entityTypes = dataMappings && dataMappings.type;
 
-                                if (mergedCtx && mergedCtx.config) {
-                                    ctx = mergedCtx.config;
-                                }
-                            } else {
-                                if (item.dimensionType == "data" && item.dataRequestType == "entity-context") {
-                                    ctx = item;
-                                    ctx.dataMappings = {
-                                        "id": "name",
-                                        "title": "name",
-                                        "type": [
-                                            item.id
-                                        ]
+                                if (entityTypes) {
+                                    for (var j = 0; j < entityTypes.length; j++) {
+                                        if (configDataItem.displayType != "dialog") {
+                                            var ctxKey = !_.isEmpty(configDataItem.contextKeyName) ? configDataItem.contextKeyName : entityTypes[j];
+                                            if (!rockLov.multiSelect) {
+                                                var selectedItem = !_.isEmpty(rockLov.selectedItem) ? rockLov.selectedItem : undefined;
+                                                var selectedItems = !_.isEmpty(rockLov.selectedItems) ? rockLov.selectedItems : undefined;
+                                                if (selectedItems) {
+                                                    rockLov.selectedItem = selectedItem ? selectedItem : selectedItems[0];
+                                                }
+                                                var itemId = this._getItemId(rockLov.selectedItem);
+                                                selectedDimensions[ctxKey] = itemId ? [itemId] : [];
+                                                this._selectedDimensions[ctxKey] = [rockLov.selectedItem];
+                                            } else {
+                                                selectedDimensions[ctxKey] = this._getItemsIdsByType(
+                                                    rockLov.selectedItems, entityTypes[j]);
+                                                this._selectedDimensions[ctxKey] = rockLov.selectedItems;
+                                            }
+                                        } else {
+                                            var selectedItems = [];
+                                            if (rockClassification.selectedClassifications &&
+                                                rockClassification.selectedClassifications.length > 0) {
+                                                if (!rockClassification.multiSelect) {
+                                                    if (rockClassification.selectedClassifications[0]) {
+                                                        var valuePath = this._getClassificationValuePath(rockClassification.selectedClassifications[0]);
+                                                        if (valuePath) {
+                                                            selectedItems.push(valuePath);
+                                                        }
+                                                    }
+                                                } else {
+                                                    for (var k = 0; k < rockClassification.selectedClassifications.length; k++) {
+                                                        var valuePath = this._getClassificationValuePath(rockClassification.selectedClassifications[k]);
+                                                        if (valuePath) {
+                                                            selectedItems.push(valuePath);
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            //Apply selectedItems from config
+                                            if (!selectedItems || selectedItems.length == 0 && !_.isEmpty(configDataItem.selectedItem)) {
+                                                rockClassification.selectedClassifications = configDataItem.selectedItem.classifications;
+                                                selectedItems.push(configDataItem.selectedItem.path);
+                                            }
+
+                                            selectedDimensions[entityTypes[j]] = selectedItems;
+                                        }
                                     }
-                                    ctxs[item.id] = ctx;
-                                } else if (!this._isContextLoad) {
-                                    ctxs[item.id] = item;
+                                }
+
+                                if (configDataItem.displayType != "dialog") {
+                                    this._setLovTitle(rockLov);
+                                } else {
+                                    this._setClassificationTitle(rockClassification);
                                 }
                             }
                         }
-                    }, this);
 
-                    var parsedContexts = [];
-                    this._contextHierarchy.forEach(function (ctxKey) {
-                        if (ctxs[ctxKey]) {
-                            parsedContexts.push(ctxs[ctxKey]);
+                        // this._updateToggleButtonText(configDataItem, rockLov);
+                    }
+
+                    this.set("selectedDimensions", selectedDimensions);
+
+                    var eventDetail = {
+                        'dimensions': selectedDimensions
+                    };
+                    this.fireBedrockEvent("dimension-selector-data-changed", eventDetail);
+                }
+            },
+
+            _updateCurrentContextState: function () {
+                if (!_.isEmpty(this.selectedDimensions)) {
+
+                    // Get context(s) based on selected dimension
+                    var filteredCtx = this._getContextsBasedOnSelectedDimension();
+
+                    if (filteredCtx && filteredCtx.length) {
+
+                        // Get flattened structure of filtered contexts
+                        var flattenedCtx = this._getFlattenedContexts(filteredCtx, true);
+                        this._currentContexts = flattenedCtx;
+
+
+                        // Set filtered context to dimension and reset dimensions
+                        if (flattenedCtx) {
+                            var flattenedCtxKeys = Object.keys(flattenedCtx);
+                            var dependentLovRelationships = {};
+
+                            this._contextHierarchy.forEach(function (item) {
+                                var lovElement = this.$$('#' + item + '-lov');
+
+                                if (lovElement) {
+                                    ctxData = lovElement.rData;
+                                    var selectedItems = this._selectedDimensions[item];
+
+                                    //Prepare list of dependent lov's and it's relationships based on selected dimension.
+                                    // This list will be used when dependent lov will get reset with related entities which are mapped to current context as relationship.
+                                    this._setDependentValCtxLovRelationships(ctxData, selectedItems, dependentLovRelationships);
+
+                                    if (ctxData) {
+                                        if (ctxData.dataRequestType == "entity-context") {
+                                            lovElement.selectedItems = this._getSelectedCtxItems(item);
+                                            lovElement.items = [];
+                                            lovElement.reset();
+                                        } else {
+                                            var reqData = ctxData.dataRequest;
+                                            var ctxToBeLoaded = flattenedCtx[item];
+
+                                            if (reqData) {
+                                                if (ctxToBeLoaded && ctxToBeLoaded.length && ctxToBeLoaded.indexOf('_ALL') < 0 && ctxData.externalAttrName) {
+                                                    var attributesCriterion = [];
+                                                    var attrCriterion = {};
+                                                    attrCriterion[ctxData.externalAttrName] = {
+                                                        "exacts": ctxToBeLoaded
+                                                    }
+
+                                                    attributesCriterion.push(attrCriterion);
+                                                    reqData.params.query.filters.attributesCriterion = attributesCriterion;
+                                                    selectedItems = this._getSelectedCtxItems(item, ctxToBeLoaded);
+                                                } else {
+                                                    delete reqData.params.query.filters.attributesCriterion;
+                                                }
+
+                                                lovElement.selectedItems = selectedItems;
+                                                lovElement.requestData = reqData;
+                                                lovElement.reset();
+                                            }
+                                        }
+                                    }
+                                }
+                            }, this);
+
+                            // if dimension is "value" type then need to check for "dependentLovRelationships" if this dimension is mapped as dependent Lov.
+                            var valueTypeDimensions = this.configData.filter(v => v.dimensionType == "value");
+                            if (valueTypeDimensions) {
+                                for (let valueTypeDimension of valueTypeDimensions) {
+                                    var ctxType = valueTypeDimension.id;
+                                    var lovElement = this.$$('#' + ctxType + '-lov');
+
+                                    if (lovElement) {
+                                        var ctxData = lovElement.rData;
+                                        var selectedItems = this._selectedDimensions[ctxType];
+                                        if (ctxData) {
+                                            var reqData = ctxData.dataRequest;
+                                            if (reqData) {
+                                                if (!_.isEmpty(dependentLovRelationships[ctxType])) {
+                                                    reqData.params.query.ids = dependentLovRelationships[ctxType];
+                                                } else {
+                                                    delete reqData.params.query.ids;
+                                                }
+                                            }
+                                        }
+
+                                        lovElement.selectedItems = selectedItems;
+                                        lovElement.requestData = reqData;
+                                        lovElement.reset();
+                                    }
+                                }
+                            }
                         }
-                    }, this);
+                    }
+                    this._setSelectedDimensions();
+                }
+            },
 
-                    this._contextToBeRendered = undefined;
-                    this._contextToBeRendered = parsedContexts;
+            _getMappedValueContextsBasedOnCtxType: function (currentContextType) {
+                if (currentContextType) {
+                    var globalCtxInfo = this._contextHierarchyInfo && this._contextHierarchyInfo.find(v => v.contextKey == currentContextType);
+                    if (globalCtxInfo && globalCtxInfo.mappedValueContexts) {
+                        return globalCtxInfo.mappedValueContexts
+                    }
                 }
             },
 
@@ -1246,68 +1544,41 @@ Custom property | Description | Default
                 return ctxValue;
             },
 
-            _updateCurrentContextState: function () {
+            _setDependentValCtxLovRelationships: function (elementInfo, selectedItems, dependentLovRelationships) {
+                if (elementInfo && !_.isEmpty(selectedItems)) {
+                    var mappedValueContexts = this._getMappedValueContextsBasedOnCtxType(elementInfo.id);
 
-                if (!_.isEmpty(this.selectedDimensions)) {
+                    if (mappedValueContexts) {
+                        var dependentCtxs = mappedValueContexts.map(a => a.valueContext);
 
-                    // Get context(s) based on selected dimension
-                    var filteredCtx = this._getContextsBasedOnSelectedDimension();
+                        if (dependentCtxs) {
+                            for (let dctxs of dependentCtxs) {
+                                if (!dependentLovRelationships[dctxs]) {
+                                    dependentLovRelationships[dctxs] = [];
+                                }
 
-                    if (filteredCtx && filteredCtx.length) {
-
-                        // Get flattened structure of filtered contexts
-                        var flattenedCtx = this._getFlattenedContexts(filteredCtx, true);
-                        this._currentContexts = flattenedCtx;
-
-
-                        // Set filtered context to dimension and reset dimensions
-                        if (flattenedCtx) {
-                            var flattenedCtxKeys = Object.keys(flattenedCtx);
-
-                            this._contextHierarchy.forEach(function (item) {
-                                var lovElement = this.$$('#' + item + '-lov');
-
-                                if (lovElement) {
-                                    ctxData = lovElement.rData;
-
-                                    if (ctxData) {
-                                        if (ctxData.dataRequestType == "entity-context") {
-                                            lovElement.selectedItems = this._getSelectedCtxItems(item);
-                                            lovElement.items = [];
-                                            lovElement.reset();
-                                        } else {
-                                            var externalAttrName = ctxData.externalAttrName;
-                                            var reqData = ctxData.dataRequest;
-                                            var ctxToBeLoaded = flattenedCtx[item];
-
-                                            if (reqData && externalAttrName) {
-                                                var selectedItems = [];
-                                                if (ctxToBeLoaded && ctxToBeLoaded.length && ctxToBeLoaded.indexOf('_ALL') < 0) {
-                                                    var attributesCriterion = [];
-                                                    var attrCriterion = {};
-                                                    attrCriterion[externalAttrName] = {
-                                                        "exacts": ctxToBeLoaded
-                                                    }
-
-                                                    attributesCriterion.push(attrCriterion);
-                                                    reqData.params.query.filters.attributesCriterion = attributesCriterion;
-                                                    selectedItems = this._getSelectedCtxItems(item, ctxToBeLoaded);
-                                                } else {
-                                                    selectedItems = this._getSelectedCtxItems(item);
-                                                    delete reqData.params.query.filters.attributesCriterion;
-                                                }
-
-                                                lovElement.selectedItems = selectedItems;
-                                                lovElement.requestData = reqData;
-                                                lovElement.reset();
+                                for (let selectedItem of selectedItems) {
+                                    if (selectedItem.relTo) {
+                                        var relIds = selectedItem.relTo.map(function (rel) {
+                                            if (rel.relTo.type == dctxs) {
+                                                return rel.relTo.id;
                                             }
+                                        });
+
+                                        if (!_.isEmpty(relIds)) {
+                                            dependentLovRelationships[dctxs] = dependentLovRelationships[dctxs].concat(relIds);
+                                        } else {
+                                            delete dependentLovRelationships[dctxs];
+                                            break;
                                         }
+                                    } else {
+                                        delete dependentLovRelationships[dctxs];
+                                        break;
                                     }
                                 }
-                            }, this);
+                            }
                         }
                     }
-                    this._setSelectedDimensions();
                 }
             },
 
@@ -1331,12 +1602,54 @@ Custom property | Description | Default
                 }
             },
 
-            _entityExternalDataFormatter: function (data) {
-                if (data && data.length) {
+            _entityExternalDataFormatter: function (data, formattedData) {
+                if (formattedData && formattedData.length) {
                     var elementInfo = this.rData;
 
                     if (elementInfo) {
                         var ctxType = elementInfo.id;
+
+                        // Add relationship detail into formatted item if entity has dependent relationship
+                        // If entity has dependent relationship then check for "isDefault" relationship attribute to get preselected dependent value for current entity.
+                        this.domHost._setDepenedencyRelationshipAndPreSelectedItems(data, formattedData, elementInfo);
+
+                        if (elementInfo.dimensionType.toLowerCase() == "value" && DataHelper.isValidObjectPath(this.requestData, "params.query.ids")) {
+                            var selectedItemIds = this.selectedItems.map(v => v.id);
+                            var selectedItems = [];
+                            if (selectedItemIds) {
+                                formattedData.forEach(function (item) {
+                                    if (selectedItemIds.indexOf(item.id) > -1) {
+                                        selectedItems.push(item);
+                                    }
+                                }, this);
+
+                                if (!_.isEmpty(selectedItems)) {
+                                    if (!DataHelper.areEqualArrays(this.selectedItems, selectedItems)) {
+                                        this.selectedItems = selectedItems;
+                                        this.domHost._setSelectedDimensions();
+                                    }
+                                } else {
+                                    var preSelectedItemId = this.domHost._selectedDimensions["PreSelectedItems"] && this.domHost._selectedDimensions["PreSelectedItems"][ctxType];
+                                    if (preSelectedItemId) {
+                                        var preselctedItem = data.find(v => v.id == preSelectedItemId);
+
+                                        if (preselctedItem) {
+                                            var name = preselctedItem.data.attributes[elementInfo.externalAttrName].values[0].value;
+                                            var item = formattedData.find(v => v.id == name);
+
+                                            if (item) {
+                                                this.selectedItems = [item];
+                                                this.domHost._setSelectedDimensions();
+                                            }
+                                        }
+                                    } else {
+                                        this.selectedItems = [];
+                                        this.domHost._setSelectedDimensions();
+                                    }
+                                }
+                            }
+                        }
+
                         if (this.domHost) {
                             var filteredCtx = this.domHost._getExistingContextsOfEntity();
                         }
@@ -1348,7 +1661,7 @@ Custom property | Description | Default
                                 var existingContext = flattenedCtx[ctxType];
 
                                 if (existingContext && existingContext.length) {
-                                    data.forEach(function (item) {
+                                    formattedData.forEach(function (item) {
                                         if (existingContext.indexOf(item.title) >= 0) {
                                             item.subtitle = "Existing";
                                         }
@@ -1359,7 +1672,7 @@ Custom property | Description | Default
                     }
                 }
 
-                return data;
+                return formattedData;
             },
 
             _entityContextExternalDataFormatter: function (data) {
@@ -1396,6 +1709,46 @@ Custom property | Description | Default
                 }
 
                 return filteredData;
+            },
+
+            _setDepenedencyRelationshipAndPreSelectedItems: function (data, formattedData, elementInfo) {
+                var mappedValueContexts = elementInfo && elementInfo.mappedValueContexts;
+
+                if (mappedValueContexts && data && formattedData) {
+                    for (let d of data) {
+                        if (d.data && d.data.relationships) {
+                            for (let rel in d.data.relationships) {
+                                if (d.data.relationships[rel] && d.data.attributes[elementInfo.externalAttrName]) {
+                                    var name = d.data.attributes[elementInfo.externalAttrName].values[0].value;
+                                    var item = formattedData.find(v => v.id == name);
+
+                                    if (!item.relTo) {
+                                        item.relTo = [];
+                                    }
+
+                                    var mappedValueContext = mappedValueContexts.find(v => v.valueContextRelationship == rel);
+
+                                    for (let r of d.data.relationships[rel]) {
+                                        item.relTo.push(r);
+                                        if (r.attributes && mappedValueContext) {
+                                            var relAttr = r.attributes[this._getDefaultSelectedAttrName()];
+
+                                            if (relAttr && relAttr.values && relAttr.values[0].value == "true") {
+                                                if (!this._selectedDimensions["PreSelectedItems"]) {
+                                                    this._selectedDimensions["PreSelectedItems"] = {};
+                                                }
+
+                                                if (_.isEmpty(this._selectedDimensions["PreSelectedItems"][mappedValueContext.valueContext])) {
+                                                    this._selectedDimensions["PreSelectedItems"][mappedValueContext.valueContext] = r.relTo.id;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             },
 
             _getContextsBasedOnSelectedDimension: function () {
@@ -1638,7 +1991,6 @@ Custom property | Description | Default
                             selectedItems.push(ctxObj);
                         }, this);
                     }
-
                 }
 
                 return selectedItems;
@@ -1688,185 +2040,6 @@ Custom property | Description | Default
                 }
             },
 
-            _getClassificationValuePath: function (classification) {
-                var valuePath = "";
-                if (classification && classification.valuePath) {
-                    var categoryPathSeperator = this.appSetting('dataDefaults').categoryPathSeparator;
-                    var valuePath = classification.valuePath.replace(/#@#/g, categoryPathSeperator);
-                }
-
-                return valuePath;
-            },
-
-            _setClassificationTitle: function (currentClassification) {
-                if (!currentClassification) {
-                    return;
-                }
-
-                var currentDimensionButtonId = currentClassification.id.replace("-contextTree", "-toggle-button");
-                var buttonText = "";
-                var toolTip = "";
-                if (currentClassification.selectedClassifications && currentClassification.selectedClassifications.length > 0) {
-                    for (var i = 0; i < currentClassification.selectedClassifications.length; i++) {
-                        var valuePath = this._getClassificationValuePath(currentClassification.selectedClassifications[i]);
-                        if (buttonText) {
-                            buttonText = buttonText + ", " + valuePath;
-                        } else {
-                            buttonText = valuePath;
-                        }
-                    }
-                    toolTip = buttonText; //Set tooltip
-                    if (!buttonText) {
-                        var configClassificationId = currentClassification.id.replace("-contextTree", "");
-                        if (this._selectedClassificationsConfig[configClassificationId]) {
-                            buttonText = toolTip = this._selectedClassificationsConfig[configClassificationId].path;
-                        } else {
-                            buttonText = toolTip = currentClassification.parentElement.title;
-                        }
-                    }
-                    if (currentClassification.selectedClassifications.length > 1) {
-                        buttonText = currentClassification.selectedClassifications.length + " " + buttonText;
-                    }
-                    var currentButton = this.shadowRoot.querySelector("#" + currentDimensionButtonId);
-                    if (currentButton) {
-                        currentButton.buttonText = buttonText;
-                        currentButton.setAttribute("data-tooltip", toolTip);
-                    }
-                }
-            },
-
-            _isDialogType: function (displayType) {
-                if (displayType == "dialog") {
-                    return true;
-                }
-
-                return false;
-            },
-
-            _classificationDialogOpen: function () {
-                var classificationDialog = this.shadowRoot.querySelector("#" + this._currentDimensionSelector.popover);
-                var currentValuePath = "";
-                var selectedClassifications = [];
-
-                var currentContextId = this._currentDimensionSelector.id.replace("-toggle-button", "-contextTree");
-                var contextTree = this.shadowRoot.querySelector("#" + currentContextId);
-                //selectedClassifications = this._getPathsForClassificationTree(contextTree.selectedClassifications);
-                if(this.selectedDimensions && this.selectedDimensions["classification"] && this.selectedDimensions["classification"].length) {
-                    selectedClassifications = [this.selectedDimensions["classification"][0].split(">>")];
-                }
-                //If refresh needs every time on dialog open, then remove >> selectedClassifications.length == 0
-                if (contextTree) {
-                    var configClassificationId = this._currentDimensionSelector.id.replace("-toggle-button", "");
-                    if (this._selectedClassificationsConfig[configClassificationId]) {
-                        selectedClassifications = this._selectedClassificationsConfig[configClassificationId].classifications;
-                    }
-                    contextTree.selectedClassifications = selectedClassifications;
-                    contextTree.generateRequest();
-                }
-
-                if (classificationDialog) {
-                    classificationDialog.dialogTitle = "Select Classification";
-                    classificationDialog.open();
-                }
-            },
-
-            _getPathsForClassificationTree: function (selectedClassifications) {
-                var classificationPaths = [];
-                var valuePathSeperator = "#@#";
-                if (selectedClassifications && selectedClassifications.length > 0) {
-                    for (var i = 0; i < selectedClassifications.length; i++) {
-                        if (selectedClassifications[i] && selectedClassifications[i].valuePath) {
-                            var paths = selectedClassifications[i].valuePath.split(valuePathSeperator)
-                            classificationPaths.push(paths);
-                        }
-                    }
-                }
-
-                return classificationPaths;
-            },
-
-            _onCancelClassificationSelection: function () {
-                var classificationDialog = this.shadowRoot.querySelector("#" + this._currentDimensionSelector.popover);
-                if (classificationDialog) {
-                    classificationDialog.close();
-                }
-            },
-
-            _selectClassification: function (e) {
-                this._isClassificationSelectionTriggered = true;
-                if(this.showClassificationConfirmation) {
-                    if(this.confirmationDialog) {
-                        this.confirmationDialog.open();
-                    }
-                    return;
-                }
-                this._triggerClassificationChange();
-            },
-
-            _onTapConfirmationOK: function(event) {
-                if(this._isClassificationSelectionTriggered) {
-                    this._triggerClassificationChange();
-                } else {
-                    this._triggerLovConfirmButtonTapped(false);
-                }
-                this.fireBedrockEvent("dimension-selector-confirmation-ok", event);
-            },
-
-            _onTapConfirmationCancel: function(event) {
-                if (this._isClassificationSelectionTriggered) {
-                    this._onCancelClassificationSelection();
-                }
-
-                this.fireBedrockEvent("dimension-selector-confirmation-cancel", event);
-            },
-
-            _triggerClassificationChange: function() {
-                var currentContextId = this._currentDimensionSelector.id.replace("-toggle-button", "-contextTree");
-                var contextTree = this.$$("#" + currentContextId);
-                if (contextTree) {
-                    if (contextTree.selectedClassifications && contextTree.selectedClassifications.length > 0) {
-                        this._updateSelectedDimensions();
-                    }
-                }
-                this._onCancelClassificationSelection();
-            },
-
-            _getClassificationTaxonomy: function (configTaxonomy, taxonomy) {
-                this.clearClassificationSelection(); //Clear classification on taxonomy change
-                this._updateSelectedDimensions();
-                if (taxonomy) {
-                    return taxonomy
-                }
-                return configTaxonomy;
-            },
-
-            clearClassificationSelection: function () {
-                if (typeof (this.configData) !== "undefined") {
-                    for (var i = 0; i < this.configData.length; i++) {
-                        var configDataItem = this.configData[i];
-                        var rockClassification;
-                        var rockContainer = this.shadowRoot.querySelector("#" + configDataItem.id);
-
-                        if (rockContainer) {
-                            if (configDataItem.dataMappings.type.indexOf("classification") != -1) {
-                                rockClassification = rockContainer.querySelector("rock-classification-tree");
-                            }
-
-                            if (rockClassification) {
-                                rockClassification.selectedClassifications = [];
-                                this.selectedDimensions["classification"] = [];
-                                var currentDimensionButtonId = rockClassification.id.replace("-contextTree", "-toggle-button");
-                                var currentButton = this.shadowRoot.querySelector("#" + currentDimensionButtonId);
-                                if (currentButton) {
-                                    currentButton.buttonText = rockClassification.parentElement.title;
-                                    currentButton.setAttribute("data-tooltip", rockClassification.parentElement.title);
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-
             _getPartialContextForEntityContext: function (dataContext, ctxType) {
                 var partialContext = {};
                 if (!_.isEmpty(dataContext)) {
@@ -1883,6 +2056,10 @@ Custom property | Description | Default
                     }
                 }
                 return partialContext;
+            },
+
+            _getDefaultSelectedAttrName: function () {
+                return "isDefault";
             }
         });
     </script>
