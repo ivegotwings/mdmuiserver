@@ -36,7 +36,6 @@ async function get(key) {
     if (!(isStateServerEnabled && client) && localStorage[cacheKey] || redisError) {
         data = await localStorage[cacheKey];
     }
-
     return data;
 }
 
