@@ -135,7 +135,6 @@ module.exports = function (app) {
              //console.log('------------------ notification object ---------------------');
              //console.log(JSON.stringify(notificationInfo));
              //console.log('-------------------------------------------------------------------\n\n');
-             console.log(notificationInfo);
              logger.debug("NOTIFICATION_INFO", { detail:notificationInfo}, "notification-service");
             if (!isEmpty(notificationInfo)) {
 
