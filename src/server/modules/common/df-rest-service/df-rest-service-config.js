@@ -148,7 +148,7 @@ var SERVICE_CONFIG = {
         "configurationservice/get": {
             "url": "/configurationservice/get",
             "mode": "online",
-            "baseConfigMode":"online",
+            "baseConfigMode":"offline",
             "offlineSettings": {
                 "operation": "get",
                 "requestPathToSelectDataFile": "params.query.filters.typesCriterion",
@@ -194,6 +194,12 @@ var SERVICE_CONFIG = {
         },
         "entitygovernservice/validate": {
             "url": "/entitygovernservice/validate",
+            "mode": "online",
+            "offlineSettings": {
+            }
+        },
+        "modelgovernservice/validate": {
+            "url": "/modelgovernservice/validate",
             "mode": "online",
             "offlineSettings": {
             }
