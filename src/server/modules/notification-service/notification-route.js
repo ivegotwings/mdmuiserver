@@ -108,7 +108,7 @@ function getAction(serviceName, status, operation, description) {
             }
         }
 
-        if (serviceName.toLowerCase() == "notificationManageService") {
+        if (serviceName.toLowerCase() == "requestmanageservice") {
             if (status.toLowerCase() == "success") {
                 action = enums.actions.ModelImportComplete;
             } else {
@@ -116,7 +116,6 @@ function getAction(serviceName, status, operation, description) {
             }
         }
     }
-
     return action;
 };
 
@@ -136,6 +135,7 @@ module.exports = function (app) {
              //console.log('------------------ notification object ---------------------');
              //console.log(JSON.stringify(notificationInfo));
              //console.log('-------------------------------------------------------------------\n\n');
+             console.log(notificationInfo);
              logger.debug("NOTIFICATION_INFO", { detail:notificationInfo}, "notification-service");
             if (!isEmpty(notificationInfo)) {
 
