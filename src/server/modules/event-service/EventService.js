@@ -754,7 +754,6 @@ Eventservice.prototype = {
         req.params.options = {
             "maxRecords": dataIndexInfo.maxRecordsToReturn
         }
-        
         return req;
     },
     //Task summarization processor temp changes...
