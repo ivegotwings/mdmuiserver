@@ -702,7 +702,11 @@ Eventservice.prototype = {
                 attributesCriteria.push(taskStatusCriterion);
             }
 
+            //If _user is not added to user This code will check that and append the user
             if (userId) {
+                if (userId.indexOf("_user") == -1) {
+                    userId = userId + "_user";
+                }
                 //Add user id criterion...
                 var userIdCriterion = {
                     "submittedBy": {
@@ -750,7 +754,7 @@ Eventservice.prototype = {
         req.params.options = {
             "maxRecords": dataIndexInfo.maxRecordsToReturn
         }
-
+        
         return req;
     },
     //Task summarization processor temp changes...
