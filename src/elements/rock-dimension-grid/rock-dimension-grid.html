@@ -100,9 +100,6 @@ The user can view the past data but cannot modify it. However he/she can add or 
       <div id="dimensionFilters">
         <template is="dom-repeat" items="[[_updatedDimensionConfigs]]" as="configDataItem" notify-dom-change>
           <pebble-accordion header-text="[[configDataItem.title]]" default-icon="pebble-icon:action-scope-take-selection" open-icon="pebble-icon:action-expand">
-            <!--div class="header-content">
-              <pebble-checkbox id="[[configDataItem.id]]Chk" on-change="_onSelectAll"></pebble-checkbox>
-            </div-->
             <template is="dom-if" if="[[_compareRequestType(configDataItem.dataRequestType, 'entity-context')]]">
               <rock-context-lov id="[[configDataItem.id]]" entity-id="[[entityId]]" entity-type="[[entityType]]"
                 context-name="[[configDataItem.id]]" config-data-item-id="[[configDataItem.id]]" on-selection-changed="_onDimensionChange" 
@@ -113,31 +110,22 @@ The user can view the past data but cannot modify it. However he/she can add or 
                 title-pattern="[[configDataItem.dataMappings.title]]" request-data="[[configDataItem.dataRequest]]"
                 type-field="[[configDataItem.dataMappings.type]]" sort-field="[[configDataItem.dataMappings.sort]]" external-data-formatter="[[_entityExternalDataFormatter]]"
                 on-selection-changed="_onDimensionChange" multi-select no-sub-title></rock-entity-lov>
-
               </template>
           </pebble-accordion>
         </template>        
       </div>
       <div id="dimensionGrid">
-        <!--pebble-button icon="pebble-icon:action-take-task" class="dropdownText dropdownIcon btn dropdown-success pull-right" menu-button
-          dropdown-icon button-text="Action" on-click=""></pebble-button-->
         <div class="clearfix"></div>
         <rock-grid  config="[[_gridConfig]]" 
                     page-size="{{totalCount}}" 
                     attribute-models="[[gridAttributeModel]]" 
-                    total-count="{{totalCount}}"></rock-grid>
+                    total-count="{{totalCount}}"
+                    context-data="[[_gridContextData]]"></rock-grid>
       </div>
       <div class="clearfix"></div>
     </div>
-    <!--div class="action-container m-t-10">
-      <pebble-button class="btn btn-secondary m-r-5" button-text="Cancel" on-tap="_cancelAction" noink></pebble-button>
-      <pebble-button class="btn btn-success" button-text="Save" on-tap="_saveAction" noink></pebble-button>
-    </div-->
     <entity-dimension-grid-datasource id="searchGridDatasource" context-data="[[contextData]]" value-contexts="{{_valueContexts}}" contexts="{{_contexts}}"
         request="{{_request}}" r-data-source="{{rDataSource}}" total-count="{{totalCount}}"></entity-dimension-grid-datasource>
-    <liquid-entity-data-get verbose name="attributeGetDataService" operation="getbyids" request-data="{{_request}}" on-response="[[_onAttributesGetResponse]]"></liquid-entity-data-get>
-    <!--liquid-entity-data-save name="attributeSaveDataService" operation="update" request-data="{{_saveRequest}}" last-response="{{saveResponse}}"
-      on-response="_onSaveResponse"></liquid-entity-data-save-->
     <liquid-entity-model-get id="userModelGet" operation="getbyids" on-response="_onUserModelGetResponse"></liquid-entity-model-get>
   </template>
   <script>
@@ -259,6 +247,20 @@ The user can view the past data but cannot modify it. However he/she can add or 
               value: function () {
                   return [];
               }
+          },
+          appName: {
+              type: String,
+              value: ""
+          },
+          dataType: {
+            type: String,
+            value: ""
+          },
+          _gridContextData: {
+            type: Object,
+            value: function () {
+              return {};
+            }
           }
         },
         behaviors: [
@@ -281,6 +283,7 @@ The user can view the past data but cannot modify it. However he/she can add or 
         onConfigLoaded: function(componentConfig) {
             if(componentConfig && componentConfig.config) {
               this._gridConfig = componentConfig.config.gridConfig;
+              this.dimensionConfigs = DataHelper.convertObjectToArray(componentConfig.config.dimensionsConfig);
               this.triggerSetup();
             }
         },
@@ -298,7 +301,7 @@ The user can view the past data but cannot modify it. However he/she can add or 
                 const dimension = this.dimensionConfigs[i];
                 if(dimension){
                   arrayToObj[dimension.id] = dimension;
-                  if(dimension.useContextModel){
+                  if(dimension.dimensionType === "data"){
                     this._dataContextModelObjects[dimension.id] = dimension;
                     this._dataContextModelObjects[dimension.id]["selectedItems"] = [];
                   }
@@ -342,10 +345,7 @@ The user can view the past data but cannot modify it. However he/she can add or 
                                       "filters": {
                                           "typesCriterion": [valueContextKey]
                                       }
-                                  },
-                                  // "fields": {
-                                  //     "attributes": ['_ALL']
-                                  // }
+                                  }
                               }
                           };
                           if(this._valueContextModelObjects[valueContextKey]){
@@ -357,7 +357,7 @@ The user can view the past data but cannot modify it. However he/she can add or 
                           this._valueContextModelObjects[valueContextKey]["dataRequest"] = reqData;
 
                           this._valueContextModelObjects[valueContextKey]["dataMappings"]["id"] = "id";
-                          this._valueContextModelObjects[valueContextKey]["dataMappings"]["title"] = "name";
+                          this._valueContextModelObjects[valueContextKey]["dataMappings"]["title"] = "externalname";
                           // this._valueContextModelObjects[valueContextKey]["dataMappings"]["titlePattern"] = "{entity.attributes.externalname}";
                       }
                     }
@@ -375,6 +375,9 @@ The user can view the past data but cannot modify it. However he/she can add or 
             for (var key in fields) {
               if (fields[key].header.toLowerCase() == "value") {
                 fields[key].name = modelObject.name;
+                if(modelObject.dataType === "nested") {
+                  fields[key].isNested = true;
+                }
               }
             }
           }
@@ -421,86 +424,69 @@ The user can view the past data but cannot modify it. However he/she can add or 
           }
         },
 
-        _onSelectionChange: function () {
+        _onSelectionChange: async function () {
           if (this.dataId) {
               var attributeNames = [];
-              var valueContexts = [];
-              var contexts = [];
-              var typesCriterion = [];
               var modelObject = JSON.parse(this.attributeModelObject);
               attributeNames.push(modelObject.name);
 
-              //Find findMaxSelectedItems in value contexts
-              var maxSelectedItems = 0;
+              var newDimensions = {};
+
               for (const valueContext in this._valueContextModelObjects) {
                 if(this._valueContextModelObjects[valueContext]){
                   var selectedItems = this._valueContextModelObjects[valueContext].selectedItems;
-                  if(maxSelectedItems < selectedItems.length){
-                    maxSelectedItems = selectedItems.length;
+                  var values = [];
+                  if(selectedItems.length > 0) {
+                    selectedItems.forEach(function(selectedItem) {
+                      values.push(selectedItem.id);
+                    });
+                    newDimensions[valueContext] = values;
                   }
                 }
               }
-              //Create temp Object and push to array
-              for (let i = 0; i < maxSelectedItems; i++) {
-                valueContexts.push({});
-              }
-              for (const valueContext in this._valueContextModelObjects) {
-                if (this._valueContextModelObjects.hasOwnProperty(valueContext)) {
-                  var selectedItems = this._valueContextModelObjects[valueContext].selectedItems;
-                  for (let j = 0; j < valueContexts.length; j++) {
-                    for (let i = 0; i < selectedItems.length; i++) {
-                      if(selectedItems[j]){
-                        valueContexts[j][valueContext] =  selectedItems[j]["id"];
-                      }else{
-                        valueContexts[j][valueContext] =  selectedItems[i]["id"];
-                      }
-                    }
-                  }
-                }
-              }
-              this.set("_valueContexts", valueContexts);
-
-              //Find findMaxSelectedItems in data contexts
-              maxSelectedItems = 0;
               for (const context in this._dataContextModelObjects) {
                 if(this._dataContextModelObjects[context]){
                   var selectedItems = this._dataContextModelObjects[context].selectedItems;
-                  if(maxSelectedItems < selectedItems.length){
-                    maxSelectedItems = selectedItems.length;
+                  var values = [];
+                  if(selectedItems.length > 0) {
+                    selectedItems.forEach(function(selectedItem) {
+                      values.push(selectedItem.id);
+                    });
+                    newDimensions[context] = values;
                   }
                 }
               }
-              //Create temp Object and push to array
-              for (let i = 0; i < maxSelectedItems; i++) {
-                contexts.push({});
-              }
-              for (const context in this._dataContextModelObjects) {
-                if (this._dataContextModelObjects.hasOwnProperty(context)) {
-                  var selectedItems = this._dataContextModelObjects[context].selectedItems;
-                  for (let j = 0; j < contexts.length; j++) {
-                    for (let i = 0; i < selectedItems.length; i++) {
-                      if(selectedItems[j]){
-                        contexts[j][context] =  selectedItems[j]["id"];
-                      }else{
-                        contexts[j][context] =  selectedItems[i]["id"];
-                      }
-                    }
+
+              var contextData = {};
+              ContextHelper.updateContextData(contextData, newDimensions);
+              this.set("_gridContextData", contextData);
+              var dataContexts = ContextHelper.getDataContexts(contextData);
+              var valueContexts = ContextHelper.getValueContexts(contextData);
+
+              if(modelObject.properties && modelObject.properties.contextCoalesce) {
+                for(var i=0; i<dataContexts.length; i++) {
+                  var context = dataContexts[0];
+                  var additionalContexts = [];
+                  var contextModel = await ContextModelManager.getContextModelByEntityTypeAndDataContext(this.dataType, context);
+                  if (contextModel) {
+                      additionalContexts = contextModel.properties ? contextModel.properties.additionalcontexts : undefined;
+                  }
+                  if(!_.isEmpty(additionalContexts) && !DataTransformHelper.isAdditionalContexts(additionalContexts, modelObject.properties.contextCoalesce, "context")) {
+                    additionalContexts.forEach(function(ctxKey) {
+                      delete context[ctxKey];
+                    });
                   }
                 }
-              }
-              this.set("_contexts", contexts);
 
-              var itemContext = this.getFirstItemContext();
-
-              if (!_.isEmpty(itemContext)) {
-                typesCriterion.push(itemContext.type);
+                dataContexts = dataContexts.filter(ctx => !_.isEmpty(ctx));
               }
+
+              this.set("_valueContexts", valueContexts);
+              this.set("_contexts", dataContexts);
 
               var req = {
                 "params": {
                   "query": {
-                    // "contexts": contexts,
-                    // "valueContexts": valueContexts,
                     "filters": {
                       "typesCriterion": [
                         "entitymanageevent"
@@ -550,7 +536,7 @@ The user can view the past data but cannot modify it. However he/she can add or 
         },
         
         _onAttributesGetResponse:function(res){
-            if (res && res.status && (res.status == "success")) {              
+            if (res && res.status && (res.status == "success")) {
               var data = [];
               var modelObject = JSON.parse(this.attributeModelObject);
               var relationshipName = modelObject.relationshipName;
@@ -561,85 +547,21 @@ The user can view the past data but cannot modify it. However he/she can add or 
               if (res.content && res.content.events && res.content.events.length > 0) {
                 var events = res.content.events;
                 var columns = DataHelper.convertObjectToArray(this._gridConfig.itemConfig.fields);
+                var _self = this;
                 events.forEach(function (eventObj) {
-                  var _attribute;
-                  if(relationshipName){
-                    var _relationshipDataArray = EntityHelper.getRelationshipByType(eventObj, null, relationshipName, true);
-                    if(_relationshipDataArray && _relationshipDataArray.length > 0){
-                      var relAttributes = _relationshipDataArray[0].attributes;
-                      if(relAttributes && relAttributes[attrName]){
-                          _attribute = relAttributes[attrName];
-                          var relProperties = _relationshipDataArray[0].properties;
-                          if(_attribute && relProperties){
-                            _attribute.properties = relProperties;
-                          }
+                  if(_self._contexts.length > 0) {
+                    for(let ctxIdx = 0; ctxIdx < _self._contexts.length; ctxIdx++) {
+                      var context = _self._contexts[ctxIdx];
+                      var _attribute = _self._getAttribute(eventObj, relationshipName, attrName, context);
+                      
+                      if(_attribute && _attribute.values && _attribute.values.length > 0){
+                        _self._updateData(data, userIdList, eventObj, columns, _attribute, localeManager, attrName, modelObject, _self);
                       }
                     }
-                  }else{
-                    _attribute = EntityHelper.getAttribute(eventObj, attrName);
-                  }
-                  if(_attribute && _attribute.values && _attribute.values.length > 0){
-                    var firstValue, record, attrKey, attrValue, temporalDivElement;
-                    for (let j = 0; j < _attribute.values.length; j++) {
-                      firstValue = _attribute.values[j];
-                      record = {};
-                      for (let i = 0; i < columns.length; i++) {
-                        const column = columns[i];
-                        attrKey = column.name.toLowerCase();
-                        if(firstValue[attrKey]){
-                          record[column.name] = firstValue[attrKey];
-                          if(attrKey == "locale"){
-                            var localeObj = localeManager.getByName(firstValue[attrKey]);
-                            if (!_.isEmpty(localeObj) && localeObj.externalName) {
-                              record[column.name] = localeObj.externalName;
-                            }
-                          }
-                        }
-                      }
-                      attrValue = "";
-                      if(_attribute.values[j].value){
-                        attrValue = _attribute.values[j].value;
-                      }
-                      // if(_attribute.values.length > 1){
-                      //     for (let i = 1; i < _attribute.values.length; i++) {
-                      //       attrValue += ", " + _attribute.values[i].value;
-                      //     }
-                      // }
-                      // TO-DO
-                      // need to replace with rich text editor
-                      // temporary solution - stipe html tags from value and display only text
-                      temporalDivElement = document.createElement("div");
-                      temporalDivElement.innerHTML = attrValue;
-                      record[attrName] = temporalDivElement.textContent || temporalDivElement.innerText || "";
-                      temporalDivElement = null;
-                      
-                      if(_attribute.properties){
-                        if(_attribute.properties.changeType){
-                            var changeType = _attribute.properties.changeType;
-                            if((changeType == "addAttributeToContext") 
-                                || (changeType == "addValueToAttribute")
-                                || (changeType == "addContext") 
-                                || (changeType == "addAttributeToRelationship")){
-                                record.icon = "pebble-icon:action-add";
-                            }else if((changeType == "deleteAttributeValuesFromContext") || (changeType == "deleteAttributeFromContext")){
-                                record.icon = 'pebble-icon:action-delete';
-                                record[attrName] = "";
-                            }else{
-                                record.icon = 'pebble-icon:action-edit';
-                            }
-                        }
-                      }
-                      if(eventObj.properties && eventObj.properties.modifiedDate){
-                        record.Time = FormatHelper.convertFromISODateTimeToClientFormat(eventObj.properties.modifiedDate, 'datetime');
-                      }
-                      if(eventObj.properties && eventObj.properties.modifiedBy){
-                        var userId = eventObj.properties.modifiedBy;
-                        if(userIdList.indexOf(userId) == -1){
-                          userIdList.push(userId);
-                        }
-                        record.userId = userId; 
-                      }
-                      data.push(record);
+                  } else {
+                    var _attribute = _self._getAttribute(eventObj, relationshipName, attrName);
+                    if(_attribute && ((_attribute.values && _attribute.values.length > 0) || (_attribute.group && _attribute.group.length > 0))) {
+                      _self._updateData(data, userIdList, eventObj, columns, _attribute, localeManager, attrName, modelObject,  _self);
                     }
                   }
                 });
@@ -651,6 +573,117 @@ The user can view the past data but cannot modify it. However he/she can add or 
                 }
               }
             }
+        },
+
+        _getAttribute: function(entity, relationshipName, attributeName, context) {
+          var _attribute;
+          var isSelfContext = !_.isEmpty(context) ? false : true;
+          if(relationshipName){
+            var _relationshipDataArray;
+            var relationships;
+
+            relationships = EntityHelper.getRelationshipsBasedOnContext(entity, context, isSelfContext);
+
+            if(relationships) {
+              _relationshipDataArray = relationships[relationshipName];
+            }
+            
+            if(_relationshipDataArray && _relationshipDataArray.length > 0){
+              var relAttributes = _relationshipDataArray[0].attributes;
+              if(relAttributes && relAttributes[attrName]){
+                  _attribute = relAttributes[attrName];
+                  var relProperties = _relationshipDataArray[0].properties;
+                  if(_attribute && relProperties){
+                    _attribute.properties = relProperties;
+                  }
+              }
+            }
+          }else{
+            _attribute = EntityHelper.getattributeBasedOnContext(entity, attributeName, context);
+          }
+
+          return _attribute;
+        },
+
+        _updateData: function(data, userIdList, eventObj, columns, _attribute, localeManager, attributeName, attributeModel, self) {
+          var firstValue, record, attrKey, attrValue, temporalDivElement;
+          for(let valCtxIdx = 0; valCtxIdx < self._valueContexts.length; valCtxIdx++) {
+            var valCtx = self._valueContexts[valCtxIdx];
+            if(!_.isEmpty(_attribute.values)) {
+              firstValue = AttributeHelper.getCurrentValue(_attribute.values, valCtx, attributeModel);
+            } else if(!_.isEmpty(_attribute.group)) {
+              let values = _attribute.group.filter(item => item.locale === valCtx.locale)
+              if(!_.isEmpty(values)) {
+                firstValue = {
+                  "value": values
+                }
+                AttributeHelper.populateValueContext(firstValue, valCtx);
+              }
+            }
+            
+            if(!_.isEmpty(firstValue)) {
+              record = {};
+              for (let i = 0; i < columns.length; i++) {
+                const column = columns[i];
+                attrKey = column.name.toLowerCase();
+                if(firstValue[attrKey]){
+                  record[column.name] = firstValue[attrKey];
+                  if(attrKey == "locale"){
+                    var localeObj = localeManager.getByName(firstValue[attrKey]);
+                    if (!_.isEmpty(localeObj) && localeObj.externalName) {
+                      record[column.name] = localeObj.externalName;
+                    }
+                  }
+                }
+              }
+              attrValue = "";
+              if(firstValue.value){
+                attrValue = firstValue.value;
+              }
+              
+              switch(attributeModel.displayType) {
+                case "richtexteditor": 
+                  // TO-DO: Need to replace with rich text editor
+                  // temporary solution - stipe html tags from value and display only text
+                  temporalDivElement = document.createElement("div");
+                  temporalDivElement.innerHTML = attrValue;
+                  attrValue = temporalDivElement.textContent || temporalDivElement.innerText || "";
+                  temporalDivElement = null;
+                  break;
+                default:
+                  attrValue = attrValue;
+              }
+              record[attributeName] = attrValue;
+              
+              if(_attribute.properties){
+                if(_attribute.properties.changeType){
+                    var changeType = _attribute.properties.changeType;
+                    if((changeType == "addAttributeToContext") 
+                        || (changeType == "addValueToAttribute")
+                        || (changeType == "addContext") 
+                        || (changeType == "addAttributeToRelationship")){
+                        record.icon = "pebble-icon:action-add";
+                    }else if((changeType == "deleteAttributeValuesFromContext") || (changeType == "deleteAttributeFromContext")){
+                        record.icon = 'pebble-icon:action-delete';
+                        record[attributeName] = "";
+                    }else{
+                        record.icon = 'pebble-icon:action-edit';
+                    }
+                }
+              }
+              if(eventObj.properties && eventObj.properties.modifiedDate){
+                record.Time = FormatHelper.convertFromISODateTimeToClientFormat(eventObj.properties.modifiedDate, 'datetime');
+              }
+              if(eventObj.properties && eventObj.properties.modifiedBy){
+                var userId = eventObj.properties.modifiedBy;
+                if(userIdList.indexOf(userId) == -1){
+                  userIdList.push(userId);
+                }
+                record.userId = userId; 
+              }
+              data.push(record);
+            }
+          }
         },
 
         _getUserList:function(userIdList){

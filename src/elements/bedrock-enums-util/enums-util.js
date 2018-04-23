@@ -14,7 +14,9 @@ Enums.actions = {
     WorkflowAssignmentComplete:9,
     WorkflowAssignmentFail:10,
     RSConnectComplete:11,
-    RSConnectFail:12
+    RSConnectFail:12,
+    ModelImportComplete:15,
+    ModelImportFail:16
 }
 
 Enums.operations = {
