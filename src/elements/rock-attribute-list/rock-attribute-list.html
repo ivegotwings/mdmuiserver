@@ -128,10 +128,10 @@ It renders the list of attributes based on the specified parameters.
                         <template is="dom-repeat" items="[[chunk]]" as="attribute">
                             <div class="attribute-group-container-wrapper">
                                 <pebble-accordion 
-                                    header-text="[[attribute.groupName]]" 
+                                    header-text="[[_getAttributeGroupTitle(attribute.groupName)]]" 
                                     default-icon="pebble-icon:action-scope-take-selection" 
                                     open-icon="pebble-icon:action-expand" 
-                                    show-accordion="[[_checkRenderGroupBar(attribute)]]">
+                                    show-accordion="[[_checkRenderGroupBar(attribute.groupName)]]">
                                     
                                     <div slot="accordion-content">
                                         <div class$="[[_getAttributeClass(noOfColumns, attribute)]]" name$="[[attribute.name]]">
@@ -157,8 +157,8 @@ It renders the list of attributes based on the specified parameters.
                                 </pebble-accordion>
                             </div>
                         </template>
-                        <paper-spinner-lite active="[[loading]]"></paper-spinner-lite>
                     </template>
+                    <paper-spinner-lite active="[[loading]]"></paper-spinner-lite>
                 </template>
             </div>
         </div>
@@ -264,7 +264,7 @@ It renders the list of attributes based on the specified parameters.
                     /**
                       * <b><i>Content development is under progress... </b></i> 
                       */
-                    groupName: {
+                    baseGroupName: {
                         type: String,
                         value: "My Attributes"
                     },
@@ -305,6 +305,10 @@ It renders the list of attributes based on the specified parameters.
                     loading: {
                         type: Boolean,
                         value: true
+                    },
+                    needAttributesGrouping: {
+                        type: Boolean,
+                        value: false
                     }
                 },
                 behaviors: [
@@ -391,25 +395,9 @@ It renders the list of attributes based on the specified parameters.
                     this._calculateErrorLength(this.attributeValues);
 
                     Polymer.Async.microTask.run(() => {
-                        const attributesByGroup = this.attributeValues.reduce((res, attribute) => {
-                            const { groupName } = this.attributeModels[attribute.name];
-                            
-                            if(!res[groupName])
-                                res[groupName] = [];
+                        const attributes = this.needAttributesGrouping ? this.getGroupedAttributes() : this.attributeValues;
 
-                            attribute.groupName = groupName;
-                            
-                            res[groupName].push(attribute);
-                            return res;
-                        }, {});
-
-                        this.isMultipleGroup = Object.keys(attributesByGroup).length > 1;
-
-                        const _sortedAttributesByGroupName = Object.keys(attributesByGroup).reduce((res, groupName) => {
-                            return res.concat(attributesByGroup[groupName]);
-                        }, []);
-
-                        this.attributesChunks = _sortedAttributesByGroupName.reduce((res, item) => {
+                        this.attributesChunks = attributes.reduce((res, item) => {
                             const chunkIndex = res.length;
 
                             const currentChunk = res[chunkIndex - 1];
@@ -445,7 +433,27 @@ It renders the list of attributes based on the specified parameters.
                         }, 0);
                     });
                 },
-                
+
+                getGroupedAttributes() {
+                    const attributesByGroup = this.attributeValues.reduce((res, attribute) => {
+                        const { groupName } = this.attributeModels[attribute.name];
+                        
+                        if(!res[groupName])
+                            res[groupName] = [];
+
+                        attribute.groupName = groupName;
+                        
+                        res[groupName].push(attribute);
+                        return res;
+                    }, {});
+
+                    this.isMultipleGroup = Object.keys(attributesByGroup).length > 1;
+
+                    return Object.keys(attributesByGroup).reduce((res, groupName) => {
+                        return res.concat(attributesByGroup[groupName]);
+                    }, []);
+                },
+
                 _getAttributeClass: function (n, attribute) {
                     var model = this._getAttributeModel(this.attributeModels, attribute);
                     var displayType = model && model.displayType ? model.displayType.toLowerCase() : "";
@@ -638,13 +646,20 @@ It renders the list of attributes based on the specified parameters.
                 getControlIsDirty: function () {
                     return this.mode == "edit";
                 },
-                _checkRenderGroupBar: function (attribute) {
-                    if (this._previousViewName === attribute.groupName) return false;
+                _checkRenderGroupBar: function (groupName) {
+                    if (this._previousViewName === groupName) return false;
 
-                    this._previousViewName = attribute.groupName;
-                    
+                    this._previousViewName = groupName;
+
+                    if(!this.needAttributesGrouping) return true;
+
                     return this.isMultipleGroup;
                 },
+
+                _getAttributeGroupTitle(groupName) {
+                    return this.needAttributesGrouping ? groupName : this.baseGroupName;
+                },
+
                 _getAttributeMessage: function (attribute) {
                     if (attribute && this.attributeMessages) {
                         var messages = this.attributeMessages[attribute.name];
