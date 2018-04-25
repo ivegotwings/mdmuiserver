@@ -1,6 +1,8 @@
 'use strict';
 require('../df-rest-service/df-rest-service-config.js');
 var stateManager = require('../state-manager/state-manager.js');
+var executionContext = require('../context-manager/execution-context');
+var isEmpty = require('../utils/isEmpty');
 
 var LOGGER_CONFIG = function () {
     /*  Log fomrat should be in following order
@@ -235,35 +237,64 @@ var LOGGER_CONFIG = function () {
         "/entityappservice/delete": {
             "level": "info"
         }
-        
+
     };
 
     this.getBaseModulesObject = function () {
         return this.baseTemplate;
     }
 
-    this.getModulesObject = async function (key) {
-        var _obj = await stateManager.get(key);
-        if(!_obj) {
-            _obj = await stateManager.get("ALL-TENANT-ALL-USER");
-            if (!_obj) {
-                _obj = await stateManager.get("ALL-USER");
-                if (!_obj) {
-                    _obj = await stateManager.get("All-TENANT");
-                }
+    this.getCurrentModulesObject = async function () {
+        var key = this.getCacheKey();
+        //console.log('get modules key:', key);
+        var modulesObject = await stateManager.get(key);
+        //console.log('state mgr op', JSON.stringify(modulesObject));
+        // if(!_obj) {
+        //     _obj = await stateManager.get("ALL-TENANT-ALL-USER");
+        //     if (!_obj) {
+        //         _obj = await stateManager.get("ALL-USER");
+        //         if (!_obj) {
+        //             _obj = await stateManager.get("All-TENANT");
+        //         }
+        //     }
+        // }
+
+        if (isEmpty(modulesObject)) {
+             //console.log('empty log modules found');
+             modulesObject = this.baseTemplate;
+             await this.setCurrentModulesObject(modulesObject);
+        }
+
+        return await modulesObject;
+    };
+
+    this.setCurrentModulesObject = async function (modulesObject) {
+        var key = this.getCacheKey();
+        await stateManager.set(key, modulesObject);
+    };
+
+    this.getCacheKey = function() {
+        // if (val.globalSettings.tenant && val.globalSettings.user) {
+        //     key = "ALL-TENANT-ALL-USER";
+        // } else if (val.globalSettings.user) {
+        //     key = "ALL-USER";
+        // } else if (val.globalSettings.tenant) {
+        //     key = "ALL-TENANT";
+        // }
+        var securityContext = executionContext && executionContext.getSecurityContext();
+        var tenantId = "unknown";
+        var userId = "unknown";
+        if (securityContext) {
+            tenantId = securityContext.tenantId;
+            if (securityContext.headers && securityContext.headers.userId) {
+                userId = securityContext.headers.userId;
             }
         }
-        if (!_obj) {
-            return this.baseTemplate;
-        } else {
-            return _obj;
-        }
 
-    };
+        var key = "".concat('logsettings_tenant_', tenantId, '#@#user_', userId);
 
-    this.setModulesObject = async function (key, template) {
-         await stateManager.set(key, template);
-    };
+        return key;
+    }
 };
 
 var config = new LOGGER_CONFIG();
