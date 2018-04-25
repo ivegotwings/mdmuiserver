@@ -235,7 +235,7 @@ var LOGGER_CONFIG = function () {
         "/entityappservice/delete": {
             "level": "info"
         }
-        
+
     };
 
     this.getBaseModulesObject = function () {
@@ -244,26 +244,50 @@ var LOGGER_CONFIG = function () {
 
     this.getModulesObject = async function (key) {
         var _obj = await stateManager.get(key);
-        if(!_obj) {
-            _obj = await stateManager.get("ALL-TENANT-ALL-USER");
-            if (!_obj) {
-                _obj = await stateManager.get("ALL-USER");
-                if (!_obj) {
-                    _obj = await stateManager.get("All-TENANT");
-                }
-            }
-        }
+
+        // if(!_obj) {
+        //     _obj = await stateManager.get("ALL-TENANT-ALL-USER");
+        //     if (!_obj) {
+        //         _obj = await stateManager.get("ALL-USER");
+        //         if (!_obj) {
+        //             _obj = await stateManager.get("All-TENANT");
+        //         }
+        //     }
+        // }
+
         if (!_obj) {
             return this.baseTemplate;
         } else {
             return _obj;
         }
-
     };
 
     this.setModulesObject = async function (key, template) {
-         await stateManager.set(key, template);
+        await stateManager.set(key, template);
     };
+
+    this.getCacheKey = function () {
+          // if (val.globalSettings.tenant && val.globalSettings.user) {
+        //     key = "ALL-TENANT-ALL-USER";
+        // } else if (val.globalSettings.user) {
+        //     key = "ALL-USER";
+        // } else if (val.globalSettings.tenant) {
+        //     key = "ALL-TENANT";
+        // }
+        var securityContext = executionContext.getSecurityContext();
+        var tenantId  = "unknown";
+        var userId = "unknown";
+        if (securityContext) {
+            tenantId = securityContext.tenantId;
+            if (securityContext.headers && securityContext.headers.userId) {
+                userId = securityContext.headers.userId;
+            }
+        }
+    
+        var key = "".concat('logsettings_tenant_', tenantId, '#@#user_', userId);
+    
+        return key;
+    }
 };
 
 var config = new LOGGER_CONFIG();
