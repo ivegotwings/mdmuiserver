@@ -720,7 +720,7 @@ Eventservice.prototype = {
                 //Add integration type criterion...
                 var integrationTypeCriterion = {
                     "integrationType": {
-                        "eq": integrationType
+                        "eq": "system"
                     }
                 };
                 attributesCriteria.push(integrationTypeCriterion);
