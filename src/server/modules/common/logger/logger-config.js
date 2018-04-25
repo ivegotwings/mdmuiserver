@@ -266,28 +266,7 @@ var LOGGER_CONFIG = function () {
         await stateManager.set(key, template);
     };
 
-    this.getCacheKey = function () {
-          // if (val.globalSettings.tenant && val.globalSettings.user) {
-        //     key = "ALL-TENANT-ALL-USER";
-        // } else if (val.globalSettings.user) {
-        //     key = "ALL-USER";
-        // } else if (val.globalSettings.tenant) {
-        //     key = "ALL-TENANT";
-        // }
-        var securityContext = executionContext.getSecurityContext();
-        var tenantId  = "unknown";
-        var userId = "unknown";
-        if (securityContext) {
-            tenantId = securityContext.tenantId;
-            if (securityContext.headers && securityContext.headers.userId) {
-                userId = securityContext.headers.userId;
-            }
-        }
     
-        var key = "".concat('logsettings_tenant_', tenantId, '#@#user_', userId);
-    
-        return key;
-    }
 };
 
 var config = new LOGGER_CONFIG();
