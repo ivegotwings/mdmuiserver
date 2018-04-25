@@ -20,7 +20,7 @@ if (isStateServerEnabled) {
 var localStorage = {};
 
 async function get(key) {
-    var data;
+    var data = undefined;
     var cacheKey = getCacheKey(key);
     var redisError = false;
     if (isStateServerEnabled && client) {
