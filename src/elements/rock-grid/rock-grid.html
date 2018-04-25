@@ -598,6 +598,7 @@ The following JSON object is a config sample which configures the grid in all ab
 				overflow: hidden;
 				text-overflow: ellipsis;
 				text-align: left;
+				padding-right:5px;
 			}
 
 			#selection-title {
@@ -784,9 +785,11 @@ The following JSON object is a config sample which configures the grid in all ab
 					<div id="selection-title">[[selectionTitle]]</div>
 					<div class="grid-actions row layout-middle">
 						<!-- Toolbar slot -->
-						<slot slot="toolbar" name="toolbar"></slot>
-						<template is="dom-if" if="[[_isToolbarSlotEmpty()]]">
-							<rock-toolbar-default-actions id="gridActions" domain="[[domain]]" context-data="[[contextData]]"></rock-toolbar-default-actions>
+						<template is="dom-if" if="[[!hideToolbar]]">
+							<slot slot="toolbar" name="toolbar"></slot>
+							<template is="dom-if" if="[[_isToolbarSlotEmpty()]]">
+								<rock-toolbar-default-actions id="gridActions" domain="[[domain]]" context-data="[[contextData]]"></rock-toolbar-default-actions>
+							</template>
 						</template>
 						<bedrock-pubsub event-name="rock-toolbar-button-event" handler="_onToolbarEvent" target-id="gridActions"></bedrock-pubsub>
 						<bedrock-pubsub event-name="on-page-range-requested" handler="_setPageRange" target-id="gridActions"></bedrock-pubsub>
@@ -889,15 +892,22 @@ The following JSON object is a config sample which configures the grid in all ab
 											 width="[[_getColWidth(col)]]">
 												<template>
 
-													<template is="dom-if" if="[[_isNestedAttribute(column.columnObject)]]">
-														<a slot="cell-slot-content" href="#" on-tap="_openNestedAttr" data="[[column.columnObject]]">
-															<div class="cell tooltip-bottom" data-tooltip$="click here to see values">
-																<span> click here to see values ([[_getNetsedAtrributeValueCount(item, column.columnObject)]]) </span>
+													<template is="dom-if" if="[[_isNestedAttribute(column.columnObject, item)]]">
+														<template is="dom-if" if="[[_getNestedAttributeValueCount(item, column.columnObject)]]">
+															<a slot="cell-slot-content" href="#" on-tap="_openNestedAttr" data="[[column.columnObject]]">
+																<div class="cell tooltip-bottom" data-tooltip$="click here to see values">
+																	<span> [[_getNestedAttributeMessage(item, column.columnObject)]] </span>
+																</div>
+															</a>
+														</template>
+														<template is="dom-if" if="[[!_getNestedAttributeValueCount(item, column.columnObject)]]">
+															<div slot="cell-slot-content" class="cell tooltip-bottom" data-tooltip$="No values">
+																<span> No values </span>
 															</div>
-														</a>
+														</template>
 													</template>
 
-													<template is="dom-if" if="[[!_isNestedAttribute(column.columnObject)]]">
+													<template is="dom-if" if="[[!_isNestedAttribute(column.columnObject, item)]]">
 														<template is="dom-if" if="[[_hasLinkTemplate(column.columnObject, item)]]">
 															<a slot="cell-slot-content" href$="[[_getLink(column.columnObject, item)]]">
 																<div class="cell tooltip-bottom" data-tooltip$="[[_columnValue(item, column.columnIndex)]]">
@@ -1351,6 +1361,20 @@ The following JSON object is a config sample which configures the grid in all ab
 					},
 					sortType: {
 						type: String						
+					},
+					hideToolbar: {
+						type: Boolean,
+						value: false
+					},
+					gridItemView: {
+						type: Boolean,
+						value: false
+					},
+					nestedAttributeMessage: {
+						type: String,
+						value: function() {
+							return "click here to see values ({noOfValues})";
+						}
 					}
 				},
 				behaviors: [
@@ -2141,7 +2165,7 @@ The following JSON object is a config sample which configures the grid in all ab
 				},
 				_formatCollectionAttributeValueForGrid: function (value, columnName) {
 					//formatting for object collections
-					if (value.length > 0) {
+					if (!_.isEmtpy(value)) {
 						var resultString = value[0];
 						for (let i = 1; i < value.length; i++) {
 							resultString = resultString + ',' + value[i];
@@ -2652,15 +2676,20 @@ The following JSON object is a config sample which configures the grid in all ab
 				},
 				_addClassOnUpdateRow: function (event) {
 					var dataTableRows;
-					for (var key = 0; key < event.path.length; key++) {
-						if (event.path[key].tagName) {
-							if (event.path[key].tagName.toUpperCase() == "DATA-TABLE-ROW") {
-								dataTableRows = event.path[key];
-								break;
+					if(event && !_.isEmpty(event.path)) {
+						for (var key = 0; key < event.path.length; key++) {
+							if (event.path[key].tagName) {
+								if (event.path[key].tagName.toUpperCase() == "DATA-TABLE-ROW") {
+									dataTableRows = event.path[key];
+									break;
+								}
 							}
 						}
 					}
-					dataTableRows.classList.add('value-updated');
+					
+					if(!_.isEmpty(dataTableRows)) {
+						dataTableRows.classList.add('value-updated');
+					}
 				},
 				_updateRowStatus: function (item, status) {
 					if (item) {
@@ -2873,7 +2902,7 @@ The following JSON object is a config sample which configures the grid in all ab
 				},
 				_setSelectionTitle: function (currentRecordSize, selectionInfo) {
 					var startStatusMsg = '('
-					var endStatusMsg = 'selected )'
+					var endStatusMsg = 'selected)'
 					var selectionMode = this.getSelectionMode();
 					var selectedItems = this.getSelectedItems();
 					this.selectionTitle = '';
@@ -2885,7 +2914,7 @@ The following JSON object is a config sample which configures the grid in all ab
 								this.selectionTitle = startStatusMsg + ' ' + totalCount + ' ' + endStatusMsg;
 							}
 						} else {
-							this.selectionTitle = startStatusMsg + ' ' + selectedItems.length + ' ' + endStatusMsg;
+							this.selectionTitle = startStatusMsg + selectedItems.length + endStatusMsg;
 						}
 					}
 				},
@@ -2998,8 +3027,12 @@ The following JSON object is a config sample which configures the grid in all ab
 					}
 				},
 
-				_isNestedAttribute: function (col) {
-					if (col && col.isNested) {
+				_isNestedAttribute: function (col, item) {
+					if(this.gridItemView && !_.isEmpty(item)) {
+						if(!col.isRowHeader && this.attributeModels[item.attributeName] && this.attributeModels[item.attributeName].dataType == "nested") {
+							return true;
+						}
+					} else if (col && col.isNested) {
 						return true;
 					}
 
@@ -3008,11 +3041,15 @@ The following JSON object is a config sample which configures the grid in all ab
 
 				_getRowModelAndData: function (item, col) {
 					if (item) {
-						var attrName = col.name;
+						var attrName = this.gridItemView ? item.attributeName : col.name;
 						var attrModel = this.attributeModels[attrName];
 
 						var firstDataContext = ContextHelper.getFirstDataContext(this.contextData);
 						var firstValueContext = ContextHelper.getFirstValueContext(this.contextData);
+
+						if(item.locale) {
+							firstValueContext.locale = item.locale;
+						}
 
 						//debugger;
 						if (attrModel && attrModel.group && attrModel.group.length > 0) {
@@ -3067,10 +3104,17 @@ The following JSON object is a config sample which configures the grid in all ab
 				updateRowStatus: function (item, status) {
 					this._updateRowStatus(item, status);
 				},
-				_getNetsedAtrributeValueCount: function (item, col) {
+				_getNestedAttributeValueCount: function (item, col) {
 					if (!_.isEmpty(item) && col) {
+						if(this.gridItemView) {
+							return item[col.name] ? item[col.name].length : '0';
+						}
 						return item[col.header] && item[col.header].value ? item[col.header].value.length : '0';
 					}
+				},
+				_getNestedAttributeMessage: function (item, col) {
+					var count = this._getNestedAttributeValueCount(item, col) || 0;
+					return this.nestedAttributeMessage.replace("{noOfValues}", count);
 				},
 				_onToggleSidebar: function (e) {
 					setTimeout(() => {
