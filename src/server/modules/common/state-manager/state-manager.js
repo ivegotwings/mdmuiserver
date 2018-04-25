@@ -26,16 +26,22 @@ async function get(key) {
     if (isStateServerEnabled && client) {
         try {
             data = await client.get(cacheKey);
+            if (!isEmpty(data)) {
+                //console.log('data: ', 'cache key:', cacheKey, 'value:', data);
+                data = JSON.parse(data);
+                //console.log('data parsed: ', 'cache key:', cacheKey, 'value:', data);
+            }
         }
         catch (err) {
             console.log('redis fetch failed', err);
             redisError = true;
         }
     }
-    
+
     if (!(isStateServerEnabled && client) && localStorage[cacheKey] || redisError) {
         data = await localStorage[cacheKey];
     }
+
     return data;
 }
 
@@ -43,7 +49,7 @@ async function set(key, value) {
     var cacheKey = getCacheKey(key);
 
     if (isStateServerEnabled && client) {
-        return await client.set(cacheKey, value);
+        return await client.set(cacheKey, JSON.stringify(value));
     }
     else {
         localStorage[cacheKey] = value;
