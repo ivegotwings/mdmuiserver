@@ -212,6 +212,11 @@
                         return {};
                     }
                 },
+
+                applyContextCoalesce: {
+                    type: Boolean,
+                    value: false
+                }
             },
 
             behaviors: [
@@ -226,11 +231,13 @@
                     this.description = this.data.relatedEntityTypes[0].properties.externalName;
                     this.request = this.generateDownRequestObject(this.downRequestTemplate);
                     liquid = this.$.getRelations;
+                    liquid.useDataCoalesce = this.applyContextCoalesce;
                     this._oneTimeEvent(liquid, 'response', this.onResponseGetByIdData.bind(this));
                 } else if (this.loadGovernData) {
                     this.description = this.data.label;
                     this.request = this.generateUpRequestObject(this.upRequestTemplate,this.data.relationshipType);
                     liquid = this.$.parentRelationsGet;
+                    liquid.useDataCoalesce = this.applyContextCoalesce;
                     this._oneTimeEvent(liquid, 'response', this.onResponseSearchData.bind(this));
                 }
                 if(liquid) {
@@ -246,17 +253,18 @@
                 
             },
             generateDownRequestObject: function (template) {
-                var firstDataContext = this.getFirstDataContext();
                 var request = DataHelper.cloneObject(template);
                 request.params.query.id = this.entity.id;
                 request.params.query.filters.typesCriterion = [this.entity.type];
                 request.params.fields.relationships = [this.data.relatedEntityTypes[0].id];
-                request.params.query.contexts = [firstDataContext];
+                if(this.applyContextCoalesce){
+                    var firstDataContext = this.getFirstDataContext();
+                    request.params.query.contexts = [firstDataContext];
+                }
                 return request;
             },
 
             generateUpRequestObject: function (template,relationshipType) {
-                var firstDataContext = this.getFirstDataContext();
                 var request = DataHelper.cloneObject(template);
                 request.params.query.filters.typesCriterion = this.data.entityType;
                 var relationshipTypeObject = {};
@@ -266,9 +274,12 @@
                         "type": this.entity.type
                     }
                 };
-                request.params.query.contexts = [firstDataContext];
                 request.params.query.filters.relationshipsCriterion.push(relationshipTypeObject)
                 request.params.fields.relationships = this.data.entityType;
+                if(this.applyContextCoalesce){
+                    var firstDataContext = this.getFirstDataContext();
+                    request.params.query.contexts = [firstDataContext];
+                }  
                 return request;
             },
 
@@ -278,12 +289,19 @@
                     if (response && response.content) {
                         var countOfRelations = 0;
                         if (e.detail.response.content.entities &&
-                                e.detail.response.content.entities[0] &&
-                                e.detail.response.content.entities[0].data &&
-                                e.detail.response.content.entities[0].data.contexts &&
-                                e.detail.response.content.entities[0].data.contexts[0].relationships &&
-                                e.detail.response.content.entities[0].data.contexts[0].relationships[this.data.relationshipTypeName]) {
-                            countOfRelations = e.detail.response.content.entities[0].data.contexts[0].relationships[this.data.relationshipTypeName].length;
+                            e.detail.response.content.entities[0] &&
+                            e.detail.response.content.entities[0].data) {
+                            var currentItemData = e.detail.response.content.entities[0].data;
+                            var relationshipData = {};
+                            if (currentItemData.contexts.length > 0) {
+                                relationshipData = currentItemData.contexts[0].relationships;
+                            } else {
+                                relationshipData = currentItemData.relationships;
+                            }
+                            if (relationshipData &&
+                                relationshipData[this.data.relationshipTypeName]) {
+                                countOfRelations = relationshipData[this.data.relationshipTypeName].length;
+                            }
                         }
                         this.value = countOfRelations;
                         this._loading = false;
