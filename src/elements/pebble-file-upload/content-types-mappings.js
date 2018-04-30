@@ -6766,33 +6766,36 @@
         var extensions = {};
         var mimeTypes = {};
         Object.keys(mimedb).forEach(function forEachMimeType (type) {
-            var mime = mimedb[type]
-            var exts = mime.extensions
+            var mime = mimedb[type];
+            var exts = mime.extensions;
 
             if (!exts || !exts.length) {
-            return
+                return;
             }
 
             // mime -> extensions
-            extensions[type] = exts
+            extensions[type] = exts;
 
             // extension -> mime
             for (var i = 0; i < exts.length; i++) {
-            var extension = exts[i]
-
+                var extension = exts[i];
+                
                 if (mimeTypes[extension]) {
-                    var from = preference.indexOf(mimedb[mimeTypes[extension]].source)
-                    var to = preference.indexOf(mime.source)
+                    var from = preference.indexOf(mimedb[mimeTypes[extension]].source);
+                    var to = preference.indexOf(mime.source);
 
-                    if (mimeTypes[extension] !== 'application/octet-stream' &&
-                    from > to || (from === to && mimeTypes[extension].substr(0, 12) === 'application/')) {
-                        // skip the remapping
-                        continue
+                    if (mimeTypes[extension] !== 'application/octet-stream' && from > to || (from === to && mimeTypes[extension].substr(0, 12) === 'application/')) {
+                        // add the mimetype to extension
+                        var mimeType = mimeTypes[extension]; 
+                        if(mimeType.indexOf(type) == -1){
+                            mimeTypes[extension] = mimeType + ',' + type;
+                        }
+                        // skip the remapping               
+                        continue;
                     }
                 }
-
                 // set the extension -> mime
-                mimeTypes[extension] = type
+                mimeTypes[extension] = type;
             }
         });
         mappings.extensions = extensions;
