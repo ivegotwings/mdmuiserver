@@ -32,14 +32,38 @@
                 overflow-x: hidden;
                 height: 100%;
             }
+            .search-container {
+                position: relative;
+                display: inline-block;
+                width: 50%;
+            }
         </style>
+        <liquid-entity-data-get id="initiateSearch" operation="initiatesearch" request-data="{{request}}" last-response="{{initiateSearchResponse}}"
+        on-error="_onGetSearchError" on-response="_onInitiateSearchResponse" exclude-in-progress></liquid-entity-data-get>
+        
         <liquid-entity-data-get id="initiateSearch" operation="initiatesearch" request-data="{{request}}" last-response="{{initiateSearchResponse}}"
             on-error="_onGetSearchError" on-response="_onInitiateSearchResponse" exclude-in-progress></liquid-entity-data-get>
         <liquid-entity-data-get id="getSearchResultDetail" operation="getsearchresultdetail" request-data="{{request}}" request-id="[[initiateSearchResponse.content.requestId]]"
             last-response="{{getEntitySearchResultsResponse}}" on-error="_onGetSearchError" on-response="_onGetSearchResultDetailResponse"
             exclude-in-progress></liquid-entity-data-get>
-        <pebble-tree id="contextTree" class="contextTree" leaf-node-only="[[leafNodeOnly]]" data="{{classifications}}" check-child-nodes default-child-depth="10"
+        <div class="search-container">
+            <bedrock-pubsub event-name="rock-search" handler="_onSearch" target-id="searchBar"></bedrock-pubsub>
+            <template is="dom-if" if="{{_showSearchBar}}">
+                <rock-search-bar id="searchBar" placeholder="Enter Search text"></rock-search-bar>
+                <div class="resetsearch" hidden$="[[!_resetSearchEnabled]]">
+                    <pebble-button icon="pebble-icon:reset" class="btn-link pebble-icon-color-blue" on-tap="_resetSearch" button-text="Reset Search"></pebble-button>
+                </div>                
+            </template>
+        </div>
+        <template is="dom-if" if="{{!_isSearchMode}}">
+            <pebble-tree id="contextTree" leaf-node-only="[[leafNodeOnly]]" data="{{classifications}}" check-child-nodes default-child-depth="10"
             selected-items="{{_selectedItems}}" selected-item="{{_selectedItem}}" multi-select="[[multiSelect]]"></pebble-tree>
+        </template>
+        <template is="dom-if" if="{{_isSearchMode}}">
+            <template is="dom-repeat" items="{{searchResult}}" as="item">
+                <pebble-checkbox id="[[item.name]]" on-change="_onTapCheckAll"></pebble-checkbox>Item [[_getHeirarchy(item.heirarchy)]]: [[_getName(item.name)]]</div>
+            </template>
+        </template>
         <bedrock-pubsub event-name="tree-node-child-list-refreshed" handler="_childListRefreshed"></bedrock-pubsub>
         <liquid-rest id="classificationModelGet" url="/data/pass-through/entitymodelservice/get" method="POST" request-data="{{_classificationModelRequest}}"
             on-liquid-response="_onClassificationModelGetResponse"></liquid-rest>
@@ -62,6 +86,14 @@
                     value: function () {
                         return {};
                     }
+                },
+                _isSearchMode: {
+                    type: Boolean,
+                    value: false 
+                },
+                _showSearchBar: {
+                    type: Boolean,
+                    value: false
                 },
                 /**
                   * <b><i>Content development is under progress... </b></i> 
@@ -160,7 +192,14 @@
             listeners: {
                 'tree-node-expanded': '_treeNodeExpanded'
             },
-
+            _onSearch: function (e) {
+                this._isSearchMode = true;
+                this.executeRequest("", e.detail.query);
+            },
+            _resetSearch: function () {
+                this._isSearchMode = false;
+                this.executeRequest("");
+            },
             _onSelectedItemsChange: function (selectedItems, _selectedItem) {
                 //Set the output
                 if (selectedItems != undefined || _selectedItem != undefined) {
@@ -185,7 +224,6 @@
                 this._classificationModelRequest = DataRequestHelper.createGetManageModelRequest(["classification"]);
 
                 var classificationModelGetElement = this.$$("#classificationModelGet");
-
                 if (classificationModelGetElement) {
                     classificationModelGetElement.generateRequest();
                 }
@@ -211,7 +249,7 @@
                 }
             },
 
-            executeRequest: function (parentClassificationId) {
+            executeRequest: function (parentClassificationId, searchKeyword) {
                 var relEntityType = "classification";
                 var relType = "belongsto";
 
@@ -231,13 +269,14 @@
                 var classificationCriteria = {};
                 classificationCriteria[relType] = { "relTo": { "id": parentClassificationId, "type": relEntityType } };
                 itemContext.relationshipsCriterion = [classificationCriteria];
-
                 contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
                 contextData[ContextHelper.CONTEXT_TYPE_VALUE] = [];
                 contextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
 
                 var req = DataRequestHelper.createEntityGetRequest(contextData);
-
+                if(searchKeyword) {
+                    req.params.query.filters.keywordsCriterion = {"keywordsCriterion":{"operator":"_AND","keywords":searchKeyword}};
+                }
                 delete req.params.options;
 
                 this.set('request', req);
@@ -264,6 +303,7 @@
                 liqGetSearchResultDetail.generateRequest();
             },
             _onGetSearchResultDetailResponse: function (e) {
+                this._showSearchBar = true;
                 var res = e.detail.response;
                 var classifications = res.content.entities;
                 for (var i in classifications) {
