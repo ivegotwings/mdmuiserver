@@ -20,8 +20,14 @@ It renders the list of attributes based on the specified parameters.
 <dom-module id="rock-attribute-list">
     <template>
         <style include="bedrock-style-common bedrock-styles-scroll-bar">
-            :host {
+            :host{
+                display: block;	
+                height:100%;
                 @apply --rock-attribute-list;
+            }
+
+            .attribute-list-container{
+                height:100%;
             }
 
             .group-name {
@@ -89,11 +95,9 @@ It renders the list of attributes based on the specified parameters.
 
             .content {
                 height: 100%;
-                padding-bottom: 25px;
                 overflow-x:hidden;
                 overflow-y: scroll;
-                max-height: calc(85vh - 170px);
-                @apply --rock-attribute-list-content;
+                @apply attribute-list-content;
             }
             /* IE edge specific fix for horizontal scroll */
             
@@ -112,76 +116,59 @@ It renders the list of attributes based on the specified parameters.
             paper-spinner-lite[active] {
                 display: block;
             }
+            .multi-attribute-group .attribute-group-container-wrapper {
+                height: auto;
+            }
 
         </style>
         <div class="content">
-            <div class="attribute-list-container">
-                <template is="dom-if" if="displayedAttributesChunks.length">
-                    <template is="dom-repeat" items="[[displayedAttributesChunks]]" as="chunk">
-                        <template is="dom-repeat" items="[[chunk]]" as="attribute">
-                            <template is="dom-if" if="[[_checkRenderGroupBar(attribute, 0)]]">
-                                <pebble-accordion header-text="[[groupName]]" default-icon="pebble-icon:action-scope-take-selection" open-icon="pebble-icon:action-expand">
-                                    <div class="attribute-wrapper">
-                            </template>
-    
-                            <div class$="[[_getAttributeClass(noOfColumns, attribute)]]" name$="[[attribute.name]]">
-                                <rock-attribute 
-                                context-data="[[contextData]]" 
-                                mode="[[mode]]" 
-                                readonly="[[readonly]]" 
-                                errors="{{attribute.errors}}" 
-                                server-errors="[[_getAttributeMessage(attribute,attributeMessages)]]"
-                                attribute-model-object="[[_getAttributeModel(attributeModels, attribute)]]" 
-                                attribute-object="{{attribute}}"
-                                original-attribute-object="[[_cloneObject(attribute)]]" 
-                                tabindex="[[_getTabIndex(attribute)]]" 
-                                on-attribute-value-changed="updateDependentAttributesAndResetErrors"
-                                show-delete-icon="[[showDeleteIcon]]" 
-                                dependent-attribute-objects="[[_getDependentAttributes(attribute)]]"
-                                dependent-attribute-model-objects="[[_getDependentAttributeModels(attribute)]]"
-                                on-attribute-mode-changed="_onModeChange"
-                                apply-locale-coalesce="[[applyLocaleCoalesce]]">
-                                </rock-attribute>
-                            </div>
-    
-                            <template is="dom-if" if="[[_checkRenderGroupBar(attribute, 1)]]">
-                                </div>
+            <div class$="attribute-list-container [[_getMultiAttributeClass()]]">
+                <template is="dom-repeat" items="[[attributesGroups]]" as="group" initial-count="1" target-framerate="20">
+                    <div class="attribute-group-container-wrapper">
+                        <pebble-accordion
+                            header-text="[[_getAttributeGroupTitle(group.groupName)]]" 
+                            default-icon="pebble-icon:action-scope-take-selection" 
+                            open-icon="pebble-icon:action-expand" 
+                            show-accordion="[[_checkRenderGroupBar(group.groupName)]]">
+
+                            <div slot="accordion-content">
+                                <div class="attribute-group-container-wrapper">
+                                    <template is="dom-repeat" items="[[group.attributes]]" as="attribute" initial-count="20" target-framerate="20">
+                                        <div class$="[[_getAttributeClass(noOfColumns, attribute)]]" name$="[[attribute.name]]">
+                                            <rock-attribute 
+                                                context-data="[[contextData]]" 
+                                                mode="[[mode]]" 
+                                                readonly="[[readonly]]" 
+                                                errors="{{attribute.errors}}" 
+                                                server-errors="[[_getAttributeMessage(attribute,attributeMessages)]]"
+                                                attribute-model-object="[[_getAttributeModel(attributeModels, attribute)]]" 
+                                                attribute-object="{{attribute}}"
+                                                original-attribute-object="[[_cloneObject(attribute)]]" 
+                                                tabindex="[[_getTabIndex(attribute)]]" 
+                                                on-attribute-value-changed="updateDependentAttributesAndResetErrors"
+                                                show-delete-icon="[[showDeleteIcon]]" 
+                                                dependent-attribute-objects="[[_getDependentAttributes(attribute)]]"
+                                                dependent-attribute-model-objects="[[_getDependentAttributeModels(attribute)]]"
+                                                on-attribute-mode-changed="_onModeChange"
+                                                apply-locale-coalesce="[[applyLocaleCoalesce]]">
+                                            </rock-attribute>
+                                        </div>
+                                    </div>
                                 </pebble-accordion>
-                            </template>
-                            <bedrock-pubsub event-name="attribute-delete" handler="_ondeletingAttribute" target-id=""></bedrock-pubsub>
+                            </div>
                         </template>
                     </template>
                 </template>
+                <paper-spinner-lite active="[[loading]]"></paper-spinner-lite>
             </div>
-            <paper-spinner-lite active="[[loading]]"></paper-spinner-lite>
         </div>
+        <bedrock-pubsub event-name="attribute-delete" handler="_ondeletingAttribute" target-id=""></bedrock-pubsub>
     </template>
     <script>
         (function () {
             'use strict';
             Polymer({
                 is: 'rock-attribute-list',
-                created: function () {
-                    this.displatedAttributesChunkIndex = 1;
-                    this.displayedAttributesChunks = [];
-
-                    this.loading = true;
-
-                    this._onScrollListDebounce = _.debounce(this._onScrollList.bind(this), 300);
-                },
-
-                attached() {
-                    this.scrollContainer.addEventListener('scroll', this._onScrollListDebounce);
-                },
-
-                detached() {
-                    this.scrollContainer.removeEventListener('scroll', this._onScrollListDebounce)
-                },
-
-                get scrollContainer() {
-                    this._scrollContainer = this._scrollContainer || this.shadowRoot.querySelector('.content');
-                    return this._scrollContainer;
-                },
 
                 properties: {
                     /**
@@ -305,15 +292,45 @@ It renders the list of attributes based on the specified parameters.
                         type: Boolean,
                         value: false
                     },
+                    loading: {
+                        type: Boolean,
+                        value: true
+                    },
+                    needAttributesGrouping: {
+                        type: Boolean,
+                        value: false
+                    },
+                    attributesGroups: {
+                        type: Array,
+                        value: function() {
+                            return [];
+                        }
+                    }
                 },
                 behaviors: [
                     RUFBehaviors.UIBehavior,
                     RUFBehaviors.ComponentContextBehavior
                 ],
                 observers: [
-                    '_onAttributeValuesChange(attributeValues.*)',
-                    '_onAttributeModelsChange(attributeModels.*)'
+                    '_onAttributeValuesChange(attributeValues.*)'
                 ],
+
+                created: function () {
+                    this._onScrollListDebounce = _.debounce(this._onScrollList.bind(this), 300);
+                },
+
+                attached() {
+                    this.scrollContainer.addEventListener('scroll', this._onScrollListDebounce);
+                },
+
+                detached() {
+                    this.scrollContainer.removeEventListener('scroll', this._onScrollListDebounce)
+                },
+
+                get scrollContainer() {
+                    this._scrollContainer = this._scrollContainer || this.shadowRoot.querySelector('.content');
+                    return this._scrollContainer;
+                },
 
                 get hasScroll() {
                     const { scrollHeight, offsetHeight } = this.scrollContainer;
@@ -322,11 +339,11 @@ It renders the list of attributes based on the specified parameters.
                 },
 
                 get isLoadFinished() {
-                    return this.displayedAttributesChunks.length === this.attributesChunks.length;
+                    return this.attributesGroups[0] && this.attributesGroups[0].attributes.length === this.attributeValues.length;
                 },
 
                 _onScrollList(activeContent) {
-                    if(!this._lazyLoad) return;
+                    if(!this._lazyLoad || this.needAttributesGrouping) return;
 
                     const { scrollHeight, scrollTop, offsetHeight } = this.scrollContainer;
 
@@ -344,7 +361,8 @@ It renders the list of attributes based on the specified parameters.
                 },
 
                 _loadMoreAttributes() {
-                    const itemsToPush = this.attributesChunks.slice(this.displatedAttributesChunkIndex, ++this.displatedAttributesChunkIndex);
+                    const displayedAttributes = this.attributesGroups[0].attributes;
+                    const itemsToPush = this.attributeValues.slice(displayedAttributes.length, displayedAttributes.length + this.attributesChunkLength);
 
                     if (!itemsToPush.length) {
                         this.loading = false;
@@ -354,8 +372,7 @@ It renders the list of attributes based on the specified parameters.
                     this.loading = true;
 
                     window.requestAnimationFrame(()=> {
-                        const displayedAttributesChunks = this.displayedAttributesChunks.concat(itemsToPush);
-                        this.set('displayedAttributesChunks', displayedAttributesChunks);
+                        this.set(`attributesGroups.0.attributes`, displayedAttributes.concat(itemsToPush));
                     });
                 },
 
@@ -369,35 +386,22 @@ It renders the list of attributes based on the specified parameters.
                         this.loading = false;
                         return;
                     }
-                    this._lazyLoad = !!this.attributesChunkLength;
 
                     this._calculateErrorLength(this.attributeValues);
 
                     Polymer.Async.microTask.run(() => {
-                        this.attributesChunks = this.attributeValues.reduce((res, item) => {
-                            const chunkIndex = res.length;
+                        const attributesByGroup = this._getAttributesByGroup();
 
-                            const currentChunk = res[chunkIndex - 1];
+                        this.attributesGroups = Object.keys(attributesByGroup).map(groupName => {
+                            return {
+                                groupName,
+                                attributes: attributesByGroup[groupName]
+                            };
+                        });
 
-                            if (chunkIndex && currentChunk && currentChunk.length < this.attributesChunkLength)
-                                currentChunk.push(item);
-                            else
-                                res.push([item]);
+                        this._lazyLoad = !this._isMultipleGroups() && !!this.attributesChunkLength;
 
-                            return res;
-                        }, []);
-
-                        if(!this._lazyLoad) {
-                            this.loading = false;
-                            this.set('displayedAttributesChunks', this.attributesChunks);
-                            return;
-                        }
-
-                        const displayedAttributesChunks = this.attributesChunks.slice(0, this.displatedAttributesChunkIndex);
-                        
-                        this.set('displayedAttributesChunks', displayedAttributesChunks);
-
-                        if(this.isLoadFinished) {
+                        if(!this._lazyLoad || this.isLoadFinished) {
                             this.loading = false;
                             return;
                         }
@@ -411,21 +415,26 @@ It renders the list of attributes based on the specified parameters.
                     });
                 },
 
-                _onAttributeModelsChange(changeRecord) {
-                    const isValidPath = ['attributeModels'].indexOf(changeRecord.path) !== -1;
+                _getAttributesByGroup() {
+                    if(!this.needAttributesGrouping) {
+                        const displayedAttributes = this.attributesChunkLength ? this.attributeValues.slice(0, this.attributesChunkLength) : this.attributeValues;
 
-                    if (!isValidPath || _.isEmpty(this.attributeModels)) return;
+                        return {[this.groupName]: displayedAttributes};
+                    }
 
-                    this.uniqueGroups = Object.keys(this.attributeModels).reduce((res, attributeName) => {
-                        const groupName = this.attributeModels[attributeName].groupName;
+                    return this.attributeValues.reduce((res, attribute) => {
+                        const { groupName } = this.attributeModels[attribute.name];
+                        
+                        if(!res[groupName])
+                            res[groupName] = [];
 
-                        if(!~res.indexOf(groupName)) 
-                            res.push(groupName);
-
+                        attribute.groupName = groupName;
+                        
+                        res[groupName].push(attribute);
                         return res;
-                    }, []);
+                    }, {});
                 },
-                
+
                 _getAttributeClass: function (n, attribute) {
                     var model = this._getAttributeModel(this.attributeModels, attribute);
                     var displayType = model && model.displayType ? model.displayType.toLowerCase() : "";
@@ -543,6 +552,15 @@ It renders the list of attributes based on the specified parameters.
                 _cloneObject: function (o) {
                     return DataHelper.cloneObject(o);
                 },
+
+                _isMultipleGroups() {
+                    return this.attributesGroups.length > 1;
+                },
+
+                _getMultiAttributeClass:function(){
+                    return this._isMultipleGroups() ? "multi-attribute-group" : "";
+                },
+
                 /**
                  * <b><i>Content development is under progress... </b></i> 
                  */
@@ -613,18 +631,20 @@ It renders the list of attributes based on the specified parameters.
                 getControlIsDirty: function () {
                     return this.mode == "edit";
                 },
-                _checkRenderGroupBar: function (attribute, saveAsPrevious) {
-                    var result = false;
+                _checkRenderGroupBar: function (groupName) {
+                    if (this._previousViewName === groupName) return false;
 
-                    if (this._previousViewName != this.groupName) {
-                        result = true;
-                    }
-                    if (saveAsPrevious) {
-                        this._previousViewName = this.groupName;
-                    }
+                    this._previousViewName = groupName;
 
-                    return !!(result && this.uniqueGroups && this.uniqueGroups.length > 1);
+                    if(!this.needAttributesGrouping) return true;
+
+                    return this._isMultipleGroups();
                 },
+
+                _getAttributeGroupTitle(groupName) {
+                    return this.needAttributesGrouping ? groupName : this.groupName;
+                },
+
                 _getAttributeMessage: function (attribute) {
                     if (attribute && this.attributeMessages) {
                         var messages = this.attributeMessages[attribute.name];
