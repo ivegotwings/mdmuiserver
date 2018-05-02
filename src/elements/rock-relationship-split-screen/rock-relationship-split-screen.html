@@ -33,54 +33,62 @@
 				display: inline-block;
 				float: left;
 				width: 50%;
-				flex:none;
-       			-webkit-flex:none;
+				flex: none;
+				-webkit-flex: none;
 			}
-			
+
 			.relationship-grid-1 {
 				width: 100%;
 			}
-			
+
 			.dimension {
 				width: 100%;
 				@apply --layout;
 				@apply --layout-horizontal;
 				height: 30px;
-    			line-height: 30px;
-				margin-bottom:5px;
-				font-family:var(--default-font-family);
-				font-size:var(--default-font-size,14px);
-				color:var(--palette-cerulean, #036bc3);
-			}			
-			.actionButton{
-				float:right;
-				margin-top:10px;
-				padding-right:10px;
+				line-height: 30px;
+				margin-bottom: 5px;
+				font-family: var(--default-font-family);
+				font-size: var(--default-font-size, 14px);
+				color: var(--palette-cerulean, #036bc3);
 			}
+
+			.actionButton {
+				float: right;
+				margin-top: 10px;
+				padding-right: 10px;
+			}
+
 			#dimensionValueContainer {
 				margin-left: 20px;
 				margin-top: auto;
 			}
-			
+
 			pebble-icon {
-				padding-right:10px;
+				padding-right: 10px;
 			}
-			
+
 			.relationshipGrid {
 				width: 100%;
 			}
+
+			.relationshipErrorGrid {
+				width: 100%;
+				color: red;
+			}
+
 			.relationship-split-screen-title-container .relationship-grid {
 				padding-left: 20px;
 				padding-top: 10px;
-				font-size:var(--default-font-size,14px);
-				color:var(--palette-cerulean, #036bc3);
+				font-size: var(--default-font-size, 14px);
+				color: var(--palette-cerulean, #036bc3);
 			}
-			
+
 			.divider {
 				width: 2%;
 				height: auto !important;
 			}
-			
+
 			pebble-vertical-divider {
 				--pebble-vertical-divider-color: #1a2028;
 				height: 100%;
@@ -95,13 +103,13 @@
 		</style>
 
 		<div class="relationship-split-screen-container">
-			<div class="relationship-split-screen-title-container">		
+			<div class="relationship-split-screen-title-container">
 				<template is="dom-if" if="[[_contexts.length]]">
 					<div class="dimension" style$="[[_getStyle()]]">
 						<template is="dom-repeat" items="[[_contexts]]" as="context">
 							<div id="sourceDimensionValueContainer" class$="[[_getListClassName()]]">
 								<pebble-icon icon="pebble-icon:language" class="pebble-icon-size-16 m-r-10"></pebble-icon>
-								[[context.header]]
+								[[_getTitle(context)]]
 							</div>
 						</template>
 					</div>
@@ -110,18 +118,13 @@
 			<template is="dom-if" if="[[_contexts.length]]">
 				<template is="dom-repeat" items="[[_contexts]]" as="context" initial-count="1" target-framerate="30">
 					<div class$="[[_getListClassName()]]">
-						<div class="relationshipGrid">
-							<rock-relationship-manage 
-								mode="[[mode]]" 
-								load-govern-data$="[[loadGovernData]]" 
-								data-index$="[[dataIndex]]" 
-								data-sub-index$="[[dataSubIndex]]" 
-								context-data="[[_getContextData(context)]]" 
-								config-context="[[configContext]]" 
-								no-of-columns="[[noOfColumns]]" 
-								do-sync-validation$="[[doSyncValidation]]"
-							></rock-relationship-manage>
+						<template is="dom-if" if="[[_isValidContext(context)]]"></template>
+						<div id="[[context.value]]-relationship-container" class="relationshipGrid">
+							<rock-relationship-manage mode="[[mode]]" load-govern-data$="[[loadGovernData]]" data-index$="[[dataIndex]]" data-sub-index$="[[dataSubIndex]]"
+							 context-data="[[_getContextData(context)]]" config-context="[[configContext]]" no-of-columns="[[noOfColumns]]" do-sync-validation$="[[doSyncValidation]]"></rock-relationship-manage>
 						</div>
+						<div id="[[context.value]]-error-container" class="relationshipErrorGrid" hidden></div>
+
 						<div class="divider" style$="[[_getStyle()]]" align="right">
 						</div>
 					</div>
@@ -133,7 +136,7 @@
 		Polymer({
 			is: "rock-relationship-split-screen",
 			created: function () {
-				if (this.verbose){
+				if (this.verbose) {
 					this.logInfo("SplitScreenCreated");
 				}
 				this._onScrollDebounce = _.debounce(this._onScroll.bind(this), 300);
@@ -141,10 +144,10 @@
 			/**
              * If set as true , it indicates the component is in read only mode
              */
-            readonly: {
-                type: Boolean,
-                value: false		
-            },
+			readonly: {
+				type: Boolean,
+				value: false
+			},
 			attached: function () {
 				this.logInfo("SplitScreenAttached");
 
@@ -185,7 +188,7 @@
 					type: String,
 					value: "data"
 				},
-				loadGovernData:{                    
+				loadGovernData: {
 					type: Boolean,
 					value: true
 				},
@@ -213,10 +216,43 @@
 				var relManage = this.$$("rock-relationship-manage");
 				return this._getControlIsDirty(relManage);
 			},
-			
-			refresh: function (){
+
+			refresh: function () {
 				var relManage = this.$$("rock-relationship-manage");
 				relManage.refresh();
+			},
+
+			_isValidContext: function (context) {
+				let contextData = this._getContextData(context);
+				let dataContexts = ContextHelper.getFirstDataContext(contextData);
+				let valueContexts = ContextHelper.getFirstValueContext(contextData);
+				let itemContexts = ContextHelper.getFirstItemContext(contextData);
+
+				ContextHelper.validateContext(itemContexts.type, dataContexts, valueContexts).then((result) => {
+					status = result;
+					if (!_.isEmpty(result)) {
+						console.log(result);
+						var attrContainer = this.$$('#' + context.value + '-relationship-container');
+						var attrErrorContainer = this.$$('#' + context.value + '-error-container');
+						if (result.status == "valid") {
+							attrContainer && (attrContainer.hidden = false);
+							attrErrorContainer && (attrErrorContainer.hidden = true);
+						} else {
+							attrContainer && (attrContainer.hidden = true);
+							if (attrErrorContainer) {
+								let errorList = "<ul>";
+								for (let sc of result.statusCode) {
+									errorList = errorList + "<li>" + sc + "</li>";
+								}
+								errorList = errorList + "</ul>"
+
+								attrErrorContainer.innerHTML = errorList;
+								attrErrorContainer.hidden = false;
+							}
+						}
+					}
+				});
+				return true;
 			}
 		});
 	</script>

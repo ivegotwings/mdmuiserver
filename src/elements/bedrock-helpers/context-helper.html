@@ -99,7 +99,7 @@
                         delete selContextsFlat[key]
                     }
                 }
-                
+
                 return _.isEmpty(selContextsFlat) ? [] : _.createCartesianObjects(selContextsFlat);
             }
         };
@@ -148,7 +148,7 @@
 
         ContextHelper.addDefaultValContext = function (contextData) {
             var checkDefaultLocale = false;
-            if(contextData && !_.isEmpty(contextData)){
+            if (contextData && !_.isEmpty(contextData)) {
                 var valContexts = contextData[ContextHelper.CONTEXT_TYPE_VALUE] || [];
                 if (valContexts && valContexts.length) {
                     var defaultLocale = DataHelper.getDefaultLocale();
@@ -158,12 +158,80 @@
                         }
                     });
                 }
-                if(!checkDefaultLocale){
+                if (!checkDefaultLocale) {
                     contextData[ContextHelper.CONTEXT_TYPE_VALUE].push(DataHelper.getDefaultValContext());
                 }
             }
         }
 
+        ContextHelper.validateContext = async function (entityType, dataContexts, valueContexts) {
+            let status = {};
+            let statusCode = [];
+            let isCombinationValid = true;
+            var localeManager = ComponentHelper.getLocaleManager();
+
+            if (!_.isEmpty(entityType)) {
+                if (!_.isEmpty(valueContexts)) {
+                    let emptyValContext;
+                    for (let vcKey of ContextHelper.valContextKeys) {
+                        if (_.isEmpty(valueContexts[vcKey])) {
+                            isCombinationValid = false;
+                            statusCode.push('Value context: ' + vcKey + ' is missing.'); // TODO:: Need to convert into ERROR CODE.
+                        }
+                    }
+                }
+
+                // dataContexts = {"country": "Germany", "channel": "DE WEb"}
+                if (!_.isEmpty(dataContexts)) {
+                    let matchedCtxModelInstance = await ContextModelManager.getContextModelByEntityTypeAndDataContext(entityType, dataContexts);
+                    if (_.isEmpty(matchedCtxModelInstance)) {
+                        isCombinationValid = false;
+                        statusCode.push('Invalid data context:' + JSON.stringify(dataContexts) + '.'); // TODO:: Need to convert into ERROR CODE.
+                    }
+
+                    for (let dcKey in dataContexts) {
+                        let depsOfCurrentDataCtx = await ContextModelManager.getDependentRelationshipDetails(entityType, dcKey, dataContexts[dcKey]); // deps = {"allowedLocales": [{relTo: {"id": "", "type": ""}}, {relTo: {"id": "", "type": ""}}]}
+                        let mappedValueContexts = await ContextModelManager.getMappedValueContextsBasedOnEntityType(entityType, dcKey); // mappedValueContexts = [{"valueContext": "locale", "valueContextRelationship": "allowedLocales"}]
+
+                        if (mappedValueContexts && depsOfCurrentDataCtx) {
+                            for (let mvc of mappedValueContexts) {
+                                // mvc = {"valueContext": "locale", "valueContextRelationship": "allowedLocales"}
+                                if (mvc.valueContext == "locale") {
+                                    let locale = valueContexts[mvc.valueContext]; // locale = "th-TH"
+                                    let depRels = depsOfCurrentDataCtx[mvc.valueContextRelationship]; // depRels = [{relTo: {"id": "", "type": ""}}, {relTo: {"id": "", "type": ""}}]
+
+                                    if (!_.isEmpty(depRels)) {
+                                        let relIds = depRels.map(v => v.relTo.id); // relIds = rel ids of "allowedLocales" in Germany
+
+                                        if (relIds && locale) {
+                                            let localeObjects = localeManager && await localeManager.getByIdsAsync(relIds); // localeObjects = [{"en-US with name"}, {"de-DE with name"}, {"en-GB with name"}]
+
+                                            if (!_.isEmpty(localeObjects)) {
+                                                let matchedLocale = localeObjects.find(v => v.name == locale); // matchedLocale = [];
+
+                                                if (_.isEmpty(matchedLocale)) {
+                                                    isCombinationValid = false;
+                                                    statusCode.push('Invalid combination of data and value context:' + JSON.stringify(dataContexts) + ' - ' + JSON.stringify(valueContexts) + '.'); // TODO:: Need to convert into ERROR CODE.
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (!isCombinationValid) {
+                status.status = "invalid";
+                status.statusCode = statusCode;
+            } else {
+                status.status = "valid";
+            }
+
+            return status;
+        }
     })();
 
 </script>

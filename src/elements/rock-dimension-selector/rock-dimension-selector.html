@@ -1399,16 +1399,19 @@ Custom property | Description | Default
                                 }
                             }
                         }
-
                         // this._updateToggleButtonText(configDataItem, rockLov);
                     }
 
+                    // function to prepare status of current selected dimension.
                     this.set("selectedDimensions", selectedDimensions);
 
-                    var eventDetail = {
-                        'dimensions': selectedDimensions
-                    };
-                    this.fireBedrockEvent("dimension-selector-data-changed", eventDetail);
+                    Polymer.Debouncer.debounce(this._debouncer, Polymer.Async.timeOut.after(500), () => {
+                        //this.set("selectedDimensions", selectedDimensions);
+                        var eventDetail = {
+                            'dimensions': selectedDimensions
+                        };
+                        this.fireBedrockEvent("dimension-selector-data-changed", eventDetail);
+                    });
                 }
             },
 
@@ -1635,7 +1638,7 @@ Custom property | Description | Default
 
                                         if (preselctedItem) {
                                             var name = preselctedItem.data.attributes[elementInfo.externalAttrName].values[0].value;
-                                            var item = formattedData.find(v => v.id == name);
+                                            var item = formattedData.find(v => v.title == name);
 
                                             if (item) {
                                                 this.selectedItems = [item];
@@ -1754,31 +1757,47 @@ Custom property | Description | Default
             _getContextsBasedOnSelectedDimension: function () {
                 var filteredCtx = [];
 
-                var filteredSelectedDimensions = undefined;
+                var selectedDimensions = undefined;
 
                 if (this._isRootContextChanged()) {
-                    filteredSelectedDimensions = {};
+                    selectedDimensions = {};
                     this._contextHierarchy.forEach(function (ctx, index) {
                         if (index == 0) {
-                            filteredSelectedDimensions[ctx] = this.selectedDimensions[ctx];
+                            selectedDimensions[ctx] = this.selectedDimensions[ctx];
                         } else {
-                            filteredSelectedDimensions[ctx] = [];
+                            selectedDimensions[ctx] = [];
                         }
                     }, this);
                 } else {
-                    filteredSelectedDimensions = this.selectedDimensions;
+                    selectedDimensions = this.selectedDimensions;
                 }
 
+                filteredCtx = this._findContextModelMatchForCurrentSelctedDimension(selectedDimensions);
 
-                if (this._contexts && filteredSelectedDimensions) {
+                // Reset dimensions if selcted dimension context will not be identified in context model
+                if (!filteredCtx.length) {
+                    this._contextHierarchy.forEach(function (ctxKey, index) {
+                        var ctx = {};
+                        ctx[ctxKey] = this._contextDataToBeLoaded(ctxKey);
+                        filteredCtx.push(ctx);
+                    }, this);
+                }
+
+                return filteredCtx;
+            },
+
+            _findContextModelMatchForCurrentSelctedDimension: function (selectedDimensions) {
+                let filteredCtx = [];
+                if (this._contexts && selectedDimensions) {
                     // Get context(s) based on selected dimension
                     for (var ctxIndex = 0; ctxIndex <= this._contexts.length; ctxIndex++) {
                         var ctx = this._contexts[ctxIndex];
                         var isMatch = false;
                         var isPartialMatch = false;
                         if (ctx) {
+
                             for (var hierarchyIndex = 0; hierarchyIndex <= this._contextHierarchy.length; hierarchyIndex++) {
-                                var sdv = filteredSelectedDimensions[this._contextHierarchy[hierarchyIndex]];
+                                var sdv = selectedDimensions[this._contextHierarchy[hierarchyIndex]];
                                 var ctxv = ctx[this._contextHierarchy[hierarchyIndex]];
 
                                 if (ctxv) {
@@ -1805,24 +1824,13 @@ Custom property | Description | Default
                                     }
                                 }
                             }
-                        }
+                            if (isMatch || isPartialMatch) {
+                                filteredCtx.push(ctx);
+                            }
 
-
-                        if (isMatch || isPartialMatch) {
-                            filteredCtx.push(ctx);
                         }
                     }
                 }
-
-                // Reset dimensions if selcted dimension context will not be identified in context model
-                if (!filteredCtx.length) {
-                    this._contextHierarchy.forEach(function (ctxKey, index) {
-                        var ctx = {};
-                        ctx[ctxKey] = this._contextDataToBeLoaded(ctxKey);
-                        filteredCtx.push(ctx);
-                    }, this);
-                }
-
                 return filteredCtx;
             },
 
