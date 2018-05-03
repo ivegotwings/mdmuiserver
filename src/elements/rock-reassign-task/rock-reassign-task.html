@@ -1,0 +1,143 @@
+<link rel="import" href="../../../bower_components/polymer/polymer-element.html">
+
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-helpers/data-request-helper.html">
+
+<link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
+
+<link rel="import" href="../rock-entity-model-lov/rock-entity-model-lov.html">
+
+<dom-module id="rock-reassign-task">
+    <template>
+        <style>
+            #buttonContainer{
+                margin-top:20px;
+                text-align: center;
+            }
+        </style>   
+        <liquid-entity-model-get id="getWorkflowDefinition" operation="getbyids" request-id="req1"
+        on-response="_onDefinitionReceived" on-error="_onDefinitionGetFailed"></liquid-entity-model-get>
+        <div>
+            <template is="dom-if" if="[[_isWorkflowDataReceived(_WorkflowData)]]">
+                <rock-entity-model-lov id="userModelLOV" readonly=[[readonly]] id-field="id"
+                    title-pattern="name" sub-title-pattern="name" request-data="[[_requestData]]"
+                    selected-item="{{_selectedItem}}"></rock-entity-model-lov>
+            </template>
+        </div>
+        <div id="buttonContainer" >
+            <pebble-button id="cancelButton" class="btn btn-secondary m-r-5" button-text="Cancel" on-tap="_onCancelTap" elevation=1 raised></pebble-button>
+            <pebble-button id="assign" class="focus btn btn-success" button-text="Confirm" on-tap="_confirm" elevation=1 raised></pebble-button>
+        </div>
+    </template>
+
+  <script>
+      
+    class RockReassignTask extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.ComponentContextBehavior], Polymer.Element) {
+
+        static get is() { return 'rock-reassign-task' }
+
+        static get properties() {
+            return {
+                _requestData:{
+                    type:Object,
+                    value:function(){
+                        return {}
+                    }
+                },
+                _WorkflowData:{
+                    type:Boolean,
+                    value:false
+                },
+                _selectedItem:{
+                    type:Object,
+                    value:function(){
+                        return {}
+                    },
+                    notify:true
+                },
+                workflowRunningInstances:{
+                    type:Array,
+                    value:function(){
+                        return []
+                    }
+                }
+            }
+        }      
+         
+        connectedCallback() {
+            super.connectedCallback();
+            var workflowDefLiq = this.shadowRoot.querySelector("#getWorkflowDefinition");
+            if(workflowDefLiq){
+                workflowDefLiq.requestData = DataRequestHelper.createWorkflowDefinitionGetRequest(this.contextData);
+                workflowDefLiq.generateRequest();
+            }
+
+            var req = DataRequestHelper.createGetModelRequest([], "user")
+            delete req.params.query.ids;
+            this._requestData = req;
+        }
+
+        disconnectedCallback() {
+            super.disconnectedCallback();
+        }
+        _onDefinitionReceived(e){
+            var workflowDefinitionResponse = e.detail.response;
+            if (workflowDefinitionResponse && workflowDefinitionResponse.content && workflowDefinitionResponse.content.entityModels && workflowDefinitionResponse.content.entityModels.length > 0) {
+                var workflowData = [];
+                
+                for (var i = 0; i < workflowDefinitionResponse.content.entityModels.length; i++) {
+                    var entityModel = workflowDefinitionResponse.content.entityModels[i];
+                    var workflowName = entityModel.name;
+
+                    if (entityModel.data && entityModel.data.attributes) {
+                        
+                        // var wfPastAttributes = this._workflowPastEvents[workflowName] && this._workflowPastEvents[workflowName].attributes ? this._workflowPastEvents[workflowName].attributes: {};
+
+                        // var wfAttributes = entityModel.data.attributes; 
+
+                        // var riAttributes = this._runningInstances[workflowName].attributes;
+
+                        // var _stepperData = this._transformEntityResponseToStepperJson(wfPastAttributes, wfAttributes, riAttributes, workflowName);
+
+                        // workflowData.push(_stepperData);
+                    }
+                }
+                this.set("_workflowsData", workflowData);
+            }
+        }
+        _onDefinitionGetFailed(e) {
+            Polymer.Base._error('workflow definition get failed with error ', e.detail);
+        }
+        _isWorkflowDataReceived(){
+            if(this._WorkflowData && !_.isEmpty(this._WorkflowData)){
+                return true;
+            }
+            return false;
+        }
+        _confirm(){
+            if(this._selectedItem && !_.isEmpty(this._selectedItem)){
+                var eventName = "onNext";
+                var eventDetail = {
+                    userInfo:this._selectedItem
+                }
+                this.fireBedrockEvent(eventName, eventDetail, {
+                    ignoreId: true
+                });
+            }else{
+                this.showWarningToast("Please select a user for changing assignment.");
+            }
+        }
+
+        _onCancelTap(){
+            var eventName = "onCancel";
+            this.fireBedrockEvent(eventName, {}, {
+                ignoreId: true
+            });
+        }
+    }
+
+    customElements.define(RockReassignTask.is, RockReassignTask);  
+  </script> 
+</dom-module>
