@@ -15,9 +15,7 @@ var DFServiceBase = function (options) {
     var _dataConnection = new DFConnection();
     this._restRequest = _dataConnection.getRequest();
     this._serverUrl = _dataConnection.getServerUrl();
-    this._logSettings = _dataConnection.getLogSettings();
-    this._logServiceNames = Object.keys(this._logSettings);
-
+    
     if (options.serverType == 'cop') {
         this._serverUrl = _dataConnection.getCOPServerUrl();
     }
