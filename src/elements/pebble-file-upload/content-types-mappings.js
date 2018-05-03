@@ -2693,19 +2693,19 @@
                 "compressible": false,
                 "extensions": ["xls", "xlm", "xla", "xlc", "xlt", "xlw"]
             },
-            "application/vnd.ms-excel.addin.macroenabled.12": {
+            "application/vnd.ms-excel.addin.macroEnabled.12": {
                 "source": "iana",
                 "extensions": ["xlam"]
             },
-            "application/vnd.ms-excel.sheet.binary.macroenabled.12": {
+            "application/vnd.ms-excel.sheet.binary.macroEnabled.12": {
                 "source": "iana",
                 "extensions": ["xlsb"]
             },
-            "application/vnd.ms-excel.sheet.macroenabled.12": {
+            "application/vnd.ms-excel.sheet.macroEnabled.12": {
                 "source": "iana",
                 "extensions": ["xlsm"]
             },
-            "application/vnd.ms-excel.template.macroenabled.12": {
+            "application/vnd.ms-excel.template.macroEnabled.12": {
                 "source": "iana",
                 "extensions": ["xltm"]
             },
@@ -2756,23 +2756,23 @@
                 "compressible": false,
                 "extensions": ["ppt", "pps", "pot"]
             },
-            "application/vnd.ms-powerpoint.addin.macroenabled.12": {
+            "application/vnd.ms-powerpoint.addin.macroEnabled.12": {
                 "source": "iana",
                 "extensions": ["ppam"]
             },
-            "application/vnd.ms-powerpoint.presentation.macroenabled.12": {
+            "application/vnd.ms-powerpoint.presentation.macroEnabled.12": {
                 "source": "iana",
                 "extensions": ["pptm"]
             },
-            "application/vnd.ms-powerpoint.slide.macroenabled.12": {
+            "application/vnd.ms-powerpoint.slide.macroEnabled.12": {
                 "source": "iana",
                 "extensions": ["sldm"]
             },
-            "application/vnd.ms-powerpoint.slideshow.macroenabled.12": {
+            "application/vnd.ms-powerpoint.slideshow.macroEnabled.12": {
                 "source": "iana",
                 "extensions": ["ppsm"]
             },
-            "application/vnd.ms-powerpoint.template.macroenabled.12": {
+            "application/vnd.ms-powerpoint.template.macroEnabled.12": {
                 "source": "iana",
                 "extensions": ["potm"]
             },
@@ -2816,11 +2816,11 @@
             "application/vnd.ms-wmdrm.meter-resp": {
                 "source": "iana"
             },
-            "application/vnd.ms-word.document.macroenabled.12": {
+            "application/vnd.ms-word.document.macroEnabled.12": {
                 "source": "iana",
                 "extensions": ["docm"]
             },
-            "application/vnd.ms-word.template.macroenabled.12": {
+            "application/vnd.ms-word.template.macroEnabled.12": {
                 "source": "iana",
                 "extensions": ["dotm"]
             },
@@ -6765,34 +6765,42 @@
         };
         var extensions = {};
         var mimeTypes = {};
-        Object.keys(mimedb).forEach(function forEachMimeType (type) {
-            var mime = mimedb[type]
-            var exts = mime.extensions
+        var extensionSources = {};
+        Object.keys(mimedb).forEach(function forEachMimeType (currentMimeType) {
+            var currentMime = mimedb[currentMimeType];
+            var exts = currentMime.extensions;
 
             if (!exts || !exts.length) {
-            return
+                return;
             }
 
             // mime -> extensions
-            extensions[type] = exts
+            extensions[currentMimeType] = exts;
 
             // extension -> mime
             for (var i = 0; i < exts.length; i++) {
-            var extension = exts[i]
-
+                var extension = exts[i];
+                
                 if (mimeTypes[extension]) {
-                    var from = preference.indexOf(mimedb[mimeTypes[extension]].source)
-                    var to = preference.indexOf(mime.source)
+                    var existingMimeSourceIndex = extensionSources[extension] ? preference.indexOf(extensionSources[extension]) : -1;
+                    var currentMimeSourceIndex = currentMime ? preference.indexOf(currentMime.source) : -1;
 
-                    if (mimeTypes[extension] !== 'application/octet-stream' &&
-                    from > to || (from === to && mimeTypes[extension].substr(0, 12) === 'application/')) {
-                        // skip the remapping
-                        continue
+                    if (mimeTypes[extension] !== 'application/octet-stream' && existingMimeSourceIndex >= currentMimeSourceIndex) {
+                        if(existingMimeSourceIndex == currentMimeSourceIndex) {
+                            // add the mimetype to extension
+                            var mimeType = mimeTypes[extension]; 
+                            if(mimeType.indexOf(currentMimeType) == -1){
+                                mimeTypes[extension] = mimeType + ',' + currentMimeType;
+                            }
+                        }
+                        // skip the remapping               
+                        continue;
                     }
                 }
 
                 // set the extension -> mime
-                mimeTypes[extension] = type
+                mimeTypes[extension] = currentMimeType;
+                extensionSources[extension] = currentMime.source;
             }
         });
         mappings.extensions = extensions;
