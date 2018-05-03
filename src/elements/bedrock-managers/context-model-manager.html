@@ -12,6 +12,8 @@
         let _contextModels;
         let _entityTypes;
         let _promiseResolve;
+        let _contextHierarchyInfo;
+        let _dependectContextValue = {};
 
         async function _init() {
             _entityTypes = await EntityTypeManager.getInstance().getTypesByDomainAsync("thing");
@@ -27,10 +29,17 @@
             });
         }
 
+        function _preInitEntity(entityType, ctxEntityType, ctxEntityName, relationshipTypes) {
+            return new Promise((resolve, reject) => {
+                _promiseResolve = resolve;
+                _initiateEntityGetRequest(entityType, ctxEntityType, ctxEntityName, relationshipTypes);
+            });
+        }
+
         function _getContextModelBasedOnEntityTypes() {
             var liquidEntityCustomElement = customElements.get("liquid-rest");
 
-            if(typeof liquidEntityCustomElement !== 'function') return;
+            if (typeof liquidEntityCustomElement !== 'function') return;
 
             var liquidEntityModelGet = new liquidEntityCustomElement();
 
@@ -78,58 +87,137 @@
             console.log(ev)
         }
 
-        function getContextModelBasedOnCurrentDataContext(contextModels, firstDataContext) {
-            var contextModel;
-            var partialContextModels = [];
+        function _initiateEntityGetRequest(entityType, ctxEntityType, ctxEntityName, relationshipTypes) {
+            let entityGetRequest = {
+                "params": {
+                    "query": {
+                        "name": ctxEntityName,
+                        "filters": {
+                            "typesCriterion": [
+                                ctxEntityType
+                            ]
+                        }
+                    },
+                    "fields": {
+                        "relationships": relationshipTypes,
+                        "relationshipAttributes": ["isDefault"]
+                    }
+                }
+            }
 
-            if (!_.isEmpty(contextModels)) {
-                for (var i = 0; i < contextModels.length; i++) {
-                    var ctxModelItem = contextModels[i];
-                    if (ctxModelItem && ctxModelItem.context) {
-                        var dataContext = ctxModelItem.context;
-                        if (DataHelper.compareObjects(dataContext, firstDataContext)) {
-                            contextModel = ctxModelItem;
-                            break;
-                        } else {
-                            var numberOfExactMatch = 0;
-                            var isPartialMatch = false;
-                            if (Object.keys(dataContext).length == Object.keys(firstDataContext).length) {
-                                var dataCtxObjectKeys = Object.keys(firstDataContext);
-                                for (var j = 0; j < dataCtxObjectKeys.length; j++) {
-                                    if (dataContext[dataCtxObjectKeys[j]]) {
-                                        if (firstDataContext[dataCtxObjectKeys[j]] == dataContext[dataCtxObjectKeys[j]]) {
-                                            numberOfExactMatch++;
-                                        } else if (dataContext[dataCtxObjectKeys[j]].toLowerCase() == "_all") {
-                                            isPartialMatch = true;
-                                        } else {
-                                            isPartialMatch = false;
-                                            break;
-                                        }
-                                    }
-                                }
+            var liquidCustomElement = customElements.get("liquid-entity-data-get");
+            var liquidElement = new liquidCustomElement();
 
-                                if (isPartialMatch) {
-                                    partialContextModels.push({
-                                        "numberOfExactMatch": numberOfExactMatch,
-                                        "ctxModelItem": ctxModelItem
-                                    });
-                                }
+            liquidElement.requestData = entityGetRequest;
+            liquidElement.operation = "searchandget";
+            liquidElement.excludeInProgress = true;
+
+            let _onEntityGetResponse = function (e) {
+                var res = e.detail.response;
+                if (!_dependectContextValue[entityType]) {
+                    _dependectContextValue[entityType] = {};
+                }
+
+                if (!_dependectContextValue[entityType][ctxEntityType]) {
+                    _dependectContextValue[entityType][ctxEntityType] = [];
+                }
+
+                if (!_dependectContextValue[entityType][ctxEntityType][ctxEntityName]) {
+                    _dependectContextValue[entityType][ctxEntityType][ctxEntityName] = {};
+                }
+
+                let formattedCtxEntity = _dependectContextValue[entityType][ctxEntityType][ctxEntityName];
+
+                if (res && res.content) {
+                    var entities = res.content.entities;
+                    if (!_.isEmpty(entities)) {
+                        for (let entity of entities) {
+                            for (let rel of relationshipTypes) {
+                                formattedCtxEntity[rel] = entity.data.relationships && entity.data.relationships[rel] ? entity.data.relationships[rel] : [];
                             }
                         }
                     }
                 }
 
-                if (partialContextModels && _.isEmpty(contextModel)) {
-                    if (partialContextModels.length == 1) {
-                        contextModel = partialContextModels[0].ctxModelItem;
-                    } else {
-                        var highestNumberOfMatch = 0;
-                        partialContextModels.forEach(function (ctxModel) {
-                            if (ctxModel.numberOfExactMatch > highestNumberOfMatch) {
-                                highestNumberOfMatch = ctxModel.numberOfExactMatch;
-                                contextModel = ctxModel.ctxModelItem;
+                if (_promiseResolve) {
+                    _promiseResolve();
+                }
+            }
+
+            liquidElement.addEventListener("response", _onEntityGetResponse.bind(this));
+            liquidElement.generateRequest();
+        }
+
+        function getContextModelBasedOnCurrentDataContext(entityContextModel, firstDataContext, exactMatch) {
+            var contextModel;
+
+            if (entityContextModel) {
+                var partialContextModels = [];
+                let contextHierarchy = [];
+                let contextModels = entityContextModel.data.contexts;
+
+                let globalCoalescePath = DataHelper.isValidObjectPath(entityContextModel, "properties.globalCoalescePath") && entityContextModel.properties.globalCoalescePath;
+                if (!_.isEmpty(globalCoalescePath)) {
+                    contextHierarchy = globalCoalescePath.split(">>");
+
+                    if (!_.isEmpty(contextModels)) {
+                        for (var i = 0; i < contextModels.length; i++) {
+                            var ctxModelItem = contextModels[i];
+                            if (ctxModelItem && ctxModelItem.context) {
+                                var dataContext = ctxModelItem.context;
+                                if (DataHelper.compareObjects(dataContext, firstDataContext)) {
+                                    contextModel = ctxModelItem;
+                                    break;
+                                } else {
+                                    var numberOfExactMatch = 0;
+                                    var isPartialMatch = false;
+                                    let ctxKeys = Object.keys(dataContext);
+                                    let selectedCtxKeys = Object.keys(firstDataContext);
+
+                                    if (ctxKeys.length != selectedCtxKeys.length) {
+                                        continue;
+                                    }
+
+                                    if (!DataHelper.areEqualArrays(ctxKeys, selectedCtxKeys)) {
+                                        continue;
+                                    }
+
+                                    for (let ctxHKey of contextHierarchy) {
+                                        if (dataContext[ctxHKey]) {
+                                            if (firstDataContext[ctxHKey] == dataContext[ctxHKey]) {
+                                                numberOfExactMatch++
+                                            } else if (dataContext[ctxHKey].toLowerCase() == "_all") {
+                                                isPartialMatch = true;
+                                            } else {
+                                                isPartialMatch = false;
+                                                break;
+                                            }
+                                        }
+                                    }
+
+                                    if (isPartialMatch) {
+                                        partialContextModels.push({
+                                            "numberOfExactMatch": numberOfExactMatch,
+                                            "ctxModelItem": ctxModelItem
+                                        });
+                                    }
+                                }
                             }
-                        }, this);
+                        }
+
+                        if (partialContextModels && _.isEmpty(contextModel)) {
+                            if (partialContextModels.length == 1) {
+                                contextModel = partialContextModels[0].ctxModelItem;
+                            } else {
+                                var highestNumberOfMatch = 0;
+                                partialContextModels.forEach(function (ctxModel) {
+                                    if (ctxModel.numberOfExactMatch > highestNumberOfMatch) {
+                                        highestNumberOfMatch = ctxModel.numberOfExactMatch;
+                                        contextModel = ctxModel.ctxModelItem;
+                                    }
+                                }, this);
+                            }
+                        }
                     }
                 }
             }
@@ -151,12 +239,12 @@
 
             async getByEntityType(entityType) {
                 if (!_contextModels) {
-                    if(await _preInit()) {
+                    if (await _preInit()) {
                         return _contextModels[entityType];
-                	}
+                    }
                 }
 
-                return  _contextModels ? _contextModels[entityType] : undefined;
+                return _contextModels ? _contextModels[entityType] : undefined;
             }
 
             async getContextModelsBasedOnEntityType(entityType) {
@@ -172,13 +260,55 @@
 
             async getContextModelByEntityTypeAndDataContext(entityType, dataContext) {
                 var contextModel;
-                var contextModels = await this.getContextModelsBasedOnEntityType(entityType);
+                var entityTypeContextModel = await this.getByEntityType(entityType);
 
-                if (!_.isEmpty(contextModels) && !_.isEmpty(dataContext)) {
-                    contextModel = getContextModelBasedOnCurrentDataContext(contextModels, dataContext);
+                if (!_.isEmpty(entityTypeContextModel) && !_.isEmpty(dataContext)) {
+                    contextModel = getContextModelBasedOnCurrentDataContext(entityTypeContextModel, dataContext);
                 }
 
                 return contextModel;
+            }
+
+            async getDependentRelationshipDetails(entityType, ctxKey, context) {
+                let dependent;
+                let mappedValueContexts = await this.getMappedValueContextsBasedOnEntityTypeAndContextKey(entityType, ctxKey);
+                if (mappedValueContexts) {
+                    let relTypes = mappedValueContexts.map(v => v.valueContextRelationship);
+                    let path = entityType + "." + ctxKey + "." + context;
+                    if (relTypes) {
+                        if (!DataHelper.isValidObjectPath(_dependectContextValue, path)) {
+                            await _preInitEntity(entityType, ctxKey, context, relTypes);
+                        }
+
+                        for (let relType of relTypes) {
+                            path = path + "." + relType;
+                            if (!DataHelper.isValidObjectPath(_dependectContextValue, path)) {
+                                await _preInitEntity(entityType, ctxKey, context, [relType]);
+                            }
+                        }
+                        dependent = _dependectContextValue[entityType][ctxKey][context];
+                    }
+                }
+
+                return await dependent;
+            }
+
+            async getMappedValueContextsBasedOnEntityTypeAndContextKey(entityType, contextKey) {
+                let mappedValueContexts;
+
+                if (!_.isEmpty(entityType) && !_.isEmpty(contextKey)) {
+                    let entityTypeContextModel = await this.getByEntityType(entityType);
+
+                    if (entityTypeContextModel) {
+                        let contextHierarchyInfo = DataHelper.isValidObjectPath(entityTypeContextModel, "properties.globalCoalesceInfo") && entityTypeContextModel.properties.globalCoalesceInfo;
+                        if (contextHierarchyInfo) {
+                            let ctxInfo = contextHierarchyInfo.find(v => v.contextKey == contextKey);
+                            mappedValueContexts = ctxInfo && ctxInfo.mappedValueContexts;
+                        }
+                    }
+                }
+
+                return mappedValueContexts;
             }
         }
 
