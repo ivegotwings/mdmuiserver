@@ -3,7 +3,7 @@ var caller = require('caller');
 var log4js = require('log4js');
 var path = require("path");
 var executionContext = require('../context-manager/execution-context');
-var LOGGER_CONFIG = require('./logger-config.js');
+var loggerConfigManager = require('./logger-config.js');
 var isEmpty = require('../utils/isEmpty');
 
 const loggerLevels = ["fatal", "error", "warn", "info", "debug"];
@@ -31,8 +31,8 @@ LoggerService.prototype = {
     }
     return pattern;
   },
-  _getModuleLogConfig: function (callerModuleName, calleeServiceName) {
-    var moduleLogConfig = LOGGER_CONFIG.getBaseModulesObject();
+  _getModuleLogConfig: async function (callerModuleName, calleeServiceName) {
+    var moduleLogConfig = await loggerConfigManager.getCurrentModulesObject();
 
     var setting = {
       callerModuleName: callerModuleName ? callerModuleName : 'none',
@@ -108,7 +108,7 @@ LoggerService.prototype = {
       throw "Logger is not configured. Please call logger.configure before using log method";
     }
 
-    var moduleSetting = this._getModuleLogConfig(callerModuleName, calleeServiceName);
+    var moduleSetting = await this._getModuleLogConfig(callerModuleName, calleeServiceName);
 
     if(isEmpty(moduleSetting) || isEmpty(moduleSetting.config)) {
       console.error('Module setting not found...No logging would happen in system');
@@ -157,7 +157,7 @@ LoggerService.prototype = {
   configure: function (config) {
     this._config = config;
     this._isConfigured = true;
-    this._formatKeys = LOGGER_CONFIG.formatKeys;
+    this._formatKeys = loggerConfigManager.formatKeys;
 
     var toolSettings = config.toolSettings;
     var streamPath = "/logs/dataplatformLogs.log";
