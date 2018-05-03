@@ -3,8 +3,8 @@ var notificationManager = require('../notification-engine/api/notification-manag
 var config = require('config');
 var isEmpty = require('../common/utils/isEmpty');
 var enums = require('../../../shared/enums-util');
-var logsEnabled = config.get('modules.notificationService.logsEnabled');
 var logger = require('../common/logger/logger-service');
+var executionContext = require('../common/context-manager/execution-context');
 
 function prepareNotificationObject(data) {
     var notificationInfo = {};
@@ -84,7 +84,7 @@ function getAction(serviceName, status, operation, description) {
                     } else {
                         action = enums.actions.WorkflowAssignmentFail;
                     }
-                }else if(operation == enums.operations.BusinessCondition){
+                } else if (operation == enums.operations.BusinessCondition) {
                     if (status.toLowerCase() == "success") {
                         action = enums.actions.BusinessConditionSaveComplete;
                     } else {
@@ -119,38 +119,85 @@ function getAction(serviceName, status, operation, description) {
     return action;
 };
 
-module.exports = function (app) {
-    app.post('/api/notify', function (req, res) {
-        if (logsEnabled) {
-            console.log('------------------ notification from RDF ------------------------------');
-            console.log(JSON.stringify(req.body));
-            console.log('-------------------------------------------------------------------\n\n');
+function getUserId(data) {
+    var userId = 'unknown';
+    if (isValidObjectPath(data, "notificationObject.data.jsonData.clientState.notificationInfo.userId")) {
+        userId = data.notificationObject.data.jsonData.clientState.notificationInfo.userId;
+    }
+
+    return userId;
+}
+
+function isValidObjectPath(base, path) {
+    var current = base;
+    var components = path.split(".");
+    for (var i = 0; i < components.length; i++) {
+        if ((typeof current !== "object") || (!components[i] in current)) {
+            return false;
         }
-       logger.debug("NOTIFICATION_REQUEST",{ request:req}, "notification-service");
-       //  console.log("notification response", res)
-        var notificationObject = req.body.notificationObject;
-        logger.debug("NOTIFICATION_OBJECT", { detail:notificationObject}, "notification-service");
-        if (notificationObject) {
-             var notificationInfo = prepareNotificationObject(notificationObject.data);
-             //console.log('------------------ notification object ---------------------');
-             //console.log(JSON.stringify(notificationInfo));
-             //console.log('-------------------------------------------------------------------\n\n');
-             logger.debug("NOTIFICATION_INFO", { detail:notificationInfo}, "notification-service");
-            if (!isEmpty(notificationInfo)) {
+        current = current[components[i]];
+    }
+    return true;
+}
 
-                if (notificationObject.properties) {
-                    notificationInfo.workAutomationId = notificationObject.properties.workAutomationId;
-                }
+function sendNotificationToUI(notificationObject, tenantId) {
+    if (notificationObject) {
+        var notificationInfo = prepareNotificationObject(notificationObject.data);
+        logger.debug("NOTIFICATION_INFO_OBJECT_PREPARED", { detail: notificationInfo }, "notification-service");
 
-                notificationInfo.tenantId = req.body.tenantId;
-                if (notificationInfo.userId) {
-                    // console.log('------------------ notification message to browser ---------------------');
-                    // console.log(JSON.stringify(notificationInfo));
-                    // console.log('-------------------------------------------------------------------\n\n');
-                    notificationManager.sendMessageToSpecificUser(notificationInfo, notificationInfo.userId);
-                }
+        if (!isEmpty(notificationInfo)) {
+            if (notificationObject.properties) {
+                notificationInfo.workAutomationId = notificationObject.properties.workAutomationId;
+            }
+
+            notificationInfo.tenantId = tenantId;
+            if (notificationInfo.userId) {
+                notificationManager.sendMessageToSpecificUser(notificationInfo, notificationInfo.userId);
             }
         }
+    }
+}
+
+function updateExecutionContext (tenantId, userId) {
+    var securityContext = executionContext.getSecurityContext();
+
+    if(!securityContext) {
+        securityContext = {};
+    }
+
+    if(!securityContext.tenantId) {
+        securityContext.tenantId = tenantId;
+    }
+
+    if(!securityContext.headers) {
+        securityContext.headers = {};
+    }
+
+    if(!securityContext.headers.userId) {
+        securityContext.headers.userId = userId;
+    }
+
+    executionContext.updateSecurityContext(securityContext);
+
+}
+
+module.exports = function (app) {
+    app.post('/api/notify', function (req, res) {
+        var tenantId = req.body && req.body.tenantId ? req.body.tenantId : 'unknown';
+        var userId = getUserId(req.body);
+
+        if (tenantId == 'unknown' || userId == 'unknown') {
+            //TODO: send failed acknowledgement to RDF
+            //return;
+        }
+
+        updateExecutionContext(tenantId, userId);
+
+        logger.debug("RDF_NOTIFICATION_RECEIVED", { request: req }, "notification-service");
+
+        var notificationObject = req.body.notificationObject;
+
+        sendNotificationToUI(notificationObject, tenantId);
 
         var notiificationObjectOperation = {};
         notiificationObjectOperation.dataObjectOperationResponse = {};
