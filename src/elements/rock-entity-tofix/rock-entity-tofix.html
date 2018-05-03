@@ -332,7 +332,7 @@ Custom property | Description | Default
                 RUFBehaviors.ComponentContextBehavior
             ],
 
-            _contextDataChanged: function () {
+            _contextDataChanged: async function () {
                 if (typeof (this.contextData) !== "undefined" && !_.isEmpty(this.contextData)) {
                     this._clonedContextData = DataHelper.cloneObject(this.contextData);
                     var itemContext = ContextHelper.getFirstItemContext(this._clonedContextData);
@@ -343,7 +343,34 @@ Custom property | Description | Default
                     var valueContext = ContextHelper.getFirstValueContext(this._clonedContextData);
                     valueContext = [];
                     this._clonedContextData[ContextHelper.CONTEXT_TYPE_VALUE] = valueContext;
+                    var dataContexts = await this._getDataContexts(this.contextData);
+                    this._clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = dataContexts;
                 }
+            },
+
+            _getDataContexts: async function(contextData) {
+                var dataContexts = ContextHelper.getDataContexts(contextData);
+                var entityType = DataHelper.getParamValue('type');
+
+                if(!_.isEmpty(dataContexts)) {
+                    for (var i = 0; i < dataContexts.length; i++) {
+                        var context = dataContexts[0];
+                        var additionalContexts = [];
+                        var contextModel = await ContextModelManager.getContextModelByEntityTypeAndDataContext(entityType, context);
+                        if (contextModel) {
+                            additionalContexts = contextModel.properties ? contextModel.properties.additionalcontexts : undefined;
+                        }
+                        if (!_.isEmpty(additionalContexts) && !DataTransformHelper.isAdditionalContexts(additionalContexts, modelObject.properties.contextCoalesce, "context")) {
+                            additionalContexts.forEach(function (ctxKey) {
+                                delete context[ctxKey];
+                            });
+                        }
+                    }
+
+                    dataContexts = dataContexts.filter(ctx => !_.isEmpty(ctx));
+                }
+
+                return dataContexts;
             },
             /**
               * <b><i>Content development is under progress... </b></i> 
@@ -498,31 +525,45 @@ Custom property | Description | Default
             },
 
             _setEntityBusinessConditionsGovernData: function (entityGovernData) {
-                if (typeof (entityGovernData) && typeof (entityGovernData.data) !== "undefined" && typeof (entityGovernData.data.attributes) !== "undefined") {
-                    var entityGovernDataAttributes = entityGovernData.data.attributes;
-                    var entityBusinessConditions = [];
-
-                    if (typeof (entityGovernDataAttributes.businessConditions) !== "undefined" && typeof (entityGovernDataAttributes.businessConditions.group) !== "undefined") {
-                        entityBusinessConditions = entityGovernDataAttributes.businessConditions.group;
-                    }
-
-                    if (typeof (entityBusinessConditions) !== "undefined" && entityBusinessConditions.length > 0) {
-                        this._entityBusinessConditionNames = [];
-                        this._entityBusinessConditionsGovernData = [];
-
-                        for (var i = 0; i < entityBusinessConditions.length; i++) {
-                            var businessConditionId = AttributeHelper.getFirstAttributeValue(entityBusinessConditions[i].businessConditionName);
-                            var businessConditionStatus = AttributeHelper.getFirstAttributeValue(entityBusinessConditions[i].businessConditionStatus);
-
-                            var businessConditionGovernData = {
-                                "id": businessConditionId,
-                                "name": businessConditionId,
-                                "status": businessConditionStatus
-                            }
-
-                            this.push("_entityBusinessConditionNames", businessConditionId);
-                            this.push("_entityBusinessConditionsGovernData", businessConditionGovernData);
+                if (typeof (entityGovernData) && typeof (entityGovernData.data) !== "undefined") {
+                    var dataContexts = ContextHelper.getDataContexts(this._clonedContextData);
+                    if(!_.isEmpty(dataContexts) && !_.isEmpty(entityGovernData.data.contexts)) {
+                        for(let ctxIdx = 0; ctxIdx < entityGovernData.data.contexts.length; ctxIdx++) {
+                            entityGovernDataAttributes = entityGovernData.data.contexts[ctxIdx].attributes;
+                            this._setData(entityGovernDataAttributes);
                         }
+                    } else {
+                        if(typeof (entityGovernData.data.attributes) !== "undefined") {
+                            entityGovernDataAttributes = entityGovernData.data.attributes;
+                            this._setData(entityGovernDataAttributes);
+                        }
+                    }
+                }
+            },
+
+            _setData: function(entityGovernDataAttributes) {
+                var entityBusinessConditions = [];
+
+                if (typeof (entityGovernDataAttributes) !== "undefined" && typeof (entityGovernDataAttributes.businessConditions) !== "undefined" && typeof (entityGovernDataAttributes.businessConditions.group) !== "undefined") {
+                    entityBusinessConditions = entityGovernDataAttributes.businessConditions.group;
+                }
+
+                if (typeof (entityBusinessConditions) !== "undefined" && entityBusinessConditions.length > 0) {
+                    this._entityBusinessConditionNames = [];
+                    this._entityBusinessConditionsGovernData = [];
+
+                    for (var i = 0; i < entityBusinessConditions.length; i++) {
+                        var businessConditionId = AttributeHelper.getFirstAttributeValue(entityBusinessConditions[i].businessConditionName);
+                        var businessConditionStatus = AttributeHelper.getFirstAttributeValue(entityBusinessConditions[i].businessConditionStatus);
+
+                        var businessConditionGovernData = {
+                            "id": businessConditionId,
+                            "name": businessConditionId,
+                            "status": businessConditionStatus
+                        }
+
+                        this.push("_entityBusinessConditionNames", businessConditionId);
+                        this.push("_entityBusinessConditionsGovernData", businessConditionGovernData);
                     }
                 }
             },
@@ -637,18 +678,30 @@ Custom property | Description | Default
                         var contextSpecificRuleMaps = ruleContextMappings.contexts;
 
                         for (var i = 0; i < contextSpecificRuleMaps.length; i++) {
-                            var workflowName = contextSpecificRuleMaps[i].context.workflow;
                             var businessConditions = contextSpecificRuleMaps[i].relationships.hasBusinessConditions;
+                            
+                            if(typeof (contextSpecificRuleMaps[i].context.workflow) !== "undefined") {
+                                var workflowName = contextSpecificRuleMaps[i].context.workflow;
+                                
+                                var contextSpecificBusinessCondition = this._contextSpecificBusinessConditions.find(obj => obj.workflowName === workflowName);
+                                if(contextSpecificBusinessCondition) {
+                                    contextSpecificBusinessCondition["businessConditions"] = contextSpecificBusinessCondition["businessConditions"].concat(businessConditions);
+                                } else {
+                                    contextSpecificBusinessCondition = {};
+                                    contextSpecificBusinessCondition["workflowName"] = workflowName;
+                                    contextSpecificBusinessCondition["businessConditions"] = businessConditions;
+                                    
+                                    this.push("_contextSpecificBusinessConditions", contextSpecificBusinessCondition);
 
-                            var contextSpecificBusinessCondition = {};
-                            contextSpecificBusinessCondition["workflowName"] = workflowName;
-                            contextSpecificBusinessCondition["businessConditions"] = businessConditions;
-                            this.push("_contextSpecificBusinessConditions", contextSpecificBusinessCondition);
+                                }
+                            }
                             allBusinessConditions = allBusinessConditions.concat(businessConditions);
                         }
                     }
 
-                    if (typeof (ruleContextMappings) !== "undefined" && typeof (ruleContextMappings.relationships) !== "undefined") {
+                    var dataContexts = ContextHelper.getDataContexts(this._clonedContextData);
+
+                    if (_.isEmpty(dataContexts) && typeof (ruleContextMappings) !== "undefined" && typeof (ruleContextMappings.relationships) !== "undefined") {
 
                         var globalBusinessConditions = ruleContextMappings.relationships.hasBusinessConditions;
                         if (typeof (globalBusinessConditions) !== "undefined") {
@@ -670,7 +723,7 @@ Custom property | Description | Default
                         var allBusinessConditionIds = this._getBusinessConditionIds(this._entityTypeBusinessConditions);
                         this._requestBusinessConditions(allBusinessConditionIds);
                     } else {
-                        this._showMessage(this._errorMessage);
+                        this._showMessage(this._nothingToFixMessage);
                     }
                 } else {
                     RUFUtilities.Logger.error("RuleContextMappingsGetResponseContent not found.");
@@ -945,18 +998,31 @@ Custom property | Description | Default
             _prepareWorkflowDataContext: function (clonedContextData, itemContext) {
                 var workflowDataContexts = [];
 
+                var dataContexts = ContextHelper.getDataContexts(clonedContextData);
+
                 if (typeof (this._entityTypeWorkflowMappings) !== "undefined" && this._entityTypeWorkflowMappings.length > 0) {
 
                     for (var i = 0; i < this._entityTypeWorkflowMappings.length; i++) {
-                        var workflowDataContext = {};
-                        workflowDataContext.self = "self";
-                        workflowDataContext.workflow = this._entityTypeWorkflowMappings[i];
+                        if(!_.isEmpty(dataContexts)) {
+                            for(let ctxIdx = 0; ctxIdx < dataContexts.length; ctxIdx++) {
+                                var workflowDataContext = DataHelper.cloneObject(dataContexts[ctxIdx]);
+                                workflowDataContext.workflow = this._entityTypeWorkflowMappings[i];
 
-                        workflowDataContexts.push(workflowDataContext);
+                                workflowDataContexts.push(workflowDataContext);
+                            }
+                        } else {
+                            var workflowDataContext = {};
+                            workflowDataContext.self = "self";
+                            workflowDataContext.workflow = this._entityTypeWorkflowMappings[i];
+
+                            workflowDataContexts.push(workflowDataContext);
+                        }
                     }
                 }
 
-                return workflowDataContexts
+                dataContexts = dataContexts.concat(workflowDataContexts);
+
+                return dataContexts;
             },
 
             _onTap: function (e) {
@@ -974,7 +1040,8 @@ Custom property | Description | Default
 
                 this.openBusinessFunctionDialog({
                     name: 'rock-entity-fix-attribute-errors',
-                    title: `Fix- ${name}`
+                    title: `Fix- ${name}`,
+                    noDataMessage: "Cannot show things to fix here. Please check the configuration."
                 }, sharedData);
             },
 
