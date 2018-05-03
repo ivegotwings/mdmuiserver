@@ -164,40 +164,52 @@
             }
         }
 
-        ContextHelper.validateContext = async function (entityType, dataContexts, valueContexts) {
+        ContextHelper.isValidContext = function (entityType, dataContext, valueContext, successCB, errorCB) {
+            ContextHelper.validateContext(entityType, dataContext, valueContext).then((result) => {
+                if (!_.isEmpty(result)) {
+                    if (result.status == "valid") {
+                        successCB();
+                    } else {
+                        errorCB(result.statusCode);
+                    }
+                }
+            });
+        }
+
+        ContextHelper.validateContext = async function (entityType, dataContext, valueContext) {
             let status = {};
             let statusCode = [];
             let isCombinationValid = true;
             var localeManager = ComponentHelper.getLocaleManager();
 
             if (!_.isEmpty(entityType)) {
-                if (!_.isEmpty(valueContexts)) {
+                if (!_.isEmpty(valueContext)) {
                     let emptyValContext;
                     for (let vcKey of ContextHelper.valContextKeys) {
-                        if (_.isEmpty(valueContexts[vcKey])) {
+                        if (_.isEmpty(valueContext[vcKey])) {
                             isCombinationValid = false;
                             statusCode.push('Value context: ' + vcKey + ' is missing.'); // TODO:: Need to convert into ERROR CODE.
                         }
                     }
                 }
 
-                // dataContexts = {"country": "Germany", "channel": "DE WEb"}
-                if (!_.isEmpty(dataContexts)) {
-                    let matchedCtxModelInstance = await ContextModelManager.getContextModelByEntityTypeAndDataContext(entityType, dataContexts);
+                // dataContext = {"country": "Germany", "channel": "DE WEb"}
+                if (!_.isEmpty(dataContext)) {
+                    let matchedCtxModelInstance = await ContextModelManager.getContextModelByEntityTypeAndDataContext(entityType, dataContext);
                     if (_.isEmpty(matchedCtxModelInstance)) {
                         isCombinationValid = false;
-                        statusCode.push('Invalid data context:' + JSON.stringify(dataContexts) + '.'); // TODO:: Need to convert into ERROR CODE.
+                        statusCode.push('Invalid data context:' + JSON.stringify(dataContext) + '.'); // TODO:: Need to convert into ERROR CODE.
                     }
 
-                    for (let dcKey in dataContexts) {
-                        let depsOfCurrentDataCtx = await ContextModelManager.getDependentRelationshipDetails(entityType, dcKey, dataContexts[dcKey]); // deps = {"allowedLocales": [{relTo: {"id": "", "type": ""}}, {relTo: {"id": "", "type": ""}}]}
-                        let mappedValueContexts = await ContextModelManager.getMappedValueContextsBasedOnEntityType(entityType, dcKey); // mappedValueContexts = [{"valueContext": "locale", "valueContextRelationship": "allowedLocales"}]
+                    for (let dcKey in dataContext) {
+                        let depsOfCurrentDataCtx = await ContextModelManager.getDependentRelationshipDetails(entityType, dcKey, dataContext[dcKey]); // deps = {"allowedLocales": [{relTo: {"id": "", "type": ""}}, {relTo: {"id": "", "type": ""}}]}
+                        let mappedValueContexts = await ContextModelManager.getMappedValueContextsBasedOnEntityTypeAndContextKey(entityType, dcKey); // mappedValueContexts = [{"valueContext": "locale", "valueContextRelationship": "allowedLocales"}]
 
                         if (mappedValueContexts && depsOfCurrentDataCtx) {
                             for (let mvc of mappedValueContexts) {
                                 // mvc = {"valueContext": "locale", "valueContextRelationship": "allowedLocales"}
                                 if (mvc.valueContext == "locale") {
-                                    let locale = valueContexts[mvc.valueContext]; // locale = "th-TH"
+                                    let locale = valueContext[mvc.valueContext]; // locale = "th-TH"
                                     let depRels = depsOfCurrentDataCtx[mvc.valueContextRelationship]; // depRels = [{relTo: {"id": "", "type": ""}}, {relTo: {"id": "", "type": ""}}]
 
                                     if (!_.isEmpty(depRels)) {
@@ -211,7 +223,7 @@
 
                                                 if (_.isEmpty(matchedLocale)) {
                                                     isCombinationValid = false;
-                                                    statusCode.push('Invalid combination of data and value context:' + JSON.stringify(dataContexts) + ' - ' + JSON.stringify(valueContexts) + '.'); // TODO:: Need to convert into ERROR CODE.
+                                                    statusCode.push('Invalid combination of data and value context:' + JSON.stringify(dataContext) + ' - ' + JSON.stringify(valueContext) + '.'); // TODO:: Need to convert into ERROR CODE.
                                                 }
                                             }
                                         }
