@@ -70,6 +70,14 @@ function getAction(serviceName, status, operation, description) {
             }
         }
 
+        if (serviceName.toLowerCase() == "entitymanagemodelservice") {
+            if (status.toLowerCase() == "success") {
+                action = enums.actions.ModelSaveComplete;
+            } else {
+                action = enums.actions.ModelSaveFail;
+            }
+        }
+
         if (serviceName.toLowerCase() == "entitygovernservice") {
             if (operation) {
                 if (operation == enums.operations.WorkflowTransition) {
@@ -99,6 +107,10 @@ function getAction(serviceName, status, operation, description) {
                 }
             }
         }
+
+        // 1. EntityImport - entityManageService
+        // 2. ModelImport - entityManageModelService
+        // 3. Download - rsConnectService
 
         if (serviceName.toLowerCase() == "rsconnectservice") {
             if (status.toLowerCase() == "success") {
@@ -158,22 +170,22 @@ function sendNotificationToUI(notificationObject, tenantId) {
     }
 }
 
-function updateExecutionContext (tenantId, userId) {
+function updateExecutionContext(tenantId, userId) {
     var securityContext = executionContext.getSecurityContext();
 
-    if(!securityContext) {
+    if (!securityContext) {
         securityContext = {};
     }
 
-    if(!securityContext.tenantId) {
+    if (!securityContext.tenantId) {
         securityContext.tenantId = tenantId;
     }
 
-    if(!securityContext.headers) {
+    if (!securityContext.headers) {
         securityContext.headers = {};
     }
 
-    if(!securityContext.headers.userId) {
+    if (!securityContext.headers.userId) {
         securityContext.headers.userId = userId;
     }
 
