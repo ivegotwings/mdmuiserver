@@ -6,8 +6,11 @@
 <link rel="import" href="../bedrock-helpers/data-request-helper.html">
 
 <link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
+<link rel="import" href="../liquid-rest/liquid-rest.html">
 
 <link rel="import" href="../rock-entity-model-lov/rock-entity-model-lov.html">
+
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
 
 <dom-module id="rock-reassign-task">
     <template>
@@ -16,18 +19,33 @@
                 margin-top:20px;
                 text-align: center;
             }
+            .lov-wrapper{
+                width: 100%;
+                text-align: center;
+            }
+            .lov-container{
+                width:460px;
+                display:inline-block;
+                padding: 20px;
+                margin: 10px 0 0 10px;
+                box-shadow: 1px 2px 5px -1px var(--default-border-color, #c1cad4);
+                border: var(--box-style_-_border,solid 1px var(--default-border-color, #c1cad4));
+                border-radius: var(--box-style_-_border-radius);
+            }
         </style>   
+        <pebble-spinner active="[[_loading]]"></pebble-spinner>
         <liquid-entity-model-get id="getWorkflowDefinition" operation="getbyids" request-id="req1"
         on-response="_onDefinitionReceived" on-error="_onDefinitionGetFailed"></liquid-entity-model-get>
-        <!-- <liquid-entity-model-get id="userModelGet" operation="get" on-response="_onUserModelGetResponse"></liquid-entity-model-get> -->
         <liquid-rest id="entityWfAssignment" url="/data/pass-through/entitygovernservice/workflowChangeAssignment" method="POST"
             request-data={{_wfAssignmentRequest}} on-liquid-response="_onAssignmentSuccess" on-liquid-error="_onAssignmentFailure"></liquid-rest>
-        <div>
-            <template is="dom-if" if="[[_isWorkflowDataReceived(_WorkflowData)]]">
-                <rock-entity-model-lov id="userModelLOV" readonly=[[readonly]] id-field="id"
-                    title-pattern="name" sub-title-pattern="{role}" request-data="[[_requestData]]"
-                    selected-item="{{_selectedUserItem}}"></rock-entity-model-lov>
-            </template>
+        <div class="lov-wrapper">
+            <div class="lov-container">
+                <template is="dom-if" if="[[_isUserModelRequestPrepared(_userModelRequestData)]]">
+                    <rock-entity-model-lov id="userModelLOV" readonly=[[readonly]] id-field="id"
+                        title-pattern="{entity.properties.firstName}" sub-title-pattern="{entity.properties.email}" request-data="[[_userModelRequestData]]"
+                        selected-item="{{_selectedUserItem}}" external-data-formatter="[[_entityExternalDataFormatter]]"></rock-entity-model-lov>
+                </template>
+            </div>
         </div>
         <div id="buttonContainer" >
             <pebble-button id="cancelButton" class="btn btn-secondary m-r-5" button-text="Cancel" on-tap="_onCancelTap" elevation=1 raised></pebble-button>
@@ -43,7 +61,11 @@
 
         static get properties() {
             return {
-                _requestData:{
+                _loading: {
+                    type: Boolean,
+                    value: false
+                },
+                _userModelRequestData:{
                     type:Object,
                     value:function(){
                         return {}
@@ -73,89 +95,64 @@
                     }
                 },
                 
-                failedWorkflows: {
+                _failedWorkflows: {
                     type: Array,
                     value: function () { return []; }
                 },
-                doneWorkflows: {
+                _doneWorkflows: {
                     type: Array,
                     value: function () { return []; }
                 },
                 _wfAssignmentRequest: {
                     type: Object,
                     value: function () { return {}; }
+                },
+                _responseMessages: {
+                    type: Array,
+                    value: function () {
+                        return [];
+                    }
                 }
             }
         }      
          
         connectedCallback() {
             super.connectedCallback();
-            var workflowDefLiq = this.shadowRoot.querySelector("#getWorkflowDefinition");
-            if(workflowDefLiq){
-                workflowDefLiq.requestData = DataRequestHelper.createWorkflowDefinitionGetRequest(this.contextData);
-                workflowDefLiq.generateRequest();
-            }
+           
+            this._currentWfIndex = 0;
+            //Prepare users request
+            this._prepareUserModelRequest();
         }
 
-        _onDefinitionReceived(e){
-            var workflowDefinitionResponse = e.detail.response;
-            if (workflowDefinitionResponse && workflowDefinitionResponse.content && workflowDefinitionResponse.content.entityModels && workflowDefinitionResponse.content.entityModels.length > 0) {
-                var workflowData = [];
-                var allowedRoles = [];
-                var allowedUsers = [];
-                for (var i = 0; i < workflowDefinitionResponse.content.entityModels.length; i++) {
-                    var entityModel = workflowDefinitionResponse.content.entityModels[i];
-                    var workflowName = entityModel.name;
-
-                    if (entityModel.data && entityModel.data.attributes && entityModel.data.attributes.activities && entityModel.data.attributes.activities.group) {
-                        
-                        var group = entityModel.data.attributes.activities.group;
-                        if(group && group.length > 0){
-                            group.forEach(function(groupItem){
-                                if(groupItem && groupItem.activityName && groupItem.activityName.values){
-                                    for (var valueCount = 0; valueCount < groupItem.activityName.values.length; valueCount++) {
-                                        var _value = groupItem.activityName.values[valueCount];
-                                        if(_value && _value.value && (this.workflowRunningInstance[workflowName].activityName == _value.value)){
-                                            if(groupItem["allowedRoles"] && groupItem["allowedRoles"]["values"]){
-                                                allowedRoles = groupItem["allowedRoles"]["values"];
-                                            }
-                                            if(groupItem["allowedUsers"] && groupItem["allowedUsers"]["values"]){
-                                                allowedUsers = groupItem["allowedUsers"]["values"];
-                                            }
-                                            break;
-                                        }
-                                    }
-                                }
-                            }.bind(this));
+        _entityExternalDataFormatter(formattedData, data){
+            //Filter current assigned user
+            var domHost = this.domHost;
+            var assingedUser = domHost.workflowRunningInstance[domHost.foundWorkflowNames[domHost._currentWfIndex]].activityAssignedUser;
+            var loggedUser = ContextHelper.getFirstUserContext(domHost.contextData);
+            var loggedUserId = "";
+            if(loggedUser && loggedUser.user){
+                loggedUserId = loggedUser.user;
+            }
+            if(assingedUser && formattedData && formattedData.length > 0){
+                formattedData = formattedData.filter( (user) => {
+                    //Get firstname & lastname
+                    var userData = data.filter((eModel) => { return eModel.id == user.id; });
+                    if(userData && userData.length > 0 && userData[0].properties){
+                        var userProperties = userData[0].properties
+                        if(userProperties.firstName){
+                            user.title = userProperties.firstName
+                        }else{
+                            user.title = "";
                         }
-                        
+                        if(userProperties.lastName){
+                            user.title += " " + userProperties.lastName
+                        }
                     }
-                }
-                var req = DataRequestHelper.createGetModelRequest([], "user");
-                var roles = [];
-                if(allowedRoles && allowedRoles.length > 0){
-                    allowedRoles.forEach(function(role){
-                        if(role && role.value && (roles.indexOf(role.value) == -1)){
-                            roles.push(role.value);
-                        }
-                    }.bind(this));
-                    req.params.query.filters["propertiesCriterion"] = [{
-                                                                "roles":{
-                                                                    "exacts":roles
-                                                                }
-                                                            }]
-                };
-
-                delete  req.params.query.ids;
-                // if(allowedUsers && allowedUsers.length > 0){
-                //     req.params.query.ids = allowedUsers;
-                // }
-                this._requestData = req;
-                this.set("_WorkflowData", workflowDefinitionResponse);
+                    var userId = user.id.replace("_user", "");
+                    return (userId != assingedUser) && loggedUserId && (loggedUserId != user.id);
+                });
             }
-        }
-        _onDefinitionGetFailed(e) {
-            Polymer.Base._error('workflow definition get failed with error ', e.detail);
+            return formattedData;
         }
         _generateAssignmentRequest() {
             var entity = this._getEntityObject();
@@ -176,31 +173,61 @@
             }
         }
         _onAssignmentSuccess(e) {
+            this._responseMessages = [];
             var response = e.detail.response;
             var entity = this._getEntityObject();
             if (response && response.response && response.response.status && response.response.status.toLowerCase() == "success" && response.response.statusDetail) {
                 var statusDetail = response.response.statusDetail;
                 var workflowJson = this.workflowRunningInstance[this.foundWorkflowNames[this._currentWfIndex]];
                 if (statusDetail.messages && statusDetail.messages.length > 0) {
-                    this.failedWorkflows.push(workflowJson);
+                    this._failedWorkflows.push(workflowJson);
                 } else if (statusDetail.message) {
-                    this.doneWorkflows.push(workflowJson);
+                    this._doneWorkflows.push(workflowJson);
                 }
             }
             this._currentWfIndex++;
             if (this._currentWfIndex < this.foundWorkflowNames.length) {
                 this._generateAssignmentRequest();
             } else if (response.response && response.response.status && response.response.status.toLowerCase() == "success" && response.response.statusDetail) {
-                var messageObject = this._getMessageObject();
-                this._showToastMessage(messageObject);
-                this._onCancelTap()
-                // setTimeout(() => {
-                    this.refresh();
-                // }, 5000)
+                if(response.response.statusDetail.message){
+                    this._responseMessages.push({message:response.response.statusDetail.message});
+                }
+                this._triggerFinishStep();
             }
             else {
                 this.showErrorToast("There is a problem with the server.Please try after some time")
             }
+        }
+        _triggerFinishStep() {
+            this._loading = false;
+            var actions = [{
+                        "name": "goBack",
+                        "text": "Take me back to where I started",
+                        "isNotApp": true
+                    }];
+            var data = {
+                "messages":this._responseMessages,
+                "actions": actions,
+                "contextData": this.contextData
+            };
+
+            this.businessFunctionData = data;
+            var eventName = "onNext";
+            var eventDetail = {
+                name: eventName
+            }
+
+            this.fireBedrockEvent(eventName, eventDetail, {
+                    ignoreId: true
+            });
+
+            setTimeout(() => {
+                var data = {
+                    "contextData": this.contextData
+                }
+                ComponentHelper.fireBedrockEvent("workflow-refresh", data, { ignoreId: true });
+                this.refresh();
+            }, 5000)
         }
         refresh(invalidateEntityCache = true) {
             if (invalidateEntityCache) {
@@ -231,80 +258,34 @@
             }
             return wfCriterion;
         }
-        _getMessageObject() {
-            var entity = this._getEntityObject();
-            var entityName;
-
-            entityName = this._messageAttributeValue ? this._messageAttributeValue + " (" + entity.id + ")" : entity.id;
-            var messageObject = {
-                "message": "",
-                "type": ""
+        _prepareUserModelRequest(){
+            var req = DataRequestHelper.createGetModelRequest([], "user");
+            var allowedRoles = this.workflowRunningInstance[this.foundWorkflowNames[this._currentWfIndex]].activityAllowedRoles;
+            if(allowedRoles && allowedRoles.length > 0){
+                req.params.query.filters["propertiesCriterion"] = [{
+                                                            "roles":{
+                                                                "exacts":allowedRoles
+                                                            }
+                                                        }]
             };
-            var actionDone = "assigned to";
-            
-            if (this.foundWorkflowNames.length == this.doneWorkflows.length && this.foundWorkflowNames.length == 1) {
-                var workflowJson = this.doneWorkflows[0];
-                messageObject.message = "The {0} of type {1} selected is in {2} as part of {3} business process has been {4} you.".format(entityName, entity.type, workflowJson.activityExternalName, workflowJson.wfLongName, actionDone);
-                messageObject.type = "success";
-            } else if (this.foundWorkflowNames.length == this.failedWorkflows.length && this.foundWorkflowNames.length == 1) {
-                var workflowJson = this.failedWorkflows[0];
-                messageObject.message = "You do not have permission to take an action on this {0}. Workflow name: {1}; Step: {2}. \nPlease contact your administrator.".format(entity.type, workflowJson.activityExternalName, workflowJson.wfLongName);
-                messageObject.type = "error";
-            } else if (this.foundWorkflowNames.length == this.doneWorkflows.length) {
-                var message = "The {0} of type {1} selected is in ".format(entityName, entity.type);
-                message = this._buildMessage(this.doneWorkflows, message);
-                message = message + "have been {0} you".format(actionDone);
-                messageObject.message = message;
-                messageObject.type = "success";
-            }
-            else if (this.foundWorkflowNames.length == this.failedWorkflows.length) {
-                var message = "You do not have permission to take an action on this {1} as part of ".format(entityName, entity.type);
-                message = this._buildMessage(this.failedWorkflows, message);
-                message = message + "as you do not belong to role mapped to the workflow steps in the system. \nPlease contact your administrator.";
-                messageObject.message = message;
-                messageObject.type = "error";
-            }
-            else {
-                var message1 = "The {0} of type {1} selected is in ".format(entityName, entity.type);
-                message1 = this._buildMessage(this.doneWorkflows, message1);
-                message1 = message1 + "have been {0} you.".format(actionDone) + '<br>';
-
-                var message2 = "You do not have permission to take an action on this {1} as part of ".format(entityName, entity.type);
-                message2 = this._buildMessage(this.failedWorkflows, message2);
-                message2 = message2 + "as you do not belong to role mapped to the workflow steps in the system. \nPlease contact your administrator.";
-
-                messageObject.message = message1 + message2;
-                messageObject.type = "success";
-            }
-            return messageObject;
+            delete req.params.fields.attributes;
+            delete req.params.fields.relationships;
+            delete  req.params.query.ids;
+            req.params.fields.properties = ["_ALL"];
+            this.set("_userModelRequestData", req);
         }
-        _showToastMessage(msgObject) {
-            if (msgObject) {
-                if (msgObject.type == "error") {
-                    this.showErrorToast(msgObject.message, 10000);
-                } else if (msgObject.type == "success") {
-                    this.showSuccessToast(msgObject.message, 10000);
-                }
-            }
-        }
-        _isWorkflowDataReceived(){
-            if(this._WorkflowData && !_.isEmpty(this._WorkflowData)){
+        _isUserModelRequestPrepared(){
+            if(this._userModelRequestData && !_.isEmpty(this._userModelRequestData)){
                 return true;
             }
             return false;
         }
         _confirm(){
             if(this._selectedUserItem && !_.isEmpty(this._selectedUserItem)){
-                var eventName = "onNext";
-                var eventDetail = {
-                    userInfo:this._selectedUserItem
-                }
-                this.fireBedrockEvent(eventName, eventDetail, {
-                    ignoreId: true
-                });
                 this._currentWfIndex = 0;
-                this.failedWorkflows = [];
-                this.doneWorkflows = [];
+                this._failedWorkflows = [];
+                this._doneWorkflows = [];
+                this._loading = true;
                 this._generateAssignmentRequest();
             }else{
                 this.showWarningToast("Please select a user for changing assignment.");
