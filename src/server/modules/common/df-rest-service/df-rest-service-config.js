@@ -198,6 +198,12 @@ var SERVICE_CONFIG = {
             "offlineSettings": {
             }
         },
+        "modelgovernservice/validate": {
+            "url": "/modelgovernservice/validate",
+            "mode": "online",
+            "offlineSettings": {
+            }
+        },
         "copservice/process": {
             "url": "/rsConnectService/process",
             "mode": "online",

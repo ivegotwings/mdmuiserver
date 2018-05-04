@@ -40,6 +40,11 @@ function getSecurityContext() {
     }
 }
 
+function updateSecurityContext(securityContext) {
+    var session = getNamespace('User Session');
+    session.set('securityContext', securityContext);
+}
+
 function createCallerContext(req) {
 
     var hostName = "";
@@ -73,6 +78,7 @@ function getCallerContext() {
 module.exports = {
     createSecurityContext: createSecurityContext,
     getSecurityContext: getSecurityContext,
+    updateSecurityContext: updateSecurityContext,
     createCallerContext: createCallerContext,
     getCallerContext: getCallerContext
 }
