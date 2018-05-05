@@ -47,6 +47,7 @@ const entityCompositeModelGetService = new EntityCompositeModelGetService(option
 const configurationService = new ConfigurationService(options);
 const eventService = new EventService(options);
 const entityHistoryEventService = new EntityHistoryEventService(options);
+const dataObjectLineageService = new dataObjectLineageService(options);
 
 const searchResultExpireTime = -30 * 60 * 1000;
 
@@ -392,6 +393,9 @@ function _getService(dataObjectType) {
     }
     else if (dataObjectType == "entityhistoryevent") {
         return entityHistoryEventService;
+    }
+    else if(dataObjectType == "dataObjectlineage") {
+        return dataObjectLineageService;
     }
     else {
         return dataObjectManageService;
