@@ -22,6 +22,7 @@ const ConfigurationService = require('./ConfigurationService');
 const EntityCompositeModelGetService = require('./EntityCompositeModelGetService');
 const EventService = require('../event-service/EventService');
 const EntityHistoryEventService = require('../event-service/EntityHistoryEventService');
+const DataObjectLineageService = require("./DataObjectLineageService");
 
 //falcor utilty functions' references
 const responseBuilder = require('./dataobject-falcor-response-builder');
@@ -47,7 +48,7 @@ const entityCompositeModelGetService = new EntityCompositeModelGetService(option
 const configurationService = new ConfigurationService(options);
 const eventService = new EventService(options);
 const entityHistoryEventService = new EntityHistoryEventService(options);
-const dataObjectLineageService = new dataObjectLineageService(options);
+const dataObjectLineageService = new DataObjectLineageService(options);
 
 const searchResultExpireTime = -30 * 60 * 1000;
 

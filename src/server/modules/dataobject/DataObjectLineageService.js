@@ -13,7 +13,7 @@ DataObjectLineageService.prototype = {
         return response;
     },
 
-    _getLineagePathDetails: function(request) {
+    _getLineagePathDetails: async function(request) {
         let response = {};
 
         let entityId = "";
@@ -36,8 +36,18 @@ DataObjectLineageService.prototype = {
         let path = [];
         // prepare request for relationshipCriterions
 
-        // do initSearch
 
+        res = await this._initSearch(request);
+
+        if(res) {
+            if(res.response.entities) {
+                let resp = this._getByIds(request);
+
+                if(resp) {
+                    path = this._get(entityId, entityType, relType);
+                }
+            }
+        }
         // do searchResultGet
             
             // if entity is there then
@@ -52,11 +62,11 @@ DataObjectLineageService.prototype = {
     },
     
     _initSearch: async function(request) {
-
+        return await this.post("entityappservice/get", request);
     },
 
-    _getSearchResult: async function(request) {
-
+    _getByIds: async function(request) {
+        return await this.post("entityappservice/get", request);
     }
 }
 
