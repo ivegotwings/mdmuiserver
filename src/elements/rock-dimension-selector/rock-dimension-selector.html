@@ -116,9 +116,6 @@ Custom property | Description | Default
                         <template is="dom-if" if="[[_isDialogType(ctx.displayType)]]">
                             <pebble-dialog id="[[ctx.id]]-popover" modal show-close-icon no-cancel-on-outside-click no-cancel-on-esc-key>
                                 <div id="classificationContent" style="height:500px">
-                                    <div>
-                                        Select one classification.
-                                    </div>
                                     <div id="categoryTreeContainer" title="[[ctx.title]]" style="height:450px; overflow:auto;">
                                         <rock-classification-tree id="[[ctx.id]]-contextTree" taxonomy="[[_getClassificationTaxonomy(ctx.selectedItemInfo.taxonomy, classificationTaxonomy)]]"
                                             context-data="[[contextData]]" multi-select="[[!allSingleSelect]]"></rock-classification-tree>
@@ -132,12 +129,28 @@ Custom property | Description | Default
                         </template>
                     </template>
                     <template is="dom-if" if="[[_compareRequestType(ctx.dataRequestType, 'entity-context')]]">
-                        <pebble-popover title="[[ctx.title]]" id="[[ctx.id]]-popover" for="[[ctx.id]]-toggle-button" no-overlap horizontal-align="[[horizontalAlign]]">
-                            <rock-context-lov id="[[ctx.id]]-lov" r-data="[[ctx]]" readonly=[[readonly]] data-object-type="[[ctx.dataObjectType]]" entity-id="[[entityId]]"
-                                entity-type="[[entityType]]" context-name="[[ctx.id]]" config-data-item-id="[[ctx.id]]" request-data="[[ctx.dataRequest]]"
-                                selected-items="[[_getSelectedItems(ctx.selectedItem)]]" external-data-formatter="[[_entityContextExternalDataFormatter]]"
-                                selected-item-info=[[ctx.selectedItemInfo]] multi-select="[[_isMultiSelect(ctx)]]" show-action-buttons></rock-context-lov>
-                        </pebble-popover>
+                        <template is="dom-if" if="[[!_isDialogType(ctx.displayType)]]">
+                            <pebble-popover title="[[ctx.title]]" id="[[ctx.id]]-popover" for="[[ctx.id]]-toggle-button" no-overlap horizontal-align="[[horizontalAlign]]">
+                                <rock-context-lov id="[[ctx.id]]-lov" r-data="[[ctx]]" readonly=[[readonly]] data-object-type="[[ctx.dataObjectType]]" entity-id="[[entityId]]"
+                                    entity-type="[[entityType]]" context-name="[[ctx.id]]" config-data-item-id="[[ctx.id]]" request-data="[[ctx.dataRequest]]"
+                                    selected-items="[[_getSelectedItems(ctx.selectedItem)]]" external-data-formatter="[[_entityContextExternalDataFormatter]]"
+                                    selected-item-info=[[ctx.selectedItemInfo]] multi-select="[[!allSingleSelect]]" show-action-buttons></rock-context-lov>
+                            </pebble-popover>
+                        </template>
+                        <template is="dom-if" if="[[_isDialogType(ctx.displayType)]]">
+                            <pebble-dialog id="[[ctx.id]]-popover" modal show-close-icon no-cancel-on-outside-click no-cancel-on-esc-key>
+                                <div id="classificationContent" style="height:500px">
+                                    <div id="categoryTreeContainer" title="[[ctx.title]]" style="height:450px; overflow:auto;">
+                                        <rock-classification-tree id="[[ctx.id]]-contextTree" taxonomy="[[_getClassificationTaxonomy(ctx.selectedItemInfo.taxonomy, classificationTaxonomy)]]"
+                                            context-data="[[contextData]]" multi-select="[[!allSingleSelect]]" disable-child-node="[[disableChildNode]]"></rock-classification-tree>
+                                    </div>
+                                    <div id="exportActions" class="p-b-10" align="center">
+                                        <pebble-button class="btn btn-secondary m-r-5" id="cancel" button-text="Cancel" raised on-tap="_onCancelClassificationSelection"></pebble-button>
+                                        <pebble-button class="btn btn-success" id="download" button-text="Select" raised on-tap="_selectClassification"></pebble-button>
+                                    </div>
+                                </div>
+                            </pebble-dialog>
+                        </template>
                         <bedrock-pubsub event-name="context-lov-confirm-button-tap" handler="_onEntityLovConfirmButtonTapped" target-id="[[ctx.id]]-lov"></bedrock-pubsub>
                         <bedrock-pubsub event-name="context-lov-close-button-tap" handler="_onEntityLovCloseButtonTapped" target-id="[[ctx.id]]-lov"></bedrock-pubsub>
                         <bedrock-pubsub event-name="context-lov-selected-info-applied" handler="_onContextLovSelectedInfoApplied" target-id="[[ctx.id]]-lov"></bedrock-pubsub>
@@ -368,6 +381,10 @@ Custom property | Description | Default
                     value: function () {
                         return {};
                     }
+                },
+                disableChildNode:{
+                    type: Boolean,
+                    value: false
                 }
             },
 
@@ -619,6 +636,10 @@ Custom property | Description | Default
                     if (event.model.ctx.displayType != "dialog") {
                         this._toggleLovPopover(this._currentDimensionSelector.popover);
                     } else {
+                        if(!this.classificationTaxonomy && event.model.ctx.displayType == "dialog"){
+                            this.showErrorToast("No classification available. Please select taxonomy.");
+                            return;
+                        }
                         this._classificationDialogOpen();
                     }
                 }
@@ -1275,7 +1296,6 @@ Custom property | Description | Default
                             // Deleting external dataMappings id and title coming from config
                             // Because assumption is for any entity-lov iExternalName attribute will be title of it.
                             if ("dataMappings" in item) {
-                                delete item.dataMappings.id;
                                 delete item.dataMappings.title;
                             }
 
@@ -1327,7 +1347,8 @@ Custom property | Description | Default
             _setSelectedDimensions: function () {
                 var selectedDimensions = {};
                 var configData = this._contextToBeRendered;
-
+                var _taxonomyTitle = "";
+                var _isPrimaryContext = false;
                 if (typeof (configData) !== "undefined") {
                     for (var i = 0; i < configData.length; i++) {
                         var configDataItem = configData[i];
@@ -1343,7 +1364,11 @@ Custom property | Description | Default
                                 }
                             }
                             if (this._compareRequestType(configDataItem.dataRequestType, 'entity-context')) {
-                                rockLov = rockContainer.querySelector("rock-context-lov");
+                                if (configDataItem.displayType != "dialog") {
+                                    rockLov = rockContainer.querySelector("rock-context-lov");
+                                } else {
+                                    rockClassification = rockContainer.querySelector("rock-classification-tree");
+                                }
                             }
 
                             if (this._compareRequestType(configDataItem.dataRequestType, 'entity-model')) {
@@ -1364,6 +1389,13 @@ Custom property | Description | Default
                                                 if (selectedItems) {
                                                     rockLov.selectedItem = selectedItem ? selectedItem : selectedItems[0];
                                                 }
+                                                if(rockLov.selectedItem && entityTypes[j] == "taxonomy"){
+                                                    _taxonomyTitle = rockLov.selectedItem.title;
+                                                }
+                                                if(this._compareRequestType(configDataItem.dataRequestType, 'entity') && !_.isEmpty(rockLov.selectedItem) && configDataItem.ctxName != "locale" && configDataItem.ctxName != "source"){
+                                                    _isPrimaryContext = true;
+                                                }
+
                                                 var itemId = this._getItemId(rockLov.selectedItem);
                                                 selectedDimensions[ctxKey] = itemId ? [itemId] : [];
                                                 this._selectedDimensions[ctxKey] = !_.isEmpty(rockLov.selectedItem) ? [rockLov.selectedItem] : [];
@@ -1374,7 +1406,7 @@ Custom property | Description | Default
                                             }
                                         } else {
                                             var selectedItems = [];
-                                            if (rockClassification.selectedClassifications &&
+                                            if (rockClassification && rockClassification.selectedClassifications &&
                                                 rockClassification.selectedClassifications.length > 0) {
                                                 if (!rockClassification.multiSelect) {
                                                     if (rockClassification.selectedClassifications[0]) {
@@ -1385,10 +1417,10 @@ Custom property | Description | Default
                                                     }
                                                 } else {
                                                     for (var k = 0; k < rockClassification.selectedClassifications.length; k++) {
-                                                        var valuePath = this._getClassificationValuePath(rockClassification.selectedClassifications[k]);
-                                                        if (valuePath) {
-                                                            selectedItems.push(valuePath);
-                                                        }
+                                                            var valuePath = this._getClassificationValuePath(rockClassification.selectedClassifications[k]);
+                                                            if (valuePath) {
+                                                                selectedItems.push(valuePath);
+                                                            }
                                                     }
                                                 }
                                             }
@@ -1416,13 +1448,18 @@ Custom property | Description | Default
 
                     this.set("selectedDimensions", selectedDimensions);
 
-                    Polymer.Debouncer.debounce(this._debouncer, Polymer.Async.timeOut.after(500), () => {
-                        //this.set("selectedDimensions", selectedDimensions);
-                        var eventDetail = {
-                            'dimensions': selectedDimensions
-                        };
-                        this.fireBedrockEvent("dimension-selector-data-changed", eventDetail);
-                    });
+                    var eventDetail = {
+                        'dimensions': selectedDimensions
+                    };
+                    if(DataHelper.isValidObjectPath(this._currentLovEvent,"detail.data.id")){
+                        eventDetail.currentLovId = this._currentLovEvent.detail.data.id;
+                    }
+                    if(this._isClassificationSelectionTriggered){
+                        eventDetail.currentLovId = "classification-dialog";
+                    }
+                    eventDetail.isPrimaryContext = _isPrimaryContext
+                    eventDetail.taxonomyTitle = _taxonomyTitle;
+                    this.fireBedrockEvent("dimension-selector-data-changed", eventDetail);
                 }
             },
 
