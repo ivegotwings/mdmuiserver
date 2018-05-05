@@ -24,6 +24,7 @@ function prepareNotificationObject(data) {
                     var requestId = attributes['requestId'];
                     var description = attributes["description"];
                     var importType = attributes["ImportType"];
+                    var taskType = attributes["taskType"];
 
                     var desc = "";
                     if (description && description.values && description.values.length) {
