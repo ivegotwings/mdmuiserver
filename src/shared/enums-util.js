@@ -18,7 +18,9 @@ Enums.actions = {
     BusinessConditionSaveComplete:13,
     BusinessConditionSaveFail:14,
     ModelImportComplete:15,
-    ModelImportFail:16
+    ModelImportFail:16,
+    ModelSaveComplete:17,
+    ModelSaveFail:18
 }
 
 Enums.operations = {
