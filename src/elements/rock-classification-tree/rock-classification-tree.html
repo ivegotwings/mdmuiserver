@@ -24,10 +24,11 @@
 <dom-module id="rock-classification-tree">
     <template>
         <style include="bedrock-style-common bedrock-styles-scroll-bar">
-            :host{
+            :host {
                 display: block;
-                height:100%;
+                height: 100%;
             }
+
             .contextTree {
                 overflow-y: auto;
                 overflow-x: hidden;
@@ -38,7 +39,7 @@
                 display: inline-block;
                 width: 50%;
             }
-            
+
             .checkbox-label-color {
                 --pebble-checkbox-label-color: #75808b;
             }
@@ -72,9 +73,9 @@
                 width: 50%;
             }
         </style>
-        <liquid-entity-data-get id="initiateSearch" operation="initiatesearch" request-data="{{request}}" last-response="{{initiateSearchResponse}}"
-        on-error="_onGetSearchError" on-response="_onInitiateSearchResponse" exclude-in-progress></liquid-entity-data-get>
-        
+        <liquid-entity-data-get id="lineagepath" operation="getbyids" request-data="{{lineagerequest}}" on-error="_onLineagePathError"
+            on-response="_onLineagePathResponse" exclude-in-progress></liquid-entity-data-get>
+
         <liquid-entity-data-get id="initiateSearch" operation="initiatesearch" request-data="{{request}}" last-response="{{initiateSearchResponse}}"
             on-error="_onGetSearchError" on-response="_onInitiateSearchResponse" exclude-in-progress></liquid-entity-data-get>
         <liquid-entity-data-get id="getSearchResultDetail" operation="getsearchresultdetail" request-data="{{request}}" request-id="[[initiateSearchResponse.content.requestId]]"
@@ -86,16 +87,17 @@
                 <rock-search-bar id="searchBar" placeholder="Enter Search text"></rock-search-bar>
                 <div class="resetsearch" hidden$="[[!_resetSearchEnabled]]">
                     <pebble-button icon="pebble-icon:reset" class="btn-link pebble-icon-color-blue" on-tap="_resetSearch" button-text="Reset Search"></pebble-button>
-                </div>                
+                </div>
             </template>
         </div>
         <template is="dom-if" if="{{_isSearchMode}}">
             <pebble-tree id="contextTree" leaf-node-only="[[leafNodeOnly]]" data="{{classifications}}" check-child-nodes default-child-depth="10"
-            selected-items="{{_selectedItems}}" selected-item="{{_selectedItem}}" multi-select="[[multiSelect]]"></pebble-tree>
+                selected-items="{{_selectedItems}}" selected-item="{{_selectedItem}}" multi-select="[[multiSelect]]" disable-child-node="[[disableChildNode]]"></pebble-tree>
         </template>
         <template is="dom-if" if="{{!_isSearchMode}}">
-            <pebble-tree id="contextTree" class="contextTree" leaf-node-only="[[leafNodeOnly]]" data="{{classifications}}" check-child-nodes default-child-depth="10"
-            selected-items="{{_selectedItems}}" selected-item="{{_selectedItem}}" multi-select="[[multiSelect]]" disable-child-node="[[disableChildNode]]"></pebble-tree>
+            <pebble-tree id="contextTree" class="contextTree" leaf-node-only="[[leafNodeOnly]]" data="{{classifications}}" check-child-nodes
+                default-child-depth="10" selected-items="{{_selectedItems}}" selected-item="{{_selectedItem}}" multi-select="[[multiSelect]]"
+                disable-child-node="[[disableChildNode]]"></pebble-tree>
         </template>
         <bedrock-pubsub event-name="tree-node-child-list-refreshed" handler="_childListRefreshed"></bedrock-pubsub>
         <liquid-rest id="classificationModelGet" url="/data/pass-through/entitymodelservice/get" method="POST" request-data="{{_classificationModelRequest}}"
@@ -114,6 +116,12 @@
                         return {};
                     }
                 },
+                lineagerequest: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                },
                 _dataFormatter: {
                     type: Object,
                     value: function () {
@@ -122,7 +130,7 @@
                 },
                 _isSearchMode: {
                     type: Boolean,
-                    value: false 
+                    value: false
                 },
                 _showSearchBar: {
                     type: Boolean,
@@ -214,7 +222,7 @@
                     }
                 },
 
-                disableChildNode:{
+                disableChildNode: {
                     type: Boolean,
                     value: false
                 }
@@ -251,9 +259,44 @@
                     } else {
                         this.selectedClassifications = [this._selectedItem];
                     }
+                    if (this._isSearchMode) {
+                        var req = {
+                            "params": {
+                                "query": {
+                                    "filters": {
+                                        "typesCriterion": [
+                                            "classification"
+                                        ]
+                                    }
+                                },
+                                "fields": {
+                                    "relationships": [
+                                        "belongsto"
+                                    ],
+                                    "relationshipAttributes": [
+                                        "lineagepath"
+                                    ]
+                                }
+                            }
+                        };
+                        DataRequestHelper.addDefaultContext(req);
+                        if (this.selectedClassifications) {
+                            req.params.query.ids = [];
+                            this.selectedClassifications.forEach((classification) => {
+                                req.params.query.ids.push(classification.id);
+                            });
+
+                            this.lineagerequest = req;
+                            var lineagepathElement = this.$$("#lineagepath");
+                            if (lineagepathElement) {
+                                lineagepathElement.generateRequest();
+                            }
+
+                        }
+                    }
                 }
             },
-            _clearSelectedItems: function (){
+            _clearSelectedItems: function () {
                 this._selectedItems = [];
             },
             //Trigger generateRequest from consumer to load the classifications
@@ -294,6 +337,23 @@
                 }
             },
 
+            _onLineagePathResponse: function (e) {
+                var response = e.detail.response;
+                if (response.content && response.content.entities) {
+                    var entities = response.content.entities;
+                    var map = {};
+                    entities.forEach(e => {
+                        map[e.id] = e.data.relationships.belongsto[0].attributes.lineagepath.values[0].value;
+                    })
+                    var eventData = {
+                        name: "detailresponsereceived",
+                        data: map
+                    }
+                    this.dispatchEvent(new CustomEvent('bedrock-event',{detail:eventData, bubbles:true, composed:true}));
+                }
+            },
+
+
             executeRequest: function (parentClassificationId, searchKeyword) {
                 var relEntityType = "classification";
                 var relType = "belongsto";
@@ -323,8 +383,8 @@
                 }
 
                 var req = DataRequestHelper.createEntityGetRequest(contextData);
-                if(searchKeyword) {
-                    req.params.query.filters.keywordsCriterion = {"operator":"_AND","keywords":searchKeyword};
+                if (searchKeyword) {
+                    req.params.query.filters.keywordsCriterion = { "operator": "_AND", "keywords": searchKeyword };
                 }
                 delete req.params.options;
 
@@ -365,7 +425,7 @@
                 }
 
                 this._classificationsList = this._classificationsList.concat(classifications);
-                
+
                 this._currentRecord += 20;
                 if (this._currentRecord < this._totalRecords) {
                     this._makeNextBatchSearchDetailCall();
@@ -422,7 +482,7 @@
                     }
                 }
                 this._currentIndex++;
-                if(this._currentNode) {
+                if (this._currentNode) {
                     if (this._currentNode.expanded) {
                         this._checkForSelectedClassification();
                     } else {
