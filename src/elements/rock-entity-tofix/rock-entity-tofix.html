@@ -332,8 +332,8 @@ Custom property | Description | Default
                 RUFBehaviors.ComponentContextBehavior
             ],
 
-            _contextDataChanged: function () {
-                if (typeof (this.contextData) !== "undefined" && !_.isEmpty(this.contextData)) {
+            _contextDataChanged: async function () {
+                if (!_.isEmpty(this.contextData)) {
                     this._clonedContextData = DataHelper.cloneObject(this.contextData);
                     var itemContext = ContextHelper.getFirstItemContext(this._clonedContextData);
                     itemContext.attributeNames = [];
@@ -345,6 +345,7 @@ Custom property | Description | Default
                     this._clonedContextData[ContextHelper.CONTEXT_TYPE_VALUE] = valueContext;
                 }
             },
+            
             /**
               * <b><i>Content development is under progress... </b></i> 
               */
@@ -414,7 +415,7 @@ Custom property | Description | Default
             _requestEntityGovernData: function () {
                 var entityGovernDataGet = this.shadowRoot.querySelector('#entityGovernDataGet');
 
-                if (typeof (entityGovernDataGet) === "undefined" || entityGovernDataGet == null) {
+                if (_.isEmpty(entityGovernDataGet)) {
                     RUFUtilities.Logger.error("Liquid element having id entityGovernDataGet not found.");
                     this._showMessage(this._errorMessage);
                     return;
@@ -445,7 +446,7 @@ Custom property | Description | Default
                 if (responseContent) {
                     var entities = responseContent.entities;
 
-                    if (typeof (entities) !== "undefined" && entities.length > 0) {
+                    if (!_.isEmpty(entities)) {
                         this._setEntityWorkflowGovernData(entities[0]);
                         this._setEntityBusinessConditionsGovernData(entities[0]);
 
@@ -466,7 +467,7 @@ Custom property | Description | Default
             },
 
             _setEntityWorkflowGovernData: function (entityGovernData) {
-                if (typeof (entityGovernData) && typeof (entityGovernData.data) !== "undefined" && typeof (entityGovernData.data.contexts) !== "undefined") {
+                if (DataHelper.isValidObjectPath(entityGovernData, "data.contexts")) {
                     var contextualEntityGovernData = entityGovernData.data.contexts;
 
                     if (typeof (contextualEntityGovernData) !== "undefined" && contextualEntityGovernData.length > 0) {
@@ -498,37 +499,51 @@ Custom property | Description | Default
             },
 
             _setEntityBusinessConditionsGovernData: function (entityGovernData) {
-                if (typeof (entityGovernData) && typeof (entityGovernData.data) !== "undefined" && typeof (entityGovernData.data.attributes) !== "undefined") {
-                    var entityGovernDataAttributes = entityGovernData.data.attributes;
-                    var entityBusinessConditions = [];
-
-                    if (typeof (entityGovernDataAttributes.businessConditions) !== "undefined" && typeof (entityGovernDataAttributes.businessConditions.group) !== "undefined") {
-                        entityBusinessConditions = entityGovernDataAttributes.businessConditions.group;
-                    }
-
-                    if (typeof (entityBusinessConditions) !== "undefined" && entityBusinessConditions.length > 0) {
-                        this._entityBusinessConditionNames = [];
-                        this._entityBusinessConditionsGovernData = [];
-
-                        for (var i = 0; i < entityBusinessConditions.length; i++) {
-                            var businessConditionId = AttributeHelper.getFirstAttributeValue(entityBusinessConditions[i].businessConditionName);
-                            var businessConditionStatus = AttributeHelper.getFirstAttributeValue(entityBusinessConditions[i].businessConditionStatus);
-
-                            var businessConditionGovernData = {
-                                "id": businessConditionId,
-                                "name": businessConditionId,
-                                "status": businessConditionStatus
-                            }
-
-                            this.push("_entityBusinessConditionNames", businessConditionId);
-                            this.push("_entityBusinessConditionsGovernData", businessConditionGovernData);
+                if (DataHelper.isValidObjectPath(entityGovernData, "data")) {
+                    var dataContexts = ContextHelper.getDataContexts(this._clonedContextData);
+                    if(!_.isEmpty(dataContexts) && !_.isEmpty(entityGovernData.data.contexts)) {
+                        for(let ctxIdx = 0; ctxIdx < entityGovernData.data.contexts.length; ctxIdx++) {
+                            entityGovernDataAttributes = entityGovernData.data.contexts[ctxIdx].attributes;
+                            this._setData(entityGovernDataAttributes);
+                        }
+                    } else {
+                        if(typeof (entityGovernData.data.attributes) !== "undefined") {
+                            entityGovernDataAttributes = entityGovernData.data.attributes;
+                            this._setData(entityGovernDataAttributes);
                         }
                     }
                 }
             },
 
+            _setData: function(entityGovernDataAttributes) {
+                var entityBusinessConditions = [];
+
+                if (DataHelper.isValidObjectPath(entityGovernDataAttributes, "businessConditions.group")) {
+                    entityBusinessConditions = entityGovernDataAttributes.businessConditions.group;
+                }
+
+                if (!_.isEmpty(entityBusinessConditions)) {
+                    this._entityBusinessConditionNames = [];
+                    this._entityBusinessConditionsGovernData = [];
+
+                    for (var i = 0; i < entityBusinessConditions.length; i++) {
+                        var businessConditionId = AttributeHelper.getFirstAttributeValue(entityBusinessConditions[i].businessConditionName);
+                        var businessConditionStatus = AttributeHelper.getFirstAttributeValue(entityBusinessConditions[i].businessConditionStatus);
+
+                        var businessConditionGovernData = {
+                            "id": businessConditionId,
+                            "name": businessConditionId,
+                            "status": businessConditionStatus
+                        }
+
+                        this.push("_entityBusinessConditionNames", businessConditionId);
+                        this.push("_entityBusinessConditionsGovernData", businessConditionGovernData);
+                    }
+                }
+            },
+
             _requestWorkflowDefinition: function () {
-                if (this._entityGovernWorkflowNames.length > 0) {
+                if (!_.isEmpty(this._entityGovernWorkflowNames)) {
                     var workflowDefinitionGet = this.shadowRoot.querySelector("#workflowDefintionGet");
 
                     if (typeof (workflowDefinitionGet) === "undefined" ||
@@ -559,7 +574,7 @@ Custom property | Description | Default
                 if (responseContent) {
                     var workflowDefintions = responseContent.entityModels;
 
-                    if (typeof (workflowDefintions) !== "undefined" && workflowDefintions.length > 0) {
+                    if (!_.isEmpty(workflowDefintions)) {
                         this._workflowDefinitions = [];
 
                         for (var i = 0; i < workflowDefintions.length; i++) {
@@ -632,23 +647,35 @@ Custom property | Description | Default
                 if (responseContent) {
                     var ruleContextMappings = responseContent.entityModels.length > 0 ? responseContent.entityModels[0].data : undefined;
 
-                    if (typeof (ruleContextMappings) !== "undefined" && typeof (ruleContextMappings.contexts) !== "undefined" && ruleContextMappings.contexts.length > 0) {
+                    if (DataHelper.isValidObjectPath(ruleContextMappings, "contexts") && ruleContextMappings.contexts.length > 0) {
                         this._contextSpecificBusinessConditions = [];
                         var contextSpecificRuleMaps = ruleContextMappings.contexts;
 
                         for (var i = 0; i < contextSpecificRuleMaps.length; i++) {
-                            var workflowName = contextSpecificRuleMaps[i].context.workflow;
                             var businessConditions = contextSpecificRuleMaps[i].relationships.hasBusinessConditions;
+                            
+                            if(typeof (contextSpecificRuleMaps[i].context.workflow) !== "undefined") {
+                                var workflowName = contextSpecificRuleMaps[i].context.workflow;
+                                
+                                var contextSpecificBusinessCondition = this._contextSpecificBusinessConditions.find(obj => obj.workflowName === workflowName);
+                                if(contextSpecificBusinessCondition) {
+                                    contextSpecificBusinessCondition["businessConditions"] = contextSpecificBusinessCondition["businessConditions"].concat(businessConditions);
+                                } else {
+                                    contextSpecificBusinessCondition = {};
+                                    contextSpecificBusinessCondition["workflowName"] = workflowName;
+                                    contextSpecificBusinessCondition["businessConditions"] = businessConditions;
+                                    
+                                    this.push("_contextSpecificBusinessConditions", contextSpecificBusinessCondition);
 
-                            var contextSpecificBusinessCondition = {};
-                            contextSpecificBusinessCondition["workflowName"] = workflowName;
-                            contextSpecificBusinessCondition["businessConditions"] = businessConditions;
-                            this.push("_contextSpecificBusinessConditions", contextSpecificBusinessCondition);
+                                }
+                            }
                             allBusinessConditions = allBusinessConditions.concat(businessConditions);
                         }
                     }
 
-                    if (typeof (ruleContextMappings) !== "undefined" && typeof (ruleContextMappings.relationships) !== "undefined") {
+                    var dataContexts = ContextHelper.getDataContexts(this._clonedContextData);
+
+                    if (_.isEmpty(dataContexts) && DataHelper.isValidObjectPath(ruleContextMappings,"relationships")) {
 
                         var globalBusinessConditions = ruleContextMappings.relationships.hasBusinessConditions;
                         if (typeof (globalBusinessConditions) !== "undefined") {
@@ -670,7 +697,7 @@ Custom property | Description | Default
                         var allBusinessConditionIds = this._getBusinessConditionIds(this._entityTypeBusinessConditions);
                         this._requestBusinessConditions(allBusinessConditionIds);
                     } else {
-                        this._showMessage(this._errorMessage);
+                        this._showMessage(this._nothingToFixMessage);
                     }
                 } else {
                     RUFUtilities.Logger.error("RuleContextMappingsGetResponseContent not found.");
@@ -725,7 +752,7 @@ Custom property | Description | Default
                 if (responseContent) {
                     var businessConditions = responseContent.entityModels;
 
-                    if (typeof (businessConditions) !== "undefined" && businessConditions.length > 0) {
+                    if (!_.isEmpty(businessConditions)) {
                         this._originalBusinessConditions = [];
 
                         for (var i = 0; i < businessConditions.length; i++) {
@@ -945,18 +972,31 @@ Custom property | Description | Default
             _prepareWorkflowDataContext: function (clonedContextData, itemContext) {
                 var workflowDataContexts = [];
 
+                var dataContexts = ContextHelper.getDataContexts(clonedContextData);
+
                 if (typeof (this._entityTypeWorkflowMappings) !== "undefined" && this._entityTypeWorkflowMappings.length > 0) {
 
                     for (var i = 0; i < this._entityTypeWorkflowMappings.length; i++) {
-                        var workflowDataContext = {};
-                        workflowDataContext.self = "self";
-                        workflowDataContext.workflow = this._entityTypeWorkflowMappings[i];
+                        if(!_.isEmpty(dataContexts)) {
+                            for(let ctxIdx = 0; ctxIdx < dataContexts.length; ctxIdx++) {
+                                var workflowDataContext = DataHelper.cloneObject(dataContexts[ctxIdx]);
+                                workflowDataContext.workflow = this._entityTypeWorkflowMappings[i];
 
-                        workflowDataContexts.push(workflowDataContext);
+                                workflowDataContexts.push(workflowDataContext);
+                            }
+                        } else {
+                            var workflowDataContext = {};
+                            workflowDataContext.self = "self";
+                            workflowDataContext.workflow = this._entityTypeWorkflowMappings[i];
+
+                            workflowDataContexts.push(workflowDataContext);
+                        }
                     }
                 }
 
-                return workflowDataContexts
+                dataContexts = dataContexts.concat(workflowDataContexts);
+
+                return dataContexts;
             },
 
             _onTap: function (e) {
@@ -974,7 +1014,8 @@ Custom property | Description | Default
 
                 this.openBusinessFunctionDialog({
                     name: 'rock-entity-fix-attribute-errors',
-                    title: `Fix- ${name}`
+                    title: `Fix- ${name}`,
+                    noDataMessage: "Cannot show things to fix here. Please check the configuration."
                 }, sharedData);
             },
 
