@@ -395,9 +395,6 @@ function _getService(dataObjectType) {
     else if (dataObjectType == "entityhistoryevent") {
         return entityHistoryEventService;
     }
-    else if(dataObjectType == "dataObjectlineage") {
-        return dataObjectLineageService;
-    }
     else {
         return dataObjectManageService;
     }
@@ -410,10 +407,16 @@ async function get(dataObjectIds, reqData) {
     try {
         var res = undefined;
         var isCoalesceGet = false;
-        var isNearestGet = false;
+        var isNearestGet = false;  
 
         var service = _getService(reqData.dataObjectType);
         var request = createGetRequest(reqData);
+
+        if(reqData.dataObjectType == "classification") {
+            if(!isEmpty(reqData.relAttrNames) && reqData.relAttrNames[0] == "lineagepath") {
+                service = dataObjectLineageService;
+            }
+        }
 
         if ((request.dataIndex == "entityModel" && reqData.dataObjectType == 'entityCompositeModel' && request.dataSubIndex == "coalescedEntityModel") || (request.dataIndex == "entityData" && !isEmpty(request.dataSubIndex) && request.dataSubIndex == "coalescedData")) {
             if (!isEmpty(request.params.query.contexts)) {
