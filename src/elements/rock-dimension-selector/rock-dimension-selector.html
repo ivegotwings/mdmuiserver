@@ -172,6 +172,7 @@ Custom property | Description | Default
             no-cancel-on-esc-key>
             <p>[[confirmationMessage]]</p>
         </pebble-dialog>
+        <bedrock-pubsub event-name="refresh-dimension-selector" handler="refresh"></bedrock-pubsub>
         <bedrock-pubsub event-name="on-buttonok-clicked" handler="_onTapConfirmationOK" target-id="confirmation-dialog"></bedrock-pubsub>
         <bedrock-pubsub event-name="on-buttoncancel-clicked" handler="_onTapConfirmationCancel" target-id="confirmation-dialog"></bedrock-pubsub>
         <liquid-rest id="contextModelGet" url="/data/pass-through/entitymodelservice/getcontext" method="POST" request-data="{{_contextModelGetReq}}"
@@ -238,6 +239,13 @@ Custom property | Description | Default
                 allMultiSelect: {
                     type: Boolean,
                     value: false
+                },
+                previousSelectedDimensions: {
+                    type: Object,
+                    notify: true,
+                    value: function () {
+                        return {};
+                    }
                 },
                 allSingleSelect: {
                     type: Boolean,
@@ -430,11 +438,8 @@ Custom property | Description | Default
               * <b><i>Content development is under progress... </b></i> 
               */
             refresh: function () {
-                //Temporary fix until we decide how refresh has to be.
-                var configData = this.configData;
-                this.configData = undefined;
-                this.configData = configData;
-            },
+                this._contextGetRequest(this.entityId, this.entityType);               
+            }, 
 
             refreshDimensionData: function () {
                 if (typeof (this.configData) !== "undefined") {
@@ -456,7 +461,15 @@ Custom property | Description | Default
                     }
                 }
             },
-
+            _contextGetRequest:function(entityId,entityType){
+                if (!_.isEmpty(entityId)) {
+                    this._entityContextRequest = DataRequestHelper.createEntityContextGetRequest(entityId, entityType);
+                    var liquidElement = this.$$('#entityContextGet');
+                    if (liquidElement) {
+                        liquidElement.generateRequest();
+                    }
+                }
+            },
             clearClassificationSelection: function () {
                 if (typeof (this.configData) !== "undefined") {
                     for (var i = 0; i < this.configData.length; i++) {
@@ -485,6 +498,7 @@ Custom property | Description | Default
             },
 
             _configChanged: function (configData, entityType) {
+                this.entityType = entityType;
                 if (configData && configData.length) {
                     if (!this._isContextLoad) {
                         configData.forEach(function (item) {
@@ -996,16 +1010,7 @@ Custom property | Description | Default
                     if (liquidElement) {
                         liquidElement.generateRequest();
                     }
-
-
-                    if (!_.isEmpty(this.entityId)) {
-                        this._entityContextRequest = DataRequestHelper.createEntityContextGetRequest(this.entityId, entityType);
-
-                        var liquidElement = this.$$('#entityContextGet');
-                        if (liquidElement) {
-                            liquidElement.generateRequest();
-                        }
-                    }
+                    this._contextGetRequest(this.entityId, entityType);                   
                 }
             },
 
@@ -1445,8 +1450,7 @@ Custom property | Description | Default
                         }
                         // this._updateToggleButtonText(configDataItem, rockLov);
                     }
-
-                    this.set("selectedDimensions", selectedDimensions);
+                    
 
                     var eventDetail = {
                         'dimensions': selectedDimensions
@@ -1459,6 +1463,12 @@ Custom property | Description | Default
                     }
                     eventDetail.isPrimaryContext = _isPrimaryContext
                     eventDetail.taxonomyTitle = _taxonomyTitle;
+                    if(this.selectedDimensions && selectedDimensions){
+                        if(DataHelper.compareObjects(this.selectedDimensions, selectedDimensions)) {
+                            return true;
+                        }
+                    }
+                    this.set("selectedDimensions", selectedDimensions);
                     this.fireBedrockEvent("dimension-selector-data-changed", eventDetail);
                 }
             },
@@ -1659,6 +1669,7 @@ Custom property | Description | Default
                             this._entityContexts = _entityContexts;
                         }
                     }
+                    this.refreshDimensionData();
                 }
             },
 
