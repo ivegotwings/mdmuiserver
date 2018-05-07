@@ -20,26 +20,33 @@ DataObjectNotificationUtil.updateRequestObjectForNotification = function (reques
                 if (isEmpty(notificationInfo.context)) {
                     notificationInfo.context = {};
                 }
-                if (request.entity) {
+
+                //console.log(JSON.stringify(request, null, 2));
+                if (request.entity || request.entityModel) {
                     DataObjectNotificationUtil._populateNotificationContext(request, notificationInfo);
                 }
+                console.log(JSON.stringify(request, null, 2));
                 notificationInfo.context.dataIndex = request.dataIndex;
             }
         }
     }
 };
 DataObjectNotificationUtil._populateNotificationContext = function (request, notificationInfo) {
-    notificationInfo.context.id = request.entity.id;
-    notificationInfo.context.type = request.entity.type;
-    if (request.operation && request.operation == "whereUsed") {
-        var relationshipList = request.data.relationships;
-        var relationshipNames = Object.keys(relationshipList);
-        if (!_.isEmpty(relationshipNames)) {
-            var firstRelationshipName = relationshipNames[0];
-            var relationshipObjects = relationshipList[firstRelationshipName];
-            if (!_.isEmpty(relationshipObjects)) {
-                notificationInfo.context.id = relationshipObjects[0].relTo.id;
-                notificationInfo.context.type = relationshipObjects[0].relTo.type;
+    let requestData = request.entity || request.entityModel;
+
+    if (requestData) {
+        notificationInfo.context.id = requestData.id;
+        notificationInfo.context.type = requestData.type;
+        if (request.operation && request.operation == "whereUsed") {
+            var relationshipList = requestData.data.relationships;
+            var relationshipNames = Object.keys(relationshipList);
+            if (!_.isEmpty(relationshipNames)) {
+                var firstRelationshipName = relationshipNames[0];
+                var relationshipObjects = relationshipList[firstRelationshipName];
+                if (!_.isEmpty(relationshipObjects)) {
+                    notificationInfo.context.id = relationshipObjects[0].relTo.id;
+                    notificationInfo.context.type = relationshipObjects[0].relTo.type;
+                }
             }
         }
     }

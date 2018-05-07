@@ -178,7 +178,7 @@
                 <pebble-icon class="iconButton pebble-icon-size-14" icon$="[[_expandClass(expanded)]]" on-click="_toggle"></pebble-icon>
                 <template is="dom-if" if="[[!leafNodeOnly]]">
                     <div class="check-box-wrapper">
-                        <pebble-checkbox on-tap="_itemClick" disabled="[[disabled]]" indeterminate="[[_isIndeterminate(nodeData,indeterminateItems,indeterminateItems.*)]]"
+                        <pebble-checkbox on-tap="_itemClick" disabled$="[[_isDisabled(nodeData,selectedItems,selectedItems.*,selectedItem)]]" indeterminate="[[_isIndeterminate(nodeData,indeterminateItems,indeterminateItems.*)]]"
                             checked="[[_isSelected(nodeData,selectedItems,selectedItems.*,selectedItem)]]"></pebble-checkbox>
                     </div>
                 </template>
@@ -223,7 +223,7 @@
                             parent-tree-node="[[_setParentTreeNode()]]" item-path$="[[_setItemPath(index)]]" value-path$="[[item.valuePath]]"
                             selected-node="{{selectedNode}}" selected-nodes="{{selectedNodes}}" tree="[[tree]]" check-child-nodes="[[checkChildNodes]]"
                             check-parent-nodes="[[checkParentNodes]]" addable-levels="[[addableLevels]]" leaf-node-only="[[leafNodeOnly]]"
-                            expand-collapse-icon-object="[[expandCollapseIconObject]]">
+                            expand-collapse-icon-object="[[expandCollapseIconObject]]" disable-child-node="[[disableChildNode]]">
                         </pebble-tree-node>
                     </template>
                     <template is="dom-if" if="{{paginationObj.nextTitle}}">
@@ -441,6 +441,10 @@
                     value: function () {
                         return {}
                     }
+                },
+                disableChildNode:{
+                    type: Boolean,
+                    value: false
                 }
             },
             observers: [
@@ -477,8 +481,15 @@
                 }
                 return "";
             },
+            _isDisabled: function(item){
+                if(this.disabled || item.isDisabled){
+                    return true;
+                }
+                return false;
+
+            },
             _isSelected: function (item) {
-                if (!this.multiSelect) {
+                if (!this.multiSelect && !this.disableChildNode) {
                     return (this.selectedItem == this.nodeData);
                 }
                 if (this.selectedItems != undefined && item) {
@@ -536,10 +547,16 @@
                         this.selectedItem = nodeData;
                         this.selectedNode = this;
                         this.indeterminateItems = [];
+                        if(this.disableChildNode){
+                            this.push('selectedItems', nodeData);
+                            if (this._hasChildren(nodeData)) {
+                                this.checkAllChildNodes(nodeData);
+                            }
+                        }
                         if (this.checkParentNodes) {
                             this._makeParentIndeterminate();
                         }
-                    } else {
+                    } else {                
                         if (this.selectedItems.indexOf(nodeData) == -1) {
                             this.push('selectedItems', nodeData);
                             this.selectedNodes.push(this);
@@ -606,6 +623,9 @@
                 var children = nodeData.children;
                 for (var i = 0; i < children.length; i++) {
                     if (this.selectedItems.indexOf(children[i]) == -1) {
+                        if(this.disableChildNode){
+                            children[i]["isDisabled"] = true;
+                        }
                         this.push('selectedItems', children[i]);
                     }
                     if (this._hasChildren(children[i])) {
@@ -695,16 +715,29 @@
              * Fired when an item is clicked. It sets the selected item and its style.
              */
             _itemClick: function (evt) {
+                if(this.nodeData.isDisabled){
+                    return;
+                }
                 var nodeData = this.nodeData;
                 if (this.multiSelect) {
                     if (this.selectedItems.indexOf(nodeData) == -1) {
                         this.selectItem();
                         this.dispatchEvent(new CustomEvent('item-selected', { detail: { data: this }, bubbles: true, composed: true }));
-
                     } else {
                         this.deSelectItem();
                     }
                 } else {
+                    if(this.disableChildNode && this.selectedItems.length > 0){
+                            this.selectedItems.forEach(element => {
+                                if(!this.disabled){
+                                    element.isDisabled = false;
+                                }
+                            });
+                    }
+                    if(this.disableChildNode){
+                        this.set("selectedItems",[]);
+                        this.set("indeterminateItems",[]);
+                    }
                     if (this.selectedItem == nodeData) {
                         this.deSelectItem();
                     } else {
