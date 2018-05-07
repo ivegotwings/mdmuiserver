@@ -19,25 +19,17 @@ function prepareNotificationObject(data) {
                 notificationInfo = clientState.notificationInfo;
 
                 if (!isEmpty(notificationInfo)) {
-                    var requestStatus = attributes['requestStatus'];
-                    var serviceName = attributes['serviceName'];
-                    var requestId = attributes['requestId'];
-                    var description = attributes["description"];
-                    var importType = attributes["ImportType"];
+                    let serviceName = _getAttributeValue(attributes, "serviceName");
+                    let desc = _getAttributeValue(attributes, "description");
 
-                    var desc = "";
-                    if (description && description.values && description.values.length) {
-                        desc = description.values[0].value;
-                    }
-                    if (importType && importType.values && importType.values.length) {
-                        notificationInfo.type = importType.values[0].value;
-                    }
-                    if (!isEmpty(serviceName) && !isEmpty(requestStatus) && !isEmpty(requestId)) {
-                        notificationInfo.requestId = requestId.values[0].value;
-                        notificationInfo.status = requestStatus.values[0].value;
-                        notificationInfo.action = getAction(serviceName.values[0].value, notificationInfo.status, notificationInfo.operation, desc);
-                        notificationInfo.description = "";
-                    }
+                    notificationInfo.taskId = _getAttributeValue(attributes, "taskId");
+                    notificationInfo.taskType = _getAttributeValue(attributes, "taskType");
+                    notificationInfo.requestId = _getAttributeValue(attributes, "requestId");
+                    notificationInfo.status = _getAttributeValue(attributes, "requestStatus");
+
+                    isEmpty(notificationInfo.operation) && (notificationInfo.operation = _getAttributeValue(attributes, "connectIntegrationType"));
+                    notificationInfo.action = getAction(serviceName, notificationInfo.status, notificationInfo.operation, desc);
+                    notificationInfo.description = desc;
                 }
             }
         }
@@ -45,6 +37,12 @@ function prepareNotificationObject(data) {
 
     return notificationInfo;
 };
+
+function _getAttributeValue(attributes, attrKey) {
+    if (attributes) {
+        return (isValidObjectPath(attributes, attrKey + ".values") && attributes[attrKey].values.length) && attributes[attrKey].values[0].value;
+    }
+}
 
 function getAction(serviceName, status, operation, description) {
     var action = "";
@@ -66,6 +64,22 @@ function getAction(serviceName, status, operation, description) {
                     } else {
                         action = enums.actions.SaveFail;
                     }
+                }
+            }
+        }
+
+        if (serviceName.toLowerCase() == "entitymanagemodelservice") {
+            if (operation && operation == "MODEL_IMPORT") {
+                if (status.toLowerCase() == "completed") {
+                    action = enums.actions.ModelImportComplete;
+                } else {
+                    action = enums.actions.ModelImportFail;
+                }
+            } else {
+                if (status.toLowerCase() == "success") {
+                    action = enums.actions.ModelSaveComplete;
+                } else {
+                    action = enums.actions.ModelSaveFail;
                 }
             }
         }
@@ -107,14 +121,6 @@ function getAction(serviceName, status, operation, description) {
                 action = enums.actions.RSConnectFail;
             }
         }
-
-        if (serviceName.toLowerCase() == "requestmanageservice") {
-            if (status.toLowerCase() == "success") {
-                action = enums.actions.ModelImportComplete;
-            } else {
-                action = enums.actions.ModelImportFail;
-            }
-        }
     }
     return action;
 };
@@ -146,8 +152,8 @@ function sendNotificationToUI(notificationObject, tenantId) {
         logger.debug("NOTIFICATION_INFO_OBJECT_PREPARED", { detail: notificationInfo }, "notification-service");
 
         if (!isEmpty(notificationInfo)) {
-            if (notificationObject.properties) {
-                notificationInfo.workAutomationId = notificationObject.properties.workAutomationId;
+            if (isEmpty(notificationInfo.taskId) && notificationObject.properties) {
+                notificationInfo.taskId = notificationObject.properties.workAutomationId;
             }
 
             notificationInfo.tenantId = tenantId;
@@ -158,22 +164,22 @@ function sendNotificationToUI(notificationObject, tenantId) {
     }
 }
 
-function updateExecutionContext (tenantId, userId) {
+function updateExecutionContext(tenantId, userId) {
     var securityContext = executionContext.getSecurityContext();
 
-    if(!securityContext) {
+    if (!securityContext) {
         securityContext = {};
     }
 
-    if(!securityContext.tenantId) {
+    if (!securityContext.tenantId) {
         securityContext.tenantId = tenantId;
     }
 
-    if(!securityContext.headers) {
+    if (!securityContext.headers) {
         securityContext.headers = {};
     }
 
-    if(!securityContext.headers.userId) {
+    if (!securityContext.headers.userId) {
         securityContext.headers.userId = userId;
     }
 
