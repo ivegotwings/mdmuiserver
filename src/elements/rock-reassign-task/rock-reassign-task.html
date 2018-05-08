@@ -87,6 +87,30 @@
                     },
                     notify:true
                 },
+                workflowRunningInstance:{
+                    type:Object,
+                    value:function(){
+                        return {};
+                    }
+                },
+                foundWorkflowNames:{
+                    type:Array,
+                    value:function(){
+                        return [];
+                    }
+                },
+                _failedWorkflows: {
+                    type: Array,
+                    value: function () { return []; }
+                },
+                _doneWorkflows: {
+                    type: Array,
+                    value: function () { return []; }
+                },
+                _currentWfIndex:{
+                    type:Number,
+                    value:0
+                },
                 _responseMessages: {
                     type: Array,
                     value: function () {
@@ -152,6 +176,7 @@
         connectedCallback() {
             super.connectedCallback();
            
+            this._currentWfIndex = 0;
             if(this.assignmentAction){
                 this._isMultipleEntityWorkflow= true;
                 this._loading = true;
@@ -224,7 +249,7 @@
             var domHost = this.domHost;
             var assingedUser = "";
             if(!domHost._isMultipleEntityWorkflow){
-                assingedUser = domHost.activityAssignedUser;
+                assingedUser = domHost.workflowRunningInstance[domHost.foundWorkflowNames[domHost._currentWfIndex]].activityAssignedUser;
             }
             var loggedUser = ContextHelper.getFirstUserContext(domHost.contextData);
             var loggedUserId = "";
@@ -259,10 +284,7 @@
                 return;
             }
             var entity = this._getEntityObject();
-            var wfCriterion = {
-                "workflowShortName": this.workflowName,
-                "workflowActivityName": this.workflowActivityName
-            }
+            var wfCriterion = this._getWfCriterion(this.workflowRunningInstance[this.foundWorkflowNames[this._currentWfIndex]])
             if (!_.isEmpty(wfCriterion)) {
                 var req = DataRequestHelper.createWfChangeAssignmentRequest(entity, wfCriterion, this.contextData, "reassign", this._selectedUserItem);
 
@@ -281,7 +303,20 @@
         
         _onAssignmentSuccess(e) {
             var response = e.detail.response;
-            if (response.response && response.response.status && response.response.status.toLowerCase() == "success" && response.response.statusDetail) {
+            var entity = this._getEntityObject();
+            if (response && response.response && response.response.status && response.response.status.toLowerCase() == "success" && response.response.statusDetail) {
+                var statusDetail = response.response.statusDetail;
+                var workflowJson = this.workflowRunningInstance[this.foundWorkflowNames[this._currentWfIndex]];
+                if (statusDetail.messages && statusDetail.messages.length > 0) {
+                    this._failedWorkflows.push(workflowJson);
+                } else if (statusDetail.message) {
+                    this._doneWorkflows.push(workflowJson);
+                }
+            }
+            this._currentWfIndex++;
+            if (this._currentWfIndex < this.foundWorkflowNames.length) {
+                this._generateAssignmentRequest();
+            } else if (response.response && response.response.status && response.response.status.toLowerCase() == "success" && response.response.statusDetail) {
                 if(response.response.statusDetail.message){
                     this._triggerFinishStep(response.response.statusDetail.message);
                 }
@@ -316,10 +351,11 @@
             });
 
             setTimeout(() => {
-                var data = {
-                    "contextData": this.contextData
+                var eventName = "workflow-assignment-complete";
+                var eventDetail = {
+                    name: eventName
                 }
-                ComponentHelper.fireBedrockEvent("workflow-refresh", data, { ignoreId: true });
+                ComponentHelper.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
                 this.refresh();
             }, 5000)
         }
@@ -342,9 +378,19 @@
             };
             return entity;
         }
+        _getWfCriterion(runtimeInstance) {
+            var wfCriterion;
+            if (runtimeInstance && runtimeInstance.name && runtimeInstance.activityName) {
+                wfCriterion = {
+                    "workflowShortName": runtimeInstance.name,
+                    "workflowActivityName": runtimeInstance.activityName
+                };
+            }
+            return wfCriterion;
+        }
         _prepareUserModelRequest(_allowedRoles){
             var req = DataRequestHelper.createGetModelRequest([], "user");
-            var activityAllowedRoles = _allowedRoles ? _allowedRoles : this.allowedRoles;
+            var activityAllowedRoles = _allowedRoles ? _allowedRoles : this.workflowRunningInstance[this.foundWorkflowNames[this._currentWfIndex]].activityAllowedRoles;
             
             if(activityAllowedRoles && activityAllowedRoles.length > 0){
                 req.params.query.filters["propertiesCriterion"] = [{
@@ -367,6 +413,9 @@
         }
         _confirm(){
             if(this._selectedUserItem && !_.isEmpty(this._selectedUserItem)){
+                this._currentWfIndex = 0;
+                this._failedWorkflows = [];
+                this._doneWorkflows = [];
                 this._loading = true;
                 this._generateAssignmentRequest();
             }else{
