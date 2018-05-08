@@ -442,6 +442,9 @@
                 if (detail.data.eventName == "action-releaseTask") {
                     this._currentWorkflowAction = "release";
                 }
+                if (detail.data.eventName == "action-reassignTask") {
+                    this._currentWorkflowAction = "reassign";
+                }
                 
                 if (this.workflowInfo && this.workflowInfo.data) {
                     var foundWorkflowNames = [];
@@ -458,47 +461,47 @@
                         if (currWorkflowName) {
                             var runtimeInstance = {
                                 "name": currWorkflowName,
-                                "activityName": AttributeHelper.getFirstAttributeValue(contexts[i].attributes.activities.group[0].activityName),
-                                "activityExternalName": AttributeHelper.getFirstAttributeValue(contexts[i].attributes.activities.group[0].externalName),
-                                "activityAssignedUser": AttributeHelper.getFirstAttributeValue(contexts[i].attributes.activities.group[0].assignedUser)
+                                "activityName": AttributeHelper.getFirstAttributeValue(contexts[i].attributes.activities.group[0].activityName)
                             };
-
-                            if(contexts[i].attributes.activities.group[0].allowedRoles){
-                                runtimeInstance["activityAllowedRoles"] = AttributeHelper.getAttributeValues(contexts[i].attributes.activities.group[0].allowedRoles.values)
-                            }
-                            if(contexts[i].attributes.activities.group[0].allowedUsers){
-                                runtimeInstance["activityAllowedUsers"] = AttributeHelper.getAttributeValues(contexts[i].attributes.activities.group[0].allowedUsers.values)
+                            if(this._currentWorkflowAction == "reassign"){
+                                if(contextAttrs.status){
+                                    var attrStatus = AttributeHelper.getFirstAttributeValue(contextAttrs.status);
+                                    if(attrStatus == "Executing"){
+                                        var activities = contextAttrs.activities;
+                                        var reassignTaskData = {
+                                                "selected-entities":  DataHelper.cloneObject(this.getItemContexts()),
+                                                "workflow-activity-external-name": AttributeHelper.getFirstAttributeValue(activities.group[0].externalName),
+                                                "workflow-name": currWorkflowName,
+                                                "workflow-activity-name": runtimeInstance.activityName,
+                                                "activity-assigned-user": AttributeHelper.getFirstAttributeValue(activities.group[0].assignedUser)
+                                            }
+                                        if(activities.group[0].allowedRoles){
+                                            reassignTaskData["allowed-roles"] = AttributeHelper.getAttributeValues(activities.group[0].allowedRoles.values)
+                                        }
+                                        if(activities.group[0].allowedUsers){
+                                            reassignTaskData["allowed-users"] = AttributeHelper.getAttributeValues(activities.group[0].allowedUsers.values)
+                                        }
+                                        var dialogTitle = "Reassign Task - "+reassignTaskData["workflow-activity-external-name"];
+                                        this.openBusinessFunctionDialog({ name: 'rock-wizard-reassign-task', title:dialogTitle }, reassignTaskData);
+                                        break;
+                                    }
+                                }
                             }
                             runningInstances[currWorkflowName] = {};
                             runningInstances[currWorkflowName] = runtimeInstance;
                             foundWorkflowNames.push(currWorkflowName);
                         }
                     }
+                    if(this._currentWorkflowAction == "reassign"){
+                        return;
+                    }
                     if (foundWorkflowNames.length > 0) {
                         this.set("_runningInstances", runningInstances);
                         this.set("_foundWorkflowNames", foundWorkflowNames);
                         var itemContext = this.getFirstItemContext();
                         itemContext.workflowNames = foundWorkflowNames;
-                        if (detail.data.eventName == "action-reassignTask") {
-                            const sharedData = {
-                                "selected-entities": DataHelper.cloneObject(this.getItemContexts()),
-                                "workflow-running-instance":runningInstances,
-                                "found-workflow-names":foundWorkflowNames
-                            };
-                            var dialogTitle = "Reassign Task";
-                            for (const instance in runningInstances) {
-                                if (runningInstances.hasOwnProperty(instance)) {
-                                    const instanceInfo = runningInstances[instance];
-                                    dialogTitle = "Reassign Task - "+instanceInfo["activityExternalName"];
-                                }
-                            }
-                            
-                            this.openBusinessFunctionDialog({ name: 'rock-wizard-reassign-task', title:dialogTitle }, sharedData);
-                            
-                        }else{
-                            this.workflowDefinitionRequest = DataRequestHelper.createWorkflowDefinitionGetRequest(this.contextData);
-                            this.shadowRoot.querySelector("#entityGetWorkflowDefinition").generateRequest();
-                        }
+                        this.workflowDefinitionRequest = DataRequestHelper.createWorkflowDefinitionGetRequest(this.contextData);
+                        this.shadowRoot.querySelector("#entityGetWorkflowDefinition").generateRequest();
                     } else {
                         this.showErrorToast("Entity is not available in any workflow.");
                     }
