@@ -10,8 +10,9 @@
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-styles-scroll-bar.html" />
 
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
-
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
 <link rel="import" href="../pebble-tree/pebble-tree.html">
+<link rel="import" href="../../../src/elements/pebble-checkbox/pebble-checkbox.html">
 
 
 <!--
@@ -23,26 +24,96 @@
 <dom-module id="rock-classification-tree">
     <template>
         <style include="bedrock-style-common bedrock-styles-scroll-bar">
-            :host{
+            :host {
                 display: block;
-                height:100%;
+                height: 100%;
             }
+
             .contextTree {
                 overflow-y: auto;
                 overflow-x: hidden;
                 height: 100%;
             }
+
+            .search-container {
+                position: relative;
+                display: inline-block;
+                width: 50%;
+            }
+
+            .checkbox-label-color {
+                --pebble-checkbox-label-color: #75808b;
+            }
+
+            .search-container .resetsearch {
+                position: absolute;
+                right: 0;
+                bottom: -12px;
+                font-size: var(--font-size-xs, 10px);
+                color: var(--link-text-color, #036Bc3);
+            }
+
+            .search-container .resetsearch pebble-button {
+                height: auto;
+                --pebble-button: {
+                    font-size: var(--font-size-xs, 10px)!important;
+                    height: auto;
+                    padding-bottom: 0;
+                }
+                ;
+                --pebble-icon-dimension: {
+                    width: 12px;
+                    height: 12px;
+                }
+                ;
+                --pebble-button-left-icon: {
+                    margin-right: 5px;
+                }
+            }
+
+            .search-container {
+                position: relative;
+                display: inline-block;
+                width: 50%;
+            }
         </style>
+        <liquid-entity-data-get id="lineagepath" operation="getbyids" request-data="{{lineagerequest}}" on-error="_onLineagePathError"
+            on-response="_onLineagePathResponse" exclude-in-progress></liquid-entity-data-get>
+
         <liquid-entity-data-get id="initiateSearch" operation="initiatesearch" request-data="{{request}}" last-response="{{initiateSearchResponse}}"
             on-error="_onGetSearchError" on-response="_onInitiateSearchResponse" exclude-in-progress></liquid-entity-data-get>
         <liquid-entity-data-get id="getSearchResultDetail" operation="getsearchresultdetail" request-data="{{request}}" request-id="[[initiateSearchResponse.content.requestId]]"
             last-response="{{getEntitySearchResultsResponse}}" on-error="_onGetSearchError" on-response="_onGetSearchResultDetailResponse"
             exclude-in-progress></liquid-entity-data-get>
-        <pebble-tree id="contextTree" class="contextTree" leaf-node-only="[[leafNodeOnly]]" data="{{classifications}}" check-child-nodes default-child-depth="10"
-            selected-items="{{_selectedItems}}" selected-item="{{_selectedItem}}" multi-select="[[multiSelect]]" disable-child-node="[[disableChildNode]]"></pebble-tree>
+        <div class="base-grid-structure">
+            <div class="base-grid-structure-child-1">
+                <div class="search-container">
+                    <bedrock-pubsub event-name="rock-search" handler="_onSearch" target-id="searchBar"></bedrock-pubsub>
+                    <template is="dom-if" if="{{_showSearchBar}}">
+                        <rock-search-bar id="searchBar" placeholder="Enter Search text"></rock-search-bar>
+                        <div class="resetsearch" hidden$="[[!_resetSearchEnabled]]">
+                            <pebble-button icon="pebble-icon:reset" class="btn-link pebble-icon-color-blue" on-tap="_resetSearch" button-text="Reset Search"></pebble-button>
+                        </div>
+                    </template>
+                </div>
+            </div>
+            <div class="base-grid-structure-child-2">
+                <template is="dom-if" if="{{_isSearchMode}}">
+                    <pebble-tree id="contextTree" leaf-node-only="[[leafNodeOnly]]" data="{{classifications}}" check-child-nodes default-child-depth="10"
+                        selected-items="{{_selectedItems}}" selected-item="{{_selectedItem}}" multi-select="[[multiSelect]]"
+                        disable-child-node="[[disableChildNode]]"></pebble-tree>
+                </template>
+                <template is="dom-if" if="{{!_isSearchMode}}">
+                    <pebble-tree id="contextTree" class="contextTree" leaf-node-only="[[leafNodeOnly]]" data="{{classifications}}" check-child-nodes
+                        default-child-depth="10" selected-items="{{_selectedItems}}" selected-item="{{_selectedItem}}" multi-select="[[multiSelect]]"
+                        disable-child-node="[[disableChildNode]]"></pebble-tree>
+                </template>
+            </div>
+        </div>
         <bedrock-pubsub event-name="tree-node-child-list-refreshed" handler="_childListRefreshed"></bedrock-pubsub>
         <liquid-rest id="classificationModelGet" url="/data/pass-through/entitymodelservice/get" method="POST" request-data="{{_classificationModelRequest}}"
             on-liquid-response="_onClassificationModelGetResponse"></liquid-rest>
+        <pebble-spinner active="[[_loading]]"></pebble-spinner>
     </template>
     <script>
         Polymer({
@@ -57,11 +128,30 @@
                         return {};
                     }
                 },
+                lineagerequest: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                },
                 _dataFormatter: {
                     type: Object,
                     value: function () {
                         return {};
                     }
+                },
+                _isSearchMode: {
+                    type: Boolean,
+                    value: false
+                },
+                _loading: {
+                    type: Boolean,
+                    value: false
+                },
+
+                _showSearchBar: {
+                    type: Boolean,
+                    value: false
                 },
                 /**
                   * <b><i>Content development is under progress... </b></i> 
@@ -149,7 +239,7 @@
                     }
                 },
 
-                disableChildNode:{
+                disableChildNode: {
                     type: Boolean,
                     value: false
                 }
@@ -165,7 +255,19 @@
             listeners: {
                 'tree-node-expanded': '_treeNodeExpanded'
             },
-
+            _onSearch: function (e) {
+                this._isSearchMode = true;
+                this.executeRequest("", e.detail.query);
+                this._clearSelectedItems();
+            },
+            _resetSearch: function () {
+                this._isSearchMode = false;
+                this._clearSelectedItems();
+                this.executeRequest("");
+                this._searchBarElement = this.shadowRoot.querySelector("#searchBar");
+                this._searchBarElement.clear();
+                this._searchBarElement.$.input.value = "";
+            },
             _onSelectedItemsChange: function (selectedItems, _selectedItem) {
                 //Set the output
                 if (selectedItems != undefined || _selectedItem != undefined) {
@@ -174,9 +276,47 @@
                     } else {
                         this.selectedClassifications = [this._selectedItem];
                     }
+                    if (this._isSearchMode) {
+                        var req = {
+                            "params": {
+                                "query": {
+                                    "filters": {
+                                        "typesCriterion": [
+                                            "classification"
+                                        ]
+                                    }
+                                },
+                                "fields": {
+                                    "relationships": [
+                                        "belongsto"
+                                    ],
+                                    "relationshipAttributes": [
+                                        "lineagepath"
+                                    ]
+                                }
+                            }
+                        };
+                        DataRequestHelper.addDefaultContext(req);
+                        if (this.selectedClassifications) {
+                            req.params.query.ids = [];
+                            this.selectedClassifications.forEach((classification) => {
+                                req.params.query.ids.push(classification.id);
+                            });
+
+                            this.lineagerequest = req;
+                            var lineagepathElement = this.$$("#lineagepath");
+                            if (lineagepathElement) {
+                                this._loading = true;
+                                lineagepathElement.generateRequest();
+                            }
+
+                        }
+                    }
                 }
             },
-
+            _clearSelectedItems: function () {
+                this._selectedItems = [];
+            },
             //Trigger generateRequest from consumer to load the classifications
             generateRequest: function () {
                 //Capture the input details and set to empty for output
@@ -190,7 +330,6 @@
                 this._classificationModelRequest = DataRequestHelper.createGetManageModelRequest(["classification"]);
 
                 var classificationModelGetElement = this.$$("#classificationModelGet");
-
                 if (classificationModelGetElement) {
                     classificationModelGetElement.generateRequest();
                 }
@@ -216,7 +355,31 @@
                 }
             },
 
-            executeRequest: function (parentClassificationId) {
+            _onLineagePathResponse: function (e) {
+                if (DataHelper.isValidObjectPath(e, 'detail.response')) {
+                    var response = e.detail.response;
+                    if (response.content && response.content.entities) {
+                        var entities = response.content.entities;
+                        var map = {};
+
+                        entities.forEach(e => {
+                            if (DataHelper.isValidObjectPath(e, 'data.relationships.belongsto.0.attributes.lineagepath.values.0.value')) {
+                                map[e.id] = e.data.relationships.belongsto[0].attributes.lineagepath.values[0].value;
+                            }
+                        })
+
+                        var eventData = {
+                            name: "detailresponsereceived",
+                            data: map
+                        }
+                        this._loading = false;
+                        this.dispatchEvent(new CustomEvent('bedrock-event', { detail: eventData, bubbles: true, composed: true }));
+                    }
+                }
+            },
+
+
+            executeRequest: function (parentClassificationId, searchKeyword) {
                 var relEntityType = "classification";
                 var relType = "belongsto";
 
@@ -236,13 +399,18 @@
                 var classificationCriteria = {};
                 classificationCriteria[relType] = { "relTo": { "id": parentClassificationId, "type": relEntityType } };
                 itemContext.relationshipsCriterion = [classificationCriteria];
-
                 contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
                 contextData[ContextHelper.CONTEXT_TYPE_VALUE] = [];
                 contextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
 
-                var req = DataRequestHelper.createEntityGetRequest(contextData);
+                if (searchKeyword) {
+                    delete itemContext.relationshipsCriterion;
+                }
 
+                var req = DataRequestHelper.createEntityGetRequest(contextData);
+                if (searchKeyword) {
+                    req.params.query.filters.keywordsCriterion = { "operator": "_AND", "keywords": searchKeyword };
+                }
                 delete req.params.options;
 
                 this.set('request', req);
@@ -269,6 +437,7 @@
                 liqGetSearchResultDetail.generateRequest();
             },
             _onGetSearchResultDetailResponse: function (e) {
+                this._showSearchBar = true;
                 var res = e.detail.response;
                 var classifications = res.content.entities;
                 for (var i in classifications) {
@@ -281,7 +450,7 @@
                 }
 
                 this._classificationsList = this._classificationsList.concat(classifications);
-                
+
                 this._currentRecord += 20;
                 if (this._currentRecord < this._totalRecords) {
                     this._makeNextBatchSearchDetailCall();
@@ -338,7 +507,7 @@
                     }
                 }
                 this._currentIndex++;
-                if(this._currentNode) {
+                if (this._currentNode) {
                     if (this._currentNode.expanded) {
                         this._checkForSelectedClassification();
                     } else {

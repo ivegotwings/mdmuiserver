@@ -104,18 +104,13 @@ fileDownloadRoute(app);
 
 logger.info('Web engine start - filedownload routes are loaded');
 
-var clientLoggingRoute = require('../ruf-utilities/client-logging-route');
-clientLoggingRoute(app);
+var loggerRoute = require('../common/logger/logger-route');
+loggerRoute(app);
 
 logger.info('Web engine start - client logger routes are loaded');
 
 var healthCheckRoute = require('../api-healthcheck/api-health-check-route');
 healthCheckRoute(app);
-
-var loggerRoute = require('../common/logger/logger-route');
-loggerRoute(app);
-
-logger.info('Web engine start - client logger routes are loaded');
 
 var notificationEngine = require("../notification-engine/socket");
 var notificationService = require('../notification-service/notification-route');
