@@ -22,6 +22,7 @@ const ConfigurationService = require('./ConfigurationService');
 const EntityCompositeModelGetService = require('./EntityCompositeModelGetService');
 const EventService = require('../event-service/EventService');
 const EntityHistoryEventService = require('../event-service/EntityHistoryEventService');
+const DataObjectLineageService = require("./DataObjectLineageService");
 
 //falcor utilty functions' references
 const responseBuilder = require('./dataobject-falcor-response-builder');
@@ -47,6 +48,7 @@ const entityCompositeModelGetService = new EntityCompositeModelGetService(option
 const configurationService = new ConfigurationService(options);
 const eventService = new EventService(options);
 const entityHistoryEventService = new EntityHistoryEventService(options);
+const dataObjectLineageService = new DataObjectLineageService(options);
 
 const searchResultExpireTime = -30 * 60 * 1000;
 
@@ -405,10 +407,16 @@ async function get(dataObjectIds, reqData) {
     try {
         var res = undefined;
         var isCoalesceGet = false;
-        var isNearestGet = false;
+        var isNearestGet = false;  
 
         var service = _getService(reqData.dataObjectType);
         var request = createGetRequest(reqData);
+
+        if(reqData.dataObjectType == "classification") {
+            if(!isEmpty(reqData.relAttrNames) && reqData.relAttrNames[0] == "lineagepath") {
+                service = dataObjectLineageService;
+            }
+        }
 
         if ((request.dataIndex == "entityModel" && reqData.dataObjectType == 'entityCompositeModel' && request.dataSubIndex == "coalescedEntityModel") || (request.dataIndex == "entityData" && !isEmpty(request.dataSubIndex) && request.dataSubIndex == "coalescedData")) {
             if (!isEmpty(request.params.query.contexts)) {

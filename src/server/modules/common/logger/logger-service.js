@@ -95,9 +95,12 @@ LoggerService.prototype = {
     if (obj.response) {
       finalMessage += "[Response - " + JSON.stringify(obj.response) + "]";
     }
-    if (obj.detail) {
-      finalMessage += "[Detail - " + JSON.stringify(obj.detail) + "] ";
+    var detail = obj.detail ? obj.detail : obj;
+
+    if (detail) {
+      finalMessage += "[Detail - " + JSON.stringify(detail) + "] ";
     }
+    else (obj)
 
     formattedObj["logMessage"] = finalMessage;
 
