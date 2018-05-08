@@ -87,8 +87,8 @@
                         }
                     },
                     _runningInstances: {
-                        type: Array,
-                        value: function () { return []; }
+                        type: Object,
+                        value: function () { return {}; }
                     },
                     _foundWorkflowNames: {
                         type: Array,
@@ -186,7 +186,7 @@
                 
                 this._workflowCriterion = workflowCriterion || {};
 
-                const asyncAvailable = eventName == "action-takeTask" || eventName == "action-releaseTask" || eventName == "action-wfTransitions" || eventName == "action-add-context";
+                const asyncAvailable = eventName == "action-takeTask" || eventName == "action-releaseTask" || eventName == "action-wfTransitions" || eventName == "action-add-context" || eventName == "action-reassignTask";
 
                 if (!asyncAvailable || (asyncAvailable && selectionMode == "count")) {
                     if (DataHelper.isEmptyObject(selectedItems)) {
@@ -221,6 +221,8 @@
                         return this._showAssignmentDialog(this._currentAction, "take", selectionMode, selectionQuery);
                     case 'action-releaseTask':
                         return this._showAssignmentDialog(this._currentAction, "release", selectionMode, selectionQuery);
+                    case 'action-reassignTask':
+                        return this._showAssignmentDialog(this._currentAction, "reassign", selectionMode, selectionQuery);
                     case 'action-compare-entities':
                         return this._compareEntities();
                     case 'action-wfTransitions':
@@ -352,8 +354,20 @@
                     "workflow-name": workflowShortName,
                     "workflow-activity-name": workflowActivityName
                 };
+                var dialogTitle = "";
+                switch(action){
+                    case "take":
+                            dialogTitle = "Take Task - "+workflowName;
+                        break;
+                    case "release":
+                            dialogTitle = "Release Task - "+workflowName;
+                        break;
+                    case "reassign":
+                            dialogTitle = "Reassign Task - "+workflowName;
+                        break;
+                }
 
-                this.openBusinessFunctionDialog({name: detail.data.componentName}, sharedData);
+                this.openBusinessFunctionDialog({name: detail.data.componentName, title:dialogTitle}, sharedData);
             }
 
             _toggleActionItems() {
@@ -428,14 +442,16 @@
                 if (detail.data.eventName == "action-releaseTask") {
                     this._currentWorkflowAction = "release";
                 }
-
+                if (detail.data.eventName == "action-reassignTask") {
+                    this._currentWorkflowAction = "reassign";
+                }
+                
                 if (this.workflowInfo && this.workflowInfo.data) {
                     var foundWorkflowNames = [];
-                    var runningInstances = [];
+                    var runningInstances = {};
 
                     //Note: Here, workflow runtime data would be always in the context of workflow so no need to check for data.attributes
                     var contexts = this.workflowInfo.data && this.workflowInfo.data.contexts ? this.workflowInfo.data.contexts : [];
-
                     for (var i = 0; i < contexts.length; i++) {
                         var currContextItem = contexts[i];
                         var currContext = currContextItem.context;
@@ -445,9 +461,16 @@
                         if (currWorkflowName) {
                             var runtimeInstance = {
                                 "name": currWorkflowName,
-                                "activityName": AttributeHelper.getFirstAttributeValue(contexts[i].attributes.activities.group[0].activityName)
+                                "activityName": AttributeHelper.getFirstAttributeValue(contextAttrs.activities.group[0].activityName),
+                                "activityExternalName": AttributeHelper.getFirstAttributeValue(contextAttrs.activities.group[0].externalName),
+                                "activityAssignedUser": AttributeHelper.getFirstAttributeValue(contextAttrs.activities.group[0].assignedUser)
                             };
-
+                            if(contextAttrs.activities.group[0].allowedRoles){
+                                runtimeInstance["activityAllowedRoles"] = AttributeHelper.getAttributeValues(contextAttrs.activities.group[0].allowedRoles.values)
+                            }
+                            if(contextAttrs.activities.group[0].allowedUsers){
+                                runtimeInstance["activityAllowedUsers"] = AttributeHelper.getAttributeValues(contextAttrs.activities.group[0].allowedUsers.values)
+                            }
                             runningInstances[currWorkflowName] = {};
                             runningInstances[currWorkflowName] = runtimeInstance;
                             foundWorkflowNames.push(currWorkflowName);
@@ -458,9 +481,22 @@
                         this.set("_foundWorkflowNames", foundWorkflowNames);
                         var itemContext = this.getFirstItemContext();
                         itemContext.workflowNames = foundWorkflowNames;
-
-                        this.workflowDefinitionRequest = DataRequestHelper.createWorkflowDefinitionGetRequest(this.contextData);
-                        this.shadowRoot.querySelector("#entityGetWorkflowDefinition").generateRequest();
+                        if(this._currentWorkflowAction == "reassign"){
+                            const sharedData = {
+                                "selected-entities": DataHelper.cloneObject(this.getItemContexts()),
+                                "workflow-running-instance":runningInstances,
+                                "found-workflow-names":foundWorkflowNames
+                            };
+                            var dialogTitle = "Reassign Task";
+                            if((Object.keys(runningInstances).length == 1)
+                                && runningInstances[foundWorkflowNames[0]]["activityExternalName"]){
+                                dialogTitle += " - "+runningInstances[foundWorkflowNames[0]]["activityExternalName"];
+                            }
+                            this.openBusinessFunctionDialog({ name: 'rock-wizard-reassign-task', title:dialogTitle }, sharedData); 
+                        }else{
+                            this.workflowDefinitionRequest = DataRequestHelper.createWorkflowDefinitionGetRequest(this.contextData);
+                            this.shadowRoot.querySelector("#entityGetWorkflowDefinition").generateRequest();
+                        }
                     } else {
                         this.showErrorToast("Entity is not available in any workflow.");
                     }
