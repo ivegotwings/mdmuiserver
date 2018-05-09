@@ -1979,6 +1979,11 @@ The following JSON object is a sample of data which binds the grid.
           this.shadowRoot.querySelector('#gridMsgDialog').open();
         },
         _onDeleteEntityRelationshipAction: function (e, detail) {
+          // deleted only newly added record then reload reloadRelationshipLov and return
+          if(detail.deleted){
+            this._reloadRelationshipLov(detail.id);
+            return;
+          }
           this._modifiedEntityRelationship = { event: e, detail: detail, action: "delete" };
           this.openGridMsgDialog("Are you sure you want to delete?");
         },
@@ -1999,9 +2004,28 @@ The following JSON object is a sample of data which binds the grid.
             var grid = this._getRelationshipGrid();
             var selectedItems = grid.getSelectedItems();
             if (selectedItems && selectedItems.length) {
-              var detail = { "selectedItems": selectedItems };
-              this._modifiedEntityRelationship = { event: e, detail: detail, action: "bulk-delete" };
-              this.openGridMsgDialog("Are you sure you want to delete?");
+              var newRecords = [];
+              var savedRecords = [];
+              for(let idx=0; idx < selectedItems.length; idx++){
+                  var item = selectedItems[idx];
+                  if(item && item._rowStatus && item._rowStatus.status && item._rowStatus.status == 'new'){
+                      newRecords.push(item);
+                  }else{
+                      savedRecords.push(item);
+                  }
+              }
+
+              // delete selected records with status 'new'
+              if(newRecords && newRecords.length){
+                this._deleteNewlyAddedRecords(newRecords);
+              }
+
+              // delete already saved records
+              if(savedRecords && savedRecords.length){
+                var detail = { "selectedItems": savedRecords };
+                this._modifiedEntityRelationship = { event: e, detail: detail, action: "bulk-delete" };
+                this.openGridMsgDialog("Are you sure you want to delete?");
+              }
             } else {
               this.showInformationToast("Please select at least one relationship from grid to delete.");
             }
@@ -2205,7 +2229,34 @@ The following JSON object is a sample of data which binds the grid.
             clientState.notificationInfo = {};
             clientState.notificationInfo.showNotificationToUser = true;
             this._saveRequest["clientState"] = clientState;
-        }
+        },
+
+        /**
+				 * Delete the records with status 'new'.
+         * {newRecords} newRecords reocrds having status 'new'
+				 */
+        _deleteNewlyAddedRecords: function(newRecords){
+          var grid = this._getRelationshipGrid();
+          // delete newly added records from grid and reload the relationshipLov
+          newRecords.forEach(function(newItem){
+              grid._deleteNewRow({}, newItem.id);
+              this._reloadRelationshipLov(newItem.id);
+          }, this);
+        },
+
+        /**
+				 * Reload the relationshipLov.
+         * {id} id used for filter
+				 */
+        _reloadRelationshipLov: function(id){
+          var relationshipLov = Polymer.dom(this).node.shadowRoot.querySelector('rock-entity-lov[id=lov_' + this.relationship + ']');
+          if (relationshipLov && relationshipLov.selectedItems) {
+            // reload the relationshipLov
+            relationshipLov.selectedItems = relationshipLov.selectedItems.filter(function(selectedItem){
+              return selectedItem.id != id;
+            });
+          }
+        },
       });
     })();
   </script>
