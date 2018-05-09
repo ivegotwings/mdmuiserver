@@ -66,9 +66,6 @@ var LOGGER_CONFIG = function () {
         "pass-through": {
             "level": "info"
         },
-        "ruf-utilities": {
-            "level": "info"
-        },
         "version-service": {
             "level": "info"
         },
@@ -236,8 +233,31 @@ var LOGGER_CONFIG = function () {
         },
         "/entityappservice/delete": {
             "level": "info"
+        },
+        "ui-main-app": {
+            "level": "info"
+        },
+        "ui-app-common": {
+            "level": "info"
+        },
+        "ui-app-dashboard": {
+            "level": "info"
+        },
+        "ui-app-entity-discovery": {
+            "level": "info"
+        },
+        "ui-app-entity-manage": {
+            "level": "info"
+        },
+        "ui-app-task-detail": {
+            "level": "info"
+        },
+        "ui-liquid-manager": {
+            "level": "info"
+        },
+        "ui-config-manager": {
+            "level": "info"
         }
-
     };
 
     this.getBaseModulesObject = function () {

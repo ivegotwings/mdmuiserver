@@ -214,7 +214,6 @@ It manages the current extensions and creates the new extensions.
                         value: function() {
                             return {
                                 "params": {
-                                    "reclassification": true,
                                     "operationType": "inboundService",
                                     "data": {
                                         "contexts": []
@@ -491,7 +490,9 @@ It manages the current extensions and creates the new extensions.
 
                             this._triggerAsyncReclassification(); //Trigger async process for 20+ entities OR query selection
                         } else {
-                            this._prepareGetContextRequest(); //Bulk entities context get
+                            //this._prepareGetContextRequest(); //Trigger bulk process based on selected entities context
+                            //Triggering bulk process based on selected classification
+                            this._prepareBulkReclassificationSaveRequest();
                         }
                     } else {
                         var data = {};
@@ -508,11 +509,23 @@ It manages the current extensions and creates the new extensions.
                     }
                 },
 
+                _getSelectedClassifications: function() {
+                    var originalClassifications = [];
+                    for (var ctxIdx = 0; ctxIdx < this.contextData.Contexts.length; ctxIdx++) {
+                        originalClassifications.push(this.contextData.Contexts[ctxIdx].classification);
+                    }
+
+                    return originalClassifications;
+                },
+
                 _prepareBulkReclassificationSaveRequest: function () {
                     var entities = [];
+                    //Get selected classifications from context
+                    var originalClassifications = this._getSelectedClassifications();
                     for (var entityIdx = 0; entityIdx < this.selectedEntities.length; entityIdx++) {
                         var data = {};
-                        data.contexts = this._prepareContexts(this._selectedItems, this._entitiesCurrentClassifications[this.selectedEntities[entityIdx].id]);
+                        //this._entitiesCurrentClassifications[this.selectedEntities[entityIdx].id], go with selected classification
+                        data.contexts = this._prepareContexts(this._selectedItems, originalClassifications);
                         var entity = {
                             "id": this.selectedEntities[entityIdx].id,
                             "type": this.selectedEntities[entityIdx].type,
@@ -569,8 +582,12 @@ It manages the current extensions and creates the new extensions.
                         // Not in current selected list, then action to delete
                         if (!isSelected) {
                             context["classification"] = entityCurrentClassifications[i];
-                            if (this._taxonomyExtName) {
-                                context["taxonomy"] = this._taxonomyExtName;
+                            if(this.isBulkProcess) {
+                                context["taxonomy"] = this.contextData.Contexts[0].taxonomy;
+                            } else {
+                                if (this._taxonomyExtName) {
+                                    context["taxonomy"] = this._taxonomyExtName;
+                                }
                             }
 
                             deletedcontexts.push(context);
@@ -596,6 +613,7 @@ It manages the current extensions and creates the new extensions.
                         var clientState = {};
                         clientState.notificationInfo = {};
                         clientState.notificationInfo.showNotificationToUser = false;
+                        clientState.notificationInfo.actionType = "addContext";
                         this.set("_saveRequest", { "clientState": clientState, "entities": entities });
                     } else {
                         this.set("_saveRequest", { "entities": entities });
@@ -640,14 +658,16 @@ It manages the current extensions and creates the new extensions.
                             }
 
                             //Entity Id, Previous Classification(s)
+                            var previousClassifications = this._getSelectedClassifications();
                             for(var entityIdx = 0; entityIdx < entities.length; entityIdx++) {
                                 var message = {
                                     "Entity Id": entities[entityIdx].id
                                 };
 
                                 message["Previous Classification(s)"] = "";
-                                if(this._entitiesCurrentClassifications[entities[entityIdx].id]) {
-                                    message["Previous Classification(s)"] = this._entitiesCurrentClassifications[entities[entityIdx].id].join(", ");
+                                //this._entitiesCurrentClassifications[entities[entityIdx].id]
+                                if(previousClassifications) {
+                                    message["Previous Classification(s)"] = previousClassifications.join(", ");
                                 }
 
                                 message["New Classification(s)"] = newClassifiactions;
@@ -668,7 +688,7 @@ It manages the current extensions and creates the new extensions.
                         var eventDetail = {
                             name: eventName,
                             "action": {
-                                "name": "refresh-classification"
+                                "name": "refresh-dimension-selector"
                             }
                         };
                         if (eventName && this.functionalMode == "dataFunction") {
@@ -691,7 +711,7 @@ It manages the current extensions and creates the new extensions.
 
                     if (isJob) {
                         noGrid = true;
-                        message = "Reclassification process is started, you can review the progress of the task " + this._taskId + " in task details.";
+                        message = "Reclassification process has started, you can review the progress of the task " + this._taskId + " in task details.";
                         actions.push({
                             "name": "gotoJobDetails",
                             "text": "Show me the task details",
@@ -702,7 +722,7 @@ It manages the current extensions and creates the new extensions.
                             }
                         });
                     } else {
-                        message = "Reclassification process is started, please refresh data grid after some time.";
+                        message = "Reclassification process has started, please refresh data grid after some time.";
                     }
 
                     var data = {
@@ -775,9 +795,9 @@ It manages the current extensions and creates the new extensions.
                         reclassificationRequest.params.query = this.selectionQuery.params ? this.selectionQuery.params.query : this.selectionQuery;
                     }
 
-                    //Add context
-                    var originalContexts = []
-                    reclassificationRequest.params.data.contexts = this._prepareContexts(this._selectedItems, originalContexts);
+                    //Get selected classifications from context
+                    var originalClassifications = this._getSelectedClassifications();
+                    reclassificationRequest.params.data.contexts = this._prepareContexts(this._selectedItems, originalClassifications);
 
                     //Add clientAttributes
                     var valueContext = ContextHelper.getFirstValueContext(this.contextData);
