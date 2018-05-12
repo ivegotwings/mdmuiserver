@@ -1,0 +1,437 @@
+<link rel="import" href="../../../bower_components/polymer/polymer-element.html">
+
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html" />
+<link rel="import" href="../bedrock-helpers/attribute-helper.html">
+<link rel="import" href="../bedrock-helpers/context-helper.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-helpers/data-request-helper.html">
+
+<link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
+
+<link rel="import" href="../pebble-button/pebble-button.html">
+<link rel="import" href="../pebble-data-table/pebble-data-table.html">
+<link rel="import" href="../pebble-icon/pebble-icon.html">
+<link rel="import" href="../pebble-lov/pebble-lov.html">
+<link rel="import" href="../pebble-popover/pebble-popover.html">
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
+<link rel="import" href="../pebble-textbox/pebble-textbox.html">
+
+<dom-module id="rock-workflow-selector">
+    <template>
+        <style include="bedrock-style-common">
+            pebble-data-table data-table-row[header] {
+                display: none;
+            } 
+            pebble-data-table data-table-row:not([header]) {
+                color: var(--palette-dark, #1a2028);
+                font-size: var(--default-font-size, 12px);
+                height: 100%;
+                background-color: var(--palette-white, #ffffff);
+            }        
+            pebble-data-table data-table-row:not([header]):hover,
+            pebble-data-table data-table-row[selected] {
+                background-color: var(--table-row-selected-color, #c1cad4) !important;
+            }        
+            pebble-data-table data-table-row:not([header]):hover data-table-checkbox,
+            pebble-data-table data-table-row[selected] data-table-checkbox {
+                background-color: var(--palette-white, #ffffff) !important;
+            }
+            pebble-data-table {
+                /*width: 50%;*/
+                --data-table-container-position: relative;
+                --pebble-data-table-header : {
+                    display: none;
+                };
+                --list:{
+                    min-height:70px;
+                }           
+            }
+
+            data-table-cell {
+                height: 35px;
+                padding-left: 20px;
+                padding-right: 0;
+                position: relative;
+                flex-basis: auto!important;
+            }
+            data-table-cell #iconDiv {
+                position: absolute;
+                right: 6px;
+                bottom: 5px;
+            }
+            data-table-cell #inputDiv {
+                width: 100%;
+            }
+            .actionButtons {
+                text-align: center;
+            }
+            pebble-textbox {
+                --paper-input-container: {
+                    padding-top: 0px;
+                    padding-right: 0px;
+                    padding-bottom: 0px;
+                    padding-left: 0px;
+                    position: relative;
+                }
+            }        
+            #inputDiv  pebble-textbox {
+                --pebble-textbox-paper-input-style : {  
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                    width: 90%;
+                }
+            }
+            #buttonContainer{
+                margin-top:20px;
+                text-align: center;
+            }
+            .message {
+                text-align: center;
+            }
+            .workflowGridContainer {
+                padding: 0 25% 0 25%;
+            }
+        </style>
+        <pebble-spinner active="[[_loading]]"></pebble-spinner>
+        <div class="message">[[_message]]</div>
+        <liquid-entity-model-get id="getWorkflowDefinition" operation="getbyids" request-id="req1"
+            on-response="_onDefinitionReceived" on-error="_onDefinitionGetFailed"></liquid-entity-model-get>
+        <template is="dom-if" if="[[_enableWorkflowSelection]]">
+            <div class="workflowGridContainer base-grid-structure-child-2">
+                <div class="p-10">
+                    <pebble-data-table id="workflow-grid" items="[[workflowGridData]]">
+                        <data-table-column slot="column-slot">
+                            <template>
+                                <div id="inputDiv" slot="cell-slot-content">
+                                    <pebble-textbox readonly id="workflow-text" value="[[item.name]]" no-label-float="true"></pebble-textbox>
+                                </div>
+                                <div id="iconDiv" slot="cell-slot-content">
+                                    <pebble-icon class="dropdown-icon pebble-icon-size-10" id="wtxtDropdownIcon" icon="pebble-icon:navigation-action-down"
+                                        on-tap="_openWorkflowModelLov"></pebble-icon>
+                                </div>
+                            </template>
+                        </data-table-column>
+                        <data-table-column slot="column-slot">
+                            <template>
+                                <div id="inputDiv" slot="cell-slot-content">
+                                    <pebble-textbox readonly id="activity-text" value="[[item.value]]" no-label-float="true"></pebble-textbox>
+                                </div>
+                            </template>
+                        </data-table-column>
+                    </pebble-data-table>
+                </div>
+                <pebble-popover id="workflowPopover" for="workflow-text" no-overlap vertical-align="auto" horizontal-align="auto">
+                    <pebble-lov id="workflowModelLov" items="[[_workflowModels]]" on-selection-changed="_onWorkflowLovSelectionChanged"></pebble-lov>
+                </pebble-popover>
+            </div>
+            <div id="buttonContainer" >
+                <pebble-button id="cancelButton" class="btn btn-secondary m-r-5" button-text="Cancel" on-tap="_onCancelTap" elevation=1 raised></pebble-button>
+                <pebble-button id="next" class="focus btn btn-success" button-text="Next" on-tap="_onNextTap" elevation=1 raised></pebble-button>
+            </div>
+        </template>
+    </template>
+
+    <script>
+        class RockWorkflowSelector extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.ComponentContextBehavior], Polymer.Element) {
+
+            static get is() { return 'rock-workflow-selector' }
+
+            static get properties() {
+                return {
+                    selectedEntities: {
+                        type: Array,
+                        value: function() {
+                            return {};
+                        }
+                    },
+                    contextData: {
+                        type: Object,
+                        value: function() {
+                            return {};
+                        }
+                    },
+                    workflowInfo: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    workflowGridData:{
+                        type: Array,
+                        value: function () {
+                            return [
+                                {
+                                    "name": "",
+                                    "value": ""
+                                }    
+                            ];
+                        } 
+                    },
+                    _workflowModels: {
+                        type: Array,
+                        value:function(){
+                            return [];
+                        }
+                    },
+                    assignmentAction: {
+                        type: String,
+                        value: ""
+                    },
+                    workflowName: {
+                        type: String,
+                        value: ""
+                    },
+                    /**
+                    * Represents workflow external name
+                    */
+                    workflowExternalName: {
+                        type: String,
+                        value: ""
+                    },
+                    /**
+                    * Represents workflow activity name
+                    */
+                    workflowActivityName: {
+                        type: String,
+                        value: ""
+                    },
+                    /**
+                    * Represents workflow activity external name
+                    */
+                    workflowActivityExternalName: {
+                        type: String,
+                        value: ""
+                    },
+                    allowedRoles: {
+                        type: Array,
+                        value: function() {
+                            return [];
+                        }
+                    },
+                    currentUser: {
+                        type: String,
+                        value: ""
+                    },
+                    userToBeAssigned: {
+                        type: String,
+                        value: ""
+                    },
+                    _loading: {
+                        type: Boolean,
+                        value: true
+                    },
+                    _message: {
+                        type: String
+                    },
+                    _enableWorkflowSelection: {
+                        type: Boolean,
+                        value: false
+                    },
+                    _selectedWorkflowData: {
+                        type: Object,
+                        value: function() {
+                            return {};
+                        }
+                    }
+                }
+            }
+
+            static get observers() {
+                return [
+                    '_workflowDataChanaged(contextData, workflowInfo)'
+                ]
+            }
+
+            connectedCallback() {
+                super.connectedCallback();
+            }
+
+            _workflowDataChanaged(contextData, workflowInfo) {
+                if(!_.isEmpty(contextData) && !_.isEmpty(workflowInfo)) {
+                    var foundWorkflowNames = this._getWorkflowNames(workflowInfo);
+                    this._message = "Setting up the workflow Data...";
+                    var firstItemContext = ContextHelper.getFirstItemContext(contextData) || {};
+                    firstItemContext.workflowNames = foundWorkflowNames;
+
+                    var workflowDefGetRequest = DataRequestHelper.createWorkflowDefinitionGetRequest(contextData);
+                    var workflowDefGetLiquid = this.shadowRoot.querySelector("#getWorkflowDefinition");
+                    if(workflowDefGetLiquid) {
+                        workflowDefGetLiquid.requestData = workflowDefGetRequest;
+                        workflowDefGetLiquid.generateRequest();
+                    }
+                }
+            }
+
+            _getWorkflowNames(workflowInfo) {
+                var workflowNames = [];
+                for(let idx = 0; idx < workflowInfo.length; idx++) {
+                    var wfName = workflowInfo[idx].name;
+                    workflowNames.push(wfName);
+                }
+
+                return workflowNames;
+            }
+
+            _onDefinitionReceived(e) {
+                var workflowDefinitionResponse = e.detail.response;
+                if(DataHelper.isValidObjectPath(workflowDefinitionResponse, "content.entityModels") && workflowDefinitionResponse.content.entityModels.length > 0) {
+                    var entityModels = workflowDefinitionResponse.content.entityModels;
+                    this._prepareWorkflowLovData(entityModels);
+                }
+            }
+
+            _onDefinitionGetFailed(e) {
+                Polymer.Base._error('workflow definition get failed with error ', e.detail);
+            }
+
+            _prepareWorkflowLovData(entityModels) {
+                var workflowLovData = [];
+                for(let wfIdx = 0; wfIdx < this.workflowInfo.length; wfIdx++) {
+                    var workflowData = this.workflowInfo[wfIdx];
+                    var wfName = workflowData.name;
+                    var wfActivityName = workflowData.activityName;
+                    var wfExternalName;
+                    var wfActivityExternalName;
+                    var allowedRoles;
+                    var assignedUser = workflowData.activityAssignedUser;
+                    var defModel = entityModels.find(obj => obj.name === wfName);
+                    if(DataHelper.isValidObjectPath(defModel, "data.attributes.activities.group") && defModel.data.attributes.activities.group.length > 0) {
+                        wfExternalName = AttributeHelper.getFirstAttributeValue(defModel.data.attributes.workflowName);
+                        var group = defModel.data.attributes.activities.group;
+                        var activityRow = group.find(function(obj) {
+                            if(AttributeHelper.getFirstAttributeValue(obj.activityName) === wfActivityName) {
+                                return obj;
+                            }
+                        });
+
+                        if(activityRow) {
+                            wfActivityExternalName = AttributeHelper.getFirstAttributeValue(activityRow.externalName);
+                            allowedRoles = DataHelper.isValidObjectPath(activityRow, "allowedRoles.values") && AttributeHelper.getAttributeValues(activityRow.allowedRoles.values);
+
+                            var workflowRowData = {
+                                name: wfName,
+                                title: wfExternalName,
+                                data: {
+                                    wfName : wfName,
+                                    wfExternalName: wfExternalName,
+                                    wfActivityName: wfActivityName,
+                                    wfActivityExternalName: wfActivityExternalName,
+                                    allowedRoles: allowedRoles,
+                                    assignedUser: assignedUser
+                                }
+                            }
+
+                            workflowLovData.push(workflowRowData);
+                        }
+                    }
+                }
+
+                this.set("_workflowModels", workflowLovData);
+
+                if(this._workflowModels && this._workflowModels.length == 1) {
+                    this._selectedWorkflowData = this._workflowModels[0].data;
+                    this._onNextTap();
+                } else {
+                    this._message = "Select workflow for assignment.";
+                    this._enableWorkflowSelection = true;
+                    this._loading = false;
+                }
+            }
+
+            _openWorkflowModelLov(e) {
+                var popover = this.shadowRoot.querySelector("#workflowPopover");
+                if(popover) {
+                    popover.show();
+                }
+            }
+
+            _onWorkflowLovSelectionChanged(e) {
+                var wfTxtBox = this.root.querySelector("#workflow-text");
+                var wfActivityTxtbox = this.root.querySelector("#activity-text");
+                if(!wfTxtBox) {
+                    wfTxtBox = this.shadowRoot.querySelector("#workflow-text");
+                }
+                if(!wfActivityTxtbox) {
+                    wfActivityTxtbox = this.shadowRoot.querySelector("#activity-text");
+                }
+
+                if(DataHelper.isValidObjectPath(e, "detail.item.data")) {
+                    if(wfTxtBox) {
+                        wfTxtBox.value = e.detail.item.data.wfExternalName;
+                    }
+
+                    if(wfActivityTxtbox) {
+                        wfActivityTxtbox.value = e.detail.item.data.wfActivityExternalName;
+                    }
+                }
+
+                var popover = this.shadowRoot.querySelector("#workflowPopover");
+                if(popover) {
+                    popover.hide();
+                }
+            }
+
+            _onNextTap(e) {
+                if(_.isEmpty(this._selectedWorkflowData)) {
+                    var workflowModelLov = this.shadowRoot.querySelector("#workflowModelLov");
+
+                    if(workflowModelLov) {
+                        this._selectedWorkflowData = workflowModelLov.selectedItem ? workflowModelLov.selectedItem.data : {};
+                    }
+                }
+
+                if(!_.isEmpty(this._selectedWorkflowData)) {
+                    var eventData = {};
+
+                    if(this.assignmentAction !== "reassign") {
+                        eventData["skipNext"] = true;
+                        var loggedUser = ContextHelper.getFirstUserContext(this.contextData);
+                        var loggedUserId = "";
+                        if(loggedUser && loggedUser.user){
+                            this.set("userToBeAssigned", loggedUser.user);
+                        }
+                    }
+
+                    this.set("workflowName", this._selectedWorkflowData.wfName);
+                    this.set("workflowExternalName", this._selectedWorkflowData.wfExternalName);
+                    this.set("workflowActivityName", this._selectedWorkflowData.wfActivityName);
+                    this.set("workflowActivityExternalName", this._selectedWorkflowData.wfActivityExternalName);
+                    this.set("allowedRoles", this._selectedWorkflowData.allowedRoles);
+                    this.set("currentUser", this._selectedWorkflowData.assignedUser);
+
+                    var activeBusinessFunctionDialog = RUFUtilities.activeBusinessFunctionDialog;
+                    if(activeBusinessFunctionDialog && activeBusinessFunctionDialog.setTitle) {
+                        var dialogTitle = activeBusinessFunctionDialog.title;
+                        dialogTitle = dialogTitle + " - " + this.workflowExternalName + " - " + this.workflowActivityExternalName;
+                        activeBusinessFunctionDialog.setTitle(dialogTitle);
+                    }
+
+                    var eventName = "onNext";
+                    var eventDetail = {
+                        name: eventName,
+                        data: eventData
+                    }
+
+                    this._loading = false;
+                    this.fireBedrockEvent(eventName, eventDetail, {
+                        ignoreId: true
+                    });
+                } else {
+                    this.showWarningToast("Please select a workflow for changing assignment.");
+                }
+            }
+
+            _onCancelTap() {
+                var eventName = "onCancel";
+                this.fireBedrockEvent(eventName, {}, {
+                    ignoreId: true
+                });
+            }
+        }
+
+        customElements.define(RockWorkflowSelector.is, RockWorkflowSelector);
+    </script>
+</dom-module>
