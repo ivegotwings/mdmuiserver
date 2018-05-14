@@ -6,7 +6,7 @@
 
     RUFUtilities.initializeLogger = function () {
         log4JSLogger = log4javascript.getLogger("RUFLogging");
-        var ajaxAppender = new log4javascript.AjaxAppender("/data/sendlogs");
+        var ajaxAppender = new log4javascript.AjaxAppender("/data/logger/sendlogs");
         var loglevel = "3";
         switch (loglevel) {
             case "0": ajaxAppender.setThreshold(log4javascript.Level.OFF);
@@ -27,7 +27,7 @@
         }
 
         ajaxAppender.addHeader("Content-Type", "application/json");
-        ajaxAppender.setBatchSize(3);
+        ajaxAppender.setBatchSize(1);
         ajaxAppender.sendAllOnUnload = true;
         ajaxAppender.setSessionId();
         var jsonLayout = new log4javascript.JsonLayout();
@@ -36,85 +36,55 @@
         log4javascript.logLog.setQuietMode(true);
     };
 
-    RUFUtilities.Logger.logMessage = function(options) {
-        if(!options.level) {
-            options.level = "info";
-        }
-        RUFUtilities.Logger.info(JSON.stringify(options));
-    }
-
-    RUFUtilities.Logger.getOptions = function(message, requestData, level) {
-        return {
-                 message : message,
-                 requestData: requestData,
-                 level: level
-               };
-    }
-
-    //Usage: RUFUtilities.Logger.trace(message[, message2, ... ][, exception])
-    RUFUtilities.Logger.trace = function () {
-        if (!log4JSLogger) {
-            console.error("RUF Logger is not initialized");
-            return;
-        }
-        log4JSLogger.trace(getArguments(arguments));
+    RUFUtilities.Logger.info = function (msg, obj, callerModuleName, calleeServiceName) {
+        return RUFUtilities.Logger.log('info', msg, obj, callerModuleName, calleeServiceName);
     };
 
-    //Usage: RUFUtilities.Logger.debug(message[, message2, ... ][, exception])
-    RUFUtilities.Logger.debug = function () {
-        if (!log4JSLogger) {
-            console.error("RUF Logger is not initialized");
-            return;
-        }
-        log4JSLogger.debug(getArguments(arguments));
+    RUFUtilities.Logger.fatal = function (msg, obj, callerModuleName, calleeServiceName) {
+        return RUFUtilities.Logger.log('fatal', msg, obj, callerModuleName, calleeServiceName);
     };
 
-    //Usage: RUFUtilities.Logger.info(message[, message2, ... ][, exception])
-    RUFUtilities.Logger.info = function () {
-        if (!log4JSLogger) {
-            console.error("RUF Logger is not initialized");
-            return;
-        }
-        log4JSLogger.info(getArguments(arguments));
+    RUFUtilities.Logger.warn = function (msg, obj, callerModuleName, calleeServiceName) {
+        return RUFUtilities.Logger.log('warn', msg, obj, callerModuleName, calleeServiceName);
     };
 
-    //Usage: RUFUtilities.Logger.warn(message[, message2, ... ][, exception])
-    RUFUtilities.Logger.warn = function () {
-        if (!log4JSLogger) {
-            console.error("RUF Logger is not initialized");
-            return;
-        }
-        log4JSLogger.warn(getArguments(arguments));
+    RUFUtilities.Logger.error = function (msg, obj, callerModuleName, calleeServiceName) {
+        //console.log('new error: ', msg, 'module: ', callerModuleName);
+        return RUFUtilities.Logger.log('error', msg, obj, callerModuleName, calleeServiceName);
     };
 
-    //Usage: RUFUtilities.Logger.error(message[, message2, ... ][, exception])
-    RUFUtilities.Logger.error = function () {
-        if (!log4JSLogger) {
-            console.error("RUF Logger is not initialized");
-            return;
-        }
-        log4JSLogger.error(getArguments(arguments));
+    RUFUtilities.Logger.debug = function (msg, obj, callerModuleName, calleeServiceName) {
+        return RUFUtilities.Logger.log('debug', msg, obj, callerModuleName, calleeServiceName);
     };
 
-    //Usage: RUFUtilities.Logger.fatal(message[, message2, ... ][, exception])
-    RUFUtilities.Logger.fatal = function () {
+    RUFUtilities.Logger.log = function (level, msg, obj, callerModuleName, calleeServiceName) {
+        return this._log(level, msg, obj, callerModuleName, calleeServiceName);
+    };
+
+    RUFUtilities.Logger._log = function (level, msg, obj, callerModuleName, calleeServiceName) {
         if (!log4JSLogger) {
             console.error("RUF Logger is not initialized");
             return;
         }
-        log4JSLogger.fatal(getArguments(arguments));
+
+        if(callerModuleName && callerModuleName.indexOf("ui-") != 0) {
+            callerModuleName = "ui-" + callerModuleName;
+        }
+
+        var logObj = {
+            level: level,
+            msg: msg,
+            obj: obj,
+            callerModuleName: callerModuleName,
+            calleeServiceName: calleeServiceName
+        };
+
+        //console.log(level, logObj);
+        log4JSLogger[level](JSON.stringify(logObj));
     };
 
     function getQueryStringValue(key) {
         return decodeURIComponent(window.location.search.replace(new RegExp("^(?:.*[&\\?]" + encodeURIComponent(key).replace(/[\.\+\*]/g, "\\$&") + "(?:\\=([^&]*))?)?.*$", "i"), "$1"));
-    }
-
-    function getArguments(params){
-        var args = [];
-        for (var i = 0, len = params.length; i < len; i++) {
-            args.push(params[i]);
-        }
-        return args;
     }
 
 })();

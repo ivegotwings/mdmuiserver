@@ -22,7 +22,10 @@
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
         <div class="message">[[_message]]</div>
 
-        <liquid-rest id="entityWfAssignment" url="/pass-through-bulk/entitygovernservice/workflowChangeAssignment" method="POST"
+        <liquid-rest id="entityWfAssignment" url="/data/pass-through/entitygovernservice/workflowChangeAssignment" method="POST"
+            on-liquid-response="_onAssignmentSuccess" on-liquid-error="_onAssignmentFailure"></liquid-rest>
+
+        <liquid-rest id="entityWfBulkAssignment" url="/pass-through-bulk/entitygovernservice/workflowChangeAssignment" method="POST"
             on-liquid-response="_onAssignmentSuccess" on-liquid-error="_onAssignmentFailure"></liquid-rest>
 
         <liquid-rest id="asyncEntityWfAssignment" url="/data/pass-through-combined-query/bulkentityservice/createtask" method="POST"
@@ -127,6 +130,13 @@
                     syncThreshold: {
                         type: String,
                         value: 20
+                    },
+                    userToBeAssigned:{
+                        type:Object
+                    },
+                    isSingleEntityProcess: {
+                        type: Boolean,
+                        value: false
                     }
                 },
 
@@ -142,6 +152,11 @@
                 get asyncEntityWfAssignmentLiq() {
                     this._asyncEntityWfAssignmentLiq = this._asyncEntityWfAssignmentLiq || this.shadowRoot.querySelector("#asyncEntityWfAssignment");
                     return this._asyncEntityWfAssignmentLiq;
+                },
+
+                get entityWfBulkAssignmentLiq() {
+                    this._entityWfBulkAssignmentLiq = this._entityWfBulkAssignmentLiq || this.shadowRoot.querySelector("#entityWfBulkAssignment");
+                    return this._entityWfBulkAssignmentLiq;
                 },
 
                 get entityWfAssignmentLiq() {
@@ -189,7 +204,7 @@
                     };
 
                     //Prepare request without entity
-                    var workflowAssignmentRequest = DataRequestHelper.createWfChangeAssignmentRequest(null, workflowDetails, this.contextData, this.assignmentAction);
+                    var workflowAssignmentRequest = DataRequestHelper.createWfChangeAssignmentRequest(null, workflowDetails, this.contextData, this.assignmentAction, this.userToBeAssigned);
 
                     //Add hotline flag if hotline is enabled
                     if(DataHelper.isHotlineModeEnabled()) {
@@ -257,10 +272,18 @@
                             }
                         }
 
-                        workflowAssignmentRequest["entities"] = entities;
-                        if (this.entityWfAssignmentLiq) {
-                            this.entityWfAssignmentLiq.requestData = workflowAssignmentRequest;
-                            this.entityWfAssignmentLiq.generateRequest();
+                        if(this.isSingleEntityProcess) {
+                            workflowAssignmentRequest["entity"] = entities[0];
+                            if (this.entityWfAssignmentLiq) {
+                                this.entityWfAssignmentLiq.requestData = workflowAssignmentRequest;
+                                this.entityWfAssignmentLiq.generateRequest();
+                            }
+                        } else {
+                            workflowAssignmentRequest["entities"] = entities;
+                            if (this.entityWfBulkAssignmentLiq) {
+                                this.entityWfBulkAssignmentLiq.requestData = workflowAssignmentRequest;
+                                this.entityWfBulkAssignmentLiq.generateRequest();
+                            }
                         }
                     }
                 },
@@ -269,6 +292,22 @@
                     var request = e.detail.request;
                     var responseList = e.detail.response;
                     this._responseMessages = [];
+
+                    if(responseList && responseList.response && responseList.response.status && responseList.response.status.toLowerCase() == "error" && responseList.response.statusDetail) {
+                        this._message = "Assignment request failed with following error: " + responseList.response.statusDetail.message;
+                        this._loading = false;
+                        return;
+                    }
+
+                    if(this.isSingleEntityProcess) {
+                        if (responseList && responseList.response && responseList.response.status && responseList.response.status.toLowerCase() == "success") {
+                            var message = this.assignmentAction.toLowerCase() == "take" ? "Successfully assigned" : this.assignmentAction.toLowerCase() == "reassign" ? "Successfully re-assigned" : "Successfully released";
+                            var responseMessage = { "Message": message};
+                            this._responseMessages.push(responseMessage);
+                            this._triggerFinishStep();
+                            return;
+                        }
+                    }
 
                     for(var i = 0; i < responseList.length; i++) {
                         //set id
@@ -284,7 +323,7 @@
                         //Success
                         if (!_.isEmpty(response) && response.status.toLowerCase() == "success" && 
                             response.statusDetail && response.statusDetail.message) {
-                            assignmentResponse["Message"] = this.assignmentAction.toLowerCase() == "take" ? "Successfully assigned" : "Successfully released";
+                            assignmentResponse["Message"] = this.assignmentAction.toLowerCase() == "take" ? "Successfully assigned" : this.assignmentAction.toLowerCase() == "reassign" ? "Successfully re-assigned" : "Successfully released";
                         } //Error
                         else if (!_.isEmpty(response) && response.status.toLowerCase() == "error" && 
                             response.statusDetail && response.statusDetail.message) {
@@ -345,7 +384,11 @@
                         "isNotApp": true
                     }];
 
-                    if(isJob) {
+                    if(this.isSingleEntityProcess) {
+                        noGrid = true;
+                        message = this._responseMessages && this._responseMessages[0] ? this._responseMessages[0].Message : "";
+                        this._responseMessages = [];
+                    } else if(isJob) {
                         noGrid = true;
                         message = "Assignment process is started, you can review the progress of the task "+ this._taskId +" in task details.";
                         actions.push({

@@ -22,48 +22,25 @@
 @demo demo/index.html
 -->
 
-<dom-module id="rock-upload-s3">
+<dom-module id="rock-cloud-upload">
     <template>
         <style include="bedrock-style-common bedrock-style-gridsystem">
+
+            :host{
+                height:100%;
+                display:block;
+            }
+            .content-upload-wrapper{
+                height:100%;
+                padding:10px 0px;
+            }
             .placeHolder {
-                width: 880px;
-                max-height: 400px;
+                width: 70%;
+                height: 70%;
                 margin: 0 auto;
                 padding: 30px;
                 box-shadow: 0 0 10px 0 var(--cloudy-blue-color, #c1cad4);
                 position: relative;
-            }
-
-            #content-actions {
-                padding-top: 30px;
-                position: fixed;
-                bottom: 0;
-                background: rgba(255, 255, 255, 0.80);
-                text-align: center;
-                width: 100%;
-                z-index: 9999;
-            }
-
-            #content-label {
-                box-shadow: 0 1px 7px 0 var(--cloudy-blue-color, #c1cad4);
-                padding: 15px;
-                margin: 10px;
-            }
-
-            #image-container {
-                width: 30px;
-                height: 35px;
-                vertical-align: middle;
-            }
-
-            import-log {
-                vertical-align: middle;
-            }
-
-            .title {
-                font-size: var(--default-font-size, 14px);
-                text-align: center;
-                color: var(--palette-steel-grey, #75808b);
             }
         </style>
 
@@ -74,9 +51,9 @@
         <liquid-rest id="createUploadedFilesLiquid" url="/data/binarystreamobjectservice/create" method="POST" request-data={{_createUploadedFilesRequest}}
             on-liquid-response="_onCreateUploadedFilesLiquidSuccess" on-liquid-error="_onCreateUploadedFilesLiquidFailure"></liquid-rest>
 
-        <div id="content-upload">
+        <div id="content-upload" class="content-upload-wrapper">
             <div class="placeHolder">
-                <pebble-bulk-file-upload method="PUT" accept="" no-auto="true" s3-upload="true" max-file-size="5000000000" max-files="350" headers="{{_headersObj}}"></pebble-bulk-file-upload>
+                <pebble-bulk-file-upload method="PUT" accept="" no-auto="true" s3-upload="true" max-file-size="[[maxFileSize]]" max-files="[[maxFiles]]" headers="{{_headersObj}}"></pebble-bulk-file-upload>
                 <bedrock-pubsub event-name="pebble-bulk-file-upload-started" handler="_onUploadStarted"></bedrock-pubsub>
                 <bedrock-pubsub event-name="pebble-bulk-file-upload-success" handler="_onUploadSuccess"></bedrock-pubsub>
                 <bedrock-pubsub event-name="pebble-bulk-file-upload-failed" handler="_onUploadFailed"></bedrock-pubsub>
@@ -88,7 +65,7 @@
             'use strict';
 
             Polymer({
-                is: "rock-upload-s3",
+                is: "rock-cloud-upload",
 
                 properties: {
                     /**
@@ -126,6 +103,26 @@
                     _headersObj: {
                         type: Object,
                         value: function () { return {}; }
+                    },
+                    allowedFileTypes: {
+                        type: Array,
+                        value: function () { return []; }
+                    },
+                    maxFileSize: {
+                        type: Number,
+                        value: 5000000000
+                    },
+                    maxFiles: {
+                        type: Number,
+                        value: 350
+                    },
+                    dataRoute: {
+                        type: String,
+                        value: null
+                    },
+                    uploadRequest: {
+                        type: Object,
+                        value: function () { return {}; }
                     }
                 },
                 behaviors: [
@@ -151,6 +148,7 @@
                     var prepareUploadRequest = [];
                     this.files = [];
                     this._headersObj = {};
+
                     Object.keys(uploadedFiles).forEach(key => {
                         var file = uploadedFiles[key]
                         if (!file.error) {
@@ -160,12 +158,22 @@
                             var s3ObjectKey = this._generateS3ObjectKey(file.name);
                             file.s3ObjectKey = s3ObjectKey;
 
-                            var originalFileName = file.name;
+                            //Allowed types check
+                            if(this.allowedFileTypes && this.allowedFileTypes.length) {
+                                if(!ValidationHelper.fileExtensionValidator(file.name, this.allowedFileTypes)) {
+                                    this.showErrorToast("The uploaded file's type is not valid. Valid extensions are " + this.allowedFileTypes.join(", "));
+                                    this._resetUploadElement();
+                                    return;
+                                }
+                            }
 
+                            var originalFileName = file.name;
+                            //Request type
+                            var type = this.uploadRequest && this.uploadRequest.type ? this.uploadRequest.type : "binarystreamobject";
                             var binaryStreamObject = {
                                 "binaryStreamObject": {
                                     "id": DataHelper.generateUUID(),
-                                    "type": "binarystreamobject",
+                                    "type": type,
                                     "properties": {
                                         "objectKey": s3ObjectKey,
                                         "originalFileName": originalFileName
@@ -173,6 +181,14 @@
                                     "data": {}
                                 }
                             };
+
+                            //Apply cop-context details to request properties
+                            if(this.uploadRequest && !_.isEmpty(this.uploadRequest["cop-context"])) {
+                                var properties = binaryStreamObject.binaryStreamObject.properties;
+                                for(var contextKey in this.uploadRequest["cop-context"]) {
+                                    properties[contextKey] = this.uploadRequest["cop-context"][contextKey];
+                                }
+                            }
 
                             prepareUploadRequest.push(binaryStreamObject);
                         }
@@ -186,10 +202,17 @@
                         }
                     }
                 },
+
+                _resetUploadElement: function () {
+                    this._isDirty = false;
+                    this._loading = false;
+                    this.bulkEditUploadElement.reset();
+                },
+
                 _onPrepareUploadLiquidSuccess: function (e) {
                     var response = e.detail.response;
                     var canUpload = false;
-                    
+
                     if (response && response.response) {
                         var binarystreamobjects = response.response.binaryStreamObjects;
                         if (binarystreamobjects) {
@@ -223,17 +246,13 @@
                     else {
                         console.warn("Unexpected response:" + e.detail.response);
                         this.showErrorToast("Unable to upload. Please check the service or contact your administrator.");
-                        this._isDirty = false;
-                        this._loading = false;
-                        this.bulkEditUploadElement.reset();
+                        this._resetUploadElement();
                     }
                 },
                 _onPrepareUploadLiquidFailure: function (e) {
                     console.warn('Upload failed with error ', e.detail);
                     this.showErrorToast("Unable to upload. Please check the service or contact your administrator.");
-                    this._loading = false;
-                    this._isDirty = false;
-                    this.bulkEditUploadElement.reset();
+                    this._resetUploadElement();
                 },
                 _onUploadSuccess: function (e, succeededFilesData, sender) {
                     this._isDirty = true;
@@ -242,7 +261,7 @@
                     var data = {
                         "messages": [
                             {
-                                "message": "Asset upload is in process."
+                                "message": "File upload is in process."
                             },
                             {
                                 "message": "You can view the status of the processing in the File Upload Status Dashboard"
@@ -260,8 +279,8 @@
                             },
                             {
                                 "name": "nextAction",
-                                "text": "Upload more assets",
-                                "dataRoute": "upload-assets"
+                                "text": "Upload more files",
+                                "dataRoute": this.dataRoute
                             }
                         ]
                     };
@@ -284,9 +303,7 @@
                 _onCreateUploadedFilesLiquidFailure: function (e) {
                     console.warn('Asset upload failed with error ', e.detail);
                     this.showErrorToast("Unable to upload. Please check the service or contact your administrator.");
-                    this._loading = false;
-                    this._isDirty = false;
-                    this.bulkEditUploadElement.reset();
+                    this._resetUploadElement();
                 },
                 /**
                   * <b><i>Content development is under progress... </b></i> 

@@ -21,9 +21,6 @@ DFConnection.prototype = {
     },
     getRequest: function () {
         return request;
-    },
-    getLogSettings: function () {
-        return rdfConnectionConfig.logSettings || {};
     }
 };
 

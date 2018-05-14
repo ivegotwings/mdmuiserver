@@ -134,18 +134,55 @@
             .check-box-wrapper {
                 margin: 0 0px 0 23px;
             }
-            pebble-icon + .check-box-wrapper {
+
+            pebble-icon+.check-box-wrapper {
                 margin: 0 0px 0 10px;
-            } 
-            .leaf-node-active .check-box-wrapper{
-                margin:0px;
-            }       
+            }
+
+            .leaf-node-active .check-box-wrapper {
+                margin: 0px;
+            }
 
             .pagination pebble-button {
                 letter-spacing: 0.3px;
                 margin-left: 10px;
                 color: var(--palette-cerulean, #036bc3);
                 @apply --pebble-tree-node-pagination-button;
+            }
+
+            .hidden {
+                visibility: hidden;
+            }
+
+            .visible {
+                visibility: visible;
+            }
+
+            .detailtext {
+                font-size: 11px;
+                color: var(--text-primary-color, #364653);
+                margin-left: 10px;
+            }
+
+            .detailtext:after {
+                content: '';
+                display: block;
+                margin: auto;
+                height: 3px;
+                width: 0px;
+                background: transparent;
+                animation: 3s 2 alternate detailborder
+            }
+
+            @keyframes detailborder {
+                0% {
+                    width: 0%;
+                    background: black;
+                }
+                100% {
+                    width: 100%;
+                    background: blue;
+                }
             }
         </style>
         <template is="dom-if" if="[[!hasChildren(nodeData.*,itemPath)]]">
@@ -157,6 +194,9 @@
                 <div class="nodetext">
                     <a class$="nav-lnk" on-tap="_itemTextClick">[[nodeData.text]]</a>
                 </div>
+                <div class="flex">
+                    <div class$="detailtext nodetext [[detailClass]]" id="[[nodeData.id]]"></div>
+                </div>
                 <div class="right" hidden="[[isNotAddable(addableLevels)]]">
                     <pebble-icon class="iconButton" icon="pebble-icon:action-add-fill" on-tap="_addNewElement"></pebble-icon>
                 </div>
@@ -167,7 +207,7 @@
                 <pebble-icon class="iconButton pebble-icon-size-14" icon$="[[_expandClass(expanded)]]" on-click="_toggle"></pebble-icon>
                 <template is="dom-if" if="[[!leafNodeOnly]]">
                     <div class="check-box-wrapper">
-                        <pebble-checkbox on-tap="_itemClick" disabled="[[disabled]]" indeterminate="[[_isIndeterminate(nodeData,indeterminateItems,indeterminateItems.*)]]"
+                        <pebble-checkbox on-tap="_itemClick" disabled$="[[_isDisabled(nodeData,selectedItems,selectedItems.*,selectedItem)]]" indeterminate="[[_isIndeterminate(nodeData,indeterminateItems,indeterminateItems.*)]]"
                             checked="[[_isSelected(nodeData,selectedItems,selectedItems.*,selectedItem)]]"></pebble-checkbox>
                     </div>
                 </template>
@@ -177,6 +217,9 @@
                     <pebble-icon src="[[nodeData.src]]" icon="[[nodeData.icon]]" hidden="[[!_iconPassed(nodeData)]]"></pebble-icon>
                     <div class$="nodetext [[_getSelectedNodeClass(highlightNode)]]" on-tap="_itemTextClick">
                         <!--<pebble-button class="iconButton pebble-icon-size-16 m-r-5" icon="pebble-icon:view-dashboard"></pebble-button>-->[[nodeData.text]]</div>
+                </div>
+                <div class="flex">
+                    <div class$="detailtext nodetext [[detailClass]]" id="[[nodeData.id]]"></div>
                 </div>
                 <div class="right" hidden="[[isNotAddable(addableLevels)]]">
                     <pebble-icon class="iconButton" icon="pebble-icon:action-add-fill" on-tap="_addNewElement"></pebble-icon>
@@ -209,7 +252,7 @@
                             parent-tree-node="[[_setParentTreeNode()]]" item-path$="[[_setItemPath(index)]]" value-path$="[[item.valuePath]]"
                             selected-node="{{selectedNode}}" selected-nodes="{{selectedNodes}}" tree="[[tree]]" check-child-nodes="[[checkChildNodes]]"
                             check-parent-nodes="[[checkParentNodes]]" addable-levels="[[addableLevels]]" leaf-node-only="[[leafNodeOnly]]"
-                            expand-collapse-icon-object="[[expandCollapseIconObject]]">
+                            expand-collapse-icon-object="[[expandCollapseIconObject]]" disable-child-node="[[disableChildNode]]">
                         </pebble-tree-node>
                     </template>
                     <template is="dom-if" if="{{paginationObj.nextTitle}}">
@@ -220,6 +263,7 @@
                 </ul>
             </template>
         </iron-collapse>
+        <bedrock-pubsub on-bedrock-event-detailresponsereceived="_onDetailResponse" name="bedrock-event-detailresponsereceived"></bedrock-pubsub>
     </template>
     <script>
         Polymer({
@@ -322,6 +366,11 @@
                 valuePath: {
                     type: String
                 },
+
+                detailClass: {
+                    type: String,
+                    value: 'hidden'
+                },
                 /**
                  * Specifies the default depth to which the tree will be expanded by default.
                  */
@@ -422,6 +471,10 @@
                     value: function () {
                         return {}
                     }
+                },
+                disableChildNode: {
+                    type: Boolean,
+                    value: false
                 }
             },
             observers: [
@@ -443,9 +496,9 @@
             _arrowClass: function (item) {
                 return (item) ? 'arrow-down' : 'arrow-right';
             },
-            _getLeafNodeClass:function(){
-                return (this.leafNodeOnly == true)? 'leaf-node-active' : 'leaf-node-inactive';
-             },
+            _getLeafNodeClass: function () {
+                return (this.leafNodeOnly == true) ? 'leaf-node-active' : 'leaf-node-inactive';
+            },
             _expandClass: function (item) {
                 // if(this.expandCollapseIconObject){
                 //     return (item) ? this.expandCollapseIconObject.expand : this.expandCollapseIconObject.collapse;
@@ -458,8 +511,15 @@
                 }
                 return "";
             },
+            _isDisabled: function (item) {
+                if (this.disabled || item.isDisabled) {
+                    return true;
+                }
+                return false;
+
+            },
             _isSelected: function (item) {
-                if (!this.multiSelect) {
+                if (!this.multiSelect && !this.disableChildNode) {
                     return (this.selectedItem == this.nodeData);
                 }
                 if (this.selectedItems != undefined && item) {
@@ -500,6 +560,22 @@
                 }
 
             },
+            _getDetailClass: function (nodeData) {
+                var checked = this._isSelected(nodeData);
+                this.detailClass = checked ? 'visible' : 'hidden';
+            },
+
+            _onDetailResponse: function (e) {
+                if (DataHelper.isValidObjectPath(e, 'detail')) {
+                    var detail = e.detail;
+                    Object.keys(detail).forEach(key => {
+                        if (this.nodeData.id === key) {
+                            this.nodeData.valuePath = detail[key];
+                            this.$$('#' + this.nodeData.id).innerHTML = "( " + detail[key] + " )";
+                        }
+                    })
+                }
+            },
             /**
              *  Can be used to select the current Item. 
              *  If `checkChildNodes` is set to true, then make sure to 
@@ -513,6 +589,12 @@
                         this.selectedItem = nodeData;
                         this.selectedNode = this;
                         this.indeterminateItems = [];
+                        if (this.disableChildNode) {
+                            this.push('selectedItems', nodeData);
+                            if (this._hasChildren(nodeData)) {
+                                this.checkAllChildNodes(nodeData);
+                            }
+                        }
                         if (this.checkParentNodes) {
                             this._makeParentIndeterminate();
                         }
@@ -525,21 +607,21 @@
                             }
                         }
                         if (this.checkChildNodes && !this.leafNodeOnly) { // If tree is enabled for multi-select and if it is leaf node only it should not select parent nodes. This is temp fix.
-                                if (this._hasChildren(nodeData)) {
-                                    this.checkAllChildNodes(nodeData);
+                            if (this._hasChildren(nodeData)) {
+                                this.checkAllChildNodes(nodeData);
+                            }
+                            if (this._allSiblingsSelected()) {
+                                var parentNode = this.getParentNode();
+                                if (parentNode) {
+                                    parentNode.selectItem();
                                 }
-                                if (this._allSiblingsSelected()) {
-                                    var parentNode = this.getParentNode();
-                                    if (parentNode) {
-                                        parentNode.selectItem();
-                                    }
-                                } else {
-                                    this._makeParentIndeterminate();
-                                }
-                                var indeterminateIndex = this.indeterminateItems.indexOf(nodeData);
-                                if (indeterminateIndex > -1) {
-                                    this.splice('indeterminateItems', indeterminateIndex, 1);
-                                }
+                            } else {
+                                this._makeParentIndeterminate();
+                            }
+                            var indeterminateIndex = this.indeterminateItems.indexOf(nodeData);
+                            if (indeterminateIndex > -1) {
+                                this.splice('indeterminateItems', indeterminateIndex, 1);
+                            }
                         }
                     }
                 }
@@ -583,6 +665,9 @@
                 var children = nodeData.children;
                 for (var i = 0; i < children.length; i++) {
                     if (this.selectedItems.indexOf(children[i]) == -1) {
+                        if (this.disableChildNode) {
+                            children[i]["isDisabled"] = true;
+                        }
                         this.push('selectedItems', children[i]);
                     }
                     if (this._hasChildren(children[i])) {
@@ -672,22 +757,36 @@
              * Fired when an item is clicked. It sets the selected item and its style.
              */
             _itemClick: function (evt) {
+                if (this.nodeData.isDisabled) {
+                    return;
+                }
                 var nodeData = this.nodeData;
                 if (this.multiSelect) {
                     if (this.selectedItems.indexOf(nodeData) == -1) {
                         this.selectItem();
                         this.dispatchEvent(new CustomEvent('item-selected', { detail: { data: this }, bubbles: true, composed: true }));
-
                     } else {
                         this.deSelectItem();
                     }
                 } else {
+                    if (this.disableChildNode && this.selectedItems.length > 0) {
+                        this.selectedItems.forEach(element => {
+                            if (!this.disabled) {
+                                element.isDisabled = false;
+                            }
+                        });
+                    }
+                    if (this.disableChildNode) {
+                        this.set("selectedItems", []);
+                        this.set("indeterminateItems", []);
+                    }
                     if (this.selectedItem == nodeData) {
                         this.deSelectItem();
                     } else {
                         this.selectItem();
                     }
                 }
+                this._getDetailClass(nodeData);
             },
 
 
@@ -954,7 +1053,7 @@
                         child.valuePath = this._computeValuePath(child);
                     }
                 }
-                if(this._isSelected(this.nodeData)){
+                if (this._isSelected(this.nodeData)) {
                     this.selectItem();
                 }
                 return children;
