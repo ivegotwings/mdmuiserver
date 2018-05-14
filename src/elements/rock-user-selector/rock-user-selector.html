@@ -1,0 +1,219 @@
+<link rel="import" href="../../../bower_components/polymer/polymer-element.html">
+
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-helpers/data-request-helper.html">
+
+<link rel="import" href="../rock-entity-model-lov/rock-entity-model-lov.html">
+
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
+
+<dom-module id="rock-user-selector">
+    <template>
+        <style>
+            #buttonContainer{
+                margin-top:20px;
+                text-align: center;
+            }
+            .lov-wrapper{
+                width: 100%;
+                text-align: center;
+            }
+            .lov-container{
+                width:460px;
+                display:inline-block;
+                padding: 20px;
+                margin: 10px 0 0 10px;
+                box-shadow: 1px 2px 5px -1px var(--default-border-color, #c1cad4);
+                border: var(--box-style_-_border,solid 1px var(--default-border-color, #c1cad4));
+                border-radius: var(--box-style_-_border-radius);
+            }
+        </style>
+        <pebble-spinner active="[[_loading]]"></pebble-spinner>
+        <div class="lov-wrapper">
+            <div class="lov-container">
+                <template is="dom-if" if="[[_isUserModelRequestPrepared(_userModelRequestData)]]">
+                    <rock-entity-model-lov id="userModelLOV" readonly=[[readonly]] id-field="id"
+                        title-pattern="{entity.properties.firstName}" sub-title-pattern="{entity.properties.email}" request-data="[[_userModelRequestData]]"
+                        selected-item="{{userToBeAssigned}}" external-data-formatter="[[_userDataFormatter]]"></rock-entity-model-lov>
+                </template>
+            </div>
+        </div>
+        <div id="buttonContainer" >
+            <pebble-button id="cancelButton" class="btn btn-secondary m-r-5" button-text="Cancel" on-tap="_onCancelTap" elevation=1 raised></pebble-button>
+            <pebble-button id="assign" class="focus btn btn-success" button-text="Confirm" on-tap="_confirm" elevation=1 raised></pebble-button>
+        </div>
+    </template>
+    <script>
+        class RockUserSelector extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.ComponentContextBehavior], Polymer.Element) {
+
+            static get is() { return 'rock-user-selector' }
+
+            static get properties() {
+                return {
+                    contextData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _userModelRequestData:{
+                        type:Object,
+                        value:function(){
+                            return {}
+                        }
+                    },
+                    userToBeAssigned:{
+                        type:Object,
+                        value:function(){
+                            return {}
+                        }
+                    },
+                    allowedRoles: {
+                        type:Array,
+                        value:function(){
+                            return [];
+                        }
+                    },
+                    currentUser: {
+                        type: String,
+                        value: ""
+                    },
+                    _userDataFormatter: {
+                        type: Object,
+                        value: function () {
+                            return this._userDataFormatter.bind(this);
+                        }
+                    },
+                    workflowName: {
+                        type: String,
+                        value: ""
+                    },
+                    /**
+                    * Represents workflow external name
+                    */
+                    workflowExternalName: {
+                        type: String,
+                        value: ""
+                    },
+                    /**
+                    * Represents workflow activity name
+                    */
+                    workflowActivityName: {
+                        type: String,
+                        value: ""
+                    },
+                    /**
+                    * Represents workflow activity external name
+                    */
+                    workflowActivityExternalName: {
+                        type: String,
+                        value: ""
+                    },
+                    assignmentAction: {
+                        type: String,
+                        value: ""
+                    }
+                }
+            }
+
+            connectedCallback() {
+                super.connectedCallback();
+                if(this.assignmentAction !== "reassign") {
+                    var loggedUser = ContextHelper.getFirstUserContext(this.contextData);
+                    var loggedUserId = "";
+                    if(loggedUser && loggedUser.user){
+                        this.set("userToBeAssigned", loggedUser.user);
+                    }
+
+                    this._confirm();
+                } else {
+                    this._prepareUserModelRequest();
+                }
+            }
+
+            _isUserModelRequestPrepared(){
+                if(this._userModelRequestData && !_.isEmpty(this._userModelRequestData)){
+                    return true;
+                }
+                return false;
+            }
+
+            _prepareUserModelRequest(){
+                var req = DataRequestHelper.createGetModelRequest([], "user");
+                var activityAllowedRoles = this.allowedRoles;
+                
+                if(activityAllowedRoles && activityAllowedRoles.length > 0){
+                    req.params.query.filters["propertiesCriterion"] = [{
+                        "roles": {
+                            "exacts": activityAllowedRoles
+                        }
+                    }]
+                };
+                delete req.params.fields.attributes;
+                delete req.params.fields.relationships;
+                delete  req.params.query.ids;
+                req.params.fields.properties = ["_ALL"];
+                this.set("_userModelRequestData", req);
+            }
+
+            _userDataFormatter(formattedData, data){
+                //Filter current assigned user
+                var assingedUser = this.currentUser;
+                var loggedUser = ContextHelper.getFirstUserContext(this.contextData);
+                var loggedUserId = "";
+                if (loggedUser && loggedUser.user) {
+                    loggedUserId = loggedUser.user;
+                }
+                if (formattedData && formattedData.length > 0) {
+                    formattedData = formattedData.filter((user) => {
+                        //Get firstname & lastname
+                        var userData = data.filter((eModel) => { return eModel.id == user.id; });
+                        if (userData && userData.length > 0 && userData[0].properties) {
+                            var userProperties = userData[0].properties
+                            if (userProperties.firstName) {
+                                user.title = userProperties.firstName
+                            } else {
+                                user.title = "";
+                            }
+                            if (userProperties.lastName) {
+                                user.title += " " + userProperties.lastName
+                            }
+                        }
+
+                        return true;
+                    });
+                }
+                return formattedData;
+            }
+
+            _confirm(){
+                if(this.userToBeAssigned && !_.isEmpty(this.userToBeAssigned)){
+                    this._loading = false;
+                    var eventName = "onNext";
+                    var eventDetail = {
+                        name: eventName,
+                        data: {}
+                    }
+
+                    this.fireBedrockEvent(eventName, eventDetail, {
+                        ignoreId: true
+                    });
+                } else{
+                    this.showWarningToast("Please select atleast one user.");
+                }
+            }
+
+            _onCancelTap(){
+                var eventName = "onCancel";
+                this.fireBedrockEvent(eventName, {}, {
+                    ignoreId: true
+                });
+            }
+        }
+
+        customElements.define(RockUserSelector.is, RockUserSelector);
+    </script>
+</dom-module>
