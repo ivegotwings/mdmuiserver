@@ -90,10 +90,6 @@
                         type: Object,
                         value: function () { return {}; }
                     },
-                    _foundWorkflowNames: {
-                        type: Array,
-                        value: function () { return []; }
-                    },
                     _currentWorkflowAction: {
                         type: String
                     },
@@ -354,30 +350,38 @@
                     workflowActivityExternalName
                 } = this._workflowCriterion;
 
+                var workflowInfo = [{
+                    "name": workflowShortName,
+                    "activityName": workflowActivityName
+                }];
+
                 const sharedData = {
                     "selection-mode": selectionMode,
                     "selection-query": selectionQuery,
                     "selected-entities": this._selectedItems,
                     "assignment-Action": action,
-                    "workflow-external-name": workflowName,
-                    "workflow-activity-external-name": workflowActivityExternalName,
-                    "workflow-name": workflowShortName,
-                    "workflow-activity-name": workflowActivityName
+                    "workflow-info": workflowInfo
                 };
+                var dialogTitle = this._getTitleByAction(action);
+
+                this.openBusinessFunctionDialog({name: detail.data.componentName, title:dialogTitle}, sharedData);
+            }
+
+            _getTitleByAction(action) {
                 var dialogTitle = "";
                 switch(action){
                     case "take":
-                            dialogTitle = "Take Task - "+workflowName;
+                            dialogTitle = "Take Task";
                         break;
                     case "release":
-                            dialogTitle = "Release Task - "+workflowName;
+                            dialogTitle = "Release Task";
                         break;
                     case "reassign":
-                            dialogTitle = "Reassign Task - "+workflowName;
+                            dialogTitle = "Reassign Task";
                         break;
                 }
 
-                this.openBusinessFunctionDialog({name: detail.data.componentName, title:dialogTitle}, sharedData);
+                return dialogTitle;
             }
 
             _toggleActionItems() {
@@ -457,8 +461,7 @@
                 }
                 
                 if (this.workflowInfo && this.workflowInfo.data) {
-                    var foundWorkflowNames = [];
-                    var runningInstances = {};
+                    var runningInstances = [];
 
                     //Note: Here, workflow runtime data would be always in the context of workflow so no need to check for data.attributes
                     var contexts = this.workflowInfo.data && this.workflowInfo.data.contexts ? this.workflowInfo.data.contexts : [];
@@ -472,221 +475,28 @@
                             var runtimeInstance = {
                                 "name": currWorkflowName,
                                 "activityName": AttributeHelper.getFirstAttributeValue(contextAttrs.activities.group[0].activityName),
-                                "activityExternalName": AttributeHelper.getFirstAttributeValue(contextAttrs.activities.group[0].externalName),
                                 "activityAssignedUser": AttributeHelper.getFirstAttributeValue(contextAttrs.activities.group[0].assignedUser)
                             };
-                            if(contextAttrs.activities.group[0].allowedRoles){
-                                runtimeInstance["activityAllowedRoles"] = AttributeHelper.getAttributeValues(contextAttrs.activities.group[0].allowedRoles.values)
-                            }
-                            if(contextAttrs.activities.group[0].allowedUsers){
-                                runtimeInstance["activityAllowedUsers"] = AttributeHelper.getAttributeValues(contextAttrs.activities.group[0].allowedUsers.values)
-                            }
-                            runningInstances[currWorkflowName] = {};
-                            runningInstances[currWorkflowName] = runtimeInstance;
-                            foundWorkflowNames.push(currWorkflowName);
+                            runningInstances.push(runtimeInstance);
                         }
                     }
-                    if (foundWorkflowNames.length > 0) {
+
+                    if (runningInstances.length > 0) {
                         this.set("_runningInstances", runningInstances);
-                        this.set("_foundWorkflowNames", foundWorkflowNames);
                         var itemContext = this.getFirstItemContext();
-                        itemContext.workflowNames = foundWorkflowNames;
-                        if(this._currentWorkflowAction == "reassign"){
-                            const sharedData = {
-                                "selected-entities": DataHelper.cloneObject(this.getItemContexts()),
-                                "workflow-running-instance":runningInstances,
-                                "found-workflow-names":foundWorkflowNames
-                            };
-                            var dialogTitle = "Reassign Task";
-                            if((Object.keys(runningInstances).length == 1)
-                                && runningInstances[foundWorkflowNames[0]]["activityExternalName"]){
-                                dialogTitle += " - "+runningInstances[foundWorkflowNames[0]]["activityExternalName"];
-                            }
-                            this.openBusinessFunctionDialog({ name: 'rock-wizard-reassign-task', title:dialogTitle }, sharedData); 
-                        }else{
-                            this.workflowDefinitionRequest = DataRequestHelper.createWorkflowDefinitionGetRequest(this.contextData);
-                            this.shadowRoot.querySelector("#entityGetWorkflowDefinition").generateRequest();
-                        }
+
+                        const sharedData = {
+                            "selected-entities": DataHelper.cloneObject(this.getItemContexts()),
+                            "workflow-info":runningInstances,
+                            "assignment-action": this._currentWorkflowAction,
+                            "is-single-entity-process": this.isSingleEntityProcess
+                        };
+                        var dialogTitle = this._getTitleByAction(this._currentWorkflowAction);
+                        this.openBusinessFunctionDialog({ name: 'rock-wizard-workflow-assignment', title:dialogTitle }, sharedData); 
                     } else {
                         this.showErrorToast("Entity is not available in any workflow.");
                     }
                 }
-            }
-
-            _onDefinitionReceived(e) {
-                var workflowDefinitionResponse = e.detail.response;
-                if (workflowDefinitionResponse && workflowDefinitionResponse.content && workflowDefinitionResponse.content.entityModels && workflowDefinitionResponse.content.entityModels.length > 0) {
-                    var workflowData = [];
-
-                    for (var i = 0; i < workflowDefinitionResponse.content.entityModels.length; i++) {
-                        var entityModel = workflowDefinitionResponse.content.entityModels[i];
-                        var workflowName = entityModel.name;
-
-                        if (entityModel.data && entityModel.data.attributes) {
-                            var wfAttributes = entityModel.data.attributes;
-                            this._runningInstances[workflowName]["wfLongName"] = AttributeHelper.getFirstAttributeValue(wfAttributes.workflowName);
-
-                            var workflowActivites = wfAttributes.activities;
-                            if (workflowActivites) {
-                                var workflowActivitiesGroup = workflowActivites.group;
-                                if (workflowActivitiesGroup && workflowActivitiesGroup instanceof Array) {
-                                    for (var i = 0; i < workflowActivitiesGroup.length; i++) {
-                                        var activityName = AttributeHelper.getFirstAttributeValue(workflowActivitiesGroup[i].activityName);
-                                        if (activityName === this._runningInstances[workflowName]["activityName"]) {
-                                            this._runningInstances[workflowName]["activityExternalName"] = AttributeHelper.getFirstAttributeValue(workflowActivitiesGroup[i].externalName);
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    this._currentWfIndex = 0;
-                    this._generateAssignmentRequest();
-                }
-            }
-            
-            _onDefinitionGetFailed(e) {
-                Polymer.Base._error('workflow definition get failed with error ', e.detail);
-            }
-
-            _generateAssignmentRequest() {
-                var entity = this._getEntityObject();
-                var runtimeInstance = this._runningInstances[this._foundWorkflowNames[this._currentWfIndex]];
-                var wfCriterion = this._getWfCriterion(runtimeInstance);
-                if (!_.isEmpty(wfCriterion)) {
-                    var req = DataRequestHelper.createWfChangeAssignmentRequest(entity, wfCriterion, this.contextData, this._currentWorkflowAction);
-
-                    //Add hotline flag if hotline is enabled
-                    if (DataHelper.isHotlineModeEnabled()) {
-                        req.hotline = true;
-                    }
-
-                    this.set("_wfAssignmentRequest", req);
-                    var liquidWfAssign = this.shadowRoot.querySelector("#entityWfAssignment");
-                    if (liquidWfAssign) {
-                        liquidWfAssign.generateRequest();
-                    }
-                }
-            }
-
-            _onAssignmentSuccess(e) {
-                var response = e.detail.response;
-                var entity = this._getEntityObject();
-                if (response && response.response && response.response.status && response.response.status.toLowerCase() == "success" && response.response.statusDetail) {
-                    var statusDetail = response.response.statusDetail;
-                    var workflowJson = this._runningInstances[this._foundWorkflowNames[this._currentWfIndex]];
-                    if (statusDetail.messages && statusDetail.messages.length > 0) {
-                        this._failedWorkflows.push(workflowJson);
-                    } else if (statusDetail.message) {
-                        this._doneWorkflows.push(workflowJson);
-                    }
-                }
-                this._currentWfIndex++;
-                if (this._currentWfIndex < this._foundWorkflowNames.length) {
-                    this._generateAssignmentRequest();
-                } else if (response.response && response.response.status && response.response.status.toLowerCase() == "success" && response.response.statusDetail) {
-                    var messageObject = this._getMessageObject();
-                    this._showToastMessage(messageObject);
-                    setTimeout(() => {
-                        //this._refreshView();
-                        var eventName = "workflow-assignment-complete";
-                        var eventDetail = {
-                            name: eventName
-                        }
-                        this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
-                        this.refresh();
-                    }, 5000)
-                }
-                else {
-                    this.showErrorToast("There is a problem with the server.Please try after some time")
-                }
-            }
-
-            _onAssignmentFailure(e) {
-                this.logWarning("WorkFlowAssignmentFailure", "response", JSON.stringify(e.detail));
-                this.showErrorToast("Failed to perform the workflow assignment. Please contact administrator.");
-            }
-
-            _getWfCriterion(runtimeInstance) {
-                var wfCriterion;
-                if (runtimeInstance && runtimeInstance.name && runtimeInstance.activityName) {
-                    wfCriterion = {
-                        "workflowShortName": runtimeInstance.name,
-                        "workflowActivityName": runtimeInstance.activityName
-                    };
-                }
-                return wfCriterion;
-            }
-
-            _getMessageObject() {
-                var entity = this._getEntityObject();
-                var entityName;
-
-                entityName = this._messageAttributeValue ? this._messageAttributeValue + " (" + entity.id + ")" : entity.id;
-                var messageObject = {
-                    "message": "",
-                    "type": ""
-                };
-                var actionDone;
-                if (this._currentWorkflowAction == "take") {
-                    actionDone = "assigned to";
-                }
-                if (this._currentWorkflowAction == "release") {
-                    actionDone = "released from";
-                }
-                if (this._foundWorkflowNames.length == this._doneWorkflows.length && this._foundWorkflowNames.length == 1) {
-                    var workflowJson = this._doneWorkflows[0];
-                    messageObject.message = "The {0} of type {1} selected is in {2} as part of {3} business process has been {4} you.".format(entityName, entity.type, workflowJson.activityExternalName, workflowJson.wfLongName, actionDone);
-                    messageObject.type = "success";
-                } else if (this._foundWorkflowNames.length == this._failedWorkflows.length && this._foundWorkflowNames.length == 1) {
-                    var workflowJson = this._failedWorkflows[0];
-                    messageObject.message = "You do not have permission to take an action on this {0}. Workflow name: {1}; Step: {2}. \nPlease contact your administrator.".format(entity.type, workflowJson.activityExternalName, workflowJson.wfLongName);
-                    messageObject.type = "error";
-                } else if (this._foundWorkflowNames.length == this._doneWorkflows.length) {
-                    var message = "The {0} of type {1} selected is in ".format(entityName, entity.type);
-                    message = this._buildMessage(this._doneWorkflows, message);
-                    message = message + "have been {0} you".format(actionDone);
-                    messageObject.message = message;
-                    messageObject.type = "success";
-                }
-                else if (this._foundWorkflowNames.length == this._failedWorkflows.length) {
-                    var message = "You do not have permission to take an action on this {1} as part of ".format(entityName, entity.type);
-                    message = this._buildMessage(this._failedWorkflows, message);
-                    message = message + "as you do not belong to role mapped to the workflow steps in the system. \nPlease contact your administrator.";
-                    messageObject.message = message;
-                    messageObject.type = "error";
-                }
-                else {
-                    var message1 = "The {0} of type {1} selected is in ".format(entityName, entity.type);
-                    message1 = this._buildMessage(this._doneWorkflows, message1);
-                    message1 = message1 + "have been {0} you.".format(actionDone) + '<br>';
-
-                    var message2 = "You do not have permission to take an action on this {1} as part of ".format(entityName, entity.type);
-                    message2 = this._buildMessage(this._failedWorkflows, message2);
-                    message2 = message2 + "as you do not belong to role mapped to the workflow steps in the system. \nPlease contact your administrator.";
-
-                    messageObject.message = message1 + message2;
-                    messageObject.type = "success";
-                }
-                return messageObject;
-            }
-
-            _showToastMessage(msgObject) {
-                if (msgObject) {
-                    if (msgObject.type == "error") {
-                        this.showErrorToast(msgObject.message, 10000);
-                    } else if (msgObject.type == "success") {
-                        this.showSuccessToast(msgObject.message, 10000);
-                    }
-                }
-            }
-
-            _buildMessage(workflows, message) {
-                for (var i = 0; i < workflows.length; i++) {
-                    message = message + "{0} as part of {1} business process, ".format(workflows[i].activityExternalName, workflows[i].wfLongName)
-                }
-                return message;
             }
 
             _getEntityObject() {
