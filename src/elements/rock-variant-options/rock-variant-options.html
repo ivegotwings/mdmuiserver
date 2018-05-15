@@ -25,7 +25,10 @@
         :host {
             display:block;
             height:100%;
-        }      
+        } 
+        .variantOptionsGridContainer {
+            height: calc(100% - 30px);
+        }     
     </style> 
 
     <div class="base-grid-structure">
@@ -36,27 +39,30 @@
                     You can create multiple variants.
                 </div>
             </div>
+            <template is="dom-if" if="[[isNotificationMessage]]">
+                <div class=" m-20" align="center">
+                    [[notificationMessage]]
+                </div>   
+            </template>
+            <template is="dom-if" if="[[_isValidDisplayMessage]]">
+                <div class=" m-20" align="center">
+                    [[displayMessage]]
+                </div>   
+            </template> 
         </div>
 
-        <template is="dom-if" if="[[isExceededMaxThreshold]]">
-            <div class="base-grid-structure-child-2 m-20" align="center">
-                The total number of variants that can be generated has crossed the configured max threshold value.<br/>
-                Please click on create button to create all the variants.
-            </div>   
-        </template>  
-
-        <template is="dom-if" if="[[isVariantOptionsGridReady]]">
-            <div class="base-grid-structure-child-2">
-                <rock-grid id="variantOptionsGrid" data="{{variantOptionsGridData}}" hide-view-selector hide-toolbar config="{{gridConfig}}" page-size="5"></rock-grid>
-            </div>  
-        </template>
-
-        <div class="actionButtons" align="center">
-            <pebble-button id="backButton" class="close btn btn-secondary m-r-5" button-text="Back" noink elevation="2" on-tap="_onBack"></pebble-button>
-            <pebble-button id="cancelButton" class="close btn btn-secondary m-r-5" button-text="Cancel" noink elevation="2" on-tap="_onCancel"></pebble-button>
-            <pebble-button id="confirmButton" class="apply btn btn-success" button-text="Create" noink elevation="2" on-tap="_onCreate"></pebble-button>
-        </div>   
-              
+        <div class="base-grid-structure-child-2">
+            <div class="variantOptionsGridContainer">
+                <template is="dom-if" if="[[isVariantOptionsGridReady]]">
+                        <rock-grid id="variantOptionsGrid" data="{{variantOptionsGridData}}" hide-view-selector hide-toolbar config="{{gridConfig}}" page-size="5"></rock-grid>
+                </template>
+                <div class="actionButtons" align="center">
+                    <pebble-button id="backButton" class="close btn btn-secondary m-r-5" button-text="Back" noink elevation="2" on-tap="_onBack"></pebble-button>
+                    <pebble-button id="cancelButton" class="close btn btn-secondary m-r-5" button-text="Cancel" noink elevation="2" on-tap="_onCancel"></pebble-button>
+                    <pebble-button id="confirmButton" class="apply btn btn-success" button-text="Create" noink elevation="2" on-tap="_onCreate"></pebble-button>
+                </div> 
+            </div>          
+        </div>                
     </div>
 
     <liquid-rest id="variantOptions" url="/data/pass-through/entityappservice/generatevariants" method="POST" on-liquid-response="_onVariantOptionsReceivedSuccess" on-liquid-error="_onVariantOptionsReceivedFailure"></liquid-rest>
@@ -119,6 +125,32 @@
                     type: Boolean,
                     value: false
                 },
+
+                isWarningMessage:{
+                    type: Boolean,
+                    value: false
+                },
+                
+                _isValidDisplayMessage:{
+                    type: Boolean,
+                    computed: "_showDisplayMessage(isExceededMaxThreshold, isWarningMessage)"
+                },
+
+                displayMessage: {
+                    type: String,
+                    value: ""
+                },
+
+                isNotificationMessage:{
+                    type: Boolean,
+                    value: false
+                },
+
+                notificationMessage:{
+                    type: String,
+                    value: "" 
+                },
+
                 businessFunctionData: {
                     type: Object,
                     value: function() { return {}; }
@@ -148,8 +180,16 @@
         */
         onConfigLoaded(componentConfig) {
             if(componentConfig && componentConfig.config) {
-                this.config = componentConfig.config;                
+                this.config = componentConfig.config;  
+
+                //Display the message
+                if(this.businessFunctionData.notificationMessage){
+                    this.isNotificationMessage = true;
+                    this.notificationMessage = "Saving attribute values took longer than expected. If you do not see your latest combinations in the list, please come back after some time";
+                }
+                
                 if(this.businessFunctionData.totalVariantsCount > componentConfig.config.maxRecordsThreshold){
+                    this.displayMessage = "The total number of variants that can be generated has crossed the configured max threshold value.<br/> Please click on create button to create all the variants.";
                     this.isExceededMaxThreshold = true;
                 } else {
                     //Get the attributeModels
@@ -171,13 +211,22 @@
             var requestData = this._getVariantOptionsRequest();
             var liquidObj = this.shadowRoot.querySelector("#variantOptions"); 
             
-            //Fetch all possible variants after a delay to enable elastic search to save the latest dimention attributes 
-            Polymer.Async.timeOut.after(1000).run(() => {
-                if(requestData && liquidObj) {
-                    liquidObj.requestData = requestData;
-                    liquidObj.generateRequest();
-                }
-            }); 
+            //Fetch all possible variants  
+            if(requestData && liquidObj) {
+                liquidObj.requestData = requestData;
+                liquidObj.generateRequest();
+            }           
+        }
+
+        /**
+         *  Check if the displayMessage has to be shown
+        */
+        _showDisplayMessage(){
+            if(this.isExceededMaxThreshold || this.isWarningMessage){
+                return true;
+            } else {
+                return false;
+            }
         }
 
         /**
@@ -213,11 +262,13 @@
             if (e.detail && e.detail.response && e.detail.response.response) {
                 var response = e.detail.response.response;
                 var request = e.detail.response ? e.detail.response.request : undefined;    
-                
+                this.isWarningMessage = false;
+
                 if (response.status == "success" &&  !this.createVariants) { 
                     //Display the variants grid
                     this.variantOptionsGridData = await DataTransformHelper.transformEntitiesToVariantGridFormat(response.entities,this._getGridColumns());
-                    this.isVariantOptionsGridReady = true;                                        
+                    this.isVariantOptionsGridReady = true;
+                                                           
                     //Select all the grid items by default
                     Polymer.Async.timeOut.after(50).run(() => {
                         var rockGridObj = this.shadowRoot.querySelector('#variantOptionsGrid') ;
@@ -231,7 +282,8 @@
                         this._triggerFinishStep();
                     }
                 } else if(response.status == "error"){
-                    this.showErrorToast("Failed to fetch variant options, please contact administrator.");
+                    this.isWarningMessage = true;
+                    this.displayMessage = "No variants to create. Please go back and update the dimention attributes from the previous screen"
                     return;
                 }
             }

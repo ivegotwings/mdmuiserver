@@ -21,6 +21,7 @@
 
 <link rel="import" href="../pebble-icons/pebble-icons.html">
 <link rel="import" href="../pebble-data-table/pebble-data-table.html">
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
 
 <dom-module id="rock-variant-configurator">
   <template>
@@ -110,6 +111,12 @@
         </div>
     </pebble-dialog>
 
+    <pebble-dialog id="confirmationDialog" dialog-title="Confirmation" modal alert-box show-cancel show-ok no-cancel-on-outside-click
+    no-cancel-on-esc-key>
+        <p>There are unsaved changes.Are you sure you want to continue?</p>
+    </pebble-dialog>
+
+
     <div class="variantAttributesGridContainer base-grid-structure"> 
         <div class="base-grid-structure-child-1">
             <div id="content-description" align="center">
@@ -118,7 +125,8 @@
                     You can select multiple options to create SKUs.
                 </div>
             </div>
-        </div>        
+        </div>
+        <pebble-spinner active="[[isSpinnerActive]]"></pebble-spinner>           
         <template is="dom-if" if="[[isVariantAttributesGridLoaded]]">
             <div class="base-grid-structure-child-2">
                 <pebble-data-table id="variant-attributes-grid" items="[[variantAttributesGridData]]">
@@ -148,7 +156,7 @@
             </div> 
             <div class="actionButtons" align="center">
                 <pebble-button id="cancelButton" class="close btn btn-secondary m-r-5" button-text="Cancel" noink elevation="2" on-tap="_onCancel"></pebble-button>
-                <pebble-button id="skipButton" class="close btn btn-secondary m-r-5" button-text="Skip & Continue" on-tap="_onSave"></pebble-button>
+                <pebble-button id="skipButton" class="close btn btn-secondary m-r-5" button-text="Skip & Continue" on-tap="_onSkip"></pebble-button>
                 <pebble-button id="confirmButton" class="apply btn btn-success" button-text="Save" noink elevation="2" on-tap="_onSave"></pebble-button>
             </div>
             <!--pebble-icon slot="cell-slot-content" icon="pebble-icon:action-add-fill" class="pebble-icon-color-success add-icon" target-id="variant-attributes-grid" on-tap="_onAddRowClick"></pebble-icon-->                        
@@ -160,7 +168,9 @@
     <liquid-entity-data-get operation="getbyids" id="variantAttributesOptionsGet" on-response="_onVariantAttributesOptionsGetReceived" on-error="_onVariantAttributesOptionsGetFailed" exclude-in-progress></liquid-entity-data-get>
     <liquid-rest id="entityGovernService" url="/data/pass-through/entitygovernservice/validate" method="POST" request-data={{_entityGovernRequest}} on-liquid-response="_onEntityGovernResponse" on-liquid-error="_onEntityGovernFailed"></liquid-rest>
     <liquid-entity-data-save id="variantAttributesOptionsSave" operation="[[_entityDataOperation]]" request-data="{{_saveVariantAttributeOptionsReq}}" on-response="_onSaveVariantAttributeOptions"  data-index="[[dataIndex]]" data-sub-index="[[dataSubIndex]]" on-error="_onSaveVariantAttributeOptionsError"></liquid-entity-data-save>
-
+    <bedrock-pubsub event-name="govern-complete" handler="_onGovernComplete"></bedrock-pubsub>
+    <bedrock-pubsub event-name="on-buttonok-clicked" handler="_onSkipConfirm" target-id="confirmationDialog"></bedrock-pubsub>
+    
   </template>
 <script>
 
@@ -255,7 +265,17 @@
                 variantModelObj: {
                     type: Object,
                     value: function () { return {}; }
-                } 
+                },
+                
+                saveNotification: {
+                    type: Object,
+                    value: function () { return {}; }
+                },
+
+                isSpinnerActive:{
+                    type: Boolean,
+                    value: false
+                }
                 
             }
         }
@@ -429,7 +449,7 @@
             var attributes = new Array();
             for(var obj in this._attributeModels){                                     
                 attributes.push(this._attributeModels[obj]);
-            } 
+            }
             this.variantAttributesGridData = attributes;
             this.isVariantAttributesGridLoaded = true;
         }
@@ -497,6 +517,29 @@
         }
 
         /**
+         *  Handle skip click
+         *  If there are unsaved changes, show the confirmation dialog, else go to next step
+        */
+        _onSkip(){           
+            //If there  is change in the dimention attributes list, then show the message
+            var rockAttributeObjList = this.shadowRoot.querySelectorAll(".variantAttributes");
+            var isAttributesChanged = _.find(rockAttributeObjList, function(item) {return item.changed == true;});
+            if(isAttributesChanged) {
+                this._confirmationDialog = this.shadowRoot.querySelector("#confirmationDialog");
+                this._confirmationDialog.open();
+            } else {
+                this._onSkipConfirm();
+            }            
+        } 
+
+        /**
+         * Go to next step
+         */ 
+        _onSkipConfirm(){
+            this.goToNextStep();     
+        } 
+
+        /**
          *  Calculate the total no. of variants that can be generated from the selected dimention attributes 
         */
         _updateVariantCount(entity){
@@ -519,14 +562,40 @@
             if (variantAttrOptSave) {
                 variantAttrOptSave.generateRequest();
             }
+            //Show the spinner and wait for notification 
+            this.isSpinnerActive = true;            
+            //If the notification is not received within the given time (30sec) go to next screen
+            this.saveNotification = setTimeout(() => {
+                if(!this.saveNotificationReceived) {                   
+                    this.variantModelObj.notificationMessage = "Notification Not Received";
+                    this.goToNextStep();
+                }
+                clearTimeout(this.saveNotification);                              
+            }, 1000);
         }
         
         /**
          *  Handles success of variant attribute options save
         */
         _onSaveVariantAttributeOptions(){
-            this.showSuccessToast("Variant attributes options saved successfully");
+            this.showSuccessToast("Variant attributes options saved successfully");                        
+        }
 
+        /**
+         * After the save, notification is received from server, go to next step
+         */ 
+        _onGovernComplete(){
+            this.saveNotificationReceived = true;
+            clearTimeout(this.saveNotification);
+            this.goToNextStep();
+        }
+
+        /**
+         *  Trigger next step
+        */
+        goToNextStep(){  
+            
+            this.isSpinnerActive = false; 
             this.businessFunctionData = this.variantModelObj;
 
             //Move to next step
