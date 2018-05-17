@@ -604,7 +604,7 @@ async function processData(dataIndex, dataSubIndex, dataObjects, dataObjectActio
 
             if (dataObjectAction == "create" || dataObjectAction == "update") {
                 _removeUnnecessaryProperties(apiRequestObj);
-                _prependAuthorizationType(apiRequestObj);
+                _prependAdditionalParams(apiRequestObj, dataIndexInfo.name);
             }
             //console.log('api request data for process dataObjects', JSON.stringify(apiRequestObj));
             var dataOperationResult = {};
@@ -831,13 +831,16 @@ function _getOriginalRelIds(dataObject) {
     return originalRelIds;
 }
 
-function _prependAuthorizationType(reqObject) {
-    if (reqObject.params) {
-        reqObject.params["authorizationType"] = "accommodate";
-    } else {
-        reqObject.params = {
-            "authorizationType": "accommodate"
-        };
+function _prependAdditionalParams(reqObject, dataInfoKey) {
+    if (!reqObject.params) {
+        reqObject.params = {};
+    }
+
+    reqObject.params["authorizationType"] = "accommodate";
+
+    if(reqObject[dataInfoKey].isReclassification) {
+        delete reqObject[dataInfoKey].isReclassification;
+        reqObject.params["reclassification"] = true;
     }
 }
 
