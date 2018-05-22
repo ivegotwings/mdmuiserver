@@ -16,7 +16,7 @@ const arrayRemove = require('../common/utils/array-remove'),
     TenantSystemConfigService = require('./TenantSystemConfigService')
     var ConfigurationService = function (options) {
     DFRestService.call(this, options);
-    this.baseConfigService = new BaseConfigService(options);
+    this.baseConfigService = new  BaseConfigService.BaseConfigService(options);
     this.tenantSystemConfigService = new TenantSystemConfigService(options);
 };
 
@@ -351,12 +351,13 @@ ConfigurationService.prototype = {
             var cacheKey = "".concat("uiConfig|id:", requestedConfigId, "|contextKey:", generatedId, "|runtime-version:", runtimeVersion);
 
             if (requestedConfigId != "_BYCONTEXT" && requestedContext != "_NOCONTEXT") {
-                res = falcorUtil.cloneObject(localConfigCache[cacheKey]);
+                 !isEmpty(localConfigCache[runtimeVersion]) && (res = falcorUtil.cloneObject(localConfigCache[runtimeVersion][cacheKey]));
             }
 
             if (isEmpty(res)) {
                 res = await this.post(serviceUrl, request);
-                localConfigCache[cacheKey] = falcorUtil.cloneObject(res);
+                isEmpty(localConfigCache[runtimeVersion]) && (localConfigCache[runtimeVersion] = {});
+                localConfigCache[runtimeVersion][cacheKey] = falcorUtil.cloneObject(res);
             }
         }
 
@@ -367,4 +368,7 @@ ConfigurationService.prototype = {
     }
 };
 
-module.exports = ConfigurationService;
+module.exports = { 
+    ConfigurationService: ConfigurationService,
+    localConfigCache: localConfigCache
+};
