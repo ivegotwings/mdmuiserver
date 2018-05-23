@@ -404,52 +404,8 @@
 
             for (let i = 0; i < attributesJSON.length; i++) {
                 var attributeJSON = attributesJSON[i];
-                var attr;
                 var model = attributeModels && attributeModels[attributeJSON.name] ? attributeModels[attributeJSON.name] : undefined;
-                if (model && model.dataType === "nested") {
-                    if (attributeJSON.value) {
-                        attr = { "group": [] };
-                        for (let j = 0; j < attributeJSON.value.length; j++) {
-                            var group = attributeJSON.value[j];
-                            var childAttributes = {};
-                            var childAttrModels = model.group[0];
-                            for (var attributeName in group) {
-                                if (childAttrModels[attributeName]) {
-                                    var attrJson = {
-                                        "value": group[attributeName].value
-                                    };
-                                    var referenceDataId = group[attributeName]["referenceDataId"] ? group[attributeName]["referenceDataId"] : undefined;
-                                    var referenceEntityType = group[attributeName]["referenceEntityType"] ? group[attributeName]["referenceEntityType"] : undefined;
-                                    if (referenceDataId && referenceEntityType) {
-                                        attrJson["referenceDataId"] = referenceDataId;
-                                        attrJson["referenceEntityType"] = referenceEntityType;
-                                    }
-                                    if (group[attributeName].selectedLocales && group[attributeName].selectedLocales.length > 0) {
-                                        attrJson["selectedLocales"] = group[attributeName].selectedLocales;
-                                    }
-                                    var childAttr = this.createAttributeInstance(attrJson, firstValueContext);
-                                    childAttributes[attributeName] = childAttr;
-                                }
-                            }
-                            AttributeHelper.populateValueContext(childAttributes, firstValueContext);
-                            if (group.action === "delete") {
-                                childAttributes["action"] = "delete";
-                            }
-                            attr.group.push(childAttributes);
-                        }
-                        if (attributeJSON.attrProperties) {
-                            attr.properties = attributeJSON.attrProperties;
-                        }
-                        if (attributeJSON.action === "delete") {
-                            attr.action = "delete";
-                        }
-                    }
-                } else {
-                    attr = this.createAttributeInstance(attributeJSON, firstValueContext);
-                    if (!this._isLocalizable(model)) {
-                        this._overrideLocale(attr, DataHelper.getDefaultLocale());
-                    }
-                }
+                var attr = DataTransformHelper._transformAttributeForSave(attributeJSON, model, firstValueContext);
 
                 if (attributeJSON.selfContext) {
                     dataAttributes[attributeJSON.name] = attr;
@@ -606,18 +562,10 @@
 
             var outputData = [];
 
-            var model;
-
             for (var i = 0; i < attributesJSON.length; i++) {
                 var attributeJSON = attributesJSON[i];
-                var attr = this.createAttributeInstance(attributeJSON, firstValueContext);
-
-                if(!_.isEmpty(attributeModels)) {
-                    model = attributeModels[attributeJSON.name];
-                }
-                if (model && !this._isLocalizable(model)) {
-                    this._overrideLocale(attr, DataHelper.getDefaultLocale());
-                }
+                var model = attributeModels && attributeModels[attributeJSON.name] ? attributeModels[attributeJSON.name] : undefined;
+                var attr = DataTransformHelper._transformAttributeForSave(attributeJSON, model, firstValueContext);
 
                 if (attributeJSON.selfContext) {
                     dataAttributes[attributeJSON.name] = attr;
@@ -633,7 +581,7 @@
             if (!_.isEmpty(dataAttributes)) {
                 newData.attributes = dataAttributes;
             }
-            
+
             if (!_.isEmpty(firstDataContext)) {
                 var newCtxItem = {};
                 newCtxItem.context = firstDataContext;
@@ -657,6 +605,56 @@
 
             return newEntity;
         };
+
+        DataTransformHelper._transformAttributeForSave = function (attributeJSON, model, firstValueContext) {
+            var attr = {};
+            if (model && model.dataType === "nested") {
+                if (attributeJSON.value) {
+                    attr = { "group": [] };
+                    for (let j = 0; j < attributeJSON.value.length; j++) {
+                        var group = attributeJSON.value[j];
+                        var childAttributes = {};
+                        var childAttrModels = model.group[0];
+                        for (var attributeName in group) {
+                            if (childAttrModels[attributeName]) {
+                                var attrJson = {
+                                    "value": group[attributeName].value
+                                };
+                                var referenceDataId = group[attributeName]["referenceDataId"] ? group[attributeName]["referenceDataId"] : undefined;
+                                var referenceEntityType = group[attributeName]["referenceEntityType"] ? group[attributeName]["referenceEntityType"] : undefined;
+                                if (referenceDataId && referenceEntityType) {
+                                    attrJson["referenceDataId"] = referenceDataId;
+                                    attrJson["referenceEntityType"] = referenceEntityType;
+                                }
+                                if (group[attributeName].selectedLocales && group[attributeName].selectedLocales.length > 0) {
+                                    attrJson["selectedLocales"] = group[attributeName].selectedLocales;
+                                }
+                                var childAttr = this.createAttributeInstance(attrJson, firstValueContext);
+                                childAttributes[attributeName] = childAttr;
+                            }
+                        }
+                        AttributeHelper.populateValueContext(childAttributes, firstValueContext);
+                        if (group.action === "delete") {
+                            childAttributes["action"] = "delete";
+                        }
+                        attr.group.push(childAttributes);
+                    }
+                    if (attributeJSON.attrProperties) {
+                        attr.properties = attributeJSON.attrProperties;
+                    }
+                    if (attributeJSON.action === "delete") {
+                        attr.action = "delete";
+                    }
+                }
+            } else {
+                attr = this.createAttributeInstance(attributeJSON, firstValueContext);
+                if (!this._isLocalizable(model)) {
+                    this._overrideLocale(attr, DataHelper.getDefaultLocale());
+                }
+            }
+
+            return attr;
+        }
 
         DataTransformHelper.createAttributeInstance = function (attributeJSON, valueContext) {
             var attributeInstance = {};
@@ -1148,7 +1146,7 @@
                     contextData[ContextHelper.CONTEXT_TYPE_DATA] = entityContexts;
                     var entityId = rowData.rowId;
                     var entityType = firstItemContext.type;
-                    var entity = DataTransformHelper.prepareEntityForCreate(entityId, entityType, attributesJson, contextData, "John");
+                    var entity = DataTransformHelper.prepareEntityForCreate(entityId, entityType, attributesJson, contextData, "John", {}, attributeModels);
                     entities.push(entity);
                 }
             }
