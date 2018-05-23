@@ -81,7 +81,10 @@
                         type:Object,
                         notify: true
                     },
-
+                    relationshipThumbnailIdentifier: {
+                        type: String,
+                        value: "thumbnailid"
+                    }
                 },
 
                 behaviors: [
@@ -97,8 +100,7 @@
                 refreshThumbnail: function() {
                     if (!_.isEmpty(this.config) && !_.isEmpty(this.contextData)) {
                         var relationshipName = this.config.relationshipName;
-                        this._thumbnailIdentifier = this.config.thumbnailIdentifier;
-                        this._thumbnailAttribute = this.config.thumbnailAttribute;
+                        this._thumbnailIdentifier = this._getThumbnailIdentifier(this.config.thumbnailIdentifier);
                         var relCriteria = {};
                         this._relationshipFilterAttributeName = this.config.relationshipFilterAttributeName;
                         this._relationshipFilterAttributeValue = this.config.relationshipFilterAttributeValue;
@@ -115,11 +117,8 @@
                             if(this._thumbnailIdentifier) {
                                 req.params.fields.attributes.push(this._thumbnailIdentifier);
                             }
-                            if(this._thumbnailAttribute) {
-                                req.params.fields.attributes.push(this._thumbnailAttribute);
-                            }
                             if (relationshipName) {
-                                req.params.fields.relatedEntityAttributes = [this._thumbnailIdentifier,"property_objectkey","property_originalfilename"];
+                                req.params.fields.relatedEntityAttributes = [this.relationshipThumbnailIdentifier,"property_objectkey","property_originalfilename"];
                                 req.params.fields.relationships = [relationshipName];
                                 req.params.fields.relationshipAttributes = [this._relationshipFilterAttributeName];
                             }
@@ -130,6 +129,19 @@
                             liq.generateRequest();
                         }
                     }
+                },
+                _getThumbnailIdentifier: function(thumbnailIdentifier) {
+                    this.isAttributeIdentifier = false;
+                    if(thumbnailIdentifier) {
+                        if(thumbnailIdentifier.startsWith("attributes.")) {
+                            this.isAttributeIdentifier = true;
+                            thumbnailIdentifier = thumbnailIdentifier.replace("attributes.", "");
+                        } else if(thumbnailIdentifier.startsWith("properties.")) {
+                            thumbnailIdentifier = thumbnailIdentifier.replace("properties.", "");
+                        }
+                    }
+
+                    return thumbnailIdentifier;
                 },
                 _onGetThumbnailResponse: function (event) {
                     this._thumbnailId="";
@@ -150,16 +162,16 @@
                                 if (entityId) {
                                     var entity = entities[0];
                                     //Based on entity attribute
-                                    if(this._thumbnailAttribute && entity && entity.data && entity.data.attributes) {
-                                        let thumbnailId = AttributeHelper.getFirstAttributeValue(entity.data.attributes[this._thumbnailAttribute]);
+                                    if(this.isAttributeIdentifier && entity && entity.data && entity.data.attributes) {
+                                        let thumbnailId = AttributeHelper.getFirstAttributeValue(entity.data.attributes[this._thumbnailIdentifier]);
                                         if(thumbnailId) {
                                             this._thumbnailId = thumbnailId;
-                                            return;
                                         }
+                                        return;
                                     }
                                     //Based on entity properties
-                                    if (entity.properties && entity.properties.thumbnailid) {
-                                        this._thumbnailId = entity.properties.thumbnailid;
+                                    if (!this.isAttributeIdentifier && entity.properties && entity.properties[this._thumbnailIdentifier]) {
+                                        this._thumbnailId = entity.properties[this._thumbnailIdentifier];
                                         return;
                                     }
                                     var relationships = EntityHelper.getRelationshipsBasedOnContext(entity, ContextHelper.getFirstDataContext(this.contextData), true);
@@ -194,7 +206,7 @@
                                                     if (primaryRel.relTo.data) {
                                                         var item =this._createItemObject(primaryRel.relTo);
                                                         this.set("assetDetails", item);
-                                                        var thumbnailIdAttribute = EntityHelper.getAttribute(primaryRel.relTo, this._thumbnailIdentifier);
+                                                        var thumbnailIdAttribute = EntityHelper.getAttribute(primaryRel.relTo, this.relationshipThumbnailIdentifier);
                                                         var thumbnailId = thumbnailIdAttribute.values[0].value;
                                                         if (thumbnailId) {
                                                             this._thumbnailId = thumbnailId;
