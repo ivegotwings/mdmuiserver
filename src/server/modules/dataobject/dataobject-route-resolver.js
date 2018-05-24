@@ -23,6 +23,7 @@ const EntityCompositeModelGetService = require('./EntityCompositeModelGetService
 const EventService = require('../event-service/EventService');
 const EntityHistoryEventService = require('../event-service/EntityHistoryEventService');
 const DataObjectLineageService = require("./DataObjectLineageService");
+const BaseModelService = require("../ModelService/BaseModelService");
 
 //falcor utilty functions' references
 const responseBuilder = require('./dataobject-falcor-response-builder');
@@ -49,6 +50,7 @@ const configurationService = new ConfigurationService.ConfigurationService(optio
 const eventService = new EventService(options);
 const entityHistoryEventService = new EntityHistoryEventService(options);
 const dataObjectLineageService = new DataObjectLineageService(options);
+const baseModelService = new BaseModelService(options);
 
 const searchResultExpireTime = -30 * 60 * 1000;
 
@@ -407,15 +409,19 @@ async function get(dataObjectIds, reqData) {
     try {
         var res = undefined;
         var isCoalesceGet = false;
-        var isNearestGet = false;  
+        var isNearestGet = false;
 
         var service = _getService(reqData.dataObjectType);
         var request = createGetRequest(reqData);
 
-        if(reqData.dataObjectType == "classification") {
-            if(!isEmpty(reqData.relAttrNames) && reqData.relAttrNames[0] == "lineagepath") {
+        if (reqData.dataObjectType == "classification") {
+            if (!isEmpty(reqData.relAttrNames) && reqData.relAttrNames[0] == "lineagepath") {
                 service = dataObjectLineageService;
             }
+        }
+
+        if(request.dataIndex == "baseModel") {
+            service = baseModelService;
         }
 
         if ((request.dataIndex == "entityModel" && reqData.dataObjectType == 'entityCompositeModel' && request.dataSubIndex == "coalescedEntityModel") || (request.dataIndex == "entityData" && !isEmpty(request.dataSubIndex) && request.dataSubIndex == "coalescedData")) {
@@ -838,7 +844,7 @@ function _prependAdditionalParams(reqObject, dataInfoKey) {
 
     reqObject.params["authorizationType"] = "accommodate";
 
-    if(reqObject[dataInfoKey].isReclassification) {
+    if (reqObject[dataInfoKey].isReclassification) {
         delete reqObject[dataInfoKey].isReclassification;
         reqObject.params["reclassification"] = true;
     }
@@ -848,7 +854,7 @@ function _removeUnnecessaryProperties(reqObject) {
     if (reqObject && reqObject.entity && reqObject.entity.data) {
         var data = reqObject.entity.data;
 
-        if(data.webProcessingOptions) {
+        if (data.webProcessingOptions) {
             delete data.webProcessingOptions;
         }
 
