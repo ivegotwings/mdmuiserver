@@ -358,7 +358,17 @@ var SERVICE_CONFIG = {
             "url": "/entityappservice/delete",
             "mode": "online",
             "offlineSettings": {}
-        }
+        },
+        "entityappservice/getsnapshot": {
+            "url": "/entityappservice/getsnapshot",
+            "mode": "online",
+            "timeout": 360000
+        },
+        "snapshotManageService/get": {
+            "url": "/snapshotManageService/get",
+            "mode": "online",
+            "timeout": 360000
+        },
     }
 };
 
