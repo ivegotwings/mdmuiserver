@@ -5,6 +5,7 @@
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html" />
 <link rel="import" href="../bedrock-helpers/data-transform-helper.html">
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
+<link rel="import" href="../liquid-rest/liquid-rest.html">
 
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 <link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
@@ -62,6 +63,9 @@
                 <liquid-entity-data-get operation="getbyids" id="entityDataGet" request-data="{{_entityGetRequest}}" on-response="_onEntityDataGetSuccess"
                     on-error="_onEntityDataGetFailure">
                 </liquid-entity-data-get>
+                <liquid-rest id="snapshotDataGet" url="/data/pass-through-snapshot/getsnapshot" method="POST" on-liquid-response="_onSnapshotsReponse">
+                </liquid-rest>
+        
                 <bedrock-pubsub event-name="refresh-grid" handler="_onRefreshGrid" target-id="compareEntitiesGrid"></bedrock-pubsub>
             </div>
         </div>
@@ -138,6 +142,10 @@
                         value: function () {
                             return {};
                         }
+                    },
+                    isSnapshot: {
+                        type: Boolean,
+                        value: false
                     },
                     _entityTypes: {
                         type: Array,
@@ -229,8 +237,9 @@
                 if (pebbleDropDown) {
                     pebbleDropDown.addEventListener('change', this._onDropdownChange.bind(this));
                 }
-
+                if(_.isEmpty(this.compareEntitiesContext)) { 
                 this._triggerCompareEntitiesContextChange();
+                }
             }
 
             _onCompareEntitiesContextChange() {
@@ -267,10 +276,12 @@
                                 liquidElement.id = "attr_" + entityType;
                                 liquidElement.requestData = compositeModelGetRequest;
                                 liquidElement.addEventListener("entity-model-composite-get-response", this._onCompositeModelGetResponse);
-
+                                
                                 this.shadowRoot.appendChild(liquidElement);
 
-                                liquidElement.generateRequest();
+                                setTimeout(() => {
+                        liquidElement.generateRequest();
+                    }, 10);
                                 this._modelGetTracker++;
                             }
                         }, this);
@@ -528,6 +539,11 @@
                 }
             }
 
+            _onSnapshotsReponse(e) {
+                debugger;
+                var data = e;
+            }
+
             _getAttributeValue(attribute) {
                 if (!_.isEmpty(attribute.value) &&
                  this._attributeModels &&
@@ -561,7 +577,15 @@
                 this.showErrorToast("Entity get failed due to following reason: ", reason);
             }
 
+            _getEntitySnapshotRequest(){
+                var contextData = DataHelper.cloneObject(this.contextData);
+                var req = DataRequestHelper.createEntityGetRequest(contextData)
+                
+                req.params.fields.attributes = ["_ALL"]
+                return req;
+            }
             _dataGet() {
+                debugger;
                 if (this._contextData) {
 
                     var firstItemContext = this._contextData[ContextHelper.CONTEXT_TYPE_ITEM] && this._contextData[ContextHelper.CONTEXT_TYPE_ITEM].length ? this._contextData[ContextHelper.CONTEXT_TYPE_ITEM][0] : undefined;
@@ -572,7 +596,12 @@
                     var req = DataRequestHelper.createEntityGetRequest(this._contextData);
                     this.set("_entityGetRequest", req);
 
-                    var liquidDataGet = this.shadowRoot.querySelector("[id=entityDataGet]");
+                    var liquidDataGet;
+                    if(this.isSnapshot) {
+                        liquidDataGet = this.shadowRoot.querySelector("#snapshotDataGet");
+                    }else{
+                        liquidDataGet = this.shadowRoot.querySelector("[id=entityDataGet]");
+                    }
                     if (liquidDataGet) {
                         liquidDataGet.generateRequest();
                     }
