@@ -340,6 +340,22 @@ It is responsible to "get" and "save" the attributes.
                     needAttributesGrouping: {
                         type: Boolean,
                         value: false
+                    },
+                    _dependentAttributeModels: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _dependentAttributeValues: {
+                        type: Array,
+                        value: function() {
+                            return [];
+                        }
+                    },
+                    _isDependentModelsResponse: {
+                        type: Boolean,
+                        value: false
                     }
                 },
                 behaviors: [
@@ -398,10 +414,11 @@ It is responsible to "get" and "save" the attributes.
                         if (this.configContext) {
                             this.groupName = this.configContext.groupName ? this.configContext.groupName : this.groupName;
                         }
-
+                        
                         var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
 
                         if (compositeModelGetRequest) {
+                            this._isDependentModelsResponse = false;
                             this._compositeAttributeModelGet = this._compositeAttributeModelGet || this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
 
                             if (this._compositeAttributeModelGet) {
@@ -442,11 +459,40 @@ It is responsible to "get" and "save" the attributes.
                             writePermission = itemContext.permissionContext.writePermission;
                         }
 
-                        this._attributeModels = await DataTransformHelper.transformAttributeModelsAsync(e.detail.response.content.entityModels[0], this.contextData, writePermission);
+                        if(!this._isDependentModelsResponse) {
+                            this._attributeModels = await DataTransformHelper.transformAttributeModelsAsync(e.detail.response.content.entityModels[0], this.contextData, writePermission);
+                            var dependentAttributeNames = this._getDependentAttributeNames(this._attributeModels);
+
+                            if(dependentAttributeNames.length > 0) {
+                                var clonedContextData = DataHelper.cloneObject(this.contextData);
+                                var itemContext = ContextHelper.getFirstItemContext(clonedContextData);
+                                itemContext.attributeNames = dependentAttributeNames;
+                                var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(clonedContextData);
+
+                                if (compositeModelGetRequest) {
+                                    this._isDependentModelsResponse = true;
+                                    this._compositeAttributeModelGet = this._compositeAttributeModelGet || this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
+
+                                    if (this._compositeAttributeModelGet) {
+                                        this._compositeAttributeModelGet.useModelCoalesce = !!this.applyContextCoalesce;
+                                        this._compositeAttributeModelGet.requestData = compositeModelGetRequest;
+                                        this._compositeAttributeModelGet.generateRequest();
+                                        return;
+                                    }
+                                }
+                            }
+                        } else {
+                            this._dependentAttributeModels =  await DataTransformHelper.transformAttributeModelsAsync(e.detail.response.content.entityModels[0], this.contextData, writePermission);
+                        }
 
                         var entityId = itemContext.id;
 
                         var attributeNames = Object.keys(this._attributeModels);
+
+                        if(!_.isEmpty(this._dependentAttributeModels)) {
+                            var dependentAttributeNames = Object.keys(this._dependentAttributeModels);
+                            attributeNames = attributeNames.concat(dependentAttributeNames);
+                        }
 
                         if (attributeNames.length > 0) {
 
@@ -488,6 +534,20 @@ It is responsible to "get" and "save" the attributes.
                     }
                 },
 
+                _getDependentAttributeNames: function(attributeModels) {
+                    var dependentAttributeNames = [];
+                    for(let model in attributeModels) {
+                        if(DataHelper.isValidObjectPath(attributeModels[model], "properties.dependencyInfo.0.dependentOn")) {
+                            var attrName = attributeModels[model].properties.dependencyInfo[0].dependentOn;
+                            if(dependentAttributeNames.indexOf(attrName) === -1) {
+                                dependentAttributeNames.push(attrName);
+                            }
+                        }
+                    }
+
+                    return dependentAttributeNames;
+                },
+
                 _onEntityGovernDataGetReceived: function (e) {
                     //TODO: Needs to check with Vishal.
                     this._attributeMessages = {};
@@ -517,15 +577,20 @@ It is responsible to "get" and "save" the attributes.
                     this.logInfo("AttributeManageResponseChange", "response", JSON.stringify(_attributeResponse, null, 2));
 
                     var attributes = [];
+                    var dependentAttributes = [];
 
                     if (DataHelper.validateGetEntitiesResponse(_attributeResponse) && this._attributeModels) {
                         var entity = _attributeResponse.content.entities[0];
 
                         if (entity) {
                             attributes = await DataTransformHelper.transformAttributes(entity, this._attributeModels, this.contextData, "array", true);
+                            if(!_.isEmpty(this._dependentAttributeModels)) {
+                                dependentAttributes = await DataTransformHelper.transformAttributes(entity, this._dependentAttributeModels, this.contextData, "array", true);
+                            }
                         }
                     }
                     this._attributeValues = attributes;
+                    this._dependentAttributeValues = dependentAttributes;
 
                     if (this._attributeValues.length)
                         this._loadAttributeList();
@@ -544,6 +609,8 @@ It is responsible to "get" and "save" the attributes.
                             "attribute-values": this._attributeValues,
                             "attribute-models": this._attributeModels,
                             "attribute-messages": this._attributeMessages,
+                            "dependent-attribute-models": this._dependentAttributeModels,
+                            "dependent-attribute-values": this._dependentAttributeValues,
                             "attributes-chunk-length": this.attributesChunkLength || 10,
                             "no-of-columns": this.noOfColumns,
                             "context-data": this.contextData,
