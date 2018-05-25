@@ -118,7 +118,30 @@
                         value: function () {
                             return {};
                         }
-                    },                    
+                    },                  
+                    
+                    _liquidDataGetCompleted: {
+                        type: Boolean,
+                        value: false
+                    },
+                    _liquidDataSnapshotGetCompleted: {
+                        type: Boolean,
+                        value: false
+                    },
+                    _isLiquidDataGetInitiated: {
+                        type: Boolean,
+                        value: false
+                    },  
+                    _isLiquidDataSnapshotGetInitiated: {
+                        type: Boolean,
+                        value: false
+                    },
+                    _combinedEntitySetForRender: {
+                        type: Array,
+                        value: function(){
+                            return [];
+                        }
+                    },              
                     _snapshotGetRequest: {
                         type: Object,
                         value: function () {
@@ -397,9 +420,28 @@
                 var columns = [];
                 var items = [];
 
-                this.entities = e.detail.response.content.entities;
+                if(e.detail.response.hasOwnProperty("response") ) {
+                    this.entities = e.detail.response.response.entities;
+                    this._liquidDataSnapshotGetCompleted =true;
+                } else {  
+                    this.entities = e.detail.response.content.entities;                    
+                    this._liquidDataGetCompleted =true;
+                }
+                var allowPrepareGrid = false;
+                if (this._isLiquidDataGetInitiated && this._isLiquidDataSnapshotGetInitiated) {
+                    if (!this._liquidDataGetCompleted || !this._liquidDataSnapshotGetCompleted) {
+                        allowPrepareGrid = false;
+                    } else {
+                        allowPrepareGrid = true;
+                    }
+                } else {
+                    allowPrepareGrid = true;
+                }
 
-                if (this.entities && this.entities.length) {
+ 
+                this._combinedEntitySetForRender.push(...this.entities);
+                this.entities = this._combinedEntitySetForRender;
+                if (this.entities && this.entities.length && allowPrepareGrid) {
                     await this._prepareGridColumnsModelAndData(this.entities, columns, items);
                 }
 
@@ -473,10 +515,16 @@
                                     "visible": true
                                 }
 
-                                if(this.enableColumnSelect && !_.isEmpty(this.compareEntitiesContext)) {
+                                if(this.compareEntitiesContext.newEntity) {
                                     colDetails["selectable"] = {
                                         "isAction": true,
                                         "disable": this.compareEntitiesContext.newEntity.id == entity.id
+                                    };
+                                }
+                                if(this.enableColumnSelect && !_.isEmpty(this.compareEntitiesContext)) {
+                                    colDetails["selectable"] = {
+                                        "isAction": true,
+                                        "disable": false
                                     };
                                 }
                                 columns.push(colDetails);
@@ -485,7 +533,7 @@
 
                             var _isAttributeMapped = false;
                             this._entityModels.forEach(function (currentModel) {
-                                if (currentModel.name == entity.type && currentModel.data && currentModel.data.attributes) {
+                                if ( (currentModel.name == entity.type || entity.type.indexOf(currentModel.name) !== -1) && currentModel.data && currentModel.data.attributes) {
                                     if (currentModel.data.attributes[row.name]) {
                                         _isAttributeMapped = true;
                                     };
@@ -591,26 +639,54 @@
                 return req;
             }
             _dataGet() {
-                debugger;
                 if (this._contextData) {
+                    var onlySnapshotsSelected = true;
 
                     var firstItemContext = this._contextData[ContextHelper.CONTEXT_TYPE_ITEM] && this._contextData[ContextHelper.CONTEXT_TYPE_ITEM].length ? this._contextData[ContextHelper.CONTEXT_TYPE_ITEM][0] : undefined;
                     if (firstItemContext) {
                         firstItemContext.type = this._entityTypes;
                     }
-
+                    ContextHelper.addDefaultValContext(this.contextData);
+                    ContextHelper.addDefaultValContext(this._contextData);
                     var req = DataRequestHelper.createEntityGetRequest(this._contextData);
 
-                    var liquidDataGet;
-                    if(this.isSnapshot) {
-                        req.params.fields.attributes = ["_ALL"];
-                        this.set("_snapshotGetRequest", req);                    
-                        liquidDataGet = this.shadowRoot.querySelector("#snapshotDataGet");
-                    }else{
-                        this.set("_entityGetRequest", req);
-                        liquidDataGet = this.shadowRoot.querySelector("#entityDataGet");
+
+                    
+                    if (this.isSnapshot) {
+                        var reqEntity = datahelpers.clone(req);
+                        var reqSnapshot = datahelpers.clone(req);
+                        var liquidDataSnapshotGet = this.shadowRoot.querySelector("#snapshotDataGet");
+
+                        req.params.query.ids.forEach((element, index) => {
+                            if (element.hasOwnProperty("notSnapshot")) {
+                                reqEntity.params.query.ids = reqSnapshot.params.query.ids.splice(index, 1);
+                                reqEntity.params.query.ids = [reqEntity.params.query.ids[0].id];
+                                req.params.query.ids[index] = req.params.query.ids[index].id;
+                                onlySnapshotsSelected = false;
+                            }
+                        });
+
+                        reqSnapshot.params.query.filters.typesCriterion[0] = reqSnapshot.params.query.filters.typesCriterion[0] + "_snapshot"
+                        reqSnapshot.params.fields.attributes = ["_ALL"];
+                        reqEntity.params.fields.attributes = ["_ALL"];
+                        this.set("_snapshotGetRequest", reqSnapshot);
                     }
-                    if (liquidDataGet) {
+
+                    var liquidDataGet = this.shadowRoot.querySelector("#entityDataGet");
+                 
+                        this.set("_entityGetRequest", reqEntity);
+                        //Call segregation for snapshot scenario
+                    if (this.isSnapshot) {
+                        if (liquidDataGet && !onlySnapshotsSelected) {
+                            liquidDataGet.generateRequest();
+                            this._isLiquidDataGetInitiated = true;
+                        }
+                        if (liquidDataSnapshotGet && (reqSnapshot.params.query.id || reqSnapshot.params.query.ids)) {
+                            liquidDataSnapshotGet.generateRequest();
+                            this._isLiquidDataSnapshotGetInitiated = true;
+                        }
+
+                    } else {
                         liquidDataGet.generateRequest();
                     }
                 }
@@ -791,7 +867,11 @@
                 if(_.isEmpty(this.compareEntitiesContext)) {
                     return entityHeader;
                 }
-                return entityId == this.compareEntitiesContext.newEntity.id ? "New "+ entityHeader : "Matched "+ entityHeader;
+                if(!this.isSnapshot) {
+                    return entityId == this.compareEntitiesContext.newEntity.id ? "New "+ entityHeader : "Matched "+ entityHeader;
+                } else {
+                    return entityHeader;
+                }
             }
 
             _onColumnSelectionChanged(e) {
