@@ -1,0 +1,289 @@
+<link rel="import" href="../../../bower_components/polymer/polymer-element.html">
+
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+<link rel="import" href="../bedrock-helpers/constant-helper.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-helpers/data-request-helper.html">
+
+<link rel="import" href="../rock-entity-model-lov/rock-entity-model-lov.html">
+
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
+<link rel="import" href="../pebble-textbox/pebble-textbox.html">
+<link rel="import" href="../pebble-toggle-button/pebble-toggle-button.html">
+
+<dom-module id="rock-mappings-role-selector">
+    <template>
+        <style>
+            #buttonContainer {
+                margin-top: 20px;
+                text-align: center;
+            }
+
+            .lov-wrapper {
+                width: 100%;
+                text-align: center;
+            }
+
+            .lov-container {
+                width: 460px;
+                display: inline-block;
+                padding: 20px;
+                text-align: left;
+                margin: 10px 0 0 10px;
+                box-shadow: 1px 2px 5px -1px var(--default-border-color, #c1cad4);
+                border: var(--box-style_-_border, solid 1px var(--default-border-color, #c1cad4));
+                border-radius: var(--box-style_-_border-radius);
+            }
+
+            .input {
+                width: 200px;
+                padding: 10px;
+            }
+
+            pebble-toggle-button {
+                padding-top: 15px;
+                --pebble-toggle-button-checked-bar-color: var(--success-color, #4caf50);
+                --pebble-toggle-button-checked-button-color: var(--success-color, #4caf50);
+                --pebble-toggle-button-checked-ink-color: var(--success-color, #4caf50);
+            }
+        </style>
+        <pebble-spinner active="[[_loading]]"></pebble-spinner>
+        <div class="lov-wrapper">
+            <div class="lov-container">
+                <template is="dom-if" if="[[_isRoleModelRequestPrepared(_roleModelRequestData)]]">
+                    <div id="roleDiv" class="input" on-tap="_showRolesLOV" hidden$="[[_isHidden('role')]]">
+                        <pebble-textbox readonly class="role-text" id="roleTextBox" label="Select Role" no-label-float value="[[selectedRole.title]]"
+                            title="[[selectedRole.title]]" disabled$="[[_isDisable('role')]]">
+                            <pebble-icon slot="suffix" class="pebble-icon-size-10 m-r-5" id="roleDropdownIcon" icon="pebble-icon:navigation-action-down"
+                                on-tap="_showRolesLOV" disabled$="[[_isDisable('role')]]"></pebble-icon>
+                        </pebble-textbox>
+                    </div>
+                    <div id="ownershipDiv" class="input" hidden$="[[_isHidden('ownershipdata')]]">
+                        <pebble-textbox readonly class="owner-text" id="ownerTextBox" label="Ownership Data" no-label-float value="[[_ownershipData]]"
+                            title="[[_ownershipData]]" disabled$="[[_isDisable('ownershipdata')]]">
+                        </pebble-textbox>
+                    </div>
+                    <div id="saveOnlyForMeDiv" class="input" hidden$="[[_isHidden('saveoptions')]]">
+                        <pebble-toggle-button checked="{{_saveOnlyForMe}}" disabled$="[[_isDisable('saveoptions')]]">Save only for me</pebble-toggle-button>
+                    </div>
+
+                    <pebble-popover class="roles-popover" id="rolesModelPopover" for="roleDropdownIcon" no-overlap vertical-align="auto" horizontal-align="right">
+                        <rock-entity-model-lov id="rolesModelLov" id-field="id" title-pattern="{entity.properties.description}" request-data="[[_roleModelRequestData]]"
+                            selected-item="{{selectedRole}}" external-data-formatter="[[_roleDataFormatter]]" deleted-items-count="[[deletedRolesCount]]"></rock-entity-model-lov>
+                    </pebble-popover>
+                </template>
+            </div>
+        </div>
+        <div id="buttonContainer">
+            <pebble-button id="cancel" class="btn btn-secondary m-r-5" button-text="Cancel" on-tap="_onCancelTap" elevation=1 raised></pebble-button>
+            <pebble-button id="next" class="focus btn btn-success" button-text="Next" on-tap="_onNextTap" elevation=1 raised></pebble-button>
+        </div>
+    </template>
+    <script>
+        class RockMappingsRoleSelector extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.ComponentContextBehavior], Polymer.Element) {
+
+            static get is() { return 'rock-mappings-role-selector' }
+
+            static get properties() {
+                return {
+                    contextData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+
+                    businessFunctionData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+
+                    _roleModelRequestData: {
+                        type: Object,
+                        value: function () {
+                            return {}
+                        }
+                    },
+
+                    selectedRole: {
+                        type: Object,
+                        value: function () {
+                            return {}
+                        }
+                    },
+
+                    _ownershipData: {
+                        type: String,
+                        value: ""
+                    },
+
+                    _saveOnlyForMe: {
+                        type: Boolean,
+                        value: true
+                    },
+
+                    _roleDataFormatter: {
+                        type: Object,
+                        value: function () {
+                            return this._roleDataFormatter.bind(this);
+                        }
+                    },
+
+                    deletedRolesCount: {
+                        type: Number,
+                        value: 0
+                    },
+
+                    visibleOptions: {
+                        type: Array,
+                        value: function () {
+                            return ["role", "ownershipdata", "saveoptions"]
+                        }
+                    },
+
+                    enableOptions: {
+                        type: Array,
+                        value: function () {
+                            return ["role", "saveoptions"]
+                        }
+                    }
+                }
+            }
+
+            get rolesModelPopover() {
+                this._rolesModelPopover = this._rolesModelPopover || this.shadowRoot.querySelector("#rolesModelPopover");;
+                return this._rolesModelPopover;
+            }
+
+            get rolesModelLov() {
+                this._rolesModelLov = this._rolesModelLov || this.shadowRoot.querySelector("#rolesModelLov");;
+                return this._rolesModelLov;
+            }
+
+            connectedCallback() {
+                super.connectedCallback();
+                this._prepareRoleModelRequest();
+                this._setOwnershipData();
+            }
+
+            _isRoleModelRequestPrepared() {
+                if (this._roleModelRequestData && !_.isEmpty(this._roleModelRequestData)) {
+                    return true;
+                }
+                return false;
+            }
+
+            _prepareRoleModelRequest() {
+                var req = DataRequestHelper.createGetModelRequest([], "role");
+                req.params["sort"] = {
+                    "properties": [
+                        {
+                            "firstName": "_ASC",
+                            "sortType": ConstantHelper.getDataTypeConstant("string")
+                        }
+                    ]
+                }
+                delete req.params.fields.attributes;
+                delete req.params.fields.relationships;
+                delete req.params.query.ids;
+                req.params.fields.properties = ["_ALL"];
+                this.set("_roleModelRequestData", req);
+            }
+
+            _roleDataFormatter(formattedData, data) {
+                this.deletedRolesCount = 0;
+                if (formattedData && formattedData.length > 0) {
+                    formattedData = formattedData.filter((role) => {
+                        var roleData = data.filter((eModel) => { return eModel.id == role.id; });
+                        // if (roleData && roleData.length > 0 && roleData[0].properties) {
+                        //     var roleProperties = roleData[0].properties
+                        //     if (roleProperties.description) {
+                        //         role.title = roleProperties.description
+                        //     }
+                        // }
+                        role.id = role.id.replace("_role", "");
+                        return role;
+                    });
+                }
+                if (_.isEmpty(this.selectedRole)) {
+                    this._setCurrentRoleSelected();
+                }
+                this.deletedRolesCount = data.length - formattedData.length;
+                return formattedData;
+            }
+
+            _setCurrentRoleSelected() {
+                var loggedUser = ContextHelper.getFirstUserContext(this.contextData);
+                if (loggedUser && loggedUser.role) {
+                    this.selectedRole = { "id": loggedUser.role, "title": loggedUser.role };
+                }
+            }
+
+            _setOwnershipData() {
+                if (this.ownershipData && this.ownershipData != "undefined") {
+                    this._ownershipData = this.ownershipData;
+                }
+            }
+
+            _onNextTap() {
+                this._loading = false;
+                var eventName = "onNext";
+                var eventDetail = {
+                    name: eventName,
+                    data: {}
+                }
+                //Prepare data as per selection, and pass the same as businessFunctionData
+                var data = this._prepareSelectedOptionsObject();
+                this.businessFunctionData = data;
+                ComponentHelper.getParentElement(this).businessFunctionData = data;
+                this.fireBedrockEvent(eventName, eventDetail, {
+                    ignoreId: true
+                });
+            }
+
+            _onCancelTap() {
+                var eventName = "onCancel";
+                var eventDetail = {
+                    name: eventName,
+                    data: {}
+                }
+                this.fireBedrockEvent(eventName, eventDetail, {
+                    ignoreId: true
+                });
+            }
+
+            _showRolesLOV() {
+                var popover = this.rolesModelPopover;
+                if (popover) {
+                    popover.show();
+                }
+            }
+
+            _isHidden(component) {
+                if (!_.isEmpty(this.visibleOptions) && this.visibleOptions.indexOf(component) != -1) {
+                    return false;
+                }
+
+                return true;
+            }
+
+            _isDisable(component) {
+                if (!_.isEmpty(this.enableOptions) && this.enableOptions.indexOf(component) != -1) {
+                    return false;
+                }
+
+                return true;
+            }
+
+            _prepareSelectedOptionsObject() {
+
+            }
+        }
+
+        customElements.define(RockMappingsRoleSelector.is, RockMappingsRoleSelector);
+    </script>
+</dom-module>
