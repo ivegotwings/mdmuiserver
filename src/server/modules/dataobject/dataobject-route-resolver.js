@@ -45,7 +45,7 @@ if (runOffline) {
 
 const dataObjectManageService = new DataObjectManageService(options);
 const entityCompositeModelGetService = new EntityCompositeModelGetService(options);
-const configurationService = new ConfigurationService(options);
+const configurationService = new ConfigurationService.ConfigurationService(options);
 const eventService = new EventService(options);
 const entityHistoryEventService = new EntityHistoryEventService(options);
 const dataObjectLineageService = new DataObjectLineageService(options);
