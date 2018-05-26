@@ -4,7 +4,8 @@ var DFRestService = require('../common/df-rest-service/DFRestService');
 var RuntimeVersionManager = require('../version-service/RuntimeVersionManager');
 
 const fs = require('fs'),
-    path = require('path');
+    path = require('path'),
+    isEmpty = require('../common/utils/isEmpty');
 
 const falcorUtil = require('../../../shared/dataobject-falcor-util');
 
@@ -20,6 +21,7 @@ BaseConfigService.prototype = {
     get: async function (url, baseConfigRequest) {
         var serviceConfig = SERVICE_CONFIG.services[url];
         var tenant = this.getTenantId();
+        var runtimeVersion = await RuntimeVersionManager.getVersion();
 
         var mode = "online";
         if (serviceConfig && serviceConfig.baseConfigMode && serviceConfig.baseConfigMode == "offline") {
@@ -28,8 +30,8 @@ BaseConfigService.prototype = {
         var configId = baseConfigRequest.params.query.id;
         var cacheKey = await this.getCacheKey(tenant, configId);
 
-        if (localConfigCache[cacheKey]) {
-            return falcorUtil.cloneObject(localConfigCache[cacheKey]);
+        if (localConfigCache[runtimeVersion] && localConfigCache[runtimeVersion][cacheKey]) {
+            return falcorUtil.cloneObject(localConfigCache[runtimeVersion][cacheKey]);
         }
 
         var baseConfigResponse;
@@ -39,8 +41,9 @@ BaseConfigService.prototype = {
             baseConfigResponse = await this.post(url, baseConfigRequest);
         }
 
-        localConfigCache[cacheKey] = falcorUtil.cloneObject(baseConfigResponse);
-
+        isEmpty(localConfigCache[runtimeVersion]) && (localConfigCache[runtimeVersion] = {});
+        localConfigCache[runtimeVersion][cacheKey] = falcorUtil.cloneObject(baseConfigResponse);
+        
         return baseConfigResponse;
     },
     getCacheKey: async function(tenant, configId) {
@@ -64,4 +67,7 @@ BaseConfigService.prototype = {
     }
 }
 
-module.exports = BaseConfigService;
+module.exports =   { 
+    BaseConfigService: BaseConfigService,
+    localConfigCache: localConfigCache
+};
