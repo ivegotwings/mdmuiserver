@@ -396,6 +396,9 @@ function _getService(dataObjectType) {
     }
     else if (dataObjectType == "entityhistoryevent") {
         return entityHistoryEventService;
+    } 
+    else if (dataObjectType == "attributeModel" || dataObjectType == "relatinshipModel" || dataObjectType == "entityTypeModel") {
+        return baseModelService;
     }
     else {
         return dataObjectManageService;
