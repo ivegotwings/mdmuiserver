@@ -88,10 +88,6 @@ module.exports = function (app) {
         falcorExpress.dataSourceRoute(function (req, res) {
             return new DataObjectRouter(routerOptions);
         }));
-    app.use('/data/baseModelData.json',
-        falcorExpress.dataSourceRoute(function (req, res) {
-            return new DataObjectRouter(routerOptions);
-        }));
     app.use('/data/entityGovernData.json',
         falcorExpress.dataSourceRoute(function (req, res) {
             return new DataObjectRouter(routerOptions);

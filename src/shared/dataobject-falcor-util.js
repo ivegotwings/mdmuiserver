@@ -263,18 +263,6 @@ DataObjectFalcorUtil.getPathKeys = function () {
                     }
                 }
             },
-            "baseModel": {
-                "dataSubIndexInfo": {
-                    "baseModel": {
-                        "name": "baseModel",
-                        "collectionName": "baseModels",
-                        "responseObjectName": "response",
-                        "maxRecordsToReturn": 2000,
-                        "combinedQueryPageSize": 30000,
-                        "cacheExpiryDurationInMins": 7200
-                    }
-                }
-            },
             "config": {
                 "dataSubIndexInfo": {
                     "config": {
