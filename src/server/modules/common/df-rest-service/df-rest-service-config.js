@@ -22,6 +22,10 @@ var SERVICE_CONFIG = {
                 "fieldToCompareInData": "id"
             }
         },
+        "entityappservice/generatevariants": {
+            "url": "/entityappservice/generatevariants",
+            "mode": "online"
+        },
         "entityservice/create": {
             "url": "/entityappservice/create",
             "mode": "online"
