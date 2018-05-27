@@ -78,7 +78,7 @@
                                 <bedrock-pubsub event-name="dimension-selector-data-changed" handler="_onDimensionsChanged" target-id="attributeDimensionSelector"></bedrock-pubsub>
                                 <bedrock-pubsub event-name="dimension-selector-confirmation-ok" handler="_onDimensionConfirmationOK" target-id="attributeDimensionSelector"></bedrock-pubsub>
                             </span>
-                        </div>           
+                        </div>
                         <div id="gridManage">
                             <span class="gridCountMsg">[[_getGridRecordsCountMessage(_gridData)]]</span>
                             <span class="pull-right">
@@ -124,12 +124,9 @@
                             </template>
                         </div>
                         <div id="actions-container" class="m-t-10" align="center">
-                                <pebble-button class="action-button btn btn-secondary m-r-10" id="back" button-text="Back" raised on-tap="_onBackTap"></pebble-button>
-                                <pebble-button class="action-button btn btn-primary m-r-10" id="skipandimport" button-text="Skip & Import" raised on-tap="_onImportTap"></pebble-button>
-                                <pebble-actions id="save" class="dropdownText dropdownIcon btn btn-actions dropdown-success m-r-10" button-text="Save" actions-data="[[saveActions]]" vertical-align="bottom"></pebble-actions>
-                                <pebble-actions id="saveandimport" class="dropdownText dropdownIcon btn btn-actions dropdown-success m-r-10" button-text="Save & Import" actions-data="[[saveImportActions]]" vertical-align="bottom"></pebble-actions>
-                                <bedrock-pubsub event-name="pebble-actions-action-click" handler="_onActionItemTap" target-id=""></bedrock-pubsub>
-                            </div>
+                            <pebble-button class="action-button btn btn-secondary m-r-10" id="back" button-text="Back" raised on-tap="_onBackTap"></pebble-button>
+                            <pebble-button class="action-button btn btn-success m-r-10" id="save" button-text="Save" raised on-tap="_onSaveTap"></pebble-button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -151,7 +148,6 @@
         </pebble-dialog>
         <bedrock-pubsub event-name="on-buttonok-clicked" handler="_discardAttributeChanges" target-id="attribute-mappings-dirty-check-Dialog"></bedrock-pubsub>
 
-       
         <liquid-entity-model-get name="liquidAttributeModelGet" operation="getbyids" on-response="_onAttributeModelGetResponse"
             on-error="_onError"></liquid-entity-model-get>
         <liquid-entity-model-composite-get name="liquidEntityManageModelGet" operation="getbyids" on-response="_onEntityManageModelGetResponse" on-error="_onEntityManageModelGetError"></liquid-entity-model-composite-get>
@@ -199,11 +195,6 @@
                     _currentTaxonomy: {
                         type: String,
                         value: ""
-                    },
-
-                    _isSaveAndImport: {
-                        type: Boolean,
-                        value: false
                     },
 
                     _isMappingsSaved: {
@@ -287,11 +278,13 @@
                         this.saveActions = this.mappingData.saveActions;
                         this.saveImportActions = this.mappingData.saveImportActions;
                         this.fileFormat = this.mappingData.fileFormat;
+                        this.isAplusSheet = this.mappingData.isAplusSheet;
                         this.selectedContexts = this._prepareContexts(this._contexts);
                         var types = ["attributemapping"];
-                        var req = DataRequestHelper.createMappingsGetRequest(this.contextData, this.copContext, this.selectedContexts, types);
+                        this.selectedOptions = this.mappingData.selectedOptions;
+                        var req = DataRequestHelper.createMappingsGetRequest(this.contextData, this.copContext, this.selectedContexts, types, this.selectedOptions);
                         req.params.rsconnect.headers.entities = this.mappingData.headerFields;
-                        req.params.query.contexts[0].ownershipdata = this.ownershipData && this.ownershipData != "undefined" ? this.ownershipData : "_DEFAULT";
+                        req.params.query.contexts[0].ownershipdata = this.selectedOptions.ownershipData;
                         req.params.query.contexts[0].format = this.fileFormat;
                         if(_.isEmpty(this.modelContextData)) {
                             this.modelContextData = DataHelper.cloneObject(this.contextData);
@@ -600,38 +593,20 @@
                     }
                 },
 
-                _onActionItemTap(e, detail, sender) {
-                    this.selectedRole = detail.data.value;
-                    if(detail.data.event == "attribute-mappings-save") {
-                        this._onSaveTap();
-                    } else if(detail.data.event == "attribute-mappings-save-import") {
-                        this._onSaveAndImportTap();
-                    }
-                },
-
-                _onSaveAndImportTap: function() {
-                    this._isSaveAndImport = true;
-                    this._onSaveTap();
-                },
-
                 _onSaveTap: function () {
                     this._loading = true;
                     if(!this.saveMappingsLiq) return;
 
                     this._loading = true;
                     var mappings = this._transformGridDataToSaveMappings();
-                    if (_.isEmpty(mappings) && (!this._isMappingsSaved || !this._isSaveAndImport)) {
+                    if (_.isEmpty(mappings) && !this._isMappingsSaved) {
                         this._loading = false;
                         return this.showSuccessToast("There are no changes in mappings to save.");
                     }
-                    var saveRequest = DataRequestHelper.createMappingsSaveRequest(this.contextData, this.copContext, this.selectedContexts, "attributemapping", this.selectedRole)
+                    var saveRequest = DataRequestHelper.createMappingsSaveRequest(this.contextData, this.copContext, this.selectedContexts, "attributemapping", this.selectedOptions)
                     if (!_.isEmpty(saveRequest)) {
                         saveRequest.entity.data.contexts[0].attributes = mappings;
-                        var ownershipData = "_DEFAULT";
-                        if (this.selectedRole != "all" && this.ownershipData && this.ownershipData != "undefined") {
-                            ownershipData = this.ownershipData;
-                        }
-                        saveRequest.entity.data.contexts[0].context.ownershipdata = ownershipData;
+                        saveRequest.entity.data.contexts[0].context.ownershipdata = this.selectedOptions.ownershipData;
                         saveRequest.entity.data.contexts[0].context.format = this.fileFormat;
                         this.saveMappingsLiq.requestData = saveRequest;
                         this.saveMappingsLiq.generateRequest();
@@ -643,14 +618,9 @@
                     if (response && response.status == "success") {
                         this.async(function() {
                             this._resetMappings(); //Call this on save mappings success
-                            if(this._isSaveAndImport) {
-                                this.showSuccessToast("Attribute mappings submitted and imported the file successfully.");
-                                this._onImportTap();
-                            } else {
-                                this._isMappingsSaved = true;
-                                this._isMappingChanged = false;
-                                this.showSuccessToast("Attribute mappings submitted successfully.");
-                            }
+                            this._isMappingsSaved = true;
+                            this._isMappingChanged = false;
+                            this.showSuccessToast("Attribute mappings submitted successfully.");
                             this._loading = false;
                         }, 10000);
                         return;
@@ -774,18 +744,9 @@
                 },
 
                 _onBackTap: function (e) {
-                    this.currentEventName = "field-map-back";
+                    this.currentEventName = "onBack";
+                    this.skipStep = this.isAplusSheet ? true : false;
                     RUFBehaviors.MappingGridBehaviorImpl._triggerDirtyCheck.call(this, "attribute");
-                },
-
-                _onImportTap: function () {
-                    this.currentEventName = "field-map-import";
-                    if(this._isSaveAndImport) {
-                        RUFBehaviors.MappingGridBehaviorImpl._triggerEvent.call(this, "attribute");
-                        this._isSaveAndImport = false;
-                    } else {
-                        RUFBehaviors.MappingGridBehaviorImpl._triggerDirtyCheck.call(this, "attribute");
-                    }
                 },
 
                 _isReadonly: function (item) {
@@ -844,7 +805,7 @@
                                 "supportsValueMapping": entityModelAttribute.properties.supportsValueMapping,
                                 "valueMappingContext": entityModelAttribute.properties.valueMappingContext,
                                 "valueMappingTypeName": entityModelAttribute.properties.valueMappingTypeName,
-                                "selectedDimensions": this.selectedDimensions
+                                "selectedDimensions": this.selectedDimensions || {}
                             }
 
                             valueMappings.headerFields = this.mappingData.headerFields;
@@ -861,8 +822,7 @@
                                         "context-data": this.contextData,
                                         "cop-context": this.copContext,
                                         "mapping-config": this.mappingConfig,
-                                        "save-actions": this.mappingData.saveValueMappingsActions,
-                                        "save-continue-actions": this.mappingData.saveValueMappingsContinueActions
+                                        "selected-options": this.selectedOptions
                                     }
                                 };
                                 ComponentHelper.loadContent(this.valueMappingsDialog.querySelector("#valueMappingsDialogContent"), component, this);

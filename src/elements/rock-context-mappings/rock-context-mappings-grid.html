@@ -198,9 +198,7 @@
                 <div id="actions-container" class="m-t-10" align="center">
                     <pebble-button class="action-button btn btn-secondary m-r-10" id="back" button-text="Back" raised on-tap="_onBackTap"></pebble-button>
                     <pebble-button class="action-button btn btn-primary m-r-10" id="skip" button-text="Skip" raised on-tap="_onSkipTap"></pebble-button>
-                    <pebble-actions id="saveandcontinue" class="dropdownText dropdownIcon btn btn-actions dropdown-success m-r-10" button-text="Save & Continue"
-                        actions-data="[[saveActions]]" vertical-align="bottom"></pebble-actions>
-                    <bedrock-pubsub event-name="pebble-actions-action-click" handler="_onActionItemTap" target-id=""></bedrock-pubsub>
+                    <pebble-button class="action-button btn dropdown-success m-r-10" id="saveandcontinue" button-text="Save & Continue" raised on-tap="_onSaveTap"></pebble-button>
                 </div>
             </div>
         </div>
@@ -237,6 +235,13 @@
 
                 properties: {
                     contextData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+
+                    businessFunctionData: {
                         type: Object,
                         value: function () {
                             return {};
@@ -335,26 +340,30 @@
                         value: "Excel"
                     },
 
-                    saveActions: {
-                        type: Array,
-                        value: function () {
-                            return []
-                        }
-                    },
-
-                    selectedRole: {
+                    taxonomy: {
                         type: String,
                         value: ""
+                    },
+
+                    selectedOptions: {
+                        type: Object,
+                        value: function () {
+                            return { "role": "_DEFAULT", "ownershipData": "_DEFAULT", "saveType": "self" }
+                        }
                     }
                 },
                 observers: [
-                    "_onMappingsDataChange(mappingConfig, mappingData, contextData, copContext)"
+                    "_onMappingsDataChange(mappingConfig, businessFunctionData, contextData, copContext)"
                 ],
                 behaviors: [
                     RUFBehaviors.MappingGridBehavior
                 ],
 
                 _onMappingsDataChange: async function () {
+                    if(!_.isEmpty(this.businessFunctionData) && this.businessFunctionData["context-mapping-data"]) {
+                        this.mappingData = this.businessFunctionData["context-mapping-data"];
+                    }
+
                     if (!_.isEmpty(this.contextData) && !_.isEmpty(this.mappingData) && !_.isEmpty(this.mappingConfig) && !_.isEmpty(this.copContext)) {
                         this._loading = true;
                         var itemContext = ContextHelper.getFirstItemContext(this.contextData);
@@ -362,11 +371,12 @@
                             this.entityType = itemContext.type;
                             this.contexts = this.mappingData.contexts;
                             this.taxonomies = this.mappingData.taxonomies;
+                            this.taxonomy = this.mappingData.taxonomy;
                             this.domain = this.mappingData.domain;
                             this.entityTypeExternalName = this.mappingData.entityTypeExternalName;
                             this.contextExternalNames = this.mappingData.contextExternalNames;
-                            this.saveActions = this.mappingData.saveActions;
                             this.fileFormat = this.mappingData.fileFormat;
+                            this._setSelectedOptions();
                             //Fetch context mappings now
                             this._getMappings();
                         }
@@ -379,9 +389,9 @@
                         "value": this.entityType
                     }];
                     var types = ["contextmapping"];
-                    var req = DataRequestHelper.createMappingsGetRequest(this.contextData, this.copContext, selectedContexts, types);
+                    var req = DataRequestHelper.createMappingsGetRequest(this.contextData, this.copContext, selectedContexts, types, this.selectedOptions);
                     req.params.rsconnect.headers.entities = this.mappingData.headerFields;
-                    req.params.query.contexts[0].ownershipdata = this.ownershipData && this.ownershipData != "undefined" ? this.ownershipData : "_DEFAULT";
+                    req.params.query.contexts[0].ownershipdata = this.selectedOptions.ownershipData;
                     this.set("_getMappingsRequest", req);
                     var getMappings = this.shadowRoot.querySelector("#getMappings");
                     if (getMappings) {
@@ -577,7 +587,7 @@
                 },
 
                 _onBackTap: function (e) {
-                    this.currentEventName = "context-mapping-back";
+                    this.currentEventName = "onBack";
                     RUFBehaviors.MappingGridBehaviorImpl._triggerDirtyCheck.call(this, "context");
                 },
 
@@ -587,19 +597,9 @@
                 },
 
                 _onSkipTap: function (e) {
-                    this.currentEventName = "context-mapping-skip";
-                    this.currentEventDetails = {
-                        "name": this.currentEventName,
-                        "nonContextFields": this._getNonTaxonomyFields()
-                    };
+                    this.currentEventName = "onSkip";
+                    this._setAttributeMappingsData();
                     RUFBehaviors.MappingGridBehaviorImpl._triggerDirtyCheck.call(this, "context");
-                },
-
-                _onActionItemTap(e, detail, sender) {
-                    if (detail.data.event == "context-mappings-save") {
-                        this.selectedRole = detail.data.value;
-                        this._onSaveTap();
-                    }
                 },
 
                 _onSaveTap: function (e) {
@@ -616,14 +616,11 @@
                             "type": "entitytype",
                             "value": this.entityType
                         }];
-                        var saveRequest = DataRequestHelper.createMappingsSaveRequest(this.contextData, this.copContext, selectedContexts, "contextmapping", this.selectedRole);
+
+                        var saveRequest = DataRequestHelper.createMappingsSaveRequest(this.contextData, this.copContext, selectedContexts, "contextmapping", this.selectedOptions);
                         if (!_.isEmpty(saveRequest)) {
                             saveRequest.entity.data.contexts[0].attributes = mappings;
-                            var ownershipData = "_DEFAULT";
-                            if (this.selectedRole != "all" && this.ownershipData && this.ownershipData != "undefined") {
-                                ownershipData = this.ownershipData;
-                            }
-                            saveRequest.entity.data.contexts[0].context.ownershipdata = ownershipData;
+                            saveRequest.entity.data.contexts[0].context.ownershipdata = this.selectedOptions.ownershipData;
                             saveRequest.entity.data.contexts[0].context.format = this.fileFormat;
                             this.set("_saveMappingsRequest", saveRequest);
                             var saveMappings = this.shadowRoot.querySelector("#saveMappings");
@@ -642,12 +639,15 @@
                     if (response && response.status == "success") {
                         this.showSuccessToast("Context mappings saved successfully.");
                         //Trigger event to goto next step
-                        var eventName = "context-mapping-save";
+                        this._setAttributeMappingsData(true);
+                        var eventName = "onNext";
                         var eventDetail = {
-                            "name": eventName,
-                            "nonContextFields": this._getNonTaxonomyFields(true)
-                        };
-                        this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                            name: eventName,
+                            data: {}
+                        }
+                        this.fireBedrockEvent(eventName, eventDetail, {
+                            ignoreId: true
+                        });
                         this._loading = false;
                         this._isMappingChanged = false;
                         return;
@@ -874,6 +874,34 @@
                     }
 
                     return nonContextFields;
+                },
+
+                _setAttributeMappingsData: function(fromGridData = false) {
+                    var attributeFields = this._getNonTaxonomyFields(fromGridData);
+                    var mappingData = {
+                        "headerFields": attributeFields && attributeFields.length > 0 ? attributeFields : this.mappingData.headerFields,
+                        "taxonomies": this.taxonomies,
+                        "taxonomy": this.taxonomy,
+                        "contexts": this.contexts,
+                        "domain": this.domain,
+                        "fileFormat": this.fileFormat,
+                        "selectedOptions": this.selectedOptions
+                    }
+
+                    //Prepare mapping data, and pass the same as businessFunctionData
+                    if(!this.businessFunctionData) {
+                        this.businessFunctionData = {};
+                    }
+                    this.businessFunctionData["attribute-mapping-data"] = mappingData;
+                    ComponentHelper.getParentElement(this).businessFunctionData = this.businessFunctionData;
+                },
+
+                _setSelectedOptions: function () {
+                    if (this.businessFunctionData && this.businessFunctionData.selectedOptions) {
+                        this.selectedOptions.role = this.businessFunctionData.selectedOptions.role.id;
+                        this.selectedOptions.ownershipData = this.businessFunctionData.selectedOptions.ownershipData;
+                        this.selectedOptions.saveType = this.businessFunctionData.selectedOptions.saveType;
+                    }
                 }
             });
         })();

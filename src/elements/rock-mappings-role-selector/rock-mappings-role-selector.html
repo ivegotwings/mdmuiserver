@@ -65,10 +65,10 @@
                             title="[[_ownershipData]]" disabled$="[[_isDisable('ownershipdata')]]">
                         </pebble-textbox>
                     </div>
-                    <div id="saveOnlyForMeDiv" class="input" hidden$="[[_isHidden('saveoptions')]]">
-                        <pebble-toggle-button checked="{{_saveOnlyForMe}}" disabled$="[[_isDisable('saveoptions')]]">Save only for me</pebble-toggle-button>
+                    <div id="saveOnlyForMeDiv" class="input" hidden$="[[_isHidden('savetype')]]">
+                        <pebble-toggle-button checked="{{_saveOnlyForMe}}" disabled$="[[_isDisable('savetype')]]">Save only for me</pebble-toggle-button>
                     </div>
-
+                    <bedrock-pubsub event-name="entity-model-lov-selection-changed" handler="_onRoleSelection" target-id="rolesModelLov"></bedrock-pubsub>
                     <pebble-popover class="roles-popover" id="rolesModelPopover" for="roleDropdownIcon" no-overlap vertical-align="auto" horizontal-align="right">
                         <rock-entity-model-lov id="rolesModelLov" id-field="id" title-pattern="{entity.properties.description}" request-data="[[_roleModelRequestData]]"
                             selected-item="{{selectedRole}}" external-data-formatter="[[_roleDataFormatter]]" deleted-items-count="[[deletedRolesCount]]"></rock-entity-model-lov>
@@ -77,8 +77,8 @@
             </div>
         </div>
         <div id="buttonContainer">
-            <pebble-button id="cancel" class="btn btn-secondary m-r-5" button-text="Cancel" on-tap="_onCancelTap" elevation=1 raised></pebble-button>
-            <pebble-button id="next" class="focus btn btn-success" button-text="Next" on-tap="_onNextTap" elevation=1 raised></pebble-button>
+            <pebble-button id="cancel" class="action-button btn btn-secondary m-r-10" button-text="Cancel" on-tap="_onCancelTap" elevation=1 raised></pebble-button>
+            <pebble-button id="next" class="action-button btn btn-success" button-text="Next" on-tap="_onNextTap" elevation=1 raised></pebble-button>
         </div>
     </template>
     <script>
@@ -141,15 +141,20 @@
                     visibleOptions: {
                         type: Array,
                         value: function () {
-                            return ["role", "ownershipdata", "saveoptions"]
+                            return ["role", "ownershipdata", "savetype"]
                         }
                     },
 
                     enableOptions: {
                         type: Array,
                         value: function () {
-                            return ["role", "saveoptions"]
+                            return ["role", "savetype"]
                         }
+                    },
+
+                    _loading: {
+                        type: Boolean,
+                        value: false
                     }
                 }
             }
@@ -166,8 +171,9 @@
 
             connectedCallback() {
                 super.connectedCallback();
+                this._loading = true;
                 this._prepareRoleModelRequest();
-                this._setOwnershipData();
+                this._setOptions();
             }
 
             _isRoleModelRequestPrepared() {
@@ -199,12 +205,6 @@
                 if (formattedData && formattedData.length > 0) {
                     formattedData = formattedData.filter((role) => {
                         var roleData = data.filter((eModel) => { return eModel.id == role.id; });
-                        // if (roleData && roleData.length > 0 && roleData[0].properties) {
-                        //     var roleProperties = roleData[0].properties
-                        //     if (roleProperties.description) {
-                        //         role.title = roleProperties.description
-                        //     }
-                        // }
                         role.id = role.id.replace("_role", "");
                         return role;
                     });
@@ -213,17 +213,34 @@
                     this._setCurrentRoleSelected();
                 }
                 this.deletedRolesCount = data.length - formattedData.length;
+                this._loading = false;
                 return formattedData;
             }
 
             _setCurrentRoleSelected() {
+                if (this.businessFunctionData && this.businessFunctionData.selectedOptions &&
+                    this.businessFunctionData.selectedOptions.role != "_DEFAULT") {
+                    this.selectedRole = this.businessFunctionData.selectedOptions.role;
+                    return;
+                }
+
                 var loggedUser = ContextHelper.getFirstUserContext(this.contextData);
                 if (loggedUser && loggedUser.role) {
                     this.selectedRole = { "id": loggedUser.role, "title": loggedUser.role };
                 }
             }
 
-            _setOwnershipData() {
+            _setOptions() {
+                if (this.businessFunctionData && this.businessFunctionData.selectedOptions) {
+                    if (this.businessFunctionData.selectedOptions.ownershipData != "_DEFAULT") {
+                        this._ownershipData = this.businessFunctionData.selectedOptions.ownershipData;
+                    }
+                    if (this.businessFunctionData.selectedOptions.saveType != "self") {
+                        this._saveOnlyForMe = false;
+                    }
+                    return;
+                }
+
                 if (this.ownershipData && this.ownershipData != "undefined") {
                     this._ownershipData = this.ownershipData;
                 }
@@ -237,9 +254,11 @@
                     data: {}
                 }
                 //Prepare data as per selection, and pass the same as businessFunctionData
-                var data = this._prepareSelectedOptionsObject();
-                this.businessFunctionData = data;
-                ComponentHelper.getParentElement(this).businessFunctionData = data;
+                if (!this.businessFunctionData) {
+                    this.businessFunctionData = {};
+                }
+                this.businessFunctionData.selectedOptions = this._getSelectedOptions();
+                ComponentHelper.getParentElement(this).businessFunctionData = this.businessFunctionData;
                 this.fireBedrockEvent(eventName, eventDetail, {
                     ignoreId: true
                 });
@@ -279,8 +298,29 @@
                 return true;
             }
 
-            _prepareSelectedOptionsObject() {
+            _getSelectedOptions() {
+                var data = { "role": "_DEFAULT", "ownershipData": "_DEFAULT", "saveType": "self" };
 
+                if (!this._isHidden("role") && this.selectedRole) {
+                    data.role = this.selectedRole;
+                }
+
+                if (!this._isHidden("ownershiptdata") && this._ownershipData) {
+                    data.ownershipData = this._ownershipData;
+                }
+
+                if (!this._isHidden("savetype") && !this._saveOnlyForMe) {
+                    data.saveType = "role";
+                }
+
+                return data;
+            }
+
+            _onRoleSelection() {
+                var popover = this.rolesModelPopover;
+                if (popover) {
+                    popover.close();
+                }
             }
         }
 
