@@ -13,6 +13,7 @@
 <link rel="import" href="../liquid-config-get/liquid-config-get.html" />
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 <link rel="import" href="../liquid-rest/liquid-rest.html">
+<link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
 
 <link rel="import" href="../rock-component-config-behavior/rock-component-config-behavior.html">
 <link rel="import" href="../rock-grid/rock-grid.html">
@@ -71,7 +72,7 @@
     <liquid-rest id="variantOptions" url="/data/pass-through/entityappservice/generatevariants" method="POST" on-liquid-response="_onVariantOptionsReceivedSuccess" on-liquid-error="_onVariantOptionsReceivedFailure"></liquid-rest>
     <liquid-rest id="bulkEntityCreate" url="/data/pass-through/bulkentityservice/createtask" method="POST" on-liquid-response="_onBulkEntityCreateSuccess" on-liquid-error="_onBulkEntityCreateFailure"></liquid-rest>
     <liquid-entity-data-save id="syncEntityCreate" operation="create" on-response="_onSyncEntityCreateSuccess" on-error="_onSyncEntityCreateError"></liquid-entity-data-save>
-
+    <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{attributeModelRequest}}" on-entity-model-composite-get-response="_onCompositeModelGetResponse"></liquid-entity-model-composite-get>
   </template>
 <script>
 
@@ -187,11 +188,86 @@
                 this.config = componentConfig.config;  
                 this.maxThresholdForDisplay = componentConfig.config.maxThresholdForDisplay;
                 this.maxThresholdForSyncCreate = componentConfig.config.maxThresholdForSyncCreate;
-                this.gridConfig = componentConfig.config.gridConfig;                 
-                this._showVariantOptions();                                                                                        
+                //Get the attributeModels
+                this._generateAttributeModels();  
             } else {
                 this.logWarning("Config not found for rock-variant-options", "response", componentConfig);
             }  
+        }
+
+        /**
+         *  Function to generate the attribute models of all the target entities
+        */
+        _generateAttributeModels(){
+            var contextData = this._getContextForTargetEntities();
+            var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(contextData);
+            if (compositeModelGetRequest) {
+                this.set("attributeModelRequest", compositeModelGetRequest);
+                var liquidModelGet = this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
+                if (liquidModelGet) {
+                    liquidModelGet.generateRequest();
+                }
+            }
+        }
+
+        /**
+         *  Function to context for target entities
+        */
+        _getContextForTargetEntities(){
+            var targetEntityTypes = this.businessFunctionData.targetEntities;
+            var itemContexts = [];
+            for (var i in targetEntityTypes) {
+                itemContexts.push({
+                    "type": targetEntityTypes[i].targetEntity,
+                    "attributeNames":targetEntityTypes[i].attributeNames
+                });
+            }
+            var contextData = DataHelper.cloneObject(this.contextData);
+            contextData[this.CONTEXT_TYPE_ITEM] = itemContexts;
+            return contextData;
+        }
+
+        /**
+         *  Function to handle success of attribute models of all the target entities
+        */
+        _onCompositeModelGetResponse(e) {
+            if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
+                var contextData = this._getContextForTargetEntities();
+                this.attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], contextData);
+                
+                //Update the gridConfig with dynamic columns
+                this._updateGridConfig();
+                
+                //generate a request to get the grid data 
+                this._showVariantOptions();  
+            }
+        }
+
+        /**
+         *  Function to update the gridConfig with dynamic fields
+        */
+        _updateGridConfig(){
+            var columns = {};
+            var gridConfig = DataHelper.cloneObject(this.config.gridConfig);    
+            var gridConfigColumn = gridConfig.itemConfig.fields;
+            for(var key in gridConfigColumn){
+                columns[key] = gridConfigColumn[key];
+            }
+            for (var i = 0; i < this.businessFunctionData.attributeList.length; i++) {
+                var model = this.attributeModels[this.businessFunctionData.attributeList[i]];
+                if(model) {
+                    columns[model.name] = {
+                        "header": model.externalName,
+                        "name": model.name,
+                        "sortable": true,
+                        "visible" : true,
+                        "isMetaDataColumn" : false
+                    };                   
+                }       
+            }
+            
+            gridConfig.itemConfig.fields = columns;
+            this.gridConfig = gridConfig;
         }
 
         /**
@@ -266,9 +342,19 @@
                     "entity": {
                         "id": this.businessFunctionData.id,
                         "name":this.businessFunctionData.name,
-                        "type": this.businessFunctionData.type
+                        "type": this.businessFunctionData.type                       
                     }
                 }
+
+                //Adding the context to the request if available
+                if(!_.isEmpty(this.contextData.Contexts)) {
+                    request.entity.data = {};
+                    var contexts = request.entity.data.contexts = [];
+                    var contextObj = {};
+                    contextObj.context = this.contextData.Contexts[0];
+                    contexts.push(contextObj);
+                }
+
                 return request;
             }           
         }
@@ -290,8 +376,8 @@
                     this.variantOptionsGridData = _.sortBy(gridData, 'variantStatus').reverse();
                     this.isVariantOptionsGridReady = true;
                 } else if (response.status == "success" &&  this.createVariants){ 
-                    //Create the variants
-                    this._taskId = response.statusDetail.messages[0].taskIds[0];
+                    //TODO :Create the variants
+                    //this._taskId = response.statusDetail.messages[0].taskIds[0];
                     this._triggerFinishStep();                    
                 } else if(response.status == "error"){
                     this.isWarningMessage = true;
@@ -389,11 +475,34 @@
             }
             
             if(requestData && liquidObj){
+                requestData.clientAttributes = this.getClientAttributes();
                 liquidObj.requestData = requestData;
                 liquidObj.generateRequest();
             }
-        }        
+        }
         
+        /**
+         *  Function to get clientAttributes
+        */
+        getClientAttributes(){
+            var valueContext = ContextHelper.getFirstValueContext(this.contextData);
+            var userContext = ContextHelper.getFirstUserContext(this.contextData);
+            var clientMessage = "Create Variants";
+
+            var clientAttributes = {
+                "taskName": {
+                    "values": [{
+                        "source": valueContext.source,
+                        "locale": valueContext.locale,
+                        "value": clientMessage
+                    }]
+                }
+            };
+
+            return clientAttributes;
+        }
+
+
         /**
          *  Generate a request to create entities in sync mode
         */
