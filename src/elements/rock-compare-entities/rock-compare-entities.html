@@ -447,8 +447,8 @@
                     allowPrepareGrid = true;
                 }
 
- 
-                this._combinedEntitySetForRender.push(...this.entities);
+                var ent = this.entities;
+                this._combinedEntitySetForRender.push(...ent);
                 this.entities = this._combinedEntitySetForRender;
                 if (this.entities && this.entities.length && allowPrepareGrid) {
                     await this._prepareGridColumnsModelAndData(this.entities, columns, items);
@@ -490,10 +490,19 @@
                         "isRowHeader": true,
                         "visible": true
                     }
-                    if(this.enableColumnSelect) {
+                    //Normal Scenario
+                    if(this.enableColumnSelect && !this.isSnapshot) {
                         rowHeader["selectable"] = {
                             "isAction": false,
                             "text": "Select for merge"
+                        }
+                    }
+
+                    //Snapshot Scenario
+                    if(this.enableColumnSelect && this.isSnapshot) {
+                        rowHeader["selectable"] = {
+                            "isAction": false,
+                            "text": "Select for rollback"
                         }
                     }
                     columns.push(rowHeader);
@@ -513,8 +522,9 @@
 
                     for(let i=0; i < this._rowsModel.length; i++) {
                         var item = {};
+                        var nonSortedColumns = [];
                         var row = this._rowsModel[i];
-                        for (let entity of entities) {
+                        for (let entity of entities) {                            
                             var entityHeader = this._getEntityHeader(entity);
                             if (i == 0) {
                                 var colDetails = {
@@ -523,7 +533,9 @@
                                     "sortable": false,
                                     "filterable": false,
                                     "readFrom": "properties",
-                                    "visible": true
+                                    "visible": true,
+                                    "type": entity.type,
+                                    "version": this._getVersionNumber(entity)
                                 }
 
                                 if(!_.isEmpty(this.compareEntitiesContext) && this.compareEntitiesContext.newEntity) {
@@ -535,10 +547,10 @@
                                 if(this.enableColumnSelect && !_.isEmpty(this.compareEntitiesContext)) {
                                     colDetails["selectable"] = {
                                         "isAction": true,
-                                        "disable": false
+                                        "disable": this.contextData.ItemContexts[0].id == entity.id
                                     };
                                 }
-                                columns.push(colDetails);
+                                nonSortedColumns.push(colDetails);
                             }
                             var attributes = await DataTransformHelper.transformAttributes(entity, transformedAttrModels, this._contextData);
 
@@ -558,6 +570,13 @@
                             } else {
                                 item[entity.id] = "";
                             }
+                        }
+
+                        if(!_.isEmpty(nonSortedColumns)) {
+                            nonSortedColumns = nonSortedColumns.sort(function(a, b) {
+                            return a.version-b.version;
+                            });
+                            columns.push(...nonSortedColumns);
                         }
 
                         var isEmpty = false;
@@ -604,6 +623,15 @@
                         items.push(item);
                     }
                 }
+            }
+
+            _getVersionNumber(entity) {
+                if(entity && entity.type && entity.type.indexOf("_snapshot") ==-1) {
+                    return 0;
+                } else {
+                    return parseInt(entity.data.contexts[0].attributes.version.values[0].value);
+                }
+
             }
 
             _getAttributeValue(attribute) {
@@ -678,11 +706,12 @@
                         reqSnapshot.params.fields.attributes = ["_ALL"];
                         reqEntity.params.fields.attributes = ["_ALL"];
                         this.set("_snapshotGetRequest", reqSnapshot);
+                        this.set("_entityGetRequest", reqEntity);
+                    } else {
+                        var liquidDataGet = this.shadowRoot.querySelector("#entityDataGet");
+                        this.set("_entityGetRequest", req);
                     }
 
-                    var liquidDataGet = this.shadowRoot.querySelector("#entityDataGet");
-                 
-                        this.set("_entityGetRequest", reqEntity);
                         //Call segregation for snapshot scenario
                     if (this.isSnapshot) {
                         if (liquidDataGet && !onlySnapshotsSelected) {
@@ -872,8 +901,28 @@
 
             _getEntityHeader(entity) {
                 if (entity && this.entityTitle) {
-                    if (entity[this.entityTitle]) {
+                    //For Normal Scenario
+                    if (entity[this.entityTitle] && !this.isSnapshot) {
                         return entity[this.entityTitle];
+                    } else {
+                        var attributes = entity.data.attributes;
+
+                        if (attributes && attributes[this.entityTitle]) {
+                            return attributes[this.entityTitle].values ? attributes[this.entityTitle].values[0].value : "";
+                        }
+                    }
+
+                    //For Snapshot Scenario
+                    if (entity[this.entityTitle] && this.isSnapshot) {
+                        if(entity.type.indexOf("_snapshot")==-1) {
+                            return "Current Entity:- " + entity.name
+                        } else if (entity.data && entity.data.contexts[0] && DataHelper.isValidObjectPath(entity.data.contexts[0], "attributes.snapshotLabel.values")) {
+                            var snapLabel = entity.data.contexts[0].attributes.snapshotLabel.values[0].value;
+                        }
+                        if(DataHelper.isValidObjectPath(entity, "properties.createdDate")) {
+                            var createdDate = FormatHelper.convertFromISODateTime (entity.properties.createdDate, 'datetime');
+                        }
+                        return snapLabel + ":- " + createdDate;
                     } else {
                         var attributes = entity.data.attributes;
 
