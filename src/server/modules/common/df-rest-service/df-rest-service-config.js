@@ -362,6 +362,11 @@ var SERVICE_CONFIG = {
             "url": "/entityappservice/delete",
             "mode": "online",
             "offlineSettings": {}
+        },
+        "entityappmodelservice/getnearestcontext": {
+            "url": "/entityappmodelservice/getnearestcontext",
+            "mode": "online",
+            "offlineSettings": {}
         }
     }
 };
