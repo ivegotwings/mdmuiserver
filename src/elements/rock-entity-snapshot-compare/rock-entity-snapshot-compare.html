@@ -70,8 +70,11 @@ It manages the current extensions and creates the new extensions.
 
         <div id="buttonContainer" align="center">
             <pebble-button id="cancel" class="btn btn-secondary m-r-5" button-text="Cancel" on-tap="_onCancelTap" elevation=1 raised></pebble-button>
-            <pebble-button id="save" class="focus btn btn-success" button-text="Rollback" on-tap="_onNextTap" elevation=1 raised></pebble-button>
+            <pebble-button id="save" class="focus btn btn-success" button-text="Rollback" on-tap="_onRollback" elevation=1 raised></pebble-button>
         </div>
+        <liquid-rest id="snapshotRollback" url="/data/pass-through/entityappservice/restoresnapshot" method="POST" request-data="{{_snapshotRollbackRequest}}" on-liquid-response="_onRollbackSuccess">
+        </liquid-rest>
+
     </template>
     <script>
         (function () {
@@ -96,6 +99,12 @@ It manages the current extensions and creates the new extensions.
                         }
                     },
                     businessFunctionData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _snapshotRollbackRequest: {
                         type: Object,
                         value: function () {
                             return {};
@@ -127,6 +136,12 @@ It manages the current extensions and creates the new extensions.
                         type: Array,
                         value: function () {
                             return [];
+                        }
+                    },
+                    _rockCompareEntities: {
+                        type: Object,
+                        value: function () {
+                            return {};
                         }
                     },
                     taxonomy: {
@@ -184,14 +199,23 @@ It manages the current extensions and creates the new extensions.
                     });
                 },
 
-                _onNextTap: function (e) {
-                    var msg="All attributes of the entity - " + this.contextData.ItemContexts[0].id + "have been rolled back to selected snapshot version"; ;
+                _getEntityRollbackRequest: function(currentEntityId, selectedEntityId) {
+                    var req = {
+                        "entity": {
+                            "id": currentEntityId,
+                            "type": "sku"
+                        },
+                        "params": {
+                            "snapshotId": selectedEntityId
+                        }
+                    }
+                    return req;
+
+                },
+
+                _businessFunctionDataSet: function(messages) {
                     var data = {
-                        "messages": [
-                            {
-                                "message": msg
-                            }
-                        ],
+                        "messages": messages,
                         "actions": [
                             {
                                 "name": "closeFunction",
@@ -207,6 +231,16 @@ It manages the current extensions and creates the new extensions.
                     this.businessFunctionData = data;
                     ComponentHelper.getParentElement(this).businessFunctionData = data;
 
+                },
+
+                _onRollbackSuccess: function(e) {
+                    console.log(e.detail);
+                    if (DataHelper.isValidObjectPath(e, 'detail.response.response.statusDetail.messages')) {
+                        var messages = e.detail.response.response.statusDetail.messages;
+                    }
+                    this.showSuccessToast(messages[0].message);
+                    this._businessFunctionDataSet(messages);
+
                     var eventName = "onNext";
                     var eventDetail = {
                         name: eventName
@@ -215,6 +249,25 @@ It manages the current extensions and creates the new extensions.
                     this.fireBedrockEvent(eventName, eventDetail, {
                         ignoreId: true
                     });
+
+                },
+
+                _onRollback: function (e) {
+                    this._rockCompareEntities = this.shadowRoot.querySelector('rock-compare-entities');
+                    if(this._rockCompareEntities) {
+                       var selectedEntityId = this._rockCompareEntities.selectedEntityId;
+                    }
+                    var currentEntityId = this.contextData.ItemContexts[0].id;
+                    if(selectedEntityId == currentEntityId) {
+                        this.showWarningToast("Cannot Rollback existing Entity");
+                        return;
+                    }
+                    
+                    var req = this._getEntityRollbackRequest(currentEntityId, selectedEntityId);
+
+                    var liquidDataRollback = this.shadowRoot.querySelector("#snapshotRollback");
+                    this.set("_snapshotRollbackRequest", req);
+                    liquidDataRollback.generateRequest();
                 },
 
             });
