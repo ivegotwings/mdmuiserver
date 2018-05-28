@@ -23,7 +23,7 @@ const EntityCompositeModelGetService = require('./EntityCompositeModelGetService
 const EventService = require('../event-service/EventService');
 const EntityHistoryEventService = require('../event-service/EntityHistoryEventService');
 const DataObjectLineageService = require("./DataObjectLineageService");
-const BaseModelService = require("../ModelService/BaseModelService");
+const BaseModelService = require("../model-service/BaseModelService");
 
 //falcor utilty functions' references
 const responseBuilder = require('./dataobject-falcor-response-builder');
