@@ -22,6 +22,10 @@ var SERVICE_CONFIG = {
                 "fieldToCompareInData": "id"
             }
         },
+        "entityappservice/generatevariants": {
+            "url": "/entityappservice/generatevariants",
+            "mode": "online"
+        },
         "entityservice/create": {
             "url": "/entityappservice/create",
             "mode": "online"
@@ -356,6 +360,11 @@ var SERVICE_CONFIG = {
         },
         "entityappservice/delete": {
             "url": "/entityappservice/delete",
+            "mode": "online",
+            "offlineSettings": {}
+        },
+        "entityappmodelservice/getnearestcontext": {
+            "url": "/entityappmodelservice/getnearestcontext",
             "mode": "online",
             "offlineSettings": {}
         }

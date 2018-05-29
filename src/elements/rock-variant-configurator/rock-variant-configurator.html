@@ -21,10 +21,16 @@
 
 <link rel="import" href="../pebble-icons/pebble-icons.html">
 <link rel="import" href="../pebble-data-table/pebble-data-table.html">
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
 
 <dom-module id="rock-variant-configurator">
   <template>
     <style include="bedrock-style-common">
+
+        :host{
+            display:block;
+            height:100%;
+        }
         
         pebble-data-table data-table-row[selected] {
             background-color: var(--table-row-selected-color, #c1cad4) !important;
@@ -105,15 +111,24 @@
         </div>
     </pebble-dialog>
 
-    <div class="variantAttributesGridContainer"> 
-        <div id="content-description" align="center">
-            <!-- description message here -->
-            <div class="title m-0">
-                You can select multiple options to create SKUs.
+    <pebble-dialog id="confirmationDialog" dialog-title="Confirmation" modal alert-box show-cancel show-ok no-cancel-on-outside-click
+    no-cancel-on-esc-key>
+        <p>There are unsaved changes.Are you sure you want to continue?</p>
+    </pebble-dialog>
+
+
+    <div class="variantAttributesGridContainer base-grid-structure"> 
+        <div class="base-grid-structure-child-1">
+            <div id="content-description" align="center">
+                <!-- description message here -->
+                <div class="title m-0">
+                    You can select multiple options to create SKUs.
+                </div>
             </div>
         </div>
+        <pebble-spinner active="[[isSpinnerActive]]"></pebble-spinner>           
         <template is="dom-if" if="[[isVariantAttributesGridLoaded]]">
-            <div>
+            <div class="base-grid-structure-child-2">
                 <pebble-data-table id="variant-attributes-grid" items="[[variantAttributesGridData]]">
                     <data-table-column slot="column-slot" flex="0">
                     <template>
@@ -123,7 +138,7 @@
                     <data-table-column slot="column-slot" name="OPTION">
                     <template>
                         <div id="inputDiv" slot="cell-slot-content" on-tap="" index="[[index]]">
-                            <pebble-textbox readonly id="variant-text_[[index]]" row-id="[[index]]" value="{{item.name}}" no-label-float="true"></pebble-textbox>
+                            <pebble-textbox readonly id="variant-text_[[index]]" row-id="[[index]]" value="{{item.externalName}}" no-label-float="true"></pebble-textbox>
                         </div>
                         <div id="iconDiv" slot="cell-slot-content">
                             <!--pebble-icon class="dropdown-icon pebble-icon-size-10" id="vtxtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:navigation-action-down" on-tap="_openVariantAttributeLov"></pebble-icon-->
@@ -141,19 +156,21 @@
             </div> 
             <div class="actionButtons" align="center">
                 <pebble-button id="cancelButton" class="close btn btn-secondary m-r-5" button-text="Cancel" noink elevation="2" on-tap="_onCancel"></pebble-button>
-                <pebble-button id="skipButton" class="close btn btn-secondary m-r-5" button-text="Skip & Continue" on-tap="_onSave"></pebble-button>
+                <pebble-button id="skipButton" class="close btn btn-secondary m-r-5" button-text="Skip & Continue" on-tap="_onSkip"></pebble-button>
                 <pebble-button id="confirmButton" class="apply btn btn-success" button-text="Save" noink elevation="2" on-tap="_onSave"></pebble-button>
             </div>
             <!--pebble-icon slot="cell-slot-content" icon="pebble-icon:action-add-fill" class="pebble-icon-color-success add-icon" target-id="variant-attributes-grid" on-tap="_onAddRowClick"></pebble-icon-->                        
-        </template>      
+        </template> 
     </div>
 
-    <liquid-rest id="variantModelGet" url="/data/pass-through/entitymodelservice/getcontext" method="POST" on-liquid-response="_onDimentionAttributeListReceived" on-liquid-error="_onDimentionAttributeListGetFailed"></liquid-rest>
+    <liquid-rest id="variantModelGet" url="/data/pass-through/entityappmodelservice/getnearestcontext" method="POST" on-liquid-response="_onDimentionAttributeListReceived" on-liquid-error="_onDimentionAttributeListGetFailed"></liquid-rest>
     <liquid-entity-model-composite-get id="entityModelGet" on-entity-model-composite-get-response="_onEntityModelGetResponse" on-error="_onEntityModelGetFailed"></liquid-entity-model-composite-get>
     <liquid-entity-data-get operation="getbyids" id="variantAttributesOptionsGet" on-response="_onVariantAttributesOptionsGetReceived" on-error="_onVariantAttributesOptionsGetFailed" exclude-in-progress></liquid-entity-data-get>
     <liquid-rest id="entityGovernService" url="/data/pass-through/entitygovernservice/validate" method="POST" request-data={{_entityGovernRequest}} on-liquid-response="_onEntityGovernResponse" on-liquid-error="_onEntityGovernFailed"></liquid-rest>
     <liquid-entity-data-save id="variantAttributesOptionsSave" operation="[[_entityDataOperation]]" request-data="{{_saveVariantAttributeOptionsReq}}" on-response="_onSaveVariantAttributeOptions"  data-index="[[dataIndex]]" data-sub-index="[[dataSubIndex]]" on-error="_onSaveVariantAttributeOptionsError"></liquid-entity-data-save>
-
+    <bedrock-pubsub event-name="govern-complete" handler="_onGovernComplete"></bedrock-pubsub>
+    <bedrock-pubsub event-name="on-buttonok-clicked" handler="_onSkipConfirm" target-id="confirmationDialog"></bedrock-pubsub>
+    
   </template>
 <script>
 
@@ -191,10 +208,7 @@
 				variantAttributesGridData: {
 					type: Array,
 					value: function () {
-                        return [{
-                            "name": "",
-                            "value": ""    
-                        }];
+                        return [];
                     }
                 },
                 _attributeResponse: {
@@ -248,86 +262,19 @@
                     value: function () { return []; }
                 },
                 
-                _variantObject: {
+                variantModelObj: {
                     type: Object,
-                    value: function () {
-                            return {
-                                "response": [
-                                {
-                                    "id": "style_variantModel",
-                                    "name": "style",
-                                    "type": "variantModel",
-                                    "domain": "generic",
-                                    "properties": {
-                                        "levels": [
-                                            {
-                                                "levelNumber": 1,
-                                                "targetEntityType": "choice",
-                                                "targetRelationship": "ischildof",
-                                                "targetRelationshipOwnership": "whereused",
-                                                "dimensionAttributes": {
-                                                    "division": {
-                                                        "mandatory": true
-                                                    },
-                                                    "subdivision": {
-                                                        "mandatory": false
-                                                    }
-                                                }
-                                            },
-                                            {
-                                                "levelNumber": 2,
-                                                "targetEntityType": "sku",
-                                                "targetRelationship": "ischildof",
-                                                "targetRelationshipOwnership": "whereused",
-                                                "dimensionAttributes": {
-                                                    "color": {
-                                                        "mandatory": true
-                                                    },
-                                                    "size": {
-                                                        "mandatory": true
-                                                    }
-                                                }
-                                            }
-                                        ]
-                                    },
-                                    "contexts": [
-                                        {
-                                            "context": {
-                                                "taxonomy": "mastertaxonomy",
-                                                        "classification": "Men's>>Shirts"
-                                            },
-                                            "properties": {
-                                                "levels": [
-                                                    {
-                                                        "levelNumber": 1,
-                                                        "targetEntityType": "choice",
-                                                        "targetRelationship": "ischildof",
-                                                        "targetRelationshipOwnership": "whereused",
-                                                        "dimensionAttributes": {
-                                                            "collar": {
-                                                                "mandatory": true
-                                                            }
-                                                        }
-                                                    },
-                                                    {
-                                                        "levelNumber": 2,
-                                                        "targetEntityType": "sku",
-                                                        "targetRelationship": "ischildof",
-                                                        "targetRelationshipOwnership": "whereused",
-                                                        "dimensionAttributes": {
-                                                            "sleevelength": {
-                                                                "mandatory": true
-                                                            }
-                                                        }
-                                                    }
-                                                ]
-                                            }
-                                        }
-                                    ]
-                                }
-                                ]
-                            };
-                        }
+                    value: function () { return {}; }
+                },
+                
+                saveNotification: {
+                    type: Object,
+                    value: function () { return {}; }
+                },
+
+                isSpinnerActive:{
+                    type: Boolean,
+                    value: false
                 }
                 
             }
@@ -337,7 +284,8 @@
          *  Generate a request to get the dimention attributes from the variant model
         */
         _contextChanged() {
-            var req = DataRequestHelper.createContextModelGetRequest(DataHelper.getParamValue('type'));           
+            this.isSpinnerActive = true;
+            var req = DataRequestHelper.createVariantModelGetRequest(DataHelper.getParamValue('type'),this.contextData.Contexts);           
             if (req) {
                 var variantModelGet = this.shadowRoot.querySelector("#variantModelGet");
                 if(variantModelGet) {
@@ -349,23 +297,26 @@
         }
 
         /**
-         *  Function to handle success of variant model get to fetch the dimention attributes 
+         *  Function to handle success of variant model get 
+         *  Generate a request to fetch the entity model for the given dimention attributes
         */
         _onDimentionAttributeListReceived(e, detail){
-            //var response = e.detail.response.response;
-            var response = this._variantObject.response[0];
-            if (response) {
-                this.dimentionAttributesList = this._getDimentionAttributeList(response.properties.levels); 
-                var req = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);           
-                if (req) {                       
-                    req.params.fields.attributes = this.dimentionAttributesList; 
-                    var entityModelGet = this.shadowRoot.querySelector("#entityModelGet");
-                    if(entityModelGet) {
-                        entityModelGet.requestData = req;                    
-                        entityModelGet.generateRequest();
-                    }
-                }  
-
+            var response = e.detail.response.response.entityModels[0];
+            if (response) { 
+                response = this._mergeAllContextualLevelsIntoSelf(response);
+                
+                if(response) {
+                    this.dimentionAttributesList = this._getDimentionAttributeList(response); 
+                    var req = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);           
+                    if (req) {                       
+                        req.params.fields.attributes = this.dimentionAttributesList; 
+                        var entityModelGet = this.shadowRoot.querySelector("#entityModelGet");
+                        if(entityModelGet) {
+                            entityModelGet.requestData = req;                    
+                            entityModelGet.generateRequest();
+                        }
+                    }  
+                }
             }
         }
 
@@ -373,26 +324,42 @@
          *  Function to handle failure of variant model get
         */
         _onDimentionAttributeListGetFailed(e){
-            this.logWarning("variant model get failed with error",JSON.stringify(e.detail));       
+            this.logWarning("Unable to fetch variant attributes list. Please contact administrator.", "response", JSON.stringify(e.detail));
             this.showErrorToast("Unable to fetch variant attributes list. Please contact administrator.");
+            this.isSpinnerActive = false;
         }	
         
         /**
          *  Function to get the dimention atrributes from the given list
+         *  Update the variantModelObj to be used in the next screen
         */
-        _getDimentionAttributeList(list) {
-            var attributeList = [];
-            for(var i=0;i<list.length;i++){
-                let dimentions = list[i].dimensionAttributes;
-                for(var key in dimentions) {
-                    attributeList.push(key);                    
-                }   
-            }            
-            return attributeList;
+        _getDimentionAttributeList(response) {                     
+            this.variantModelObj.attributeList = [];
+            this.variantModelObj.targetEntities = [];            
+            var list = response.properties.levels;
+            
+            for(var listItem=0;listItem<list.length;listItem++){
+                let dimentions = list[listItem].dimensionAttributes;
+                this.variantModelObj.targetEntities.push({"targetEntity":list[listItem].targetEntityType});
+                var tempAttributeList = [];
+                for(var dimensionAttributeListItem=0;dimensionAttributeListItem<dimentions.length;dimensionAttributeListItem++) {
+                    this.variantModelObj.attributeList.push(dimentions[dimensionAttributeListItem].name);
+                    tempAttributeList.push(dimentions[dimensionAttributeListItem].name);
+                }
+                this.variantModelObj.targetEntities[listItem].attributeNames = tempAttributeList; 
+            }
+
+            //Remove duplicate target entities if any
+            this.variantModelObj.targetEntities = _.uniq(this.variantModelObj.targetEntities, function(item, key, id) { 
+                return item.targetEntity;
+            });
+
+            return this.variantModelObj.attributeList;
         }
 
         /**
          *  Function to handle success of entity model get
+         *  Call the function to generate the dimention attributes values
         */
         _onEntityModelGetResponse(e) {
             if(e.detail.response) {
@@ -406,8 +373,9 @@
         /**
          *  Function to handle failure of entity model get
         */
-        _onEntityModelGetFailed(e){
-            this.logWarning("variant entity model get failed with error",JSON.stringify(e.detail));       
+        _onEntityModelGetFailed(e){           
+            this.logWarning("variant entity model get failed with error", "response", JSON.stringify(e.detail));
+            this.isSpinnerActive = false;
         }
         
         /**
@@ -479,21 +447,25 @@
         async _onVariantAttributesOptionsGetReceived(e,detail){
             var response = e.detail.response;
             this.originalEntity = e.detail.response.content.entities[0];
+            this.variantModelObj.id = this.originalEntity.id;
+            this.variantModelObj.type = this.originalEntity.type;
+            this.variantModelObj.name = this.originalEntity.name;
             this._attributes = await DataTransformHelper.transformAttributes(e.detail.response.content.entities[0], this._attributeModels, this.contextData);
             
             var attributes = new Array();
             for(var obj in this._attributeModels){                                     
                 attributes.push(this._attributeModels[obj]);
-            } 
+            }
             this.variantAttributesGridData = attributes;
             this.isVariantAttributesGridLoaded = true;
+            this.isSpinnerActive = false;
         }
         
         /**
          *  Handles failure of entity get for given variant attribute options
         */
         _onVariantAttributesOptionsGetFailed(e){
-            this.logWarning("variant attribute get failed with error",JSON.stringify(e.detail)); 
+            this.logWarning("variant attribute get failed with error", "response", JSON.stringify(e.detail));
         }
          
         /**
@@ -531,10 +503,11 @@
                     "entities": [newEntity]
                 }; 
 
-                //Add hotline flag if hotline is enabled                         
-                if (DataHelper.isHotlineModeEnabled()) {
-                    this._saveVariantAttributeOptionsReq["hotline"] = true;
-                }
+                //Update the no. of variants that can be generated
+                this._updateVariantCount(newEntity);
+                
+                //Add hotline flag                     
+                this._saveVariantAttributeOptionsReq["hotline"] = true;
 
                 //Do sync validation
                 if (this.doSyncValidation) {
@@ -551,28 +524,108 @@
         }
 
         /**
+         *  Handle skip click
+         *  If there are unsaved changes, show the confirmation dialog, else go to next step
+        */
+        _onSkip(){           
+            //If there  is change in the dimention attributes list, then show the message
+            var rockAttributeObjList = this.shadowRoot.querySelectorAll(".variantAttributes");
+            var isAttributesChanged = _.find(rockAttributeObjList, function(item) {return item.changed == true;});
+            if(isAttributesChanged) {
+                this._confirmationDialog = this.shadowRoot.querySelector("#confirmationDialog");
+                this._confirmationDialog.open();
+            } else {
+                this._onSkipConfirm();
+            }            
+        } 
+
+        /**
+         * Go to next step
+         */ 
+        _onSkipConfirm(){
+            this.goToNextStep();     
+        } 
+
+        /**
+         *  Calculate the total no. of variants that can be generated from the selected dimention attributes 
+        */
+        _updateVariantCount(entity){
+            var totalVariantsCount = 0;
+            if (entity) {
+                totalVariantsCount = 1;
+                for(var key in entity.data.attributes) {
+                    var count = entity.data.attributes[key].values.length;
+                    totalVariantsCount = totalVariantsCount*count;
+                } 
+            }
+            this.variantModelObj.totalVariantsCount = totalVariantsCount;
+        }
+
+        /**
          *  Generate request to save the variant attributes selection 
         */
-        _saveEntity(){
+        _saveEntity(){           
             var variantAttrOptSave = this.shadowRoot.querySelector("#variantAttributesOptionsSave");
             if (variantAttrOptSave) {
                 variantAttrOptSave.generateRequest();
             }
+
+            //Reset the save notification flag
+            this.saveNotificationReceived = false;
+
+            //Show the spinner 
+            this.isSpinnerActive = true; 
+
+            //If the notification is not received within the given time, go to next screen
+            this.saveNotification = setTimeout(() => {
+                if(!this.saveNotificationReceived) {                   
+                    this.variantModelObj.noNotification = true;
+                    this.goToNextStep();
+                }
+                clearTimeout(this.saveNotification);                              
+            }, 5000);
         }
         
         /**
          *  Handles success of variant attribute options save
         */
         _onSaveVariantAttributeOptions(){
-            this.showSuccessToast("Variant attributes options saved successfully");
-            //TODO : Move to next step
+            this.showSuccessToast("Variant attributes options saved successfully");                        
+        }
+
+        /**
+         * After the save, notification is received from server, go to next step
+         */ 
+        _onGovernComplete(){
+            this.saveNotificationReceived = true;
+            clearTimeout(this.saveNotification);
+            this.goToNextStep();
+        }
+
+        /**
+         *  Trigger next step
+        */
+        goToNextStep(){  
+            
+            this.isSpinnerActive = false; 
+            this.businessFunctionData = this.variantModelObj;
+
+            //Move to next step
+            var eventName = "onSave";
+            var eventDetail = {
+                name: eventName
+            }
+
+            this.fireBedrockEvent(eventName, eventDetail, {
+                ignoreId: true
+            });
         }
 
         /**
          *  Handles failure of variant attribute options save
         */
-        _onSaveVariantAttributeOptionsError(e){
-            this.logWarning("variant attributes options save failed with error",JSON.stringify(e.detail));
+        _onSaveVariantAttributeOptionsError(e){           
+            this.logWarning("variant attributes options save failed with error", "response", JSON.stringify(e.detail));
             var reason = e.detail.response.reason;
             this.showErrorToast(reason, 10000); 
         }
@@ -654,7 +707,7 @@
          *  Handles failure of variant attribute get
         */
         _onEntityGovernFailed(e) {
-            this.logWarning("variant attribute manage govern failed with error : ", e);
+            this.logWarning("variant attribute manage govern failed with error :", "response", JSON.stringify(e.detail));
             this.showErrorToast("There is a problem in validation service. Please contact administrator.");
         }
 
@@ -671,6 +724,58 @@
         _skipServerErrors() {
             this._closeErrorsDialog();
             this._saveEntity();
+        }
+
+        _mergeAllContextualLevelsIntoSelf(entityModel) {
+            if (entityModel) {
+                let mergedLevels = [];
+                let levels = [];
+
+                if (entityModel.properties && entityModel.properties.levels) {
+                    levels = entityModel.properties.levels;
+                }
+
+                if (entityModel.data && entityModel.data.contexts) {
+                    for (let ctx of entityModel.data.contexts) {
+                        if (ctx.properties && ctx.properties.levels) {
+                            for (let level of ctx.properties.levels) {
+                                levels.push(level);
+                            }
+                        }
+                    }
+                }
+
+                if (levels) {
+                    for (let i = 1; i < i + 1; i++) {
+                        let ilevels = levels.filter(v => v.levelNumber == i);
+
+                        if (!_.isEmpty(ilevels)) {
+                            if (ilevels.length == 1) {
+                                mergedLevels.push(ilevels[0]);
+                            } else {
+                                let tempLevel = ilevels[0];
+                                for (let ilevel of ilevels) {
+                                    if (ilevel.dimensionAttributes) {
+                                        for (let dimAttr of ilevel.dimensionAttributes) {
+                                            let isExist = tempLevel.dimensionAttributes.find(v => v.name == dimAttr.name);
+                                            if (!isExist) {
+                                                tempLevel.dimensionAttributes.push(dimAttr);
+                                            }
+                                        }
+                                    }
+                                }
+                                mergedLevels.push(tempLevel);
+                            }
+                        } else {
+                            break;
+                        }
+                    }
+                }
+                
+                delete entityModel.data;
+                entityModel.properties.levels = mergedLevels;
+            }
+            return entityModel;
         }
     }
 
