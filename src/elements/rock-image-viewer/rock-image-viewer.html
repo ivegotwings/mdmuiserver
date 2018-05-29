@@ -5,6 +5,7 @@
 <link rel="import" href="../pebble-image-viewer/pebble-image-viewer.html">
 <link rel="import" href="../bedrock-helpers/liquid-response-helper.html">
 <link rel="import" href="../liquid-rest/liquid-rest.html">
+<link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 
 <!--
 `rock-image-viewer` Represents an element that displays an image.
@@ -40,6 +41,10 @@
                 text-align: left;
             }
         </style>
+        <liquid-entity-data-get id="initiateSearchResult" operation="searchandget" on-response="_onGetImageIdResponse"
+        on-error="_onSearchError" exclude-in-progress></liquid-entity-data-get>
+
+        <liquid-entity-data-get id="getThumbnailLiquid" operation="getbyids" on-response="_onGetImagePropertiesResponse" exclude-in-progress></liquid-entity-data-get>
         <template is="dom-if" if="[[!_srcNotFound]]">
             <pebble-image-viewer id="imageView" lazy-load alt="[[alt]]" sizing="[[sizing]]" src="[[_src]]" active="{{active}}" asset-details="[[assetDetails]]"></pebble-image-viewer>
         </template>
@@ -285,6 +290,12 @@
                 _defaultTitle: {
                     type: String,
                     value: "Image"
+                },
+                _imagePropertyGetRequest: {
+                    type: Object,
+                    value: function(){
+                        return {}
+                    }
                 }
             },
             observers: [
@@ -373,6 +384,7 @@
                         this.set("_src", imgSrc);
                     }
                     else if (this.src) {
+                        this.thumbnailId = "";
                         this._imageExists(this.src).then(function (response) {
                             if (response) {
                                 this.set("_src", this.src);
@@ -416,41 +428,84 @@
                         }
                         this.set("assetType", imageDetail.data.type);
                         var fileName = imageDetail.data.property_objectkey;
-                        if (fileName) {
-                            var req = {
-                                "binaryStreamObject": {
-                                    "id": fileName,
-                                    "type": "binarystreamobject",
-                                    "data": {}
-                                }
-                            };
-                            var downloadUrlLiquid = this._createLiquidRest("/data/binarystreamobjectservice/prepareDownload", this._onGetDownloadUrlResponse);
-
-                            if (downloadUrlLiquid) {
-                                downloadUrlLiquid.requestData = [req];
-                                downloadUrlLiquid.generateRequest();
-                            }
-                        }
+                        this._getImageDownloadUrl(fileName);
                     }
                     else {
-                        //if public asset provided(currently done for only images)
-                        this.set("assetExtension", "jpg");
-                        this.set("assetType", "image");
-                        this.set("assetUrl", imageDetail.data);
-
-                        //Giving a pause to make pebble-asset-viewer available
-                        this.async(function () {
-                            var assetViewer = this.shadowRoot.querySelector("pebble-asset-viewer");
-                            var modal = this.shadowRoot.querySelector("#pebbleModal");
-                            if (assetViewer) {
-                                assetViewer.set("isPublicUrl", true);
-                                //Set default title if no original filename
-                                if(!this.assetDetails || !this.assetDetails.property_originalfilename) {
-                                    modal.dialogTitle = this._defaultTitle;
-                                }
-                                modal.open();
+                        /*If the operation is view by source and it has a thumbnailid, it request 
+                        for the id of the image using thumbnailid. After getting the image id it request
+                        for the image attributes and shows the image and download
+                        */
+                        if(this.thumbnailId){
+                            this._imagePropertyGetRequest = this._getImagePropertyGetRequest();
+                            this._imagePropertyGetRequest.params.query.filters.attributesCriterion=[{"thumbnailid":{"exact":this.thumbnailId}}];
+                            var valueContext = DataHelper.getDefaultValContext();
+                            if(valueContext) {
+                                this._imagePropertyGetRequest.params.query.valueContexts = [valueContext];
                             }
-                        }, 10);
+                            var liq = this.shadowRoot.querySelector("#initiateSearchResult");
+                            if (liq) {
+                                liq.requestData = this._imagePropertyGetRequest;
+                                liq.generateRequest();
+                            }
+                        }
+                        else{
+                            //if public asset provided(currently done for only images)
+                            this.set("assetExtension", "jpg");
+                            this.set("assetType", "image");
+                            this.set("assetUrl", imageDetail.data);
+
+                            //Giving a pause to make pebble-asset-viewer available
+                             this.async(function () {
+                                var assetViewer = this.shadowRoot.querySelector("pebble-asset-viewer");
+                                var modal = this.shadowRoot.querySelector("#pebbleModal");
+                                if (assetViewer) {
+                                    assetViewer.set("isPublicUrl", true);
+                                    //Set default title if no original filename
+                                    if(!this.assetDetails || !this.assetDetails.property_originalfilename) {
+                                        modal.dialogTitle = this._defaultTitle;
+                                    }
+                                    modal.open();
+                                }
+                             }, 10);
+                        }
+                    }
+                }
+            },
+            _getImagePropertyGetRequest: function(){
+                let request = {
+                    "params": {
+                        "query": {
+                        "filters": {
+                            "typesCriterion": [
+                                "image"
+                            ]
+                        }
+                        },
+                        "fields": {
+                        "attributes": [
+                                "property_originalfilename",
+                                "type",
+                                "property_objectkey"
+                            ]
+                        }
+                    }
+                };
+                return request;
+            },
+            _getImageDownloadUrl: function(fileName){
+                if (fileName) {
+                    var req = {
+                        "binaryStreamObject": {
+                            "id": fileName,
+                            "type": "binarystreamobject",
+                            "data": {}
+                        }
+                    };
+                    var downloadUrlLiquid = this._createLiquidRest("/data/binarystreamobjectservice/prepareDownload", this._onGetDownloadUrlResponse);
+
+                    if (downloadUrlLiquid) {
+                        downloadUrlLiquid.requestData = [req];
+                        downloadUrlLiquid.generateRequest();
                     }
                 }
             },
@@ -462,6 +517,39 @@
                         modal.open();
                     }
                 });
+            },
+            _onGetImageIdResponse: function(e) {
+                var response = e.detail.response;
+                if (DataHelper.isValidObjectPath(response, 'content.entities.0')) {
+                    var imageId = response.content.entities[0].id;
+                    this._imagePropertyGetRequest.params.query.id = imageId;
+                    delete this._imagePropertyGetRequest.params.query.filters.attributesCriterion;
+                    var liq = this.shadowRoot.querySelector("#getThumbnailLiquid");
+                    if (liq) {
+                        liq.requestData = this._imagePropertyGetRequest;
+                        liq.generateRequest();
+                    }
+                }
+            },
+            _onGetImagePropertiesResponse: function(e) {
+                var response = e.detail.response;
+                var imageDetail = {};
+                if (DataHelper.isValidObjectPath(response, 'content.entities.0.data.attributes')) {
+                    var attributes = response.content.entities[0].data.attributes;
+                    if(!_.isEmpty(attributes)){
+                        Object.keys(attributes).forEach(function(key) {
+                            if(attributes[key].values){
+                                imageDetail[key] = attributes[key].values[0].value;
+                            }
+                        });
+                        this.set("assetExtension", "jpg");
+                        this.set("assetType", imageDetail.type);
+                        var fileName = imageDetail.property_objectkey;
+            
+                        this._getImageDownloadUrl(fileName);
+                    }
+                }
+                
             },
             assetPopoverClosed: function (e) {
                 var pebbleAssetViewer = this.shadowRoot.querySelector("pebble-asset-viewer");
