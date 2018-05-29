@@ -378,6 +378,11 @@ var SERVICE_CONFIG = {
             "mode": "online",
             "timeout": 360000
         },
+        "entityappmodelservice/getnearestcontext": {
+            "url": "/entityappmodelservice/getnearestcontext",
+            "mode": "online",
+            "offlineSettings": {}
+        }
     }
 };
 
