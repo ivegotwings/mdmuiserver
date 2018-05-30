@@ -363,6 +363,21 @@ var SERVICE_CONFIG = {
             "mode": "online",
             "offlineSettings": {}
         },
+        "entityappservice/getsnapshot": {
+            "url": "/entityappservice/getsnapshot",
+            "mode": "online",
+            "timeout": 360000
+        },        
+        "entityappservice/restoresnapshot": {
+            "url": "/entityappservice/restoresnapshot",
+            "mode": "online",
+            "timeout": 360000
+        },
+        "snapshotManageService/get": {
+            "url": "/snapshotManageService/get",
+            "mode": "online",
+            "timeout": 360000
+        },
         "entityappmodelservice/getnearestcontext": {
             "url": "/entityappmodelservice/getnearestcontext",
             "mode": "online",
