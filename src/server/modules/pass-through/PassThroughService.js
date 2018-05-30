@@ -15,6 +15,11 @@ PassThroughService.prototype = {
         return await this.post(passThroughUrl, request.body);
     },
 
+    snapshotCall: async function(request){
+        var passThroughUrl = request.url.replace('/data/pass-through-snapshot/', 'entityappservice/');
+        return await this.post(passThroughUrl, request.body);
+    },
+    
     bulkCall: async function (request) {
         //console.log('Bulk Operation Request - ', request.body);
         var passThroughUrl = request.url.replace('/pass-through-bulk/', '');
