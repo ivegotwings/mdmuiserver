@@ -64,7 +64,7 @@
                     on-error="_onEntityDataGetFailure">
                 </liquid-entity-data-get>
                 <liquid-rest id="snapshotDataGet" url="/data/pass-through/snapshotManageService/get" method="POST" request-data="{{_snapshotGetRequest}}" on-liquid-response="_onEntityDataGetSuccess">
-                </liquid-rest>        
+                </liquid-rest>
                 <bedrock-pubsub event-name="refresh-grid" handler="_onRefreshGrid" target-id="compareEntitiesGrid"></bedrock-pubsub>
             </div>
         </div>
@@ -117,8 +117,7 @@
                         value: function () {
                             return {};
                         }
-                    },                  
-                    
+                    },
                     _liquidDataGetCompleted: {
                         type: Boolean,
                         value: false
@@ -276,7 +275,7 @@
                     pebbleDropDown.addEventListener('change', this._onDropdownChange.bind(this));
                 }
                 if(_.isEmpty(this.compareEntitiesContext)) { 
-                this._triggerCompareEntitiesContextChange();
+                    this._triggerCompareEntitiesContextChange();
                 }
             }
 
@@ -314,12 +313,12 @@
                                 liquidElement.id = "attr_" + entityType;
                                 liquidElement.requestData = compositeModelGetRequest;
                                 liquidElement.addEventListener("entity-model-composite-get-response", this._onCompositeModelGetResponse);
-                                
+
                                 this.shadowRoot.appendChild(liquidElement);
 
                                 setTimeout(() => {
-                        liquidElement.generateRequest();
-                    }, 10);
+                                    liquidElement.generateRequest();
+                                }, 10);
                                 this._modelGetTracker++;
                             }
                         }, this);
@@ -333,6 +332,11 @@
 
                 if (entityModels && entityModels.length) {
                     this._entityModels.push(entityModels[0]);
+                    // to get value of attribute tagged with "isExternalName" flag to show as entity title
+                    var entityTitle = DataHelper.getExternalNameAttributeFromModel(entityModels[0]);
+                    if(entityTitle) {
+                        this.set("entityTitle",entityTitle);
+                    }
                 }
 
                 this._modelGetTracker--;
@@ -524,7 +528,7 @@
                         var item = {};
                         var nonSortedColumns = [];
                         var row = this._rowsModel[i];
-                        for (let entity of entities) {                            
+                        for (let entity of entities) {
                             var entityHeader = this._getEntityHeader(entity);
                             if (i == 0) {
                                 var colDetails = {
@@ -669,7 +673,7 @@
                 this.showErrorToast("Entity get failed due to following reason: ", reason);
             }
 
-            _getEntitySnapshotRequest(){
+             _getEntitySnapshotRequest(){
                 var contextData = DataHelper.cloneObject(this.contextData);
                 var req = DataRequestHelper.createEntityGetRequest(contextData)
                 
@@ -904,38 +908,45 @@
             }
 
             _getEntityHeader(entity) {
-                if (entity && this.entityTitle) {
-                    //For Normal Scenario
-                    if (entity[this.entityTitle] && !this.isSnapshot) {
-                        return entity[this.entityTitle];
-                    } else {
-                        var attributes = entity.data.attributes;
+                var header = "";
+                var preparedEntities = this.compareEntitiesContext ? this.compareEntitiesContext["entities-data"] : undefined;
+                if (entity) {
+                    if (!this.isSnapshot) {
+                        var preparedEntity = !_.isEmpty(preparedEntities) ? preparedEntities.find(obj => obj.id === entity.id) : undefined;
 
-                        if (attributes && attributes[this.entityTitle]) {
-                            return attributes[this.entityTitle].values ? attributes[this.entityTitle].values[0].value : "";
+                        if (entity[this.entityTitle]) {
+                            header = entity[this.entityTitle];
+                        } else {
+                            var attributes = entity.data.attributes;
+
+                            if (attributes && attributes[this.entityTitle]) {
+                                header = attributes[this.entityTitle].values ? attributes[this.entityTitle].values[0].value : "";
+                            }
                         }
-                    }
 
-                    //For Snapshot Scenario
-                    if (entity[this.entityTitle] && this.isSnapshot) {
-                        if(entity.type.indexOf("_snapshot")==-1) {
-                            return "Current Entity: " + entity.name
-                        } else if (entity.data && entity.data.contexts[0] && DataHelper.isValidObjectPath(entity.data.contexts[0], "attributes.snapshotLabel.values")) {
+                        if(header === "" || header === "_EMPTY") {
+                            header = entity.id;
+                        }
+
+                        if(preparedEntity && preparedEntity.score) {
+                            header = header + " - Score " + preparedEntity.score + "%";
+                        }
+                    } else {
+                        //For Snapshot Scenario
+                        if (entity.type.indexOf("_snapshot") == -1) {
+                            header =  "Current Entity: " + entity.name
+                        } else if (DataHelper.isValidObjectPath(entity, "data.contexts.0.attributes.snapshotLabel.values.0.value")) {
                             var snapLabel = entity.data.contexts[0].attributes.snapshotLabel.values[0].value;
-                        }
-                        if(DataHelper.isValidObjectPath(entity, "properties.createdDate")) {
-                            var createdDate = FormatHelper.convertFromISODateTime (entity.properties.createdDate, 'datetime');
-                        }
-                        return snapLabel + ": " + createdDate;
-                    } else {
-                        var attributes = entity.data.attributes;
-
-                        if (attributes && attributes[this.entityTitle]) {
-                            return attributes[this.entityTitle].values ? attributes[this.entityTitle].values[0].value : "";
+                            header = snapLabel;
+                            if (DataHelper.isValidObjectPath(entity, "properties.createdDate")) {
+                                var createdDate = FormatHelper.convertFromISODateTime(entity.properties.createdDate, 'datetime');
+                                header = header + ": " + createdDate;
+                            }
                         }
                     }
                 }
-                return "<No Name>";
+
+                return header === "" ? "<No Name>" : header;
             }
 
             _updateEntityHeader(entityId, entityHeader) {
@@ -943,7 +954,7 @@
                     return entityHeader;
                 }
                 if(!this.isSnapshot) {
-                    return entityId == this.compareEntitiesContext.newEntity.id ? "New "+ entityHeader : "Matched "+ entityHeader;
+                    return entityId == this.compareEntitiesContext.newEntity.id ? "New - "+ entityHeader : "Matched - "+ entityHeader;
                 } else {
                     return entityHeader;
                 }
