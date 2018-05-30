@@ -46,6 +46,10 @@ var PassThroughRouter = function (app) {
         var response = await passThroughService.createTaskForCombinedQuery(req);
         res.status(200).send(response);
     });
+    app.post('/data/pass-through-snapshot/*', async function (req, res) {
+        var response = await passThroughService.snapshotCall(req);
+        res.status(200).send(response);
+    });
 };
 
 module.exports = function (app) {
