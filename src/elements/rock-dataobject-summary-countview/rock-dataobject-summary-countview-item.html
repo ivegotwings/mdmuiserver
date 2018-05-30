@@ -4,7 +4,7 @@
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
 
 <link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
-
+<link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 
 <dom-module id="rock-dataobject-summary-countview-item">
     <template>
@@ -36,7 +36,7 @@
                 white-space: nowrap;
             }
 
-            .todo-status {
+            .object-status {
                 position: absolute;
                 top: 0;
                 left: 0;
@@ -52,7 +52,7 @@
                 right: 10px;
                 top: 17px;
             }
-            .to-do-name {
+            .external-name {
                 width:160px;
             }
             .border-left-1 {
@@ -80,7 +80,7 @@
             }
         </style>
             <div class="list-item layout-middle">
-                <div class$="{{_computeClass(dataobjectCount.status)}} todo-status"></div>
+                <div class$="{{_computeClass(dataobjectCount.status)}} object-status"></div>
                 <div class="contentContainer">
                     <div class="row layout-middle">
                         <div id="taskCount" class="square">
@@ -89,8 +89,8 @@
                         <div id="taskCountLoading">
                             <img id="loadingIcon" src="../../../../src/images/loading.svg"></img>
                         </div>
-                        <div id="workflowMetadataContainer" class="content-div list-content">
-                            <div class="to-do-name block-text text-ellipsis" on-tap="_onActivityTap">[[dataobjectCount.externalName]]</div>
+                        <div id="externalNameContainer" class="content-div list-content">
+                            <div class="external-name block-text text-ellipsis" on-tap="_onActivityTap">[[dataobjectCount.externalName]]</div>
                         </div>
                         <template is="dom-if" if="[[isBaseModel(domain)]]">
                             <div class="sub-content text-right">
@@ -102,8 +102,12 @@
                     </div>
                 </div>
             </div>
-        <liquid-entity-model-get name="governDataGet" operation="initiatesearchandgetcount" request-data="{{_governDataRequest}}"
-        on-response="_onGovernDataResponse" on-error="_onGovernDataError" exclude-in-progress></liquid-entity-model-get>
+        <liquid-entity-model-get name="entityModelGet" operation="initiatesearchandgetcount" request-data="{{_entityDataRequest}}"
+        on-response="_onEntityGetResponse" on-error="_onEntityGetError" data-index$="[[dataIndex]]" 
+        data-sub-index$="[[dataSubIndex]]" exclude-in-progress></liquid-entity-model-get>
+        <liquid-entity-data-get name="entityDataGet" operation="initiatesearchandgetcount" request-data="{{_entityDataRequest}}"
+         data-index$="[[dataIndex]]" data-sub-index$="[[dataSubIndex]]" on-response="_onEntityGetResponse"
+          on-error="_onEntityGetError" exclude-in-progress></liquid-entity-data-get>
     </template>
     <script>
         (function() {
@@ -113,7 +117,7 @@
                 is: "rock-dataobject-summary-countview-item",
 
                 properties: {
-                    _governDataRequest: {
+                    _entityDataRequest: {
                         type: Object,
                         value: function () {
                             return {
@@ -144,16 +148,30 @@
                     },
                     modelDomain: {
                         type: String
+                    },
+                    dataIndex: {
+                        type: String
+                    },
+
+                    dataSubIndex: {
+                        type: String
                     }
                 },
                 attached: function () {
                     if(this.dataobject && !_.isEmpty(this.dataobject)){
-                        if(this.modelDomain){
-                            this._governDataRequest.params.query.domain = this.modelDomain;
+                        this._entityDataRequest.params.query.filters.typesCriterion[0]=this.dataobject.governanceName;
+                        var entityDataLiquid;
+                        if(this.dataIndex == "entityData"){
+                            entityDataLiquid = this.shadowRoot.querySelector("[name=entityDataGet]");
                         }
-                        this._governDataRequest.params.query.filters.typesCriterion[0]=this.dataobject.governanceName;
-                        var governDataLiquid = this.shadowRoot.querySelector("[name=governDataGet]");
-                        governDataLiquid.generateRequest();
+                        else{
+                            
+                            if(this.modelDomain){
+                                this._entityDataRequest.params.query.domain = this.modelDomain;
+                            }
+                            entityDataLiquid = this.shadowRoot.querySelector("[name=entityModelGet]");
+                        }
+                        entityDataLiquid.generateRequest();
                     }
                 },
                 _computeClass: function (status) {
@@ -168,7 +186,7 @@
                     }
                     return 'border-left-3';
                 },
-                _onGovernDataResponse: function (e) {
+                _onEntityGetResponse: function (e) {
                     if (e.detail && e.detail.response) {
                         var response = e.detail.response;
                         if (response && response.content) {
@@ -183,20 +201,20 @@
                         }
                     }
                 },
-                _onGovernDataError: function (e) {
+                _onEntityGetError: function (e) {
                     this.showErrorToast(e.detail.response.reason);
                     this._setTaskLoadingIndicatorVisibility(false);
                 },
                 _onActivityTap: function () {
-                    var appName = this._getAppNameToRedirect();
+                    var appName = this._getAppNameToRedirect(this.domain);
                     var params = {"domain":this.domain,"type":this.dataobjectCount.type};
                     if(this.modelDomain){
                         params["modelDomain"] = this.modelDomain;
                     }
                     ComponentHelper.appRoute(appName, params);
                 },
-                _getAppNameToRedirect: function () {
-                    var appName = "entity-discovery";
+                _getAppNameToRedirect: function (domain) {
+                    var appName = "entity-discovery-" + domain.toLowerCase();
                     return appName;
                 },
                 _setTaskLoadingIndicatorVisibility: function (isVisible) {
