@@ -345,7 +345,8 @@
         */
         _getDimentionAttributeList(response) {                     
             this.variantModelObj.attributeList = [];
-            this.variantModelObj.targetEntities = [];            
+            this.variantModelObj.targetEntities = [];  
+            this.variantModelObj.mandatoryAttributes = [];          
             var list = response.properties.levels;
             
             for(var listItem=0;listItem<list.length;listItem++){
@@ -353,6 +354,9 @@
                 this.variantModelObj.targetEntities.push({"targetEntity":list[listItem].targetEntityType});
                 var tempAttributeList = [];
                 for(var dimensionAttributeListItem=0;dimensionAttributeListItem<dimentions.length;dimensionAttributeListItem++) {
+                    if(dimentions[dimensionAttributeListItem].mandatory){
+                        this.variantModelObj.mandatoryAttributes.push(dimentions[dimensionAttributeListItem].name)
+                    }
                     this.variantModelObj.attributeList.push(dimentions[dimensionAttributeListItem].name);
                     tempAttributeList.push(dimentions[dimensionAttributeListItem].name);
                 }
@@ -503,7 +507,12 @@
          *  Handle save click
          *  Do sync validation 
         */
-        async _onSave(e) {              
+        async _onSave(e) {  
+            var mandatoryCheckFailed = this.mandatoryAttributesCheck();  
+            if(mandatoryCheckFailed) {
+                this.showErrorToast("Update values for the following required fields : " + this.mandatoryFields.join());
+                return;
+            }      
             var newEntity = {};
             var attributesJSON = this._getAttributesJSON();
             newEntity = await DataTransformHelper.prepareEntityForAttributesSave(this.originalEntity, attributesJSON, this.contextData, this._attributeModels);
@@ -533,6 +542,28 @@
             }
         }
 
+        /**
+         *  Check if the mandatory fields are empty 
+        */
+        mandatoryAttributesCheck(){
+            var mandatoryCheckFailed = false;
+            this.mandatoryFields = [];
+            var rockAttributeObjList = this.shadowRoot.querySelectorAll(".variantAttributes");
+            if(this.variantModelObj.mandatoryAttributes.length > 0){
+                for(var i=0;i<rockAttributeObjList.length;i++){
+                    for(var j=0;j<this.variantModelObj.mandatoryAttributes.length;j++){
+                        if(this.variantModelObj.mandatoryAttributes[j] == rockAttributeObjList[i].attributeObject.name){
+                            var count = rockAttributeObjList[i].attributeObject.value.length;
+                            if(count <= 0){
+                                mandatoryCheckFailed = true;
+                                this.mandatoryFields.push(rockAttributeObjList[i].attributeObject.name);
+                            }
+                        }
+                    }
+                }
+            }
+            return mandatoryCheckFailed;
+        }
         /**
          *  Handle skip click
          *  If there are unsaved changes, show the confirmation dialog, else go to next step
@@ -681,18 +712,38 @@
             var attributesJSON = [];
             var attributeElements = Polymer.dom(this).node.shadowRoot.querySelectorAll('.variantAttributes');
             for (var i = 0; i < attributeElements.length; i++) {  
-                var attributeElement =  attributeElements[i];                              
-                var attributeJSON = attributeElement.attributeObject;
-                if (attributeElement.attributeModelObject && attributeElement.attributeModelObject.referenceEntityTypes) {
-                    var attributeRefEntityTypes = attributeElement.attributeModelObject.referenceEntityTypes;
-                    if (attributeRefEntityTypes instanceof Array && attributeRefEntityTypes.length > 0) {
-                        attributeJSON.referenceEntityType = attributeRefEntityTypes[0];
+                var attributeElement =  attributeElements[i]; 
+                var attributeJSON;
+
+                //Handling delete for empty attributes
+                if (attributeElement.attributeObject.action == "delete" || this._isEmptyValue(attributeElement.attributeObject.value)) {
+                    attributeJSON = DataHelper.cloneObject(this._attributes[attributeElement.attributeObject.name]);
+                    attributeJSON.action = "delete";
+                } else {
+                    attributeJSON = attributeElement.attributeObject;
+                    if (attributeElement.attributeModelObject && attributeElement.attributeModelObject.referenceEntityTypes) {
+                        var attributeRefEntityTypes = attributeElement.attributeModelObject.referenceEntityTypes;
+                        if (attributeRefEntityTypes instanceof Array && attributeRefEntityTypes.length > 0) {
+                            attributeJSON.referenceEntityType = attributeRefEntityTypes[0];
+                        }
                     }
-                }
+                } 
+                
                 attributesJSON.push(attributeJSON);
             } 
             return attributesJSON;
         }   
+
+        /**
+         *  Empty check 
+        */
+        _isEmptyValue(value) {
+            if (typeof (value) === "string") {
+                return value === "" || value.trim().length === 0;
+            } else {
+                return _.isEmpty(value);
+            }
+        }
 
         /**
          *  Handles success of govern get
