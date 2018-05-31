@@ -30,7 +30,6 @@
 
 <link rel="import" href="../rock-grid/rock-grid.html">
 <link rel="import" href="../rock-classification-tree/rock-classification-tree.html">
-<link rel="import" href="../rock-context-mappings/rock-context-mappings-grid.html">
 <!--
 <b><i>Content development is under progress... </b></i>
 
@@ -47,6 +46,7 @@
             .placeHolder {
                 width: 880px;
                 margin: 0 auto;
+                margin-top: 5px;
                 box-shadow: 0 0 10px 0 var(--cloudy-blue-color, #c1cad4);
                 position: relative;
             }
@@ -139,6 +139,14 @@
                     <bedrock-pubsub event-name="pebble-file-upload-success" handler="_onFileUploadSuccess" target-id="fileUpload"></bedrock-pubsub>
                 </div>
             </div>
+            <div id="upload-actions" class="p-b-10" align="center">
+                <template is="dom-repeat" id="event-template" items="[[componentEvents]]">
+                    <template is="dom-if" if="[[_showEvent(item)]]">
+                        <pebble-button id="[[item.id]]" class$="[[item.class]]" button-text="[[item.text]]" on-tap="_onTriggerEvent" data-args$="[[item.event]]"
+                            elevation=1 raised></pebble-button>
+                    </template>
+                </template>
+            </div>
         </div>
         <div id="content-label" hidden>
             <img alt="Product image." id="image-container" sizing="contain" src="/src/images/MicrosoftExcel50,100,500px/MicrosoftExcel_100.svg"
@@ -147,12 +155,6 @@
                 <strong>[[_fileName]]</strong> uploaded
                 <strong>[[_entities.length]]</strong> items with
                 <strong>[[attributeNames.length]]</strong> attributes.</span>
-        </div>
-        <div id="content-context-mappings" hidden class="full-height">
-        </div>
-        <div id="content-mappings" hidden class="full-height">
-        </div>
-        <div id="content-value-mappings" hidden class="full-height">
         </div>
         <div id="content-entities-grid" hidden class="full-height">
             <rock-grid id="entitiesGrid" page-size="10" context-data="[[contextData]]" attribute-models="[[_attributeModels]]" no-header></rock-grid>
@@ -334,7 +336,12 @@
                     _workAutomationId: {
                         type: String
                     },
-                    _customizeMappings: {
+                    uploadMode: {
+                        type: String,
+                        value: "process",
+                        observer: "_onUploadModeChange"
+                    },
+                    customizeMappings: {
                         type: Boolean,
                         value: false
                     },
@@ -344,13 +351,6 @@
                             return [];
                         },
                         notify: true
-                    },
-                    /**
-                      * <b><i>Content development is under progress... </b></i> 
-                      */
-                    enableDataPreview: {
-                        type: Boolean,
-                        value: false
                     },
                     /**
                       * <b><i>Content development is under progress... </b></i> 
@@ -410,6 +410,28 @@
                     _taxonomyExtNameAttr: {
                         type: String,
                         value: ""
+                    },
+                    businessFunctionData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    componentEvents: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    selectedOptions: {
+                        type: Object,
+                        value: function () {
+                            return { "role": "_DEFAULT", "ownershipData": "_DEFAULT", "saveType": "self" }
+                        }
+                    },
+                    domain: {
+                        type: String,
+                        value: "generic"
                     }
                 },
                 observers: [
@@ -533,7 +555,7 @@
                     this.set("_fileDetails", fileDetails);
 
                     var url = "";
-                    if (this._customizeMappings) {
+                    if (this.customizeMappings) {
                         this._currentCOPService = "getHeaderFields";
                         url = "/data/cop/getHeaderFields";
                     } else if (this._showPreview) {
@@ -752,13 +774,12 @@
                 },
 
                 _loadMappingComponent: function () {
-                    this._hideView("entity-import");
-                    this._hideButtons();
                     this._loading = false;
                     this._isDirty = false;
+                    this._setSelectedOptions();
 
                     if (this.skipContextMapping) {
-                        this._importMappingComponent(); //Attribute Mappings
+                        this._importAttributeComponent(); //Attribute Mappings
                     } else {
                         this._importContextComponent(); //Context Mappings
                     }
@@ -1198,9 +1219,9 @@
                 _onMappingsChange: function (e) {
                     var chkbox = e.currentTarget;
                     if (chkbox.checked) {
-                        this._customizeMappings = true;
+                        this.customizeMappings = true;
                     } else {
-                        this._customizeMappings = false;
+                        this.customizeMappings = false;
                     }
                 },
                 /**
@@ -1294,123 +1315,109 @@
                     this._downloadInProgress = false;
                 },
                 _importContextComponent: function () {
-                    this._showView("context-mappings");
                     var copCtx = DataHelper.cloneObject(this.copContext);
                     var mappingData = {
-                        "headerFields": this.headerFields,
+                        "headerFields": this.headerFields || [],
                         "contexts": this.contexts,
                         "taxonomies": this.taxonomies,
+                        "taxonomy": this.taxonomy,
                         "domain": this.domain,
                         "entityTypeExternalName": this.entityTypeExternalName,
                         "contextExternalNames": this.contextExternalNames,
-                        "saveActions": this._getMappingsSaveActions("context-mappings-save", " & Continue"),
-                        "fileFormat": this.fileFormat
+                        "fileFormat": this.fileFormat  || "Excel",
+                        "selectedOptions": this.selectedOptions
                     }
 
-                    var component = {
-                        "name": "rock-context-mappings-grid",
-                        "path": "/../../src/elements/rock-context-mappings/rock-context-mappings-grid.html",
-                        "properties": {
-                            "context-data": this.contextData,
-                            "taxonomy": this.taxonomy,
-                            "cop-context": copCtx,
-                            "mapping-data": mappingData,
-                            "mapping-config": this.mappingConfig
-                        }
-                    };
-                    var contentEl = this.shadowRoot.querySelector("#content-context-mappings");
-                    ComponentHelper.loadContent(contentEl, component, this);
+                    this._loading = false;
+                    var eventName = "onNext";
+                    var eventDetail = {
+                        name: eventName,
+                        data: {}
+                    }
+                    //Prepare mapping data, and pass the same as businessFunctionData
+                    if(!this.businessFunctionData) {
+                        this.businessFunctionData = {};
+                    }
+                    this.businessFunctionData["context-mapping-data"] = mappingData;
+                    ComponentHelper.getParentElement(this).businessFunctionData = this.businessFunctionData;
+                    this.fireBedrockEvent(eventName, eventDetail, {
+                        ignoreId: true
+                    });
                 },
-                _importMappingComponent: function () {
-                    this._hideView("context-mappings");
-                    this._showView("mappings");
+                _importAttributeComponent: function () {
                     var copCtx = DataHelper.cloneObject(this.copContext);
                     var mappingData = {
-                        "headerFields": this.attributeFields && this.attributeFields.length > 0 ? this.attributeFields : this.headerFields,
+                        "headerFields": this.headerFields || [],
                         "taxonomies": this.taxonomies,
+                        "taxonomy": this.taxonomy,
                         "contexts": this.contexts,
                         "domain": this.domain,
-                        "saveActions": this._getMappingsSaveActions("attribute-mappings-save"),
-                        "saveImportActions": this._getMappingsSaveActions("attribute-mappings-save-import", " & Import"),
-                        "saveValueMappingsActions": this._getMappingsSaveActions("value-mappings-save"),
-                        "saveValueMappingsContinueActions": this._getMappingsSaveActions("value-mappings-save-continue", " & Continue"),
-                        "fileFormat": this.fileFormat
+                        "fileFormat": this.fileFormat || "Excel",
+                        "selectedOptions": this.selectedOptions,
+                        "isAplusSheet": true
                     }
 
-                    var component = {
-                        "name": "rock-attribute-mapping",
-                        "path": "/../../src/elements/rock-attribute-mapping/rock-attribute-mapping.html",
-                        "properties": {
-                            "context-data": this.contextData,
-                            "taxonomy": this.taxonomy,
-                            "cop-context": copCtx,
-                            "mapping-config": this.mappingConfig,
-                            "mapping-data": mappingData
-                        }
-                    };
-                    var contentEl = this.shadowRoot.querySelector("#content-mappings");
-                    ComponentHelper.loadContent(contentEl, component, this);
+                    //Prepare mapping data, and pass the same as businessFunctionData
+                    if(!this.businessFunctionData) {
+                        this.businessFunctionData = {};
+                    }
+                    this.businessFunctionData["attribute-mapping-data"] = mappingData;
+                    ComponentHelper.getParentElement(this).businessFunctionData = this.businessFunctionData;
+
+                    var eventName = "onNext";
+                    var eventDetail = {
+                        name: eventName,
+                        data: { "skipNext": true }
+                    }
+                    this.fireBedrockEvent(eventName, eventDetail, {
+                        ignoreId: true
+                    });
+                    this._loading = false;
                 },
-                _onFieldMappingsSave: function (e, detail) {
-                    this._hideView("mappings");
-                    this._hideView("entity-import");
+                _onBackTap: function(e) {
+                    var eventName = "onBack";
+                    var eventDetail = {
+                        name: eventName,
+                        data: {}
+                    }
+                    this.fireBedrockEvent(eventName, eventDetail, {
+                        ignoreId: true
+                    });
+                },
+                _onSkipTap: function() {
+                    //Fetch contexts, taxonomies, external names and domain
                     this._loading = true;
-                    this._customizeMappings = false;
-                    var url = "";
-                    if (this._showPreview) {
-                        this._currentCOPService = "transform";
-                        url = "/data/cop/transform";
+                    this._setContexts();
+                },
+                _showEvent: function(event) {
+                    //nextEvent is for upload success, so no button needed
+                    if(!_.isEmpty(event) && event.id != "nextEvent") {
+                        return true;
+                    }
+
+                    return false;
+                },
+                _onTriggerEvent: function(e, detail) {
+                    var event = e.target.getAttribute("id");
+                    if(event == "backEvent") {
+                        this._onBackTap(e);
+                    } else if (event == "skipEvent") {
+                        this._onSkipTap(e);
+                    }
+                },
+                _setSelectedOptions: function () {
+                    if (this.businessFunctionData && this.businessFunctionData.selectedOptions) {
+                        this.selectedOptions.role = this.businessFunctionData.selectedOptions.role.id || "_DEFAULT";
+                        this.selectedOptions.ownershipData = this.businessFunctionData.selectedOptions.ownershipData || "_DEFAULT";
+                        this.selectedOptions.saveType = this.businessFunctionData.selectedOptions.saveType || "self";
+                    }
+                },
+                _onUploadModeChange: function () {
+                    if(this.uploadMode && this.uploadMode.toLowerCase() == "mappings") {
+                        this.customizeMappings = true;
                     } else {
-                        this._currentCOPService = "process";
-                        url = "/data/cop/process";
+                        this.customizeMappings = false;
                     }
-                    this._generateCopRequest(url, this._fileDetails);
-                },
-                _onFieldMappingsBack: function (e, detail) {
-                    if (this.skipContextMapping) {
-                        this._hideView("mappings");
-                        this._showView("entity-import");
-                    } else {
-                        this._hideView("mappings");
-                        this._showView("context-mappings");
-                    }
-                },
-                _onFieldMappingsImport: function (e, detail) {
-                    this._customizeMappings = false;
-                    this._hideView("mappings");
-                    this._hideView("entity-import");
-                    this._loading = true;
-                    this._currentCOPService = "process"
-                    var url = "/data/cop/process";
-                    this._generateCopRequest(url, this._fileDetails);
-                },
-                _onContextMappingsBack: function (e, detail) {
-                    this._hideView("context-mappings");
-                    this._showView("entity-import");
-                },
-                _onContextMappingsSkipOrSave: function (e, detail) {
-                    this.attributeFields = detail.nonContextFields;
-                    this._importMappingComponent();
-                },
-                _getMappingsSaveActions: function (eventName, addOnText) {
-                    eventName = eventName || "";
-                    addOnText = addOnText || "";
-
-                    if (_.isEmpty(this.mappingActions)) {
-                        this.showErrorToast("Actions configuration missing, you cannot perform mappings customization, please contact administrator.");
-                        return;
-                    }
-                    var mappingActions = DataHelper.cloneObject(this.mappingActions);
-                    for (var actionKey in mappingActions) {
-                        mappingActions[actionKey].text += addOnText;
-                        mappingActions[actionKey].event = eventName
-                    }
-
-                    mappingActions = DataHelper.convertObjectToArray(mappingActions);
-
-                    return [{
-                        "actions": mappingActions
-                    }];
                 }
             });
         })();
