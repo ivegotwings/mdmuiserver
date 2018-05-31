@@ -196,6 +196,12 @@ var SERVICE_CONFIG = {
             "offlineSettings": {
             }
         },
+        "matchservice/match": {
+            "url": "/matchservice/match",
+            "mode": "online",
+            "offlineSettings": {
+            }
+        },
         "entitygovernservice/validate": {
             "url": "/entitygovernservice/validate",
             "mode": "online",

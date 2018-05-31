@@ -217,6 +217,10 @@ attributes during the single entity creation.
                         type: Boolean,
                         value: false
                     },
+                    matchType: {
+                        type: String,
+                        value: "deterministic"
+                    },
                     defaultEntity: {
                         type: Object,
                         value: function () { return {}; }
@@ -261,6 +265,11 @@ attributes during the single entity creation.
                     var attributeModels = attributeList ? attributeList.attributeModels : {};
                     var changedAttributeElements = attributeList.getChangedAttributeElements();
 
+                    if(!_.isEmpty(this.matchConfig)) {
+                        this.enableMatchStep = this.matchConfig["enable-match-step"];
+                        this.matchType = this.matchConfig["match-type"] || "deterministic";
+                    }
+
                     if (attributeList.hasModelErrors()) {
                         this.showErrorToast("Cannot save. Please resolve the errors.");
                         return;
@@ -298,7 +307,11 @@ attributes during the single entity creation.
                         "entity": newEntity
                     });
 
-                    const entityMatchService = this.shadowRoot.querySelector("#entityMatchService");
+                    var entityMatchService = this.shadowRoot.querySelector("#entityMatchService");
+
+                    if(this.enableMatchStep && this.matchType === "MLBased") {
+                        entityMatchService.url = "/data/pass-through/matchservice/match";
+                    }
                     if (entityMatchService) {
                         entityMatchService.generateRequest();
                     }
@@ -314,8 +327,12 @@ attributes during the single entity creation.
                             return;
                         }
 
+                        if(this.matchType === "MLBased") {
+                            response.status = "success";
+                        }
+
                         if (response.status && response.status.toLowerCase() == "success") {
-                            if (response.entities) {
+                            if (!_.isEmpty(response.entities)) {
                                 if (!this.enableMatchStep) {
                                     if (response.entities.length == 1) {
                                         this._matchedEntity = response.entities[0];
@@ -326,6 +343,31 @@ attributes during the single entity creation.
                                     return;
                                 }
 
+                                var matchedEntityIds = [];
+
+                                if(this.matchType === "MLBased") {
+                                    var entity = response.entities[0];
+                                    var matchResult = EntityHelper.getAttribute(entity, "matchresult");
+
+                                    if(matchResult && !_.isEmpty(matchResult.group)) {
+                                        var entities = [];
+                                        for(let idx = 0; idx<matchResult.group.length; idx++) {
+                                            var group = matchResult.group[idx];
+                                            var entity = {
+                                                "id": AttributeHelper.getFirstAttributeValue(group.identifier),
+                                                "score": AttributeHelper.getFirstAttributeValue(group.score)
+                                            }
+
+                                            entities.push(entity);
+                                        }
+
+                                        response.entities = entities;
+                                    } else {
+                                        this._triggerGovernRequest();
+                                        return;
+                                    }
+                                }
+
                                 var matchedEntityIds = response.entities.map(entity => entity.id);
                                 var entityType = ContextHelper.getFirstItemContext(this.contextData).type;
 
@@ -334,7 +376,8 @@ attributes during the single entity creation.
                                     "entityIds": matchedEntityIds,
                                     "entityTypes": [entityType],
                                     "contextData": DataHelper.cloneObject(this.contextData),
-                                    "matchConfig": this.matchConfig
+                                    "matchConfig": this.matchConfig,
+                                    "entities-data": response.entities
                                 }
                                 this._hideView("entity-create");
                                 this._showView("entity-match");
