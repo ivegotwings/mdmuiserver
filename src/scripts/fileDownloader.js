@@ -40,28 +40,30 @@
             //
             //Requires jQuery UI: options to pass into jQuery UI Dialog
             //
-            dialogOptions: { modal: true },
+            dialogOptions: {
+                modal: true
+            },
 
             //
             //a function to call while the dowload is being prepared before the browser's dialog appears
             //Args:
             //  url - the original url attempted
             //
-            prepareCallback: function (url) { },
+            prepareCallback: function (url) {},
 
             //
             //a function to call after a file download successfully completed
             //Args:
             //  url - the original url attempted
             //
-            successCallback: function (url) { },
+            successCallback: function (url) {},
 
             //
             //a function to call after a file download request was canceled
             //Args:
             //  url - the original url attempted
             //
-            abortCallback: function (url) { },
+            abortCallback: function (url) {},
 
             //
             //a function to call after a file download failed
@@ -72,7 +74,7 @@
             //  url             - the original url attempted
             //  error           - original error cautch from exception
             //
-            failCallback: function (responseHtml, url, error) { },
+            failCallback: function (responseHtml, url, error) {},
 
             //
             // the HTTP method to use. Defaults to "GET".
@@ -131,9 +133,9 @@
         //Setup mobile browser detection: Partial credit: http://detectmobilebrowser.com/
         var userAgent = (navigator.userAgent || navigator.vendor || window.opera).toLowerCase();
 
-        var isIos;                  //has full support of features in iOS 4.0+, uses a new window to accomplish this.
-        var isAndroid;              //has full support of GET features in 4.0+ by using a new window. Non-GET is completely unsupported by the browser. See above for specifying a message.
-        var isOtherMobileBrowser;   //there is no way to reliably guess here so all other mobile devices will GET and POST to the current window.
+        var isIos; //has full support of features in iOS 4.0+, uses a new window to accomplish this.
+        var isAndroid; //has full support of GET features in 4.0+ by using a new window. Non-GET is completely unsupported by the browser. See above for specifying a message.
+        var isOtherMobileBrowser; //there is no way to reliably guess here so all other mobile devices will GET and POST to the current window.
 
         if (/ip(ad|hone|od)/.test(userAgent)) {
 
@@ -280,6 +282,7 @@
         } else {
 
             var formInnerHtml = "";
+            var params = '';
 
             if (settings.data !== null) {
 
@@ -292,11 +295,11 @@
                     kvp.shift();
                     var v = kvp.join("=");
                     kvp = [k, v];
-
                     var key = settings.encodeHTMLEntities ? htmlSpecialCharsEntityEncode(decodeURIComponent(kvp[0])) : decodeURIComponent(kvp[0]);
                     if (key) {
                         var value = settings.encodeHTMLEntities ? htmlSpecialCharsEntityEncode(decodeURIComponent(kvp[1])) : decodeURIComponent(kvp[1]);
                         formInnerHtml += '<input type="hidden" name="' + key + '" value="' + value + '" />';
+                        params = k + '=' + (v);
                     }
                 });
             }
@@ -328,7 +331,25 @@
                 $form = $(formDoc).find('form');
             }
 
-            $form.submit();
+            //$form.submit();
+            var xhttp = new XMLHttpRequest();
+            xhttp.onreadystatechange = function () {
+                if (this.readyState == 4 && this.status == 200) {
+                    // Typical action to be performed when the document is ready:
+                    let a = document.createElement('a');
+                    let url = window.URL.createObjectURL(xhttp.response);
+                    a.href = url;
+                    a.download = options.fileName;
+                    a.click();
+                    window.URL.revokeObjectURL(url)
+                }
+            };
+            xhttp.responseType = 'blob';
+            xhttp.timeout = 10000000000;
+            xhttp.open("POST", fileUrl, true);
+            xhttp.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+            xhttp.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhttp.send(params);
         }
 
 
@@ -402,8 +423,7 @@
                             return;
                         }
                     }
-                }
-                catch (err) {
+                } catch (err) {
 
                     //500 error less than IE9
                     internalCallbacks.onFail('', fileUrl, err);
