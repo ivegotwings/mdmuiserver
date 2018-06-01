@@ -91,6 +91,11 @@
                     attributeModel = _attributeModels[attributeModelName];
                     if (attributeModel) {
                         attributeModel.modelContextCoalesce = false;
+                        if (DataHelper.isValidObjectPath(attributeModel, "properties.dataType")) {
+                            if(attributeModel.properties.dataType === "nested"){
+                                attributeModel.properties["isCollection"] = true;
+                            }
+                        }
                         if (!_.isEmpty(additionalContexts)) {
                             if (attributeModel && attributeModel.properties && attributeModel.properties.contextCoalesce) {
                                 if (DataTransformHelper._isPartialPrimaryContexts(primaryContexts, attributeModel.properties.contextCoalesce)) {
@@ -192,7 +197,42 @@
 
                 if (!_.isEmpty(ctxAttributes)) {
                     Object.keys(ctxAttributes).forEach((attrName) => {
-                        mergedAttributes[attrName] = DataHelper.cloneObject(ctxAttributes[attrName]);
+                        let clonedAttribute = DataHelper.cloneObject(ctxAttributes[attrName]);
+
+                        // RDF doesn't support relatedEntity coalesce in case of child entity's additional context.
+                        // This will update coaleced attribute with parent entity's coalesce info if attribute value is coming from parent entity in case of additional context.
+                        if (mergedAttributes[attrName]) {
+                            if (mergedAttributes[attrName].group) {
+                                if (DataHelper.isValidObjectPath(mergedAttributes[attrName], "group.0.os") && mergedAttributes[attrName].group[0].os == "graph") {
+                                    if (clonedAttribute.group) {
+                                        let os = mergedAttributes[attrName].group[0].os;
+                                        let osid = mergedAttributes[attrName].group[0].osid;
+                                        let ostype = mergedAttributes[attrName].group[0].ostype;
+
+                                        for (let grp of clonedAttribute.group) {
+                                            grp.os = os;
+                                            grp.osid = osid;
+                                            grp.ostype = ostype;
+                                        }
+                                    }
+                                }
+                            } else {
+                                if (DataHelper.isValidObjectPath(mergedAttributes[attrName], "values.0.os") && mergedAttributes[attrName].values[0].os == "graph") {
+                                    if (clonedAttribute.values) {
+                                        let os = mergedAttributes[attrName].values[0].os;
+                                        let osid = mergedAttributes[attrName].values[0].osid;
+                                        let ostype = mergedAttributes[attrName].values[0].ostype;
+
+                                        for (let value of clonedAttribute.values) {
+                                            value.os = os;
+                                            value.osid = osid;
+                                            value.ostype = ostype;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        mergedAttributes[attrName] = clonedAttribute;
                     });
                 }
             }
@@ -369,6 +409,7 @@
             });
 
             if (entities && entities.length > 0) {
+                var entityManagerObj = EntityTypeManager.getInstance();
                 for (var i = 0; i < entities.length; i++) {
                     var entity = entities[i];
                     var transformedAttributes = {};
@@ -382,10 +423,18 @@
                                     entity[columnName] = entity.properties[columnName];
                                 }
                             }
-
+                            
+                            //Adding the typeExternalName
+                            if(entity['type']){
+                                entity['typeExternalName'] = entityManagerObj.getTypeExternalNameById(entity['type']);
+                            }
                             //Set the item as disabled if the status is exists                                
-                            if (entity['variantStatus'] && entity['variantStatus'].toLowerCase() == "exists") {
-                                entity.disabled = true;
+                            if (entity['variantStatus']) {
+                                if(entity['variantStatus'] == "exists") {
+                                    entity.disabled = true;
+                                }
+                                //Capitalizing the first character of status attribute
+                                entity['variantStatus'] = entity['variantStatus'].charAt(0).toUpperCase() + entity['variantStatus'].slice(1);
                             }
                         }
                     }
@@ -783,17 +832,39 @@
                 if (attributeModel.name) {
                     var attribute = attributes[attributeModel.name];
 
-                    if (!_.isEmpty(additionalContexts)) {
-                        if (attribute && attribute.properties && attribute.properties.contextCoalesce) {
-                            if (!DataTransformHelper._isPartialPrimaryContexts(primaryContexts, attribute.properties.contextCoalesce)) {
-                                delete attribute.properties.contextCoalesce;
+                    if (attribute) {
+                        let removeParentEntityDetails = false;
+                        if (!_.isEmpty(additionalContexts)) {
+                            if (attribute.properties && attribute.properties.contextCoalesce) {
+                                if (!DataTransformHelper._isPartialPrimaryContexts(primaryContexts, attribute.properties.contextCoalesce)) {
+                                    delete attribute.properties.contextCoalesce;
+                                }
+                            }
+                            removeParentEntityDetails = (primaryContexts.indexOf("self") == -1);
+                        } else {
+                            removeParentEntityDetails = (!_.isEmpty(dataContext) && primaryContexts.indexOf("self") > -1);
+                        }
+
+                        if (removeParentEntityDetails) {
+                            if (attribute.group) {
+                                for (let grp of attribute.group) {
+                                    delete grp.os;
+                                    delete grp.osid;
+                                    delete grp.ostype;
+                                }
+                            } else if (attribute.values) {
+                                for (let value of attribute.values) {
+                                    delete value.os;
+                                    delete value.osid;
+                                    delete value.ostype;
+                                }
                             }
                         }
                     }
 
                     if (attribute && attribute.values) {
 
-                        var currentLocale = valueContext.locale;
+                        var currentLocale = attributeModel.isLocalizable ? valueContext.locale : DataHelper.getDefaultLocale();
 
                         attribute.values = attribute.values.filter(value => value.locale === currentLocale);
                         clonedValCtx.locale = currentLocale;
@@ -2147,7 +2218,7 @@
 
         DataTransformHelper._updateValuesAndLocaleCoalesceInfo = function (values, valContext, clonedValCtx, fallbackLocales) {
             var _values = DataHelper.cloneObject(values);
-            var defaultValues = values.filter(value => value.locale === DataHelper.getDefaultLocale());
+            let defaultLocale = DataHelper.getDefaultLocale();
             var isReferenceData = false;
             var attrValues = [];
             if (!_.isEmpty(_values) && _values.length > 0) {
@@ -2168,6 +2239,13 @@
                         }
                     }
                 }
+
+                if(!locales.find(v => v.name == defaultLocale)) {
+                    locales.push({
+                        "name": defaultLocale
+                    });
+                }
+
                 for (var i = locales.length - 1; i > -1; i--) {
                     _filteredLocale = _values.filter(value => value.locale === locales[i].name);
                     if (_filteredLocale && _filteredLocale.length > 0) {
@@ -2212,6 +2290,14 @@
                         else {
                             continue;
                         }
+                    }
+                }
+
+                if(valContext.locale != defaultLocale) {
+                    let defaultValues = values.filter(value => value.locale === defaultLocale);
+                    
+                    if(defaultValues) {
+                        attrValues = attrValues.concat(defaultValues);
                     }
                 }
             }
