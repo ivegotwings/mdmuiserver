@@ -23,7 +23,6 @@
                 right: 20px;
                 top: -12px;
             }
-
             :host{
                 display:block;
                 height:100%;
@@ -64,7 +63,7 @@
                     on-error="_onEntityDataGetFailure">
                 </liquid-entity-data-get>
                 <liquid-rest id="snapshotDataGet" url="/data/pass-through/snapshotManageService/get" method="POST" request-data="{{_snapshotGetRequest}}" on-liquid-response="_onEntityDataGetSuccess">
-                </liquid-rest>
+                </liquid-rest>        
                 <bedrock-pubsub event-name="refresh-grid" handler="_onRefreshGrid" target-id="compareEntitiesGrid"></bedrock-pubsub>
             </div>
         </div>
@@ -74,7 +73,6 @@
             static get is() {
                 return 'rock-compare-entities';
             }
-
             static get properties() {
                 return {
                     compareEntitiesContext: {
@@ -117,7 +115,8 @@
                         value: function () {
                             return {};
                         }
-                    },
+                    },                  
+                    
                     _liquidDataGetCompleted: {
                         type: Boolean,
                         value: false
@@ -129,7 +128,7 @@
                     _isLiquidDataGetInitiated: {
                         type: Boolean,
                         value: false
-                    },  
+                    },
                     _isLiquidDataSnapshotGetInitiated: {
                         type: Boolean,
                         value: false
@@ -259,38 +258,30 @@
                     }
                 };
             }
-
             constructor() {
                 super();
-
                 this._onCompositeModelGetResponse = this._onCompositeModelGetResponse.bind(this);
                 this.addEventListener('column-selection-changed', this._onColumnSelectionChanged);
             }
-
             connectedCallback() {
                 super.connectedCallback();
-
                 var pebbleDropDown = this.$$("#actionsButton");
                 if (pebbleDropDown) {
                     pebbleDropDown.addEventListener('change', this._onDropdownChange.bind(this));
                 }
                 if(_.isEmpty(this.compareEntitiesContext)) { 
-                    this._triggerCompareEntitiesContextChange();
+                this._triggerCompareEntitiesContextChange();
                 }
             }
-
             _onCompareEntitiesContextChange() {
                 if(!_.isEmpty(this.compareEntitiesContext)) {
-                    this._combinedEntitySetForRender = [];
                     this._triggerCompareEntitiesContextChange(false); //Not from session
                 }
             }
-
             _triggerCompareEntitiesContextChange(fromSession = true) {
                 this._prepareContext(fromSession);
                 this._attributeModelGet();
             }
-
             _attributeModelGet() {
                 if (this._contextData) {
                     this._loading = true;
@@ -305,69 +296,52 @@
                                 if (firstItemContext) {
                                     firstItemContext.type = entityType;
                                 }
-
                                 var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this._contextData);
                                 var liquidCustomElement = customElements.get("liquid-entity-model-composite-get");
                                 var liquidElement = new liquidCustomElement();
-
                                 liquidElement.name = entityType;
                                 liquidElement.id = "attr_" + entityType;
                                 liquidElement.requestData = compositeModelGetRequest;
                                 liquidElement.addEventListener("entity-model-composite-get-response", this._onCompositeModelGetResponse);
-
+                                
                                 this.shadowRoot.appendChild(liquidElement);
-
                                 setTimeout(() => {
-                                    liquidElement.generateRequest();
-                                }, 10);
-                                this._modelGetTracker++;
+                        liquidElement.generateRequest();
+                    }, 10);
+                            this._modelGetTracker++;
                             }
                         }, this);
                     }
                 }
             }
-
             _onCompositeModelGetResponse(e) {
                 var rows = [];
                 var entityModels = e.detail.response.content.entityModels;
-
                 if (entityModels && entityModels.length) {
                     this._entityModels.push(entityModels[0]);
-                    // to get value of attribute tagged with "isExternalName" flag to show as entity title
-                    var entityTitle = DataHelper.getExternalNameAttributeFromModel(entityModels[0]);
-                    if(entityTitle) {
-                        this.set("entityTitle",entityTitle);
-                    }
                 }
-
                 this._modelGetTracker--;
-
                 if (this._modelGetTracker == 0) {
                     this._prepareGridRowsModel(this._entityModels, rows);
                     this._rowsModel = rows;
                     this._dataGet();
                 }
             }
-
             _prepareGridRowsModel(entityModels, rows) {
                 var frozenRowModels = [];
                 var normalRowModels = [];
-
                 entityModels.forEach(function (entityModel) {
                     if (entityModel && entityModel.data && entityModel.data.attributes) {
                         var attributes = entityModel.data.attributes;
-
                         Object.keys(attributes).forEach(function (key, index) {
                             if (attributes[key]) {
                                 var attribute = attributes[key];
-
                                 if (this.frozenAttributes.indexOf(key) >= 0) {
                                     if (index == 0) {
                                         frozenRowModels.push({
                                             "header": attribute.properties.externalName,
                                             "name": key,
                                             "isFrozen": true
-
                                         });
                                         this._attributeModels[key] = attribute;
                                     } else {
@@ -401,16 +375,13 @@
                         }, this);
                     }
                 }, this);
-
                 frozenRowModels.forEach(function (rowModel) {
                     rows.push(rowModel);
                 }, this);
-
                 normalRowModels.forEach(function (rowModel) {
                     rows.push(rowModel);
                 }, this);
             }
-
             _rowNameExist(rowName, rows) {
                 var existingRows = [];
                 if (rowName && rows && rows.length) {
@@ -418,7 +389,6 @@
                         return row.name == rowName
                     });
                 }
-
                 if (existingRows) {
                     if (existingRows.length) {
                         return true;
@@ -429,16 +399,28 @@
                     return false;
                 }
             }
-
+            _formatCreateDate(entities) {
+                entities.forEach(entity => {
+                    if (DataHelper.isValidObjectPath(entity, 'data.attributes.creationdate.values')) {
+                        var datePath = entity.data.attributes.creationdate;
+                        var date = datePath.values[0].value;
+                        if (date) {
+                            var formattedDate = FormatHelper.convertFromISODateTime(date, 'datetime');
+                            entity.data.attributes.creationdate.values[0].value = formattedDate;
+                        }
+                    }
+                });
+            }
             async _onEntityDataGetSuccess(e) {
                 var columns = [];
                 var items = [];
-
                 if(e.detail.response.hasOwnProperty("response") ) {
                     this.entities = e.detail.response.response.entities;
+                    this._formatCreateDate(this.entities);
                     this._liquidDataSnapshotGetCompleted =true;
                 } else {  
-                    this.entities = e.detail.response.content.entities;                    
+                    this.entities = e.detail.response.content.entities;    
+                    this._formatCreateDate(this.entities);                
                     this._liquidDataGetCompleted =true;
                 }
                 var allowPrepareGrid = false;
@@ -451,26 +433,21 @@
                 } else {
                     allowPrepareGrid = true;
                 }
-
                 var ent = this.entities;
                 this._combinedEntitySetForRender.push(...ent);
                 this.entities = this._combinedEntitySetForRender;
                 if (this.entities && this.entities.length && allowPrepareGrid) {
                     await this._prepareGridColumnsModelAndData(this.entities, columns, items);
                 }
-
                 var gridConfig = this._getBaseGridConfig();
                 gridConfig.itemConfig.fields = _.extend({}, columns);
                 gridConfig.itemConfig.rows = this._rowsModel;
-
                 this._gridConfig = this._getConfigWithUpdatedTitle(gridConfig, this.entities);
                 this._gridData = this._data = items;
-
                 if(allowPrepareGrid) {
                     this._loading = false;
                 }
             }
-
             _getConfigWithUpdatedTitle(gridConfig, entities) {
                 if(!_.isEmpty(this.compareEntitiesContext) && this.compareEntitiesContext.matchConfig) {
                     var title = this.compareEntitiesContext.matchConfig["compare-title"];
@@ -479,10 +456,8 @@
                         gridConfig.titleTemplates.compareEntitiesTitle = title;
                     }
                 }
-
                 return gridConfig;
             }
-
             async _prepareGridColumnsModelAndData(entities, columns, items) {
                 if (this._rowsModel && this._rowsModel) {
                     var rowHeader = {
@@ -502,7 +477,6 @@
                             "text": "Select for merge"
                         }
                     }
-
                     //Snapshot Scenario
                     if(this.enableColumnSelect && this.isSnapshot) {
                         rowHeader["selectable"] = {
@@ -511,25 +485,21 @@
                         }
                     }
                     columns.push(rowHeader);
-
                     var compositeModel = {
                         "data": {
                             "attributes": this._attributeModels
                         }
                     };
-
                     var transformedAttrModels = DataTransformHelper.transformAttributeModels(compositeModel, this._contextData);
-
                     //Add column for new entity - if compare triggered from entity create
                     if(!_.isEmpty(this.compareEntitiesContext) && this.compareEntitiesContext.newEntity) {
                         entities.unshift(this.compareEntitiesContext.newEntity);
                     }
-
                     for(let i=0; i < this._rowsModel.length; i++) {
                         var item = {};
                         var nonSortedColumns = [];
                         var row = this._rowsModel[i];
-                        for (let entity of entities) {
+                        for (let entity of entities) {                            
                             var entityHeader = this._getEntityHeader(entity);
                             if (i == 0) {
                                 var colDetails = {
@@ -542,7 +512,6 @@
                                     "type": entity.type,
                                     "version": this._getVersionNumber(entity)
                                 }
-
                                 if(!_.isEmpty(this.compareEntitiesContext)){
                                     if(this.compareEntitiesContext.newEntity) {
                                         colDetails["selectable"] = {
@@ -560,38 +529,38 @@
                                 nonSortedColumns.push(colDetails);
                             }
                             var attributes = await DataTransformHelper.transformAttributes(entity, transformedAttrModels, this._contextData);
-
                             var _isAttributeMapped = false;
                             this._entityModels.forEach(function (currentModel) {
-                                if ( (currentModel.name == entity.type || entity.type.indexOf(currentModel.name) !== -1) && currentModel.data && currentModel.data.attributes) {
                                     if (currentModel.data.attributes[row.name]) {
                                         _isAttributeMapped = true;
                                     };
-                                };
                             }, this);
-
                             if (!_isAttributeMapped) {
                                 item[entity.id] = "NA";
+                            } else if (row.name == "createdate") {
+                                item[entity.id] = FormatHelper.convertFromISODateTime(this._getAttributeValue(attributes[row.name]), 'datetime');
                             } else if (attributes && attributes[row.name]) {
                                 item[entity.id] = this._getAttributeValue(attributes[row.name]);
                             } else {
                                 item[entity.id] = "";
                             }
                         }
-
                         if(!_.isEmpty(nonSortedColumns)) {
                             nonSortedColumns = nonSortedColumns.sort(function(a, b) {
-                            return a.version-b.version;
+                            return b.version-a.version;
                             });
+                            var currentEnt = nonSortedColumns[nonSortedColumns.length-1];
+                            if(currentEnt.type && currentEnt.type.indexOf('snapshot') ==-1) {
+                                var currentEnt = nonSortedColumns.pop();
+                                nonSortedColumns.unshift(currentEnt);
+                            }
                             columns.push(...nonSortedColumns);
                         }
-
                         var isEmpty = false;
                         var hasPartialValues = false;
                         var hasValues = false;
                         var sameValues = false;
                         var diffValues = false;
-
                         Object.keys(item).forEach(function (key) {
                             if (!hasPartialValues) {
                                 if (item[key] == "") {
@@ -611,14 +580,12 @@
                                 }
                             }
                         }, this);
-
                         if (hasValues) {
                             var uniqueValues = _.uniq(_.values(item));
                             if (uniqueValues && uniqueValues.length == 1) {
                                 sameValues = true;
                             } else { diffValues = true;}
                         }
-
                         item["Attributes"] = row.header;
                         item["attributeName"] = row.name;
                         item["isEmpty"] = isEmpty;
@@ -626,31 +593,44 @@
                         item["hasValues"] = hasValues;
                         item["sameValues"] = sameValues;
                         item["diffValues"] = diffValues;
-
                         items.push(item);
                     }
                 }
             }
-
             _getVersionNumber(entity) {
                 if(entity && entity.type && entity.type.indexOf("_snapshot") ==-1) {
                     return 0;
                 } else {
-
                     var contextArr = entity.data.contexts;
                     for (var contextIndex = 0; contextIndex < contextArr.length; contextIndex++) {
-                        if (contextArr[contextIndex].context && contextArr[contextIndex].context.hasOwnProperty('snapshot')) {
-
-                            if(DataHelper.isValidObjectPath(contextArr[contextIndex], 'attributes.version.values') && 
-                            contextArr[contextIndex].attributes.version.values[0].hasOwnProperty('value')) {
-                                return parseInt(contextArr[contextIndex].attributes.version.values[0].value);
+                        var currContext = contextArr[contextIndex];
+                        if (currContext.context && currContext.context.hasOwnProperty('snapshot')) {
+                            if(DataHelper.isValidObjectPath(currContext, 'attributes.version.values')) {
+                                var value = currContext.attributes.version.values[0];
+                                if(value.hasOwnProperty('value')) {
+                                    return parseInt(value.value);
+                                }
                             }
                         }
                     }
                 }
-
             }
-
+            _getSnapLabel(entity) {
+                if (entity && entity.type && entity.type.indexOf("_snapshot") !== -1) {
+                    var contextArr = entity.data.contexts;
+                    for (var contextIndex = 0; contextIndex < contextArr.length; contextIndex++) {
+                        var currContext = contextArr[contextIndex];
+                        if (currContext.context && currContext.context.hasOwnProperty('snapshot')) {
+                            if (DataHelper.isValidObjectPath(currContext, 'attributes.snapshotLabel.values')) {
+                                var value = currContext.attributes.snapshotLabel.values[0];
+                                if (value.hasOwnProperty('value')) {
+                                    return value.value;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             _getAttributeValue(attribute) {
                 if (!_.isEmpty(attribute.value) &&
                  this._attributeModels &&
@@ -677,14 +657,12 @@
                
                 return attribute.value;
                }
-
             _onEntityDataGetFailure(e) {
                 this._loading = false;
                 var reason = e.detail.response.reason;
                 this.showErrorToast("Entity get failed due to following reason: ", reason);
             }
-
-             _getEntitySnapshotRequest(){
+            _getEntitySnapshotRequest(){
                 var contextData = DataHelper.cloneObject(this.contextData);
                 var req = DataRequestHelper.createEntityGetRequest(contextData)
                 
@@ -694,7 +672,6 @@
             _dataGet() {
                 if (this._contextData) {
                     var onlySnapshotsSelected = true;
-
                     var firstItemContext = this._contextData[ContextHelper.CONTEXT_TYPE_ITEM] && this._contextData[ContextHelper.CONTEXT_TYPE_ITEM].length ? this._contextData[ContextHelper.CONTEXT_TYPE_ITEM][0] : undefined;
                     if (firstItemContext) {
                         firstItemContext.type = this._entityTypes;
@@ -702,14 +679,11 @@
                     ContextHelper.addDefaultValContext(this.contextData);
                     ContextHelper.addDefaultValContext(this._contextData);
                     var req = DataRequestHelper.createEntityGetRequest(this._contextData);
-
-
                     
                     if (this.isSnapshot) {
                         var reqEntity = datahelpers.clone(req);
                         var reqSnapshot = datahelpers.clone(req);
                         var liquidDataSnapshotGet = this.shadowRoot.querySelector("#snapshotDataGet");
-
                         req.params.query.ids.forEach((element, index) => {
                             if (element.hasOwnProperty("notSnapshot")) {
                                 reqEntity.params.query.ids = reqSnapshot.params.query.ids.splice(index, 1);
@@ -718,7 +692,6 @@
                                 onlySnapshotsSelected = false;
                             }
                         });
-
                         reqSnapshot.params.query.filters.typesCriterion[0] = reqSnapshot.params.query.filters.typesCriterion[0] + "_snapshot"
                         reqSnapshot.params.fields.attributes = ["_ALL"];
                         reqEntity.params.fields.attributes = ["_ALL"];
@@ -727,10 +700,7 @@
                     } else {
                         this.set("_entityGetRequest", req);
                     }
-
                     var liquidDataGet = this.shadowRoot.querySelector("#entityDataGet");
-
-
                         //Call segregation for snapshot scenario
                     if (this.isSnapshot) {
                         if (liquidDataGet && !onlySnapshotsSelected) {
@@ -741,13 +711,11 @@
                             liquidDataSnapshotGet.generateRequest();
                             this._isLiquidDataSnapshotGetInitiated = true;
                         }
-
                     } else {
                         liquidDataGet.generateRequest();
                     }
                 }
             }
-
             _getBaseGridConfig() {
                 return {
                     "viewMode": "Tabular",
@@ -795,40 +763,31 @@
                     }
                 };
             }
-
             _prepareContext(fromSession = true) {
                 var compareEntitiesContext = {};
-
                 if(fromSession) {
                     var contextId = DataHelper.getParamValue('compareEntitiesContextId');
                     compareEntitiesContext = JSON.parse(sessionStorage.getItem(contextId));
                 } else {
                     compareEntitiesContext = this.compareEntitiesContext;
                 }
-
                 if (compareEntitiesContext) {
                     var clonedContext = {};
                     var entityIds = compareEntitiesContext["entityIds"];
                     var entityTypes = this._entityTypes = compareEntitiesContext["entityTypes"];
                     this.contextData = compareEntitiesContext["contextData"];
-
                     if (this.contextData) {
-
                         var itemContext = {
                             'id': entityIds,
                             'type': entityTypes,
                             'attributeNames': this.attributeNames && this.attributeNames.length > 0 ? this.attributeNames : ["_ALL"]
                         };
-
                         clonedContext[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
                         clonedContext[ContextHelper.CONTEXT_TYPE_VALUE] = DataHelper.cloneObject(this.contextData[ContextHelper.CONTEXT_TYPE_VALUE]);
-
                         this._contextData = clonedContext;
                     }
-
                 }
             }
-
             _getActionData() {
                 return [
                     {
@@ -863,23 +822,18 @@
                                 "visible": true,
                                 "eventName": "has-different-values"
                             }
-
                         ]
                     }
                 ]
             }
-
             _onRefreshGrid() {
                 this._dataGet();
             }
-
             _onDropdownChange(e, detail) {
                 var filter = this.shadowRoot.querySelector("#actionsButton");
                 var filteredData = this._data;
-
                 if (filter) {
                     var filterBy = filter.selectedValue;
-
                     if (filterBy == "Has Values") {
                         filteredData = this._data.filter(function (item) {
                             if (item.hasValues) {
@@ -913,64 +867,53 @@
                         });
                     }
                 }
-
                 this._gridData = undefined;
                 this._gridData = filteredData;
             }
-
             _getEntityHeader(entity) {
-                var header = "";
-                var preparedEntities = this.compareEntitiesContext ? this.compareEntitiesContext["entities-data"] : undefined;
-                if (entity) {
-                    if (!this.isSnapshot) {
-                        var preparedEntity = !_.isEmpty(preparedEntities) ? preparedEntities.find(obj => obj.id === entity.id) : undefined;
-
-                        if (entity[this.entityTitle]) {
-                            header = entity[this.entityTitle];
-                        } else {
-                            var attributes = entity.data.attributes;
-
-                            if (attributes && attributes[this.entityTitle]) {
-                                header = attributes[this.entityTitle].values ? attributes[this.entityTitle].values[0].value : "";
-                            }
-                        }
-
-                        if(header === "" || header === "_EMPTY") {
-                            header = entity.id;
-                        }
-
-                        if(preparedEntity && preparedEntity.score) {
-                            header = header + " - Score " + preparedEntity.score + "%";
-                        }
+                if (entity && this.entityTitle) {
+                    //For Normal Scenario
+                    if (entity[this.entityTitle] && !this.isSnapshot) {
+                        return entity[this.entityTitle];
                     } else {
-                        //For Snapshot Scenario
-                        if (entity.type.indexOf("_snapshot") == -1) {
-                            header =  "Current Entity: " + entity.name
-                        } else if (DataHelper.isValidObjectPath(entity, "data.contexts.0.attributes.snapshotLabel.values.0.value")) {
-                            var snapLabel = entity.data.contexts[0].attributes.snapshotLabel.values[0].value;
-                            header = snapLabel;
-                            if (DataHelper.isValidObjectPath(entity, "properties.createdDate")) {
-                                var createdDate = FormatHelper.convertFromISODateTime(entity.properties.createdDate, 'datetime');
-                                header = header + ": " + createdDate;
-                            }
+                        var attributes = entity.data.attributes;
+                        if (attributes && attributes[this.entityTitle]) {
+                            return attributes[this.entityTitle].values ? attributes[this.entityTitle].values[0].value : "";
+                        }
+                    }
+                    //For Snapshot Scenario
+                    if (entity[this.entityTitle] && this.isSnapshot) {
+                        if(entity.type.indexOf("_snapshot")==-1) {
+                            return "Current Entity: " + entity.name
+                        } else {
+                            var snapLabel = this._getSnapLabel(entity);
+                        }
+                        if(DataHelper.isValidObjectPath(entity, "properties.createdDate")) {
+                            var createdDate = FormatHelper.convertFromISODateTime (entity.properties.createdDate, 'datetime');
+                        }
+                        if(snapLabel == "") {
+                            return "<No Label>: " + createdDate;
+                        }
+                        return snapLabel + ": " + createdDate;
+                    } else {
+                        var attributes = entity.data.attributes;
+                        if (attributes && attributes[this.entityTitle]) {
+                            return attributes[this.entityTitle].values ? attributes[this.entityTitle].values[0].value : "";
                         }
                     }
                 }
-
-                return header === "" ? "<No Name>" : header;
+                return "<No Label>";
             }
-
             _updateEntityHeader(entityId, entityHeader) {
                 if(_.isEmpty(this.compareEntitiesContext)) {
                     return entityHeader;
                 }
                 if(!this.isSnapshot) {
-                    return entityId == this.compareEntitiesContext.newEntity.id ? "New - "+ entityHeader : "Matched - "+ entityHeader;
+                    return entityId == this.compareEntitiesContext.newEntity.id ? "New "+ entityHeader : "Matched "+ entityHeader;
                 } else {
                     return entityHeader;
                 }
             }
-
             _onColumnSelectionChanged(e) {
                 if (e.detail.checked) {
                     this.selectedEntityId = e.detail.value;
@@ -978,25 +921,21 @@
                     this.selectedEntityId = "";
                 }
             }
-
             _onBackTap(e) {
                 this._reset();
                 var eventName = "compare-entities-back";
                 this.fireBedrockEvent(eventName, null);
             }
-
             _onCreateTap(e) {
                 //Already new entity details available, so just trigger the event
                 var eventName = "compare-entities-create";
                 this.fireBedrockEvent(eventName, null);
             }
-
             _onMergeTap(e) {
                 if(!this.selectedEntityId) {
                     this.showErrorToast("Please select an entity for merge.");
                     return;
                 }
-
                 var matchedEntity = {};
                 for(var i = 0; i < this.entities.length; i++) {
                     if(this.entities[i].id == this.selectedEntityId) {
@@ -1009,7 +948,6 @@
                     "matchedEntity": matchedEntity
                 });
             }
-
             _allowCreate(compareEntitiesContext) {
                 var allowCreate = false;
                 if(compareEntitiesContext && compareEntitiesContext.matchConfig) {
@@ -1017,7 +955,6 @@
                 }
                 return allowCreate;
             }
-
             _reset() {
                 this._modelGetTracker = 0;
                 this.selectedEntities = [];
@@ -1025,7 +962,6 @@
                 this._gridData = this._data = [];
             }
         }
-
         customElements.define(RockCompareEntities.is, RockCompareEntities);
     </script>
 </dom-module>
