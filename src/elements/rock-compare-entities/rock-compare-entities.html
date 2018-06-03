@@ -319,6 +319,14 @@
                 var entityModels = e.detail.response.content.entityModels;
                 if (entityModels && entityModels.length) {
                     this._entityModels.push(entityModels[0]);
+                    if (!this.isSnapshot) {
+                        // to get value of attribute tagged with "isExternalName" flag to show as entity title
+                        var entityTitle = DataHelper.getExternalNameAttributeFromModel(entityModels[0]);
+                        if (entityTitle) {
+                            this.set("entityTitle", entityTitle);
+                        }
+                    }
+                    
                 }
                 this._modelGetTracker--;
                 if (this._modelGetTracker == 0) {
@@ -510,7 +518,7 @@
                                     "readFrom": "properties",
                                     "visible": true,
                                     "type": entity.type,
-                                    "version": this._getVersionNumber(entity)
+                                    "version": this._getSnapData(entity).snapVersion
                                 }
                                 if(!_.isEmpty(this.compareEntitiesContext)){
                                     if(this.compareEntitiesContext.newEntity) {
@@ -597,39 +605,36 @@
                     }
                 }
             }
-            _getVersionNumber(entity) {
-                if(entity && entity.type && entity.type.indexOf("_snapshot") ==-1) {
-                    return 0;
-                } else {
-                    var contextArr = entity.data.contexts;
-                    for (var contextIndex = 0; contextIndex < contextArr.length; contextIndex++) {
-                        var currContext = contextArr[contextIndex];
-                        if (currContext.context && currContext.context.hasOwnProperty('snapshot')) {
-                            if(DataHelper.isValidObjectPath(currContext, 'attributes.version.values')) {
-                                var value = currContext.attributes.version.values[0];
-                                if(value.hasOwnProperty('value')) {
-                                    return parseInt(value.value);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            _getSnapLabel(entity) {
+            _getSnapData(entity) {
+                var snapData = {};
                 if (entity && entity.type && entity.type.indexOf("_snapshot") !== -1) {
                     var contextArr = entity.data.contexts;
                     for (var contextIndex = 0; contextIndex < contextArr.length; contextIndex++) {
                         var currContext = contextArr[contextIndex];
                         if (currContext.context && currContext.context.hasOwnProperty('snapshot')) {
+
+                            //Snap Label
                             if (DataHelper.isValidObjectPath(currContext, 'attributes.snapshotLabel.values')) {
                                 var value = currContext.attributes.snapshotLabel.values[0];
                                 if (value.hasOwnProperty('value')) {
-                                    return value.value;
+                                    snapData.snapLabel= value.value;
                                 }
                             }
+
+                            //Snap version
+                            if (DataHelper.isValidObjectPath(currContext, 'attributes.version.values')) {
+                                var value = currContext.attributes.version.values[0];
+                                if (value.hasOwnProperty('value')) {
+                                    snapData.snapVersion =  parseInt(value.value);
+                                }
+                            }
+
                         }
                     }
+                } else {
+                    snapData.snapVersion = 0;
                 }
+                return snapData;
             }
             _getAttributeValue(attribute) {
                 if (!_.isEmpty(attribute.value) &&
@@ -873,12 +878,14 @@
             _getEntityHeader(entity) {
                 if (entity && this.entityTitle) {
                     //For Normal Scenario
-                    if (entity[this.entityTitle] && !this.isSnapshot) {
-                        return entity[this.entityTitle];
-                    } else {
-                        var attributes = entity.data.attributes;
-                        if (attributes && attributes[this.entityTitle]) {
-                            return attributes[this.entityTitle].values ? attributes[this.entityTitle].values[0].value : "";
+                    if (!this.isSnapshot) {
+                        if (entity[this.entityTitle]) {
+                            return entity[this.entityTitle];
+                        } else {
+                            var attributes = entity.data.attributes;
+                            if (attributes && attributes[this.entityTitle]) {
+                                return attributes[this.entityTitle].values ? attributes[this.entityTitle].values[0].value : "";
+                            }
                         }
                     }
                     //For Snapshot Scenario
@@ -886,7 +893,7 @@
                         if(entity.type.indexOf("_snapshot")==-1) {
                             return "Current Entity: " + entity.name
                         } else {
-                            var snapLabel = this._getSnapLabel(entity);
+                            var snapLabel = this._getSnapData(entity).snapLabel;
                         }
                         if(DataHelper.isValidObjectPath(entity, "properties.createdDate")) {
                             var createdDate = FormatHelper.convertFromISODateTime (entity.properties.createdDate, 'datetime');
