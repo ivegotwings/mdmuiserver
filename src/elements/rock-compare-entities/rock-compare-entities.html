@@ -481,7 +481,7 @@
                 return gridConfig;
             }
 
-            async _getPrimaryAndSecContexts() {
+            async _getPrimaryAndAdditionalContexts() {
                 if (!_.isEmpty(this.contextData)) {
 
                     var entityType = this.contextData.ItemContexts[0].type;
@@ -501,7 +501,7 @@
                 }
             }
 
-            async snapTransformAttributes(entity, attributeModels, contextData, outputSchema, applySort) {
+            async snapshotTransformAttributes(entity, attributeModels, contextData, outputSchema, applySort) {
                 var firstDataContext = ContextHelper.getFirstDataContext(contextData);
                 var firstValueContext = ContextHelper.getFirstValueContext(contextData);
                 var firstItemContext = ContextHelper.getFirstItemContext(contextData);
@@ -606,7 +606,7 @@
 
                     //getting primary and additional contexts to know which context related attributes should be displayed
                     if (this.isSnapshot) {
-                        this._contextsObj = await this._getPrimaryAndSecContexts();
+                        this._contextsObj = await this._getPrimaryAndAdditionalContexts();
                         if (this._contextsObj) {
                             if (!_.isEmpty(this._contextsObj.primaryContexts) && this._contextsObj.primaryContexts
                                 .indexOf('self') !== -1) {
@@ -656,7 +656,7 @@
                                 }
                                 nonSortedColumns.push(colDetails);
                             }
-                            var attributes = await this.snapTransformAttributes(entity,
+                            var attributes = await this.snapshotTransformAttributes(entity,
                                 transformedAttrModels, this._contextData, this._contextsObj);
                             var _isAttributeMapped = false;
                             this._entityModels.forEach(function (currentModel) {
@@ -668,7 +668,8 @@
                                 };
                             }, this);
                             var currAttrDatatype;
-                            if(this._entityModels && this._entityModels[0].data.attributes) {
+                            if(this._entityModels && this._entityModels[0].data.attributes && this._entityModels[0].data.attributes[row.name]
+                                && this._entityModels[0].data.attributes[row.name].properties) {
                                currAttrDatatype = this._entityModels[0].data.attributes[row.name].properties.dataType;
                             }
                             if (!_isAttributeMapped) {
@@ -1019,51 +1020,59 @@
                 this._gridData = filteredData;
             }
             _getEntityHeader(entity) {
-                if (entity && this.entityTitle) {
-                    //For Normal Scenario
+
+
+                var header = "";
+                var preparedEntities = this.compareEntitiesContext ? this.compareEntitiesContext["entities-data"] : undefined;
+                if (entity) {
                     if (!this.isSnapshot) {
+                        var preparedEntity = !_.isEmpty(preparedEntities) ? preparedEntities.find(obj => obj.id === entity.id) : undefined;
                         if (entity[this.entityTitle]) {
-                            return entity[this.entityTitle];
+                            header = entity[this.entityTitle];
                         } else {
                             var attributes = entity.data.attributes;
                             if (attributes && attributes[this.entityTitle]) {
-                                return attributes[this.entityTitle].values ? attributes[this.entityTitle]
-                                    .values[0].value : "";
+                                header = attributes[this.entityTitle].values ? attributes[this.entityTitle].values[0].value : "";
                             }
                         }
-                    }
-                    //For Snapshot Scenario
-                    if (entity[this.entityTitle] && this.isSnapshot) {
-                        if(entity.type.indexOf("_snapshot") == -1) {
-                            return "Current Entity: " + entity.name
+                        if(header === "" || header === "_EMPTY") {
+                            header = entity.id;
+                        }
+                        if(preparedEntity && preparedEntity.score) {
+                            header = header + " - Score " + preparedEntity.score + "%";
+                        }
+                    } else {
+                        //For Snapshot Scenario
+                        if (entity.type.indexOf("_snapshot") == -1) {
+                            header =  "Current Entity: " + entity.name
                         } else {
                             var snapLabel = this._getSnapshotMetadata(entity).snapLabel;
-                        }
-                        if(DataHelper.isValidObjectPath(entity, "properties.createdDate")) {
-                            var createdDate = FormatHelper.convertFromISODateTime(entity.properties
-                                .createdDate, 'datetime');
-                        }
-                        if(snapLabel == "") {
-                            return "<No Label>: " + createdDate;
-                        }
-                        return snapLabel + ": " + createdDate;
-                    } else {
-                        var attributes = entity.data.attributes;
-                        if (attributes && attributes[this.entityTitle]) {
-                            return attributes[this.entityTitle].values ? attributes[this.entityTitle]
-                                .values[0].value : "";
+                            if(snapLabel == ""){
+                                snapLabel = "No Label";
+                            }
+                            header = snapLabel;
+                            if (DataHelper.isValidObjectPath(entity, "properties.createdDate")) {
+                                var createdDate = FormatHelper.convertFromISODateTime(entity.properties.createdDate, 'datetime');
+                                header = header + ": " + createdDate;
+                            }
+
+
                         }
                     }
                 }
-                return "<No Label>";
+                
+                if(header == "") {
+                        return "<No Name>";
+                    } else {
+                    return header;
+                }
             }
             _updateEntityHeader(entityId, entityHeader) {
                 if(_.isEmpty(this.compareEntitiesContext)) {
                     return entityHeader;
                 }
                 if(!this.isSnapshot) {
-                    return entityId == this.compareEntitiesContext.newEntity.id ? "New " +
-                        entityHeader : "Matched " + entityHeader;
+                    return entityId == this.compareEntitiesContext.newEntity.id ? "New - "+ entityHeader : "Matched - "+ entityHeader;
                 } else {
                     return entityHeader;
                 }
