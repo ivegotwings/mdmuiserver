@@ -74,6 +74,7 @@ It manages the current extensions and creates the new extensions.
             <pebble-button id="save" class="focus btn btn-primary" button-text="Rollback" on-tap="_onRollback" elevation=1 raised></pebble-button>
         </div>
         <liquid-rest id="snapshotRollback" url="/data/pass-through-snapshot/restoresnapshot" method="POST" request-data="{{_snapshotRollbackRequest}}" on-liquid-response="_onRollbackSuccess">
+        <liquid-rest id="snapshotRollbackPrimary" url="/data/pass-through-snapshot/restoresnapshot" method="POST" request-data="{{_snapshotRollbackRequestPrimary}}" on-liquid-response="_onRollbackSuccess">
         </liquid-rest>
 
     </template>
@@ -111,6 +112,15 @@ It manages the current extensions and creates the new extensions.
                             return {};
                         }
                     },
+                    _snapshotRollbackRequestPrimary: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _isAdditionalContextPresentSnap: {
+                        type: Boolean
+                    },
                     _loading: {
                         type: Boolean,
                         value: false
@@ -120,6 +130,10 @@ It manages the current extensions and creates the new extensions.
                         value: function() {
                             return {};
                         }
+                    },
+                    _rollbackRqstCounter: {
+                        type: Number,
+                        value: 0
                     },
                     _compareEntitiesContext: {
                         type: Object,
@@ -189,6 +203,26 @@ It manages the current extensions and creates the new extensions.
 
                 },
 
+                _getPrimaryAndSecContexts: async function() {
+                if (!_.isEmpty(this.contextData)) {
+
+                    var entityType = this.contextData.ItemContexts[0].type;
+                    var contextModel = await ContextModelManager.getContextModelByEntityTypeAndDataContext(
+                        entityType, this.contextData.Contexts[0]);
+                    if (contextModel) {
+                        var additionalContexts = contextModel.properties ? contextModel.properties.additionalcontexts :
+                            undefined;
+                        var primaryContexts = DataTransformHelper.getPrimaryContextKeysFromContextModel(
+                            contextModel, additionalContexts);
+                    }
+                    var mergedContexts = {
+                        "additionalContexts": additionalContexts,
+                        "primaryContexts": primaryContexts
+                    }
+                    return mergedContexts;
+                }
+            },
+
                 _onCancelTap: function (e) {
                     var eventName = "onCancel";
                     var eventDetail = {
@@ -200,19 +234,72 @@ It manages the current extensions and creates the new extensions.
                     });
                 },
 
-                _getEntityRollbackRequest: function(currentEntityId, selectedEntityId) {
-                    var req = {
+                _getEntityRollbackRequest: async function (currentEntityId, currEntityType, selectedEntityId) {                  
+                    var req = {};
+                    var req1 = {
                         "entity": {
                             "id": currentEntityId,
-                            "type": "sku"
+                            "type": currEntityType,
+                            "data": {
+                                "contexts": []
+                            }
                         },
                         "params": {
-                            "snapshotId": selectedEntityId
+                            "snapshotId": selectedEntityId,
+                            "allContextual": false
                         }
                     }
+                    var req2 = {
+                        "entity": {
+                            "id": currentEntityId,
+                            "type": currEntityType,
+                            "data": {
+                                "contexts": []
+                            }
+                        },
+                        "params": {
+                            "snapshotId": selectedEntityId,
+                            "allContextual": false
+                        }
+                    }
+                    req.fullContextRqst = req1;
+                    var firstDataContext = ContextHelper.getFirstDataContext(this.contextData);
+                    var primaryContext ={};
+                    var dataContexts={};
+                    this._contextsObj = await this._getPrimaryAndSecContexts();
+                    if (firstDataContext) {
+                        if (this._contextsObj) {
+                            if (!_.isEmpty(this._contextsObj.primaryContexts) && this._contextsObj.primaryContexts
+                                .indexOf('self') !== -1) {
+                                this._isAdditionalContextPresentSnap = false;
+                            } else if (!_.isEmpty(this._contextsObj.additionalContexts)) {
+                                this._isAdditionalContextPresentSnap = true;
+                                primaryContext = _.pick(firstDataContext, this._contextsObj.primaryContexts);
+                            }
+                        }
+
+                        req1.entity.data.contexts.push(
+                            {
+                                "context": firstDataContext
+                            }
+                        )
+                        req.fullContextRqst = req1;
+
+                        if (this._isAdditionalContextPresentSnap) {
+                            if (this._isAdditionalContextPresentSnap && !_.isEmpty(primaryContext)) {
+                                req2.entity.data.contexts.push(
+                                    {
+                                        "context": primaryContext
+                                    });
+                            }
+                            req.primaryContextReq = req2;
+                        }    
+                    } else {return req}
+
+                    
                     return req;
 
-                },
+            },
 
                 _businessFunctionDataSet: function(messages) {
                     var data = {
@@ -234,7 +321,9 @@ It manages the current extensions and creates the new extensions.
 
                 },
 
-                _onRollbackSuccess: function(e) {
+                _onRollbackSuccess: function (e) {
+
+                    this._rollbackRqstCounter++;
                     this._loading = false;
                     if (DataHelper.isValidObjectPath(e, 'detail.response.response.statusDetail.messages')) {
                         var messages = e.detail.response.response.statusDetail.messages;
@@ -246,13 +335,24 @@ It manages the current extensions and creates the new extensions.
                         name: eventName
                     }
 
-                    this.fireBedrockEvent(eventName, eventDetail, {
-                        ignoreId: true
-                    });
+                    if (this._isAdditionalContextPresentSnap) {
+                        if (this._rollbackRqstCounter == 2) {
+                            this._rollbackRqstCounter =0;
+                            this.fireBedrockEvent(eventName, eventDetail, {
+                                ignoreId: true
+                            });
+
+                        }
+                    } else {
+                        this._rollbackRqstCounter=0;
+                        this.fireBedrockEvent(eventName, eventDetail, {
+                            ignoreId: true
+                        });             
+                    }
 
                 },
 
-                _onRollback: function (e) {
+                _onRollback: async function (e) {
                     this._loading =true;
                     this._rockCompareEntities = this.shadowRoot.querySelector('rock-compare-entities');
                     if(this._rockCompareEntities) {
@@ -264,11 +364,18 @@ It manages the current extensions and creates the new extensions.
                         return;
                     }
                     var currentEntityId = this.contextData.ItemContexts[0].id;
+                    var currEntityType = this.contextData.ItemContexts[0].type;
                     
-                    var req = this._getEntityRollbackRequest(currentEntityId, selectedEntityId);
-
+                    var req = await this._getEntityRollbackRequest(currentEntityId, currEntityType, selectedEntityId);
                     var liquidDataRollback = this.shadowRoot.querySelector("#snapshotRollback");
-                    this.set("_snapshotRollbackRequest", req);
+                    var liquidDataRollbackPrimary = this.shadowRoot.querySelector("#snapshotRollbackPrimary");
+
+                    if(this._isAdditionalContextPresentSnap) {
+                        this.set("_snapshotRollbackRequestPrimary", req.primaryContextReq);
+                        liquidDataRollbackPrimary.generateRequest();
+                    }
+
+                    this.set("_snapshotRollbackRequest", req.fullContextRqst);
                     liquidDataRollback.generateRequest();
                 },
 
