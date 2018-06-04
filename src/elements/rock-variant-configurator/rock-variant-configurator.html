@@ -282,6 +282,11 @@
                 isSpinnerActive:{
                     type: Boolean,
                     value: false
+                },
+
+                applyContextCoalesce: {
+                    type: Boolean,
+                    value: false
                 }
                 
             }
@@ -319,12 +324,14 @@
                         req.params.fields.attributes = this.dimentionAttributesList; 
                         var entityModelGet = this.shadowRoot.querySelector("#entityModelGet");
                         if(entityModelGet) {
+                            entityModelGet.useModelCoalesce = !!this.applyContextCoalesce;
                             entityModelGet.requestData = req;                    
                             entityModelGet.generateRequest();
                         }
                     }  
                 }
             } else {
+                this.isSpinnerActive = false;
                 this.logWarning("Unable to fetch variant model. Please contact administrator.", "response", JSON.stringify(e.detail));
                 this.showErrorToast("Unable to fetch variant model. Please contact administrator.");
             }
@@ -450,6 +457,7 @@
 
             let variantAttributesOptionsGet = this.shadowRoot.querySelector("#variantAttributesOptionsGet");
             if (variantAttributesOptionsGet) {
+                variantAttributesOptionsGet.useDataCoalesce = !!this.applyContextCoalesce;
                 variantAttributesOptionsGet.requestData = request;
                 variantAttributesOptionsGet.generateRequest();
             }
@@ -545,18 +553,32 @@
         /**
          *  Check if the mandatory fields are empty 
         */
-        mandatoryAttributesCheck(){
+        mandatoryAttributesCheck(isOriginalAttribute){
             var mandatoryCheckFailed = false;
             this.mandatoryFields = [];
             var rockAttributeObjList = this.shadowRoot.querySelectorAll(".variantAttributes");
             if(this.variantModelObj.mandatoryAttributes.length > 0){
-                for(var i=0;i<rockAttributeObjList.length;i++){
+                //Mandatory field check against the saved original data done during 'skip and continue'
+                if(isOriginalAttribute) {
                     for(var j=0;j<this.variantModelObj.mandatoryAttributes.length;j++){
-                        if(this.variantModelObj.mandatoryAttributes[j] == rockAttributeObjList[i].attributeObject.name){
-                            var count = rockAttributeObjList[i].attributeObject.value.length;
-                            if(count <= 0){
+                        let attributeName = this.variantModelObj.mandatoryAttributes[j]; 
+                        if(isOriginalAttribute && this._attributes[attributeName]){
+                            var count = this._attributes[attributeName].value.length;
+                            if(count <= 0) {
                                 mandatoryCheckFailed = true;
-                                this.mandatoryFields.push(rockAttributeObjList[i].attributeObject.name);
+                                this.mandatoryFields.push(attributeName);
+                            }                          
+                        }
+                    }
+                } else {
+                    for(var i=0;i<rockAttributeObjList.length;i++){
+                        for(var j=0;j<this.variantModelObj.mandatoryAttributes.length;j++){                            
+                            if(this.variantModelObj.mandatoryAttributes[j] == rockAttributeObjList[i].attributeObject.name){
+                                var count = rockAttributeObjList[i].attributeObject.value.length;
+                                if(count <= 0){
+                                    mandatoryCheckFailed = true;
+                                    this.mandatoryFields.push(rockAttributeObjList[i].attributeObject.name);
+                                }
                             }
                         }
                     }
@@ -584,7 +606,12 @@
          * Go to next step
          */ 
         _onSkipConfirm(){
-            var isOriginalAttribute = true;
+            var isOriginalAttribute = true;            
+            var mandatoryCheckFailed = this.mandatoryAttributesCheck(isOriginalAttribute);  
+            if(mandatoryCheckFailed) {
+                this.showErrorToast("Save values for the following required fields : " + this.mandatoryFields.join());
+                return;
+            }    
             this._updateVariantCount(isOriginalAttribute);
             this.goToNextStep();     
         } 
