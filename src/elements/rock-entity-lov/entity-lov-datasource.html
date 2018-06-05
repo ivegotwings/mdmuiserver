@@ -12,9 +12,11 @@
 -->
 <dom-module id="entity-lov-datasource">
     <template>
-        <liquid-entity-data-get id="initGetEntitySearch" data-index$="[[dataIndex]]" data-sub-index$="[[dataSubIndex]]" apply-locale-coalesce="[[applyLocaleCoalesce]]" operation="initiatesearch" request-data="[[request]]" last-response="{{_initGetEntitySearchResponse}}"
-            on-error="_onGetSearchError" exclude-in-progress></liquid-entity-data-get>
-        <liquid-entity-data-get id="getEntitySearchResults" data-index$="[[dataIndex]]" data-sub-index$="[[dataSubIndex]]" apply-locale-coalesce="[[applyLocaleCoalesce]]" operation="getsearchresultdetail" request-data="[[request]]" request-id="[[_initGetEntitySearchResponse.content.requestId]]"
+        <liquid-entity-data-get id="initGetEntitySearch" data-index$="[[dataIndex]]" data-sub-index$="[[dataSubIndex]]" apply-locale-coalesce="[[applyLocaleCoalesce]]"
+            operation="initiatesearch" request-data="[[request]]" last-response="{{_initGetEntitySearchResponse}}" on-error="_onGetSearchError"
+            exclude-in-progress></liquid-entity-data-get>
+        <liquid-entity-data-get id="getEntitySearchResults" data-index$="[[dataIndex]]" data-sub-index$="[[dataSubIndex]]" apply-locale-coalesce="[[applyLocaleCoalesce]]"
+            operation="getsearchresultdetail" request-data="[[request]]" request-id="[[_initGetEntitySearchResponse.content.requestId]]"
             last-response="{{getEntitySearchResultsResponse}}" on-error="_onGetSearchError" exclude-in-progress></liquid-entity-data-get>
     </template>
     <script>
@@ -66,6 +68,14 @@
                 dataSubIndex: {
                     type: String,
                     value: "data"
+                },
+                isInitResponseAttached: {
+                    type: Boolean,
+                    value: false
+                },
+                isGetResponseAttached: {
+                    type: Boolean,
+                    value: false
                 }
             },
 
@@ -99,14 +109,18 @@
                 this.request = DataHelper.cloneObject(this.baseRequest);
 
                 // Bind Reponse
-                if (!this.isResponseAttached) {
+                if (!this.isInitResponseAttached) {
                     DataHelper.oneTimeEvent(this._liquidInitSearchElement, 'response', this._onInitSearchResponse.bind(
-                    this));
-                    DataHelper.oneTimeEvent(this._liquidGetSearchElement, 'response', this._onGetSearchResponse.bind(
-                    this, success, error));
-
+                        this));
                     this._error = error;
-                    this.isResponseAttached = true;
+                    this.isInitResponseAttached = true;
+                }
+
+                if (!this.isGetResponseAttached) {
+                    DataHelper.oneTimeEvent(this._liquidGetSearchElement, 'response', this._onGetSearchResponse.bind(
+                        this, success, error));
+                    this._error = error;
+                    this.isGetResponseAttached = true;
                 }
 
                 // Filter
@@ -117,14 +131,14 @@
                 if (this.isAttributeFilter) {
                     if (this.attributesCriterionBuilder && this.attributesCriterionBuilder instanceof Function) {
                         attributesCriterion = this.attributesCriterionBuilder(data.filter);
-                        if(!_.isEmpty(attributesCriterion)) {
-                            attributesCriterion.forEach(function(attrCriterion){
-                                if(_.isEmpty(this.request.params.query.filters.attributesCriterion)) {
+                        if (!_.isEmpty(attributesCriterion)) {
+                            attributesCriterion.forEach(function (attrCriterion) {
+                                if (_.isEmpty(this.request.params.query.filters.attributesCriterion)) {
                                     this.request.params.query.filters.attributesCriterion = [];
                                 }
                                 this.request.params.query.filters.attributesCriterion.push(attrCriterion);
                             }, this);
-                            this.request.params.query.filters["isAttributesCriterionOR"]= true;
+                            this.request.params.query.filters["isAttributesCriterionOR"] = true;
                         }
                     }
                 } else {
@@ -150,9 +164,9 @@
 
                 // Initiate request only for First Time.
                 if (!this.isRequestInitiated) {
-                    if(DataHelper.isValidObjectPath(this.request, "params.query.filters.isAttributesCriterionOR")){
-                        if(this._getAttributeFilterOperation() == "AND"){
-                            this.request.params.query.filters["isAttributesCriterionOR"]= false;
+                    if (DataHelper.isValidObjectPath(this.request, "params.query.filters.isAttributesCriterionOR")) {
+                        if (this._getAttributeFilterOperation() == "AND") {
+                            this.request.params.query.filters["isAttributesCriterionOR"] = false;
                         }
                     }
                     this._liquidInitSearchElement.generateRequest();
@@ -160,21 +174,21 @@
                     this._liquidGetSearchElement.generateRequest();
                 }
             },
-            _getAttributeFilterOperation:function(){
+            _getAttributeFilterOperation: function () {
                 var operation = "OR";
-                if(DataHelper.isValidObjectPath(this.request, "params.query.filters.attributesCriterion")){
+                if (DataHelper.isValidObjectPath(this.request, "params.query.filters.attributesCriterion")) {
                     var attributeCriterion = this.request.params.query.filters.attributesCriterion;
-                    if(attributeCriterion.length > 1){
+                    if (attributeCriterion.length > 1) {
                         var attributes = [];
                         var attributeName;
                         for (let i = 0; i < attributeCriterion.length; i++) {
                             const attribute = attributeCriterion[i];
                             attributeName = Object.keys(attribute)[0];
-                            if(attributeName && attribute[attributeName]){
-                                if(attributes.indexOf(attributeName) > -1){
+                            if (attributeName && attribute[attributeName]) {
+                                if (attributes.indexOf(attributeName) > -1) {
                                     operation = "AND";
                                     break;
-                                }else{
+                                } else {
                                     attributes.push(attributeName);
                                 }
                             }
@@ -227,6 +241,7 @@
                 delete this.request.params.query.contexts;
                 this._liquidGetSearchElement.generateRequest();
                 this.isRequestInitiated = true;
+                this.isInitResponseAttached = false;
             },
 
             _onGetSearchResponse: function (success, error) {
@@ -237,6 +252,7 @@
                         error();
                     }
                 }
+                this.isGetResponseAttached = false;
             },
 
             _onGetSearchError: function (e) {
@@ -244,13 +260,13 @@
                 if (response && response.status && response.status.toLowerCase() == "error") {
                     this._error();
                     var eventData = {
-                        name : "referencedatamsghandler",
-                        data : {
+                        name: "referencedatamsghandler",
+                        data: {
                             msg: "Cannot fetch reference data, try with keyword search.",
-                            eventType: "apiFailed" 
+                            eventType: "apiFailed"
                         }
                     };
-                    this.dispatchEvent(new CustomEvent('bedrock-event', { detail:eventData, bubbles:true, composed:true }));
+                    this.dispatchEvent(new CustomEvent('bedrock-event', { detail: eventData, bubbles: true, composed: true }));
                 }
             }
         });
