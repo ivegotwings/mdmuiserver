@@ -80,7 +80,7 @@
             on-liquid-error="_onVariantOptionsReceivedFailure"></liquid-rest>
         <liquid-rest id="bulkEntityCreate" url="/data/pass-through/bulkentityservice/createtask" method="POST" on-liquid-response="_onBulkEntityCreateSuccess"
             on-liquid-error="_onBulkEntityCreateFailure"></liquid-rest>
-        <liquid-entity-data-save id="syncEntityCreate" operation="create" on-response="_onSyncEntityCreateSuccess" on-error="_onSyncEntityCreateError"></liquid-entity-data-save>
+        <liquid-entity-data-save id="syncEntityCreate" operation="[[_entityDataOperation]]" on-response="_onSyncEntityCreateSuccess" on-error="_onSyncEntityCreateError"></liquid-entity-data-save>
         <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{attributeModelRequest}}" on-entity-model-composite-get-response="_onCompositeModelGetResponse"></liquid-entity-model-composite-get>
     </template>
     <script>
@@ -180,6 +180,11 @@
                         isSpinnerActive:{
                             type: Boolean,
                             value: false
+                        },
+                        
+                        _entityDataOperation: {
+                            type: String,
+                            value: 'update'
                         }
                     }
                 }
@@ -200,7 +205,7 @@
                 onConfigLoaded(componentConfig) {
                     if (componentConfig && componentConfig.config) {
                         this.config = componentConfig.config;
-                        this.maxThresholdForDisplay = componentConfig.config.maxThresholdForDisplay;
+                        this.maxThresholdForDisplay = componentConfig.config.maxVariantsForDisplay;
                         this.maxThresholdForSyncCreate = componentConfig.config.maxThresholdForSyncCreate;
                         //Get the attributeModels
                         this._generateAttributeModels();
@@ -392,10 +397,19 @@
 
                         if (response.status == "success" && !this.createVariants) {
                             //Display the variants grid
-                            var gridData = await DataTransformHelper.transformEntitiesToVariantGridFormat(response.entities, this._getGridColumns());
+                            var gridData = await DataTransformHelper.transformEntitiesToVariantGridFormat(response.entities, this._getGridColumns(),this.maxThresholdForSyncCreate);
                             //Show the entities with status new on the top
                             this.variantOptionsGridData = _.sortBy(gridData, 'variantStatus').reverse();
                             this.isVariantOptionsGridReady = true;
+                            //Select all the grid data by default if total no. of variants crosses the configured maxThresholdForSyncCreate value
+                            Polymer.Async.timeOut.after(100).run(() => {
+                                this.useCreateVariantsAPI = false;
+                                if(this.variantOptionsGridData.length > this.maxThresholdForSyncCreate) {
+                                    var rockGridObj = this.shadowRoot.querySelector('#variantOptionsGrid') ;
+                                    rockGridObj.selectAll();
+                                    this.useCreateVariantsAPI = true;
+                                }
+                            });                           
                         } else if (response.status == "success" && this.createVariants) {
                             this._taskId = request.taskId;
                             this._triggerFinishStep();
@@ -469,27 +483,34 @@
                     var requestData = {};
                     var liquidObj = {};
 
-                    if (!this.isExceededMaxThreshold) {
+                    if (!this.isExceededMaxThreshold && !this.useCreateVariantsAPI) {
                         var rockGridObj = this.shadowRoot.querySelector('#variantOptionsGrid');
                         var selectedEntities = rockGridObj.getSelectedItems();
                         if (selectedEntities.length <= 0) {
                             this.showInformationToast("Select at least one entity from grid to create.");
+                            this.isSpinnerActive = false;
                             return;
                         } else if (selectedEntities.length <= this.maxThresholdForSyncCreate) {
                             //Create entities in sync mode
                             this._currentIndex = selectedEntities.length;
-                            this._currentItems = [];
+                            this._currentItems = [];                           
                             for (var i = 0; i < selectedEntities.length; i++) {
+                                //update or create based on requirement
+                                if(selectedEntities[i].orgVariantStatus == "newForContext"){
+                                    this._entityDataOperation = "update";
+                                } else {
+                                    this._entityDataOperation = "create";
+                                }
                                 requestData = this._getSyncCreateRequest(selectedEntities[i]);
                                 liquidObj = this.shadowRoot.querySelector("#syncEntityCreate");
                                 liquidObj.requestData = requestData;
                                 liquidObj.generateRequest();
                             }
                             return;
-                        } else { //Create entities in batch job
+                        } /*else { //Create entities in batch job 
                             requestData = this._getBulkCreateRequest(selectedEntities);
                             liquidObj = this.shadowRoot.querySelector("#bulkEntityCreate");
-                        }
+                        }*/
                     } else { // Create entities using createVariants api
                         this.createVariants = true;
                         requestData = this._getVariantOptionsRequest(this.createVariants);
@@ -534,7 +555,7 @@
                         "entities": [selectedEntity]
                     };
                     return saveRequest;
-                }
+                }               
 
                 /**
                  *  Generate a request to create bulk entities
