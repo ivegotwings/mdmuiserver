@@ -196,6 +196,12 @@ var SERVICE_CONFIG = {
             "offlineSettings": {
             }
         },
+        "matchservice/match": {
+            "url": "/matchservice/match",
+            "mode": "online",
+            "offlineSettings": {
+            }
+        },
         "entitygovernservice/validate": {
             "url": "/entitygovernservice/validate",
             "mode": "online",
@@ -362,6 +368,21 @@ var SERVICE_CONFIG = {
             "url": "/entityappservice/delete",
             "mode": "online",
             "offlineSettings": {}
+        },
+        "entityappservice/getsnapshot": {
+            "url": "/entityappservice/getsnapshot",
+            "mode": "online",
+            "timeout": 360000
+        },        
+        "entityappservice/restoresnapshot": {
+            "url": "/entityappservice/restoresnapshot",
+            "mode": "online",
+            "timeout": 360000
+        },
+        "snapshotManageService/get": {
+            "url": "/snapshotManageService/get",
+            "mode": "online",
+            "timeout": 360000
         },
         "entityappmodelservice/getnearestcontext": {
             "url": "/entityappmodelservice/getnearestcontext",

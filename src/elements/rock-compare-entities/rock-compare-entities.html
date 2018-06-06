@@ -5,6 +5,7 @@
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html" />
 <link rel="import" href="../bedrock-helpers/data-transform-helper.html">
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
+<link rel="import" href="../liquid-rest/liquid-rest.html">
 
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 <link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
@@ -23,13 +24,15 @@
                 top: -12px;
             }
 
-            :host{
-                display:block;
-                height:100%;
-                --rock-entity-compare-dialog:{
-                    height:30vh !important;/* temp fix need to rework on nested grid with alert box*/
+            :host {
+                display: block;
+                height: 100%;
+                --rock-entity-compare-dialog: {
+                    height: 30vh !important;
+                    /* temp fix need to rework on nested grid with alert box*/
                 }
             }
+
             .compare-container {
                 position: relative;
                 height: 100%;
@@ -48,10 +51,13 @@
                 <pebble-spinner active="[[_loading]]"></pebble-spinner>
                 <pebble-dropdown id="actionsButton" label="Filter By" selected-value="{{_selectedValue}}" items="[[_dropDownItems]]"></pebble-dropdown>
                 <bedrock-pubsub event-name="pebble-actions-action-click" handler="_onActionItemTap" target-id=""></bedrock-pubsub>
-                <rock-grid id="compareEntitiesGrid" data="{{_gridData}}" attribute-models="{{_attributeModels}}" config="{{_gridConfig}}"
-                    page-size="5" enable-column-select=[[enableColumnSelect]] context-data="[[contextData]]" nested-attribute-message="{noOfValues} values" hide-view-selector hide-toolbar grid-item-view></rock-grid>
+                <div class$="[[_getButtonSiblingsClass(showActionButtons)]]">
+                    <rock-grid id="compareEntitiesGrid" data="{{_gridData}}" attribute-models="{{_attributeModels}}" config="{{_gridConfig}}"
+                        page-size="5" enable-column-select=[[enableColumnSelect]] context-data="[[contextData]]" nested-attribute-message="{noOfValues} values"
+                        hide-view-selector hide-toolbar grid-item-view></rock-grid>
+                </div>
                 <template is="dom-if" if="[[showActionButtons]]">
-                    <div id="content-actions" class="p-t-10 p-b-10" align="center">
+                    <div id="content-actions" class="buttonContainer-static" align="center">
                         <pebble-button class="action-button btn btn-secondary m-r-5" id="back" button-text="Back" raised on-tap="_onBackTap"></pebble-button>
                         <template is="dom-if" if="[[_allowCreate(compareEntitiesContext)]]">
                             <pebble-button class="action-button btn btn-primary m-r-5" id="create" button-text="Create" raised on-tap="_onCreateTap"></pebble-button>
@@ -62,16 +68,19 @@
                 <liquid-entity-data-get operation="getbyids" id="entityDataGet" request-data="{{_entityGetRequest}}" on-response="_onEntityDataGetSuccess"
                     on-error="_onEntityDataGetFailure">
                 </liquid-entity-data-get>
+                <liquid-rest id="snapshotDataGet" url="/data/pass-through/snapshotManageService/get" method="POST" request-data="{{_snapshotGetRequest}}"
+                    on-liquid-response="_onEntityDataGetSuccess">
+                </liquid-rest>
                 <bedrock-pubsub event-name="refresh-grid" handler="_onRefreshGrid" target-id="compareEntitiesGrid"></bedrock-pubsub>
             </div>
         </div>
     </template>
     <script>
-        class RockCompareEntities extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.ComponentContextBehavior], Polymer.Element) {
+        class RockCompareEntities extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.ComponentContextBehavior],
+            Polymer.Element) {
             static get is() {
                 return 'rock-compare-entities';
             }
-
             static get properties() {
                 return {
                     compareEntitiesContext: {
@@ -115,6 +124,51 @@
                             return {};
                         }
                     },
+
+                    _liquidDataGetCompleted: {
+                        type: Boolean,
+                        value: false
+                    },
+                    _liquidDataSnapshotGetCompleted: {
+                        type: Boolean,
+                        value: false
+                    },
+                    _isLiquidDataGetInitiated: {
+                        type: Boolean,
+                        value: false
+                    },
+                    _isAdditionalContextPresent: {
+                        type: Boolean,
+                        value: false
+                    },
+                    _applicableContext: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _isLiquidDataSnapshotGetInitiated: {
+                        type: Boolean,
+                        value: false
+                    },
+                    _combinedEntitySetForRender: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    _snapshotGetRequest: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _snapshotRollbackRequest: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
                     _girdConfig: {
                         type: Object,
                         value: function () {
@@ -139,6 +193,10 @@
                             return {};
                         }
                     },
+                    isSnapshot: {
+                        type: Boolean,
+                        value: false
+                    },
                     _entityTypes: {
                         type: Array,
                         value: function () {
@@ -155,6 +213,12 @@
                             return [];
                         }
                     },
+                    _contextsObj: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
                     _data: {
                         type: Array,
                         value: function () {
@@ -163,27 +227,30 @@
                     },
                     _dropDownItems: {
                         type: Array,
-                        value: [
-                            {
-                                "value": "None",
-                                "title": "None"
-                            },
-                            {
-                                "value": "Has Values",
-                                "title": "Has Values"
-                            },
-                            {
-                                "value": "Has Partial Values",
-                                "title": "Has Partial Values"
-                            },
-                            {
-                                "value": "Has Same Values",
-                                "title": "Has Same Values"
-                            },
-                            {
-                                "value": "Is Empty",
-                                "title": "Is Empty"
-                            }
+                        value: [{
+                            "value": "None",
+                            "title": "None"
+                        },
+                        {
+                            "value": "Has Values",
+                            "title": "Has Values"
+                        },
+                        {
+                            "value": "Has Partial Values",
+                            "title": "Has Partial Values"
+                        },
+                        {
+                            "value": "Has Same Values",
+                            "title": "Has Same Values"
+                        },
+                        {
+                            "value": "Is Empty",
+                            "title": "Is Empty"
+                        },
+                        {
+                            "value": "Has Different Values",
+                            "title": "Has Different Values"
+                        }
                         ]
                     },
                     _selectedValue: {
@@ -208,42 +275,38 @@
                         type: Boolean,
                         value: false
                     },
-                    _selectedEntityId: {
+                    selectedEntityId: {
                         type: String,
                         value: null
                     }
                 };
             }
-
             constructor() {
                 super();
-
                 this._onCompositeModelGetResponse = this._onCompositeModelGetResponse.bind(this);
                 this.addEventListener('column-selection-changed', this._onColumnSelectionChanged);
             }
-
             connectedCallback() {
                 super.connectedCallback();
-
                 var pebbleDropDown = this.$$("#actionsButton");
                 if (pebbleDropDown) {
                     pebbleDropDown.addEventListener('change', this._onDropdownChange.bind(this));
                 }
-
-                this._triggerCompareEntitiesContextChange();
+                if (_.isEmpty(this.compareEntitiesContext)) {
+                    this._triggerCompareEntitiesContextChange();
+                }
             }
-
             _onCompareEntitiesContextChange() {
-                if(!_.isEmpty(this.compareEntitiesContext)) {
+                if (!_.isEmpty(this.compareEntitiesContext)) {
+                    this._combinedEntitySetForRender = [];
+                    this._entityModels = [];
                     this._triggerCompareEntitiesContextChange(false); //Not from session
                 }
             }
-
             _triggerCompareEntitiesContextChange(fromSession = true) {
                 this._prepareContext(fromSession);
                 this._attributeModelGet();
             }
-
             _attributeModelGet() {
                 if (this._contextData) {
                     this._loading = true;
@@ -254,66 +317,74 @@
                                 liquidElement.generateRequest();
                                 this._modelGetTracker++;
                             } else {
-                                var firstItemContext = this._contextData[ContextHelper.CONTEXT_TYPE_ITEM] && this._contextData[ContextHelper.CONTEXT_TYPE_ITEM].length ? this._contextData[ContextHelper.CONTEXT_TYPE_ITEM][0] : undefined;
+                                var firstItemContext = this._contextData[ContextHelper.CONTEXT_TYPE_ITEM] &&
+                                    this._contextData[ContextHelper.CONTEXT_TYPE_ITEM].length ? this._contextData[
+                                    ContextHelper.CONTEXT_TYPE_ITEM][0] : undefined;
                                 if (firstItemContext) {
                                     firstItemContext.type = entityType;
                                 }
-
-                                var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this._contextData);
-                                var liquidCustomElement = customElements.get("liquid-entity-model-composite-get");
+                                var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(
+                                    this._contextData);
+                                var liquidCustomElement = customElements.get(
+                                    "liquid-entity-model-composite-get");
                                 var liquidElement = new liquidCustomElement();
-
                                 liquidElement.name = entityType;
                                 liquidElement.id = "attr_" + entityType;
                                 liquidElement.requestData = compositeModelGetRequest;
-                                liquidElement.addEventListener("entity-model-composite-get-response", this._onCompositeModelGetResponse);
+                                liquidElement.addEventListener("entity-model-composite-get-response",
+                                    this._onCompositeModelGetResponse);
 
                                 this.shadowRoot.appendChild(liquidElement);
-
-                                liquidElement.generateRequest();
+                                setTimeout(() => {
+                                    liquidElement.generateRequest();
+                                }, 10);
                                 this._modelGetTracker++;
                             }
                         }, this);
                     }
                 }
             }
-
             _onCompositeModelGetResponse(e) {
                 var rows = [];
                 var entityModels = e.detail.response.content.entityModels;
-
                 if (entityModels && entityModels.length) {
                     this._entityModels.push(entityModels[0]);
+                    if (!this.isSnapshot) {
+                        // to get value of attribute tagged with "isExternalName" flag to show as entity title
+                        var entityTitle = DataHelper.getExternalNameAttributeFromModel(entityModels[0]);
+                        if (entityTitle) {
+                            this.set("entityTitle", entityTitle);
+                        }
+                    }
+
                 }
-
                 this._modelGetTracker--;
-
                 if (this._modelGetTracker == 0) {
                     this._prepareGridRowsModel(this._entityModels, rows);
                     this._rowsModel = rows;
                     this._dataGet();
                 }
             }
-
+            _getButtonSiblingsClass(showActionButtons) {
+                return showActionButtons == true ? "button-siblings" : "full-height";
+            }
             _prepareGridRowsModel(entityModels, rows) {
                 var frozenRowModels = [];
                 var normalRowModels = [];
-
                 entityModels.forEach(function (entityModel) {
                     if (entityModel && entityModel.data && entityModel.data.attributes) {
-                        var attributes = entityModel.data.attributes;
-
+                        var attributes = DataHelper.isValidObjectPath(entityModel,
+                            'data.contexts.0.attributes') ? entityModel.data.contexts[0].attributes :
+                            entityModel.data.attributes;
                         Object.keys(attributes).forEach(function (key, index) {
                             if (attributes[key]) {
                                 var attribute = attributes[key];
-
                                 if (this.frozenAttributes.indexOf(key) >= 0) {
                                     if (index == 0) {
                                         frozenRowModels.push({
                                             "header": attribute.properties.externalName,
                                             "name": key,
                                             "isFrozen": true
-
                                         });
                                         this._attributeModels[key] = attribute;
                                     } else {
@@ -351,12 +422,10 @@
                 frozenRowModels.forEach(function (rowModel) {
                     rows.push(rowModel);
                 }, this);
-
                 normalRowModels.forEach(function (rowModel) {
                     rows.push(rowModel);
                 }, this);
             }
-
             _rowNameExist(rowName, rows) {
                 var existingRows = [];
                 if (rowName && rows && rows.length) {
@@ -364,7 +433,6 @@
                         return row.name == rowName
                     });
                 }
-
                 if (existingRows) {
                     if (existingRows.length) {
                         return true;
@@ -379,34 +447,138 @@
             async _onEntityDataGetSuccess(e) {
                 var columns = [];
                 var items = [];
-
-                this.entities = e.detail.response.content.entities;
-
-                if (this.entities && this.entities.length) {
+                if (e.detail.response.hasOwnProperty("response")) {
+                    this.entities = e.detail.response.response.entities;
+                    this._liquidDataSnapshotGetCompleted = true;
+                } else {
+                    this.entities = e.detail.response.content.entities;
+                    this._liquidDataGetCompleted = true;
+                }
+                var allowPrepareGrid = false;
+                if (this._isLiquidDataGetInitiated && this._isLiquidDataSnapshotGetInitiated) {
+                    if (!this._liquidDataGetCompleted || !this._liquidDataSnapshotGetCompleted) {
+                        allowPrepareGrid = false;
+                    } else {
+                        allowPrepareGrid = true;
+                    }
+                } else {
+                    allowPrepareGrid = true;
+                }
+                var ent = this.entities;
+                this._combinedEntitySetForRender.push(...ent);
+                this.entities = this._combinedEntitySetForRender;
+                if (this.entities && this.entities.length && allowPrepareGrid) {
                     await this._prepareGridColumnsModelAndData(this.entities, columns, items);
                 }
-
                 var gridConfig = this._getBaseGridConfig();
                 gridConfig.itemConfig.fields = _.extend({}, columns);
                 gridConfig.itemConfig.rows = this._rowsModel;
-
                 this._gridConfig = this._getConfigWithUpdatedTitle(gridConfig, this.entities);
                 this._gridData = this._data = items;
-
-                this._loading = false;
+                if (allowPrepareGrid) {
+                    this._loading = false;
+                }
             }
-
             _getConfigWithUpdatedTitle(gridConfig, entities) {
-                if(!_.isEmpty(this.compareEntitiesContext) && this.compareEntitiesContext.matchConfig) {
+                if (!_.isEmpty(this.compareEntitiesContext) && this.compareEntitiesContext.matchConfig) {
                     var title = this.compareEntitiesContext.matchConfig["compare-title"];
-                    if(title) {
+                    if (title) {
                         title = title.replace("{noOfEntities}", entities.length - 1);
                         gridConfig.titleTemplates.compareEntitiesTitle = title;
                     }
                 }
-
                 return gridConfig;
             }
+
+            async _getPrimaryAndAdditionalContexts() {
+                if (!_.isEmpty(this.contextData)) {
+
+                    var entityType = this.contextData.ItemContexts[0].type;
+                    var contextModel = await ContextModelManager.getContextModelByEntityTypeAndDataContext(
+                        entityType, this.contextData.Contexts[0]);
+                    if (contextModel) {
+                        var additionalContexts = contextModel.properties ? contextModel.properties.additionalcontexts :
+                            undefined;
+                        var primaryContexts = DataTransformHelper.getPrimaryContextKeysFromContextModel(
+                            contextModel, additionalContexts);
+                    }
+                    var mergedContexts = {
+                        "additionalContexts": additionalContexts,
+                        "primaryContexts": primaryContexts
+                    }
+                    return mergedContexts;
+                }
+            }
+
+            async snapshotTransformAttributes(entity, attributeModels, contextData, outputSchema, applySort) {
+                var firstDataContext = ContextHelper.getFirstDataContext(contextData);
+                var firstValueContext = ContextHelper.getFirstValueContext(contextData);
+                var firstItemContext = ContextHelper.getFirstItemContext(contextData);
+                var activeAdditionalCtx;
+                var activePrimaryCtx;
+
+                var mergedAttributes = {};
+
+                var sortedAttributeModels = attributeModels;
+                if (applySort) {
+                    sortedAttributeModels = this.sortAttributeModels(attributeModels);
+                }
+
+                if (firstDataContext) {
+                    let dataContexts = [];
+
+                    if (this._isAdditionalContextPresent && this._contextsObj && this._contextsObj.primaryContexts) {
+                        let primaryContext = _.pick(firstDataContext, this._contextsObj.primaryContexts);
+                        dataContexts.push(primaryContext);
+                    }
+                    dataContexts.push(firstDataContext);
+
+
+                    for (let dataContext of dataContexts) {
+                        if (dataContext) {
+                            for (let dataContext of dataContexts) {
+                                var ctxAttributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(
+                                    entity, dataContext);
+
+                                if (!_.isEmpty(ctxAttributes)) {
+                                    Object.keys(ctxAttributes).forEach((attrName) => {
+                                        mergedAttributes[attrName] = DataHelper.cloneObject(
+                                            ctxAttributes[attrName]);
+                                    });
+                                }
+                            }
+
+                        }
+                    }
+                } else {
+                    //taking self
+                    mergedAttributes = entity.data.attributes;
+                }
+
+
+                var transformedAttributes;
+                if (!_.isEmpty(attributeModels)) {
+                    transformedAttributes = await DataTransformHelper._transformAttributes(
+                        mergedAttributes, sortedAttributeModels, firstValueContext,
+                        firstDataContext, firstItemContext);
+                } else {
+                    transformedAttributes = DataTransformHelper._transformAttributesWithoutModels(
+                        mergedAttributes, firstValueContext);
+                }
+
+                var outputData = undefined;
+
+                if (outputSchema == "array") {
+                    //manage returns output as array...instead of keyed attributes
+                    outputData = _.map(transformedAttributes, function (value, index) {
+                        return value;
+                    });
+                } else {
+                    outputData = transformedAttributes;
+                }
+
+                return outputData;
+            };
 
             async _prepareGridColumnsModelAndData(entities, columns, items) {
                 if (this._rowsModel && this._rowsModel) {
@@ -420,29 +592,50 @@
                         "isRowHeader": true,
                         "visible": true
                     }
-                    if(this.enableColumnSelect) {
+                    //Normal Scenario
+                    if (this.enableColumnSelect && !this.isSnapshot) {
                         rowHeader["selectable"] = {
                             "isAction": false,
                             "text": "Select for merge"
                         }
                     }
+                    //Snapshot Scenario
+                    if (this.enableColumnSelect && this.isSnapshot) {
+                        rowHeader["selectable"] = {
+                            "isAction": false,
+                            "text": "Select for rollback"
+                        }
+                    }
                     columns.push(rowHeader);
-
                     var compositeModel = {
                         "data": {
                             "attributes": this._attributeModels
                         }
                     };
 
+                    //getting primary and additional contexts to know which context related attributes should be displayed
+                    if (this.isSnapshot) {
+                        if (this._entityModels && this._entityModels.length) {
+                            compositeModel = DataHelper.cloneObject(this._entityModels[0]);
+                        }
+                        this._contextsObj = await this._getPrimaryAndAdditionalContexts();
+                        if (this._contextsObj) {
+                            if (!_.isEmpty(this._contextsObj.primaryContexts) && this._contextsObj.primaryContexts
+                                .indexOf('self') !== -1) {
+                                this._isAdditionalContextPresent = false;
+                            } else if (!_.isEmpty(this._contextsObj.additionalContexts)) {
+                                this._isAdditionalContextPresent = true;
+                            }
+                        }
+                    }
                     var transformedAttrModels = DataTransformHelper.transformAttributeModels(compositeModel, this._contextData);
-
                     //Add column for new entity - if compare triggered from entity create
-                    if(!_.isEmpty(this.compareEntitiesContext) && this.compareEntitiesContext.newEntity) {
+                    if (!_.isEmpty(this.compareEntitiesContext) && this.compareEntitiesContext.newEntity) {
                         entities.unshift(this.compareEntitiesContext.newEntity);
                     }
-
-                    for(let i=0; i < this._rowsModel.length; i++) {
+                    for (let i = 0; i < this._rowsModel.length; i++) {
                         var item = {};
+                        var nonSortedColumns = [];
                         var row = this._rowsModel[i];
                         for (let entity of entities) {
                             var entityHeader = this._getEntityHeader(entity);
@@ -453,30 +646,51 @@
                                     "sortable": false,
                                     "filterable": false,
                                     "readFrom": "properties",
-                                    "visible": true
+                                    "visible": true,
+                                    "type": entity.type,
+                                    "version": this._getSnapshotMetadata(entity).snapVersion
                                 }
-
-                                if(this.enableColumnSelect && !_.isEmpty(this.compareEntitiesContext)) {
-                                    colDetails["selectable"] = {
-                                        "isAction": true,
-                                        "disable": this.compareEntitiesContext.newEntity.id == entity.id
-                                    };
+                                if (!_.isEmpty(this.compareEntitiesContext)) {
+                                    if (this.compareEntitiesContext.newEntity) {
+                                        colDetails["selectable"] = {
+                                            "isAction": true,
+                                            "disable": this.compareEntitiesContext.newEntity.id ==
+                                                entity.id
+                                        };
+                                    }
+                                    if (this.enableColumnSelect) {
+                                        colDetails["selectable"] = {
+                                            "isAction": true,
+                                            "disable": this.contextData.ItemContexts[0].id ==
+                                                entity.id
+                                        };
+                                    }
                                 }
-                                columns.push(colDetails);
+                                nonSortedColumns.push(colDetails);
                             }
-                            var attributes = await DataTransformHelper.transformAttributes(entity, transformedAttrModels, this._contextData);
-
+                            var attributes = await this.snapshotTransformAttributes(entity,
+                                transformedAttrModels, this._contextData, this._contextsObj);
                             var _isAttributeMapped = false;
                             this._entityModels.forEach(function (currentModel) {
-                                if (currentModel.name == entity.type && currentModel.data && currentModel.data.attributes) {
-                                    if (currentModel.data.attributes[row.name]) {
-                                        _isAttributeMapped = true;
-                                    };
+
+                                var attrs = (DataHelper.isValidObjectPath(currentModel,
+                                    'data.contexts.0.attributes')) ? currentModel.data.contexts[
+                                        0].attributes : currentModel.data.attributes;
+                                if (attrs[row.name]) {
+                                    _isAttributeMapped = true;
+
                                 };
                             }, this);
-
+                            var currAttrDatatype;
+                            if (this._entityModels && this._entityModels[0].data.attributes && this._entityModels[0].data.attributes[row.name]
+                                && this._entityModels[0].data.attributes[row.name].properties) {
+                                currAttrDatatype = this._entityModels[0].data.attributes[row.name].properties.dataType;
+                            }
                             if (!_isAttributeMapped) {
                                 item[entity.id] = "NA";
+                            } else if (currAttrDatatype == "datetime") {
+                                item[entity.id] = FormatHelper.convertFromISODateTime(this._getAttributeValue(
+                                    attributes[row.name]), 'datetime');
                             } else if (attributes && attributes[row.name]) {
                                 item[entity.id] = this._getAttributeValue(attributes[row.name]);
                             } else {
@@ -484,11 +698,22 @@
                             }
                         }
 
+                        if (!_.isEmpty(nonSortedColumns)) {
+                            nonSortedColumns = nonSortedColumns.sort(function (a, b) {
+                                return b.version - a.version;
+                            });
+                            var currentEnt = nonSortedColumns[nonSortedColumns.length - 1];
+                            if (currentEnt.type && currentEnt.type.indexOf('snapshot') == -1) {
+                                var currentEnt = nonSortedColumns.pop();
+                                nonSortedColumns.unshift(currentEnt);
+                            }
+                            columns.push(...nonSortedColumns);
+                        }
                         var isEmpty = false;
                         var hasPartialValues = false;
                         var hasValues = false;
                         var sameValues = false;
-
+                        var diffValues = false;
                         Object.keys(item).forEach(function (key) {
                             if (!hasPartialValues) {
                                 if (item[key] == "") {
@@ -508,77 +733,152 @@
                                 }
                             }
                         }, this);
-
                         if (hasValues) {
                             var uniqueValues = _.uniq(_.values(item));
                             if (uniqueValues && uniqueValues.length == 1) {
                                 sameValues = true;
+                            } else {
+                                diffValues = true;
                             }
                         }
-
                         item["Attributes"] = row.header;
                         item["attributeName"] = row.name;
                         item["isEmpty"] = isEmpty;
                         item["hasPartialValues"] = hasPartialValues;
                         item["hasValues"] = hasValues;
                         item["sameValues"] = sameValues;
-
+                        item["diffValues"] = diffValues;
                         items.push(item);
                     }
                 }
             }
+            _getSnapshotMetadata(entity) {
+                var snapData = {};
+                if (entity && entity.type && entity.type.indexOf("_snapshot") !== -1) {
 
-            _getAttributeValue(attribute) {
-                if (!_.isEmpty(attribute.value) &&
-                 this._attributeModels &&
-                 this._attributeModels[attribute.name] &&
-                 this._attributeModels[attribute.name].dataType == "nested") {
-                 if (this._attributeModels[attribute.name].group && this._attributeModels[attribute.name].group.length > 0) {
-                  for (var nestedIdx = 0; nestedIdx < attribute.value.length; nestedIdx++) {
-                   for (var key in this._attributeModels[attribute.name].group[0]) {
-                    var value = attribute.value[nestedIdx][key]
-                    if(value.referenceDataId && value.referenceEntityType) {
-                     var referenceData = value.referenceEntityType + "/" + value.referenceDataId;
-                     value.properties = value.properties || {};
-                     value.properties["referenceData"] = referenceData;
-                     delete value.referenceDataId;
-                     delete value.referenceEntityType;
+                    var contextArr = entity.data.contexts;
+                    for (var contextIndex = 0; contextIndex < contextArr.length; contextIndex++) {
+                        var currContext = contextArr[contextIndex];
+                        if (currContext.context && currContext.context.hasOwnProperty('snapshot')) {
+
+                            //Snap Label
+                            if (DataHelper.isValidObjectPath(currContext,
+                                'attributes.snapshotLabel.values')) {
+                                var value = currContext.attributes.snapshotLabel.values[0];
+                                if (value.hasOwnProperty('value')) {
+                                    snapData.snapLabel = value.value;
+                                }
+                            }
+
+                            //Snap version
+                            if (DataHelper.isValidObjectPath(currContext,
+                                'attributes.version.values')) {
+                                var value = currContext.attributes.version.values[0];
+                                if (value.hasOwnProperty('value')) {
+                                    snapData.snapVersion = parseInt(value.value);
+                                }
+                            }
+
+                        }
                     }
-                    attribute.value[nestedIdx][key] = {
-                     "values": [value]
-                    }
-                   }
-                  }
-                 }
+                } else {
+                    snapData.snapVersion = 0;
                 }
-               
-                return attribute.value;
-               }
-
+                return snapData;
+            }
+            _getAttributeValue(attribute) {
+                if (attribute && !_.isEmpty(attribute.value) &&
+                    this._attributeModels &&
+                    this._attributeModels[attribute.name] &&
+                    this._attributeModels[attribute.name].dataType == "nested") {
+                    if (this._attributeModels[attribute.name].group && this._attributeModels[
+                        attribute.name].group.length > 0) {
+                        for (var nestedIdx = 0; nestedIdx < attribute.value.length; nestedIdx++) {
+                            for (var key in this._attributeModels[attribute.name].group[0]) {
+                                var value = attribute.value[nestedIdx][key]
+                                if (value.referenceDataId && value.referenceEntityType) {
+                                    var referenceData = value.referenceEntityType + "/" + value.referenceDataId;
+                                    value.properties = value.properties || {};
+                                    value.properties["referenceData"] = referenceData;
+                                    delete value.referenceDataId;
+                                    delete value.referenceEntityType;
+                                }
+                                attribute.value[nestedIdx][key] = {
+                                    "values": [value]
+                                }
+                            }
+                        }
+                    }
+                }
+                return attribute ? attribute.value : "";
+            }
             _onEntityDataGetFailure(e) {
                 this._loading = false;
                 var reason = e.detail.response.reason;
                 this.showErrorToast("Entity get failed due to following reason: ", reason);
             }
+            _getEntitySnapshotRequest() {
+                var contextData = DataHelper.cloneObject(this.contextData);
+                var req = DataRequestHelper.createEntityGetRequest(contextData)
 
+                req.params.fields.attributes = ["_ALL"]
+                return req;
+            }
             _dataGet() {
                 if (this._contextData) {
-
-                    var firstItemContext = this._contextData[ContextHelper.CONTEXT_TYPE_ITEM] && this._contextData[ContextHelper.CONTEXT_TYPE_ITEM].length ? this._contextData[ContextHelper.CONTEXT_TYPE_ITEM][0] : undefined;
+                    var onlySnapshotsSelected = true;
+                    var firstItemContext = this._contextData[ContextHelper.CONTEXT_TYPE_ITEM] &&
+                        this._contextData[ContextHelper.CONTEXT_TYPE_ITEM].length ? this._contextData[
+                        ContextHelper.CONTEXT_TYPE_ITEM][0] : undefined;
                     if (firstItemContext) {
                         firstItemContext.type = this._entityTypes;
                     }
-
+                    ContextHelper.addDefaultValContext(this.contextData);
+                    ContextHelper.addDefaultValContext(this._contextData);
                     var req = DataRequestHelper.createEntityGetRequest(this._contextData);
-                    this.set("_entityGetRequest", req);
 
-                    var liquidDataGet = this.shadowRoot.querySelector("[id=entityDataGet]");
-                    if (liquidDataGet) {
+                    if (this.isSnapshot) {
+                        var reqEntity = datahelpers.clone(req);
+                        var reqSnapshot = datahelpers.clone(req);
+                        var liquidDataSnapshotGet = this.shadowRoot.querySelector(
+                            "#snapshotDataGet");
+                        req.params.query.ids.forEach((element, index) => {
+                            if (element.hasOwnProperty("notSnapshot")) {
+                                reqEntity.params.query.ids = reqSnapshot.params.query.ids.splice(
+                                    index, 1);
+                                reqEntity.params.query.ids = [reqEntity.params.query.ids[0]
+                                    .id
+                                ];
+                                req.params.query.ids[index] = req.params.query.ids[index].id;
+                                onlySnapshotsSelected = false;
+                            }
+                        });
+                        reqSnapshot.params.query.filters.typesCriterion[0] = reqSnapshot.params.query
+                            .filters.typesCriterion[0] + "_snapshot"
+                        reqSnapshot.params.fields.attributes = ["_ALL"];
+                        reqEntity.params.fields.attributes = ["_ALL"];
+                        this.set("_snapshotGetRequest", reqSnapshot);
+                        this.set("_entityGetRequest", reqEntity);
+                    } else {
+                        this.set("_entityGetRequest", req);
+                    }
+                    var liquidDataGet = this.shadowRoot.querySelector("#entityDataGet");
+                    //Call segregation for snapshot scenario
+                    if (this.isSnapshot) {
+                        if (liquidDataGet && !onlySnapshotsSelected) {
+                            liquidDataGet.generateRequest();
+                            this._isLiquidDataGetInitiated = true;
+                        }
+                        if (liquidDataSnapshotGet && (reqSnapshot.params.query.id || reqSnapshot.params
+                            .query.ids)) {
+                            liquidDataSnapshotGet.generateRequest();
+                            this._isLiquidDataSnapshotGetInitiated = true;
+                        }
+                    } else {
                         liquidDataGet.generateRequest();
                     }
                 }
             }
-
             _getBaseGridConfig() {
                 return {
                     "viewMode": "Tabular",
@@ -589,10 +889,8 @@
                             "isMultiSelect": false,
                             "disableSelectAll": true
                         },
-                        "fields": [
-                        ],
-                        "rows": [
-                        ]
+                        "fields": [],
+                        "rows": []
                     },
                     "viewConfig": {
                         "tabular": {
@@ -626,40 +924,35 @@
                     }
                 };
             }
-
             _prepareContext(fromSession = true) {
                 var compareEntitiesContext = {};
-
-                if(fromSession) {
+                if (fromSession) {
                     var contextId = DataHelper.getParamValue('compareEntitiesContextId');
                     compareEntitiesContext = JSON.parse(sessionStorage.getItem(contextId));
                 } else {
                     compareEntitiesContext = this.compareEntitiesContext;
                 }
-
                 if (compareEntitiesContext) {
                     var clonedContext = {};
                     var entityIds = compareEntitiesContext["entityIds"];
                     var entityTypes = this._entityTypes = compareEntitiesContext["entityTypes"];
                     this.contextData = compareEntitiesContext["contextData"];
-
                     if (this.contextData) {
-
                         var itemContext = {
                             'id': entityIds,
                             'type': entityTypes,
-                            'attributeNames': this.attributeNames && this.attributeNames.length > 0 ? this.attributeNames : ["_ALL"]
+                            'attributeNames': this.attributeNames && this.attributeNames.length >
+                                0 ? this.attributeNames : ["_ALL"]
                         };
-
                         clonedContext[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
-                        clonedContext[ContextHelper.CONTEXT_TYPE_VALUE] = DataHelper.cloneObject(this.contextData[ContextHelper.CONTEXT_TYPE_VALUE]);
-
+                        clonedContext[ContextHelper.CONTEXT_TYPE_VALUE] = DataHelper.cloneObject(
+                            this.contextData[ContextHelper.CONTEXT_TYPE_VALUE]);
                         this._contextData = clonedContext;
+                        this._contextData[ContextHelper.CONTEXT_TYPE_DATA] = DataHelper.cloneObject(
+                            this.contextData[ContextHelper.CONTEXT_TYPE_DATA]);
                     }
-
                 }
             }
-
             _getActionData() {
                 return [
                     {
@@ -687,23 +980,25 @@
                                 "text": "Has Same Values",
                                 "visible": true,
                                 "eventName": "has-same-values"
+                            },
+                            {
+                                "name": "Has Different Values",
+                                "text": "Has Different Values",
+                                "visible": true,
+                                "eventName": "has-different-values"
                             }
                         ]
                     }
                 ]
             }
-
             _onRefreshGrid() {
                 this._dataGet();
             }
-
             _onDropdownChange(e, detail) {
                 var filter = this.shadowRoot.querySelector("#actionsButton");
                 var filteredData = this._data;
-
                 if (filter) {
                     var filterBy = filter.selectedValue;
-
                     if (filterBy == "Has Values") {
                         filteredData = this._data.filter(function (item) {
                             if (item.hasValues) {
@@ -728,64 +1023,100 @@
                                 return item;
                             }
                         });
+                    } else if (filterBy == "Has Different Values") {
+                        filteredData = this._data.filter(function (item) {
+                            if (item.diffValues) {
+                                return item;
+                            }
+                        });
                     }
                 }
-
                 this._gridData = undefined;
                 this._gridData = filteredData;
             }
-
             _getEntityHeader(entity) {
-                if (entity && this.entityTitle) {
-                    if (entity[this.entityTitle]) {
-                        return entity[this.entityTitle];
-                    } else {
-                        var attributes = entity.data.attributes;
 
-                        if (attributes && attributes[this.entityTitle]) {
-                            return attributes[this.entityTitle].values ? attributes[this.entityTitle].values[0].value : "";
+
+                var header = "";
+                var preparedEntities = this.compareEntitiesContext ? this.compareEntitiesContext["entities-data"] : undefined;
+                if (entity) {
+                    if (!this.isSnapshot) {
+                        var preparedEntity = !_.isEmpty(preparedEntities) ? preparedEntities.find(obj => obj.id === entity.id) : undefined;
+                        if (entity[this.entityTitle]) {
+                            header = entity[this.entityTitle];
+                        } else {
+                            var attributes = entity.data.attributes;
+                            if (attributes && attributes[this.entityTitle]) {
+                                header = attributes[this.entityTitle].values ? attributes[this.entityTitle].values[0].value : "";
+                            }
+                        }
+                        if (header === "" || header === "_EMPTY") {
+                            header = entity.id;
+                        }
+                        if (preparedEntity && preparedEntity.score) {
+                            header = header + " - Score " + preparedEntity.score + "%";
+                        }
+                    } else {
+                        //For Snapshot Scenario
+                        if (entity.type.indexOf("_snapshot") == -1) {
+                            header = "Current Entity: " + entity.name
+                        } else {
+                            var snapLabel = this._getSnapshotMetadata(entity).snapLabel;
+                            if (snapLabel == "") {
+                                snapLabel = "No Label";
+                            }
+                            header = snapLabel;
+                            if (DataHelper.isValidObjectPath(entity, "properties.createdDate")) {
+                                var createdDate = FormatHelper.convertFromISODateTime(entity.properties.createdDate, 'datetime');
+                                header = header + ": " + createdDate;
+                            }
+
+
                         }
                     }
                 }
-                return "<No Name>";
-            }
 
+                if (header == "") {
+                    return "<No Name>";
+                } else {
+                    return header;
+                }
+            }
             _updateEntityHeader(entityId, entityHeader) {
-                if(_.isEmpty(this.compareEntitiesContext)) {
+                if (_.isEmpty(this.compareEntitiesContext)) {
                     return entityHeader;
                 }
-                return entityId == this.compareEntitiesContext.newEntity.id ? "New "+ entityHeader : "Matched "+ entityHeader;
-            }
-
-            _onColumnSelectionChanged(e) {
-                if (e.detail.checked) {
-                    this._selectedEntityId = e.detail.value;
+                if (!this.isSnapshot) {
+                    return entityId == this.compareEntitiesContext.newEntity.id ? "New - " + entityHeader : "Matched - " + entityHeader;
                 } else {
-                    this._selectedEntityId = "";
+                    return entityHeader;
                 }
             }
-
+            _onColumnSelectionChanged(e) {
+                if (e.detail.checked) {
+                    this.selectedEntityId = e.detail.value;
+                } else {
+                    this.selectedEntityId = "";
+                }
+            }
             _onBackTap(e) {
                 this._reset();
                 var eventName = "compare-entities-back";
                 this.fireBedrockEvent(eventName, null);
             }
-
             _onCreateTap(e) {
                 //Already new entity details available, so just trigger the event
                 var eventName = "compare-entities-create";
                 this.fireBedrockEvent(eventName, null);
             }
-
             _onMergeTap(e) {
-                if(!this._selectedEntityId) {
+                if (!this.selectedEntityId) {
                     this.showErrorToast("Please select an entity for merge.");
                     return;
                 }
-
                 var matchedEntity = {};
-                for(var i = 0; i < this.entities.length; i++) {
-                    if(this.entities[i].id == this._selectedEntityId) {
+                for (var i = 0; i < this.entities.length; i++) {
+                    if (this.entities[i].id == this.selectedEntityId) {
                         matchedEntity = this.entities[i];
                         break;
                     }
@@ -795,15 +1126,13 @@
                     "matchedEntity": matchedEntity
                 });
             }
-
             _allowCreate(compareEntitiesContext) {
                 var allowCreate = false;
-                if(compareEntitiesContext && compareEntitiesContext.matchConfig) {
+                if (compareEntitiesContext && compareEntitiesContext.matchConfig) {
                     allowCreate = compareEntitiesContext.matchConfig["allow-create"];
                 }
                 return allowCreate;
             }
-
             _reset() {
                 this._modelGetTracker = 0;
                 this.selectedEntities = [];
@@ -811,7 +1140,6 @@
                 this._gridData = this._data = [];
             }
         }
-
         customElements.define(RockCompareEntities.is, RockCompareEntities);
     </script>
 </dom-module>
