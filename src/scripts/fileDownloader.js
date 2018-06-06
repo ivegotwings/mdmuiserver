@@ -331,29 +331,29 @@
                 $form = $(formDoc).find('form');
             }
 
-            // $form.submit();
-            var xhttp = new XMLHttpRequest();
-            xhttp.onreadystatechange = function () {
-                if (this.readyState == 4 && this.status == 200) {
-                    // Typical action to be performed when the document is ready:
-                    let a = document.createElement('a');
-                    var responseHeader = xhttp.getResponseHeader("Content-disposition");
-                    if(responseHeader){
-                        var fileName = responseHeader.split("=");
-                    }
-                    let url = window.URL.createObjectURL(xhttp.response);
-                    a.href = url;
-                    a.download = fileName[1] ? fileName[1] : options.fileName
-                    a.click();
-                    window.URL.revokeObjectURL(url)
-                }
-            };
-            xhttp.responseType = 'blob';
-            xhttp.timeout = 10000000000;
-            xhttp.open("POST", fileUrl, true);
-            xhttp.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-            xhttp.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-            xhttp.send(params);
+            $form.submit();
+            // var xhttp = new XMLHttpRequest();
+            // xhttp.onreadystatechange = function () {
+            //     if (this.readyState == 4 && this.status == 200) {
+            //         // Typical action to be performed when the document is ready:
+            //         let a = document.createElement('a');
+            //         var responseHeader = xhttp.getResponseHeader("Content-disposition");
+            //         if(responseHeader){
+            //             var fileName = responseHeader.split("=");
+            //         }
+            //         let url = window.URL.createObjectURL(xhttp.response);
+            //         a.href = url;
+            //         a.download = fileName[1] ? fileName[1] : options.fileName
+            //         a.click();
+            //         window.URL.revokeObjectURL(url)
+            //     }
+            // };
+            // xhttp.responseType = 'blob';
+            // xhttp.timeout = 10000000000;
+            // xhttp.open("POST", fileUrl, true);
+            // xhttp.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+            // xhttp.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            // xhttp.send(params);
         }
 
 
