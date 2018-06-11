@@ -423,10 +423,6 @@ async function get(dataObjectIds, reqData) {
             }
         }
 
-        if(request.dataIndex == "baseModel") {
-            service = baseModelService;
-        }
-
         if ((request.dataIndex == "entityModel" && reqData.dataObjectType == 'entityCompositeModel' && request.dataSubIndex == "coalescedEntityModel") || (request.dataIndex == "entityData" && !isEmpty(request.dataSubIndex) && request.dataSubIndex == "coalescedData")) {
             if (!isEmpty(request.params.query.contexts)) {
                 isCoalesceGet = true;
