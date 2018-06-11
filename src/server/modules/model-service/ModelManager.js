@@ -47,7 +47,7 @@ ModelManager.prototype = {
         }
 
         if (missingModelIds.length) {
-            let entityModels = await this._getAttributeModels(missingModelIds);
+            let entityModels = await this._getModels(missingModelIds, modelType);
 
             if (entityModels) {
                 cachedData = cachedData ? cachedData : {};
@@ -65,8 +65,8 @@ ModelManager.prototype = {
         let entityModels = [];
         let modelEntitiesResponse = await this.post("entitymodelservice/get", this._getModelRequest(modelIds, modelType));
 
-        if (modelEntitiesResponse && falcorUtil.isValidObjectPath(childEntityResponse, "response.entityModels")) {
-            entityModels = childEntityResponse.response.entityModels;
+        if (modelEntitiesResponse && falcorUtil.isValidObjectPath(modelEntitiesResponse, "response.entityModels")) {
+            entityModels = modelEntitiesResponse.response.entityModels;
         }
 
         return entityModels;
