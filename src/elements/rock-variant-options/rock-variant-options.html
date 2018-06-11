@@ -71,7 +71,7 @@
                 <div class="buttonContainer-static" align="center">
                     <pebble-button id="backButton" class="close btn btn-secondary m-r-5" button-text="Back" noink elevation="2" on-tap="_onBack"></pebble-button>
                     <pebble-button id="cancelButton" class="close btn btn-secondary m-r-5" button-text="Cancel" noink elevation="2" on-tap="_onCancel"></pebble-button>
-                    <pebble-button id="confirmButton" class="apply btn btn-success" button-text="Create" noink elevation="2" on-tap="_onCreate"></pebble-button>
+                    <pebble-button id="confirmButton" class="apply btn btn-success" disabled="[[isCreateDisabled]]" button-text="Create" noink elevation="2" on-tap="_onCreate"></pebble-button>
                 </div>
             </div>
         </div>
@@ -185,6 +185,11 @@
                         _entityDataOperation: {
                             type: String,
                             value: 'update'
+                        },
+
+                        isCreateDisabled: {
+                            type: Boolean,
+                            computed: '_isCreateDisabled(variantOptionsGridData)'
                         }
                     }
                 }
@@ -328,6 +333,8 @@
                  *  Request the variant options available
                 */
                 _getVariantOptions() {
+                    //Displaying the variants is taking sometime, hence showing the loader
+                    this.isSpinnerActive = true;
                     this.createVariants = false;
                     var requestData = this._getVariantOptionsRequest();
                     var liquidObj = this.shadowRoot.querySelector("#variantOptions");
@@ -389,7 +396,7 @@
                  *  Handle the get variants options success
                 */
                 async _onVariantOptionsReceivedSuccess(e) {
-
+                    this.isSpinnerActive = false;
                     if (e.detail && e.detail.response && e.detail.response.response) {
                         var response = e.detail.response.response;
                         var request = e.detail.response ? e.detail.response.request : undefined;
@@ -472,14 +479,27 @@
                 }
 
                 /**
+                 * Function to check if the create button has to be disabled
+                 */ 
+                _isCreateDisabled(gridData) {
+                    if (!_.isEmpty(gridData)) {
+                        var existsItems = _.filter(gridData, function(item){ return item.variantStatus.toLowerCase() == "exists"; });
+                        //If all the items in the grid are having status as exists,then disable the create button
+                        if(existsItems.length == gridData.length) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+
+                /**
                  *  Generate a request to create variants
-                 *  Use createvariants API if the grid is not displayed
-                 *  Use the bulkcreate API if the grid is displayed and entities may be excluded
-                */
+                 *  Use createvariants API if the grid is not displayed or if all the entities are selected by default
+                 *  Use the sync create/update API if the grid is displayed and entities may be excluded
+                 */
                 _onCreate() {
 
                     this.isSpinnerActive = true;
-                    //If the grid is displayed, allow exclusions           
                     var requestData = {};
                     var liquidObj = {};
 
@@ -491,7 +511,7 @@
                             this.isSpinnerActive = false;
                             return;
                         } else if (selectedEntities.length <= this.maxThresholdForSyncCreate) {
-                            //Create entities in sync mode
+                            //Create or update entities in sync mode
                             this._currentIndex = selectedEntities.length;
                             this._currentItems = [];                           
                             for (var i = 0; i < selectedEntities.length; i++) {
