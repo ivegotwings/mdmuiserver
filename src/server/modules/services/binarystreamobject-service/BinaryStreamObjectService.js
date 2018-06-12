@@ -1,5 +1,5 @@
-var DFRestService = require('../common/df-rest-service/DFRestService'),
-    isEmpty = require('../common/utils/isEmpty'),
+var DFRestService = require('../../common/df-rest-service/DFRestService'),
+    isEmpty = require('../../common/utils/isEmpty'),
     uuidV1 = require('uuid/v1');
 
 var BinaryStreamObjectService = function (options) {

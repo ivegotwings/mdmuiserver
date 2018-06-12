@@ -1,18 +1,18 @@
 'use strict';
 
-var DFRestService = require('../common/df-rest-service/DFRestService');
+var DFRestService = require('../../common/df-rest-service/DFRestService');
 
-var logger = require('../common/logger/logger-service');
+var logger = require('../../common/logger/logger-service');
 
-var falcorUtil = require('../../../shared/dataobject-falcor-util');
-var mergeUtil = require('../../../shared/dataobject-merge-util');
+var falcorUtil = require('../../../../shared/dataobject-falcor-util');
+var mergeUtil = require('../../../../shared/dataobject-merge-util');
 
 var RuntimeVersionManager = require('../version-service/RuntimeVersionManager');
-let localCacheManager = require('../local-cache/LocalCacheManager');
+let localCacheManager = require('../../local-cache/LocalCacheManager');
 
-const arrayRemove = require('../common/utils/array-remove'),
-    arrayContains = require('../common/utils/array-contains'),
-    isEmpty = require('../common/utils/isEmpty'),
+const arrayRemove = require('../../common/utils/array-remove'),
+    arrayContains = require('../../common/utils/array-contains'),
+    isEmpty = require('../../common/utils/isEmpty'),
     BaseConfigService = require('./BaseConfigService'),
     TenantSystemConfigService = require('./TenantSystemConfigService')
     var ConfigurationService = function (options) {

@@ -1,4 +1,4 @@
-let RuntimeVersionManager = require('../version-service/RuntimeVersionManager');
+let RuntimeVersionManager = require('../services/version-service/RuntimeVersionManager');
 let isEmpty = require('../common/utils/isEmpty');
 let localCache = {};
 

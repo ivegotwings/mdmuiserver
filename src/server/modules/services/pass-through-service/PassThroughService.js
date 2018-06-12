@@ -1,11 +1,11 @@
-var DFRestService = require('../common/df-rest-service/DFRestService'),
-    isEmpty = require('../common/utils/isEmpty');
+var DFRestService = require('../../common/df-rest-service/DFRestService'),
+    isEmpty = require('../../common/utils/isEmpty');
 
 var PassThroughService = function (options) {
     DFRestService.call(this, options);
 };
 
-var logger = require('../common/logger/logger-service.js');
+var logger = require('../../common/logger/logger-service.js');
 
 PassThroughService.prototype = {
     call: async function (request) {
