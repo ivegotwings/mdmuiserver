@@ -79,6 +79,7 @@ BaseModelService.prototype = {
             entity.id = attr.id;
             entity.name = attr.name;
             entity.type = attr.type;
+            entity.properties = attr.properties;
             entity.data = {};
 
             if (compositeAttributeModel.data) {
@@ -126,7 +127,51 @@ BaseModelService.prototype = {
     },
 
     _processAttributeModel: async function (request) {
+        let transformedModels;
+
+        // get composite model of entity type model "attributeModel"
+        let compositeAttributeModel = await ModelManager.getCompositeModel("attribuetModel");
+        logger.debug("BASE_MODEL_COMPOSITE_ATTRIBUTE_MODEL", { compositeAttributeModel: compositeAttributeModel }, "modelServce");
+
+        if (compositeAttributeModel) {
+            transformedModels = this._transFormAttributeModelForSave(compositeAttributeModel, request.entityModel);
+        }
+
         // In Progress . . . 
+    },
+
+    _transFormAttributeModelForSave: async function (compositeAttributeModel, attributeModel) {
+        let transformedModel = {};
+
+        if (isEmpty(compositeAttributeModel)) {
+            //
+            return transformedModel;
+        }
+
+        let properties;
+        let compositeAttributeModelData = compositeAttributeModel.data;
+        let attributeModelData = attributeModel.data;
+
+        transformedModel.id = attributeModel.id;
+        transformedModel.type = attributeModel.type;
+        transformedModel.name = attributeModel.name;
+        transformedModel.domain = attributeModel.domain;
+
+        if (compositeAttributeModelData && attributeModelData) {
+            if (compositeAttributeModel.attributes && attributeModelData.attributes) {
+                properties = this._transformAttributesToAttributeProperties(compositeAttributeModel.attributes, attributeModelData.attributes);
+            }
+
+            if (compositeAttributeModelData.relationships) {
+                // In case if we support.
+            }
+        }
+
+        if(!_.isEmpty(properties)) {
+            transformedModel.properties = properties;
+        }
+
+        return transformedModel;
     },
 
     _getEntityTypes: async function (request) {
@@ -152,7 +197,6 @@ BaseModelService.prototype = {
                     }
                 }
             }
-
         }
 
         return response;
@@ -255,14 +299,14 @@ BaseModelService.prototype = {
             return transformedModel;
         }
 
-        if (compositeEntityTypeModel) {
-            let properties, entityModelResponse;
-            let entityTypeModelData = entityTypeModel.data;
-            let compositeEntityTypeModelData = compositeEntityTypeModel.data;
+        let properties, entityModelResponse;
+        let entityTypeModelData = entityTypeModel.data;
+        let compositeEntityTypeModelData = compositeEntityTypeModel.data;
 
-            transformedModel.name = entityTypeModel.name;
-            transformedModel.data = {};
+        transformedModel.name = entityTypeModel.name;
+        transformedModel.data = {};
 
+        if (compositeEntityTypeModelData && entityTypeModelData) {
             if (compositeEntityTypeModelData.attributes && entityTypeModelData.attributes) {
                 transformedModel.properties = this._transformAttributesToAttributeProperties(compositeEntityTypeModelData.attributes, entityTypeModelData.attributes);
             } else {
@@ -316,9 +360,8 @@ BaseModelService.prototype = {
             } else {
                 //
             }
-        } else {
-            //
         }
+
         return transformedModel;
     },
 
