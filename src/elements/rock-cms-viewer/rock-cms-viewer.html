@@ -1,5 +1,5 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
-<link rel="import" href="../pebble-templatizer/pebble-templatizer.html">
+<link rel="import" href="../bedrock-app-behavior/bedrock-app-behavior.html">
 
 <dom-module id="rock-cms-viewer">
     <template>
@@ -35,7 +35,7 @@
                     }
                 },
 
-                behaviors: [],
+                behaviors: [RUFBehaviors.AppBehavior],
 
                 ready() {},
 
@@ -86,8 +86,82 @@
 
                 _onEntityDataGetReceived: function (e, detail) {
                     console.log(detail.response);
-                    this._prepareModel(detail.response.content.entities[0].data, detail.response.content
+                    let model = this._prepareModel(detail.response.content.entities[0].data, detail.response
+                        .content
                         .entities[0].properties);
+                    this.setState({
+                        model
+                    });
+                    console.log(model);
+                    let params = this.getQueryParamFromState();
+                    let path = location.pathname.substring(0, location.pathname.lastIndexOf('/'));
+                    window.open(path + '/preview?state=' + params)
+                },
+
+                _proccessAttributes: function (attributes, attributemodel) {
+                    let model = {};
+                    Object.keys(attributes).forEach(key => {
+                        if (attributes[key].values) {
+                            model[key] = attributes[key].values.map(val => {
+                                if (attributemodel[key] && attributemodel[key].properties &&
+                                    attributemodel[key].properties
+                                    .dataType) {
+                                    const dataType = attributemodel[key].properties
+                                        .dataType;
+                                    if (dataType === "date" || dataType ===
+                                        'datetime') {
+                                        return FormatHelper.convertFromISODateTime(
+                                            val.value,
+                                            attributemodel[key].properties.dataType
+                                        )
+                                    } else {
+                                        return val.value;
+                                    }
+                                }
+                                return val.value;
+                            });
+                        }
+                        if (attributes[key].group) {
+                            model[key] = attributes[key].group.map(val => {
+                                let returnVal = {};
+                                Object.keys(val).forEach(nestedVal => {
+                                    if (Array.isArray(val[nestedVal].values)) {
+                                        returnVal[nestedVal] = val[
+                                                nestedVal].values
+                                            .map(value => {
+                                                return value.value;
+                                            });
+                                        if (returnVal[nestedVal].length > 1) {
+                                            for (const [index, element] of
+                                                returnVal[
+                                                    nestedVal].entries()) {
+                                                returnVal[nestedVal + index] =
+                                                    element;
+                                            }
+                                        } else {
+                                            returnVal[nestedVal] =
+                                                returnVal[
+                                                    nestedVal][0];
+                                        }
+                                    }
+                                });
+                                return returnVal;
+                            });
+                        }
+                        model = this._generateArrayKeys(model, key);
+                    });
+                    return model;
+                },
+
+                _generateArrayKeys: function (model, key) {
+                    if (model[key].length > 1) {
+                        for (const [index, element] of model[key].entries()) {
+                            model[key + index] = element;
+                        }
+                    } else {
+                        model[key] = model[key][0];
+                    }
+                    return model;
                 },
 
                 _prepareModel: function (entityData, properties) {
@@ -98,32 +172,7 @@
                         /**
                          *Process Attributes
                          **/
-                        Object.keys(attributes).forEach(key => {
-                            model[key] = attributes[key].values.map(val => {
-                                if (attributemodel[key] && attributemodel[key].properties &&
-                                    attributemodel[key].properties
-                                    .dataType) {
-                                    const dataType = attributemodel[key].properties.dataType;
-                                    if (dataType === "date" || dataType === 'datetime') {
-                                        return FormatHelper.convertFromISODateTime(val.value,
-                                            attributemodel[key].properties.dataType
-                                        )
-                                    } else {
-                                        return val.value;
-                                    }
-                                }
-                                return val.value;
-                            });
-
-                            if (model[key].length > 1) {
-                                for (const [index, element] of model[key].entries()) {
-                                    model[key + index] = element;
-                                }
-                            } else {
-                                model[key] = model[key][0];
-                            }
-                        });
-
+                        model = this._proccessAttributes(attributes, attributemodel);
                     }
 
                     /**
@@ -143,32 +192,15 @@
                                 }
 
                                 if (val.attributes) {
-                                    Object.keys(val.attributes).forEach(attr => {
-                                        returnVal[attr] = val.attributes[attr].values
-                                            .map(vals => {
-                                                return vals.value;
-                                            })
-                                        if (returnVal[attr].length > 1) {
-                                            for (const [index, element] of
-                                                returnVal[attr].entries()) {
-                                                returnVal[attr + index] =
-                                                    element;
-                                            }
-                                        } else {
-                                            returnVal[attr] = returnVal[attr][0];
-                                        }
-                                    });
+                                    let relAttributeModel = this._proccessAttributes(
+                                        val.attributes,
+                                        attributemodel);
+                                    returnVal = Object.assign({}, relAttributeModel);
                                 }
                                 return returnVal;
                             });
 
-                            if (model[key].length > 1) {
-                                for (const [index, element] of model[key].entries()) {
-                                    model[key + index] = element;
-                                }
-                            } else {
-                                model[key] = model[key][0];
-                            }
+                            model = this._generateArrayKeys(model, key);
                         });
 
                     }
@@ -179,7 +211,7 @@
                         });
 
                     }
-                    console.log(model);
+                    return model;
                 },
 
                 _onEntityDataGetFailed: function (e, detail) {
