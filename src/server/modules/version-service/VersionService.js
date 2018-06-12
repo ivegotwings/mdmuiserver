@@ -5,6 +5,9 @@ const logger = require('../common/logger/logger-service');
 
 var baseConfigService = require('./../dataobject/BaseConfigService');
 var configService = require('./../dataobject/ConfigurationService');
+let localCacheManager = require('../local-cache/LocalCacheManager');
+
+let LocalCacheManager = new localCacheManager();
 
 var VersionService = function (options) {
     DFRestService.call(this, options);
@@ -16,8 +19,7 @@ VersionService.prototype = {
         var revision = await RuntimeVersionManager.getRevision();
         var oldVersion =  "".concat(buildVersion, "-", revision);
         
-        baseConfigService.localConfigCache[oldVersion] && (delete baseConfigService.localConfigCache[oldVersion]);
-        configService.localConfigCache[oldVersion] && (delete configService.localConfigCache[oldVersion]);
+        LocalCacheManager.del(oldVersion);
 
         await RuntimeVersionManager.setVersion(buildVersion, ++revision);
         var newVersion =  "".concat(buildVersion, "-", revision);

@@ -67,6 +67,9 @@ var DFServiceBase = function (options) {
 
         var isErrorResponse = logger.logError(internalRequestId, serviceName, options, result);
 
+        // console.log("request: -- - - - ", JSON.stringify(options, null, 2));
+        // console.log("response: -- - - - ", JSON.stringify(result, null, 2));
+
         if(!isErrorResponse) {
             logger.logResponseCompletedInfo(internalRequestId, serviceName, hrstart);
         }
