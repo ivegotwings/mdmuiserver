@@ -73,16 +73,12 @@
         </style>
 
         <template is="dom-if" if="[[_liquidLoad]]">
-            <liquid-entity-model-get exclude-in-progress id="initWorkflowDefinitionMappingsGet" operation="initiatesearch" last-response="{{initWorkflowDefinitionMappingsGet}}"
-                on-response="_onInitWorkflowDefinitionMappingsGetResponse" on-error="_onInitWorkflowDefinitionMappingsGetError"></liquid-entity-model-get>
-            <liquid-entity-model-get exclude-in-progress id="workflowDefinitionMappingsGet" operation="getsearchresultdetail" request-id="[[initWorkflowDefinitionMappingsGet.content.requestId]]"
-                on-response="_onWorkflowDefinitionMappingsGetResponse" on-error="_onWorkflowDefinitionMappingsGetError"></liquid-entity-model-get>
-
-
+            <liquid-rest id="workflowDefinitionMappingsGet" url="/data/pass-through/entitymodelservice/get" method="POST"
+            on-liquid-response="_onWorkflowDefinitionMappingsGetResponse" on-liquid-error="_onWorkflowDefinitionMappingsGetError"></liquid-rest>
             <liquid-entity-model-get exclude-in-progress id="initWorkflowDefinitionsGet" operation="initiatesearch" last-response="{{initWorkflowDefinitionsGet}}"
-                on-response="_onInitWorkflowDefinitionsGetResponse" on-error="_onInitWorkflowDefinitionsGetError"></liquid-entity-model-get>
+            on-response="_onInitWorkflowDefinitionsGetResponse" on-error="_onInitWorkflowDefinitionsGetError"></liquid-entity-model-get>
             <liquid-entity-model-get exclude-in-progress id="workflowDefinitionsGet" operation="getsearchresultdetail" request-id="[[initWorkflowDefinitionsGet.content.requestId]]"
-                on-response="_onWorkflowDefinitionsGetResponse" on-error="_onWorkflowDefinitionsGetError"></liquid-entity-model-get>
+            on-response="_onWorkflowDefinitionsGetResponse" on-error="_onWorkflowDefinitionsGetError"></liquid-entity-model-get>
         </template>
         <div class="base-grid-structure">
             <div class="base-grid-structure-child-1">
@@ -141,17 +137,17 @@
                     dropDownItems: {
                         type: Array,
                         value: [{
-                            "value": "All",
-                            "title": "All"
-                        },
-                        {
-                            "value": "Assigned to me",
-                            "title": "Assigned to me"
-                        },
-                        {
-                            "value": "Unassigned",
-                            "title": "Unassigned"
-                        }
+                                "value": "All",
+                                "title": "All"
+                            },
+                            {
+                                "value": "Assigned to me",
+                                "title": "Assigned to me"
+                            },
+                            {
+                                "value": "Unassigned",
+                                "title": "Unassigned"
+                            }
                         ]
                     },
                     selectedValue: {
@@ -165,6 +161,12 @@
                     _liquidLoad: {
                         type: Boolean,
                         value: false
+                    },
+                    contexts: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
                     }
                 },
 
@@ -179,68 +181,53 @@
                 /**
                   * <b><i>Content development is under progress... </b></i> 
                   */
-
+                
                 attached: function () {
 
                 },
 
-                ready: function () {
-                    Polymer.RenderStatus.afterNextRender(this, () => {
+                ready: function(){
+                    Polymer.RenderStatus.afterNextRender(this,()=>{
                         if (!_.isEmpty(this.contextData)) {
-                            this._liquidLoad = true;
+                            this._liquidLoad = true;                   
                             Polymer.Async.timeOut.after(10).run(() => {
-                                var initWorkflowDefinitionMappingsGet = this.shadowRoot.querySelector('#initWorkflowDefinitionMappingsGet');
-                                if (!initWorkflowDefinitionMappingsGet) {
+                                var workflowDefinitionMappingsGet = this.shadowRoot.querySelector('#workflowDefinitionMappingsGet');
+                                if (!workflowDefinitionMappingsGet) {
                                     this.logError("InitGetError");
                                     return;
+                                }   
+                                workflowDefinitionMappingsGet.requestData = DataRequestHelper.createWorkflowDefinitionMappingGetRequest();
+                                if(!_.isEmpty(this.contexts)) {
+                                    workflowDefinitionMappingsGet.requestData.params.query.contexts = this.contexts;
                                 }
-                                initWorkflowDefinitionMappingsGet.requestData = DataRequestHelper.createWorkflowDefinitionMappingGetRequest();
-                                initWorkflowDefinitionMappingsGet.generateRequest();
+                                workflowDefinitionMappingsGet.generateRequest();
                             });
                         }
                     });
                 },
 
-                _onInitWorkflowDefinitionMappingsGetResponse: function () {
-                    if (!_.isEmpty(this.contextData)) {
-                        var workflowDefinitionMappingsGet = this.shadowRoot.querySelector('#workflowDefinitionMappingsGet');
-
-                        if (typeof (workflowDefinitionMappingsGet) === "undefined" ||
-                            workflowDefinitionMappingsGet == null) {
-                            this.logError("InitGetError");
-                            return;
-                        }
-
-                        workflowDefinitionMappingsGet.requestData = DataRequestHelper.createWorkflowDefinitionMappingGetRequest();
-                        workflowDefinitionMappingsGet.generateRequest();
-                    }
-                },
-
-                _onInitWorkflowDefinitionMappingsGetError: function (e) {
-                    this.logError("InitWorkFlowError", e);
-                },
-
                 _onWorkflowDefinitionMappingsGetResponse: function (e) {
-                    var responseContent = DataHelper.validateAndGetResponseContent(e.detail.response);
+                    var responseContent = e.detail.response;
 
-                    if (responseContent) {
-                        var workflowDefinitionMappings = responseContent.entityModels;
+                    if (responseContent && responseContent.response && responseContent.response.status === "success" && responseContent.response.entityModels) {
+                        var workflowDefinitionMappings = responseContent.response.entityModels;
                         var workflowMappings = {};
                         workflowDefinitionMappings.forEach(function (WDMapping) {
                             if (WDMapping) {
-                                if (WDMapping.data && WDMapping.data.relationships) {
-                                    var relationshipTypes = Object.keys(WDMapping.data.relationships);
-                                    if (relationshipTypes && relationshipTypes.length) {
-                                        var relationships = WDMapping.data.relationships[relationshipTypes[0]];
-                                        if (relationships && relationships.length) {
-                                            relationships.forEach(function (relItem) {
-                                                if (relItem && relItem.relTo) {
-                                                    if (!workflowMappings[relItem.relTo.id]) {
-                                                        workflowMappings[relItem.relTo.id] = [];
-                                                    }
-                                                    workflowMappings[relItem.relTo.id].push(WDMapping.name);
-                                                }
-                                            }, this);
+                                if (WDMapping && WDMapping.data && WDMapping.data.relationships) {
+                                    var selfWorkflows = {};
+                                    selfWorkflows = DataMergeHelper.mergeRelationships(selfWorkflows, WDMapping.data.relationships, true);
+                                    this._updateWorkflowMappings(workflowMappings, selfWorkflows, WDMapping.name);
+
+                                    if(!_.isEmpty(WDMapping.data.contexts)) {
+                                        for(let i=0; i<WDMapping.data.contexts.length; i++) {
+                                            var ctx = WDMapping.data.contexts[i].context;
+                                            var ctxRelationships = SharedUtils.DataObjectFalcorUtil.getRelationshipsByCtx(WDMapping, ctx);
+                                            if (!_.isEmpty(ctxRelationships)) {
+                                                var ctxWorkflows = {};
+                                                ctxWorkflows = DataMergeHelper.mergeRelationships(ctxWorkflows, ctxRelationships, true);
+                                                this._updateWorkflowMappings(workflowMappings, ctxWorkflows, WDMapping.name, ctx);
+                                            }
                                         }
                                     }
                                 }
@@ -249,6 +236,23 @@
 
                         this._workflowDefinitionMappings = workflowMappings;
                         this._initWorkflowDefinitionGet();
+                    }
+                },
+
+                _updateWorkflowMappings: function(workflowMappings, workflows, name, context) {
+                    var relationships = !_.isEmpty(workflows) ? workflows.hasWorkflowsDefined : [];
+                    if (relationships && relationships.length) {
+                        relationships.forEach(function (relItem) {
+                            if (relItem && relItem.relTo) {
+                                if (!workflowMappings[relItem.relTo.id]) {
+                                    workflowMappings[relItem.relTo.id] = {};
+                                    workflowMappings[relItem.relTo.id]["mappedEntityTypes"] = [];
+                                    workflowMappings[relItem.relTo.id]["mappedContexts"] = [];
+                                }
+                                workflowMappings[relItem.relTo.id]["mappedEntityTypes"].push(name);
+                                workflowMappings[relItem.relTo.id]["mappedContexts"].push(context || { "self": "self" });
+                            }
+                        }, this);
                     }
                 },
 
@@ -369,7 +373,8 @@
                                         "properties": {
                                             "config-context": {
                                                 "workflowName": workflowDefinition.name,
-                                                "mappedEntityTypes": this._workflowDefinitionMappings[workflowDefinition.id]
+                                                "mappedEntityTypes": this._workflowDefinitionMappings[workflowDefinition.id].mappedEntityTypes,
+                                                "mappedContexts": this._workflowDefinitionMappings[workflowDefinition.id].mappedContexts
                                             },
                                             "assigned-to": this._assignedTo
                                         }
@@ -401,7 +406,7 @@
 
                 _onDropdownChange: function (e, details) {
                     if (!details) return;
-
+                    
                     var assignedToList = this.shadowRoot.querySelector("#assignedTo");
                     var rockTabs = this.shadowRoot.querySelector('rock-tabs');
 

@@ -143,7 +143,7 @@ async function initiateSearch(callPath, args) {
             dataObjectType = request.params.query.filters.typesCriterion[0]; // pick first object type..
         }
 
-        var service = _getService(dataObjectType, true);
+        var service = _getService(dataObjectType, true, dataIndex);
 
         if (service != eventService) {
             //console.log('request str', JSON.stringify(request, null, 4));
@@ -383,19 +383,19 @@ function createGetRequest(reqData) {
     return request;
 }
 
-function _getService(dataObjectType, isInitiateSearch) {
+function _getService(dataObjectType, isInitiateSearch, dataIndex) {
     if (dataObjectType == 'entityCompositeModel') {
         return entityCompositeModelGetService;
     }
     if (dataObjectType == 'uiConfig') {
         return configurationService;
     }
-    else if (dataObjectType == "externalevent" || dataObjectType == "bulkoperationevent") {
-        return eventService;
-    }
     else if (dataObjectType == "entityhistoryevent") {
         return entityHistoryEventService;
     } 
+    else if (dataObjectType == "externalevent" || dataObjectType == "bulkoperationevent" || dataIndex == "eventData") {
+        return eventService;
+    }    
     else if (!isInitiateSearch && (dataObjectType == "attributeModel" || dataObjectType == "relationshipModel" || dataObjectType == "entityType")) {
         return baseModelService;
     }
@@ -413,7 +413,7 @@ async function get(dataObjectIds, reqData) {
         var isCoalesceGet = false;
         var isNearestGet = false;
 
-        var service = _getService(reqData.dataObjectType);
+        var service = _getService(reqData.dataObjectType, false, reqData.dataIndex);
         var request = createGetRequest(reqData);
 
         if (reqData.dataObjectType == "classification") {
@@ -600,7 +600,7 @@ async function processData(dataIndex, dataSubIndex, dataObjects, dataObjectActio
             var apiRequestObj = { 'dataIndex': dataIndex, 'clientState': clientState };
             apiRequestObj[dataIndexInfo.name] = falcorUtil.cloneObject(dataObject);
 
-            let service = _getService(dataObjectType);
+            let service = _getService(dataObjectType, false, dataIndex);
 
             //Added hotline to api request only when it is true
             if (clientState.hotline) {
