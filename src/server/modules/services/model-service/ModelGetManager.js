@@ -52,6 +52,7 @@ ModelManager.prototype = {
             if (entityModels) {
                 cachedData = cachedData ? cachedData : {};
                 for (let entityModel of entityModels) {
+                    models.push(entityModel);
                     cachedData[entityModel.id] = entityModel;
                 }
                 await LocalCacheManager.set(cacheKey, cachedData);
