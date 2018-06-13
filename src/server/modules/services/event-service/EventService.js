@@ -1,7 +1,7 @@
-var DFRestService = require('../common/df-rest-service/DFRestService'),
-    isEmpty = require('../common/utils/isEmpty'),
+var DFRestService = require('../../common/df-rest-service/DFRestService'),
+    isEmpty = require('../../common/utils/isEmpty'),
     uuidV1 = require('uuid/v1'),
-    arrayContains = require('../common/utils/array-contains'),
+    arrayContains = require('../../common/utils/array-contains'),
     moment = require('moment');
 
 var config = require('config');
@@ -13,7 +13,7 @@ var Eventservice = function (options) {
     DFRestService.call(this, options);
 };
 
-const falcorUtil = require('../../../shared/dataobject-falcor-util');
+const falcorUtil = require('../../../../shared/dataobject-falcor-util');
 const pathKeys = falcorUtil.getPathKeys();
 
 const eventSubTypeMap = {

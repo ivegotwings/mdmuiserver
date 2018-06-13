@@ -1,21 +1,21 @@
 'use strict';
 
-var DFRestService = require('../common/df-rest-service/DFRestService');
+var DFRestService = require('../../common/df-rest-service/DFRestService');
 var RuntimeVersionManager = require('../version-service/RuntimeVersionManager');
-let localCacheManager = require('../local-cache/LocalCacheManager');
+let localCacheManager = require('../../local-cache/LocalCacheManager');
 
 const fs = require('fs'),
     path = require('path'),
-    isEmpty = require('../common/utils/isEmpty');
+    isEmpty = require('../../common/utils/isEmpty');
 
-const falcorUtil = require('../../../shared/dataobject-falcor-util');
+const falcorUtil = require('../../../../shared/dataobject-falcor-util');
 let LocalCacheManager = new localCacheManager();
 
 var BaseConfigService = function (options) {
     DFRestService.call(this, options);
 };
 
-var SERVICE_CONFIG = require('../common/df-rest-service/df-rest-service-config.js').SERVICE_CONFIG;
+var SERVICE_CONFIG = require('../../common/df-rest-service/df-rest-service-config.js').SERVICE_CONFIG;
 
 BaseConfigService.prototype = {
     get: async function (url, baseConfigRequest) {

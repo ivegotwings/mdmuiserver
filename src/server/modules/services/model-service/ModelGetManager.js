@@ -1,7 +1,7 @@
-let DFServiceRest = require('../common/df-rest-service/DFRestService');
-let falcorUtil = require('../../../shared/dataobject-falcor-util');
-let localCacheManager = require('../local-cache/LocalCacheManager');
-let isEmpty = require('../common/utils/isEmpty');
+let DFServiceRest = require('../../common/df-rest-service/DFRestService');
+let falcorUtil = require('../../../../shared/dataobject-falcor-util');
+let localCacheManager = require('../../local-cache/LocalCacheManager');
+let isEmpty = require('../../common/utils/isEmpty');
 
 let ModelManager = function (option) {
     DFServiceRest.call(this, option);
@@ -52,6 +52,7 @@ ModelManager.prototype = {
             if (entityModels) {
                 cachedData = cachedData ? cachedData : {};
                 for (let entityModel of entityModels) {
+                    models.push(entityModel);
                     cachedData[entityModel.id] = entityModel;
                 }
                 await LocalCacheManager.set(cacheKey, cachedData);

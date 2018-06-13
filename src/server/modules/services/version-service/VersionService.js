@@ -1,11 +1,11 @@
-var DFRestService = require('../common/df-rest-service/DFRestService'),
+var DFRestService = require('../../common/df-rest-service/DFRestService'),
     RuntimeVersionManager = require('./RuntimeVersionManager');
 
-const logger = require('../common/logger/logger-service');
+const logger = require('../../common/logger/logger-service');
 
-var baseConfigService = require('./../dataobject/BaseConfigService');
-var configService = require('./../dataobject/ConfigurationService');
-let localCacheManager = require('../local-cache/LocalCacheManager');
+var baseConfigService = require('../configuration-service/BaseConfigService');
+var configService = require('../configuration-service/ConfigurationService');
+let localCacheManager = require('../../local-cache/LocalCacheManager');
 
 let LocalCacheManager = new localCacheManager();
 
