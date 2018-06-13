@@ -29,7 +29,7 @@ BaseModelService.prototype = {
                     response = await this._getEntityType(request);
                     break;
                 case "relationshipModel":
-                    response = ""
+                    response = await this._getRelationshipModels(request);
                     break;
             }
         }
@@ -59,8 +59,6 @@ BaseModelService.prototype = {
                 break;
         }
 
-        // In Progress . . .
-
         return dataOperationResult;
     },
 
@@ -76,7 +74,6 @@ BaseModelService.prototype = {
         logger.debug("BASE_MODEL_COMPOSITE_ATTRIBUTE_MODEL", { compositeAttributeModel: compositeAttributeModel }, "modelServce");
 
         // transform attribute models in to entities based on composite attribute model.
-
         if (compositeAttributeModel && response && falcorUtil.isValidObjectPath(response, "response.entityModels")) {
             let attributeModels = response.response.entityModels;
             let entities = await this._transformModelObjectToModelEntity(compositeAttributeModel, attributeModels);
@@ -90,41 +87,42 @@ BaseModelService.prototype = {
 
         return response;
     },
-    // Used for GET Attribute Model
-    // Conversion of <attribute>_attributeModel into <attribute> entity.
-    _transformModelObjectToModelEntity: async function (compositeAttributeModel, attributeModels) {
-        if (isEmpty(attributeModels) || isEmpty(compositeAttributeModel)) {
+
+    // Used for GET Attribute/Relationship Model
+    // Conversion of <attribute>_attributeModel/<relationship>_relationshipModel into <attribute>/<relationship> entity.
+    _transformModelObjectToModelEntity: async function (compositeModel, models) {
+        if (isEmpty(models) || isEmpty(compositeModel)) {
             return;
         }
 
         let entities = [];
-        for (let attr of attributeModels) {
+        for (let model of models) {
             // create entity for each attribute.
             let entity = {};
-            entity.id = attr.id;
-            entity.name = attr.name;
-            entity.type = attr.type;
-            entity.properties = attr.properties;
+            entity.id = model.id;
+            entity.name = model.name;
+            entity.type = model.type;
+            entity.properties = model.properties;
             entity.data = {};
 
-            if (compositeAttributeModel.data) {
-                let compositeAttributeModelData = compositeAttributeModel.data;
+            if (compositeModel.data) {
+                let compositeModelData = compositeModel.data;
 
                 // transform properties into attributes based on composite attribute model.
-                if (compositeAttributeModelData.attributes) {
-                    entity.data.attributes = this._transformAttributePropertiesToAttributes(compositeAttributeModelData.attributes, attr.properties);
+                if (compositeModelData.attributes) {
+                    entity.data.attributes = this._transformAttributePropertiesToAttributes(compositeModelData.attributes, model.properties);
                 }
 
                 // transform group into relationships based on composite attribute model.
-                if (falcorUtil.isValidObjectPath(attr, "properties.childAttributes") && compositeAttributeModelData.relationships) {
-                    for (let relType in compositeAttributeModelData.relationships) {
+                if (falcorUtil.isValidObjectPath(model, "properties.childAttributes") && compositeModelData.relationships) {
+                    for (let relType in compositeModelData.relationships) {
                         entity.data.relationships = {};
                         let entityRelationships = entity.data.relationships[relType] = [];
 
-                        let childEntityIds = attr.properties.childAttributes.map(v => v = v + "_" + attr.type);
+                        let childEntityIds = model.properties.childAttributes.map(v => v = v + "_" + model.type);
 
                         if (childEntityIds) {
-                            let childEntities = await modelGetManager.getModels(childEntityIds, attr.type);
+                            let childEntities = await modelGetManager.getModels(childEntityIds, model.type);
 
                             if (childEntities) {
                                 for (let childEntity of childEntities) {
@@ -134,7 +132,7 @@ BaseModelService.prototype = {
                                         "id": childEntity.id,
                                         "type": childEntity.type
                                     }
-                                    rel.attributes = this._transformAttributePropertiesToAttributes(compositeAttributeModelData.attributes, childEntity.properties);
+                                    rel.attributes = this._transformAttributePropertiesToAttributes(compositeModelData.attributes, childEntity.properties);
                                     entityRelationships.push(rel);
                                 }
                             } else {
@@ -215,7 +213,6 @@ BaseModelService.prototype = {
                 // get entity type model "<entity type name>_entityTypeModel"
                 let entityTypeModel = await modelGetManager.getCompositeModel(entityType);
                 logger.debug("BASE_MODEL_ENTITY_TYPE_MODEL", { entityTypeModel: entityTypeModel }, "modelServce");
-
                 entityTypeModels.push(entityTypeModel);
             }
         } else {
@@ -414,6 +411,32 @@ BaseModelService.prototype = {
         }
 
         return transformedModel;
+    },
+
+    _getRelationshipModels: async function (request) {
+        let response;
+
+        // get relationship model "<relationship name>_relationshipModel"
+        response = await this.post("entitymodelservice/get", request);
+        logger.debug("BASE_MODEL_RELATIONSHIP_MODEL", { relationshipModelsResponse: response }, "modelServce");
+
+        // get composite model of relationship model "relationshipModel"
+        let compositeRelationshipModel = await modelGetManager.getCompositeModel("relationshipModel");
+        logger.debug("BASE_MODEL_COMPOSITE_RELATIONSHIP_MODEL", { compositeRelationshipModel: compositeRelationshipModel }, "modelServce");
+
+        // transform relationship models in to entities based on composite relationship model.
+        if (compositeRelationshipModel && response && falcorUtil.isValidObjectPath(response, "response.entityModels")) {
+            let relationshipModels = response.response.entityModels;
+            let entities = await this._transformModelObjectToModelEntity(compositeRelationshipModel, relationshipModels);
+            response = {
+                "response": {
+                    "status": "success",
+                    "entityModels": entities
+                }
+            }
+        }
+
+        return response;
     },
 
     _transformAttributePropertiesToAttributes: function (attributeModels, attributeProperties) {
