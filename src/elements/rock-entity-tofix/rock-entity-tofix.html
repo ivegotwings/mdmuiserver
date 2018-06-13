@@ -332,7 +332,7 @@ Custom property | Description | Default
                 RUFBehaviors.ComponentContextBehavior
             ],
 
-            _contextDataChanged: function () {
+            _contextDataChanged: async function () {
                 if (!_.isEmpty(this.contextData)) {
                     this._clonedContextData = DataHelper.cloneObject(this.contextData);
                     var itemContext = ContextHelper.getFirstItemContext(this._clonedContextData);
@@ -343,13 +343,30 @@ Custom property | Description | Default
                     var valueContext = ContextHelper.getFirstValueContext(this._clonedContextData);
                     valueContext = [];
                     this._clonedContextData[ContextHelper.CONTEXT_TYPE_VALUE] = valueContext;
+
+                    var dataContexts = ContextHelper.getDataContexts(this._clonedContextData);
+                    var firstItemContext = ContextHelper.getFirstItemContext(this._clonedContextData);
+                    var entityType = firstItemContext.type;
+                    if (!_.isEmpty(dataContexts)) {
+                        for (var i = 0; i < dataContexts.length; i++) {
+                            var context = dataContexts[i];
+                            var additionalContexts = [];
+                            var contextModel = await ContextModelManager.getContextModelByEntityTypeAndDataContext(entityType, context);
+                            if (contextModel) {
+                                additionalContexts = contextModel.properties ? contextModel.properties.additionalcontexts : undefined;
+                            }
+                            if (!_.isEmpty(additionalContexts)) {
+                                additionalContexts.forEach(function (ctxKey) {
+                                    delete context[ctxKey];
+                                });
+                            }
+                        }
+
+                        dataContexts = dataContexts.filter(ctx => !_.isEmpty(ctx));
+                    }
+
+                    this._initiateWorkflowMappingGet();
                 }
-            },
-            /**
-              * <b><i>Content development is under progress... </b></i> 
-              */
-            attached: function () {
-                this._initiateWorkflowMappingGet();
             },
             ready: function () {
                 this.businessCondition.saved = false;
@@ -375,10 +392,10 @@ Custom property | Description | Default
                         RUFUtilities.Logger.error("Liquid element having id workflowMappingsGet not found.", null, "entity-manage");
                         this._showMessage(this._errorMessage);
                         return;
-                    }
+                    }                    
 
                     // Create Request and Get
-                    workflowMappingsGet.requestData = DataRequestHelper.createWorkflowMappingGetRequest(this.contextData);
+                    workflowMappingsGet.requestData = DataRequestHelper.createWorkflowMappingGetRequest(this._clonedContextData);
                     workflowMappingsGet.generateRequest();
                 }
             },
@@ -392,10 +409,9 @@ Custom property | Description | Default
                     // Get Workflows Mapped to the Current EntityType
                     if (workflowMappingModels && workflowMappingModels.length > 0) {
                         var wfDefinitionMappingModel = workflowMappingModels.find(obj => obj.type == "workflowDefinitionMapping");
-                        var wfRelationships = DataMergeHelper.mergeWorkflowMappings(wfDefinitionMappingModel, this._clonedContextData);
-
-                        var mappedWorkflowNames = DataHelper.getRelToNames(wfRelationships.hasWorkflowsDefined);
-                        this.set("_entityTypeWorkflowMappings", mappedWorkflowNames);
+                        var workflowContexts = ContextHelper.createWorkflowContexts(wfDefinitionMappingModel, this.contextData);
+                        var itemContext = ContextHelper.getFirstItemContext(this._clonedContextData);
+                        itemContext.workflowContexts = workflowContexts;
                     }
 
                     // Make Entity Govern Get
@@ -428,7 +444,7 @@ Custom property | Description | Default
 
                 // Prepare DataContext
                 // Note: Can be possible that No Workflow is available for Current EntityType
-                var dataContexts = this._prepareWorkflowDataContext(clonedContextData, itemContext);
+                var dataContexts = itemContext.workflowContexts;
                 if (dataContexts.length > 0) {
                     clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = dataContexts;
                 }
@@ -608,7 +624,7 @@ Custom property | Description | Default
 
                     // Prepare DataContext
                     // This should be optional because entity can be in workflow or cannot be in workflow
-                    var dataContexts = this._prepareWorkflowDataContext(clonedContextData, itemContext);
+                    var dataContexts = itemContext.workflowContexts;
                     var valueContext = [DataHelper.getDefaultValContext()];
                     clonedContextData[ContextHelper.CONTEXT_TYPE_VALUE] = valueContext;
                     
@@ -710,6 +726,9 @@ Custom property | Description | Default
                     if(defaultValContext) {
                         clonedContextData.ValContexts = [defaultValContext];
                     }
+
+                    var dataContexts = ContextHelper.getDataContexts(this.contextData);
+                    clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = dataContexts;
 
                     // Create Request and Get
                     var businessConditionsGet = this.shadowRoot.querySelector("#businessConditionsGet");
@@ -983,7 +1002,7 @@ Custom property | Description | Default
 
             refresh: function () {
                 this._isToFixDataExists = false;
-                this._initiateWorkflowMappingGet();
+                this._contextDataChanged();
             },
             _onBusinessConditionSaveResponse: function () {
                 this.businessCondition.saved = true;
