@@ -273,7 +273,7 @@ BaseModelService.prototype = {
             transformedModel = await this._transformCompositeModelForSave(compositeEntityTypeModel, request.entityModel);
 
             if (transformedModel) {
-                model = this._prepareModel(transformedModel);
+                model = this._prepareModel(transformedModel, "entityType");
                 compositeModels = this._prepareCompositeModels(transformedModel, compositeAttributeModel, request.entityModel);
             }
 
@@ -368,7 +368,7 @@ BaseModelService.prototype = {
             transformedModel = await this._transformCompositeModelForSave(compositeRelationshipModel, request.entityModel);
 
             if (transformedModel) {
-                model = this._prepareModel(transformedModel);
+                model = this._prepareModel(transformedModel, "relationshipModel");
                 compositeModels = this._prepareCompositeModels(transformedModel, compositeAttributeModel, request.entityModel);
             }
 
@@ -381,6 +381,7 @@ BaseModelService.prototype = {
             if (!isEmpty(compositeModels)) {
                 for (let compositeModel of compositeModels) {
                     request[request.dataIndex] = compositeModel;
+                    console.log(JSON.stringify(request, null, 2));
                     let dataOperationResult = await dataObjectManageService.process(request, action);
                     dataOperationResults.push(dataOperationResult);
                 }
@@ -831,16 +832,16 @@ BaseModelService.prototype = {
 
     },
 
-    _prepareModel: function (entityTypeModel) {
+    _prepareModel: function (entityTypeModel, modelType) {
         if (isEmpty(entityTypeModel)) {
             //
             return {};
         }
 
         return {
-            "id": entityTypeModel.name + "_entityType",
+            "id": entityTypeModel.name + "_" + modelType,
             "name": entityTypeModel.name,
-            "type": "entityType",
+            "type": modelType,
             "properties": entityTypeModel.properties
         }
     },
