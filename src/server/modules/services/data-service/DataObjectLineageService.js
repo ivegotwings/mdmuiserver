@@ -1,6 +1,6 @@
-let DFServiceRest = require("../common/df-rest-service/DFRestService");
-let falcorUtil = require('../../../shared/dataobject-falcor-util');
-let isEmpty = require('../common/utils/isEmpty');
+let DFServiceRest = require("../../common/df-rest-service/DFRestService");
+let falcorUtil = require('../../../../shared/dataobject-falcor-util');
+let isEmpty = require('../../common/utils/isEmpty');
 
 let DataObjectLineageService = function (options) {
     DFServiceRest.call(this, options)

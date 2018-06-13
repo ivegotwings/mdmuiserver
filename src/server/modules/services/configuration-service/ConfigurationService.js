@@ -1,17 +1,18 @@
 'use strict';
 
-var DFRestService = require('../common/df-rest-service/DFRestService');
+var DFRestService = require('../../common/df-rest-service/DFRestService');
 
-var logger = require('../common/logger/logger-service');
+var logger = require('../../common/logger/logger-service');
 
-var falcorUtil = require('../../../shared/dataobject-falcor-util');
-var mergeUtil = require('../../../shared/dataobject-merge-util');
+var falcorUtil = require('../../../../shared/dataobject-falcor-util');
+var mergeUtil = require('../../../../shared/dataobject-merge-util');
 
 var RuntimeVersionManager = require('../version-service/RuntimeVersionManager');
+let localCacheManager = require('../../local-cache/LocalCacheManager');
 
-const arrayRemove = require('../common/utils/array-remove'),
-    arrayContains = require('../common/utils/array-contains'),
-    isEmpty = require('../common/utils/isEmpty'),
+const arrayRemove = require('../../common/utils/array-remove'),
+    arrayContains = require('../../common/utils/array-contains'),
+    isEmpty = require('../../common/utils/isEmpty'),
     BaseConfigService = require('./BaseConfigService'),
     TenantSystemConfigService = require('./TenantSystemConfigService')
     var ConfigurationService = function (options) {
@@ -20,11 +21,11 @@ const arrayRemove = require('../common/utils/array-remove'),
     this.tenantSystemConfigService = new TenantSystemConfigService(options);
 };
 
+let LocalCacheManager = new localCacheManager();
+
 const RDF_SERVICE_NAME = "configurationservice";
 
 const DEFAULT_CONTEXT_KEY = "_DEFAULT";
-
-var localConfigCache = {};
 
 ConfigurationService.prototype = {
     get: async function (request) {
@@ -351,13 +352,14 @@ ConfigurationService.prototype = {
             var cacheKey = "".concat("uiConfig|id:", requestedConfigId, "|contextKey:", generatedId, "|runtime-version:", runtimeVersion);
 
             if (requestedConfigId != "_BYCONTEXT" && requestedContext != "_NOCONTEXT") {
-                 !isEmpty(localConfigCache[runtimeVersion]) && (res = falcorUtil.cloneObject(localConfigCache[runtimeVersion][cacheKey]));
+                res = await LocalCacheManager.get(cacheKey);
             }
 
             if (isEmpty(res)) {
                 res = await this.post(serviceUrl, request);
-                isEmpty(localConfigCache[runtimeVersion]) && (localConfigCache[runtimeVersion] = {});
-                localConfigCache[runtimeVersion][cacheKey] = falcorUtil.cloneObject(res);
+                await LocalCacheManager.set(cacheKey, falcorUtil.cloneObject(res));
+            } else {
+                console.log("\n Cached");
             }
         }
 
@@ -369,6 +371,5 @@ ConfigurationService.prototype = {
 };
 
 module.exports = { 
-    ConfigurationService: ConfigurationService,
-    localConfigCache: localConfigCache
+    ConfigurationService: ConfigurationService
 };
