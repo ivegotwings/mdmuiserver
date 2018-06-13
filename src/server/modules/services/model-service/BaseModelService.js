@@ -49,13 +49,14 @@ BaseModelService.prototype = {
                         break;
                     case "entityType":
                         dataOperationResult = await this._processEntityTypeModel(request, action);
+                        break;
                     case "relationshipModel":
-                        // In Progress . . .
+                        dataOperationResult = await this._processRelationshipModel(request, action);
                         break;
                 }
                 break;
             case "delete":
-                dataOperationResult = await dataObjectManageService.process(request, action);
+                dataOperationResult = await this._deleteModel(request, dataObjectType);
                 break;
         }
 
@@ -86,6 +87,26 @@ BaseModelService.prototype = {
         }
 
         return response;
+    },
+
+    _processAttributeModel: async function (request, action) {
+        let transformedModel, transfromedRequest, dataOperationResult;
+
+        // get composite model of entity type model "attributeModel"
+        let compositeAttributeModel = await modelGetManager.getCompositeModel("attributeModel");
+        logger.debug("BASE_MODEL_COMPOSITE_ATTRIBUTE_MODEL", { compositeAttributeModel: compositeAttributeModel }, "modelServce");
+
+        if (compositeAttributeModel) {
+            transformedModel = await this._transFormAttributeModelForSave(compositeAttributeModel, request.entityModel);
+        }
+
+        if (transformedModel) {
+            request[request.dataIndex] = transformedModel;
+        }
+
+        dataOperationResult = await dataObjectManageService.process(request, action);
+
+        return dataOperationResult;
     },
 
     // Used for GET Attribute/Relationship Model
@@ -149,26 +170,6 @@ BaseModelService.prototype = {
         return entities;
     },
 
-    _processAttributeModel: async function (request, action) {
-        let transformedModel, transfromedRequest, dataOperationResult;
-
-        // get composite model of entity type model "attributeModel"
-        let compositeAttributeModel = await modelGetManager.getCompositeModel("attributeModel");
-        logger.debug("BASE_MODEL_COMPOSITE_ATTRIBUTE_MODEL", { compositeAttributeModel: compositeAttributeModel }, "modelServce");
-
-        if (compositeAttributeModel) {
-            transformedModel = await this._transFormAttributeModelForSave(compositeAttributeModel, request.entityModel);
-        }
-
-        if (transformedModel) {
-            request[request.dataIndex] = transformedModel;
-        }
-
-        dataOperationResult = await dataObjectManageService.process(request, action);
-
-        return dataOperationResult;
-    },
-
     _transFormAttributeModelForSave: async function (compositeAttributeModel, attributeModel) {
         let transformedModel = {};
 
@@ -212,6 +213,23 @@ BaseModelService.prototype = {
             if (!isEmpty(entityType)) {
                 // get entity type model "<entity type name>_entityTypeModel"
                 let entityTypeModel = await modelGetManager.getCompositeModel(entityType);
+                let entityTypeEntities = await modelGetManager.getModels([entityType + "_entityType"], "entityType");
+
+                if (entityTypeEntities) {
+                    let entityTypeEntity = entityTypeEntities[0];
+
+                    if (entityTypeEntity) {
+                        if (isEmpty(entityTypeEntity)) {
+                            entityTypeEntity = {};
+                        }
+
+                        entityTypeModel.type = entityTypeEntity.type;
+                        entityTypeModel.name = entityTypeEntity.name;
+                        entityTypeModel.domain = entityTypeEntity.domain;
+                        entityTypeModel.properties = entityTypeEntity.properties;
+                    }
+                }
+
                 logger.debug("BASE_MODEL_ENTITY_TYPE_MODEL", { entityTypeModel: entityTypeModel }, "modelServce");
                 entityTypeModels.push(entityTypeModel);
             }
@@ -226,7 +244,7 @@ BaseModelService.prototype = {
 
         // transform entity type models in to entities based on composite entity type model.
         if (compositeEntityTypeModel && entityTypeModels) {
-            let entities = this._transformEntityTypeModelObjectToEntityTypeEntity(compositeEntityTypeModel, entityTypeModels);
+            let entities = this._transformCompositeModelObjectToCompositeModelEntity(compositeEntityTypeModel, entityTypeModels);
             response = {
                 "response": {
                     "status": "success",
@@ -239,7 +257,7 @@ BaseModelService.prototype = {
     },
 
     _processEntityTypeModel: async function (request, action) {
-        let transformedModels, dataOperationResults = [];
+        let transformedModel, dataOperationResults = [];
 
         // get composite model of entity type model "entityTypeModel"
         let compositeEntityTypeModel = await modelGetManager.getCompositeModel("entityType");
@@ -250,16 +268,22 @@ BaseModelService.prototype = {
         logger.debug("BASE_MODEL_COMPOSITE_ATTRIBUTE_MODEL", { compositeAttributeModel: compositeAttributeModel }, "modelServce");
 
         if (compositeEntityTypeModel && compositeAttributeModel) {
-            let compositeModels;
+            let compositeModels, model;
 
-            transformedModels = await this._transFormEntityTypeModelForSave(compositeEntityTypeModel, request.entityModel);
+            transformedModel = await this._transformCompositeModelForSave(compositeEntityTypeModel, request.entityModel);
 
-            if (transformedModels) {
-                compositeModels = this._prepareCompositeModels(transformedModels, compositeAttributeModel, request.entityModel);
+            if (transformedModel) {
+                model = this._prepareModel(transformedModel);
+                compositeModels = this._prepareCompositeModels(transformedModel, compositeAttributeModel, request.entityModel);
             }
 
-            if (compositeModels) {
-                console.log(JSON.stringify(compositeModels, null, 2));
+            if (!isEmpty(model)) {
+                request[request.dataIndex] = model;
+                let dataOperationResult = await dataObjectManageService.process(request, action);
+                dataOperationResults.push(dataOperationResult);
+            }
+
+            if (!isEmpty(compositeModels)) {
                 for (let compositeModel of compositeModels) {
                     request[request.dataIndex] = compositeModel;
                     let dataOperationResult = await dataObjectManageService.process(request, action);
@@ -276,46 +300,141 @@ BaseModelService.prototype = {
         }
     },
 
-    // Used for GET Entity Type Model
-    // Conversion of <entityType>_compositeModel into <entityType> entity.
-    _transformEntityTypeModelObjectToEntityTypeEntity: function (compositeEntityTypeModel, entityTypeModels) {
-        if (isEmpty(compositeEntityTypeModel) || isEmpty(entityTypeModels)) {
+    _getRelationshipModels: async function (request) {
+        let response, modelResponse, relationshipTypeModels = [];
+
+        if (this._isEntityTypeEAR(request)) {
+            let relationshipModel = falcorUtil.isValidObjectPath(request, "params.query.id") ? request.params.query.id.replace("_relationshipModel", "") : "";
+
+            if (!isEmpty(relationshipModel)) {
+                // get relationship type model "<relationship type name>_relationshipModel"
+                let relationshipTypeModel = await modelGetManager.getCompositeModel(relationshipModel);
+                let relationshipModelEntities = await modelGetManager.getModels([relationshipModel + "_relationshipModel"], "relationshipModel");
+
+                if (relationshipModelEntities) {
+                    let relationshipModelEntity = relationshipModelEntities[0];
+
+                    if (relationshipModelEntity) {
+                        if (isEmpty(relationshipTypeModel)) {
+                            relationshipTypeModel = {};
+                        }
+                        relationshipTypeModel.type = relationshipModelEntity.type;
+                        relationshipTypeModel.name = relationshipModelEntity.name;
+                        relationshipTypeModel.domain = relationshipModelEntity.domain;
+                        relationshipTypeModel.properties = relationshipModelEntity.properties;
+                    }
+                }
+
+                logger.debug("BASE_MODEL_RELATIONSHIP_TYPE_MODEL", { relationshipTypeModel: relationshipTypeModel }, "modelServce");
+                relationshipTypeModels.push(relationshipTypeModel);
+            }
+        } else {
+            let ids = request.params.query.ids;
+            relationshipTypeModels = await modelGetManager.getModels(ids, "relationshipModel");
+        }
+
+        // get composite model of relationship type model "entityTypeModel"
+        let compositeRelationshipTypeModel = await modelGetManager.getCompositeModel("relationshipModel");
+        logger.debug("BASE_MODEL_COMPOSITE_RELATIONSHIP_TYPE_MODEL", { compositeRelationshipTypeModel: compositeRelationshipTypeModel }, "modelServce");
+
+        // transform relationship type models in to entities based on composite relationship type model.
+        if (compositeRelationshipTypeModel && relationshipTypeModels) {
+            let entities = this._transformCompositeModelObjectToCompositeModelEntity(compositeRelationshipTypeModel, relationshipTypeModels);
+            response = {
+                "response": {
+                    "status": "success",
+                    "entityModels": entities
+                }
+            }
+        }
+
+        return response;
+    },
+
+    _processRelationshipModel: async function (request, action) {
+        let transformedModel, dataOperationResults = [];
+
+        // get composite model of relationship model "relationshipModel"
+        let compositeRelationshipModel = await modelGetManager.getCompositeModel("relationshipModel");
+        logger.debug("BASE_MODEL_COMPOSITE_RELATIONSHIP_MODEL", { compositeRelationshipModel: compositeRelationshipModel }, "modelServce");
+
+        // get composite model of attribute model "attributeModel"
+        let compositeAttributeModel = await modelGetManager.getCompositeModel("attributeModel");
+        logger.debug("BASE_MODEL_COMPOSITE_ATTRIBUTE_MODEL", { compositeAttributeModel: compositeAttributeModel }, "modelServce");
+
+        if (compositeRelationshipModel && compositeAttributeModel) {
+            let compositeModels, model;
+
+            transformedModel = await this._transformCompositeModelForSave(compositeRelationshipModel, request.entityModel);
+
+            if (transformedModel) {
+                model = this._prepareModel(transformedModel);
+                compositeModels = this._prepareCompositeModels(transformedModel, compositeAttributeModel, request.entityModel);
+            }
+
+            if (!isEmpty(model)) {
+                request[request.dataIndex] = model;
+                let dataOperationResult = await dataObjectManageService.process(request, action);
+                dataOperationResults.push(dataOperationResult);
+            }
+
+            if (!isEmpty(compositeModels)) {
+                for (let compositeModel of compositeModels) {
+                    request[request.dataIndex] = compositeModel;
+                    let dataOperationResult = await dataObjectManageService.process(request, action);
+                    dataOperationResults.push(dataOperationResult);
+                }
+            }
+        }
+
+        return {
+            "response": {
+                "status": "success",
+                "content": dataOperationResults
+            }
+        }
+    },
+
+    // Used for any composite model
+    // Conversion of <model>_compositeModel into <model> entity.
+    _transformCompositeModelObjectToCompositeModelEntity: function (compositeModel, models) {
+        if (isEmpty(compositeModel) || isEmpty(models)) {
             return;
         }
 
         let entities = [];
 
-        if (!isEmpty(compositeEntityTypeModel)) {
-            for (let entityTypeModel of entityTypeModels) {
+        if (!isEmpty(compositeModel)) {
+            for (let model of models) {
                 // prepare entity for entity type.
                 let entity = {};
-                entity.name = entityTypeModel.name;
-                entity.id = entityTypeModel.name + "_entityType";
-                entity.type = "entityType";
-                entity.properties = entityTypeModel.properties;
-                entity.domain = entityTypeModel.domain;
+                entity.name = model.name;
+                entity.id = model.name + "_" + model.type;
+                entity.type = model.type;
+                entity.properties = model.properties;
+                entity.domain = model.domain;
                 entity.data = {};
 
-                if (compositeEntityTypeModel.data) {
-                    let compositeModelData = compositeEntityTypeModel.data;
+                if (compositeModel.data) {
+                    let compositeModelData = compositeModel.data;
 
                     // transform properties into attributes based on composite attribute model.
                     if (compositeModelData.attributes) {
-                        entity.data.attributes = this._transformAttributePropertiesToAttributes(compositeModelData.attributes, entityTypeModel.properties);
+                        entity.data.attributes = this._transformAttributePropertiesToAttributes(compositeModelData.attributes, model.properties);
                     }
 
                     // transfrom attributes and relationships into "hasattributes" and "hasrelationships" relationships.
                     if (compositeModelData.relationships) {
 
                         // transfrom self attributes and relationships
-                        if (entityTypeModel.data) {
-                            entity.data.relationships = this._transformAttrsAndRelsIntoMappedRels(compositeModelData.relationships, entityTypeModel.data);
+                        if (model.data) {
+                            entity.data.relationships = this._transformAttrsAndRelsIntoMappedRels(compositeModelData.relationships, model.data);
                         }
 
                         // transfrom contextual attributes and relationships
-                        if (entityTypeModel.contexts) {
+                        if (model.contexts) {
                             entity.data.contexts = []
-                            for (let ctx of entityTypeModel.contexts) {
+                            for (let ctx of model.contexts) {
                                 let context = {
                                     "context": ctx.context
                                 };
@@ -333,38 +452,39 @@ BaseModelService.prototype = {
         return entities;
     },
 
-    // Transform attribuetModel entity into attributeModel
-    _transFormEntityTypeModelForSave: async function (compositeEntityTypeModel, entityTypeModel) {
+    // Transform composite model entity into compositeModel
+    _transformCompositeModelForSave: async function (compositeModel, model) {
         let transformedModel = {};
 
-        if (isEmpty(compositeEntityTypeModel)) {
+        if (isEmpty(compositeModel)) {
             //
             return transformedModel;
         }
 
-        if (isEmpty(entityTypeModel)) {
+        if (isEmpty(model)) {
             //
             return transformedModel;
         }
 
         let properties, entityModelResponse;
-        let entityTypeModelData = entityTypeModel.data;
-        let compositeEntityTypeModelData = compositeEntityTypeModel.data;
+        let modelData = model.data;
+        let compositeModelData = compositeModel.data;
 
-        transformedModel.name = entityTypeModel.name;
+        transformedModel.name = model.name;
+        transformedModel.domain = model.domain;
         transformedModel.data = {};
 
-        if (compositeEntityTypeModelData && entityTypeModelData) {
-            if (compositeEntityTypeModelData.attributes && entityTypeModelData.attributes) {
-                transformedModel.properties = this._transformAttributesToAttributeProperties(compositeEntityTypeModelData.attributes, entityTypeModelData.attributes);
+        if (compositeModelData && modelData) {
+            if (compositeModelData.attributes && modelData.attributes) {
+                transformedModel.properties = this._transformAttributesToAttributeProperties(compositeModelData.attributes, modelData.attributes);
             } else {
                 //
             }
 
-            if (compositeEntityTypeModelData.relationships) {
+            if (compositeModelData.relationships) {
                 let selfAttrsAndRels;
-                if (entityTypeModelData.relationships) {
-                    selfAttrsAndRels = await this._transformModelsIntoAttributesAndRelationships(compositeEntityTypeModelData, entityTypeModelData);
+                if (modelData.relationships) {
+                    selfAttrsAndRels = await this._transformModelsIntoAttributesAndRelationships(compositeModelData, modelData);
 
                     if (selfAttrsAndRels) {
                         if (selfAttrsAndRels.attributes) {
@@ -379,16 +499,16 @@ BaseModelService.prototype = {
                     //
                 }
 
-                if (entityTypeModelData.contexts) {
+                if (modelData.contexts) {
                     transformedModel.contexts = [];
 
-                    for (let ctx of entityTypeModelData.contexts) {
+                    for (let ctx of modelData.contexts) {
                         let context = {};
                         let ctxAttrsAndRels;
 
                         context.context = ctx.context;
                         if (ctx.relationships) {
-                            ctxAttrsAndRels = await this._transformModelsIntoAttributesAndRelationships(compositeEntityTypeModelData, ctx);
+                            ctxAttrsAndRels = await this._transformModelsIntoAttributesAndRelationships(compositeModelData, ctx);
 
                             if (ctxAttrsAndRels) {
                                 if (ctxAttrsAndRels.attributes) {
@@ -413,30 +533,26 @@ BaseModelService.prototype = {
         return transformedModel;
     },
 
-    _getRelationshipModels: async function (request) {
-        let response;
+    _deleteModel: async function(request, dataObjectType) {
+        let dataOperationResults = [], compositeModelIds = [], dataOperationResult;
 
-        // get relationship model "<relationship name>_relationshipModel"
-        response = await this.post("entitymodelservice/get", request);
-        logger.debug("BASE_MODEL_RELATIONSHIP_MODEL", { relationshipModelsResponse: response }, "modelServce");
-
-        // get composite model of relationship model "relationshipModel"
-        let compositeRelationshipModel = await modelGetManager.getCompositeModel("relationshipModel");
-        logger.debug("BASE_MODEL_COMPOSITE_RELATIONSHIP_MODEL", { compositeRelationshipModel: compositeRelationshipModel }, "modelServce");
-
-        // transform relationship models in to entities based on composite relationship model.
-        if (compositeRelationshipModel && response && falcorUtil.isValidObjectPath(response, "response.entityModels")) {
-            let relationshipModels = response.response.entityModels;
-            let entities = await this._transformModelObjectToModelEntity(compositeRelationshipModel, relationshipModels);
-            response = {
-                "response": {
-                    "status": "success",
-                    "entityModels": entities
+        dataOperationResult = await dataObjectManageService.process(request, action);
+        dataOperationResults.push(dataOperationResult);
+        
+        if(dataObjectType == "entityType" || dataObjectType == "relationshipModel") {
+            let modelId = falcorUtil.isValidObjectPath(request, "params.query.id") ? request.params.query.id.replace("_" + dataObjectType, "") : "";
+            for(let compositeModelType of compositeModelTypes) {
+                request[request.dataIndex] = {
+                    "id": modelId + "_" + compositeModelType,
+                    "type": compositeModelType
                 }
+
+                dataOperationResult = await dataObjectManageService.process(request, action);
+                dataOperationResults.push(dataOperationResult);
             }
         }
 
-        return response;
+        return dataOperationResults;
     },
 
     _transformAttributePropertiesToAttributes: function (attributeModels, attributeProperties) {
@@ -526,28 +642,14 @@ BaseModelService.prototype = {
                 let rel = {};
                 rel.id = relEntity.name;
                 if (relEntityModelData.attributes) {
-                    rel.properties =  relEntity.properties;
+                    rel.properties = relEntity.properties;
                 }
 
-                // In progress . . . for relationship attributes
-                // if (relEntityModelData.relationships && relEntityData.relationships) {
-                //     for (let relType in relEntityModelData.relationships) {
-                //         if (relEntityData.relationships[relType]) {
-                //             if (relType.toLowerCase() == "hasattributes") {
-                //                 let relAttributes;
-                //                 let entityIds = relEntityData.relationships[relType].map(v => v.relTo.id);
+                let relationshipCompositeModel = await modelGetManager.getCompositeModel(relEntity.name);
 
-                //                 if (entityIds) {
-                //                     let entities = await modelGetManager.getModels(entityIds, "attributeModel");
-
-                //                     if (entities) {
-                //                         rel.attributes = await this._transformAttributeModelsToModels(entities);
-                //                     }
-                //                 }
-                //             }
-                //         }
-                //     }
-                // }
+                if (relationshipCompositeModel) {
+                    rel.attributes = relationshipCompositeModel.data ? relationshipCompositeModel.data.attributes : {};
+                }
 
                 relationships[relEntity.name].push(rel);
             }
@@ -671,7 +773,6 @@ BaseModelService.prototype = {
     },
 
     _prepareCompositeModels: function (attributeModels, compositeAttributeModel, entityTypeModel) {
-
         let compositeModels = [];
         let compositeAttributeModelList = this._fetchListOfAttributesBasedOnGroup(compositeAttributeModel);
 
@@ -728,6 +829,20 @@ BaseModelService.prototype = {
 
         return compositeModels;
 
+    },
+
+    _prepareModel: function (entityTypeModel) {
+        if (isEmpty(entityTypeModel)) {
+            //
+            return {};
+        }
+
+        return {
+            "id": entityTypeModel.name + "_entityType",
+            "name": entityTypeModel.name,
+            "type": "entityType",
+            "properties": entityTypeModel.properties
+        }
     },
 
     _fetchListOfAttributesBasedOnGroup: function (entityModel) {
