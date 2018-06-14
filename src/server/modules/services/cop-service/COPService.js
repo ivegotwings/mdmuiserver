@@ -1,8 +1,8 @@
-var DFRestService = require('../common/df-rest-service/DFRestService'),
+var DFRestService = require('../../common/df-rest-service/DFRestService'),
     uuidV1 = require('uuid/v1'),
     fs = require('fs'),
     config = require('config'),
-    isEmpty = require('../common/utils/isEmpty');
+    isEmpty = require('../../common/utils/isEmpty');
 
 var COPService = function (options) {
     options.serverType = "cop";
