@@ -1,6 +1,7 @@
 let DFServiceRest = require('../../common/df-rest-service/DFRestService');
 let DataObjectManageService = require("../data-service/DataObjectManageService");
 let ModelGetManager = require('./ModelGetManager');
+let LocalCacheManager = require('../../local-cache/LocalCacheManager');
 let falcorUtil = require('../../../../shared/dataobject-falcor-util');
 let logger = require('../../common/logger/logger-service');
 let isEmpty = require('../../common/utils/isEmpty');
@@ -14,6 +15,7 @@ let BaseModelService = function (option) {
 const compositeModelTypes = ["entityManageModel", "entityDisplayModel", "entityValidationModle", "entityDefaultModel"];
 let modelGetManager = new ModelGetManager({});
 let dataObjectManageService = new DataObjectManageService({});
+let localCacheManager = new LocalCacheManager();
 
 BaseModelService.prototype = {
     get: async function (request) {
@@ -90,7 +92,7 @@ BaseModelService.prototype = {
     },
 
     _processAttributeModel: async function (request, action) {
-        let transformedModel, transfromedRequest, dataOperationResult;
+        let transformedModel, transfromedRequest, dataOperationResult, modelId;
 
         // get composite model of entity type model "attributeModel"
         let compositeAttributeModel = await modelGetManager.getCompositeModel("attributeModel");
@@ -101,10 +103,16 @@ BaseModelService.prototype = {
         }
 
         if (transformedModel) {
+            modelId = transformedModel.id;
             request[request.dataIndex] = transformedModel;
         }
 
         dataOperationResult = await dataObjectManageService.process(request, action);
+
+        if (!isEmpty(modelId)) {
+            let cacheKey = modelGetManager.getModelCacheKey("attributeModel");
+            await localCacheManager.delByCacheKeyAndId(cacheKey, modelId);
+        }
 
         return dataOperationResult;
     },
@@ -281,6 +289,16 @@ BaseModelService.prototype = {
                 request[request.dataIndex] = model;
                 let dataOperationResult = await dataObjectManageService.process(request, action);
                 dataOperationResults.push(dataOperationResult);
+
+                if(!isEmpty(model.name)) {
+                    let cacheKey = modelGetManager.getCompositeModelCacheKey(model.name);
+                    await localCacheManager.delByCacheKey(cacheKey);
+                }
+
+                if(!isEmpty(model.id)) {
+                    let cacheKey = modelGetManager.getModelCacheKey("relationshipModel");
+                    await localCacheManager.delByCacheKeyAndId(cacheKey, model.id);
+                }
             }
 
             if (!isEmpty(compositeModels)) {
@@ -376,6 +394,16 @@ BaseModelService.prototype = {
                 request[request.dataIndex] = model;
                 let dataOperationResult = await dataObjectManageService.process(request, action);
                 dataOperationResults.push(dataOperationResult);
+
+                if(!isEmpty(model.name)) {
+                    let cacheKey = modelGetManager.getCompositeModelCacheKey(model.name);
+                    await localCacheManager.delByCacheKey(cacheKey);
+                }
+
+                if(!isEmpty(model.id)) {
+                    let cacheKey = modelGetManager.getModelCacheKey("relationshipModel");
+                    await localCacheManager.delByCacheKeyAndId(cacheKey, model.id);
+                }
             }
 
             if (!isEmpty(compositeModels)) {
@@ -534,15 +562,22 @@ BaseModelService.prototype = {
         return transformedModel;
     },
 
-    _deleteModel: async function(request, dataObjectType) {
-        let dataOperationResults = [], compositeModelIds = [], dataOperationResult;
+    _deleteModel: async function (request, dataObjectType) {
+        let dataOperationResults = [], compositeModelIds = [], dataOperationResult, modelId;
 
         dataOperationResult = await dataObjectManageService.process(request, action);
         dataOperationResults.push(dataOperationResult);
-        
-        if(dataObjectType == "entityType" || dataObjectType == "relationshipModel") {
-            let modelId = falcorUtil.isValidObjectPath(request, "params.query.id") ? request.params.query.id.replace("_" + dataObjectType, "") : "";
-            for(let compositeModelType of compositeModelTypes) {
+
+        modelId = falcorUtil.isValidObjectPath(request, "params.query.id") ? request.params.query.id : "";
+
+        if(!isEmpty(modelId)) {
+            let cacheKey = modelGetManager.getModelCacheKey(dataObjectType);
+            await localCacheManager.delByCacheKeyAndId(cacheKey, modelId);
+        }
+
+        if (dataObjectType == "entityType" || dataObjectType == "relationshipModel") {
+            modelId = falcorUtil.isValidObjectPath(request, "params.query.id") ? request.params.query.id.replace("_" + dataObjectType, "") : "";
+            for (let compositeModelType of compositeModelTypes) {
                 request[request.dataIndex] = {
                     "id": modelId + "_" + compositeModelType,
                     "type": compositeModelType
@@ -550,6 +585,11 @@ BaseModelService.prototype = {
 
                 dataOperationResult = await dataObjectManageService.process(request, action);
                 dataOperationResults.push(dataOperationResult);
+            }
+
+            if(!isEmpty(modelId)) {
+                let cacheKey = modelGetManager.getCompositeModelCacheKey(modelId);
+                await localCacheManager.delByCacheKey(cacheKey);
             }
         }
 
@@ -574,6 +614,7 @@ BaseModelService.prototype = {
                             for (let grpAttrName in group) {
                                 if (grpAttrName.toLowerCase() != "id") {
                                     grp[grpAttrName] = this._prepareAttributeValue(attributeProperties[attrModelName][0][grpAttrName]);
+                                    grp[grpAttrName].properties = { "isProperty": true }
                                 }
                             }
                             entityAttributes[attrModelName].group.push(grp);
@@ -581,6 +622,7 @@ BaseModelService.prototype = {
                     } else {
                         // create normal attribute for key value properties based on composite attribute model.
                         entityAttributes[attrModelName] = this._prepareAttributeValue(attributeProperties[attrModelName]);
+                        entityAttributes[attrModelName].properties = { "isProperty": true }
                     }
                 }
             }
