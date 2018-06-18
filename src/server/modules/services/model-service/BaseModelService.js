@@ -296,7 +296,7 @@ BaseModelService.prototype = {
                 }
 
                 if(!isEmpty(model.id)) {
-                    let cacheKey = modelGetManager.getModelCacheKey("relationshipModel");
+                    let cacheKey = modelGetManager.getModelCacheKey("entityType");
                     await localCacheManager.delByCacheKeyAndId(cacheKey, model.id);
                 }
             }
