@@ -825,6 +825,7 @@ BaseModelService.prototype = {
                     "id": entityTypeModel.name + "_" + compModel,
                     "name": entityTypeModel.name,
                     "type": compModel,
+                    "domain": entityTypeModel.domain,
                     "data": {}
                 }
 
@@ -884,6 +885,7 @@ BaseModelService.prototype = {
             "id": entityTypeModel.name + "_" + modelType,
             "name": entityTypeModel.name,
             "type": modelType,
+            "domain": entityTypeModel.domain,
             "properties": entityTypeModel.properties
         }
     },
