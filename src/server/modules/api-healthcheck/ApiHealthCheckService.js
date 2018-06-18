@@ -196,7 +196,7 @@ ApiHealthCheckService.prototype = {
 
                             response = {
                                 "status": "success",
-                                "msg": apiUrl + " call returned with success status.",
+                                "msg": apiUrl + " call returned with success status",
                                 "detail": {
                                     "request": updateRequest.body,
                                     "response": updateApiResponse,
@@ -221,8 +221,8 @@ ApiHealthCheckService.prototype = {
                         var verificationTime = verificationEndTick[1] / 1000000;
 
                         response = {
-                            "status": "error",
-                            "msg": apiUrl + " call failed to update and get back the updated value",
+                            "status": "warning",
+                            "msg": apiUrl + " call succeeded but unable to verify updated value",
                             "detail": {
                                 "request": updateRequest.body,
                                 "response": updateApiResponse,
@@ -346,8 +346,8 @@ ApiHealthCheckService.prototype = {
                         var verificationTime = verificationEndTick[1] / 1000000;
 
                         response = {
-                            "status": "error",
-                            "msg": apiUrl + " call failed to create and get back the created object",
+                            "status": "warning",
+                            "msg": apiUrl + " call succeeded but unable to verify created object",
                             "detail": {
                                 "request": createRequest.body,
                                 "response": createApiResponse,
