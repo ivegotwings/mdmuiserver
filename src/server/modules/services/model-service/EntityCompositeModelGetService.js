@@ -1,11 +1,11 @@
 'use strict';
 
-var DFRestService = require('../common/df-rest-service/DFRestService');
+var DFRestService = require('../../common/df-rest-service/DFRestService');
 
-var logger = require('../common/logger/logger-service');
+var logger = require('../../common/logger/logger-service');
 
-var falcorUtil = require('../../../shared/dataobject-falcor-util');
-var mergeUtil = require('../../../shared/dataobject-merge-util');
+var falcorUtil = require('../../../../shared/dataobject-falcor-util');
+var mergeUtil = require('../../../../shared/dataobject-merge-util');
 
 var EntityCompositeModelGetService = function (options) {
     DFRestService.call(this, options);

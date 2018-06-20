@@ -1,9 +1,9 @@
 'use strict';
 
-var DFRestService = require('../common/df-rest-service/DFRestService');
+var DFRestService = require('../../common/df-rest-service/DFRestService');
 var RuntimeVersionManager = require('../version-service/RuntimeVersionManager');
 
-const falcorUtil = require('../../../shared/dataobject-falcor-util');
+const falcorUtil = require('../../../../shared/dataobject-falcor-util');
 
 var TenantSystemConfigService = function (options) {
     DFRestService.call(this, options);

@@ -1,8 +1,8 @@
 
 'use strict';
 
-var stateManager = require('../common/state-manager/state-manager');
-var logger = require('./../common/logger/logger-service');
+var stateManager = require('../../common/state-manager/state-manager');
+var logger = require('../../common/logger/logger-service');
 var CURRENT_BUILD_VERSION;
 
 class RuntimeVersionManager {

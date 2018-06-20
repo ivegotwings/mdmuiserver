@@ -10,8 +10,8 @@ var compression = require('compression');
 var cookieParser = require('cookie-parser');
 var fileUpload = require('express-fileupload');
 var path = require("path");
-var RuntimeVersionManager = require('../version-service/RuntimeVersionManager');
-var ModuleVersionManager = require('../version-service/ModuleVersionManager');
+var RuntimeVersionManager = require('../services/version-service/RuntimeVersionManager');
+var ModuleVersionManager = require('../services/version-service/ModuleVersionManager');
 
 var config = require('config');
 
@@ -89,12 +89,12 @@ dataobjectRoute(app);
 
 logger.info('Web engine start - dataobject service routes are loaded');
 
-var passThroughRoute = require('../pass-through/pass-through-route');
+var passThroughRoute = require('../services/pass-through-service/pass-through-route');
 passThroughRoute(app);
 
 logger.info('Web engine start - passthrough service routes are loaded');
 
-var eventServiceRoute = require('../event-service/event-service-route');
+var eventServiceRoute = require('../services/event-service/event-service-route');
 eventServiceRoute(app);
 
 logger.info('Web engine start - event service routes are loaded');
@@ -113,17 +113,17 @@ var healthCheckRoute = require('../api-healthcheck/api-health-check-route');
 healthCheckRoute(app);
 
 var notificationEngine = require("../notification-engine/socket");
-var notificationService = require('../notification-service/notification-route');
+var notificationService = require('../services/notification-service/notification-route');
 notificationService(app);
 
 logger.info('Web engine start - notification service routes are loaded');
 
-var binaryStreamObjectRoute = require('../binarystreamobject/binarystreamobject-route');
+var binaryStreamObjectRoute = require('../services/binarystreamobject-service/binarystreamobject-route');
 binaryStreamObjectRoute(app);
 
 logger.info('Web engine start - binary stream object service routes are loaded');
 
-var binaryObjectRoute = require('../binaryobject/binaryobject-route');
+var binaryObjectRoute = require('../services/binaryobject-service/binaryobject-route');
 binaryObjectRoute(app);
 
 logger.info('Web engine start - binary object service routes are loaded');
@@ -135,7 +135,7 @@ contextMgrMiddleware(app);
 
 logger.info('Web engine start - context manager middleware is loaded');
 
-var copRoute = require('../cop/cop-route');
+var copRoute = require('../services/cop-service/cop-route');
 copRoute(app);
 
 logger.info('Web engine start - cop service routes are loaded');
@@ -145,7 +145,7 @@ fileUploadRoute(app);
 
 logger.info('Web engine start - fileupload routes are loaded');
 
-var versionRoute = require('../version-service/version-route');
+var versionRoute = require('../services/version-service/version-route');
 versionRoute(app);
 
 logger.info('Web engine start - version routes are loaded');

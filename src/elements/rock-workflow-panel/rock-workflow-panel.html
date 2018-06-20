@@ -162,8 +162,8 @@
                 <div id="workflows-content">
                     <template is="dom-if" if="[[_showWorkflow]]">
                         <template id="workflowsTemplate" is="dom-repeat" items="[[_workflowsData]]" as="_workflowstepperData">
-                            <pebble-accordion header-text="[[_workflowstepperData.workflowTitle]]" default-icon="pebble-icon:action-scope-take-selection"
-                                open-icon="pebble-icon:action-expand">
+                            <pebble-accordion header-text="[[_workflowstepperData.workflowTitle]]"  
+                                 >
                                 <div slot="accordion-content">
                                     <div id="workflow-description">
                                         <span class="workflowtext">[[_getWorkFlowDescription(_workflowstepperData)]]</span>
@@ -303,8 +303,29 @@
                     return this._entityGetWorkflowDefinitionLiq;
                 },
 
-                _contextChanged: function (contextData) {
+                _contextChanged: async function (contextData) {
                     if (!_.isEmpty(this.contextData)) {
+                        var dataContexts = ContextHelper.getDataContexts(this.contextData);
+                        var firstItemContext = ContextHelper.getFirstItemContext(this.contextData);
+                        var entityType = firstItemContext.type;
+                        if (!_.isEmpty(dataContexts)) {
+                            for (var i = 0; i < dataContexts.length; i++) {
+                                var context = dataContexts[i];
+                                var additionalContexts = [];
+                                var contextModel = await ContextModelManager.getContextModelByEntityTypeAndDataContext(entityType, context);
+                                if (contextModel) {
+                                    additionalContexts = contextModel.properties ? contextModel.properties.additionalcontexts : undefined;
+                                }
+                                if (!_.isEmpty(additionalContexts)) {
+                                    additionalContexts.forEach(function (ctxKey) {
+                                        delete context[ctxKey];
+                                    });
+                                }
+                            }
+
+                            dataContexts = dataContexts.filter(ctx => !_.isEmpty(ctx));
+                            this.contextData[ContextHelper.CONTEXT_TYPE_DATA] = dataContexts;
+                        }
                         this.workflowMappingDefinitionLiq.requestData = DataRequestHelper.createWorkflowMappingGetRequest(this.contextData);
                         this.workflowMappingDefinitionLiq.generateRequest();
                     }
@@ -315,12 +336,10 @@
                         var mappingModels = response.content && response.content.entityModels ? response.content.entityModels : undefined;
                         if (mappingModels && mappingModels.length > 0) {
                             var wfDefinitionMappingModel = mappingModels.find(obj => obj.type == "workflowDefinitionMapping");
-                            var wfRelationships = DataMergeHelper.mergeWorkflowMappings(wfDefinitionMappingModel, this.contextData);
-                            var mappedWorkflowNames = DataHelper.getRelToNames(wfRelationships.hasWorkflowsDefined);
-                            this.set("_mappedWorkflowNames", mappedWorkflowNames);
+                            var workflowContexts = ContextHelper.createWorkflowContexts(wfDefinitionMappingModel, this.contextData);
                             var itemContext = this.getFirstItemContext();
-                            itemContext.workflowNames = this._mappedWorkflowNames;
-                            if (!_.isEmpty(this._mappedWorkflowNames)) {
+                            itemContext.workflowContexts = workflowContexts;
+                            if (!_.isEmpty(workflowContexts)) {
                                 this.entityWfEventsGetLiq.requestData = DataRequestHelper.createWorkflowEventsGetRequest(this.contextData);
                                 this.entityWfEventsGetLiq.generateRequest();
                             }
@@ -689,6 +708,17 @@
 
                     var workflowTransitionRequestDataJson = DataRequestHelper.createWorkflowTransitionRequest(this.contextData);
 
+                    var data = {};
+                    var workflowContexts = firstItemContext.workflowContexts;
+                    if(!_.isEmpty(workflowContexts)) {
+                        var mappedWorkflowContext = workflowContexts.find(obj => obj.workflow === currentWorkflowName);
+                        data = ContextHelper.createContextForWorkflowActions(mappedWorkflowContext);
+                    }
+
+                    if(!_.isEmpty(data)) {
+                        workflowTransitionRequestDataJson.entity["data"] = data;
+                    }
+
                     //Add hotline flag if hotline is enabled
                     if (DataHelper.isHotlineModeEnabled()) {
                         workflowTransitionRequestDataJson.hotline = true;
@@ -756,7 +786,7 @@
                     var workflowPanelMessage = this.shadowRoot.querySelector("#workflowPanelMessage");
                     if (workflowPanelMessage) {
                         if (show) {
-                            workflowPanelMessage.textContent = "Entity is not available in workflow.";
+                            workflowPanelMessage.textContent = "No workflows for the entity in current context";
                             workflowPanelMessage.removeAttribute("hidden");
                         } else {
                             workflowPanelMessage.textContent = "";
