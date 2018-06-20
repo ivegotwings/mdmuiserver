@@ -30,18 +30,20 @@ It manages the current extensions and creates the new extensions.
 -->
 <dom-module id="rock-extension-manage">
     <template>
-        <style include="bedrock-style-common">            
+        <style include="bedrock-style-common">
 
             .tree-heading {
                 font-weight: var(--font-bold, bold);
                 font-size: var(--default-font-size, 14px);
             }
 
-            
         </style>
         <div class="button-siblings">
             <div class="base-grid-structure" align="center">
-                <div class="tree-heading base-grid-structure-child-1">Classification selection</div>
+                <div class="tree-heading base-grid-structure-child-1">
+                    <p class="status-error status-text" hidden$="[[allowSaveClassifications]]">Do not have permissions to edit/save classifications, contact administrator.</p>
+                    Classification selection
+                </div>
                 <div class="base-grid-structure-child-2">
                     <rock-classification-tree id="contextTree" multi-select="[[multiSelect]]" selected-classifications="{{_selectedItems}}" taxonomy="[[taxonomy]]"
                         context-data="[[contextData]]" leaf-node-only="[[leafNodeOnly]]">
@@ -51,12 +53,13 @@ It manages the current extensions and creates the new extensions.
         </div>
         <div id="buttonContainer" align="center" class="buttonContainer-static">
             <template is="dom-repeat" id="event-template" items="[[componentEvents]]">
-                <pebble-button id="[[item.id]]" class$="[[item.class]]" button-text="[[item.text]]" on-tap="_onTriggerEvent" data-args$="[[item.event]]" elevation=1 raised></pebble-button>
+                <pebble-button id="[[item.id]]" class$="[[item.class]]" button-text="[[item.text]]" on-tap="_onTriggerEvent" data-args$="[[item.event]]" disabled$="[[!_allowEvent(allowSaveClassifications, item.id)]]" elevation=1 raised></pebble-button>
             </template>
         </div>
         <liquid-entity-data-get id="taxonomyGetDataService" operation="getbyids" request-data="{{_taxonomyRequest}}" on-response="_onTaxonomyResponse"></liquid-entity-data-get>
         <liquid-entity-data-save id="attributeSaveDataService" operation="update" data-index$="[[dataIndex]]" data-sub-index$="[[dataSubIndex]]"
             request-data="{{_saveRequest}}" on-response="_onSaveResponse"></liquid-entity-data-save>
+        <liquid-entity-model-get id="getAuthModel" operation="getbyids" on-response="_onAuthModelReceived" on-error="_onAuthModelFailed"></liquid-entity-model-get>
         <liquid-rest id="contextLiquid" url="[[_getContextURL]]" method="POST" request-data="{{requestData}}" on-liquid-response="_onResponseReceived"
             exclude-in-progress>
         </liquid-rest>
@@ -228,6 +231,11 @@ It manages the current extensions and creates the new extensions.
                         value: function () {
                             return [];
                         }
+                    },
+
+                    allowSaveClassifications: {
+                        type: Boolean,
+                        value: true
                     }
                 },
 
@@ -254,8 +262,46 @@ It manages the current extensions and creates the new extensions.
 
                 _onContextOrTaxonomyChange: function () {
                     if (this.taxonomy && !_.isEmpty(this.contextData)) {
-                        this._getTaxonomyManageModel();
+                        this._getAuthManageModel();
                     }
+                },
+
+                _getAuthManageModel: function () {
+                    var authModelId = "";
+
+                    if (this.contextData && !_.isEmpty(this.contextData)) {
+                        let itemContext = ContextHelper.getFirstItemContext(this.contextData);
+                        let userContext = ContextHelper.getFirstUserContext(this.contextData);
+
+                        if (itemContext) {
+                            let type = EntityTypeManager.getInstance().getTypeByName(itemContext.type);
+                            if (type) {
+                                authModelId = type.domain + "_authorizationModel";
+                            }
+                        }
+
+                        if (userContext) {
+                            authModelId = authModelId + "_" + userContext.role;
+                        }
+                    }
+
+                    //Fetch auth model
+                    var authModelEl = this.shadowRoot.querySelector("#getAuthModel");
+                    if (authModelEl) {
+                        authModelEl.requestData = DataRequestHelper.createGetModelRequest("authorizationModel", [authModelId]);
+                        authModelEl.generateRequest();
+                    }
+                },
+
+                _onAuthModelReceived: function(e, detail) {
+                    if(detail && DataHelper.isValidObjectPath(detail, "response.content.entityModels.0.properties.contextsPermission.0")) {
+                        this.allowSaveClassifications = detail.response.content.entityModels[0].properties.contextsPermission[0].writePermission || false;
+                    }
+                    this._getTaxonomyManageModel();
+                },
+
+                _onAuthModelFailed: function(e, detail) {
+                    this._getTaxonomyManageModel();
                 },
 
                 _getTaxonomyManageModel: function () {
@@ -852,6 +898,14 @@ It manages the current extensions and creates the new extensions.
                     } else if (event == "nextEvent") {
                         this._save(e);
                     }
+                },
+
+                _allowEvent: function(allowSave, event) {
+                    if(event == "nextEvent") {
+                        return allowSave;
+                    }
+
+                    return true;
                 }
             });
         })();

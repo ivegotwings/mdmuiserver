@@ -1,10 +1,10 @@
 'use strict';
-var notificationManager = require('../notification-engine/api/notification-manager');
+var notificationManager = require('../../notification-engine/api/notification-manager');
 var config = require('config');
-var isEmpty = require('../common/utils/isEmpty');
-var enums = require('../../../shared/enums-util');
-var logger = require('../common/logger/logger-service');
-var executionContext = require('../common/context-manager/execution-context');
+var isEmpty = require('../../common/utils/isEmpty');
+var enums = require('../../../../shared/enums-util');
+var logger = require('../../common/logger/logger-service');
+var executionContext = require('../../common/context-manager/execution-context');
 
 function prepareNotificationObject(data) {
     var notificationInfo = {};
