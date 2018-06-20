@@ -4,12 +4,16 @@
 
 <dom-module id="rock-entity-preview">
     <template>
-        <pebble-templatizer data-model="[[dataModel]]" template-id="[[templateId]]"></pebble-templatizer>
+        <pebble-templatizer data-model="[[dataModel]]" view="{{view}}"></pebble-templatizer>
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
         <liquid-entity-model-composite-get id="compositeAllModelGet" on-entity-model-composite-get-response="_onCompositeAllModelGetResponse"
             on-error="_onCompositeAllModelGetError"></liquid-entity-model-composite-get>
         <liquid-entity-data-get id="entityGetDataService" operation="getbyids" apply-locale-coalesce="true" on-response="_onEntityDataGetReceived"
             on-error="_onEntityDataGetFailed" data-index="entityData" data-sub-index="data"></liquid-entity-data-get>
+        <liquid-config-get id="templateDataGet" operation="getbyids" request-id="req1" request-data={{request}} on-response="_onConfigsGetResponse"></liquid-config-get>
+        <liquid-config-save id="templateDataSave" verbose name="configSaveService" on-response="_onSaveResponse" data-index="config"
+            data-sub-index="config"></liquid-config-save>
+        <bedrock-pubsub on-bedrock-event-savepreviewclicked="_saveTemplate" name="bedrock-event-savepreviewclicked"></bedrock-pubsub>
     </template>
     <script>
         (function () {
@@ -44,6 +48,10 @@
                     _loading: {
                         type: Boolean,
                         value: true
+                    },
+                    view: {
+                        type: String,
+                        value: ''
                     }
                 },
 
@@ -99,6 +107,7 @@
                     let model = this._prepareModel(detail.response.content.entities[0].data, detail.response
                         .content
                         .entities[0].properties);
+
                     this.dataModel = model;
                     this._loading = false;
                     let eventData = {
@@ -119,6 +128,23 @@
                         bubbles: true,
                         composed: true
                     }));
+
+                    if (!_.isEmpty(this.dataModel)) {
+                        this.request = {
+                            "params": {
+                                "query": {
+                                    "id": this.templateId,
+                                    "filters": {
+                                        "typesCriterion": ["entityPreviewTemplate"]
+                                    }
+                                },
+                                "fields": {
+                                    "jsonData": true
+                                }
+                            }
+                        };
+                        this.shadowRoot.querySelector('#templateDataGet').generateRequest();
+                    }
                 },
 
                 _proccessAttributes: function (attributes, attributemodel) {
@@ -256,6 +282,30 @@
                     return model;
                 },
 
+                _saveTemplate: function (e) {
+                    let view = e.detail;
+                    let base64 = btoa((view).replace(/\n/g, ' ').replace().replace(
+                        /[\u0250-\ue007]/g, ''));
+                    let requestData = {
+                        "configObjects": [{
+                            "id": this.templateId,
+                            "name": this.templateId,
+                            "type": "entityPreviewTemplate",
+                            "data": {
+                                "jsonData": {
+                                    "blob": base64
+                                }
+                            }
+                        }]
+                    }
+                    let configSaveService = this.shadowRoot.querySelector('[name="configSaveService"]');
+                    if (configSaveService) {
+                        configSaveService.operation = "update";
+                        configSaveService.requestData = requestData;
+                        configSaveService.generateRequest();
+                    }
+                },
+
                 _onEntityDataGetFailed: function (e, detail) {
                     console.log(e, detail);
                 },
@@ -272,7 +322,31 @@
                     return this._entityGetDataService;
                 },
 
+                _onConfigsGetResponse: function (e) {
+                    if (DataHelper.isValidObjectPath(e.detail.response, 'content.configObjects') &&
+                        DataHelper.isValidObjectPath(e
+                            .detail.response.content.configObjects[0], 'data.jsonData.blob')) {
+                        this.view = atob(e.detail.response.content.configObjects[0].data.jsonData.blob);
+                        let eventData = {
+                            name: "viewdatareceived"
+                        };
+                        this.dispatchEvent(new CustomEvent('bedrock-event', {
+                            detail: eventData,
+                            bubbles: true,
+                            composed: true
+                        }));
+                    } else {
+                        this.showErrorToast('Response Error', 1000);
+                    }
+                },
 
+                _onSaveResponse: function (e) {
+                    if (e.detail.response.status === 'success') {
+                        this.showSuccessToast('Changes Saved Successfully', 1000);
+                    } else {
+                        this.showErrorToast('Save Error', 1000);
+                    }
+                }
             })
         })()
     </script>
