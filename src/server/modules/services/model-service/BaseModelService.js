@@ -227,8 +227,8 @@ BaseModelService.prototype = {
                     let entityTypeEntity = entityTypeEntities[0];
 
                     if (entityTypeEntity) {
-                        if (isEmpty(entityTypeEntity)) {
-                            entityTypeEntity = {};
+                        if (isEmpty(entityTypeModel)) {
+                            entityTypeModel = {};
                         }
 
                         entityTypeModel.type = entityTypeEntity.type;
