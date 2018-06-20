@@ -181,6 +181,15 @@ COPService.prototype = {
 
         this._handleDownloadResponse(modelResponse, fileName, response);
     },
+    downloadModelJob: async function (request, response) {
+        var downloadModelURL = "copservice/downloadModelJob";
+        var timeStamp = Date.now();
+        var request = request.body || {};
+        var fileName = request.fileName + '-' + timeStamp;
+
+        //console.log('downloadModelRequest: ', JSON.stringify(request.body, null, 2));
+        return await this.post(downloadModelURL, request);
+    },
     downloadDataExcel: async function (request, response) {
         var downloadDataURL = "copservice/downloadDataExcel";
         var timeStamp = Date.now();

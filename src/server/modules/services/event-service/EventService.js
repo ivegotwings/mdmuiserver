@@ -1409,6 +1409,15 @@ Eventservice.prototype = {
                 case "ui_authorizationmodel":
                     taskType = "Authorization Model Imports"
                     break;
+                case "ui_basedatamodel_export":
+                    taskType = "Base Data Model Exports"
+                    break;
+                case "ui_governancemodel_export":
+                    taskType = "Governance Model Exports"
+                    break;
+                case "ui_authorizationmodel_export":
+                    taskType = "Authorization Model Exports"
+                    break;
             }
         }
         else {
