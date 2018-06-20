@@ -23,8 +23,8 @@
 				background: grey
 			}
 		</style>
-		<placeholder></placeholder>
 		<pebble-external-html html="{{template}}" model="[[dataModel]]"></pebble-external-html>
+		<placeholder></placeholder>
 		<template is="dom-if" if="{{showeditor}}">
 			<div style="width:100%;height:100%">
 				<textarea style="resize:none;width:100%;height:85%" name="textarea"></textarea>
@@ -35,9 +35,7 @@
 			</div>
 		</template>
 		<bedrock-pubsub on-bedrock-event-editpreviewclicked="_editHtml" name="bedrock-event-editpreviewclicked"></bedrock-pubsub>
-		<liquid-config-get id="templateDataGet" operation="getbyids" request-id="req1" request-data={{request}} on-response="_onConfigsGetResponse"></liquid-config-get>
-		<liquid-config-save id="templateDataSave" verbose name="configSaveService" on-response="_onSaveResponse" data-index="config"
-		    data-sub-index="config"></liquid-config-save>
+		<bedrock-pubsub on-bedrock-event-viewdatareceived="_processTemplate" name="bedrock-event-viewdatareceived"></bedrock-pubsub>
 	</template>
 	<script>
 		(function () {
@@ -56,9 +54,10 @@
 						type: Boolean,
 						value: false
 					},
-					templateId: {
+					view: {
 						type: String,
-						value: ''
+						value: '',
+						observer: "_viewChanged"
 					}
 				},
 
@@ -73,23 +72,6 @@
 
 				_onDataModelChange: function (dataModel) {
 					this.model = dataModel;
-					console.log(this.templateId);
-					if (!_.isEmpty(this.model)) {
-						this.request = {
-							"params": {
-								"query": {
-									"id": this.templateId,
-									"filters": {
-										"typesCriterion": ["entityPreviewTemplate"]
-									}
-								},
-								"fields": {
-									"jsonData": true
-								}
-							}
-						};
-						this.shadowRoot.querySelector('#templateDataGet').generateRequest();
-					}
 				},
 
 				embbedLoops() {
@@ -182,39 +164,38 @@
 
 				_saveHtml: function () {
 					this.view = Polymer.dom(this.root).querySelectorAll('textarea')[0].value;
-					let base64 = btoa((this.view).replace(/\n/g, ' ').replace().replace(/[\u0250-\ue007]/g, ''));
-					let requestData = {
-						"configObjects": [{
-							"id": this.templateId,
-							"name": this.templateId,
-							"type": "entityPreviewTemplate",
-							"data": {
-								"jsonData": {
-									"blob": base64
-								}
-							}
-						}]
-					}
-					let configSaveService = this.shadowRoot.querySelector('[name="configSaveService"]');
-					if (configSaveService) {
-						configSaveService.operation = "update";
-						configSaveService.requestData = requestData;
-						configSaveService.generateRequest();
-					}
+					let eventData = {
+						name: "savepreviewclicked",
+						data: this.view
+					};
+					this.dispatchEvent(new CustomEvent('bedrock-event', {
+						detail: eventData,
+						bubbles: true,
+						composed: true
+					}));
 				},
 
 				_viewHtml: function () {
 					this.showeditor = false;
-					Polymer.dom(this.root).querySelectorAll('placeholder')[0].nextElementSibling.hidden = false;
+					this.template = "";
 					this._processTemplate();
 				},
 
 				_showEditor: function () {
 					this.showeditor = true;
 					Polymer.Async.timeOut.after(100).run(() => {
-						Polymer.dom(this.root).querySelectorAll('placeholder')[0].nextElementSibling.hidden = true;
 						Polymer.dom(this.root).querySelectorAll('textarea')[0].value = this.view;
 					});
+					let range = document.createRange();
+					let endNode = Polymer.dom(this.root).querySelectorAll('placeholder')[0];
+					let startNode = Polymer.dom(this.root).querySelectorAll('pebble-external-html')[0];
+					range.setStart(startNode, 0);
+					range.setEnd(endNode, 0);
+					this.embeddedDocumentFragment = range.extractContents();
+					for (let i = 0; i < this.embeddedDocumentFragment.children.length; i++) {
+						this.embeddedDocumentFragment.children.item(i).setAttribute('hidden', true);
+					}
+					range.detach();
 				},
 
 				_getImageDownloadUrl: function (fileName) {
@@ -253,24 +234,6 @@
 						})
 					});
 				},
-
-				_onConfigsGetResponse: function (e) {
-					if (DataHelper.isValidObjectPath(e.detail.response, 'content.configObjects') && DataHelper.isValidObjectPath(e
-							.detail.response.content.configObjects[0], 'data.jsonData.blob')) {
-						this.view = atob(e.detail.response.content.configObjects[0].data.jsonData.blob);
-						this._processTemplate();
-					} else {
-						this.showErrorToast('Response Error', 1000);
-					}
-				},
-
-				_onSaveResponse: function (e) {
-					if (e.detail.response.status === 'success') {
-						this.showSuccessToast('Changes Saved Successfully', 1000);
-					} else {
-						this.showErrorToast('Save Error', 1000);
-					}
-				}
 			})
 		})()
 	</script>
