@@ -12,7 +12,7 @@ let LocalCacheManager = new localCacheManager();
 ModelManager.prototype = {
     getCompositeModel: async function (modelType) {
         let baseCompositeModel;
-        let cacheKey = this._getCacheKey(modelType);
+        let cacheKey = this.getCompositeModelCacheKey(modelType);
 
         baseCompositeModel = await LocalCacheManager.get(cacheKey);
 
@@ -31,7 +31,7 @@ ModelManager.prototype = {
     getModels: async function (modelIds, modelType) {
         let models = [];
         let missingModelIds = [];
-        let cacheKey = this._getCacheKey("COMPOSITE_MODEL_" + modelType);
+        let cacheKey = this.getModelCacheKey(modelType);
         let cachedData = await LocalCacheManager.get(cacheKey);
 
         if (cachedData) {
@@ -122,8 +122,16 @@ ModelManager.prototype = {
         };
     },
 
+    getCompositeModelCacheKey: function (type) {
+        return this._getCacheKey("COMPOSITE_MODEL_" + type);
+    },
+
+    getModelCacheKey: function(type) {
+        return this._getCacheKey(type);
+    },
+
     _getCacheKey: function (type) {
-        return "MODEL_" + type;
+        return "BASE_MODEL_" + type;
     }
 }
 
