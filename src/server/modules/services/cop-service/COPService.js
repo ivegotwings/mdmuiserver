@@ -107,7 +107,7 @@ COPService.prototype = {
 
         var fileName = request.body.fileName;
         var files = request.files;
-       
+
         var generateFieldMapRequest = JSON.parse(request.body.requestData);
         generateFieldMapRequest.binaryObject.id = uuidV1();
         generateFieldMapRequest.binaryObject.data.blob = this._getFileContent(fileName, files);
@@ -229,9 +229,9 @@ COPService.prototype = {
             downloadDataJobRequest.params.pageSize = 30000;
 
             //delete options at each search query level.
-            if(downloadDataJobRequest.entity && downloadDataJobRequest.entity.data && downloadDataJobRequest.entity.data.jsonData) {
+            if (downloadDataJobRequest.entity && downloadDataJobRequest.entity.data && downloadDataJobRequest.entity.data.jsonData) {
                 var searchQueries = downloadDataJobRequest.entity.data.jsonData.searchQueries;
-                if(searchQueries) {
+                if (searchQueries) {
                     for (var i = 0; i < searchQueries.length; i++) {
                         var searchQuery = searchQueries[i];
 
@@ -314,7 +314,7 @@ COPService.prototype = {
 
             if (!files) {
                 var dir = './upload';
-            
+
                 var fileStoragePath = config.get('modules.fileDownload.fileStoragePath');
                 if (!isEmpty(fileStoragePath)) {
                     if (fs.existsSync(fileStoragePath)) {
@@ -345,9 +345,13 @@ COPService.prototype = {
                 }
 
                 var blob = binaryObject.data && binaryObject.data.blob ? binaryObject.data.blob : "";
-                response.cookie('fileDownload', true, { path: "/", httpOnly: false });
+                response.cookie('fileDownload', true, {
+                    path: "/",
+                    httpOnly: false
+                });
+                let contentType = (fileExtension === "xlsm") ? 'application/vnd.ms-excel.sheet.macroEnabled.12' : 'application/vnd.ms-excel'
                 response.writeHead(200, {
-                    'Content-Type': 'application/vnd.ms-excel', //ToDo: need to use different mime types based on file extensions
+                    'Content-Type': contentType, //ToDo: need to use different mime types based on file extensions
                     'Content-disposition': 'attachment;filename=' + fileName + "." + fileExtension
                 });
 
@@ -362,4 +366,3 @@ COPService.prototype = {
 };
 
 module.exports = COPService;
-
