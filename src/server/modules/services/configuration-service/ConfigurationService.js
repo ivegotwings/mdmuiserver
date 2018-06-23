@@ -359,7 +359,7 @@ ConfigurationService.prototype = {
                 res = await this.post(serviceUrl, request);
                 await LocalCacheManager.set(cacheKey, falcorUtil.cloneObject(res));
             } else {
-                console.log("\n Cached");
+                //console.log("\n Cached");
             }
         }
 
