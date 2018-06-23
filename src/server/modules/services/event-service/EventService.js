@@ -826,6 +826,7 @@ Eventservice.prototype = {
             var fileName = this._getAttributeValue(requestObject, "fileName");
             var fileId = this._getAttributeValue(requestObject, "fileId");
             var fileType = this._getAttributeValue(requestObject, "fileType");
+            var fileExtension = this._getAttributeValue(requestObject, "fileExtension");
             var submittedBy = this._getAttributeValue(requestObject, "submittedBy");
             var totalRecords = this._getAttributeValue(requestObject, "totalRecords");
             var message = this._getAttributeValue(requestObject, "errorMessage");
@@ -838,6 +839,7 @@ Eventservice.prototype = {
             response.fileId = fileId ? fileId : "N/A";
             response.fileName = fileName ? fileName : response.fileId;
             response.fileType = fileType ? fileType : "N/A";
+            response.fileExtension = fileExtension ? fileExtension : "N/A";
             response.submittedBy = submittedBy ? submittedBy.replace("_user", "") : "N/A";
             response.totalRecords = (totalRecords && totalRecords > -1) ? totalRecords : "N/A";
             response.message = message ? message : "N/A";
@@ -1408,6 +1410,15 @@ Eventservice.prototype = {
                     break;
                 case "ui_authorizationmodel":
                     taskType = "Authorization Model Imports"
+                    break;
+                case "ui_basedatamodel_export":
+                    taskType = "Base Data Model Exports"
+                    break;
+                case "ui_governancemodel_export":
+                    taskType = "Governance Model Exports"
+                    break;
+                case "ui_authorizationmodel_export":
+                    taskType = "Authorization Model Exports"
                     break;
             }
         }
