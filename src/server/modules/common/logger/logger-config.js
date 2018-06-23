@@ -171,6 +171,9 @@ var LOGGER_CONFIG = function () {
         "/rsConnectService/downloadModelExcel": {
             "level": "info"
         },
+        "/rsConnectService/downloadModelJob": {
+            "level": "info"
+        },
         "/rsConnectService/downloadDataExcel": {
             "level": "info"
         },

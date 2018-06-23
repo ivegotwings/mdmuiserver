@@ -28,6 +28,10 @@ var COPRouter = function (app) {
     app.post('/data/cop/downloadModelExcel', async function (req, res) {
         copService.downloadModelExcel(req, res);
     });
+    app.post('/data/cop/downloadModelJob', async function (req, res) {
+        var response = await copService.downloadModelJob(req, res);
+        res.status(200).send(response);
+    });
     app.post('/data/cop/downloadDataExcel', async function (req, res) {
         copService.downloadDataExcel(req, res);
     });

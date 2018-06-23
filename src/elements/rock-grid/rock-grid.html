@@ -407,6 +407,7 @@ The following JSON object is a config sample which configures the grid in all ab
 			data-table-row:not([header]) data-table-cell {
 				min-height: 40px!important;
 				height: 48px !important;
+				z-index:auto !important;
 			}
 
 			.check-filter {
@@ -1374,6 +1375,18 @@ The following JSON object is a config sample which configures the grid in all ab
 						value: function () {
 							return "click here to see values ({noOfValues})";
 						}
+					},
+					preSelectItem:{
+						type:Object,
+						value:function(){
+							return {};
+						}
+					},
+					currentSelectedItem:{
+						type:Object,
+						value:function(){
+							return {};
+						}
 					}
 				},
 				behaviors: [
@@ -1394,7 +1407,8 @@ The following JSON object is a config sample which configures the grid in all ab
 					'deselecting-all-items': '_onDeselectingAllItems',
 					'expanding-item': '_onExpandingItem',
 					'collapsing-item': '_onCollapsingItem',
-					'sort-direction-changed': '_sortDirectionChanged'
+					'sort-direction-changed': '_sortDirectionChanged',
+					'is-data-loaded':'_isDataLoaded'
 				},
 				/**
 				  * <b><i>Content development is under progress... </b></i> 
@@ -1581,7 +1595,9 @@ The following JSON object is a config sample which configures the grid in all ab
 					return (col.icon && col.icon != "") || col.iconColumn;
 				},
 				getControlIsDirty: function () {
-					var controlDirty = this.getSelectedItems().length > 0;
+					//To-do Need to have logic to check whether selected Item attr is updated in quick manage
+					// Currently allowing selectedItems is only one.. assuming that one item is selected and page is not dirty.
+					var controlDirty = this.getSelectedItems().length > 1;
 
 					var editMode = this.get('config.mode') === "edit";
 
@@ -1593,8 +1609,57 @@ The following JSON object is a config sample which configures the grid in all ab
 
 					return controlDirty || rockAttributeDirty || editMode;
 				},
-				refresh: function () {
-					this._onRefresh();
+				getItemFromData:function(item){
+					if(item.id && item.type){
+						var data = this.getData();
+						if(data && data.length){
+							for(var i = 0; i < data.length; i++){
+								if((data[i].id == item.id) && (data[i].type == item.type)){
+										return data[i];
+									}
+							}
+						}
+					}
+					return;
+				},
+				_isDataLoaded:function(ev){
+					if(ev && ev.detail && ev.detail.item && !_.isEmpty(this.preSelectItem)){
+						//set selected item here
+						if(this.preSelectItem.id && this.preSelectItem.type){
+							var preSelectItem = this.getItemFromData(this.preSelectItem)
+							if(preSelectItem){
+								this.selectItem(preSelectItem);
+								this.fireBedrockEvent("quick-manage-event", {enableQuickManage:true}, { ignoreId: true });
+							}
+						}
+						//Resetting preSelectItem
+						this.set("preSelectItem", {});
+					}
+				},
+				refresh: function (options) {
+					//Resetting preSelectItem
+					this.set("preSelectItem", {});
+					var _isRefresh = true;
+					if(options && options.partialRefresh){
+						_isRefresh = false;
+						if(this.selectedItem && this.selectedItem.id && this.selectedItem.type){
+							if(options.selectedItem && options.selectedItem.id && options.selectedItem.type ){
+								if((this.selectedItem.id == options.selectedItem.id) && 
+									(this.selectedItem.type == options.selectedItem.type)){
+										var clonedSelectedItem = DataHelper.cloneObject(options.selectedItem);
+										this.set("preSelectItem", clonedSelectedItem);
+										_isRefresh = true;
+									}
+							}
+						}
+						if(!_isRefresh && options.toastData){
+							var notificationObj = RUFUtilities.mainApp.$$('bedrock-dataobject-notification-handler');
+							notificationObj.showToast(options.toastData);
+						}
+					}
+					if(_isRefresh){
+						this._onRefresh();
+					}
 				},
 				/**
 				  * <b><i>Content development is under progress... </b></i> 
