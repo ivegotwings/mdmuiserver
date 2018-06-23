@@ -13,6 +13,7 @@
 
 <link rel="import" href="../pebble-icons/pebble-icons.html">
 <link rel="import" href="../pebble-actions/pebble-actions.html">
+<link rel="import" href="../pebble-dialog/pebble-dialog.html">
 
 <link rel="import" href="../rock-layout/rock-layout.html">
 <link rel="import" href="../rock-model-download/rock-model-download.html">
@@ -48,14 +49,19 @@
               </div> 
             <div class="col-8">
                 <pebble-button class="btn dropdown-success downloadButton tooltip-bottom" icon="pebble-icon:download-asset" button-text="Download" data-tooltip="Download Model" on-click="_onModelDownloadClick"></pebble-button>
-                <rock-model-download id="modelDownload"></rock-model-download>
+                <rock-model-download id="modelDownload" context-data="[[contextData]]" enable-async-download="[[enableAsyncDownload]]"></rock-model-download>
             </div> 
           </div> 
         </div>
         <div class="base-grid-structure-child-2">
           <rock-wizard id="rockwizard" config="{{wizardConfig}}" shared-data="[[sharedData]]" hide-stepper="true"></rock-wizard>
         </div>
-      </div>
+    </div>
+    <pebble-dialog id="downloadTaskDialog" dialog-title="Download" modal alert-box show-cancel show-ok no-cancel-on-outside-click
+      no-cancel-on-esc-key button-ok-text="Show me the task details">
+      <p>Download process is started, you can review the progress of the task [[_downloadTaskId]] in task details</p>
+    </pebble-dialog>
+    <bedrock-pubsub event-name="on-buttonok-clicked" handler="_onShowTaskDetailsTap" target-id="downloadTaskDialog"></bedrock-pubsub>
     <bedrock-pubsub event-name="onNext" handler="_onModelUploadSuccess"></bedrock-pubsub>
     <bedrock-pubsub event-name="onDownloadSuccess" handler="_onModelDownloadSuccess"></bedrock-pubsub>
     <liquid-rest id="liquidGetDomains" url="/data/pass-through/entitymodelservice/get" method="POST" on-liquid-response="_onDomainsReceived" on-liquid-error="_onDomiansGetFailed"></liquid-rest>
@@ -112,8 +118,15 @@
           },
           modelDomain: {
               type: String
-          }   
-          
+          },
+          _downloadTaskId: {
+            type: String,
+            value: ""
+          },
+          enableAsyncDownload: {
+            type: Boolean,
+            value: true
+          }
         },
         behaviors: [
           RUFBehaviors.AppBehavior,
@@ -164,7 +177,6 @@
           if(this.showDomain){
             this.getDomains();
           }
-          
         },
         _onDropdownChange: function(e, detail){
           var selectedDomain = e.detail.newValue;
@@ -179,8 +191,13 @@
             this._onCancel();
             return;
           }
-          
-          var config = componentConfig.config.upload;          
+
+          var downloadConfig = componentConfig.config.download;
+          if(downloadConfig && typeof downloadConfig.enableAsyncDownload === "boolean") {
+            this.enableAsyncDownload = downloadConfig.enableAsyncDownload;
+          }
+
+          var config = componentConfig.config.upload;
           //Update the channel for the model to be uploaded
           if(config.steps){
             config.steps = DataHelper.convertObjectToArray(config.steps);
@@ -188,8 +205,7 @@
           }
           this.set('config', config); //set the configuration
         },
-        
-        
+
         /**
         * Function to generate a request for fetching available domains 
         */
@@ -268,8 +284,26 @@
         /**
         * Function to handle successful model download 
         */
-        _onModelDownloadSuccess: function (){
-          this.showSuccessToast("Data Model downloaded successfully");
+        _onModelDownloadSuccess: function (e, detail) {
+          if(this.enableAsyncDownload) {
+            this._downloadTaskId = detail.workAutomationId;
+            if(this.$.downloadTaskDialog) {
+              this.$.downloadTaskDialog.open();
+            }
+          } else {
+            this.showSuccessToast("Data Model downloaded successfully");
+          }
+        },
+
+        _onShowTaskDetailsTap: function () {
+          var mainApp = RUFUtilities.mainApp;
+          if (mainApp && this._downloadTaskId) {
+            var queryParams = {
+              "id": this._downloadTaskId
+            }
+            ComponentHelper.setQueryParamsWithoutEncode(queryParams);
+            mainApp.changePageRoutePath("task-detail");
+          }
         }
 
 

@@ -235,6 +235,13 @@ var SERVICE_CONFIG = {
             "offlineSettings": {
             }
         },
+        "copservice/downloadModelJob": {
+            "url": "/rsConnectService/downloadModelJob",
+            "mode": "online",
+            "timeout": 600000,
+            "offlineSettings": {
+            }
+        },
         "copservice/downloadDataExcel": {
             "url": "/rsConnectService/downloadDataExcel",
             "mode": "online",

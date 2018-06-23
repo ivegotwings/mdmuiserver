@@ -17,8 +17,8 @@
     <template>
         <style include="bedrock-style-common">
         </style>
-        <liquid-rest id="copDownloadService" url="" method="POST" request-data={{_copDownloadRequest}} on-liquid-response="_onCOPDownloadSuccess"
-            on-liquid-error="_onCOPDownloadFailure"></liquid-rest>
+        <liquid-rest id="copDownloadService" url="/data/cop/downloadModelJob" method="POST" on-liquid-response="_onAsyncDownloadSuccess"
+            on-liquid-error="_onAsyncDownloadFailure"></liquid-rest>
     </template>
     <script>
         (function () {
@@ -36,6 +36,10 @@
                         value: function () {
                             return {};
                         }
+                    },
+                    enableAsyncDownload: {
+                        type: Boolean,
+                        value: true
                     }
                 },
 
@@ -43,8 +47,36 @@
                     RUFBehaviors.UIBehavior,
                     RUFBehaviors.ComponentContextBehavior
                 ],
-                onDownload: function (profile, filename, domain) {
 
+                onDownload: function (profile, filename, domain) {
+                    var req = this._prepareRequest(profile, filename, domain);
+                    if (req) {
+                        if(this.enableAsyncDownload) {
+                            var downloadLiq = this.shadowRoot.querySelector("#copDownloadService");
+                            if (downloadLiq) {
+                                downloadLiq.requestData = req;
+                                downloadLiq.generateRequest();
+                            }
+                        } else {
+                            var _this = this;
+                            RUFUtilities.fileDownload("/data/cop/downloadModelExcel", {
+                                httpMethod: 'POST',
+                                data: {
+                                    data: JSON.stringify(req)
+                                },
+                                fileName: filename,
+                                successCallback: function (url) {
+                                    this._onSyncDownloadSuccess();
+                                }.bind(_this),
+                                failCallback: function (responseHtml, url, error) {
+                                    this._onSyncDownloadFailure(error);
+                                }.bind(_this)
+                            });
+                        }
+                    }
+                },
+
+                _prepareRequest: function (profile, filename, domain) {
                     if (!domain) {
                         domain = "";
                     }
@@ -66,31 +98,61 @@
                         "fileName": filename
                     };
 
-                    if (req) {
-                        var _this = this;
-                        RUFUtilities.fileDownload("/data/cop/downloadModelExcel", {
-                            httpMethod: 'POST',
-                            data: {
-                                data: JSON.stringify(req)
-                            },
-                            fileName: filename,
-                            successCallback: function (url) {
-                                this._onDownloadSuccess();
-                            }.bind(_this),
-                            failCallback: function (responseHtml, url, error) {
-                                this._onDownloadFailure(error);
-                            }.bind(_this)
-                        });
+                    if(this.enableAsyncDownload) {
+                        var user = "";
+                        var userContext = ContextHelper.getFirstUserContext(this.contextData);
+                        if (userContext) {
+                            user = userContext.user;
+                        }
+                        req["clientState"] = {
+                            "notificationInfo": {
+                                "userId": user
+                            }
+                        }
                     }
+
+                    return req;
                 },
 
-                _onDownloadSuccess: function () {
+                _onSyncDownloadSuccess: function () {
                     this.fireBedrockEvent("onDownloadSuccess", "Success", {
                         ignoreId: true
                     });
                 },
-                _onDownloadFailure: function (e) {
-                    this.logWarning("UnexpectedCOP", "response", JSON.stringify(e.detail.response));
+
+                _onSyncDownloadFailure: function (e) {
+                    var response = "";
+                    if (e && e.detail && e.detail.response) {
+                        response = e.detail.response;
+                    }
+                    this._triggerErrorToast(response);
+                },
+
+                _onAsyncDownloadSuccess: function (e, detail) {
+                    if (DataHelper.isValidObjectPath(detail, "response.dataObjectOperationResponse.dataObjects.0.properties.workAutomationId") &&
+                        detail.response.dataObjectOperationResponse.status == "success") {
+                        var eventDetails = {
+                            "status": "success",
+                            "workAutomationId": detail.response.dataObjectOperationResponse.dataObjects[0].properties.workAutomationId
+                        }
+                        this.fireBedrockEvent("onDownloadSuccess", eventDetails, {
+                            ignoreId: true
+                        });
+                        return;
+                    }
+                    this._triggerErrorToast(detail);
+                },
+
+                _onAsyncDownloadFailure: function (e, detail) {
+                    var response = "";
+                    if (detail && detail.response) {
+                        response = detail.response;
+                    }
+                    this._triggerErrorToast(response);
+                },
+
+                _triggerErrorToast: function (response) {
+                    this.logWarning("UnexpectedCOP", "response", JSON.stringify(response));
                     this.showErrorToast(
                         "Unable to download the data model. Please check the service or contact your administrator."
                     );

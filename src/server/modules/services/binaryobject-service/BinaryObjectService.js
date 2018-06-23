@@ -35,8 +35,8 @@ BinaryObjectService.prototype = {
             if (binaryObject) {
                 var fileName = parsedRequest.fileName;
                 var taskType = parsedRequest.taskType;
-                var fileExtension = 'xlsm';
-                
+                var fileExtension = parsedRequest.fileExtension && parsedRequest.fileExtension.toLowerCase() != "n/a" ? parsedRequest.fileExtension : 'xlsm';
+
                 //Get filename and file extension from binary object
                 var areFileDetailsAvailableInBinaryObject = false;
                 if (binaryObject.properties) {
@@ -72,9 +72,6 @@ BinaryObjectService.prototype = {
                         var fileType = parsedRequest.fileType;
                         if(fileType && fileType.toLowerCase() == 'rsjson') {
                             fileExtension = 'json';
-                        } else {
-                            //Set default extension
-                            fileExtension = 'xlsm';
                         }
                     }
                 }
