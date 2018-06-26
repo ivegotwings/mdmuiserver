@@ -22,6 +22,10 @@ var SERVICE_CONFIG = {
                 "fieldToCompareInData": "id"
             }
         },
+        "entityappservice/generatevariants": {
+            "url": "/entityappservice/generatevariants",
+            "mode": "online"
+        },
         "entityservice/create": {
             "url": "/entityappservice/create",
             "mode": "online"
@@ -192,6 +196,12 @@ var SERVICE_CONFIG = {
             "offlineSettings": {
             }
         },
+        "matchservice/match": {
+            "url": "/matchservice/match",
+            "mode": "online",
+            "offlineSettings": {
+            }
+        },
         "entitygovernservice/validate": {
             "url": "/entitygovernservice/validate",
             "mode": "online",
@@ -220,6 +230,13 @@ var SERVICE_CONFIG = {
         },
         "copservice/downloadModelExcel": {
             "url": "/rsConnectService/downloadModelExcel",
+            "mode": "online",
+            "timeout": 600000,
+            "offlineSettings": {
+            }
+        },
+        "copservice/downloadModelJob": {
+            "url": "/rsConnectService/downloadModelJob",
             "mode": "online",
             "timeout": 600000,
             "offlineSettings": {
@@ -356,6 +373,26 @@ var SERVICE_CONFIG = {
         },
         "entityappservice/delete": {
             "url": "/entityappservice/delete",
+            "mode": "online",
+            "offlineSettings": {}
+        },
+        "entityappservice/getsnapshot": {
+            "url": "/entityappservice/getsnapshot",
+            "mode": "online",
+            "timeout": 360000
+        },        
+        "entityappservice/restoresnapshot": {
+            "url": "/entityappservice/restoresnapshot",
+            "mode": "online",
+            "timeout": 360000
+        },
+        "snapshotManageService/get": {
+            "url": "/snapshotManageService/get",
+            "mode": "online",
+            "timeout": 360000
+        },
+        "entityappmodelservice/getnearestcontext": {
+            "url": "/entityappmodelservice/getnearestcontext",
             "mode": "online",
             "offlineSettings": {}
         }

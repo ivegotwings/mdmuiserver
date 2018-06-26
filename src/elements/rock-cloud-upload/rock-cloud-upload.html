@@ -1,0 +1,374 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-helpers/entity-helper.html">
+<link rel="import" href="../bedrock-helpers/data-transform-helper.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-helpers/context-helper.html">
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-gridsystem.html">
+
+<link rel="import" href="../liquid-rest/liquid-rest.html">
+
+<link rel="import" href="../pebble-bulk-file-upload/pebble-bulk-file-upload.html">
+<link rel="import" href="../pebble-icon/pebble-icon.html">
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
+
+<!--
+<b><i>Content development is under progress... </b></i>
+
+@demo demo/index.html
+-->
+
+<dom-module id="rock-cloud-upload">
+    <template>
+        <style include="bedrock-style-common bedrock-style-gridsystem">
+
+            :host{
+                height:100%;
+                display:block;
+            }
+            .content-upload-wrapper{
+                height:100%;
+                padding:10px 0px;
+            }
+            .placeHolder {
+                width: 70%;
+                margin: 0 auto;
+                padding: 30px;
+                box-shadow: 0 0 10px 0 var(--cloudy-blue-color, #c1cad4);
+                position: relative;
+            }
+        </style>
+
+        <pebble-spinner active="[[_loading]]"></pebble-spinner>
+
+        <liquid-rest id="prepareUploadLiquid" url="/data/binarystreamobjectservice/prepareUpload" method="POST"
+            on-liquid-response="_onPrepareUploadLiquidSuccess" on-liquid-error="_onPrepareUploadLiquidFailure"></liquid-rest>
+        <liquid-rest id="createUploadedFilesLiquid" url="/data/binarystreamobjectservice/create" method="POST" request-data={{_createUploadedFilesRequest}}
+            on-liquid-response="_onCreateUploadedFilesLiquidSuccess" on-liquid-error="_onCreateUploadedFilesLiquidFailure"></liquid-rest>
+
+        <div id="content-upload" class="content-upload-wrapper">
+            <div class="placeHolder">
+                <pebble-bulk-file-upload method="PUT" accept="" no-auto="true" s3-upload="true" max-file-size="[[maxFileSize]]" max-files="[[maxFiles]]" headers="{{_headersObj}}"></pebble-bulk-file-upload>
+                <bedrock-pubsub event-name="pebble-bulk-file-upload-started" handler="_onUploadStarted"></bedrock-pubsub>
+                <bedrock-pubsub event-name="pebble-bulk-file-upload-success" handler="_onUploadSuccess"></bedrock-pubsub>
+                <bedrock-pubsub event-name="pebble-bulk-file-upload-failed" handler="_onUploadFailed"></bedrock-pubsub>
+            </div>
+        </div>
+    </template>
+    <script>
+        (function () {
+            'use strict';
+
+            Polymer({
+                is: "rock-cloud-upload",
+
+                properties: {
+                    /**
+                      * <b><i>Content development is under progress... </b></i> 
+                      */
+                    target: {
+                        type: String,
+                        value: ''
+                    },
+                    _createUploadedFilesRequest: {
+                        type: Object,
+                        value: function () { return {}; }
+                    },
+                    _loading: {
+                        type: Boolean,
+                        value: false
+                    },
+                    /**
+                     * Indicates an array of files that are either processed or uploaded.
+                     **/
+                    files: {
+                        type: Array,
+                        notify: true,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    /**
+                      * <b><i>Content development is under progress... </b></i> 
+                      */
+                    businessFunctionData: {
+                        type: Object,
+                        value: function () { return {}; }
+                    },
+                    _headersObj: {
+                        type: Object,
+                        value: function () { return {}; }
+                    },
+                    allowedFileTypes: {
+                        type: Array,
+                        value: function () { return []; }
+                    },
+                    maxFileSize: {
+                        type: Number,
+                        value: 5000000000
+                    },
+                    maxFiles: {
+                        type: Number,
+                        value: 350
+                    },
+                    dataRoute: {
+                        type: String,
+                        value: null
+                    },
+                    uploadRequest: {
+                        type: Object,
+                        value: function () { return {}; }
+                    }
+                },
+                behaviors: [
+                    RUFBehaviors.UIBehavior
+                ],
+                /**
+                  * <b><i>Content development is under progress... </b></i> 
+                  */
+                ready: function () {
+                },
+
+                get prepareUploadLiquid() {
+                    this._prepareUploadLiquid = this._prepareUploadLiquid || this.shadowRoot.querySelector("#prepareUploadLiquid");
+                    return this._prepareUploadLiquid;
+                },
+
+                get bulkEditUploadElement() {
+                    this._bulkEditUploadElement = this._bulkEditUploadElement || this.shadowRoot.querySelector('pebble-bulk-file-upload');
+                    return this._bulkEditUploadElement;
+                },
+
+                _onUploadStarted: function (e, uploadedFiles, sender) {
+                    var prepareUploadRequest = [];
+                    this.files = [];
+                    this._headersObj = {};
+
+                    Object.keys(uploadedFiles).forEach(key => {
+                        var file = uploadedFiles[key]
+                        if (!file.error) {
+                            this.files.push(file);
+
+                            //Generate unique file name...
+                            var s3ObjectKey = this._generateS3ObjectKey(file.name);
+                            file.s3ObjectKey = s3ObjectKey;
+
+                            //Allowed types check
+                            if(this.allowedFileTypes && this.allowedFileTypes.length) {
+                                if(!ValidationHelper.fileExtensionValidator(file.name, this.allowedFileTypes)) {
+                                    this.showErrorToast("The uploaded file's type is not valid. Valid extensions are " + this.allowedFileTypes.join(", "));
+                                    this._resetUploadElement();
+                                    return;
+                                }
+                            }
+
+                            var originalFileName = file.name;
+                            //Request type
+                            var type = this.uploadRequest && this.uploadRequest.type ? this.uploadRequest.type : "binarystreamobject";
+                            var binaryStreamObject = {
+                                "binaryStreamObject": {
+                                    "id": DataHelper.generateUUID(),
+                                    "type": type,
+                                    "properties": {
+                                        "objectKey": s3ObjectKey,
+                                        "originalFileName": originalFileName
+                                    },
+                                    "data": {}
+                                }
+                            };
+
+                            //Apply cop-context details to request properties
+                            if(this.uploadRequest && !_.isEmpty(this.uploadRequest["cop-context"])) {
+                                var properties = binaryStreamObject.binaryStreamObject.properties;
+                                for(var contextKey in this.uploadRequest["cop-context"]) {
+                                    properties[contextKey] = this.uploadRequest["cop-context"][contextKey];
+                                }
+                            }
+
+                            prepareUploadRequest.push(binaryStreamObject);
+                        }
+                    });
+
+                    if(prepareUploadRequest.length > 0) {
+                        var liq = this.prepareUploadLiquid;
+                        if (liq) {
+                            liq.requestData = prepareUploadRequest;
+                            liq.generateRequest();
+                        }
+                    }
+                },
+
+                _resetUploadElement: function () {
+                    this._isDirty = false;
+                    this._loading = false;
+                    this.bulkEditUploadElement.reset();
+                },
+
+                _onPrepareUploadLiquidSuccess: function (e) {
+                    var response = e.detail.response;
+                    var canUpload = false;
+
+                    if (response && response.response) {
+                        var binarystreamobjects = response.response.binaryStreamObjects;
+                        if (binarystreamobjects) {
+                            for (let binarystreamobject of binarystreamobjects) {
+                                var data = binarystreamobject.data;
+
+                                if (data && data.properties && data.properties.uploadURL && data.properties.uploadURL.length > 0) {
+                                    if(data.properties.headers && data.properties.headers.length > 0){
+                                        var headers = data.properties.headers;
+                                        var headerObj = {}
+                                        for (let i = 0; i < headers.length; i++) {
+                                            headerObj = Object.assign(headerObj, headers[i]);
+                                        }
+                                        this._headersObj = headerObj;
+                                    }
+                                    for (let file of this.files) {
+                                        if (file.s3ObjectKey == data.properties.objectKey) {
+                                            file.uploadTarget = data.properties.uploadURL;
+                                            canUpload = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (canUpload) {
+                        this.bulkEditUploadElement.uploadFiles(this.files);
+                    }
+                    else {
+                        console.warn("Unexpected response:" + e.detail.response);
+                        this.showErrorToast("Unable to upload. Please check the service or contact your administrator.");
+                        this._resetUploadElement();
+                    }
+                },
+                _onPrepareUploadLiquidFailure: function (e) {
+                    console.warn('Upload failed with error ', e.detail);
+                    this.showErrorToast("Unable to upload. Please check the service or contact your administrator.");
+                    this._resetUploadElement();
+                },
+                _onUploadSuccess: function (e, succeededFilesData, sender) {
+                    this._isDirty = true;
+                    this._loading = true;
+
+                    var data = {
+                        "messages": [
+                            {
+                                "message": "File upload is in process."
+                            },
+                            {
+                                "message": "You can view the status of the processing in the File Upload Status Dashboard"
+                            }
+                        ],
+                        "actions": [
+                            {
+                                "name": "closeFunction",
+                                "text": "Take Me back to Where I started"
+                            },
+                            {
+                                "name": "nextAction",
+                                "text": "Take me to User Dashboard",
+                                "dataRoute": "dashboard"
+                            },
+                            {
+                                "name": "nextAction",
+                                "text": "Upload more files",
+                                "dataRoute": this.dataRoute
+                            }
+                        ]
+                    };
+                    this.businessFunctionData = data;
+                    var eventName = "onSave";
+                    var eventDetail = {
+                        name: eventName,
+                        data: { "skipNext": false }
+                    };
+                    setTimeout(() => {
+                        this._loading = false;
+                        this.fireBedrockEvent(eventName, eventDetail, {
+                            ignoreId: true
+                        });
+                    }, 5000);
+                },
+                _onUploadFailed: function (e, errorMessage, sender) {
+                    this.showErrorToast(errorMessage);
+                },
+                _onCreateUploadedFilesLiquidFailure: function (e) {
+                    console.warn('Asset upload failed with error ', e.detail);
+                    this.showErrorToast("Unable to upload. Please check the service or contact your administrator.");
+                    this._resetUploadElement();
+                },
+                /**
+                  * <b><i>Content development is under progress... </b></i> 
+                  */
+                getIsDirty: function () {
+                    return this._isDirty;
+                },
+                _generateS3ObjectKey: function (fileName) {
+                    var s3ObjectKey;
+                    var indexOfExtension = fileName.lastIndexOf(".");
+                    var fileNameText = fileName.substr(0, indexOfExtension);
+                    var fileExt = fileName.substr(indexOfExtension, fileName.length);
+
+                    var uuid = DataHelper.generateUUID();
+                    s3ObjectKey = uuid + fileExt;
+                    return s3ObjectKey;
+                },
+                _generateCreateRequest: function (succeededFilesData) {
+                    var createRequest = [];
+                    for (let fileData of succeededFilesData) {
+                        var uuid = DataHelper.generateUUID();
+                        var s3ObjectKey = fileData.fileName;
+
+                        var fileObject;
+                        for (let file of this.files) {
+                            if (file.s3ObjectKey == s3ObjectKey) {
+                                fileObject = file;
+                                break;
+                            }
+                        }
+
+                        var originalFileName = s3ObjectKey;
+                        var fullObjectPath = s3ObjectKey;
+
+                        if (fileObject) {
+                            originalFileName = fileObject.name;
+                            fullObjectPath = fileObject.fullObjectPath;
+                        }
+
+
+                        var binaryStreamObject = {
+                            "binaryStreamObject": {
+                                "id": uuid,
+                                "type": "binarystreamobject",
+                                "properties": {
+                                    "objectKey": s3ObjectKey,
+                                    "fullObjectPath": fullObjectPath,
+                                    "originalFileName": originalFileName
+                                }
+                            }
+                        };
+
+                        createRequest.push(binaryStreamObject);
+                    }
+
+                    return createRequest;
+                },
+                _showView: function (viewName) {
+                    if (viewName) {
+                        var contentView = this.shadowRoot.querySelector("#content-" + viewName);
+                        if (contentView) {
+                            contentView.removeAttribute("hidden");
+                        }
+                    }
+                },
+            });
+        })();
+    </script>
+</dom-module>

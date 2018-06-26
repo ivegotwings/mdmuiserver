@@ -1,0 +1,709 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-app-behavior/bedrock-app-behavior.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-business-function-behavior/bedrock-business-function-behavior.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-helpers/component-helper.html">
+<link rel="import" href="../bedrock-helpers/context-helper.html">
+<link rel="import" href="../bedrock-helpers/data-request-helper.html">
+<link rel="import" href="../bedrock-helpers/data-transform-helper.html">
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
+
+<link rel="import" href="../liquid-config-get/liquid-config-get.html" />
+<link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
+<link rel="import" href="../liquid-rest/liquid-rest.html">
+<link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
+
+<link rel="import" href="../rock-component-config-behavior/rock-component-config-behavior.html">
+<link rel="import" href="../rock-grid/rock-grid.html">
+
+<link rel="import" href="../pebble-button/pebble-button.html">
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
+
+<dom-module id="rock-variant-options">
+    <template>
+        <style include="bedrock-style-common">
+            :host {
+                display: block;
+                height: 100%;
+            }
+
+            .refresh-grid {
+                position: absolute;
+                right: 0px;
+                top:0px;
+            }
+        </style>
+
+        <div class="base-grid-structure">
+            <div class="base-grid-structure-child-1">
+                <div id="content-description" align="center" class="relative">
+                    <!-- description message here -->
+                    <div class="title m-0 w-80">
+                        You can create multiple variants.
+                    </div>
+                    <template is="dom-if" if="[[!isExceededMaxThreshold]]">
+                        <div class="refresh-grid">
+                            <pebble-button id="refreshButton" button-text="Refresh" on-tap="_onRefreshClick" noink class="btn btn-primary"></pebble-button>
+                        </div>
+                    </template>
+                </div>
+                <template is="dom-if" if="[[isNotificationMessage]]">
+                    <div class="m-20" align="center">
+                        [[notificationMessage]]
+                    </div>
+                </template>
+                <template is="dom-if" if="[[_isValidDisplayMessage]]">
+                    <div class="m-20" align="center">
+                        [[displayMessage]]
+                    </div>
+                </template>
+            </div>
+            <pebble-spinner active="[[isSpinnerActive]]"></pebble-spinner>   
+            <div class="base-grid-structure-child-2">
+                <div class="button-siblings">
+                    <template is="dom-if" if="[[isVariantOptionsGridReady]]">
+                        <rock-grid id="variantOptionsGrid" data="{{variantOptionsGridData}}" hide-view-selector hide-toolbar config="{{gridConfig}}"
+                            page-size="10"></rock-grid>
+                    </template>
+                </div>
+                <div class="buttonContainer-static" align="center">
+                    <pebble-button id="backButton" class="close btn btn-secondary m-r-5" button-text="Back" noink elevation="2" on-tap="_onBack"></pebble-button>
+                    <pebble-button id="cancelButton" class="close btn btn-secondary m-r-5" button-text="Cancel" noink elevation="2" on-tap="_onCancel"></pebble-button>
+                    <pebble-button id="confirmButton" class="apply btn btn-success" disabled="[[isCreateDisabled]]" button-text="Create" noink elevation="2" on-tap="_onCreate"></pebble-button>
+                </div>
+            </div>
+        </div>
+
+        <liquid-rest id="variantOptions" url="/data/pass-through/entityappservice/generatevariants" method="POST" on-liquid-response="_onVariantOptionsReceivedSuccess"
+            on-liquid-error="_onVariantOptionsReceivedFailure"></liquid-rest>
+        <liquid-rest id="bulkEntityCreate" url="/data/pass-through/bulkentityservice/createtask" method="POST" on-liquid-response="_onBulkEntityCreateSuccess"
+            on-liquid-error="_onBulkEntityCreateFailure"></liquid-rest>
+        <liquid-entity-data-save id="syncEntityCreate" operation="[[_entityDataOperation]]" on-response="_onSyncEntityCreateSuccess" on-error="_onSyncEntityCreateError"></liquid-entity-data-save>
+        <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{attributeModelRequest}}" on-entity-model-composite-get-response="_onCompositeModelGetResponse"></liquid-entity-model-composite-get>
+    </template>
+    <script>
+
+        (function () {
+
+            class RockVariantOptions
+                extends Polymer.mixinBehaviors([
+                    RUFBehaviors.AppBehavior,
+                    RUFBehaviors.BusinessFunctionBehavior,
+                    RUFBehaviors.ComponentConfigBehavior,
+                    RUFBehaviors.AppContextBehavior,
+                    RUFBehaviors.UIBehavior
+                ], Polymer.Element) {
+                static get is() { return 'rock-variant-options' }
+
+                ready() {
+                    super.ready();
+                }
+                static get properties() {
+                    return {
+                        contextData: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            },
+                            observer: '_contextChanged'
+                        },
+
+                        config: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+
+                        gridConfig: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+
+                        variantOptionsGridData: {
+                            type: Array,
+                            value: function () {
+                                return [];
+                            }
+                        },
+                        isVariantOptionsGridReady: {
+                            type: Boolean,
+                            value: false
+                        },
+
+                        isExceededMaxThreshold: {
+                            type: Boolean,
+                            value: false
+                        },
+
+                        isWarningMessage: {
+                            type: Boolean,
+                            value: false
+                        },
+
+                        _isValidDisplayMessage: {
+                            type: Boolean,
+                            computed: "_showDisplayMessage(isExceededMaxThreshold, isWarningMessage)"
+                        },
+
+                        displayMessage: {
+                            type: String,
+                            value: ""
+                        },
+
+                        isNotificationMessage: {
+                            type: Boolean,
+                            value: false
+                        },
+
+                        notificationMessage: {
+                            type: String,
+                            value: ""
+                        },
+
+                        businessFunctionData: {
+                            type: Object,
+                            value: function () { return {}; }
+                        },
+
+                        attributeModelRequest: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+
+                        isSpinnerActive:{
+                            type: Boolean,
+                            value: false
+                        },
+                        
+                        _entityDataOperation: {
+                            type: String,
+                            value: 'update'
+                        },
+
+                        isCreateDisabled: {
+                            type: Boolean,
+                            computed: '_isCreateDisabled(variantOptionsGridData)'
+                        }
+                    }
+                }
+
+                /**
+                 *  Request the required configs
+                */
+                _contextChanged() {
+                    if (!_.isEmpty(this.contextData)) {
+                        var context = DataHelper.cloneObject(this.contextData);
+                        this.requestConfig('rock-variant-options', context);
+                    }
+                }
+
+                /**
+                 *  Handle config loaded event
+                */
+                onConfigLoaded(componentConfig) {
+                    if (componentConfig && componentConfig.config) {
+                        this.config = componentConfig.config;
+                        this.maxThresholdForDisplay = componentConfig.config.maxVariantsForDisplay;
+                        this.maxThresholdForSyncCreate = componentConfig.config.maxThresholdForSyncCreate;
+                        //Get the attributeModels
+                        this._generateAttributeModels();
+                    } else {
+                        this.logWarning("Config not found for rock-variant-options", "response", componentConfig);
+                    }
+                }
+
+                /**
+                 *  Function to generate the attribute models of all the target entities
+                */
+                _generateAttributeModels() {
+                    var contextData = this._getContextForTargetEntities();
+                    var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(contextData);
+                    if (compositeModelGetRequest) {
+                        this.set("attributeModelRequest", compositeModelGetRequest);
+                        var liquidModelGet = this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
+                        if (liquidModelGet) {
+                            liquidModelGet.generateRequest();
+                        }
+                    }
+                }
+
+                /**
+                 *  Function to context for target entities
+                */
+                _getContextForTargetEntities() {
+                    var targetEntityTypes = this.businessFunctionData.targetEntities;
+                    var itemContexts = [];
+                    let targetEntityAttributes = [];
+                    for (var i in targetEntityTypes) {
+                        targetEntityAttributes = targetEntityAttributes.concat(targetEntityTypes[i].attributeNames);
+                    }
+                    
+                    let lastIndex = targetEntityTypes.length == 1 ? 0 : targetEntityTypes.length - 1;
+                    itemContexts.push({
+                        "type": targetEntityTypes[lastIndex].targetEntity,
+                        "attributeNames": targetEntityAttributes
+                    });
+                    var contextData = DataHelper.cloneObject(this.contextData);
+                    contextData[this.CONTEXT_TYPE_ITEM] = itemContexts;
+                    return contextData;
+                }
+
+                /**
+                 *  Function to handle success of attribute models of all the target entities
+                */
+                _onCompositeModelGetResponse(e) {
+                    if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
+                        var contextData = this._getContextForTargetEntities();
+                        this.attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], contextData);
+
+                        //Update the gridConfig with dynamic columns
+                        this._updateGridConfig();
+
+                        //generate a request to get the grid data 
+                        this._showVariantOptions();
+                    }
+                }
+
+                /**
+                 *  Function to update the gridConfig with dynamic fields
+                */
+                _updateGridConfig() {
+                    var columns = {};
+                    var gridConfig = DataHelper.cloneObject(this.config.gridConfig);
+                    var gridConfigColumn = gridConfig.itemConfig.fields;
+                    for (var key in gridConfigColumn) {
+                        columns[key] = gridConfigColumn[key];
+                    }
+                     
+                    for (var i = 0; i < this.businessFunctionData.attributeList.length; i++) {
+                        var model = this.attributeModels[this.businessFunctionData.attributeList[i]];
+                        if (model) {
+                            columns[model.name] = {
+                                "header": model.externalName,
+                                "name": model.name,
+                                "sortable": true,
+                                "filterable": true,
+                                "visible": true,
+                                "isMetaDataColumn": false
+                            };
+                        }
+                    }
+
+                    gridConfig.itemConfig.fields = columns;
+                    this.gridConfig = gridConfig;
+                }
+
+                /**
+                 *  Display the variant options screen
+                */
+                _showVariantOptions() {
+                    if (this.businessFunctionData.totalVariantsCount > this.maxThresholdForDisplay) {
+                        //this.displayMessage = "The total number of variants that can be generated has crossed the configured max threshold value. Click on create button to create all the variants.";
+                        this.displayMessage = "".concat("The estimated number of variants (", this.businessFunctionData.totalVariantsCount, ") exceeds the configured max threshold value (", this.maxThresholdForDisplay, "). Click on create button to start variant generation.");
+                        this.isExceededMaxThreshold = true;
+                    } else {
+                        //Display the message
+                        if (this.businessFunctionData.noNotification) {
+                            this.isNotificationMessage = true;
+                            this.notificationMessage = "Saving attribute values took longer than expected. If you do not see your latest combinations in the list, click refresh button after some time.";
+                        }
+
+                        //Get the attributeModels
+                        this.isExceededMaxThreshold = false;
+                        this.variantOptionsGridData = [];
+                        this._getVariantOptions();
+                    }
+                }
+
+                /**
+                 *  Handle refresh button click
+                */
+                _onRefreshClick() {
+                    this._showVariantOptions();
+                }
+
+                /**
+                 *  Request the variant options available
+                */
+                _getVariantOptions() {
+                    //Displaying the variants is taking sometime, hence showing the loader
+                    this.isSpinnerActive = true;
+                    this.createVariants = false;
+                    var requestData = this._getVariantOptionsRequest();
+                    var liquidObj = this.shadowRoot.querySelector("#variantOptions");
+
+                    //Fetch all possible variants  
+                    if (requestData && liquidObj) {
+                        liquidObj.requestData = requestData;
+                        liquidObj.generateRequest();
+                    }
+                }
+
+                /**
+                 *  Check if the displayMessage has to be shown
+                */
+                _showDisplayMessage() {
+                    if (this.isExceededMaxThreshold || this.isWarningMessage) {
+                        return true;
+                    } else {
+                        return false;
+                    }
+                }
+
+                /**
+                 *  Create the request obj for getting the variants
+                */
+                _getVariantOptionsRequest(pFlag) {
+
+                    var createVariants = "true";
+                    if (!pFlag) {
+                        createVariants = "false";
+                    }
+
+                    if (this.businessFunctionData) {
+                        var request = {
+                            "params": {
+                                "createVariants": createVariants
+                            },
+                            "entity": {
+                                "id": this.businessFunctionData.id,
+                                "name": this.businessFunctionData.name,
+                                "type": this.businessFunctionData.type
+                            }
+                        }
+
+                        //Adding the context to the request if available
+                        if (!_.isEmpty(this.contextData.Contexts)) {
+                            request.entity.data = {};
+                            var contexts = request.entity.data.contexts = [];
+                            var contextObj = {};
+                            contextObj.context = this.contextData.Contexts[0];
+                            contexts.push(contextObj);
+                        }
+
+                        return request;
+                    }
+                }
+
+                /**
+                 *  Handle the get variants options success
+                */
+                async _onVariantOptionsReceivedSuccess(e) {
+                    this.isSpinnerActive = false;
+                    if (e.detail && e.detail.response && e.detail.response.response) {
+                        var response = e.detail.response.response;
+                        var request = e.detail.response ? e.detail.response.request : undefined;
+                        this.isWarningMessage = false;
+
+                        if (response.status == "success" && !this.createVariants) {
+                            //Display the variants grid
+                            var gridData = await DataTransformHelper.transformEntitiesToVariantGridFormat(response.entities, this._getGridColumns(),this.maxThresholdForSyncCreate);
+                            //Show the entities with status new on the top
+                            this.variantOptionsGridData = _.sortBy(gridData, 'variantStatus').reverse();
+                            this.isVariantOptionsGridReady = true;
+                            //Select all the grid data by default if total no. of variants crosses the configured maxThresholdForSyncCreate value
+                            Polymer.Async.timeOut.after(100).run(() => {
+                                this.useCreateVariantsAPI = false;
+                                if(this.variantOptionsGridData.length > this.maxThresholdForSyncCreate) {
+                                    var rockGridObj = this.shadowRoot.querySelector('#variantOptionsGrid') ;
+                                    rockGridObj.selectAll();
+                                    this.useCreateVariantsAPI = true;
+                                }
+                            });                           
+                        } else if (response.status == "success" && this.createVariants) {
+                            this._taskId = request.taskId;
+                            this._triggerFinishStep();
+                        } else if (response.status == "error") {
+                            this.isWarningMessage = true;
+                            this.displayMessage = "No variants to create. Update the dimension attributes from the previous screen to generate variants"
+                            return;
+                        }
+                    }
+                }
+
+                /**
+                 *  Function to get the grid columns
+                */
+                _getGridColumns() {
+                    if (this.gridConfig && this.gridConfig.tabular && this.gridConfig.tabular.columns) {
+                        return this.gridConfig.tabular.columns;
+                    }
+                    var columns = [];
+                    if (DataHelper.isValidObjectPath(this.gridConfig, 'itemConfig.fields')) {
+                        columns = DataHelper.convertObjectToArray(this.gridConfig.itemConfig.fields);
+                    }
+                    return columns;
+                }
+
+                /**
+                 *  Handle the get variants options failure
+                */
+                _onVariantOptionsReceivedFailure(e) {
+                    this.showErrorToast("Failed to fetch variant options, Contact administrator.");
+                    this.logWarning("Failed to fetch variant options", "response", JSON.stringify(e.detail));
+                }
+
+                /**
+                 *  Close variant options 
+                */
+                _onCancel() {
+                    var eventName = "onCancel";
+                    var eventDetail = {
+                        name: eventName
+                    }
+
+                    this.fireBedrockEvent(eventName, eventDetail, {
+                        ignoreId: true
+                    });
+                }
+
+                /**
+                 *  Go Back to variant dimetion attribute screen 
+                */
+                _onBack() {
+                    var eventName = "onBack";
+                    var eventDetail = {
+                        name: eventName
+                    }
+
+                    this.fireBedrockEvent(eventName, eventDetail, {
+                        ignoreId: true
+                    });
+                }
+
+                /**
+                 * Function to check if the create button has to be disabled
+                 */ 
+                _isCreateDisabled(gridData) {
+                    if (!_.isEmpty(gridData)) {
+                        var existsItems = _.filter(gridData, function(item){ return item.variantStatus.toLowerCase() == "exists"; });
+                        //If all the items in the grid are having status as exists,then disable the create button
+                        if(existsItems.length == gridData.length) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+
+                /**
+                 *  Generate a request to create variants
+                 *  Use createvariants API if the grid is not displayed or if all the entities are selected by default
+                 *  Use the sync create/update API if the grid is displayed and entities may be excluded
+                 */
+                _onCreate() {
+
+                    this.isSpinnerActive = true;
+                    var requestData = {};
+                    var liquidObj = {};
+
+                    if (!this.isExceededMaxThreshold && !this.useCreateVariantsAPI) {
+                        var rockGridObj = this.shadowRoot.querySelector('#variantOptionsGrid');
+                        var selectedEntities = rockGridObj.getSelectedItems();
+                        if (selectedEntities.length <= 0) {
+                            this.showInformationToast("Select at least one entity from grid to create.");
+                            this.isSpinnerActive = false;
+                            return;
+                        } else if (selectedEntities.length <= this.maxThresholdForSyncCreate) {
+                            //Create or update entities in sync mode
+                            this._currentIndex = selectedEntities.length;
+                            this._currentItems = [];                           
+                            for (var i = 0; i < selectedEntities.length; i++) {
+                                //update or create based on requirement
+                                if(selectedEntities[i].orgVariantStatus == "newForContext"){
+                                    this._entityDataOperation = "update";
+                                } else {
+                                    this._entityDataOperation = "create";
+                                }
+                                requestData = this._getSyncCreateRequest(selectedEntities[i]);
+                                liquidObj = this.shadowRoot.querySelector("#syncEntityCreate");
+                                liquidObj.requestData = requestData;
+                                liquidObj.generateRequest();
+                            }
+                            return;
+                        } /*else { //Create entities in batch job 
+                            requestData = this._getBulkCreateRequest(selectedEntities);
+                            liquidObj = this.shadowRoot.querySelector("#bulkEntityCreate");
+                        }*/
+                    } else { // Create entities using createVariants api
+                        this.createVariants = true;
+                        requestData = this._getVariantOptionsRequest(this.createVariants);
+                        liquidObj = this.shadowRoot.querySelector("#variantOptions");
+                    }
+
+                    if (requestData && liquidObj) {
+                        requestData.clientAttributes = this.getClientAttributes();
+                        liquidObj.requestData = requestData;
+                        liquidObj.generateRequest();
+                    }
+                }
+
+                /**
+                 *  Function to get clientAttributes
+                */
+                getClientAttributes() {
+                    var valueContext = ContextHelper.getFirstValueContext(this.contextData);
+                    var userContext = ContextHelper.getFirstUserContext(this.contextData);
+                    var clientMessage = "Create Variants";
+
+                    var clientAttributes = {
+                        "taskName": {
+                            "values": [{
+                                "source": valueContext.source,
+                                "locale": valueContext.locale,
+                                "value": clientMessage
+                            }]
+                        }
+                    };
+
+                    return clientAttributes;
+                }
+
+
+                /**
+                 *  Generate a request to create entities in sync mode
+                */
+                _getSyncCreateRequest(selectedEntity) {
+                    var saveRequest = {};
+                    saveRequest = {
+                        "entities": [selectedEntity]
+                    };
+                    return saveRequest;
+                }               
+
+                /**
+                 *  Generate a request to create bulk entities
+                */
+                _getBulkCreateRequest(selectedEntities) {
+                    var requestData = {
+                        "params": {
+                            "operationType": "inboundService",
+                            "taskType": "process"
+                        },
+                        "entities": selectedEntities
+                    };
+
+                    return requestData;
+                }
+
+                /**
+                 *  Handle create bulk entities success
+                */
+                _onBulkEntityCreateSuccess(e) {
+                    var response = e.detail.response && e.detail.response.response ? e.detail.response.response : e.detail.response;
+                    var request = e.detail.response ? e.detail.response.request : undefined;
+
+                    if ((!response || _.isEmpty(response)) ||
+                        (DataHelper.isValidObjectPath(response, "dataObjectOperationResponse.status") && response.dataObjectOperationResponse.status.toLowerCase() == "error") ||
+                        (response.status && response.status.toLowerCase() == "error")) {
+                        this.showErrorToast("Bulk create request failed");
+                        this.logWarning("Bulk create request failed", "response", JSON.stringify(e.detail));
+                        return;
+                    } else {
+                        if (response.status && response.status.toLowerCase() == "success") {
+                            if (request && request.taskId) {
+                                this._taskId = request.taskId;
+                            }
+                        }
+                        this._triggerFinishStep();
+                    }
+                }
+
+                /**
+                 *  Handle create bulk entities failure
+                */
+                _onBulkEntityCreateFailure(e) {
+                    this.logWarning("Failed to perform the Bulk entity create", "response", JSON.stringify(e.detail));
+                    this.showErrorToast("Failed to perform the Bulk entity create. Contact administrator for further detail.");
+                }
+
+                /**
+                 *  Handle success of sync create of selected entities 
+                */
+                _onSyncEntityCreateSuccess(e) {
+                    if (e.detail.response.status == "success") {
+                        this._currentItems.push(e.detail.response);
+                        //After all the required entities are created through sync mode, trigger  the last step
+                        if (this._currentItems.length == this._currentIndex) {
+                            this._triggerFinishStep(true);
+                        }
+                    }
+                }
+
+                /**
+                 *  Handle failure of sync create of selected entities 
+                */
+                _onSyncEntityCreateError(e) {
+                    var messsage = e.detail.response.content.msg;
+                    this.showErrorToast(messsage);
+                }
+
+                /**
+                 *  Last step for create variants
+                 *  If pShowFirstActionOnly flag is true, then show only 1st button in the last screen
+                */
+                _triggerFinishStep(pShowFirstActionOnly) {
+                    this.isSpinnerActive = false;
+                    var message = "Variant creation process is started";
+
+                    //Refresh the entity graph page when user clicks on "Take me back to where I started" button
+                    var actions = [
+                        {
+                            "name": "goBack",
+                            "text": "Take me back to where I started",
+                            "action": { "name" : "grid-data-refreshed" },
+                            "isNotApp": true
+                        }
+                    ];
+
+                    //Update the display message and add button to got to task details
+                    if (!pShowFirstActionOnly) {
+                        message = message + ", you can review the progress of the task " + this._taskId + " in task details.";
+
+                        actions.push({
+                            "name": "gotoJobDetails",
+                            "text": "Show me the task details",
+                            "isNotApp": true,
+                            "dataRoute": "task-detail",
+                            "queryParams": {
+                                "id": this._taskId
+                            }
+                        })
+                    }
+
+                    var messages = [
+                        {
+                            "message": message
+                        }
+                    ]
+                    var data = {
+                        "messages": messages,
+                        "noGrid": true,
+                        "actions": actions,
+                    };
+
+                    this.businessFunctionData = data;
+                    var eventName = "onComplete";
+                    var eventDetail = {
+                        name: eventName
+                    }
+
+                    this.fireBedrockEvent(eventName, eventDetail, {
+                        ignoreId: true
+                    });
+                }
+
+            }
+
+            customElements.define(RockVariantOptions.is, RockVariantOptions)
+
+
+        })();
+    </script>
+</dom-module>

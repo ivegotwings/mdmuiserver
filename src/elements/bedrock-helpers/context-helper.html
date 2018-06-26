@@ -159,6 +159,7 @@
                     });
                 }
                 if (!checkDefaultLocale) {
+                    contextData[ContextHelper.CONTEXT_TYPE_VALUE] = [];
                     contextData[ContextHelper.CONTEXT_TYPE_VALUE].push(DataHelper.getDefaultValContext());
                 }
             }
@@ -217,14 +218,15 @@
 
                                         if (relIds && locale) {
                                             let localeObjects = localeManager && await localeManager.getByIdsAsync(relIds); // localeObjects = [{"en-US with name"}, {"de-DE with name"}, {"en-GB with name"}]
-
+                                            let matchedLocale;
+                                            
                                             if (!_.isEmpty(localeObjects)) {
-                                                let matchedLocale = localeObjects.find(v => v.name == locale); // matchedLocale = [];
+                                                matchedLocale = localeObjects.find(v => v.name == locale); // matchedLocale = [];
+                                            }
 
-                                                if (_.isEmpty(matchedLocale)) {
-                                                    isCombinationValid = false;
-                                                    statusCode.push('Invalid combination of data and value context:' + JSON.stringify(dataContext) + ' - ' + JSON.stringify(valueContext) + '.'); // TODO:: Need to convert into ERROR CODE.
-                                                }
+                                            if (_.isEmpty(matchedLocale)) {
+                                                isCombinationValid = false;
+                                                statusCode.push('Invalid combination of data and value context:' + JSON.stringify(dataContext) + ' - ' + JSON.stringify(valueContext) + '.'); // TODO:: Need to convert into ERROR CODE.
                                             }
                                         }
                                     }
@@ -243,6 +245,67 @@
             }
 
             return status;
+        };
+
+        ContextHelper.createWorkflowContexts = function(wfDefinitionMappingModel, contextData) {
+            var workflowContexts = [];
+            var dataContexts = ContextHelper.getDataContexts(contextData);
+            var clonedDataContexts = !_.isEmpty(dataContexts) ? DataHelper.cloneObject(dataContexts) : [];
+            var mergedWorkflows = {};
+
+            if (!_.isEmpty(clonedDataContexts)) {
+                for (var i = 0; i < clonedDataContexts.length; i++) {
+                    var firstDataContext = clonedDataContexts[i];
+                    var ctxRelationships = SharedUtils.DataObjectFalcorUtil.getRelationshipsByCtx(wfDefinitionMappingModel, firstDataContext);
+                    mergedWorkflows = DataMergeHelper.mergeRelationships(mergedWorkflows, ctxRelationships, true);
+                    var mappedWorkflowNames = DataHelper.getRelToNames(mergedWorkflows.hasWorkflowsDefined);
+
+                    if(!_.isEmpty(mappedWorkflowNames)) {
+                        mappedWorkflowNames.forEach(function(workflowName) {
+                            var workflowContext = DataHelper.cloneObject(firstDataContext);
+                            workflowContext["workflow"] = workflowName;
+                            workflowContexts.push(workflowContext); 
+                        });
+                    }
+                }
+            } else {
+                if(DataHelper.isValidObjectPath(wfDefinitionMappingModel, "data.relationships")) {
+                    mergedWorkflows = DataMergeHelper.mergeRelationships(mergedWorkflows, wfDefinitionMappingModel.data.relationships, true);
+                    var mappedWorkflowNames = DataHelper.getRelToNames(mergedWorkflows.hasWorkflowsDefined);
+
+                    if(!_.isEmpty(mappedWorkflowNames)) {
+                        mappedWorkflowNames.forEach(function(workflowName) {
+                            var workflowContext = {
+                                "self": "self",
+                                "workflow": workflowName
+                            };
+                            workflowContexts.push(workflowContext); 
+                        });
+                    }
+                }
+            }
+
+            return workflowContexts;
+        };
+
+        ContextHelper.createContextForWorkflowActions = function(workflowContext) {
+            var data = {};
+            if(!_.isEmpty(workflowContext)) {
+                var context = DataHelper.cloneObject(workflowContext);
+                if(context["self"]) {
+                    delete context["self"];
+                }
+                if(context["workflow"]) {
+                    delete context["workflow"];
+                }
+                
+                if(!_.isEmpty(context)) {
+                    var ctxObj = { "context": context };
+                    data["contexts"] = [ ctxObj ];
+                }
+            }
+
+            return data;
         }
     })();
 

@@ -13,6 +13,7 @@
 
 <link rel="import" href="../pebble-icons/pebble-icons.html">
 <link rel="import" href="../pebble-actions/pebble-actions.html">
+<link rel="import" href="../pebble-dialog/pebble-dialog.html">
 
 <link rel="import" href="../rock-layout/rock-layout.html">
 <link rel="import" href="../rock-model-download/rock-model-download.html">
@@ -22,17 +23,15 @@
 <dom-module id="rock-model-integration">
   <template>
     <style include="bedrock-style-common bedrock-style-gridsystem">
+      :host{
+        display: block;
+        height: 100%;
+      }
       .downloadButton {
         float: right;
         margin-bottom:10px;
       }
       rock-wizard {
-        --placeholder:{
-            width: 100% !important;
-        }
-        --drop-zone-height:{
-            height: 100% !important;
-        }
         --stepper:{
           margin:0 !important;
           padding:0 !important;
@@ -42,22 +41,27 @@
     </style>
     <div class="base-grid-structure">
         <div class="base-grid-structure-child-1">    
-          <div class="row-wrap align-items-center">
+           <div class="row-wrap align-items-center">
             <div class="col-4">
               <template is="dom-if" if="[[showDomain]]">
-                <pebble-dropdown class="dropdown" label="Domain" items="[[domains]]" selected-value="{{selectedDomain}}"></pebble-dropdown>
+                <pebble-dropdown id="domainDropdown" class="dropdown" label="Domain" items="[[domains]]" selected-value="{{selectedDomain}}"></pebble-dropdown>
               </template>
               </div> 
             <div class="col-8">
                 <pebble-button class="btn dropdown-success downloadButton tooltip-bottom" icon="pebble-icon:download-asset" button-text="Download" data-tooltip="Download Model" on-click="_onModelDownloadClick"></pebble-button>
-                <rock-model-download id="modelDownload"></rock-model-download>
+                <rock-model-download id="modelDownload" context-data="[[contextData]]" enable-async-download="[[enableAsyncDownload]]"></rock-model-download>
             </div> 
-          </div>
+          </div> 
         </div>
         <div class="base-grid-structure-child-2">
           <rock-wizard id="rockwizard" config="{{wizardConfig}}" shared-data="[[sharedData]]" hide-stepper="true"></rock-wizard>
         </div>
-      </div>
+    </div>
+    <pebble-dialog id="downloadTaskDialog" dialog-title="Download" modal alert-box show-cancel show-ok no-cancel-on-outside-click
+      no-cancel-on-esc-key button-ok-text="Show me the task details">
+      <p>Download process is started, you can review the progress of the task [[_downloadTaskId]] in task details</p>
+    </pebble-dialog>
+    <bedrock-pubsub event-name="on-buttonok-clicked" handler="_onShowTaskDetailsTap" target-id="downloadTaskDialog"></bedrock-pubsub>
     <bedrock-pubsub event-name="onNext" handler="_onModelUploadSuccess"></bedrock-pubsub>
     <bedrock-pubsub event-name="onDownloadSuccess" handler="_onModelDownloadSuccess"></bedrock-pubsub>
     <liquid-rest id="liquidGetDomains" url="/data/pass-through/entitymodelservice/get" method="POST" on-liquid-response="_onDomainsReceived" on-liquid-error="_onDomiansGetFailed"></liquid-rest>
@@ -98,7 +102,7 @@
           },
           showDomain:{
             type: Boolean,
-            value: ""
+            value: false
           },
           domains:{
             type: Array,
@@ -111,8 +115,18 @@
           fileName:{
             type: String,
             value: ""
-          }   
-          
+          },
+          modelDomain: {
+              type: String
+          },
+          _downloadTaskId: {
+            type: String,
+            value: ""
+          },
+          enableAsyncDownload: {
+            type: Boolean,
+            value: true
+          }
         },
         behaviors: [
           RUFBehaviors.AppBehavior,
@@ -144,6 +158,13 @@
         },
 
         attached: function () {
+
+          Polymer.Async.timeOut.after(100).run(() => {
+            var pebbleDropDown = this.shadowRoot.querySelector("#domainDropdown");
+            if (pebbleDropDown) {
+                pebbleDropDown.addEventListener('change', this._onDropdownChange.bind(this));
+            }
+          });
           //Setting context information to loading component
           if(_.isEmpty(this.sharedData) || _.isEmpty(this.sharedData["context-data"])) {
             this.sharedData = {"context-data": this.contextData};
@@ -156,9 +177,11 @@
           if(this.showDomain){
             this.getDomains();
           }
-          
         },
-
+        _onDropdownChange: function(e, detail){
+          var selectedDomain = e.detail.newValue;
+          this.selectedDomain = selectedDomain.replace("_domain", "");
+        },
         /**
         * Function to read the config info
         */
@@ -168,8 +191,13 @@
             this._onCancel();
             return;
           }
-          
-          var config = componentConfig.config.upload;          
+
+          var downloadConfig = componentConfig.config.download;
+          if(downloadConfig && typeof downloadConfig.enableAsyncDownload === "boolean") {
+            this.enableAsyncDownload = downloadConfig.enableAsyncDownload;
+          }
+
+          var config = componentConfig.config.upload;
           //Update the channel for the model to be uploaded
           if(config.steps){
             config.steps = DataHelper.convertObjectToArray(config.steps);
@@ -177,8 +205,7 @@
           }
           this.set('config', config); //set the configuration
         },
-        
-        
+
         /**
         * Function to generate a request for fetching available domains 
         */
@@ -242,15 +269,41 @@
         /**
         * Function to handle download model button click
         */
-        _onModelDownloadClick: function (e, detail) {          
-          this.$.modelDownload.onDownload(this.profiles,this.fileName,this.selectedDomain);
+        _onModelDownloadClick: function (e, detail) {   
+
+          var modelDomain;
+          if(this.showDomain){
+            modelDomain = this.selectedDomain;
+          }
+          else{
+            modelDomain = this.modelDomain;
+          }
+          this.$.modelDownload.onDownload(this.profiles,this.fileName,modelDomain);
         },
 
         /**
         * Function to handle successful model download 
         */
-        _onModelDownloadSuccess: function (){
-          this.showSuccessToast("Data Model downloaded successfully");
+        _onModelDownloadSuccess: function (e, detail) {
+          if(this.enableAsyncDownload) {
+            this._downloadTaskId = detail.workAutomationId;
+            if(this.$.downloadTaskDialog) {
+              this.$.downloadTaskDialog.open();
+            }
+          } else {
+            this.showSuccessToast("Data Model downloaded successfully");
+          }
+        },
+
+        _onShowTaskDetailsTap: function () {
+          var mainApp = RUFUtilities.mainApp;
+          if (mainApp && this._downloadTaskId) {
+            var queryParams = {
+              "id": this._downloadTaskId
+            }
+            ComponentHelper.setQueryParamsWithoutEncode(queryParams);
+            mainApp.changePageRoutePath("task-detail");
+          }
         }
 
 

@@ -31,7 +31,7 @@ It is responsible to "get" and "save" the attributes.
 -->
 <dom-module id="rock-attribute-manage">
     <template>
-        <style include="bedrock-style-common">
+        <style include="bedrock-style-common bedrock-styles-scroll-bar">
             :host {
                 display: block;
                 height: 100%;
@@ -40,13 +40,11 @@ It is responsible to "get" and "save" the attributes.
 
             .defaultButton {
                 width: 100%;
-                padding-top: 10px;
             }
 
             .dataFunctionButton {
                 width: 100%;
                 bottom: 0;
-                padding-top: 20px;
                 text-align: center;
                 z-index: 9999;
             }
@@ -56,11 +54,9 @@ It is responsible to "get" and "save" the attributes.
             }
             #rock-attribute-list-container{
                 height:100%;
+                overflow-y:auto;
+                overflow-x:hidden;
             }
-            .attribute-manage-wrapper{
-                height: calc(100% - 40px);
-            }
-
             
         </style>
         <pebble-dialog id="errorsDialog" modal small vertical-offset=1 50 horizontal-align="auto" vertical-align="auto" no-cancel-on-outside-click
@@ -105,7 +101,7 @@ It is responsible to "get" and "save" the attributes.
         <liquid-rest id="entityMatchService" url="/data/pass-through/matchservice/search" method="POST" request-data={{_entityMatchRequest}}
             on-liquid-response="_onMatchSuccess" on-liquid-error="_onMatchFailure">
         </liquid-rest>
-        <div class="base-grid-structure attribute-manage-wrapper">
+        <div class="base-grid-structure button-siblings">
                 <div class="base-grid-structure-child-1">
                     <template is="dom-if" if="[[_showNoAttributeMessage]]">
                         <div align="center"> No attributes Found</div>
@@ -114,14 +110,12 @@ It is responsible to "get" and "save" the attributes.
                 <div class="base-grid-structure-child-2">
                     <div id="rock-attribute-list-container"></div>
                 </div>
-            </div>        
-        <div class="button-wrapper">
-            <div id="buttonContainer" align="center" class$="[[_getButtonsClass(functionalMode)]]">
+            </div>       
+            <div id="buttonContainer" align="center" class="buttonContainer-static">
                 <pebble-button id="cancel" class="btn btn-secondary m-r-5" button-text="Cancel" on-tap="_openCancelDialog" elevation=1 raised></pebble-button>
                 <pebble-button id="save" disabled="[[readonly]]" class="focus btn btn-success" button-text="Save" on-tap="_save" elevation=1
                     raised></pebble-button>
             </div>
-        </div>
         
         <liquid-entity-data-get name="relatedEntityGet" operation="getbyids" on-response="_relatedEntityGetResponse" exclude-in-progress></liquid-entity-data-get>
 
@@ -338,6 +332,22 @@ It is responsible to "get" and "save" the attributes.
                     needAttributesGrouping: {
                         type: Boolean,
                         value: false
+                    },
+                    _dependentAttributeModels: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _dependentAttributeValues: {
+                        type: Array,
+                        value: function() {
+                            return [];
+                        }
+                    },
+                    _isDependentModelsResponse: {
+                        type: Boolean,
+                        value: false
                     }
                 },
                 behaviors: [
@@ -379,7 +389,7 @@ It is responsible to "get" and "save" the attributes.
                 _modeChanged: function (mode, updateList) {
                     if (!mode) return;
                     this.mode = mode;
-                    this.$.buttonContainer.style.display = mode === 'edit' ? "inline-block" : 'none';
+                    this.$.buttonContainer.style.display = mode === 'edit' ? "block" : 'none';
 
                     if (updateList && this.attributeList) {
                         this.attributeList.mode = mode;
@@ -396,10 +406,11 @@ It is responsible to "get" and "save" the attributes.
                         if (this.configContext) {
                             this.groupName = this.configContext.groupName ? this.configContext.groupName : this.groupName;
                         }
-
+                        
                         var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
 
                         if (compositeModelGetRequest) {
+                            this._isDependentModelsResponse = false;
                             this._compositeAttributeModelGet = this._compositeAttributeModelGet || this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
 
                             if (this._compositeAttributeModelGet) {
@@ -440,11 +451,44 @@ It is responsible to "get" and "save" the attributes.
                             writePermission = itemContext.permissionContext.writePermission;
                         }
 
-                        this._attributeModels = await DataTransformHelper.transformAttributeModelsAsync(e.detail.response.content.entityModels[0], this.contextData, writePermission);
+                        if(!this._isDependentModelsResponse) {
+                            this._attributeModels = await DataTransformHelper.transformAttributeModelsAsync(e.detail.response.content.entityModels[0], this.contextData, writePermission);
+                            var dependentAttributeNames = this._getDependentAttributeNames(this._attributeModels);
+
+                            if(dependentAttributeNames.length > 0) {
+                                var clonedContextData = DataHelper.cloneObject(this.contextData);
+                                var itemContext = ContextHelper.getFirstItemContext(clonedContextData);
+                                itemContext.attributeNames = dependentAttributeNames;
+                                var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(clonedContextData);
+
+                                if (compositeModelGetRequest) {
+                                    this._isDependentModelsResponse = true;
+                                    this._compositeAttributeModelGet = this._compositeAttributeModelGet || this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
+
+                                    if (this._compositeAttributeModelGet) {
+                                        this._compositeAttributeModelGet.useModelCoalesce = !!this.applyContextCoalesce;
+                                        this._compositeAttributeModelGet.requestData = compositeModelGetRequest;
+                                        this._compositeAttributeModelGet.generateRequest();
+                                        return;
+                                    }
+                                }
+                            }
+                        } else {
+                            var transformedModels = await DataTransformHelper.transformAttributeModelsAsync(e.detail.response.content.entityModels[0], this.contextData, writePermission);
+                            this._dependentAttributeModels = this._dependentAttributeModels || {};
+                            for(let modelName in transformedModels) {
+                                this._dependentAttributeModels[modelName] = transformedModels[modelName];
+                            }
+                        }
 
                         var entityId = itemContext.id;
 
                         var attributeNames = Object.keys(this._attributeModels);
+
+                        if(!_.isEmpty(this._dependentAttributeModels)) {
+                            var dependentAttributeNames = Object.keys(this._dependentAttributeModels);
+                            attributeNames = attributeNames.concat(dependentAttributeNames);
+                        }
 
                         if (attributeNames.length > 0) {
 
@@ -453,11 +497,14 @@ It is responsible to "get" and "save" the attributes.
                                 itemContext.attributeNames = attributeNames;
 
                                 let contextData = this._getContextDataWithDefaultLocale();
-                                let req = DataRequestHelper.createEntityGetRequest(contextData);
+                                let req = DataRequestHelper.createEntityGetRequest(contextData, true);
 
                                 var entityGovernDataGetReq = DataHelper.cloneObject(req);
 
                                 delete entityGovernDataGetReq.params.query.valueContexts;
+
+                                var governAttributeNames = Object.keys(this._attributeModels);
+                                entityGovernDataGetReq.params.fields.attributes = governAttributeNames;
 
                                 let liquidDataGet = this.shadowRoot.querySelector("[name=attributeGetDataService]");
                                 liquidDataGet.useDataCoalesce = !!this.applyContextCoalesce;
@@ -484,6 +531,23 @@ It is responsible to "get" and "save" the attributes.
                             }
                         }
                     }
+                },
+
+                _getDependentAttributeNames: function(attributeModels) {
+                    var dependentAttributeNames = [];
+                    this._dependentAttributeModels = this._dependentAttributeModels || {};
+                    for(let model in attributeModels) {
+                        if(DataHelper.isValidObjectPath(attributeModels[model], "properties.dependencyInfo.0.dependentOn")) {
+                            var attrName = attributeModels[model].properties.dependencyInfo[0].dependentOn;
+                            if(attributeModels[attrName]) {
+                                this._dependentAttributeModels[attrName] = attributeModels[attrName];
+                            } else if(dependentAttributeNames.indexOf(attrName) === -1) {
+                                dependentAttributeNames.push(attrName);
+                            }
+                        }
+                    }
+
+                    return dependentAttributeNames;
                 },
 
                 _onEntityGovernDataGetReceived: function (e) {
@@ -515,15 +579,20 @@ It is responsible to "get" and "save" the attributes.
                     this.logInfo("AttributeManageResponseChange", "response", JSON.stringify(_attributeResponse, null, 2));
 
                     var attributes = [];
+                    var dependentAttributes = [];
 
                     if (DataHelper.validateGetEntitiesResponse(_attributeResponse) && this._attributeModels) {
                         var entity = _attributeResponse.content.entities[0];
 
                         if (entity) {
                             attributes = await DataTransformHelper.transformAttributes(entity, this._attributeModels, this.contextData, "array", true);
+                            if(!_.isEmpty(this._dependentAttributeModels)) {
+                                dependentAttributes = await DataTransformHelper.transformAttributes(entity, this._dependentAttributeModels, this.contextData, "array", true);
+                            }
                         }
                     }
                     this._attributeValues = attributes;
+                    this._dependentAttributeValues = dependentAttributes;
 
                     if (this._attributeValues.length)
                         this._loadAttributeList();
@@ -542,6 +611,8 @@ It is responsible to "get" and "save" the attributes.
                             "attribute-values": this._attributeValues,
                             "attribute-models": this._attributeModels,
                             "attribute-messages": this._attributeMessages,
+                            "dependent-attribute-models": this._dependentAttributeModels,
+                            "dependent-attribute-values": this._dependentAttributeValues,
                             "attributes-chunk-length": this.attributesChunkLength || 10,
                             "no-of-columns": this.noOfColumns,
                             "context-data": this.contextData,
@@ -572,7 +643,12 @@ It is responsible to "get" and "save" the attributes.
                     }
 
                     firstItemContext.id = entityId;
-                    newEntity = DataTransformHelper.prepareEntityForCreate(entityId, entityType, attributesJSON, this.contextData, DataHelper.getUserName(), {},  this._attributeModels);
+                    var modelDomain;
+                    if(DataHelper.getParamValue('state')){
+                        modelDomain = JSON.parse(DataHelper.getParamValue('state')).modelDomain;
+                    }                  
+                                       
+                    newEntity = DataTransformHelper.prepareEntityForCreate(entityId, entityType, attributesJSON, this.contextData, DataHelper.getUserName(), {},  this._attributeModels, modelDomain);
                     newEntity.name = entityName;
 
                     this._entityDataOperation = "create";

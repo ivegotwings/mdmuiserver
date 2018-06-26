@@ -34,15 +34,19 @@
                 overflow-x: hidden;
                 height: 100%;
             }
+
             .search-container {
                 position: relative;
-                display: inline-block;
-                width: 50%;
+                display: block;
+                width: 100%;
+                padding-top:10px;
+                margin-bottom:5px;
             }
 
             .checkbox-label-color {
                 --pebble-checkbox-label-color: #75808b;
             }
+
             .search-container .resetsearch {
                 position: absolute;
                 right: 0;
@@ -57,20 +61,14 @@
                     font-size: var(--font-size-xs, 10px)!important;
                     height: auto;
                     padding-bottom: 0;
-                };
+                }
                 --pebble-icon-dimension: {
                     width: 12px;
                     height: 12px;
-                };
+                }
                 --pebble-button-left-icon: {
                     margin-right: 5px;
                 }
-            }
-
-            .search-container {
-                position: relative;
-                display: inline-block;
-                width: 50%;
             }
         </style>
         <liquid-entity-data-get id="lineagepath" operation="getbyids" request-data="{{lineagerequest}}" on-error="_onLineagePathError"
@@ -81,24 +79,25 @@
         <liquid-entity-data-get id="getSearchResultDetail" operation="getsearchresultdetail" request-data="{{request}}" request-id="[[initiateSearchResponse.content.requestId]]"
             last-response="{{getEntitySearchResultsResponse}}" on-error="_onGetSearchError" on-response="_onGetSearchResultDetailResponse"
             exclude-in-progress></liquid-entity-data-get>
-        <div class="search-container">
-            <bedrock-pubsub event-name="rock-search" handler="_onSearch" target-id="searchBar"></bedrock-pubsub>
-            <template is="dom-if" if="{{_showSearchBar}}">
-                <rock-search-bar id="searchBar" placeholder="Enter Search text"></rock-search-bar>
-                <div class="resetsearch" hidden$="[[!_resetSearchEnabled]]">
-                    <pebble-button icon="pebble-icon:reset" class="btn-link pebble-icon-color-blue" on-tap="_resetSearch" button-text="Reset Search"></pebble-button>
+        <div class="base-grid-structure">
+            <div class="base-grid-structure-child-1">
+                <div class="search-container">
+                    <bedrock-pubsub event-name="rock-search" handler="_onSearch" target-id="searchBar"></bedrock-pubsub>
+                    <template is="dom-if" if="{{_showSearchBar}}">
+                        <rock-search-bar id="searchBar" placeholder="Enter Search text" hide-rbl="true"></rock-search-bar>
+                        <div class="resetsearch" hidden$="[[!_resetSearchEnabled]]">
+                            <pebble-button icon="pebble-icon:reset" class="btn-link pebble-icon-color-blue" on-tap="_resetSearch" button-text="Reset Search"></pebble-button>
+                        </div>
+                    </template>
                 </div>
-            </template>
+            </div>
+            <div hidden$="[[_classificationsFound]]" class="status-error">No Classifications Found</div> 
+            <div class="base-grid-structure-child-2">
+                <pebble-tree id="contextTree" class="contextTree" leaf-node-only="[[leafNodeOnly]]" data="{{classifications}}" check-child-nodes
+                    default-child-depth="10" selected-items="{{_selectedItems}}" selected-item="{{_selectedItem}}" multi-select="[[multiSelect]]"
+                    disable-child-node="[[disableChildNode]]"></pebble-tree>
+            </div>
         </div>
-        <template is="dom-if" if="{{_isSearchMode}}">
-            <pebble-tree id="contextTree" leaf-node-only="[[leafNodeOnly]]" data="{{classifications}}" check-child-nodes default-child-depth="10"
-                selected-items="{{_selectedItems}}" selected-item="{{_selectedItem}}" multi-select="[[multiSelect]]" disable-child-node="[[disableChildNode]]"></pebble-tree>
-        </template>
-        <template is="dom-if" if="{{!_isSearchMode}}">
-            <pebble-tree id="contextTree" class="contextTree" leaf-node-only="[[leafNodeOnly]]" data="{{classifications}}" check-child-nodes
-                default-child-depth="10" selected-items="{{_selectedItems}}" selected-item="{{_selectedItem}}" multi-select="[[multiSelect]]"
-                disable-child-node="[[disableChildNode]]"></pebble-tree>
-        </template>
         <bedrock-pubsub event-name="tree-node-child-list-refreshed" handler="_childListRefreshed"></bedrock-pubsub>
         <liquid-rest id="classificationModelGet" url="/data/pass-through/entitymodelservice/get" method="POST" request-data="{{_classificationModelRequest}}"
             on-liquid-response="_onClassificationModelGetResponse"></liquid-rest>
@@ -141,6 +140,11 @@
                 _showSearchBar: {
                     type: Boolean,
                     value: false
+                },
+
+                _classificationsFound: {
+                    type: Boolean,
+                    value: true
                 },
                 /**
                   * <b><i>Content development is under progress... </b></i> 
@@ -246,6 +250,7 @@
             },
             _onSearch: function (e) {
                 this._isSearchMode = true;
+                this._searchClicked = true;
                 this.executeRequest("", e.detail.query);
                 this._clearSelectedItems();
             },
@@ -362,8 +367,8 @@
                             data: map
                         }
                         this._loading = false;
-                        this.dispatchEvent(new CustomEvent('bedrock-event',{detail:eventData, bubbles:true, composed:true}));
-                    }                
+                        this.dispatchEvent(new CustomEvent('bedrock-event', { detail: eventData, bubbles: true, composed: true }));
+                    }
                 }
             },
 
@@ -429,6 +434,10 @@
                 this._showSearchBar = true;
                 var res = e.detail.response;
                 var classifications = res.content.entities;
+                this._classificationsFound = true;
+                if(this._searchClicked && _.isEmpty(classifications)) {
+                    this._classificationsFound = false;
+                }
                 for (var i in classifications) {
                     var classification = classifications[i];
                     var externalNameAttr = EntityHelper.getAttribute(classification, "externalName");
@@ -456,6 +465,7 @@
                         this._currentNode.refreshChildList();
                     }
                 }
+                this._searchClicked = false;
             },
 
             //If _selectedClassificationPaths available, then only pre selection process triggers

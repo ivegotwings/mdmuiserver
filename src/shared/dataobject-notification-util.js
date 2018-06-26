@@ -25,7 +25,7 @@ DataObjectNotificationUtil.updateRequestObjectForNotification = function (reques
                 if (request.entity || request.entityModel) {
                     DataObjectNotificationUtil._populateNotificationContext(request, notificationInfo);
                 }
-                console.log(JSON.stringify(request, null, 2));
+                //console.log(JSON.stringify(request, null, 2));
                 notificationInfo.context.dataIndex = request.dataIndex;
             }
         }

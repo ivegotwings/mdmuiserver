@@ -202,10 +202,22 @@
                 return;
             }
             var dimensions = detail.dimensions;
-            if((!dimensions.taxonomy || dimensions.taxonomy.length == 0) &&
-               (!dimensions.classification || dimensions.classification.length == 0)) {
+            if(!this._contexts || this._contexts.length == 0) {
                 return;
             }
+
+            var isContextAvailable = false;
+            for(var ctxIdx = 0;  ctxIdx < this._contexts.length; ctxIdx++) {
+                if(dimensions[this._contexts[ctxIdx]] && dimensions[this._contexts[ctxIdx]].length > 0) {
+                    isContextAvailable = true;
+                    break;
+                }
+            }
+
+            if(!isContextAvailable) {
+                return;
+            }
+
             if(dimensions.taxonomy && 
                dimensions.taxonomy.length) {
                 if(this._currentTaxonomy != dimensions.taxonomy[0]) {
@@ -224,7 +236,7 @@
             if((dimensions.taxonomy && dimensions.taxonomy.length > 0) &&
                (dimensions.classification && dimensions.classification.length > 0)) {
                 var dataContexts = [{
-                    "taxonomy": dimensions.taxonomy[0],
+                    "taxonomy": this._getTaxonomyName(dimensions.taxonomy[0]) || dimensions.taxonomy[0],
                     "classification": dimensions.classification[0]
                 }];
                 this.modelContextData[ContextHelper.CONTEXT_TYPE_DATA] = dataContexts;
@@ -236,9 +248,26 @@
             }, 1000);
         },
 
+        _getTaxonomyName: function (taxonomyId) {
+            var taxonomyName = "";
+            if (!_.isEmpty(this._taxonomies)) {
+                let taxonomy = this._taxonomies.find(taxonomy => taxonomy.id == taxonomyId);
+                if (taxonomy) {
+                    taxonomyName = taxonomy.name;
+                }
+            }
+            return taxonomyName;
+        },
+
         _loadMappings: function() {
             if(this.dimensionSelector) {
-                this.selectedDimensions = this.dimensionSelector.selectedDimensions;
+                var selectedDimensions = DataHelper.cloneObject(this.dimensionSelector.selectedDimensions);
+                if (selectedDimensions && !_.isEmpty(selectedDimensions.taxonomy)) {
+                    var taxonomyName = this._getTaxonomyName(selectedDimensions.taxonomy[0]) || selectedDimensions.taxonomy[0];
+                    selectedDimensions.taxonomy = [taxonomyName];
+                }
+
+                this.selectedDimensions = selectedDimensions;
                 this._resetMappings(); // Reset before get
                 this._getMappings(); // Get mappings based on dimensions
             }
@@ -263,13 +292,23 @@
         },
 
         _triggerEvent: function () {
-            var eventDetail = {};
-            if (!this.currentEventDetails) {
-                this.currentEventDetails = {
-                    "name": this.currentEventName
+            var data = {};
+            if (this.skipStep && this.currentEventName) {
+                if (this.currentEventName.toLowerCase() == "onnext") {
+                    data.skipNext = this.skipStep;
+                } else if (this.currentEventName.toLowerCase() == "onback") {
+                    data.skipBack = this.skipStep;
                 }
             }
-            this.fireBedrockEvent(this.currentEventName, this.currentEventDetails, { ignoreId: true });
+
+            var eventDetail = {
+                name: this.currentEventName,
+                data: data
+            }
+
+            this.fireBedrockEvent(this.currentEventName, eventDetail, {
+                ignoreId: true
+            });
 
             //reset
             this.currentEventName = "";

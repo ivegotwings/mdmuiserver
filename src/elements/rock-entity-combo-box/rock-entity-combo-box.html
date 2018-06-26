@@ -24,7 +24,7 @@
         <liquid-entity-model-get id="getReferenceModels" operation="getbyids" request-data=[[_getRefModelsRequest]] on-response="_onRefModelsReceived"
             on-error="_onRefModelsGetFailed"></liquid-entity-model-get>
         <entity-lov-datasource id="entityLovDataSource" apply-locale-coalesce="[[applyLocaleCoalesce]]" base-request="[[requestData]]" r-data-source="{{rDataSource}}" r-data-formatter="{{_dataFormatter}}"
-            attributes-criterion-builder="{{_attributesCriterionBuilder}}" keywords-criterion-builder="{{_keywordsCriterionBuilder}}"
+            attributes-criterion-builder="{{_attributesCriterionBuilder}}" keywords-criterion-builder="{{_keywordsCriterionBuilder}}" sort-criterion-builder="{{_sortCriterionBuilder}}"
             is-attribute-filter="{{_isAttributeFilter}}">
         </entity-lov-datasource>
         <rock-image-source-provider image-source="{{imageSource}}"></rock-image-source-provider>
@@ -35,6 +35,7 @@
                           show-image="[[_showImage(imageField,imageIdField)]]"
                           show-color="[[showColor]]"
                           no-sub-title="[[noSubTitle]]"
+                          no-popover="[[noPopover]]"
                           show-action-buttons="[[showActionButtons]]"
                           is-readonly=[[isReadonly]]
                           r-data-source="{{rDataSource}}"
@@ -47,7 +48,11 @@
                           selected-values="{{selectedValues}}"
                           no-label-float="[[noLabelFloat]]"
                           description-object="[[descriptionObject]]"
-                          selected-value="{{selectedValue}}">
+                          selected-value="{{selectedValue}}"
+                          tabindex$="[[tabindex]]"
+                          on-focus="_onFocusCombo"
+                          on-tap="_onFocusCombo"
+                          >
         </pebble-combo-box>
     </template>
     <script>
@@ -207,6 +212,20 @@
                 imageSource:{
                     type:Object
                 },
+
+                pebbleComboBox: {
+                    type: Object
+                },
+                pebbleCollectionContainer: {
+                    type: Object
+                },
+                _comboBox: {
+                    type: Object
+                },
+                _collectionContainer: {
+                    type: Object
+                },
+
                 /**
                  * Indicates whether to disable the floating label or not.
                  * Set the value as <b>true</b> to disable the floating label.
@@ -260,6 +279,15 @@
                         return {};
                     }
                 },
+                noPopover: {
+                    type: Boolean,
+                    value: false
+                },
+                mode: {
+                    type: String,
+                    value: "view",
+                    notify: true
+                },
             },
 
             behaviors: [
@@ -273,10 +301,30 @@
             /**
              * <b><i>Content development is under progress... </b></i> 
              */
+            selectedValueChanged :function(){
+                // we cannot reset the selectedid in any case. Re-setting id means updating attribute object data which causes unnecessary observer calls
+                // and update parent attribute control changed mode. Even though attribute not updated by user, it still reflects as changed control.
+                var selectedId = this.selectedId;
+                this.set("selectedId","");
+                this.selectedId = selectedId;
+            },
             ready: function () {
                 this._keywordsCriterionBuilder = this._prepareKeywordsCriteria.bind(this);
-                this._attributesCriterionBuilder = this._prepareAttributesCriteria.bind(this).bind(this);
+                this._attributesCriterionBuilder = this._prepareAttributesCriteria.bind(this);
+                this._sortCriterionBuilder = this._preparesortCriterionBuilder.bind(this);
                 this._dataFormatter = this._getAttributeFormattedData.bind(this);
+            },
+
+            get pebbleComboBox() {
+                this._comboBox = this._comboBox || this.shadowRoot.querySelector("pebble-combo-box");
+                return this._comboBox;
+            },
+
+            get pebbleCollectionContainer() {
+                if(this.pebbleComboBox) {
+                    this._collectionContainer = this._collectionContainer || this.pebbleComboBox.shadowRoot.querySelector('#collectionContainer');
+                    return  this._collectionContainer;
+                }
             },
 
             _prepareAttributes: function (idField, imageIdField, titlePattern, subTitlePattern, imageField, colorField, valueField, requestData) {
@@ -368,6 +416,14 @@
 
             },
 
+            _onFocusCombo: function(e) {
+                // adding mode here to check before opening popover. Even though attribute mode is view, because of the focus
+                // popover is getting opened on load/click.
+                if(this.mode === "edit" && this.pebbleComboBox && this.pebbleCollectionContainer) {
+                    this.pebbleCollectionContainer.openPopover();
+                    e.stopPropagation(); 
+                }
+            },
             _setLovTitleField: function() {
                 var typesCriterion = [];
                 if(this.requestData && this.requestData.params && this.requestData.params.query && this.requestData.params.query.filters) {
@@ -392,12 +448,19 @@
                 var externalNameAttributeName;
                 
                 if (responseContent && !_.isEmpty(responseContent.entityModels)) {
-                    externalNameAttributeName = DataHelper.getExternalNameAttributeFromModel(responseContent.entityModels[0]);
+                    var responseData = responseContent.entityModels[0];
+                    externalNameAttributeName = DataHelper.getExternalNameAttributeFromModel(responseData);
                     
                     if(externalNameAttributeName) {
                         this._lovColumnMap.title = this._lovColumnMap.value = this.titlePattern = this.valueField = externalNameAttributeName;
-
+                        
                         this._attributes.push(externalNameAttributeName);
+
+                        //data type of isExternal attribute
+                        var attributeData = responseData.data.attributes[externalNameAttributeName];
+                        if(DataHelper.isValidObjectPath(attributeData, "properties.dataType")){
+                            this.titlePatternDataType = attributeData.properties.dataType.toUpperCase();
+                        }                        
                     }
                 }
 
@@ -435,7 +498,7 @@
                     var sortAttributes = [];
 
                     var sortAttribute = {};
-                    sortAttribute[this._sortField] = "_ASCE";
+                    sortAttribute[this._sortField] = "_ASC";
                     sortAttribute["sortType"] = "_STRING"; // How to determine this?
                     sortAttributes.push(sortAttribute);
 
@@ -470,6 +533,21 @@
                     return keywordsCriterion;
                 }
             },
+
+            _preparesortCriterionBuilder: function(sortData){
+                if(!sortData){
+                    var sortAttributes = [];
+                    var sortAttribute = {};
+                    sortAttribute[this.titlePattern] = "_ASC";
+                    sortAttribute["sortType"] = (this.titlePatternDataType) ?  "_" + this.titlePatternDataType : "_STRING";
+                    sortAttributes.push(sortAttribute);
+                    const sortCriterion = {
+                        "attributes": sortAttributes
+                    };
+                    return sortCriterion; 
+                }
+            },
+
             /**
              * <b><i>Content development is under progress... </b></i> 
              */

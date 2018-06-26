@@ -17,12 +17,13 @@ const CONST_ALL = falcorUtil.CONST_ALL,
     CONST_CTX_PROPERTIES = falcorUtil.CONST_CTX_PROPERTIES,
     CONST_DATAOBJECT_METADATA_FIELDS = falcorUtil.CONST_DATAOBJECT_METADATA_FIELDS;
 
-const DataObjectManageService = require('./DataObjectManageService');
-const ConfigurationService = require('./ConfigurationService');
-const EntityCompositeModelGetService = require('./EntityCompositeModelGetService');
-const EventService = require('../event-service/EventService');
-const EntityHistoryEventService = require('../event-service/EntityHistoryEventService');
-const DataObjectLineageService = require("./DataObjectLineageService");
+const DataObjectManageService = require('../services/data-service/DataObjectManageService');
+const ConfigurationService = require('../services/configuration-service/ConfigurationService');
+const EntityCompositeModelGetService = require('../services/model-service/EntityCompositeModelGetService');
+const EventService = require('../services/event-service/EventService');
+const EntityHistoryEventService = require('../services/event-service/EntityHistoryEventService');
+const DataObjectLineageService = require("../services/data-service/DataObjectLineageService");
+const BaseModelService = require("../services/model-service/BaseModelService");
 
 //falcor utilty functions' references
 const responseBuilder = require('./dataobject-falcor-response-builder');
@@ -45,10 +46,11 @@ if (runOffline) {
 
 const dataObjectManageService = new DataObjectManageService(options);
 const entityCompositeModelGetService = new EntityCompositeModelGetService(options);
-const configurationService = new ConfigurationService(options);
+const configurationService = new ConfigurationService.ConfigurationService(options);
 const eventService = new EventService(options);
 const entityHistoryEventService = new EntityHistoryEventService(options);
 const dataObjectLineageService = new DataObjectLineageService(options);
+const baseModelService = new BaseModelService(options);
 
 const searchResultExpireTime = -30 * 60 * 1000;
 
@@ -141,7 +143,7 @@ async function initiateSearch(callPath, args) {
             dataObjectType = request.params.query.filters.typesCriterion[0]; // pick first object type..
         }
 
-        var service = _getService(dataObjectType);
+        var service = _getService(dataObjectType, true, dataIndex);
 
         if (service != eventService) {
             //console.log('request str', JSON.stringify(request, null, 4));
@@ -381,19 +383,21 @@ function createGetRequest(reqData) {
     return request;
 }
 
-function _getService(dataObjectType) {
-
+function _getService(dataObjectType, isInitiateSearch, dataIndex) {
     if (dataObjectType == 'entityCompositeModel') {
         return entityCompositeModelGetService;
     }
     if (dataObjectType == 'uiConfig') {
         return configurationService;
     }
-    else if (dataObjectType == "externalevent" || dataObjectType == "bulkoperationevent") {
-        return eventService;
-    }
     else if (dataObjectType == "entityhistoryevent") {
         return entityHistoryEventService;
+    } 
+    else if (dataObjectType == "externalevent" || dataObjectType == "bulkoperationevent" || dataIndex == "eventData") {
+        return eventService;
+    }    
+    else if (!isInitiateSearch && (dataObjectType == "attributeModel" || dataObjectType == "relationshipModel" || dataObjectType == "entityType")) {
+        return baseModelService;
     }
     else {
         return dataObjectManageService;
@@ -407,13 +411,13 @@ async function get(dataObjectIds, reqData) {
     try {
         var res = undefined;
         var isCoalesceGet = false;
-        var isNearestGet = false;  
+        var isNearestGet = false;
 
-        var service = _getService(reqData.dataObjectType);
+        var service = _getService(reqData.dataObjectType, false, reqData.dataIndex);
         var request = createGetRequest(reqData);
 
-        if(reqData.dataObjectType == "classification") {
-            if(!isEmpty(reqData.relAttrNames) && reqData.relAttrNames[0] == "lineagepath") {
+        if (reqData.dataObjectType == "classification") {
+            if (!isEmpty(reqData.relAttrNames) && reqData.relAttrNames[0] == "lineagepath") {
                 service = dataObjectLineageService;
             }
         }
@@ -592,8 +596,11 @@ async function processData(dataIndex, dataSubIndex, dataObjects, dataObjectActio
 
             //console.log('dataObject data', JSON.stringify(dataObject, null, 4));
 
+            var dataObjectType = dataObject.type;
             var apiRequestObj = { 'dataIndex': dataIndex, 'clientState': clientState };
             apiRequestObj[dataIndexInfo.name] = falcorUtil.cloneObject(dataObject);
+
+            let service = _getService(dataObjectType, false, dataIndex);
 
             //Added hotline to api request only when it is true
             if (clientState.hotline) {
@@ -604,22 +611,12 @@ async function processData(dataIndex, dataSubIndex, dataObjects, dataObjectActio
 
             if (dataObjectAction == "create" || dataObjectAction == "update") {
                 _removeUnnecessaryProperties(apiRequestObj);
-                _prependAuthorizationType(apiRequestObj);
+                _prependAdditionalParams(apiRequestObj, dataIndexInfo.name);
             }
             //console.log('api request data for process dataObjects', JSON.stringify(apiRequestObj));
-            var dataOperationResult = {};
+            var dataOperationResult = await service.process(apiRequestObj, dataObjectAction, dataObjectType);
 
-            if (dataObjectAction == "create") {
-                dataOperationResult = await dataObjectManageService.create(apiRequestObj);
-            }
-            else if (dataObjectAction == "update") {
-                dataOperationResult = await dataObjectManageService.update(apiRequestObj);
-            }
-            else if (dataObjectAction == "delete") {
-                dataOperationResult = await dataObjectManageService.deleteDataObjects(apiRequestObj);
-            }
             //console.log('dataObject api UPDATE raw response', JSON.stringify(dataOperationResult, null, 4));
-
             if (dataOperationResult && !isEmpty(dataOperationResult)) {
                 var responsePath = dataIndexInfo.responseObjectName;
                 var cacheExpiryDurationInMins = dataIndexInfo.cacheExpiryDurationInMins;
@@ -628,9 +625,7 @@ async function processData(dataIndex, dataSubIndex, dataObjects, dataObjectActio
                 if (dataOperationResponse && dataOperationResponse.status == 'success') {
                     if (dataObject) {
 
-                        var dataObjectType = dataObject.type;
                         var basePath = [pathKeys.root, dataIndex, dataSubIndex, dataObjectType, pathKeys.byIds, dataObjectId];
-
 
                         var reqData = {
                             'dataIndex': dataIndex,
@@ -831,13 +826,16 @@ function _getOriginalRelIds(dataObject) {
     return originalRelIds;
 }
 
-function _prependAuthorizationType(reqObject) {
-    if (reqObject.params) {
-        reqObject.params["authorizationType"] = "accommodate";
-    } else {
-        reqObject.params = {
-            "authorizationType": "accommodate"
-        };
+function _prependAdditionalParams(reqObject, dataInfoKey) {
+    if (!reqObject.params) {
+        reqObject.params = {};
+    }
+
+    reqObject.params["authorizationType"] = "accommodate";
+
+    if (reqObject[dataInfoKey].isReclassification) {
+        delete reqObject[dataInfoKey].isReclassification;
+        reqObject.params["reclassification"] = true;
     }
 }
 
@@ -845,7 +843,7 @@ function _removeUnnecessaryProperties(reqObject) {
     if (reqObject && reqObject.entity && reqObject.entity.data) {
         var data = reqObject.entity.data;
 
-        if(data.webProcessingOptions) {
+        if (data.webProcessingOptions) {
             delete data.webProcessingOptions;
         }
 

@@ -45,7 +45,7 @@
             .alignRight {
                 margin-left: auto;
             }
-            
+
             :host {
                 display: block;
                 height: 100%;
@@ -94,7 +94,7 @@
 
             .search-container {
                 position: relative;
-                display: inline-block;
+                display: block;
                 width: 100%;
             }
 
@@ -117,10 +117,12 @@
 
             .flex-container>div {
                 padding: 5px;
+                flex-grow:1;
             }
 
-            .item-text-right {
+            .flex-container>div.item-text-right {
                 flex-shrink: 0;
+                flex-grow:0;
                 align-self: center;
             }
         </style>
@@ -238,8 +240,8 @@
                         },
                         {
                             "value": "BULK_EDIT",
-                            "title": "Bulk Edit"
-                        },
+                            "title": "Bulk Create/Edit"
+                        },                        
                         {
                             "value": "BULK_ENTITY_DELETE",
                             "title": "Bulk Entity Delete"
@@ -271,6 +273,10 @@
                         {
                             "value": "MODEL_IMPORT",
                             "title": "Model Imports"
+                        },
+                        {
+                            "value": "MODEL_EXPORT",
+                            "title": "Model Exports"
                         }
                         ]
                     },
@@ -412,6 +418,35 @@
                         type: String,
                         value: "",
                         observer: '_onChangeTaskType'
+                    },
+                    modelTaskTypes: {
+                        type: Array,
+                        value: function () {
+                            return [
+                                "UI_BaseDataModel",
+                                "UI_GovernanceModel",
+                                "UI_AuthorizationModel"
+                            ]
+                        }
+                    },
+                    modelEventSettings: {
+                        type: Object,
+                        value: function () {
+                            return {
+                                "eventTypes": [
+                                    {
+                                        "value": "MODEL_IMPORT",
+                                        "title": "Model Imports"
+                                    },
+                                    {
+                                        "value": "MODEL_EXPORT",
+                                        "title": "Model Exports"
+                                    }
+                                ],
+                                "selectedIndexEventType": 0,
+                                "selectedEventType": "MODEL_IMPORT"
+                            }
+                        }
                     }
                 },
                 behaviors: [
@@ -425,9 +460,21 @@
                  */
                 ready: function () {
                     this._dataFormatter = this._getEventFormattedData.bind(this);
+                    this._loadEventSettings();
+                },
+                _loadEventSettings: function () {
+                    if(this.taskType && this.modelTaskTypes.indexOf(this.taskType) != -1) {
+                        this.eventTypes = this.modelEventSettings.eventTypes
+                        this.selectedIndexEventType = this.modelEventSettings.selectedIndexEventType;
+                        this.selectedEventType = this.modelEventSettings.selectedEventType;
+                    }
                 },
                 isGenericTasklist: function (taskType) {
-                    return !taskType;
+                    if(taskType && this.modelTaskTypes.indexOf(this.taskType) == -1) {
+                        return false;
+                    }
+
+                    return true;
                 },
                 _onChangeTaskType: function (taskType) {
                     if (taskType) {
@@ -543,7 +590,6 @@
                     this._load = true;
                     this.set("request", req);
                     this.set("gridConfig", this.config.gridConfig);
-                    Polymer.Async.timeOut.after(10).run(this._reloadListData.bind(this));
                 },
 
                 _reloadListData() {
@@ -640,7 +686,7 @@
                             case "BULK_EDIT":
                                 taskTypeCriterion = {
                                     "taskType": {
-                                        "contains": "process*"
+                                        "exacts": ["process","process-query","process-multi-query","createVariants"]
                                     }
                                 }
                                 break;
@@ -668,7 +714,15 @@
                             case "MODEL_IMPORT":
                                 taskTypeCriterion = {
                                     "taskType": {
-                                        "contains": "UI_BaseDataModel UI_GovernanceModel UI_AuthorizationModel",
+                                        "contains": this.taskType || "UI_BaseDataModel UI_GovernanceModel UI_AuthorizationModel",
+                                        "operator": "_OR"
+                                    }
+                                };
+                                break;
+                            case "MODEL_EXPORT":
+                                taskTypeCriterion = {
+                                    "taskType": {
+                                        "contains": this.taskType ? this.taskType + "_Export"  : "UI_BaseDataModel_Export UI_GovernanceModel_Export UI_AuthorizationModel_Export",
                                         "operator": "_OR"
                                     }
                                 };
@@ -756,7 +810,8 @@
 
                             event.viewDetails = "View Details"
                         } else if (eventTypeCode == "ASSET_IMPORT_RECORD") {
-                            event.recordCount = "Total 1 record(s) submitted"
+                            event.recordCount = "Total 1 record(s) submitted";
+                            event.disableLink = true;
                         } else {
                             event.recordCount = "Record count is unavailable";
                         }
@@ -796,7 +851,7 @@
                 },
                 _onEventTypeFilterChanged: function (selectedEventType) {
                     if (this.request && !_.isEmpty(this.request) && selectedEventType) {
-                        //Filtering only values from {value, titles} array elements                
+                        //Filtering only values from {value, titles} array elements
                         var eventTypesValues = this.eventTypes.map((elm, index) => {
                             return elm.value;
                         });

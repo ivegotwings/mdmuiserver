@@ -1,0 +1,385 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/iron-ajax/iron-ajax.html">
+
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-helpers/element-helper.html">
+<link rel="import" href="../bedrock-helpers/data-transform-helper.html">
+<link rel="import" href="../bedrock-helpers/message-helper.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
+
+
+<link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
+<link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
+<link rel="import" href="../liquid-entity-data-save/liquid-entity-data-save.html">
+<link rel="import" href="../liquid-entity-govern-data-get/liquid-entity-govern-data-get.html">
+
+<link rel="import" href="../liquid-rest/liquid-rest.html">
+
+<link rel="import" href="../pebble-accordion/pebble-accordion.html">
+<link rel="import" href="../pebble-vertical-divider/pebble-vertical-divider.html">
+<link rel="import" href="../pebble-tree/pebble-tree.html">
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
+<link rel="import" href="../pebble-dialog/pebble-dialog.html">
+<link rel="import" href="../pebble-button/pebble-button.html">
+
+<link rel="import" href="../rock-attribute-list/rock-attribute-list.html">
+<link rel="import" href="../rock-compare-entities/rock-compare-entities.html">
+<link rel="import" href="../rock-classification-tree/rock-classification-tree.html">
+<!--<link rel="import" href="classification-get-data.html">-->
+<!--
+`rock-extension-manage` Represents a component that renders all the extensions of an entity.
+It manages the current extensions and creates the new extensions.
+
+@element rock-extension-manage
+@group rock-elements
+@demo demo/index.html
+-->
+<dom-module id="rock-entity-snapshot-compare">
+    <template>
+        <style include="bedrock-style-common">
+            :host {
+                display: block;
+                height: 100%;
+            }
+            .extensions-container {
+                height: calc(100% - 30px);
+                /*margin: inherit;*/
+            }
+
+            .tree-heading {
+                font-weight: var(--font-bold, bold);
+                font-size: var(--default-font-size, 14px);
+            }
+            
+        </style>
+
+        <pebble-spinner active="[[_loading]]"></pebble-spinner>
+
+        <div class="button-siblings">
+            <div id="snapshot-compare-content" class="full-height">
+                <template is="dom-if" if="{{_getContextData(_compareEntitiesContext)}}">
+                    <rock-compare-entities id="compareSnapshots" is-snapshot="true" compare-entities-context="{{_compareEntitiesContext}}" attribute-names="{{_attributeNames}}"
+                        enable-column-select></rock-compare-entities>
+        
+                </template>
+            </div>
+        
+        </div>
+
+        <div id="buttonContainer" align="center" class="buttonContainer-static">
+            <pebble-button id="cancel" class="btn btn-secondary m-r-5" button-text="Cancel" on-tap="_onCancelTap" elevation=1 raised></pebble-button>
+            <pebble-button id="save" class="focus btn btn-primary" button-text="Rollback" on-tap="_onRollback" elevation=1 raised></pebble-button>
+        </div>
+        <liquid-rest id="snapshotRollback" url="/data/pass-through-snapshot/restoresnapshot" method="POST" request-data="{{_snapshotRollbackRequest}}" on-liquid-response="_onRollbackSuccess">
+        <liquid-rest id="snapshotRollbackPrimary" url="/data/pass-through-snapshot/restoresnapshot" method="POST" request-data="{{_snapshotRollbackRequestPrimary}}" on-liquid-response="_onRollbackSuccess">
+        </liquid-rest>
+
+    </template>
+    <script>
+        (function () {
+            'use strict';
+
+            Polymer({
+                is: "rock-entity-snapshot-compare",
+                properties: {
+                    /**
+                      * <b><i>Content development is under progress... </b></i> 
+                      */
+                    contextData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    compareEntitiesContext: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    businessFunctionData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _snapshotRollbackRequest: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _snapshotRollbackRequestPrimary: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _isAdditionalContextPresentSnap: {
+                        type: Boolean
+                    },
+                    _loading: {
+                        type: Boolean,
+                        value: false
+                    },
+                    _contextData: {
+                        type: Object,
+                        value: function() {
+                            return {};
+                        }
+                    },
+                    _rollbackRqstCounter: {
+                        type: Number,
+                        value: 0
+                    },
+                    _compareEntitiesContext: {
+                        type: Object,
+                        value: function() {
+                            return {};
+                        }
+                    },
+                    attributeNames: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    _attributeNames: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    _rockCompareEntities: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    taxonomy: {
+                        type: String,
+                        value: ""
+                    }
+                },
+
+                behaviors: [
+                    RUFBehaviors.UIBehavior,
+                    RUFBehaviors.ComponentContextBehavior
+                ],
+                ready: function () {
+                    var snapshotIdArray = this.businessFunctionData.selectedItems.map(function (elm, index) {
+                        return elm.snapshotId;
+                    });
+
+                    snapshotIdArray.forEach((elm, index)=> {
+                        if(elm == undefined) {
+                            snapshotIdArray[index] = {"id":this.contextData.ItemContexts[0].id, 
+                                                "notSnapshot": true};
+                        }
+                    });
+
+                    var attributeNames = ["_ALL"]
+
+                    var compareEntitiesContext = 
+                    {
+                            entityIds: snapshotIdArray,
+                            entityTypes: [
+                                "sku"
+                            ],
+                            contextData: this.contextData
+                        }
+                    this._attributeNames = attributeNames;
+                    this._compareEntitiesContext = compareEntitiesContext;
+
+                },
+
+                _getContextData: function (_compareEntitiesContext) {
+                    if( !_.isEmpty(_compareEntitiesContext)) {
+                        return true;
+                    } else return false;
+
+                },
+
+                _getPrimaryAndAdditionalContexts: async function() {
+                if (!_.isEmpty(this.contextData)) {
+
+                    var entityType = this.contextData.ItemContexts[0].type;
+                    var contextModel = await ContextModelManager.getContextModelByEntityTypeAndDataContext(
+                        entityType, this.contextData.Contexts[0]);
+                    if (contextModel) {
+                        var additionalContexts = contextModel.properties ? contextModel.properties.additionalcontexts :
+                            undefined;
+                        var primaryContexts = DataTransformHelper.getPrimaryContextKeysFromContextModel(
+                            contextModel, additionalContexts);
+                    }
+                    var mergedContexts = {
+                        "additionalContexts": additionalContexts,
+                        "primaryContexts": primaryContexts
+                    }
+                    return mergedContexts;
+                }
+            },
+
+                _onCancelTap: function (e) {
+                    var eventName = "onCancel";
+                    var eventDetail = {
+                        name: eventName
+                    }
+
+                    this.fireBedrockEvent(eventName, eventDetail, {
+                        ignoreId: true
+                    });
+                },
+
+                _getEntityRollbackRequest: async function (currentEntityId, currEntityType, selectedEntityId) {                  
+                    var req = {};
+                    var req1 = {
+                        "entity": {
+                            "id": currentEntityId,
+                            "type": currEntityType,
+                            "data": {
+                                "contexts": []
+                            }
+                        },
+                        "params": {
+                            "snapshotId": selectedEntityId,
+                            "allContextual": false
+                        }
+                    }
+                    var req2 = {
+                        "entity": {
+                            "id": currentEntityId,
+                            "type": currEntityType,
+                            "data": {
+                                "contexts": []
+                            }
+                        },
+                        "params": {
+                            "snapshotId": selectedEntityId,
+                            "allContextual": false
+                        }
+                    }
+                    req.fullContextRqst = req1;
+                    var firstDataContext = ContextHelper.getFirstDataContext(this.contextData);
+                    var primaryContext ={};
+                    var dataContexts={};
+                    this._contextsObj = await this._getPrimaryAndAdditionalContexts();
+                    if (firstDataContext) {
+                        if (this._contextsObj) {
+                            if (!_.isEmpty(this._contextsObj.primaryContexts) && this._contextsObj.primaryContexts
+                                .indexOf('self') !== -1) {
+                                this._isAdditionalContextPresentSnap = false;
+                            } else if (!_.isEmpty(this._contextsObj.additionalContexts)) {
+                                this._isAdditionalContextPresentSnap = true;
+                                primaryContext = _.pick(firstDataContext, this._contextsObj.primaryContexts);
+                            }
+                        }
+
+                        req1.entity.data.contexts.push(
+                            {
+                                "context": firstDataContext
+                            }
+                        )
+                        req.fullContextRqst = req1;
+
+                        if (this._isAdditionalContextPresentSnap) {
+                            if (this._isAdditionalContextPresentSnap && !_.isEmpty(primaryContext)) {
+                                req2.entity.data.contexts.push(
+                                    {
+                                        "context": primaryContext
+                                    });
+                            }
+                            req.primaryContextReq = req2;
+                        }    
+                    } else {return req}
+
+                    
+                    return req;
+
+            },
+
+                _businessFunctionDataSet: function(messages) {
+                    var data = {
+                        "messages": messages,
+                        "actions": [
+                            {
+                                "name": "closeFunction",
+                                "text": "Take Me back to Where I started"
+                            },
+                            {
+                                "name": "nextAction",
+                                "text": "Take me to User Dashboard",
+                                "dataRoute": "dashboard"
+                            }
+                        ]
+                    };
+                    this.businessFunctionData = data;
+                    ComponentHelper.getParentElement(this).businessFunctionData = data;
+
+                },
+
+                _onRollbackSuccess: function (e) {
+
+                    this._rollbackRqstCounter++;
+                    this._loading = false;
+                    if (DataHelper.isValidObjectPath(e, 'detail.response.response.statusDetail.messages')) {
+                        var messages = e.detail.response.response.statusDetail.messages;
+                    }
+                    this._businessFunctionDataSet(messages);
+
+                    var eventName = "onNext";
+                    var eventDetail = {
+                        name: eventName
+                    }
+
+                    if (this._isAdditionalContextPresentSnap) {
+                        if (this._rollbackRqstCounter == 2) {
+                            this._rollbackRqstCounter =0;
+                            this.fireBedrockEvent(eventName, eventDetail, {
+                                ignoreId: true
+                            });
+
+                        }
+                    } else {
+                        this._rollbackRqstCounter=0;
+                        this.fireBedrockEvent(eventName, eventDetail, {
+                            ignoreId: true
+                        });             
+                    }
+
+                },
+
+                _onRollback: async function (e) {
+                    this._loading =true;
+                    this._rockCompareEntities = this.shadowRoot.querySelector('rock-compare-entities');
+                    if(this._rockCompareEntities) {
+                       var selectedEntityId = this._rockCompareEntities.selectedEntityId;
+                    }
+                    if(_.isEmpty(selectedEntityId)) {
+                        this.showWarningToast("Please select atleast 1 snapshot for Rollback.");
+                        this._loading = false;
+                        return;
+                    }
+                    var currentEntityId = this.contextData.ItemContexts[0].id;
+                    var currEntityType = this.contextData.ItemContexts[0].type;
+                    
+                    var req = await this._getEntityRollbackRequest(currentEntityId, currEntityType, selectedEntityId);
+                    var liquidDataRollback = this.shadowRoot.querySelector("#snapshotRollback");
+                    var liquidDataRollbackPrimary = this.shadowRoot.querySelector("#snapshotRollbackPrimary");
+
+                    if(this._isAdditionalContextPresentSnap) {
+                        this.set("_snapshotRollbackRequestPrimary", req.primaryContextReq);
+                        liquidDataRollbackPrimary.generateRequest();
+                    }
+
+                    this.set("_snapshotRollbackRequest", req.fullContextRqst);
+                    liquidDataRollback.generateRequest();
+                },
+
+            });
+        })();
+    </script>
+</dom-module>

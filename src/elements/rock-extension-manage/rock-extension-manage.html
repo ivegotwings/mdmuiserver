@@ -31,38 +31,35 @@ It manages the current extensions and creates the new extensions.
 <dom-module id="rock-extension-manage">
     <template>
         <style include="bedrock-style-common">
-            .extensions-container {
-                height: calc(100% - 30px);
-                /*margin: inherit;*/
-            }
 
             .tree-heading {
                 font-weight: var(--font-bold, bold);
                 font-size: var(--default-font-size, 14px);
             }
 
-            #buttonContainer {
-                bottom: 0;
-                background: rgba(255, 255, 255, 0.80);
-                text-align: center;
-                z-index: 9999;
-            }
         </style>
-        <div class="extensions-container base-grid-structure" align="center">
-            <div class="tree-heading base-grid-structure-child-1">Classification selection</div>
-            <div class="base-grid-structure-child-2">
-            <rock-classification-tree id="contextTree" multi-select="[[multiSelect]]" selected-classifications="{{_selectedItems}}" taxonomy="[[taxonomy]]"
-                context-data="[[contextData]]" leaf-node-only="[[leafNodeOnly]]">
-            </rock-classification-tree>
+        <div class="button-siblings">
+            <div class="base-grid-structure" align="center">
+                <div class="tree-heading base-grid-structure-child-1">
+                    <p class="status-error status-text" hidden$="[[allowSaveClassifications]]">Do not have permissions to edit/save classifications, contact administrator.</p>
+                    Classification selection
+                </div>
+                <div class="base-grid-structure-child-2">
+                    <rock-classification-tree id="contextTree" multi-select="[[multiSelect]]" selected-classifications="{{_selectedItems}}" taxonomy="[[taxonomy]]"
+                        context-data="[[contextData]]" leaf-node-only="[[leafNodeOnly]]">
+                    </rock-classification-tree>
+                </div>
+            </div>
         </div>
-        </div>
-        <div id="buttonContainer" align="center">
-            <pebble-button id="cancel" class="btn btn-secondary m-r-5" button-text="Cancel" on-tap="_cancelSelection" elevation=1 raised></pebble-button>
-            <pebble-button id="save" class="focus btn btn-success" button-text="Save" on-tap="_save" elevation=1 raised></pebble-button>
+        <div id="buttonContainer" align="center" class="buttonContainer-static">
+            <template is="dom-repeat" id="event-template" items="[[componentEvents]]">
+                <pebble-button id="[[item.id]]" class$="[[item.class]]" button-text="[[item.text]]" on-tap="_onTriggerEvent" data-args$="[[item.event]]" disabled$="[[!_allowEvent(allowSaveClassifications, item.id)]]" elevation=1 raised></pebble-button>
+            </template>
         </div>
         <liquid-entity-data-get id="taxonomyGetDataService" operation="getbyids" request-data="{{_taxonomyRequest}}" on-response="_onTaxonomyResponse"></liquid-entity-data-get>
         <liquid-entity-data-save id="attributeSaveDataService" operation="update" data-index$="[[dataIndex]]" data-sub-index$="[[dataSubIndex]]"
             request-data="{{_saveRequest}}" on-response="_onSaveResponse"></liquid-entity-data-save>
+        <liquid-entity-model-get id="getAuthModel" operation="getbyids" on-response="_onAuthModelReceived" on-error="_onAuthModelFailed"></liquid-entity-model-get>
         <liquid-rest id="contextLiquid" url="[[_getContextURL]]" method="POST" request-data="{{requestData}}" on-liquid-response="_onResponseReceived"
             exclude-in-progress>
         </liquid-rest>
@@ -227,6 +224,18 @@ It manages the current extensions and creates the new extensions.
                     _bulkReclassificationErrorMessage: {
                         type: String,
                         value: "Failed to perform the Bulk reclassification. Please contact administrator."
+                    },
+
+                    componentEvents: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+
+                    allowSaveClassifications: {
+                        type: Boolean,
+                        value: true
                     }
                 },
 
@@ -253,8 +262,46 @@ It manages the current extensions and creates the new extensions.
 
                 _onContextOrTaxonomyChange: function () {
                     if (this.taxonomy && !_.isEmpty(this.contextData)) {
-                        this._getTaxonomyManageModel();
+                        this._getAuthManageModel();
                     }
+                },
+
+                _getAuthManageModel: function () {
+                    var authModelId = "";
+
+                    if (this.contextData && !_.isEmpty(this.contextData)) {
+                        let itemContext = ContextHelper.getFirstItemContext(this.contextData);
+                        let userContext = ContextHelper.getFirstUserContext(this.contextData);
+
+                        if (itemContext) {
+                            let type = EntityTypeManager.getInstance().getTypeByName(itemContext.type);
+                            if (type) {
+                                authModelId = type.domain + "_authorizationModel";
+                            }
+                        }
+
+                        if (userContext) {
+                            authModelId = authModelId + "_" + userContext.role;
+                        }
+                    }
+
+                    //Fetch auth model
+                    var authModelEl = this.shadowRoot.querySelector("#getAuthModel");
+                    if (authModelEl) {
+                        authModelEl.requestData = DataRequestHelper.createGetModelRequest("authorizationModel", [authModelId]);
+                        authModelEl.generateRequest();
+                    }
+                },
+
+                _onAuthModelReceived: function(e, detail) {
+                    if(detail && DataHelper.isValidObjectPath(detail, "response.content.entityModels.0.properties.contextsPermission.0")) {
+                        this.allowSaveClassifications = detail.response.content.entityModels[0].properties.contextsPermission[0].writePermission || false;
+                    }
+                    this._getTaxonomyManageModel();
+                },
+
+                _onAuthModelFailed: function(e, detail) {
+                    this._getTaxonomyManageModel();
                 },
 
                 _getTaxonomyManageModel: function () {
@@ -417,6 +464,14 @@ It manages the current extensions and creates the new extensions.
                                                 if (!_.isEqual(primaryContext, this._getPrimaryContext(context))) {
                                                     continue;
                                                 }
+                                            } else {
+                                                //No primaryContext, then select the context which is having classification and taxonomy only
+                                                var contextKeys = Object.keys(context) || [];
+                                                if (contextKeys.length != 2 ||
+                                                    contextKeys.indexOf("classification") == -1 ||
+                                                    contextKeys.indexOf("taxonomy") == -1) {
+                                                    continue;
+                                                }
                                             }
                                             var item = context["classification"];
                                             if (item) {
@@ -437,7 +492,7 @@ It manages the current extensions and creates the new extensions.
                         this._prepareBulkReclassificationSaveRequest();
                     } else {
                         // Input - selected items as path arrays
-                        this._selectedItems = items;
+                        this._selectedItems = items || [];
 
                         if (!this.multiSelect && this._selectedItems.length > 1) {
                             this.showErrorToast("UI is configured for single context but there are " + this._selectedItems.length + " selected contexts for the entity");
@@ -491,7 +546,9 @@ It manages the current extensions and creates the new extensions.
 
                             this._triggerAsyncReclassification(); //Trigger async process for 20+ entities OR query selection
                         } else {
-                            this._prepareGetContextRequest(); //Bulk entities context get
+                            //this._prepareGetContextRequest(); //Trigger bulk process based on selected entities context
+                            //Triggering bulk process based on selected classification
+                            this._prepareBulkReclassificationSaveRequest();
                         }
                     } else {
                         var data = {};
@@ -508,15 +565,26 @@ It manages the current extensions and creates the new extensions.
                     }
                 },
 
+                _getSelectedClassifications: function() {
+                    var originalClassifications = [];
+                    for (var ctxIdx = 0; ctxIdx < this.contextData.Contexts.length; ctxIdx++) {
+                        originalClassifications.push(this.contextData.Contexts[ctxIdx].classification);
+                    }
+
+                    return originalClassifications;
+                },
+
                 _prepareBulkReclassificationSaveRequest: function () {
                     var entities = [];
+                    var originalClassifications = [];
                     for (var entityIdx = 0; entityIdx < this.selectedEntities.length; entityIdx++) {
                         var data = {};
-                        data.contexts = this._prepareContexts(this._selectedItems, this._entitiesCurrentClassifications[this.selectedEntities[entityIdx].id]);
+                        data.contexts = this._prepareContexts(this._selectedItems, originalClassifications);
                         var entity = {
                             "id": this.selectedEntities[entityIdx].id,
                             "type": this.selectedEntities[entityIdx].type,
-                            "data": data
+                            "data": data,
+                            "isReclassification": true
                         };
                         entities.push(entity);
                     }
@@ -569,8 +637,12 @@ It manages the current extensions and creates the new extensions.
                         // Not in current selected list, then action to delete
                         if (!isSelected) {
                             context["classification"] = entityCurrentClassifications[i];
-                            if (this._taxonomyExtName) {
-                                context["taxonomy"] = this._taxonomyExtName;
+                            if(this.isBulkProcess) {
+                                context["taxonomy"] = this.contextData.Contexts[0].taxonomy;
+                            } else {
+                                if (this._taxonomyExtName) {
+                                    context["taxonomy"] = this._taxonomyExtName;
+                                }
                             }
 
                             deletedcontexts.push(context);
@@ -592,21 +664,22 @@ It manages the current extensions and creates the new extensions.
 
                 _triggerSaveRequest: function(entities) {
                     //TODO:: This will be temporary fix needs to come up with good solution.
+                    var clientState = {};
+                        clientState.notificationInfo = {};                        
+                        clientState.notificationInfo.actionType = "addContext";                        
                     if (this._isNotificationDisabled()) {
-                        var clientState = {};
-                        clientState.notificationInfo = {};
                         clientState.notificationInfo.showNotificationToUser = false;
-                        clientState.notificationInfo.actionType = "addContext";
                         this.set("_saveRequest", { "clientState": clientState, "entities": entities });
                     } else {
-                        this.set("_saveRequest", { "entities": entities });
+                        clientState.notificationInfo.showNotificationToUser = true;                 
+                        this.set("_saveRequest", { "clientState": clientState, "entities": entities });
                     }
                     this._liquidSaveElement.generateRequest();
                 },
 
-                _cancelSelection: function () {
+                _skipOrCancelSelection: function (e) {
                     this._selectedItems = [];
-                    var eventName = "onCancel";
+                    var eventName = e.target.getAttribute("data-args") || "onCancel";
                     var eventDetail = {
                         name: eventName
                     }
@@ -640,16 +713,10 @@ It manages the current extensions and creates the new extensions.
                                 newClassifiactions = classifications.join(", ");
                             }
 
-                            //Entity Id, Previous Classification(s)
                             for(var entityIdx = 0; entityIdx < entities.length; entityIdx++) {
                                 var message = {
                                     "Entity Id": entities[entityIdx].id
                                 };
-
-                                message["Previous Classification(s)"] = "";
-                                if(this._entitiesCurrentClassifications[entities[entityIdx].id]) {
-                                    message["Previous Classification(s)"] = this._entitiesCurrentClassifications[entities[entityIdx].id].join(", ");
-                                }
 
                                 message["New Classification(s)"] = newClassifiactions;
                                 message["Status"] = response.status == "success" ? "Request submitted successfully" : "Request failed";
@@ -692,7 +759,7 @@ It manages the current extensions and creates the new extensions.
 
                     if (isJob) {
                         noGrid = true;
-                        message = "Reclassification process is started, you can review the progress of the task " + this._taskId + " in task details.";
+                        message = "Reclassification process has started, you can review the progress of the task " + this._taskId + " in task details.";
                         actions.push({
                             "name": "gotoJobDetails",
                             "text": "Show me the task details",
@@ -703,7 +770,7 @@ It manages the current extensions and creates the new extensions.
                             }
                         });
                     } else {
-                        message = "Reclassification process is started, please refresh data grid after some time.";
+                        message = "Reclassification process has started, please refresh data grid after some time.";
                     }
 
                     var data = {
@@ -776,9 +843,8 @@ It manages the current extensions and creates the new extensions.
                         reclassificationRequest.params.query = this.selectionQuery.params ? this.selectionQuery.params.query : this.selectionQuery;
                     }
 
-                    //Add context
-                    var originalContexts = []
-                    reclassificationRequest.params.data.contexts = this._prepareContexts(this._selectedItems, originalContexts);
+                    var originalClassifications = [];
+                    reclassificationRequest.params.data.contexts = this._prepareContexts(this._selectedItems, originalClassifications);
 
                     //Add clientAttributes
                     var valueContext = ContextHelper.getFirstValueContext(this.contextData);
@@ -823,8 +889,24 @@ It manages the current extensions and creates the new extensions.
                 _onAsyncReclassificationFailure: function(e, detail) {
                     this.showErrorToast(this._bulkReclassificationErrorMessage);
                     this.logError("BulkReclassificationError", "response", JSON.stringify(e.detail.response.reason.message));
-                }
+                },
 
+                _onTriggerEvent: function(e, detail) {
+                    var event = e.target.getAttribute("id");
+                    if(event == "skipEvent" || event == "cancelEvent" || event == "backEvent") {
+                        this._skipOrCancelSelection(e);
+                    } else if (event == "nextEvent") {
+                        this._save(e);
+                    }
+                },
+
+                _allowEvent: function(allowSave, event) {
+                    if(event == "nextEvent") {
+                        return allowSave;
+                    }
+
+                    return true;
+                }
             });
         })();
     </script>

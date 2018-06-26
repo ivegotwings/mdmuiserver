@@ -190,6 +190,10 @@
                         collapse:"pebble-icon:action-scope-take-selection"
                     }
                 }
+            },
+            excludeNonContextual:{
+                type: Boolean,
+                value: false
             }
         },
         behaviors: [
@@ -207,7 +211,6 @@
             if(!_.isEmpty(this.treeConfig)){
                 this.treeConfig.id = DataHelper.getParamValue('id');
                 this.treeConfig.type = DataHelper.getParamValue('type');
-
                 if(this.treeConfig.pageSize){
                     this._pageSize = this.treeConfig.pageSize;
                 }
@@ -451,6 +454,11 @@
                         startIndex = ((this._currentNodeData.page-1)*this._pageSize)+1;
                         prevTitle = "Previous ( "+(startIndex)+" - "+(startIndex+this._pageSize-1)+" / "+ this._currentNodeData.totalCount+" )";
                     }
+                    if(this._currentNodeData.maxRecords){
+                        if((((this._currentNodeData.page+1) * this._pageSize) % this._currentNodeData.maxRecords) == 0){
+                            nextTitle = "";
+                        }
+                    }
                     this._currentNode.paginationObj = {nextTitle:nextTitle, prevTitle:prevTitle};
                 }else{
                     this._currentNode.paginationObj = {};
@@ -488,13 +496,30 @@
                     //Where used criterion
                     var relationshipsCriterion = [];
                     var relCriterion = {};
+                    var dataContexts = ContextHelper.getDataContexts(this.contextData);
+                    var relationships = this.treeConfig.relationships;
+                    this.excludeNonContextual = false;
+                    for(var relationshipIndex = 0 ;relationshipIndex < relationships.length ; relationshipIndex++){
+                        if(relationships[relationshipIndex].relationshipName && relationships[relationshipIndex].relationshipName == this._currentNodeData.relationshipName){
+                            if(relationships[relationshipIndex].excludeNonContextual){
+                                this.excludeNonContextual = relationships[relationshipIndex].excludeNonContextual
+                            }
+                            break;
+                        }
+                    }
                     var relTo = {
                         "relTo":{
                             id:this._currentNodeData.id,
                             type:this._currentNodeData.parentType
                         }
                     }
+                 
                     relCriterion[this._currentNodeData.relationshipName] = relTo;
+                    if (dataContexts && dataContexts.length && this.excludeNonContextual) {
+                        relCriterion[this._currentNodeData.relationshipName]["contexts"] = dataContexts,
+                        relCriterion[this._currentNodeData.relationshipName]["excludeNonContextual"] = !this.excludeNonContextual
+                        req.params.query.filters.excludeNonContextual = this.excludeNonContextual;
+                    }
                     relationshipsCriterion.push(relCriterion);
                     req.params.query.filters.relationshipsCriterion = relationshipsCriterion;
                     req.params.query.filters.typesCriterion = [this._currentNodeData.type];
@@ -602,6 +627,9 @@
                 }
                 if(res.initResponse){
                     this._currentNodeData.initResponse = res.initResponse;
+                }
+                if(res.maxRecords){
+                    this._currentNodeData.maxRecords = res.maxRecords;
                 }
             }
             this._currentNodeData.dataLoaded = true;

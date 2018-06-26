@@ -343,14 +343,30 @@ Custom property | Description | Default
                     var valueContext = ContextHelper.getFirstValueContext(this._clonedContextData);
                     valueContext = [];
                     this._clonedContextData[ContextHelper.CONTEXT_TYPE_VALUE] = valueContext;
+
+                    var dataContexts = ContextHelper.getDataContexts(this._clonedContextData);
+                    var firstItemContext = ContextHelper.getFirstItemContext(this._clonedContextData);
+                    var entityType = firstItemContext.type;
+                    if (!_.isEmpty(dataContexts)) {
+                        for (var i = 0; i < dataContexts.length; i++) {
+                            var context = dataContexts[i];
+                            var additionalContexts = [];
+                            var contextModel = await ContextModelManager.getContextModelByEntityTypeAndDataContext(entityType, context);
+                            if (contextModel) {
+                                additionalContexts = contextModel.properties ? contextModel.properties.additionalcontexts : undefined;
+                            }
+                            if (!_.isEmpty(additionalContexts)) {
+                                additionalContexts.forEach(function (ctxKey) {
+                                    delete context[ctxKey];
+                                });
+                            }
+                        }
+
+                        dataContexts = dataContexts.filter(ctx => !_.isEmpty(ctx));
+                    }
+
+                    this._initiateWorkflowMappingGet();
                 }
-            },
-            
-            /**
-              * <b><i>Content development is under progress... </b></i> 
-              */
-            attached: function () {
-                this._initiateWorkflowMappingGet();
             },
             ready: function () {
                 this.businessCondition.saved = false;
@@ -376,10 +392,10 @@ Custom property | Description | Default
                         RUFUtilities.Logger.error("Liquid element having id workflowMappingsGet not found.", null, "entity-manage");
                         this._showMessage(this._errorMessage);
                         return;
-                    }
+                    }                    
 
                     // Create Request and Get
-                    workflowMappingsGet.requestData = DataRequestHelper.createWorkflowMappingGetRequest(this.contextData);
+                    workflowMappingsGet.requestData = DataRequestHelper.createWorkflowMappingGetRequest(this._clonedContextData);
                     workflowMappingsGet.generateRequest();
                 }
             },
@@ -393,10 +409,9 @@ Custom property | Description | Default
                     // Get Workflows Mapped to the Current EntityType
                     if (workflowMappingModels && workflowMappingModels.length > 0) {
                         var wfDefinitionMappingModel = workflowMappingModels.find(obj => obj.type == "workflowDefinitionMapping");
-                        var wfRelationships = DataMergeHelper.mergeWorkflowMappings(wfDefinitionMappingModel, this._clonedContextData);
-
-                        var mappedWorkflowNames = DataHelper.getRelToNames(wfRelationships.hasWorkflowsDefined);
-                        this.set("_entityTypeWorkflowMappings", mappedWorkflowNames);
+                        var workflowContexts = ContextHelper.createWorkflowContexts(wfDefinitionMappingModel, this.contextData);
+                        var itemContext = ContextHelper.getFirstItemContext(this._clonedContextData);
+                        itemContext.workflowContexts = workflowContexts;
                     }
 
                     // Make Entity Govern Get
@@ -429,7 +444,7 @@ Custom property | Description | Default
 
                 // Prepare DataContext
                 // Note: Can be possible that No Workflow is available for Current EntityType
-                var dataContexts = this._prepareWorkflowDataContext(clonedContextData, itemContext);
+                var dataContexts = itemContext.workflowContexts;
                 if (dataContexts.length > 0) {
                     clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = dataContexts;
                 }
@@ -499,45 +514,31 @@ Custom property | Description | Default
             },
 
             _setEntityBusinessConditionsGovernData: function (entityGovernData) {
-                if (DataHelper.isValidObjectPath(entityGovernData, "data")) {
-                    var dataContexts = ContextHelper.getDataContexts(this._clonedContextData);
-                    if(!_.isEmpty(dataContexts) && !_.isEmpty(entityGovernData.data.contexts)) {
-                        for(let ctxIdx = 0; ctxIdx < entityGovernData.data.contexts.length; ctxIdx++) {
-                            entityGovernDataAttributes = entityGovernData.data.contexts[ctxIdx].attributes;
-                            this._setData(entityGovernDataAttributes);
-                        }
-                    } else {
-                        if(typeof (entityGovernData.data.attributes) !== "undefined") {
-                            entityGovernDataAttributes = entityGovernData.data.attributes;
-                            this._setData(entityGovernDataAttributes);
-                        }
+                if (typeof (entityGovernData) && typeof (entityGovernData.data) !== "undefined" && typeof (entityGovernData.data.attributes) !== "undefined") {
+                    var entityGovernDataAttributes = entityGovernData.data.attributes;
+                    var entityBusinessConditions = [];
+
+                    if (DataHelper.isValidObjectPath(entityGovernDataAttributes, "businessConditions.group")) {
+                        entityBusinessConditions = entityGovernDataAttributes.businessConditions.group;
                     }
-                }
-            },
 
-            _setData: function(entityGovernDataAttributes) {
-                var entityBusinessConditions = [];
+                    if (!_.isEmpty(entityBusinessConditions)) {
+                        this._entityBusinessConditionNames = [];
+                        this._entityBusinessConditionsGovernData = [];
 
-                if (DataHelper.isValidObjectPath(entityGovernDataAttributes, "businessConditions.group")) {
-                    entityBusinessConditions = entityGovernDataAttributes.businessConditions.group;
-                }
+                        for (var i = 0; i < entityBusinessConditions.length; i++) {
+                            var businessConditionId = AttributeHelper.getFirstAttributeValue(entityBusinessConditions[i].businessConditionName);
+                            var businessConditionStatus = AttributeHelper.getFirstAttributeValue(entityBusinessConditions[i].businessConditionStatus);
 
-                if (!_.isEmpty(entityBusinessConditions)) {
-                    this._entityBusinessConditionNames = [];
-                    this._entityBusinessConditionsGovernData = [];
+                            var businessConditionGovernData = {
+                                "id": businessConditionId,
+                                "name": businessConditionId,
+                                "status": businessConditionStatus
+                            }
 
-                    for (var i = 0; i < entityBusinessConditions.length; i++) {
-                        var businessConditionId = AttributeHelper.getFirstAttributeValue(entityBusinessConditions[i].businessConditionName);
-                        var businessConditionStatus = AttributeHelper.getFirstAttributeValue(entityBusinessConditions[i].businessConditionStatus);
-
-                        var businessConditionGovernData = {
-                            "id": businessConditionId,
-                            "name": businessConditionId,
-                            "status": businessConditionStatus
+                            this.push("_entityBusinessConditionNames", businessConditionId);
+                            this.push("_entityBusinessConditionsGovernData", businessConditionGovernData);
                         }
-
-                        this.push("_entityBusinessConditionNames", businessConditionId);
-                        this.push("_entityBusinessConditionsGovernData", businessConditionGovernData);
                     }
                 }
             },
@@ -623,7 +624,7 @@ Custom property | Description | Default
 
                     // Prepare DataContext
                     // This should be optional because entity can be in workflow or cannot be in workflow
-                    var dataContexts = this._prepareWorkflowDataContext(clonedContextData, itemContext);
+                    var dataContexts = itemContext.workflowContexts;
                     var valueContext = [DataHelper.getDefaultValContext()];
                     clonedContextData[ContextHelper.CONTEXT_TYPE_VALUE] = valueContext;
                     
@@ -652,30 +653,18 @@ Custom property | Description | Default
                         var contextSpecificRuleMaps = ruleContextMappings.contexts;
 
                         for (var i = 0; i < contextSpecificRuleMaps.length; i++) {
+                            var workflowName = contextSpecificRuleMaps[i].context.workflow;
                             var businessConditions = contextSpecificRuleMaps[i].relationships.hasBusinessConditions;
-                            
-                            if(typeof (contextSpecificRuleMaps[i].context.workflow) !== "undefined") {
-                                var workflowName = contextSpecificRuleMaps[i].context.workflow;
-                                
-                                var contextSpecificBusinessCondition = this._contextSpecificBusinessConditions.find(obj => obj.workflowName === workflowName);
-                                if(contextSpecificBusinessCondition) {
-                                    contextSpecificBusinessCondition["businessConditions"] = contextSpecificBusinessCondition["businessConditions"].concat(businessConditions);
-                                } else {
-                                    contextSpecificBusinessCondition = {};
-                                    contextSpecificBusinessCondition["workflowName"] = workflowName;
-                                    contextSpecificBusinessCondition["businessConditions"] = businessConditions;
-                                    
-                                    this.push("_contextSpecificBusinessConditions", contextSpecificBusinessCondition);
 
-                                }
-                            }
+                            var contextSpecificBusinessCondition = {};
+                            contextSpecificBusinessCondition["workflowName"] = workflowName;
+                            contextSpecificBusinessCondition["businessConditions"] = businessConditions;
+                            this.push("_contextSpecificBusinessConditions", contextSpecificBusinessCondition);
                             allBusinessConditions = allBusinessConditions.concat(businessConditions);
                         }
                     }
 
-                    var dataContexts = ContextHelper.getDataContexts(this._clonedContextData);
-
-                    if (_.isEmpty(dataContexts) && DataHelper.isValidObjectPath(ruleContextMappings,"relationships")) {
+                    if (DataHelper.isValidObjectPath(ruleContextMappings,"relationships")) {
 
                         var globalBusinessConditions = ruleContextMappings.relationships.hasBusinessConditions;
                         if (typeof (globalBusinessConditions) !== "undefined") {
@@ -697,7 +686,7 @@ Custom property | Description | Default
                         var allBusinessConditionIds = this._getBusinessConditionIds(this._entityTypeBusinessConditions);
                         this._requestBusinessConditions(allBusinessConditionIds);
                     } else {
-                        this._showMessage(this._nothingToFixMessage);
+                        this._showMessage(this._errorMessage);
                     }
                 } else {
                     RUFUtilities.Logger.error("RuleContextMappingsGetResponseContent not found.", null, "entity-manage");
@@ -737,6 +726,9 @@ Custom property | Description | Default
                     if(defaultValContext) {
                         clonedContextData.ValContexts = [defaultValContext];
                     }
+
+                    var dataContexts = ContextHelper.getDataContexts(this.contextData);
+                    clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = dataContexts;
 
                     // Create Request and Get
                     var businessConditionsGet = this.shadowRoot.querySelector("#businessConditionsGet");
@@ -852,13 +844,15 @@ Custom property | Description | Default
                             //find business conditions mapped to current workflow - from model obejcts
                             var workflowMappedBusinessConditions = this._getWorkflowMappedBusinessConditions(tofixWorkflowData.id);
 
-                            for (var j = 0; j < workflowMappedBusinessConditions.length; j++) {
-                                var businessConditionAttrs = workflowMappedBusinessConditions[j].attributes;
-                                if (businessConditionAttrs && AttributeHelper.getFirstAttributeValue(businessConditionAttrs.stepName) == tofixWorkflowData.workflowActivityName) {
-                                    workflowBusinessConditions.push(workflowMappedBusinessConditions[j].relTo.id);
-                                    var toFixBusinessCondition = this._entityBusinessConditionsGovernData.find(obj => obj.id == workflowMappedBusinessConditions[j].relTo.id);
-                                    if (toFixBusinessCondition && !DataHelper.containsObject(toFixBusinessCondition, tofixWorkflowData.businessConditions) && toFixBusinessCondition.isAllowedToShow) {
-                                        tofixWorkflowData.businessConditions.push(toFixBusinessCondition);
+                            if(!_.isEmpty(workflowMappedBusinessConditions)) {
+                                for (var j = 0; j < workflowMappedBusinessConditions.length; j++) {
+                                    var businessConditionAttrs = workflowMappedBusinessConditions[j].attributes;
+                                    if (businessConditionAttrs && AttributeHelper.getFirstAttributeValue(businessConditionAttrs.stepName) == tofixWorkflowData.workflowActivityName) {
+                                        workflowBusinessConditions.push(workflowMappedBusinessConditions[j].relTo.id);
+                                        var toFixBusinessCondition = this._entityBusinessConditionsGovernData.find(obj => obj.id == workflowMappedBusinessConditions[j].relTo.id);
+                                        if (toFixBusinessCondition && !DataHelper.containsObject(toFixBusinessCondition, tofixWorkflowData.businessConditions) && toFixBusinessCondition.isAllowedToShow) {
+                                            tofixWorkflowData.businessConditions.push(toFixBusinessCondition);
+                                        }
                                     }
                                 }
                             }
@@ -972,31 +966,18 @@ Custom property | Description | Default
             _prepareWorkflowDataContext: function (clonedContextData, itemContext) {
                 var workflowDataContexts = [];
 
-                var dataContexts = ContextHelper.getDataContexts(clonedContextData);
-
                 if (typeof (this._entityTypeWorkflowMappings) !== "undefined" && this._entityTypeWorkflowMappings.length > 0) {
 
                     for (var i = 0; i < this._entityTypeWorkflowMappings.length; i++) {
-                        if(!_.isEmpty(dataContexts)) {
-                            for(let ctxIdx = 0; ctxIdx < dataContexts.length; ctxIdx++) {
-                                var workflowDataContext = DataHelper.cloneObject(dataContexts[ctxIdx]);
-                                workflowDataContext.workflow = this._entityTypeWorkflowMappings[i];
+                        var workflowDataContext = {};
+                        workflowDataContext.self = "self";
+                        workflowDataContext.workflow = this._entityTypeWorkflowMappings[i];
 
-                                workflowDataContexts.push(workflowDataContext);
-                            }
-                        } else {
-                            var workflowDataContext = {};
-                            workflowDataContext.self = "self";
-                            workflowDataContext.workflow = this._entityTypeWorkflowMappings[i];
-
-                            workflowDataContexts.push(workflowDataContext);
-                        }
+                        workflowDataContexts.push(workflowDataContext);
                     }
                 }
 
-                dataContexts = dataContexts.concat(workflowDataContexts);
-
-                return dataContexts;
+                return workflowDataContexts
             },
 
             _onTap: function (e) {
@@ -1021,7 +1002,7 @@ Custom property | Description | Default
 
             refresh: function () {
                 this._isToFixDataExists = false;
-                this._initiateWorkflowMappingGet();
+                this._contextDataChanged();
             },
             _onBusinessConditionSaveResponse: function () {
                 this.businessCondition.saved = true;
