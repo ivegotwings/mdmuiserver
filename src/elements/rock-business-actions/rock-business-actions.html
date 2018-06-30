@@ -119,11 +119,23 @@
                             return {};
                         },
                         observer: "_onWorkflowInfoChange"
+                    },
+                    _primaryContexts: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    contextModelType: {
+                        type: String,
+                        value: ""
                     }
                 }
             }
             static get observers() {
-                return []
+                return [
+                    "_preparePrimaryContexts(contextData.*)"
+                ]
             }
             /**
              *
@@ -176,6 +188,10 @@
                 //pass all the actions you want to disable on multiple dimensions in actionsToDisable
                 var actionsToDisable = ["snapshots"];
                 this._disableActionsBasedOnContext(actionsToDisable);
+            }
+
+            async _preparePrimaryContexts() {
+                this._primaryContexts = await ContextHelper.getPrimaryContexts(this.contextData, this.contextModelType);
             }
 
             _disableActionsBasedOnContext(actionsToDisable) {
@@ -273,11 +289,16 @@
                             workflowActivityExternalName,
                             mappedContexts
                         } = this._workflowCriterion;
-
+                        var title = DataHelper.concatValuesFromArray([
+                            workflowName,
+                            workflowActivityExternalName, 
+                            this._primaryContexts, 
+                            this._selectedItems.length + " entities"
+                        ]);
                         detail = {
                             name: componentName,
                             mergeTitle: true,
-                            title: workflowActivityExternalName
+                            title: title
                         };
 
                         sharedData = {
@@ -294,7 +315,9 @@
                     case 'action-rollup':
                         detail = {
                             name: componentName,
-                            subName: subComponentName
+                            subName: subComponentName,
+                            mergeTitle: true,
+                            title: this._selectedItems.length + " entities"
                         };
 
                         sharedData = {
@@ -304,7 +327,9 @@
                     case 'action-re-publish':
                         detail = {
                             name: componentName,
-                            subName: subComponentName
+                            subName: subComponentName,
+                            mergeTitle: true,
+                            title: this.isSingleEntityProcess ? this._getExternalEntityTypeName() : this._selectedItems.length + " entities"
                         };
 
                         sharedData = {
@@ -336,8 +361,13 @@
                             name: componentName,
                             subName: subComponentName
                         };
+                        var title = DataHelper.concatValuesFromArray([
+                            this._currentAction.data.title, 
+                            this._primaryContexts, 
+                            this._selectedItems.length + " entities"
+                        ]);
                         sharedData = {
-                            "title": this._currentAction.data.title,
+                            "title": title,
                             "selected-entities": this._selectedItems,
                             "selection-mode": selectionMode,
                             "selection-query": selectionQuery,
@@ -351,6 +381,12 @@
                 }
 
                 this.openBusinessFunctionDialog(detail, sharedData);
+            }
+
+            _getExternalEntityTypeName() {
+                var itemCtx = ContextHelper.getFirstItemContext(this.contextData);
+                this._externalEntityTypeName = this._externalEntityTypeName || EntityTypeManager.getInstance().getTypeExternalNameById(itemCtx.type) || "";
+                return this._externalEntityTypeName;
             }
 
             _isSelectedItemsAllowed(allowedEntityTypes) {
@@ -533,6 +569,7 @@
                     return;
                 }
 
+                this._currentWorkflowAction = "";
                 if (detail.data.eventName == "action-takeTask") {
                     this._currentWorkflowAction = "take";
                 }
@@ -543,7 +580,7 @@
                     this._currentWorkflowAction = "reassign";
                 }
 
-                if (this.workflowInfo && this.workflowInfo.data) {
+                if (this._currentWorkflowAction && this.workflowInfo && this.workflowInfo.data) {
                     var runningInstances = [];
 
                     //Note: Here, workflow runtime data would be always in the context of workflow so no need to check for data.attributes
@@ -586,7 +623,12 @@
                     } else {
                         this.showErrorToast("Entity is not available in any workflow.");
                     }
+
+                    return;
                 }
+
+                //When action not implemented
+                this.showErrorToast("Not implemented, please contact administrator.");
             }
 
             _getEntityObject() {
