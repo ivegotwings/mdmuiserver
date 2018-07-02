@@ -56,10 +56,13 @@
 					RUFBehaviors.AppBehavior
 				],
 
-				attached: function () {},
+				attached: function () {
+					this.firstLoad = true;
+					this.onlyOnce = true;
+				},
 
 				ready() {
-					this.firstLoad = true;
+
 				},
 
 				embbedLoops() {
@@ -92,11 +95,12 @@
 				},
 
 				parseViewModel: function () {
+					let view = this.view;
 					this.html =
-						this.view.substring(this.view.indexOf('<html>') + 6, this.view.indexOf(
+						this.view.substring(view.indexOf('<html>') + 6, view.indexOf(
 							'</html>'));
 
-					this.externStyle = this.view.substring(this.view.indexOf('<style>') + 7, this.view.indexOf(
+					this.externStyle = view.substring(view.indexOf('<style>') + 7, view.indexOf(
 						'</style>'));
 				},
 
@@ -109,8 +113,9 @@
 				},
 
 				parseJS() {
-					this.externjs = this.view.substring(this.view.indexOf('<js>') + 4, this.view.indexOf(
-						'</js>'));
+					let view = this.view;
+					this.externjs = view.substring(view.indexOf('<jscript>') + 9, view.indexOf(
+						'</jscript>'));
 					let regex = /(document.querySelector\()/gm;
 					this.externjs = this.externjs.replace(regex, "Polymer.dom(RUFUtilities.templateRoot).querySelector(");
 					regex = /(document.querySelectorAll\()/gm;
@@ -152,6 +157,11 @@
 					this.embbedfonts();
 					this._compileTemplate();
 					this.fetchImages();
+					if (this.onlyOnce) {
+						this.parseJS();
+						this.evalJS();
+						this.onlyOnce = false;
+					}
 				},
 
 				_templateStamped: function () {
@@ -160,13 +170,14 @@
 						// this is a hack.....bindings and js execution works well 
 						// after clearing the fragment and resinserting
 						this._showEditor();
-						this._viewHtml();
-						this.firstLoad = false;
-					} else {
-						this.parseJS();
-						this.evalJS();
+						this.showeditor = false;
+						setTimeout(() => {
+							this._viewHtml();
+						}, 100);
 					}
+					this.firstLoad = false;
 				},
+
 
 				_compileTemplate: function () {
 					this.template =
@@ -188,6 +199,7 @@
 
 				_saveHtml: function () {
 					this.view = Polymer.dom(this.root).querySelectorAll('textarea')[0].value;
+					this.parseJS(this.view);
 					let eventData = {
 						name: "savepreviewclicked",
 						data: this.view
@@ -197,18 +209,23 @@
 						bubbles: true,
 						composed: true
 					}));
+					this.onlyOnce = true;
 				},
 
 				_viewHtml: function () {
 					this.showeditor = false;
+					this.onlyOnce = true;
 					this.template = "";
 					this._viewDataReceived();
 				},
 
 				_showEditor: function () {
 					this.showeditor = true;
+					this.editorClicked = true;
 					Polymer.Async.timeOut.after(100).run(() => {
-						Polymer.dom(this.root).querySelectorAll('textarea')[0].value = this.view;
+						if (Polymer.dom(this.root).querySelectorAll('textarea')[0]) {
+							Polymer.dom(this.root).querySelectorAll('textarea')[0].value = this.view;
+						}
 					});
 					let range = document.createRange();
 					let endNode = Polymer.dom(this.root).querySelectorAll('placeholder')[0];
@@ -249,8 +266,9 @@
 				},
 
 				_viewDataReceived: function () {
-					if (this.view) {
-						this.externScripts = this.view.substring(this.view.indexOf('<external>') + 10, this.view.indexOf(
+					let view = this.view;
+					if (view) {
+						this.externScripts = view.substring(view.indexOf('<external>') + 10, view.indexOf(
 							'</external>'));
 						this.externScripts = this.externScripts.trim().split(',');
 						for (const [index, src] of this.externScripts.entries()) {
@@ -264,7 +282,7 @@
 						let attributes = [];
 						let relationships = [];
 						let relationshipAttributes = [];
-						let m = regex.exec(this.view);
+						let m = regex.exec(view);
 						while (m) {
 							if (m) {
 								m[0] = m[0].substr(m[0].indexOf('{{') + 2, m[0].indexOf("}}") - 2);
@@ -285,7 +303,7 @@
 									}
 								}
 							}
-							m = regex.exec(this.view);
+							m = regex.exec(view);
 						}
 						if (relationships.indexOf('hasimages') === -1) {
 							relationships.push('hasimages');
