@@ -78,7 +78,7 @@ Custom property | Description | Default
             show-seperator="[[showSeperator]]" seperator="[[seperator]]">
         <div class="tag-container">
             <pebble-textbox id='txtInputTag' label="[[_getLabel(_isEdit)]]" value="{{_tagInputText}}" on-keyup="_onEnter" no-label-float="[[noLabelFloat]]"
-                show-error validation-errors="{{_validationErrors}}" allowed-pattern="[[allowedPattern]]" disabled=[[disabled]]>
+                show-error validation-errors="{{_validationErrors}}" allowed-pattern="[[allowedPattern]]" disabled=[[disabled]] on-paste='_onPaste'>
                 <pebble-icon icon="[[_getIcon(_isEdit)]]" slot="suffix" on-tap="_onTapIcon"></pebble-icon>
             </pebble-textbox>
         </div>
@@ -360,19 +360,12 @@ Custom property | Description | Default
                         this._raiseError('Required');
                         return;
                     }
-
+                    
                     if (!this._isEdit) {
-                        var item = { "name": _tagInputText };
-
-                        if (this.isExists(item)) {
-                            this._raiseError('Already exists');
+                        if(this._validateInputData(_tagInputText)){
                             return;
                         }
 
-                        this.add(item);
-
-                        //Add to values
-                        this.push('values', item.name)
                         this._notifyValues();
 
                         this._reset();
@@ -464,6 +457,116 @@ Custom property | Description | Default
                         this._tags[i].textColor = this.selectedValuesColor;
                         this._tags[i].fontStyle = this.selectedValuesFontStyle;
                     }
+                },
+
+                /* Formating the pasted query */
+                _onPaste: function (e) {
+                    var pastedQuery = "";
+                    var formattedQuery = "";
+
+                    if(e.preventDefault) e.preventDefault();
+
+                    if (e.clipboardData) {
+                        pastedQuery = e.clipboardData.getData('text/plain');
+                    } else if (window.clipboardData) { //IE
+                        pastedQuery = window.clipboardData.getData("text");
+                    }
+
+                    formattedQuery = DataHelper.getFormatedSearchQuery(pastedQuery);
+
+                    if(!_.isEmpty(this.allowedPattern)){
+                        var pattern;
+                        if(this.allowedPattern == "[0-9.]"){    // added for numeric and decimal only
+                            pattern = /^[0-9.]*$/;
+                        }
+    
+                        if(pattern){
+                            var seperator = " " + this.seperator + " ";
+                            if(formattedQuery.indexOf(seperator) != -1){  // copied multiple values
+                                var queryValues = formattedQuery.split(seperator);
+                                if(queryValues && queryValues.length){
+                                    for(let i = 0; i < queryValues.length; i++){
+                                        var queryItem = queryValues[i].substr(1).slice(0, -1);
+                                        if (pattern.test(queryItem)){
+                                            continue;
+                                        } else {
+                                            this._tagInputText = " ";                                                         
+                                            this._raiseError('Only numeric values allowed');
+                                            return;
+                                        }
+                                    }
+                                }
+                            } else {
+                                if (!pattern.test(formattedQuery.trim())){      // copied only one value
+                                    this._tagInputText = " ";                                                         
+                                    this._raiseError('Only numeric values allowed');
+                                    return;
+                                }
+                            }
+                        } else {       
+                            this._tagInputText = " ";                                                    
+                            this._raiseError('Does not match pattern');                            
+                            return;
+                        }
+                    }
+
+                    if (DataHelper.isTextSelected(this.$.txtInputTag)) {
+                        // What if user select spaces and there are multiple spaces?
+                        this._tagInputText = this._tagInputText.replace(DataHelper.getSelectedText(this.$.txtInputTag), formattedQuery);
+                    } else {                       
+                        if(_.isEmpty(this.$.txtInputTag.selectionStart)){
+                            this.$.txtInputTag.selectionStart = 0;
+                        }
+                        this._tagInputText = DataHelper.replaceAt(this._tagInputText, this.$.txtInputTag.selectionStart, formattedQuery);
+                    }
+                },
+
+                _validateInputData: function(_tagInputText){
+                    var seperator = " " + this.seperator + " ";
+                    if(_tagInputText.indexOf(seperator) != -1){         // multiple entires Copied & Pasted                            
+                        var isItemFound = false;
+                        var filteredItems = [];
+                        var inputItems = _tagInputText.split(seperator);
+                        if(inputItems && inputItems.length){
+                            for(let i = 0; i < inputItems.length; i++){
+                                // extract the individual items by removing first and last quotes
+                                var itemValue = inputItems[i].substr(1).slice(0, -1);
+                                var item = { "name": itemValue };
+
+                                // verify if item already present in the existing entry
+                                if (this.isExists(item)){                                        
+                                    isItemFound = true;
+                                    break;
+                                } else {                                        
+                                    filteredItems.push(item);
+                                }
+                            }
+                            if (isItemFound){
+                                this._raiseError('Already exists');
+                                return true;
+                            } else {
+                                if(filteredItems && filteredItems.length){
+                                    filteredItems.forEach(function(item){
+                                        this.add(item);
+
+                                        //Add to values
+                                        this.push('values', item.name);
+                                    }, this);
+                                }
+                            }
+                        }
+                    } else {            // keyboard entry and single copied entry
+                        var item = { "name": _tagInputText };
+                        if (this.isExists(item)) {
+                            this._raiseError('Already exists');
+                            return true;
+                        }
+                        this.add(item);
+
+                        //Add to values
+                        this.push('values', item.name);  
+                    }
+                    return false;
                 }
             });
         })();
