@@ -12,6 +12,7 @@
 <link rel="import" href="../rock-entity-quick-manage/rock-entity-quick-manage.html">
 <link rel="import" href="../rock-entity-graph-tree/rock-entity-graph-tree.html">
 <link rel="import" href="../rock-component-config-behavior/rock-component-config-behavior.html">
+<link rel="import" href="../rock-classification-tree/rock-classification-tree.html">
 
 <link rel="import" href="../bedrock-helpers/data-request-helper.html">
 <link rel="import" href="../bedrock-helpers/data-helper.html">
@@ -97,7 +98,15 @@
             <template is="dom-if" if="[[_isGraphTreeConfigAvailable(_graphTreeConfig)]]" restamp>
                 <pebble-resizable-panels>
                     <div class="left-panel" panel-width="30%">
-                        <rock-entity-graph-tree id="graphTree" tree-config="[[_graphTreeConfig]]" context-data="[[contextData]]" item-data="{{selectedItem}}"></rock-entity-graph-tree> 
+                        <template is="dom-if" if="[[_isClassificationTree(_graphTreeConfig)]]">
+                            <rock-classification-tree id="classificationTree" taxonomy="[[taxonomy]]"
+                                context-data="[[contextData]]" multi-select="[[multiSelect]]" leaf-node-only="[[leafNodeOnly]]"
+                                selected-classifications="{{_selectedClassifications}}" enable-node-click="true"
+                                hide-leaf-node-checkbox="[[hideLeafNodeCheckbox]]"></rock-classification-tree> 
+                        </template>
+                        <template is="dom-if" if="[[!_isClassificationTree(_graphTreeConfig)]]">
+                            <rock-entity-graph-tree id="graphTree" tree-config="[[_graphTreeConfig]]" context-data="[[contextData]]" item-data="{{selectedItem}}"></rock-entity-graph-tree> 
+                        </template>
                     </div>
                     <div class="right-panel" panel-width="70%">
                         <div class="base-grid-structure">
@@ -130,6 +139,7 @@
                     </div>
                 </pebble-resizable-panels>
             </template>
+            <bedrock-pubsub event-name="classification-item-clicked" handler="_onClassificationClickHandler" target-id="classificationTree"></bedrock-pubsub>
             <bedrock-pubsub event-name="grid-data-refreshed" handler="_onRefreshTree" ></bedrock-pubsub>
         </div>
     </template>
@@ -199,8 +209,39 @@
                     value: function(){
                         return {};
                     }
+                },
+                taxonomy:{
+                    type:String,
+                    value:""
+                },
+                multiSelect:{
+                    type:Boolean,
+                    value:false
+                },
+                leafNodeOnly:{
+                    type:Boolean,
+                    value:true
+                },
+                hideLeafNodeCheckbox:{
+                    type:Boolean,
+                    value:true
+                },
+                _selectedClassifications:{
+                    type:Array,
+                    value:function(){
+                        return [];
+                    },
+                    notify:true
+                },
+                _selectedClassificationNode:{
+                    type:Object
                 }
             }
+        }
+        static get observers(){
+            return [
+                '_updateClassification(_selectedClassifications.*)'
+            ]
         }
         _onContextDataChange(){
             if(!_.isEmpty(this.contextData)) {
@@ -220,12 +261,55 @@
                 this.configData = componentConfig.config;
                 if(_.isEmpty(this._graphTreeConfig)){
                     this._graphTreeConfig = componentConfig.config.entityGraphTreeConfig;
+                    if(this._graphTreeConfig.isClassificationTree){
+                        this._triggerClassificationTree();
+                    }
                 }else{
                     this._onGridConfigLoaded(componentConfig.config);
                 }
             }   
         }
-
+        _isClassificationTree(){
+            if(this._graphTreeConfig && this._graphTreeConfig.isClassificationTree){
+                return true;
+            }
+            return false;
+        }
+        _triggerClassificationTree() {
+            if (!this.taxonomy || this.taxonomy == "undefined") {
+                this.taxonomy = this.appSetting("dataDefaults").taxonomy;
+            }
+            Polymer.Async.timeOut.after(30).run(() => {
+                const contextTree = this.shadowRoot.querySelector("#classificationTree");
+                if (contextTree) {
+                    contextTree.generateRequest();
+                }
+            })
+        }
+        _updateClassification(){
+            if(this._selectedClassifications && this._selectedClassifications.length){
+                if(!_.isEmpty(this._selectedClassifications[0])){
+                    var clonedClassification = DataHelper.cloneObject(this._selectedClassifications[0]);
+                    clonedClassification.viewMode = "QUICK_MANAGE";
+                    this.set("selectedItem", clonedClassification)
+                }
+            }
+        }
+        _onClassificationClickHandler(ev){
+            var selectedNode = ev.detail;
+            if(selectedNode){
+                selectedNode.highlightNode = true;
+                if(!_.isEmpty(this._selectedClassificationNode)){
+                    this._selectedClassificationNode.highlightNode = false;
+                }
+                this._selectedClassificationNode = selectedNode;
+                if(selectedNode.nodeData){
+                    var clonedClassification = DataHelper.cloneObject(selectedNode.nodeData);
+                    clonedClassification.viewMode = "QUICK_MANAGE";
+                    this.set("selectedItem", clonedClassification)
+                }
+            }
+        }
         /**
          * Checks if the given component is visible or not
          */ 
