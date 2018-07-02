@@ -345,7 +345,7 @@ The following JSON object is a sample of data which binds the grid.
                         <rock-entity-lov on-lov-confirm-button-tap="_onLovConfirmButtonTapped" id="lov_[[relationship]]" data-index$="[[dataIndex]]"
                           data-sub-index$="[[dataSubIndex]]" request-data="[[_requestForAddRelationshipList(relationship)]]"
                           id-field="[[_getIdField()]]" image-id-field="[[_getImageIdField()]]" title-pattern="[[_getTitlePattern()]]"
-                          selected-items="[[_getSavedRelationshipItems( relationship, _savedRelationshipItemsToLov)]]" excluded-ids=[[excludedIds]]
+                          selected-items="[[_getSavedRelationshipItems( relationship, _savedRelationshipItems)]]" excluded-ids=[[excludedIds]]
                           multi-select no-sub-title show-action-buttons></rock-entity-lov>
                       </pebble-popover>
                       <bedrock-pubsub event-name="entity-lov-confirm-button-tap" handler="_onLovConfirmButtonTapped" target-id="lov_[[relationship]]"></bedrock-pubsub>
@@ -574,7 +574,7 @@ The following JSON object is a sample of data which binds the grid.
             type: Boolean,
             value: true
           },
-          _savedRelationshipItemsToLov: {
+          _savedRelationshipItems: {
             type: Object,
             value: function () {
               return {};
@@ -993,14 +993,13 @@ The following JSON object is a sample of data which binds the grid.
                       this.dataObject[currentRel] = entity;
                     }
                   }
-
                   var relationshipAttributeModels = this._getRelationshipAttributeModels();
-                  var savedItemsToLov = [];
+                  var savedItems = [];
                   var entityTypeManager = EntityTypeManager.getInstance();
                   relationships.forEach(function (relItem) {
                     if (relItem) {
                       var record = {};
-                      var lovItem = {};
+                      var savedItem = {};
                       if (relItem.attributes) {
                         Object.keys(relItem.attributes).forEach(function (item) {
                           if (item && relItem.attributes[item]) {
@@ -1047,10 +1046,11 @@ The following JSON object is a sample of data which binds the grid.
                         record["Relationship Id"] = relItem.relTo.id;
                         record["Related Entity"] = record["id"] = relItem.relTo.id;
                         record["type"] = relItem.relTo.type;
-                        lovItem["id"] = relItem.relTo.id;
-                        lovItem["title"] = relItem.relTo.id;
+                        savedItem["id"] = relItem.relTo.id;
+                        savedItem["title"] = relItem.relTo.id;
+                        savedItem["type"] = relItem.relTo.type;
                         record["typeExternalName"] = entityTypeManager.getTypeExternalNameById(relItem.relTo.type);
-                        savedItemsToLov.push(lovItem);
+                        savedItems.push(savedItem);
 
                         //It will required in case of default sorting.
                         if (relItem.relTo.properties) {
@@ -1114,16 +1114,16 @@ The following JSON object is a sample of data which binds the grid.
 
 
                   //Need to check why is this required?
-                  var savedRelationships = this._savedRelationshipItemsToLov;
+                  var savedRelationships = this._savedRelationshipItems;
                   if (savedRelationships[currentRel]) {
-                    savedRelationships[currentRel] = savedRelationships[currentRel].concat(savedItemsToLov);
+                    savedRelationships[currentRel] = savedRelationships[currentRel].concat(savedItems);
                   }
                   else {
-                    savedRelationships[currentRel] = savedItemsToLov;
+                    savedRelationships[currentRel] = savedItems;
                   }
 
-                  this._savedRelationshipItemsToLov = {};
-                  this._savedRelationshipItemsToLov = savedRelationships;
+                  this._savedRelationshipItems = {};
+                  this._savedRelationshipItems = savedRelationships;
 
                   var defaultSort;
                   if (DataHelper.isValidObjectPath(relConfig, "gridConfig.itemConfig.sort.default")) {
@@ -1239,12 +1239,14 @@ The following JSON object is a sample of data which binds the grid.
             const { relatedEntityTypes, selfContext } = this.relationshipGridConfig;
             const { id, type } = ContextHelper.getFirstItemContext(this.contextData);
             var mode = this.domain == "digitalAsset" ? "asset" : "relationship";
+            var savedRelationships = this._getSavedRelationshipItems(rel, this._savedRelationshipItems);
             const sharedData = {
               "mode": mode,
               "types-criterion": relatedEntityTypes,
               "relationship-type": rel,
               "heading": this._getRelationshipTypeTitle(rel),
               "selected-entities": [{ id, type }],
+              "pre-selected-items": savedRelationships,
               "self-context": selfContext,
               "add-relationship-grid-config": this.addRelationshipGridConfig,
               "dataIndex": this.dataIndex,
@@ -1685,12 +1687,12 @@ The following JSON object is a sample of data which binds the grid.
 
           var currentRelGrid = this.shadowRoot.querySelector('rock-grid[id=' + this.relationship + ']');
           var gridData = currentRelGrid.getData();
-          var savedRelationshipItemsToLov = gridData.map(function (item) {
+          var savedRelationshipItems = gridData.map(function (item) {
             if (item.id) {
-              return { 'id': item.id, 'title': item.id }
+              return { 'id': item.id, 'title': item.id, 'type':item.type }
             }
           });
-          this._savedRelationshipItemsToLov[this.relationship] = DataHelper.cloneObject(savedRelationshipItemsToLov);
+          this._savedRelationshipItems[this.relationship] = DataHelper.cloneObject(savedRelationshipItems);
 
           if (this.functionalMode == "dataFunction") {
             var eventName = "onSave";
@@ -1896,13 +1898,13 @@ The following JSON object is a sample of data which binds the grid.
           var relationshipLov = Polymer.dom(this).node.shadowRoot.querySelector('rock-entity-lov[id=lov_' + this.relationship + ']');
           if (relationshipLov) {
             var gridData = relGrid.getData();
-            var savedRelationshipItemsToLov = gridData.map(function (item) {
+            var savedRelationshipItems = gridData.map(function (item) {
               if (item.id) {
-                return { 'id': item.id, 'title': item.id }
+                return { 'id': item.id, 'title': item.id , 'type':item.type }
               }
             });
-            this._savedRelationshipItemsToLov[this.relationship] = DataHelper.cloneObject(savedRelationshipItemsToLov);
-            relationshipLov.selectedItems = savedRelationshipItemsToLov[this.relationship] || [];
+            this._savedRelationshipItems[this.relationship] = DataHelper.cloneObject(savedRelationshipItems);
+            relationshipLov.selectedItems = savedRelationshipItems[this.relationship] || [];
           }
         },
 
@@ -1993,11 +1995,11 @@ The following JSON object is a sample of data which binds the grid.
           }
           return titlePattern;
         },
-        _getSavedRelationshipItems: function (relationship, savedRelationshipItemsToLov) {
+        _getSavedRelationshipItems: function (relationship, savedRelationships) {
           var savedRelationshipItems = [];
-          var clonedSavedRelationshipItemsToLov = DataHelper.cloneObject(savedRelationshipItemsToLov);
-          if (clonedSavedRelationshipItemsToLov[relationship]) {
-            savedRelationshipItems = clonedSavedRelationshipItemsToLov[relationship];
+          var clonedSavedRelationshipItems = DataHelper.cloneObject(savedRelationships);
+          if (clonedSavedRelationshipItems[relationship]) {
+            savedRelationshipItems = clonedSavedRelationshipItems[relationship];
           }
           return savedRelationshipItems;
         },
