@@ -108,6 +108,16 @@
 					try {
 						eval.call(window, this.externjs);
 					} catch (e) {
+						let timeout = setInterval(() => {
+							//rebind hack;
+							this._showEditor();
+							this.showeditor = false;
+							this._viewHtml();
+							eval.call(window, this.externjs);
+						}, 10);
+						setTimeout(() => {
+							clearTimeout(timeout);
+						}, 1000);
 						console.log('Error', e);
 					}
 				},
@@ -157,9 +167,16 @@
 					this.embbedfonts();
 					this._compileTemplate();
 					this.fetchImages();
+					//Hack to ensure only once execution
 					if (this.onlyOnce) {
 						this.parseJS();
-						this.evalJS();
+						//backup execute in interval so as to ensure bindings
+						let timeout = setInterval(() => {
+							this.evalJS();
+						}, 10);
+						setTimeout(() => {
+							clearTimeout(timeout);
+						}, 500);
 						this.onlyOnce = false;
 					}
 				},
@@ -167,8 +184,7 @@
 				_templateStamped: function () {
 					this.embbedRichText();
 					if (this.firstLoad) {
-						// this is a hack.....bindings and js execution works well 
-						// after clearing the fragment and resinserting
+						// this is a hack.....rebind js to doc
 						this._showEditor();
 						this.showeditor = false;
 						setTimeout(() => {
@@ -194,6 +210,8 @@
 				},
 
 				_editHtml: function () {
+					this.onlyOnce = true;
+					this.firstLoad = true;
 					this._showEditor();
 				},
 
@@ -209,19 +227,21 @@
 						bubbles: true,
 						composed: true
 					}));
-					this.onlyOnce = true;
 				},
 
 				_viewHtml: function () {
 					this.showeditor = false;
-					this.onlyOnce = true;
 					this.template = "";
-					this._viewDataReceived();
+					if (this.view === this.currentview) {
+						this._processTemplate();
+					} else {
+						this.currentview = this.view;
+						this._viewDataReceived();
+					}
 				},
 
 				_showEditor: function () {
 					this.showeditor = true;
-					this.editorClicked = true;
 					Polymer.Async.timeOut.after(100).run(() => {
 						if (Polymer.dom(this.root).querySelectorAll('textarea')[0]) {
 							Polymer.dom(this.root).querySelectorAll('textarea')[0].value = this.view;
@@ -267,6 +287,7 @@
 
 				_viewDataReceived: function () {
 					let view = this.view;
+					this.currentview = this.view;
 					if (view) {
 						this.externScripts = view.substring(view.indexOf('<external>') + 10, view.indexOf(
 							'</external>'));
