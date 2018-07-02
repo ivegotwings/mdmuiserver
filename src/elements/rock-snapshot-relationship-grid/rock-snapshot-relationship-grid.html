@@ -42,6 +42,7 @@
         <rock-grid config="[[_gridConfig]]" data="[[gridData]]" multi-selection="false" page-size="20"></rock-grid>
 
         <liquid-entity-data-get id="getRelEntities" operation="getbyids" data-index="entityData" data-sub-index="data" on-response="_onEntityGetResponse"></liquid-entity-data-get>
+        <liquid-entity-data-get id="getRelAttributes" operation="getbyids" data-index="entityData" data-sub-index="data" on-response="_onRelAttrsResponse"></liquid-entity-data-get>
 
     </template>
     <script>
@@ -81,6 +82,12 @@
                             return [];
                         }
                     },
+                    _entityData: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
                     _rowsModel: {
                         type: Array,
                         value: function () {
@@ -92,6 +99,12 @@
                         value: ""
                     },
                     _entityAttributes: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    _relationshipAttributes: {
                         type: Array,
                         value: function () {
                             return [];
@@ -116,7 +129,8 @@
                         "app": appName
                     }];
                 }
-                this._relationshipType = this._getRelationshipType()
+                let _relationshipType = this._getRelationshipType();
+                this.set('_relationshipType', _relationshipType);
                 context.ItemContexts[0].relationship = this._relationshipType;
                 this.requestConfig('rock-entity-relationship-search-result', context);
 
@@ -130,6 +144,7 @@
             }
 
             _getRelationshipType() {
+                var entityType;
                 if (!_.isEmpty(this.entityReqData) && DataHelper.isValidObjectPath(this.entityReqData[0],
                         'properties.relationshipType')) {
                     return this.entityReqData[0].properties.relationshipType;
@@ -140,10 +155,10 @@
 
                     relToTypesArr.forEach(relItem => {
                         if(relItem.relEntityType == relType) {
-                            return relItem.relEntityId;
+                            entityType= relItem.relEntityId;
                         }
                     });
-
+                    return entityType;
                 } else {
                     this.showErrorToast("RelationshipType does not exist contact your administrator");
                 }
@@ -156,16 +171,24 @@
                 gridConfig.itemConfig.isMultiSelect = false;
                 this.set('_gridConfig', gridConfig);
 
-                this._entityAttributes = this._getEntityAttributes();
+                let attributes = this._getEntityAttributes();
+                this._entityAttributes = [...attributes.relatedEntityAttributes, ...attributes.relationshipAttributes];
+                this._relationshipAttributes = attributes.relationshipAttributes;
                 this._rowsModel = this._getRowModel(componentConfig.config);
                 this.getEntityData();
+                this.getRelationshipAttributes(attributes.relationshipAttributes);
             }
 
             _getEntityAttributes() {
                 var _attrs = [];
+                var _relAttrs = [];
                 var fields = this._gridConfig.itemConfig.fields;
                 for (prop in fields) {
-                    _attrs.push(fields[prop].name);
+                    if(fields[prop].isRelatedEntityAttribute == true) {
+                        _attrs.push(fields[prop].name);
+                    } else {
+                        _relAttrs.push(fields[prop].name);
+                    }
                 }
 
                 if (this._gridConfig.viewMode !== 'Tabular') {
@@ -177,7 +200,12 @@
                     _attrs.push(itemConfig.id);
                     _attrs.push("property_objectkey");
                 }
-                return _attrs;
+
+                var attributes = {
+                    relatedEntityAttributes: _attrs,
+                    relationshipAttributes: _relAttrs
+                }
+                return attributes;
 
             }
             _getRowModel(config) {
@@ -205,13 +233,47 @@
                 liqDataElement.requestData = req;
                 liqDataElement.generateRequest();
             }
+
+            //call to get the relationshipAttributes like order and isPrimary.
+            getRelationshipAttributes(relationshipAttributes) {
+                var req = DataRequestHelper.createEntityGetRequest(this.contextData);
+                var liqDataElement = this.shadowRoot.querySelector("#getRelAttributes");
+                req.params.query.id = this.contextData.ItemContexts[0].id;
+                req.params.fields.relationships = [this._relationshipType];
+                req.params.fields.relationshipAttributes = relationshipAttributes;
+                liqDataElement.requestData = req;
+                liqDataElement.generateRequest();
+            }
             _onEntityGetResponse(e, detail) {
                 var data = detail.response.content.entities;
-                if (data.length > 0) {
-                    this._prepareGridColumnData(data)
+                this._entityData = data;
+            }
+            _onRelAttrsResponse(e, detail) {
+                if (DataHelper.isValidObjectPath(detail, 'response.content.entities')) {
+                    var relAttributeData = detail.response.content.entities;
+                }
+                if (relAttributeData) {
+                    this._updateEntDataAttrsWithRelAttributes(relAttributeData[0].data.relationships[this._relationshipType])
+                    if (!_.isEmpty(this._entityData)) {
+                        this._prepareGridColumnData(this._entityData, relAttributeData);
+                    }
+
                 }
             }
-            _prepareGridColumnData(entities) {
+
+//updating _entityData to have relationshiAttributes and it's values. This is then directly used to prepare grid
+            _updateEntDataAttrsWithRelAttributes(relationshipAttributes) {
+                relationshipAttributes.forEach(elm=> {
+                    if(!_.isEmpty(elm.attributes)) {
+                        this._entityData.forEach(entity=> {
+                            if(elm.id.includes(entity.id)) {
+                                entity.data.attributes = {...entity.data.attributes, ...elm.attributes};
+                            }
+                        })
+                    }
+                });
+            }
+            _prepareGridColumnData(entities, relationshipAttributeData) {
                 var items = [];
                 var rowModel = this._rowsModel;
                 entities.forEach(function (relItem) {
