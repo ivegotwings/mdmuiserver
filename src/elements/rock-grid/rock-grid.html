@@ -29,6 +29,7 @@
 <link rel="import" href="../rock-nested-attribute-grid/rock-nested-attribute-grid.html">
 <link rel="import" href="../rock-entity-tofix/rock-entity-tofix.html">
 <link rel="import" href="../rock-toolbar-default-actions/rock-toolbar-default-actions.html">
+<link rel="import" href="../rock-snapshot-relationship-grid/rock-snapshot-relationship-grid.html">
 
 <link rel="import" href="grid-list-view.html">
 <link rel="import" href="grid-tile-view.html">
@@ -317,21 +318,6 @@ The following JSON object is a config sample which configures the grid in all ab
 			#selection-title {
 				font-weight: var(--font-bold, bold);
 				color: var(--palette-dark, #1a2028);
-			}
-
-			pebble-button {
-				--pebble-button: {
-					padding-top: 0.5em;
-					padding-right: 0em;
-					padding-bottom: 0.5em;
-					padding-left: 0em;
-					min-width: 2.14em;
-					margin-top: 0px;
-					margin-right: 0px;
-					margin-bottom: 0px;
-					margin-left: 0px;
-				}
-				;
 			}
 
 			pebble-vertical-divider {
@@ -895,8 +881,7 @@ The following JSON object is a config sample which configures the grid in all ab
 															<template is="dom-if" if="[[_getNestedAttributeValueCount(item, column.columnObject)]]">
 																<a slot="cell-slot-content" href="#" on-tap="_openNestedAttr" data="[[column.columnObject]]">
 																	<div class="cell tooltip-bottom" data-tooltip$="click here to see values">
-																		<span> [[_getNestedAttributeMessage(item, column.columnObject)]] </span>
-																	</div>
+																		<span> [[_getNestedAttributeMessage(item, column.columnObject, column.columnIndex)]] </span>																	</div>
 																</a>
 															</template>
 															<template is="dom-if" if="[[!_getNestedAttributeValueCount(item, column.columnObject)]]">
@@ -1052,6 +1037,18 @@ The following JSON object is a config sample which configures the grid in all ab
 			<pebble-dialog id="attributeDialog" dialog-title="Confirmation" modal medium vertical-offset=1 50 horizontal-align="auto" vertical-align="auto" no-cancel-on-outside-click
             		no-cancel-on-esc-key show-ok show-cancel show-close-icon alert-box>
 				<div id="attrDialogContainer" style="overflow-y: auto;overflow-x: auto;"></div>
+			</pebble-dialog>
+
+			<!-- relationship-dialog -->
+			<pebble-dialog id="relationshipDialog" dialog-title="Confirmation" modal horizontal-align="auto" vertical-align="auto" no-cancel-on-outside-click
+			 no-cancel-on-esc-key show-close-icon>
+				<div style="overflow-y: auto;overflow-x: auto; height:50vh">
+					<div id="relDialogContainer" class="button-siblings">
+					</div>
+					<div class="buttonContainer-static">
+						<pebble-button on-click="_closePopup" button-text="Close" class="close btn btn-secondary"></pebble-button>
+					</div>
+				</div>
 			</pebble-dialog>
 		</template>
 		<bedrock-pubsub event-name="toggle-sidebar" handler="_flashTileview"></bedrock-pubsub>
@@ -1581,6 +1578,10 @@ The following JSON object is a config sample which configures the grid in all ab
 							this._modeChange('edit');
 						}, 0);
 					}
+				},
+
+				_closePopup: function (e) {
+					this.shadowRoot.querySelector("#relationshipDialog").close();
 				},
 
 				/**
@@ -3151,6 +3152,9 @@ The following JSON object is a config sample which configures the grid in all ab
 				},
 
 				_isNestedAttribute: function (col, item) {
+					if (item && item.isRelationshipType == true) {
+						return true;
+					}
 					if (this.gridItemView && !_.isEmpty(item)) {
 						if (!col.isRowHeader && this.attributeModels[item.attributeName] && this.attributeModels[item.attributeName].dataType == "nested") {
 							return true;
@@ -3190,38 +3194,79 @@ The following JSON object is a config sample which configures the grid in all ab
 					}
 				},
 
+				_getRelToRelationshipTypes: function (relationshipModel) {
+					//Making an array with the relEntityType (like 'audio', 'product') and the correcponding id (like 'hasaudio', 'hasimages') so we can use this in rock-snapshot-grid-compare
+					var keysRel = [];
+					for (let rel in relationshipModel) {
+						DataHelper.isValidObjectPath(relationshipModel[rel][0], 'properties.relatedEntityInfo.0.relEntityType');
+						keysRel.push({relEntityType: relationshipModel[rel][0].properties.relatedEntityInfo[0].relEntityType, relEntityId: relationshipModel[rel][0].id});					}
+
+					return keysRel;
+				},
 				_openNestedAttr: function (e) {
 					var parentRow = this._getParentRow(e.currentTarget);
 					var item;
 					if (parentRow) {
 						item = parentRow.item;
 					}
-					var col = e.currentTarget.data;
-					var attrDialog = this.$$('#attributeDialog');
-					if (attrDialog && col && item) {
-						var data = this._getRowModelAndData(item, col);
-						var attrModel = data.attrModel;
-						var rockComponent = customElements.get("rock-nested-attribute-grid");
+
+					// New code for relationships
+					if (item.isRelationshipType) {
+						var attrDialog = this.$$('#relationshipDialog');
+						var currentEntityId = e.currentTarget.data.name;
+						var rockComponent = customElements.get("rock-snapshot-relationship-grid");
 						var rockElement = new rockComponent();
-
-						delete attrModel.group[0].id;
-
-						rockElement.attributeModelObject = attrModel;
-						rockElement.attributeObject = data.attr;
-						rockElement.originalAttributeObject = data.attr;
+						rockElement.entityReqData = item[currentEntityId];
 						rockElement.contextData = this.contextData;
-						rockElement.mode = "view";
+						if(item[currentEntityId].length>0) {
+							var relToRelationshipTypes = this._getRelToRelationshipTypes(item.relationshipModel);
+							rockElement.entityType = item[currentEntityId][0].relTo.type;
+							rockElement.entityReqData.relToRelationshipTypes = relToRelationshipTypes;
+						}
 
-						var attrDialogContainer = attrDialog.querySelector('#attrDialogContainer');
+						//checking for 0 relationships case
+						if(_.isEmpty(rockElement.entityReqData)) {
+							this.showErrorToast("No relationships exist");
+							return;
+						}
+						var relDialogContainer = attrDialog.querySelector('#relDialogContainer');
 
-						if (attrDialogContainer) {
-							ComponentHelper.removeNode(attrDialogContainer.firstElementChild);
+						if (relDialogContainer) {
+							ComponentHelper.removeNode(relDialogContainer.firstElementChild);
 
-							attrDialogContainer.appendChild(rockElement);
-							attrDialog.dialogTitle = data.colHeader + " : " + attrModel.externalName;
+							relDialogContainer.appendChild(rockElement);
+							attrDialog.dialogTitle = 'Relationships';
 						}
 
 						attrDialog.open();
+					} else {
+						var col = e.currentTarget.data;
+						var attrDialog = this.$$('#attributeDialog');
+						if (attrDialog && col && item) {
+							var data = this._getRowModelAndData(item, col);
+							var attrModel = data.attrModel;
+							var rockComponent = customElements.get("rock-nested-attribute-grid");
+							var rockElement = new rockComponent();
+
+							delete attrModel.group[0].id;
+
+							rockElement.attributeModelObject = attrModel;
+							rockElement.attributeObject = data.attr;
+							rockElement.originalAttributeObject = data.attr;
+							rockElement.contextData = this.contextData;
+							rockElement.mode = "view";
+
+							var attrDialogContainer = attrDialog.querySelector('#attrDialogContainer');
+
+							if (attrDialogContainer) {
+								ComponentHelper.removeNode(attrDialogContainer.firstElementChild);
+
+								attrDialogContainer.appendChild(rockElement);
+								attrDialog.dialogTitle = data.colHeader + " : " + attrModel.externalName;
+							}
+
+							attrDialog.open();
+						}
 					}
 				},
 				updateRowStatus: function (item, status) {
@@ -3235,9 +3280,13 @@ The following JSON object is a config sample which configures the grid in all ab
 						return item[col.header] && item[col.header].value ? item[col.header].value.length : '0';
 					}
 				},
-				_getNestedAttributeMessage: function (item, col) {
-					var count = this._getNestedAttributeValueCount(item, col) || 0;
-					return this.nestedAttributeMessage.replace("{noOfValues}", count);
+				_getNestedAttributeMessage: function (item, col, index) {
+					if(index !==0) {
+						var count = this._getNestedAttributeValueCount(item, col) || 0;
+						return this.nestedAttributeMessage.replace("{noOfValues}", count);
+					} else {
+						return item.attributeName;
+					}
 				},
 				_flashTileview: function (e) {
 					setTimeout(() => {
