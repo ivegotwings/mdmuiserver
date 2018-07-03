@@ -1,0 +1,313 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/polymer/lib/utils/async.html">
+
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-helpers/data-request-helper.html">
+<link rel="import" href="../bedrock-helpers/entity-helper.html">
+<link rel="import" href="../bedrock-helpers/data-transform-helper.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-helpers/entity-helper.html">
+<link rel="import" href="../bedrock-helpers/context-helper.html">
+<link rel="import" href="../bedrock-helpers/attribute-helper.html">
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
+
+<link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
+<link rel="import" href="../liquid-entity-data-save/liquid-entity-data-save.html">
+<link rel="import" href="../liquid-config-get/liquid-config-get.html">
+
+<link rel="import" href="../pebble-dialog/pebble-dialog.html">
+<link rel="import" href="../pebble-icons/pebble-icons.html">
+<link rel="import" href="../pebble-icon/pebble-icon.html">
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
+<link rel="import" href="../pebble-checkbox/pebble-checkbox.html">
+<link rel="import" href="../pebble-button/pebble-button.html">
+
+<link rel="import" href="../rock-grid/rock-grid.html">
+<link rel="import" href="../rock-context-mappings/rock-context-mappings-grid.html">
+
+<dom-module id="rock-snapshot-relationship-grid">
+    <template>
+        <style include="bedrock-style-common">
+            :host {
+                display: block;
+                height: 100%;
+                --pebble-data-table:{
+                   height: 100%;
+                }
+            }
+        </style>
+
+        <rock-grid config="[[_gridConfig]]" data="[[gridData]]" multi-selection="false" page-size="20"></rock-grid>
+
+        <liquid-entity-data-get id="getRelEntities" operation="getbyids" data-index="entityData" data-sub-index="data" on-response="_onEntityGetResponse"></liquid-entity-data-get>
+        <liquid-entity-data-get id="getRelAttributes" operation="getbyids" data-index="entityData" data-sub-index="data" on-response="_onRelAttrsResponse"></liquid-entity-data-get>
+
+    </template>
+    <script>
+        'use strict';
+
+        class RockSnapshotRelationshipGrid
+        extends Polymer.mixinBehaviors([
+            RUFBehaviors.UIBehavior,
+            RUFBehaviors.ComponentContextBehavior,
+            RUFBehaviors.ComponentConfigBehavior
+        ], Polymer.Element) {
+            static get is() {
+                return 'rock-snapshot-relationship-grid'
+            }
+
+            static get properties() {
+                return {
+                    _gridConfig: {
+                        type: Object,
+                        value: function () {
+                            return {}
+                        }
+                    },
+                    entityReqData: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    entityType: {
+                        type: String,
+                        value: ""
+                    },
+                    gridData: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    _entityData: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    _rowsModel: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    _relationshipType: {
+                        type: String,
+                        value: ""
+                    },
+                    _entityAttributes: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    _relationshipAttributes: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    _ids: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    }
+                }
+
+            }
+
+            connectedCallback() {
+                super.connectedCallback();
+                var context = DataHelper.cloneObject(this.contextData);
+                var appName = ComponentHelper.getCurrentActiveAppName();
+                if (appName) {
+                    context[ContextHelper.CONTEXT_TYPE_APP] = [{
+                        "app": appName
+                    }];
+                }
+                let _relationshipType = this._getRelationshipType();
+                this.set('_relationshipType', _relationshipType);
+                context.ItemContexts[0].relationship = this._relationshipType;
+                this.requestConfig('rock-entity-relationship-search-result', context);
+
+                //forming ids array for liquid call
+                if (this.entityReqData.length > 0) {
+                    var ids = this.entityReqData.map(elm => {
+                        return elm.relTo.id
+                    })
+                    this._ids = ids;
+                }
+            }
+
+            _getRelationshipType() {
+                var entityType;
+                if (!_.isEmpty(this.entityReqData) && DataHelper.isValidObjectPath(this.entityReqData[0],
+                        'properties.relationshipType')) {
+                    return this.entityReqData[0].properties.relationshipType;
+                } else if (!_.isEmpty(this.entityReqData) && DataHelper.isValidObjectPath(this.entityReqData[0],
+                        'relTo.type')) {
+                    var relType = this.entityReqData[0].relTo.type;
+                    var relToTypesArr = this.entityReqData.relToRelationshipTypes;
+
+                    relToTypesArr.forEach(relItem => {
+                        if(relItem.relEntityType == relType) {
+                            entityType= relItem.relEntityId;
+                        }
+                    });
+                    return entityType;
+                } else {
+                    this.showErrorToast("RelationshipType does not exist contact your administrator");
+                }
+            }
+
+            onConfigLoaded(componentConfig) {
+                var gridConfig = componentConfig.config.gridConfig;
+                gridConfig.schemaType = "simple"
+                gridConfig.advanceSelectionEnabled = false;
+                gridConfig.itemConfig.isMultiSelect = false;
+                this.set('_gridConfig', gridConfig);
+
+                let attributes = this._getEntityAttributes();
+                this._entityAttributes = [...attributes.relatedEntityAttributes, ...attributes.relationshipAttributes];
+                this._relationshipAttributes = attributes.relationshipAttributes;
+                this._rowsModel = this._getRowModel(componentConfig.config);
+                this.getEntityData();
+                this.getRelationshipAttributes(attributes.relationshipAttributes);
+            }
+
+            _getEntityAttributes() {
+                var _attrs = [];
+                var _relAttrs = [];
+                var fields = this._gridConfig.itemConfig.fields;
+                for (prop in fields) {
+                    if(fields[prop].isRelatedEntityAttribute == true) {
+                        _attrs.push(fields[prop].name);
+                    } else {
+                        _relAttrs.push(fields[prop].name);
+                    }
+                }
+
+                if (this._gridConfig.viewMode !== 'Tabular') {
+                    var itemConfig = this._gridConfig.itemConfig;
+                    _attrs.push(itemConfig.image);
+                    _attrs.push(itemConfig.thumbnailId);
+                    _attrs.push(itemConfig.title);
+                    _attrs.push(itemConfig.subtitle);
+                    _attrs.push(itemConfig.id);
+                    _attrs.push("property_objectkey");
+                }
+
+                var attributes = {
+                    relatedEntityAttributes: _attrs,
+                    relationshipAttributes: _relAttrs
+                }
+                return attributes;
+
+            }
+            _getRowModel(config) {
+                var rows = [];
+
+                this._entityAttributes.forEach(attr => {
+                    var row = {
+                        header: attr,
+                        name: attr,
+                        isFrozen: false
+                    }
+                    rows.push(row);
+                });
+                return rows;
+            }
+
+            getEntityData() {
+                var req = DataRequestHelper.createEntityGetRequest(this.contextData);
+                var liqDataElement = this.shadowRoot.querySelector("#getRelEntities");
+                req.params.query.ids = this._ids;
+                delete req.params.query.id;
+                req.params.fields.attributes = this._entityAttributes;
+                req.params.query.filters.typesCriterion = [this.entityType];
+                req.params.fields.relationship = this._relationshipType;
+                liqDataElement.requestData = req;
+                liqDataElement.generateRequest();
+            }
+
+            //call to get the relationshipAttributes like order and isPrimary.
+            getRelationshipAttributes(relationshipAttributes) {
+                var req = DataRequestHelper.createEntityGetRequest(this.contextData);
+                var liqDataElement = this.shadowRoot.querySelector("#getRelAttributes");
+                req.params.query.id = this.contextData.ItemContexts[0].id;
+                req.params.fields.relationships = [this._relationshipType];
+                req.params.fields.relationshipAttributes = relationshipAttributes;
+                liqDataElement.requestData = req;
+                liqDataElement.generateRequest();
+            }
+            _onEntityGetResponse(e, detail) {
+                var data = detail.response.content.entities;
+                this._entityData = data;
+            }
+            _onRelAttrsResponse(e, detail) {
+                if (DataHelper.isValidObjectPath(detail, 'response.content.entities')) {
+                    var relAttributeData = detail.response.content.entities;
+                }
+                if (relAttributeData) {
+                    this._updateEntDataAttrsWithRelAttributes(relAttributeData[0].data.relationships[this._relationshipType])
+                    if (!_.isEmpty(this._entityData)) {
+                        this._prepareGridColumnData(this._entityData, relAttributeData);
+                    }
+
+                }
+            }
+
+//updating _entityData to have relationshiAttributes and it's values. This is then directly used to prepare grid
+            _updateEntDataAttrsWithRelAttributes(relationshipAttributes) {
+                relationshipAttributes.forEach(elm=> {
+                    if(!_.isEmpty(elm.attributes)) {
+                        this._entityData.forEach(entity=> {
+                            if(elm.id.includes(entity.id)) {
+                                entity.data.attributes = {...entity.data.attributes, ...elm.attributes};
+                            }
+                        })
+                    }
+                });
+            }
+            _prepareGridColumnData(entities, relationshipAttributeData) {
+                var items = [];
+                var rowModel = this._rowsModel;
+                entities.forEach(function (relItem) {
+                    if (relItem) {
+                        var record = {};
+                        var lovItem = {};
+                        if (relItem.data.attributes) {
+                            rowModel.forEach(function (row) {
+                                if (row && relItem.data.attributes[row.name]) {
+                                    var valueObjs = relItem.data.attributes[row.name].values;
+                                    if (!_.isEmpty(valueObjs)) {
+                                        if (valueObjs.length > 1) {
+                                            var values = [];
+                                            for (var valueIndex = 0; valueIndex < valueObjs.length; valueIndex++) {
+                                                values.push(valueObjs[valueIndex].value);
+                                            }
+                                            record[row.name] = values;
+                                        } else {
+                                            record[row.name] = valueObjs[0].value;
+                                        }
+                                    }
+                                } else {
+                                    record[row.name] = "";
+                                }
+                            }, this);
+                        }
+                        items.push(record);
+                    }
+                })
+
+                this.set('gridData', items);
+            }
+        }
+
+        customElements.define(RockSnapshotRelationshipGrid.is, RockSnapshotRelationshipGrid);
+    </script>
+</dom-module>
