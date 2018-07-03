@@ -357,7 +357,7 @@ The users can switch between a search mode and a filter mode to get the query th
         },
 
         entityTypeTag: {
-          type: Array,          
+          type: Array,
           value: function () {
             return []
           }
@@ -555,10 +555,15 @@ The users can switch between a search mode and a filter mode to get the query th
       behaviors: [
         RUFBehaviors.UIBehavior,
         RUFBehaviors.AppContextBehavior
-      ],      
+      ],
       observers: [
           "_onToggleButtonChange(currentTag.options.hasValueChecked)"
-      ],  
+      ],
+
+      getRefineFilterPopover: function () {
+        this._refineFilterPopover = this._refineFilterPopover || this.shadowRoot.querySelector('#filterPopover');
+        return this._refineFilterPopover;
+      },
       /**
        * <b><i>Content development is under progress... </b></i> 
        */
@@ -610,7 +615,7 @@ The users can switch between a search mode and a filter mode to get the query th
         }
         return !tav || !tav.trim();
       },
-      
+
       /**
        * checks if the min value is less than maximum value in numeric display type popover
        */
@@ -628,43 +633,42 @@ The users can switch between a search mode and a filter mode to get the query th
       /**
        * Updating the entity tags when the user updates the entity selection
        *
-      onEntityTypeChange: function (selectedEntities) {            
-          var entityTypeTagStr = this._getEntityTypeDisplayValue(selectedEntities);           
+      onEntityTypeChange: function (selectedEntities) {
+          var entityTypeTagStr = this._getEntityTypeDisplayValue(selectedEntities);
           var entityTypeTagObj =  this.shadowRoot.querySelector("#filter-entity-type-tag");
           if(entityTypeTagStr) {
             if(this.entityTypeTag.length > 0){
-              entityTypeTagObj.set('tags.0.longName', entityTypeTagStr); 
+              entityTypeTagObj.set('tags.0.longName', entityTypeTagStr);
             } else {
               this.addEntityTypeTag(selectedEntities);
             }
           } else {
             this.entityTypeTag = [];
           }
-                   
       },
 
       /**
        * Displaying the selected entity types as tags
        *
-      addEntityTypeTag: function (selectedEntities) {  
-          if(selectedEntities.length > 0) {             
+      addEntityTypeTag: function (selectedEntities) {
+          if(selectedEntities.length > 0) {
             this.entityTypeTag = [];
             var entityTypeTagStr = this._getEntityTypeDisplayValue(selectedEntities); 
             this.entityTypeTag["longName"] = entityTypeTagStr;
             this.shadowRoot.querySelector("#filter-entity-type-tag").addTag(this.entityTypeTag); 
-          }                                
+          }
       },
-       
+
       /**
        *  Formating the selected entity tag
-       *  
+       *
       _getEntityTypeDisplayValue: function (entityTypeList) {
         var tempArray = [];
         //Capitalizing the first character of the list
         if(entityTypeList.length > 0) {
           for(var i = 0 ; i < entityTypeList.length ; i++){
             tempArray[i] = entityTypeList[i].charAt(0).toUpperCase()+ entityTypeList[i].substr(1);
-          } 
+          }
           return "Entity Types: " + tempArray.join(",");
         }
 
@@ -794,7 +798,7 @@ The users can switch between a search mode and a filter mode to get the query th
 
           //Delayed to open the popover, because want to close the existing popover
           Polymer.Async.microTask.run(() => {
-            var filterPopover = this.shadowRoot.querySelector('#filterPopover');
+            var filterPopover = this.getRefineFilterPopover();
 
             filterPopover.positionTarget = positionTarget;
             if (showTagPopover) {
@@ -807,11 +811,11 @@ The users can switch between a search mode and a filter mode to get the query th
              if (tagDisplayType == "textbox") {
               var filterInput = filterPopover.querySelector('#textCollection');
               this._clearCollectionInput(filterPopover, '#textCollection', '#txtInputTag');
-              
+
               if (!filterInput) {
                 return;
               }
-              
+
               filterInput.values = [];
               filterInput.textCollectionInput = "";
               if (this.currentTag.value.exacts && this.currentTag.value.exacts != 'All') {
@@ -844,7 +848,7 @@ The users can switch between a search mode and a filter mode to get the query th
               this.gte = this.lte = "";
               this._tagsNumericCollection = [];
               this._tagNumericInput = "";
-              this._clearCollectionInput(filterPopover, '#textNumericCollection', '#txtInputTag');              
+              this._clearCollectionInput(filterPopover, '#textNumericCollection', '#txtInputTag');
 
               if (this.currentTag.value.contains && this.currentTag.value.contains.length > 0 && this.currentTag.value.contains != 'All') {
                 filterPopover.querySelector('paper-radio-group').selected = 'equalToData';
@@ -855,7 +859,6 @@ The users can switch between a search mode and a filter mode to get the query th
                 }
                 this.gte = this.currentTag.value.gte || "";
                 this.lte = this.currentTag.value.lte || "";
-                
               }
             } else if (tagDisplayType == "referencelist") {
               //Set Id, Title and Value to the LOV
@@ -877,6 +880,7 @@ The users can switch between a search mode and a filter mode to get the query th
                   lovComponent.titlePattern = titlePattern ? titlePattern : "name";
                   lovComponent.subTitlePattern = subTitlePattern ? subTitlePattern : "";
                   lovComponent.valueField = valueField ? valueField : "name";
+                  lovComponent.sortField = valueField ? valueField : "name";
                   lovComponent.selectedItems = this.currentTag.options.selectedItems;
                   var refEntityTypes = this.currentTag.options.referenceEntityTypes;
                   var itemContexts = [];
@@ -912,8 +916,7 @@ The users can switch between a search mode and a filter mode to get the query th
         this.gte = this.lte = "";
         this._tagsNumericCollection = [];
         this._tagNumericInput = "";
-
-        var filterPopover = this.shadowRoot.querySelector('#filterPopover');
+        var filterPopover = this.getRefineFilterPopover();
         if(filterPopover) {
           this._clearCollectionInput(filterPopover, '#textNumericCollection', '#txtInputTag');
         }
@@ -970,17 +973,27 @@ The users can switch between a search mode and a filter mode to get the query th
           }
         }
 
-        this.shadowRoot.querySelector('#filterPopover').hide();
+        this._dismissDialog();
         //Fire event
         this._fireChangeEvent();
 
       },
 
       _onTextCollectionUpdate: function(e, detail) {
-        if(!this._tagsCollection || this._tagsCollection.length == 0 && this._tagInput) {
-          this._tagsCollection.push(this._tagInput);
+        if (this._tagInput) {
+          var filterPopover = this.getRefineFilterPopover();
+          if (filterPopover) {
+            var filterInput = filterPopover.querySelector('#textCollection');
+            var item = { "name": this._tagInput };
+            if (filterInput) {
+              if (!filterInput.isExists(item)) {
+                this._tagsCollection.push(this._tagInput);
+              }
+            }
+          }
           this._tagInput = "";
         }
+
         if(this._isAttributeValuesExistsSearchEnabled && !this.currentTag.options.hasValueChecked){
             this.getUpdatedValue();
         }else {
@@ -991,14 +1004,14 @@ The users can switch between a search mode and a filter mode to get the query th
           if(this._isAttributeValuesExistsSearchEnabled){
             isValueUpdated = this.getUpdatedValue(this.currentTag.value);
           }
-        
+
           if(!isValueUpdated){
             this.set('tags.' + this.currentTag.index + '.displayValue', this.formatFilterCollectionDisplay(this._tagsCollection));
             this.set('tags.' + this.currentTag.index + '.value', this.currentTag.value);
           }
         }
-        
-        this.shadowRoot.querySelector('#filterPopover').hide();
+
+        this._dismissDialog();
         //Fire event
         this._fireChangeEvent();
       },
@@ -1044,7 +1057,7 @@ The users can switch between a search mode and a filter mode to get the query th
 
       // Closing the filter popover 
       _onLOVCloseTap: function (e, detail) {
-        this.shadowRoot.querySelector("#filterPopover").hide();
+        this._dismissDialog();
       },
 
       // Refine filter tags will be updated as per selection
@@ -1073,7 +1086,7 @@ The users can switch between a search mode and a filter mode to get the query th
               this.currentTag.displayValue = this.displaygte + " - " + this.displaylte;
             }
           }
-          
+
           if(this._isAttributeValuesExistsSearchEnabled){
             isValueUpdated = this.getUpdatedValue(this.currentTag.value);
           }
@@ -1227,19 +1240,18 @@ The users can switch between a search mode and a filter mode to get the query th
         if (this.currentTag.options.displayType.toLowerCase() == "datetime") {
           this.shadowRoot.querySelector('#rangepicker').hide();
         } else {
-          this.shadowRoot.querySelector('#filterPopover').hide();
+          this._dismissDialog();
         }
 
         //Fire event
         this._fireChangeEvent();
       },
 
-      _fireChangeEvent: function () {        
+      _fireChangeEvent: function () {
         //Fire the event to build the query string
         this.fireBedrockEvent("build-query", this.tags, {
             ignoreId: true
-        });       
-        
+        });
       },
 
       _onTagItemRemove: function(e,detail){
@@ -1247,9 +1259,9 @@ The users can switch between a search mode and a filter mode to get the query th
           //Fire the event to build the query string
           if(!detail.isChildTag){
             this._fireChangeEvent();
-          } 
+          }
       },
-        
+
       _fireAddEvent: function (_name, _value, _type) {
         var attribute = {
           name: _name
@@ -1268,7 +1280,10 @@ The users can switch between a search mode and a filter mode to get the query th
 
       //Hide the popover
       _dismissDialog: function () {
-        this.shadowRoot.querySelector('#filterPopover').hide();
+        var filterPopover = this.getRefineFilterPopover();
+        if (filterPopover) {
+          filterPopover.hide();
+        }
       },
       _openFilterLov: function () {
         this.shadowRoot.querySelector("#refineFilterPopover").open();

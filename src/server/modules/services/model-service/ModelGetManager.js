@@ -3,6 +3,9 @@ let falcorUtil = require('../../../../shared/dataobject-falcor-util');
 let localCacheManager = require('../../local-cache/LocalCacheManager');
 let isEmpty = require('../../common/utils/isEmpty');
 
+let config = require('config');
+let modelCacheEnabled = config.get('modules.webEngine.modelCacheEnabled');
+
 let ModelManager = function (option) {
     DFServiceRest.call(this, option);
 }
@@ -11,17 +14,21 @@ let LocalCacheManager = new localCacheManager();
 
 ModelManager.prototype = {
     getCompositeModel: async function (modelType) {
-        let baseCompositeModel;
-        let cacheKey = this.getCompositeModelCacheKey(modelType);
+        let baseCompositeModel, cachekey;
 
-        baseCompositeModel = await LocalCacheManager.get(cacheKey);
+        if(modelCacheEnabled) {
+            cacheKey = this.getCompositeModelCacheKey(modelType);
+            baseCompositeModel = await LocalCacheManager.get(cacheKey);
+        }
 
         if (isEmpty(baseCompositeModel)) {
             let baseCompositeModelResponse = await this.post("entitymodelservice/getcomposite", this._getCompositeModelRequest(modelType));
             if (baseCompositeModelResponse && falcorUtil.isValidObjectPath(baseCompositeModelResponse, "response.entityModels")) {
                 baseCompositeModel = baseCompositeModelResponse.response.entityModels[0];
 
-                await LocalCacheManager.set(cacheKey, baseCompositeModel);
+                if(modelCacheEnabled) {
+                    await LocalCacheManager.set(cacheKey, baseCompositeModel);
+                }
             }
         }
 
@@ -31,8 +38,12 @@ ModelManager.prototype = {
     getModels: async function (modelIds, modelType) {
         let models = [];
         let missingModelIds = [];
-        let cacheKey = this.getModelCacheKey(modelType);
-        let cachedData = await LocalCacheManager.get(cacheKey);
+        let cacheKey, cachedData;
+
+        if(modelCacheEnabled) {
+            cacheKey = this.getModelCacheKey(modelType);
+            cachedData = await LocalCacheManager.get(cacheKey);
+        }
 
         if (cachedData) {
             for (let item of modelIds) {
@@ -55,7 +66,10 @@ ModelManager.prototype = {
                     models.push(entityModel);
                     cachedData[entityModel.id] = entityModel;
                 }
-                await LocalCacheManager.set(cacheKey, cachedData);
+
+                if(modelCacheEnabled) {
+                    await LocalCacheManager.set(cacheKey, cachedData);
+                }
             }
         }
 
@@ -106,7 +120,7 @@ ModelManager.prototype = {
                             "entityManageModel",
                             "entityValidationModel",
                             "entityDisplayModel",
-                            "entityDefaultModel"
+                            "entityDefaultValuesModel"
                         ]
                     }
                 },

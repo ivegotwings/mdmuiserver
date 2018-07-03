@@ -80,11 +80,24 @@
                         switch (data.action) {
                             case actions.SaveComplete:
                                 // clear cache
-                                self._fireNotificationEvent("save-complete", data);
+                                if(data.quickManageInfo && !_.isEmpty(data.quickManageInfo)){
+                                    self._updateCache(data);
+                                    var dataId = data.context && data.context.id ? data.context.id : -1;
+                                    if (data.showNotificationToUser) {
+                                        self._onQuickManageSaveComplete(data);
+                                    }
+                                }else{
+                                    self._fireNotificationEvent("save-complete", data);
+                                }
                                 break;
                             case actions.SystemSaveComplete:
                             case actions.GovernComplete:
                             case actions.ModelSaveComplete:
+                                //To avoid govern notification for quick manage save
+                                // Because while saving from quick manage will trigger govern notification
+                                if(data.quickManageInfo && !_.isEmpty(data.quickManageInfo)){
+                                    return;
+                                }
                                 self._updateCache(data);
                                 var dataId = data.context && data.context.id ? data.context.id : -1;
                                 if (data.showNotificationToUser) {
@@ -241,7 +254,35 @@
                         }
                     }
                 },
+                _onQuickManageSaveComplete: function (data) {
+                    if(!data.quickManageInfo){
+                        return;
+                    }
+                    if (data.context && data.tenantId) {
+                        var isActiveApp = false;
+                        var isMinimizedApp = false;
 
+                        isActiveApp = this._isActiveApp(data.context.appInstanceId);
+                        if (!isActiveApp) {
+                            var app = ComponentHelper.getAppById(data.context.appInstanceId);
+                            if (app) {
+                                isMinimizedApp = true;
+                            }
+                        }
+
+                        if (isActiveApp || isMinimizedApp) {
+                            var description = "";
+                            var actions = "";
+                            if (isActiveApp) {
+                                // var link = "/" + data.tenantId + "/entity-manage?id=" + data.context.id + "&type=" + data.context.type;
+                                description = 'Some changes that you made have been verified by the system. Do you want to refresh the page to see the changes?';
+                                actions = '<div id="toast-button"><a href="#" onclick="RUFEventHandlers.reloadClick(event)" appId="' + data.context.appInstanceId + '">Reload</a></div>';
+                                data.description = description + actions;
+                                this._fireNotificationEvent("quick-manage-save-complete", data);
+                            } 
+                        }
+                    }
+                },
                 //if app is active: send pebble toast with link saying wants to refresh entity.
                 // if app is minimized: send pebble toast with link saying wants to open entity.                 
                 _onGovernComplete: function (data) {
@@ -410,17 +451,10 @@
 
                     var notificationElement, notificationLabelElement;
 
-                    if (!isSystem) {
-                        this._userNotificationsList = this._userNotificationsList || RUFUtilities.userNotificationsList
-                        this._mdmUserNotifications = this._mdmUserNotifications || RUFUtilities.mdmUserNotifications
-                        notificationElement = this._userNotificationsList;
-                        notificationLabelElement = this._mdmUserNotifications;
-                    } else {
-                        this._systemNotificationsList = this._systemNotificationsList || RUFUtilities.systemNotificationsList
-                        this._mdmSystemNotifications = this._mdmSystemNotifications || RUFUtilities.mdmSystemNotifications
-                        notificationElement = this._systemNotificationsList;
-                        notificationLabelElement = this._mdmSystemNotifications;
-                    }
+                    this._userNotificationsList = this._userNotificationsList || RUFUtilities.userNotificationsList
+                    this._mdmUserNotifications = this._mdmUserNotifications || RUFUtilities.mdmUserNotifications
+                    notificationElement = this._userNotificationsList;
+                    notificationLabelElement = this._mdmUserNotifications;
 
                     if (!notificationElement) {
                         return;
@@ -539,14 +573,9 @@
                     }
 
                     this._userNotificationElementPopover = this._userNotificationElementPopover || RUFUtilities.popoverUserNotifications;
-                    this._systemNotificationElementPopover = this._systemNotificationElementPopover || RUFUtilities.popoverSystemNotifications;
 
                     if (this._userNotificationElementPopover) {
                         this._userNotificationElementPopover.hide();
-                    }
-
-                    if (this._systemNotificationElementPopover) {
-                        this._systemNotificationElementPopover.hide();
                     }
                 },
 

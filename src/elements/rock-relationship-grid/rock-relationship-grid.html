@@ -291,6 +291,7 @@ The following JSON object is a sample of data which binds the grid.
       .relContainer {
         display: block;
         height: 100%;
+        @apply --relationship-container-height;
       }
 
       .relation-name-container pebble-button {
@@ -344,7 +345,7 @@ The following JSON object is a sample of data which binds the grid.
                         <rock-entity-lov on-lov-confirm-button-tap="_onLovConfirmButtonTapped" id="lov_[[relationship]]" data-index$="[[dataIndex]]"
                           data-sub-index$="[[dataSubIndex]]" request-data="[[_requestForAddRelationshipList(relationship)]]"
                           id-field="[[_getIdField()]]" image-id-field="[[_getImageIdField()]]" title-pattern="[[_getTitlePattern()]]"
-                          selected-items="[[_getSavedRelationshipItems( relationship, _savedRelationshipItemsToLov)]]" excluded-ids=[[excludedIds]]
+                          selected-items="[[_getSavedRelationshipItems( relationship, _savedRelationshipItems)]]" excluded-ids=[[excludedIds]]
                           multi-select no-sub-title show-action-buttons></rock-entity-lov>
                       </pebble-popover>
                       <bedrock-pubsub event-name="entity-lov-confirm-button-tap" handler="_onLovConfirmButtonTapped" target-id="lov_[[relationship]]"></bedrock-pubsub>
@@ -573,7 +574,7 @@ The following JSON object is a sample of data which binds the grid.
             type: Boolean,
             value: true
           },
-          _savedRelationshipItemsToLov: {
+          _savedRelationshipItems: {
             type: Object,
             value: function () {
               return {};
@@ -838,7 +839,13 @@ The following JSON object is a sample of data which binds the grid.
 
         _onTapQuickManage: function (e) {
           var relationship = this.relationship;
-          this._quickManageEnabled = !this._quickManageEnabled;
+          if(e && e.detail && e.detail.enableQuickManage){
+            if(!this._quickManageEnabled){
+              this._quickManageEnabled = e.detail.enableQuickManage;
+            }
+          }else{
+            this._quickManageEnabled = !this._quickManageEnabled;
+          }
           var grid = this._getRelationshipGrid();
           if (this._quickManageEnabled) {
             var selectedItem = grid.selectedItem;
@@ -986,27 +993,42 @@ The following JSON object is a sample of data which binds the grid.
                       this.dataObject[currentRel] = entity;
                     }
                   }
-
-
-                  var savedItemsToLov = [];
+                  var relationshipAttributeModels = this._getRelationshipAttributeModels();
+                  var savedItems = [];
                   var entityTypeManager = EntityTypeManager.getInstance();
                   relationships.forEach(function (relItem) {
                     if (relItem) {
                       var record = {};
-                      var lovItem = {};
+                      var savedItem = {};
                       if (relItem.attributes) {
                         Object.keys(relItem.attributes).forEach(function (item) {
                           if (item && relItem.attributes[item]) {
                             var valueObjs = relItem.attributes[item].values;
+                            var model = relationshipAttributeModels[item];
+                            var refEntityType = model && model.referenceEntityTypes && model.referenceEntityTypes.length > 0 ? model.referenceEntityTypes[0] : "";
                             if(!_.isEmpty(valueObjs)) {
                               if(valueObjs.length > 1) {
                                 var values = [];
+                                var referenceDataId = [];
                                 for(var valueIndex = 0;valueIndex < valueObjs.length;valueIndex++){
                                   values.push(valueObjs[valueIndex].value);
+                                  if(valueObjs[valueIndex].properties && valueObjs[valueIndex].properties.referenceData) {
+                                    var referenceData = valueObjs[valueIndex].properties.referenceData;
+                                    var referenceDataId = referenceData.replace(refEntityType + "/", "");
+                                    referenceDataId.push(referenceDataId);
+                                  }
                                 }
                                 record[item] = values;
+                                if(!_.isEmpty(referenceDataId)) {
+                                  record[item + "_referenceDataId"] = referenceDataId;
+                                }
                               } else {
                                 record[item] = valueObjs[0].value;
+                                if(valueObjs[0].properties && valueObjs[0].properties.referenceData) {
+                                  var referenceData = valueObjs[0].properties.referenceData;
+                                  var referenceDataId = referenceData.replace(refEntityType + "/", "");
+                                  record[item + "_referenceDataId"] = referenceDataId;
+                                }
                               }
                             }
                           }
@@ -1024,10 +1046,11 @@ The following JSON object is a sample of data which binds the grid.
                         record["Relationship Id"] = relItem.relTo.id;
                         record["Related Entity"] = record["id"] = relItem.relTo.id;
                         record["type"] = relItem.relTo.type;
-                        lovItem["id"] = relItem.relTo.id;
-                        lovItem["title"] = relItem.relTo.id;
+                        savedItem["id"] = relItem.relTo.id;
+                        savedItem["title"] = relItem.relTo.id;
+                        savedItem["type"] = relItem.relTo.type;
                         record["typeExternalName"] = entityTypeManager.getTypeExternalNameById(relItem.relTo.type);
-                        savedItemsToLov.push(lovItem);
+                        savedItems.push(savedItem);
 
                         //It will required in case of default sorting.
                         if (relItem.relTo.properties) {
@@ -1047,15 +1070,31 @@ The following JSON object is a sample of data which binds the grid.
                               attrItem) {
                               if (attrItem && relatedAttributes[attrItem]) {
                                 var valueObjs = relatedAttributes[attrItem].values;
+                                var model = relationshipAttributeModels[attrItem];
+                                var refEntityType = model && model.referenceEntityTypes && model.referenceEntityTypes.length > 0 ? model.referenceEntityTypes[0] : "";
                                   if(!_.isEmpty(valueObjs)) {
                                     if(valueObjs.length > 1) {
                                       var values = [];
+                                      var referenceDataId = [];
                                       for(var valueIndex = 0;valueIndex < valueObjs.length;valueIndex++){
                                         values.push(valueObjs[valueIndex].value);
+                                        if(valueObjs[valueIndex].properties && valueObjs[valueIndex].properties.referenceData) {
+                                          var referenceData = valueObjs[valueIndex].properties.referenceData;
+                                          var referenceDataId = referenceData.replace(refEntityType + "/", "");
+                                          referenceDataId.push(referenceDataId);
+                                        }
                                       }
                                       record[attrItem] = values;
+                                      if(!_.isEmpty(referenceDataId)) {
+                                        record[attrItem + "_referenceDataId"] = referenceDataId;
+                                      }
                                     } else {
                                       record[attrItem] = valueObjs[0].value;
+                                      if(valueObjs[0].properties && valueObjs[0].properties.referenceData) {
+                                        var referenceData = valueObjs[0].properties.referenceData;
+                                        var referenceDataId = referenceData.replace(refEntityType + "/", "");
+                                        record[attrItem + "_referenceDataId"] = referenceDataId;
+                                      }
                                     }
                                   }
                               }
@@ -1075,16 +1114,16 @@ The following JSON object is a sample of data which binds the grid.
 
 
                   //Need to check why is this required?
-                  var savedRelationships = this._savedRelationshipItemsToLov;
+                  var savedRelationships = this._savedRelationshipItems;
                   if (savedRelationships[currentRel]) {
-                    savedRelationships[currentRel] = savedRelationships[currentRel].concat(savedItemsToLov);
+                    savedRelationships[currentRel] = savedRelationships[currentRel].concat(savedItems);
                   }
                   else {
-                    savedRelationships[currentRel] = savedItemsToLov;
+                    savedRelationships[currentRel] = savedItems;
                   }
 
-                  this._savedRelationshipItemsToLov = {};
-                  this._savedRelationshipItemsToLov = savedRelationships;
+                  this._savedRelationshipItems = {};
+                  this._savedRelationshipItems = savedRelationships;
 
                   var defaultSort;
                   if (DataHelper.isValidObjectPath(relConfig, "gridConfig.itemConfig.sort.default")) {
@@ -1200,14 +1239,18 @@ The following JSON object is a sample of data which binds the grid.
             const { relatedEntityTypes, selfContext } = this.relationshipGridConfig;
             const { id, type } = ContextHelper.getFirstItemContext(this.contextData);
             var mode = this.domain == "digitalAsset" ? "asset" : "relationship";
+            var savedRelationships = this._getSavedRelationshipItems(rel, this._savedRelationshipItems);
             const sharedData = {
               "mode": mode,
               "types-criterion": relatedEntityTypes,
               "relationship-type": rel,
               "heading": this._getRelationshipTypeTitle(rel),
               "selected-entities": [{ id, type }],
+              "pre-selected-items": savedRelationships,
               "self-context": selfContext,
-              "add-relationship-grid-config": this.addRelationshipGridConfig
+              "add-relationship-grid-config": this.addRelationshipGridConfig,
+              "dataIndex": this.dataIndex,
+              "dataSubIndex": this.dataSubIndex
             };
 
             this.openBusinessFunctionDialog({ name: 'rock-wizard-entity-relationship-add' }, sharedData);
@@ -1253,7 +1296,10 @@ The following JSON object is a sample of data which binds the grid.
             var lov = this.shadowRoot.querySelector("rock-entity-lov[id=" + event.detail.data.id + "]");
 
             var oldSelectedItemIds = [];
-            var selectedItemIds = [...new Set(lov.selectedItems.map((obj) => obj.id))];
+            var selectedItemIds = [];
+            if (lov) {
+              selectedItemIds = [...new Set(lov.selectedItems.map((obj) => obj.id))];
+            }
             var newItemIds = [];
             var relType = event.detail.data.id.replace("lov_", "");
             // TO-DO Pebble-LOV has to handle this filteration.
@@ -1454,7 +1500,7 @@ The following JSON object is a sample of data which binds the grid.
               // Find out if modified relaitionship is exist in current entity data.
               if (!_.isEmpty(existingRelationships)) {
                 existingRelationships.forEach(function (relItem) {
-                  if ("relTo" in relItem && relItem.relTo.id == modItem["Related Entity"]) {
+                  if (relItem && ("relTo" in relItem) && relItem.relTo.id == modItem["Related Entity"]) {
                     relObject = relItem;
                   }
                 }, this);
@@ -1595,10 +1641,6 @@ The following JSON object is a sample of data which binds the grid.
             this.logWarning("AttributeManageValidationFail", "response", JSON.stringify(e.detail));
             this.showErrorToast("There is a problem in validation service. Please contact administrator.");
           }
-          var eventData = {
-            name: "gridsaveinsplit"
-          }
-          this.dispatchEvent(new CustomEvent('bedrock-event', { detail: eventData, bubbles: true, composed: true }));
         },
         _onEntityGovernFailed: function (e) {
           this.logWarning("AttributeManageValidationFail", "response", JSON.stringify(e));
@@ -1630,6 +1672,12 @@ The following JSON object is a sample of data which binds the grid.
         _onSaveResponse: function () {
           //TO-DO will get changed
           RUFUtilities.appCommon.toastText = "Relationships saved successfully.";
+
+          var eventData = {
+            name: "gridsaveinsplit"
+          }
+          this.dispatchEvent(new CustomEvent('bedrock-event', { detail: eventData, bubbles: true, composed: true }));          
+
           var toastElement = RUFUtilities.pebbleAppToast;
           toastElement.toastType = "success";
           toastElement.heading = "Success";
@@ -1639,12 +1687,12 @@ The following JSON object is a sample of data which binds the grid.
 
           var currentRelGrid = this.shadowRoot.querySelector('rock-grid[id=' + this.relationship + ']');
           var gridData = currentRelGrid.getData();
-          var savedRelationshipItemsToLov = gridData.map(function (item) {
+          var savedRelationshipItems = gridData.map(function (item) {
             if (item.id) {
-              return { 'id': item.id, 'title': item.id }
+              return { 'id': item.id, 'title': item.id, 'type':item.type }
             }
           });
-          this._savedRelationshipItemsToLov[this.relationship] = DataHelper.cloneObject(savedRelationshipItemsToLov);
+          this._savedRelationshipItems[this.relationship] = DataHelper.cloneObject(savedRelationshipItems);
 
           if (this.functionalMode == "dataFunction") {
             var eventName = "onSave";
@@ -1713,9 +1761,10 @@ The following JSON object is a sample of data which binds the grid.
           var dialogControlDirty = false;
           var relGridContainer = this.$$("div[id^='relContainer_']:not([hidden])");
           if (relGridContainer) {
-            //If quick manage is enabled , set as dirty
-            if (this._quickManageEnabled == true) {
-              quickManageControlDirty = true;
+            //Quick manage is edited
+            var quickManage = relGridContainer.querySelector('rock-entity-quick-manage');
+            if (quickManage && quickManage.getControlIsDirty) {
+              quickManageControlDirty = quickManage.getControlIsDirty();
             }
 
             //Rock grid items are selected or edited
@@ -1740,9 +1789,12 @@ The following JSON object is a sample of data which binds the grid.
           return quickManageControlDirty || relGridControlDirty || popoverControlDirty || dialogControlDirty;
         },
 
-        refresh: function () {
+        refresh: function (options) {
+          if(options && !_.isEmpty(options) && options.partialRefresh){
+
+          }
           var rockGrid = this.$$("rock-grid");
-          rockGrid.refresh();
+          rockGrid.refresh(options);
           if (this._quickManageEnabled == true) {
             var quickManage = this.$$("rock-entity-quick-manage");
             quickManage.refresh();
@@ -1846,13 +1898,13 @@ The following JSON object is a sample of data which binds the grid.
           var relationshipLov = Polymer.dom(this).node.shadowRoot.querySelector('rock-entity-lov[id=lov_' + this.relationship + ']');
           if (relationshipLov) {
             var gridData = relGrid.getData();
-            var savedRelationshipItemsToLov = gridData.map(function (item) {
+            var savedRelationshipItems = gridData.map(function (item) {
               if (item.id) {
-                return { 'id': item.id, 'title': item.id }
+                return { 'id': item.id, 'title': item.id , 'type':item.type }
               }
             });
-            this._savedRelationshipItemsToLov[this.relationship] = DataHelper.cloneObject(savedRelationshipItemsToLov);
-            relationshipLov.selectedItems = savedRelationshipItemsToLov[this.relationship] || [];
+            this._savedRelationshipItems[this.relationship] = DataHelper.cloneObject(savedRelationshipItems);
+            relationshipLov.selectedItems = savedRelationshipItems[this.relationship] || [];
           }
         },
 
@@ -1943,11 +1995,11 @@ The following JSON object is a sample of data which binds the grid.
           }
           return titlePattern;
         },
-        _getSavedRelationshipItems: function (relationship, savedRelationshipItemsToLov) {
+        _getSavedRelationshipItems: function (relationship, savedRelationships) {
           var savedRelationshipItems = [];
-          var clonedSavedRelationshipItemsToLov = DataHelper.cloneObject(savedRelationshipItemsToLov);
-          if (clonedSavedRelationshipItemsToLov[relationship]) {
-            savedRelationshipItems = clonedSavedRelationshipItemsToLov[relationship];
+          var clonedSavedRelationshipItems = DataHelper.cloneObject(savedRelationships);
+          if (clonedSavedRelationshipItems[relationship]) {
+            savedRelationshipItems = clonedSavedRelationshipItems[relationship];
           }
           return savedRelationshipItems;
         },
