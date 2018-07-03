@@ -73,7 +73,8 @@
         </style>
         <liquid-entity-data-get id="lineagepath" operation="getbyids" request-data="{{lineagerequest}}" on-error="_onLineagePathError"
             on-response="_onLineagePathResponse" exclude-in-progress></liquid-entity-data-get>
-
+        <liquid-entity-data-get id="rootNodeGet" operation="getbyids" request-data="{{_rootNodeGetRequest}}" on-error="_onLineagePathError"
+            on-response="_onRootNodeGetResponse" exclude-in-progress></liquid-entity-data-get>
         <liquid-entity-data-get id="initiateSearch" operation="initiatesearch" request-data="{{request}}" last-response="{{initiateSearchResponse}}"
             on-error="_onGetSearchError" on-response="_onInitiateSearchResponse" exclude-in-progress></liquid-entity-data-get>
         <liquid-entity-data-get id="getSearchResultDetail" operation="getsearchresultdetail" request-data="{{request}}" request-id="[[initiateSearchResponse.content.requestId]]"
@@ -244,6 +245,12 @@
                 enableNodeClick:{
                     type:Boolean,
                     value:false
+                },
+                rootNodeData:{
+                    type:Object
+                },
+                _rootNodeGetRequest:{
+                    type:Object
                 }
             },
 
@@ -418,6 +425,25 @@
                 delete req.params.options;
 
                 this.set('request', req);
+                if(this.rootNodeData && this.rootNodeData.id){
+                    var rootNodeRequest = DataRequestHelper.createEntityGetRequest(this.contextData);
+                    this.set("_rootNodeGetRequest",rootNodeRequest);
+                    var rootNodeGet = this.shadowRoot.querySelector("#rootNodeGet");
+                    if(rootNodeGet){
+                        rootNodeGet.generateRequest();
+                    }
+                }else{
+                    this.shadowRoot.querySelector("#initiateSearch").generateRequest();
+                }
+            },
+            _onRootNodeGetResponse: function(ev){
+                if(DataHelper.isValidObjectPath(ev, "detail.response.content.entities.0.name")){
+                    this.rootNodeData['text'] = ev.detail.response.content.entities[0].name;
+                }else{
+                    this.rootNodeData['text'] = this.rootNodeData.id;
+                }
+                this.rootNodeData.expanded = true;
+                //start classification request
                 this.shadowRoot.querySelector("#initiateSearch").generateRequest();
             },
             _onInitiateSearchResponse: function (e) {
@@ -465,7 +491,12 @@
                 } else {
                     this._classificationsList.sort(function (a, b) { return (a.text > b.text) ? 1 : ((b.text > a.text) ? -1 : 0); });
                     if (!this._currentNode || _.isEmpty(this._currentNode)) {
-                        this.classifications = this._classificationsList;
+                        if(this.rootNodeData && !_.isEmpty(this.rootNodeData)){
+                            this.rootNodeData.children = this._classificationsList;
+                            this.classifications = [this.rootNodeData];
+                        }else{
+                            this.classifications = this._classificationsList;
+                        }
                         this._checkForSelectedClassification();
                     } else {
                         if (!this._classificationsList.length) {
