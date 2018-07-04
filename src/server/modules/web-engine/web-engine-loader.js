@@ -12,6 +12,7 @@ var fileUpload = require('express-fileupload');
 var path = require("path");
 var RuntimeVersionManager = require('../services/version-service/RuntimeVersionManager');
 var ModuleVersionManager = require('../services/version-service/ModuleVersionManager');
+var executionContext = require('../common/context-manager/execution-context');
 
 var config = require('config');
 
@@ -36,7 +37,9 @@ if (relativePath) {
 }
 
 console.log('build path: ', buildPath);
-logger.info('Web engine start - build path identified', { "buildPath": buildPath });
+logger.info('Web engine start - build path identified', {
+    "buildPath": buildPath
+});
 
 var pjson = require(buildPath + '/package.json');
 const buildVersion = pjson.version;
@@ -59,8 +62,13 @@ app.set('view engine', 'hjs');
 logger.info('Web engine start - views are loaded');
 
 // parse application/x-www-form-urlencoded
-app.use(bodyParser.urlencoded({ limit: '10mb', extended: false }));
-app.use(bodyParser.json({ limit: '10mb' }));
+app.use(bodyParser.urlencoded({
+    limit: '10mb',
+    extended: false
+}));
+app.use(bodyParser.json({
+    limit: '10mb'
+}));
 
 logger.info('Web engine start - body parser middleware is loaded');
 
@@ -69,19 +77,21 @@ app.use(cors());
 
 logger.info('Web engine start - cors middleware is loaded');
 
-//handling root path (specifically for SAML type of authentication)
-app.get('/', function (req, res) {
-    if (!renderAuthenticatedPage(req, res)) {
-        res.render('index', { isAuthenticated: false });
-    }
-});
-
-logger.info('Web engine start - default location route is loaded');
-
 var contextMgrMiddleware = require('../common/context-manager/middleware');
 contextMgrMiddleware(app);
 
 logger.info('Web engine start - context manager middleware is loaded');
+
+//handling root path (specifically for SAML type of authentication)
+app.get('/', function (req, res) {
+    if (!renderAuthenticatedPage(req, res)) {
+        res.render('index', {
+            isAuthenticated: false
+        });
+    }
+});
+
+logger.info('Web engine start - default location route is loaded');
 
 //Load falcor api routes
 var dataobjectRoute = require('../dataobject/dataobject-router');
@@ -130,11 +140,6 @@ logger.info('Web engine start - binary object service routes are loaded');
 
 app.use(fileUpload());
 
-var contextMgrMiddleware = require('../common/context-manager/middleware');
-contextMgrMiddleware(app);
-
-logger.info('Web engine start - context manager middleware is loaded');
-
 var copRoute = require('../services/cop-service/cop-route');
 copRoute(app);
 
@@ -150,7 +155,9 @@ versionRoute(app);
 
 logger.info('Web engine start - version routes are loaded');
 //app.use(express.static(path.join(buildPath, "/build/ui-platform/static/es6-bundled"), { maxAge: "1s" }));
-app.use(express.static(buildPath, { maxAge: "1s" }));
+app.use(express.static(buildPath, {
+    maxAge: "1s"
+}));
 
 //register static file root ...index.html..
 app.get('*', function (req, res) {
@@ -173,27 +180,24 @@ app.get('*', function (req, res) {
 
         if (!isNodMonitorProcess) {
             var staticPath = isES5 ? "/../static/es5-bundled" : "/../static/es6-bundled";
-            
+
             if (req.url.indexOf("/bower_components/") > -1) {
                 url = req.url.replace("/bower_components/", staticPath + "/bower_components/");
                 urlRedirected = true;
-            }
-            else if (req.url.indexOf("/src/") > -1) {
+            } else if (req.url.indexOf("/src/") > -1) {
                 url = req.url.replace("/src/", staticPath + "/src/");
                 urlRedirected = true;
-            }
-            else if (req.url.indexOf("/service-worker.js") > -1) {
+            } else if (req.url.indexOf("/service-worker.js") > -1) {
                 url = req.url.replace("/service-worker.js", staticPath + "/service-worker.js");
                 urlRedirected = true;
-            }
-            else if (req.url.indexOf("/manifest.json") > -1) {
+            } else if (req.url.indexOf("/manifest.json") > -1) {
                 url = req.url.replace("/manifest.json", staticPath + "/manifest.json");
                 urlRedirected = true;
             }
 
             //console.log('url prepared ', url);
         }
-        
+
         //console.log('url requested ', url, urlRedirected);
 
         if (urlRedirected) {
@@ -212,68 +216,19 @@ app.get('*', function (req, res) {
         tenantId = urlComps[0] != "" ? urlComps[0] : urlComps.length > 1 ? urlComps[1] : "";
         //If we find tenant id (assumed tenant id), we set that tenant id in index file
         if (tenantId && tenantId != "") {
-            res.render('index', { isAuthenticated: false, tenantId: tenantId });
-        }
-        else {
-            res.render('index', { isAuthenticated: false });
+            res.render('index', {
+                isAuthenticated: false,
+                tenantId: tenantId
+            });
+        } else {
+            res.render('index', {
+                isAuthenticated: false
+            });
         }
     }
 });
 
 logger.info('Web engine start - base static file root route is loaded');
-
-async function renderAuthenticatedPage(req, res) {
-    var userId = req.header("x-rdp-userid");
-    var tenantId = req.header("x-rdp-tenantid");
-    var userRoles = req.header("x-rdp-userroles");
-    var firstName = req.header("x-rdp-firstname");
-    var lastName = req.header("x-rdp-lastname");
-    var userEmail = req.header("x-rdp-useremail");
-    var userName = req.header("x-rdp-username");
-    var ownershipData = req.header("x-rdp-ownershipdata");
-    var ownershipeditdata = req.header("x-rdp-ownershipeditdata");
-
-    if (tenantId && userId) {
-        var fullName = "";
-        if (firstName) {
-            fullName = firstName;
-        }
-        if (lastName) {
-            fullName = fullName + " " + lastName;
-        }
-        if (fullName == "") {
-            fullName = userId;
-        }
-
-        var noPreload = true;
-
-        var versionInfo = {
-            'buildVersion': await RuntimeVersionManager.getBuildVersion(),
-            'runtimeVersion': await RuntimeVersionManager.getVersion(),
-            'moduleVersions': ModuleVersionManager.getAll()
-        }
-
-        //console.log('version info: ', JSON.stringify(versionInfo, null, 2));
-
-        res.render('index', 
-            {
-                isAuthenticated: true, 
-                tenantId: tenantId, 
-                userId: userId, 
-                roles: userRoles,
-                fullName: fullName, 
-                userName: userName, 
-                ownershipData: ownershipData,
-                ownershipeditdata: ownershipeditdata,
-                noPreload: noPreload,
-                versionInfo: JSON.stringify(versionInfo)
-            });
-
-        return true;
-    } else {
-        return false;
-    }
-}
 
 logger.info('Web engine start - starting web engine...');
 
@@ -282,7 +237,10 @@ var server = app.listen(5005, function () {
     var host = server.address().address === '::' ? 'localhost' : server.address().address;
     var port = server.address().port;
 
-    logger.info('Web engine start - web engine is started', { "host": host, "port": port });
+    logger.info('Web engine start - web engine is started', {
+        "host": host,
+        "port": port
+    });
     console.log('Web engine is running now at http://%s:%s/', host, port);
 });
 
@@ -292,6 +250,50 @@ notificationEngine.initSockets(server);
 
 logger.info('Web engine start - notification engine is started');
 
-
 server.timeout = config.get('modules.webEngine').connectionTimeout;
 
+async function renderAuthenticatedPage(req, res) {
+    var userId = req.header("x-rdp-userid");
+    var tenantId = req.header("x-rdp-tenantid");
+
+    if (tenantId && userId) {
+        var securityContext = executionContext.getSecurityContext();
+        
+        if (securityContext && securityContext.headers && securityContext.headers.userRoles) {
+            
+            var secHeaders = securityContext.headers;
+
+            var noPreload = true;
+
+            var versionInfo = {
+                'buildVersion': await RuntimeVersionManager.getBuildVersion(),
+                'runtimeVersion': await RuntimeVersionManager.getVersion(),
+                'moduleVersions': ModuleVersionManager.getAll()
+            }
+
+            //console.log('version info: ', JSON.stringify(versionInfo, null, 2));
+
+            res.render('index', {
+                isAuthenticated: true,
+                tenantId: tenantId,
+                userId: userId,
+                roles: secHeaders.userRoles,
+                defaultRole: secHeaders.defaultRole,
+                fullName: secHeaders.fullName,
+                userName: secHeaders.userName,
+                ownershipData: secHeaders.ownershipData,
+                ownershipeditdata: secHeaders.ownershipeditdata,
+                noPreload: noPreload,
+                versionInfo: JSON.stringify(versionInfo)
+            });
+
+            return true;
+        }
+        else {
+            //TODO: generate error page for browser
+            console.error('security context is not yet ready');
+        }
+    } else {
+        return false;
+    }
+}

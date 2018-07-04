@@ -90,15 +90,26 @@ var DFServiceBase = function (options) {
         return userName;
     };
 
-    this.getUserRole = function () {
-        var userRole = "vendor";
+    this.getUserRoles = function () {
+        var userRoles = ["vendor"];
         var securityContext = executionContext.getSecurityContext();
 
         if (securityContext && securityContext.headers && securityContext.headers.userRoles) {
-            userRole = securityContext.headers.userRoles.split(',')[0];
+            userRoles = securityContext.headers.userRoles;
         }
 
-        return userRole;
+        return userRoles;
+    };
+
+    this.getUserDefaultRole  = function () {
+        var defaultRole = "vendor";
+        var securityContext = executionContext.getSecurityContext();
+
+        if (securityContext && securityContext.headers && securityContext.headers.defaultRole) {
+            defaultRole = securityContext.headers.defaultRole;
+        }
+
+        return defaultRole;
     };
 
     this.getOwnershipData = function () {
@@ -135,39 +146,42 @@ var DFServiceBase = function (options) {
     };
 
     this._createRequestHeaders = function (url, request) {
-        var headers = {};
+        var rdpApiHeaders = {};
         var tenantId = this.getTenantId();
         var userId = 'admin';
-        var userRoles = ['vendor'];
+        var userRoles = ["vendor"];
 
         var securityContext = executionContext.getSecurityContext();
 
         if (securityContext && securityContext.headers && securityContext.headers.userId) {
-            userId = securityContext.headers.userId;
-            if(securityContext.headers.userRoles){
-                userRoles = securityContext.headers.userRoles.split(',');
+
+            var secHeaders = securityContext.headers;
+            userId = secHeaders.userId;
+
+            if(secHeaders.userRoles) {
+                userRoles = secHeaders.userRoles;
             }
 
-            if (securityContext.headers) {
-                headers["x-rdp-clientid"] = securityContext.headers.clientId || "";
-                headers["x-rdp-tenantid"] = tenantId;
-                headers["x-rdp-ownershipdata"] = securityContext.headers.ownershipData || "";
-                headers["x-rdp-ownershipeditdata"] = securityContext.headers.ownershipEditData || "";
-                headers["x-rdp-userid"] = userId.indexOf("_user") < 0 ? userId + "_user" : userId;
-                headers["x-rdp-username"] = securityContext.headers.userName || "";
-                headers["x-rdp-useremail"] = securityContext.headers.userEmail || "";
-                headers["x-rdp-userroles"] =  JSON.stringify(userRoles);
-            }   
+            rdpApiHeaders = {
+                "x-rdp-clientid": secHeaders.clientId,
+                "x-rdp-tenantId": tenantId,
+                "x-rdp-ownershipdata": secHeaders.ownershipData,
+                "x-rdp-ownershipeditdata": secHeaders.ownershipEditData,
+                "x-rdp-userid": userId.indexOf("_user") < 0 ? userId + "_user" : userId,
+                "x-rdp-username": secHeaders.userName,
+                "x-rdp-useremail": secHeaders.userEmail,
+                "x-rdp-userroles": JSON.stringify(userRoles)
+            };  
         }
 
         if(securityContext) {
-            headers["x-rdp-authtoken"] = cryptoJS.HmacSHA256(url.split('?')[1], securityContext.clientAuthKey).toString(cryptoJS.enc.Base64);
+            rdpApiHeaders["x-rdp-authtoken"] = cryptoJS.HmacSHA256(url.split('?')[1], securityContext.clientAuthKey).toString(cryptoJS.enc.Base64);
         }
         else {
             console.log('security context not found for the req object ', url, JSON.stringify(request));
         }
         
-        return headers;
+        return rdpApiHeaders;
     }
 };
 
