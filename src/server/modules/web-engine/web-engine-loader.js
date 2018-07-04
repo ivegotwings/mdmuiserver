@@ -260,7 +260,7 @@ async function renderAuthenticatedPage(req, res) {
                 isAuthenticated: true, 
                 tenantId: tenantId, 
                 userId: userId, 
-                roleId: userRoles,
+                roles: userRoles,
                 fullName: fullName, 
                 userName: userName, 
                 ownershipData: ownershipData,
