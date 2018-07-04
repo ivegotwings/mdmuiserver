@@ -188,7 +188,7 @@ BaseModelService.prototype = {
             return transformedModel;
         }
 
-        let properties;
+        let properties = {};
         let compositeAttributeModelData = compositeAttributeModel.data;
         let attributeModelData = attributeModel.data;
 
@@ -202,8 +202,25 @@ BaseModelService.prototype = {
                 properties = this._transformAttributesToAttributeProperties(compositeAttributeModelData.attributes, attributeModelData.attributes);
             }
 
-            if (compositeAttributeModelData.relationships) {
-                // In case if we support.
+            if (compositeAttributeModelData.relationships && attributeModelData.relationships) {
+                let childAttributeRelModels = compositeAttributeModelData.relationships["haschildattributes"];
+                let childAttributeRels = attributeModelData.relationships["haschildattributes"];
+
+                if (childAttributeRelModels && childAttributeRels) {
+                    let relModel = childAttributeRelModels[0];
+
+                    if (relModel) {
+                        let relEntityType = falcorUtil.isValidObjectPath(relModel, "properties.relatedEntityInfo.0.relEntityType") ? relModel.properties.relatedEntityInfo[0].relEntityType : "";
+
+                        if (!isEmpty(relEntityType)) {
+                            let attrEntities = childAttributeRels.map(v => v.relTo.id.replace("_" + relEntityType, ""));
+
+                            if (attrEntities) {
+                                properties.childAttributes = attrEntities;
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -794,7 +811,7 @@ BaseModelService.prototype = {
                                     if (rel.action || rel.attributes) {
                                         let relEntity = relEntities.find(v => v.id == rel.relTo.id);
                                         if (relEntity) {
-                                             //Handle delete scenarios...
+                                            //Handle delete scenarios...
                                             if (rel.action) {
                                                 relEntity.action = rel.action;
                                             }
@@ -924,15 +941,36 @@ BaseModelService.prototype = {
                 }
 
                 if (attributeModels.data) {
-                    let attribuetModelData = falcorUtil.cloneObject(attributeModels.data);
+                    let attribuetModelData = attributeModels.data;
                     let compositeModelData = compositeModel.data;
 
                     if (attribuetModelData.attributes) {
                         compositeModelData.attributes = {};
                         for (let attrKey in attribuetModelData.attributes) {
                             let attr = attribuetModelData.attributes[attrKey];
-                            compositeModelData.attributes[attrKey] = attr;
-                            compositeModelData.attributes[attrKey].properties = _.pick(attr.properties, compositeAttributeModelList[compModel]);
+
+                            if(attr) {
+                                let clonedAttr = falcorUtil.cloneObject(attr);
+                                compositeModelData.attributes[attrKey] = clonedAttr;
+                                compositeModelData.attributes[attrKey].properties = _.pick(attr.properties, compositeAttributeModelList[compModel]);
+
+                                if(attr.group) {
+                                    compositeModelData.attributes[attrKey].group = [];
+                                    for(let grp of attr.group) {
+                                        let compGrp = {};
+                                        for(let grpAttrKey in grp) {
+                                            let grpAttr = grp[grpAttrKey];
+
+                                            if(grpAttr) {
+                                                let clonedGrpAttr = falcorUtil.cloneObject(grpAttr);
+                                                compGrp[grpAttrKey] = clonedGrpAttr;
+                                                compGrp[grpAttrKey].properties = _.pick(grpAttr.properties, compositeAttributeModelList[compModel]);
+                                            }
+                                        }
+                                        compositeModelData.attributes[attrKey].group.push(compGrp);
+                                    }
+                                }
+                            }
                         }
                     }
 
