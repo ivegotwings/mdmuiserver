@@ -349,6 +349,10 @@
                     _isSearchRequestInProcess: {
                         type: Boolean,
                         value: false
+                    },
+                    roleIndex:{
+                        type: Number,
+                        value:0
                     }
                 },
 
@@ -382,10 +386,10 @@
                             if (!this._isSearchRequestInProcess) {
                                 //Raise initial request for search and on search response raise for mappings
                                 this._load = true;
-                                Polymer.Async.timeOut.after(10).run(() => {
-                                     this.generateRequest(request);
-                                     this._isSearchRequestInProcess = true;
-                                });
+                                    Polymer.Async.timeOut.after(10).run(() => {
+                                            this.generateRequest(request);
+                                            this._isSearchRequestInProcess = true;
+                                    });
                             }
                         }
                     });
@@ -404,7 +408,7 @@
                             "component": "_ALL",
                             "subComponent": "_ALL",
                             "user": userContext.user,
-                            "role": userContext.role
+                            "role": userContext.defaultRole
                         };
                         typesCriterion.push("savedSearchMappings");
                     }
@@ -638,7 +642,6 @@
 
                     var reqData = this.initiateSearchRequestData;
                     reqData.params.options = options;
-
                     liqGetSearchResultDetail.requestId = searchResultId;
                     liqGetSearchResultDetail.requestData = reqData;
 
@@ -647,29 +650,43 @@
 
                 _onGetSearchResultDetailResponse: function (e) {
                     var requestType;
+                    var userContext = ContextHelper.getFirstUserContext(this.contextData);
                     if (DataHelper.isValidObjectPath(e, "detail.request.requestData.params.query.filters.typesCriterion")) {
                         requestType = e.detail.request.requestData.params.query.filters.typesCriterion[0];
                     }
-
+                    var numberOfRoles = 0;
+                    if(userContext.roles && userContext.roles.length > 0){
+                        numberOfRoles = userContext.roles.length;
+                    }
                     //Transform data and keep the data in savedSearches
                     if (e.detail.response &&
                         e.detail.response.status == "success" &&
                         e.detail.response.content &&
                         e.detail.response.content.configObjects) {
                         if (requestType == "savedSearchMappings") {
-                            this._originalSearchMappings = []; //reset
+                            //reset
+                            if (this.roleIndex == 0){//Initial response, so reset searches
+                                this._originalSearchMappings = [];
+                            }
                             this._originalSearchMappings.push.apply(this._originalSearchMappings, e.detail.response.content.configObjects);
-
-                            this._triggerSearchTransform();
-                            this._isSearchRequestInProcess = false;
+                            if(this.roleIndex < numberOfRoles){
+                                this.roleIndex++;
+                                var request = DataHelper.cloneObject(this._searchRequest);
+                                request.params.query.contexts[0].user =  userContext.user;
+                                request.params.query.contexts[0].role = userContext.roles[this.roleIndex];
+                                this.generateRequest(request);
+                            }else{
+                                this.roleIndex = 0;
+                                this._triggerSearchTransform();
+                                this._isSearchRequestInProcess = false;
+                            }
                         }
                         else {
                             if (DataHelper.isValidObjectPath(e, "detail.request.requestData.params.query.contexts")) {
                                 var context = e.detail.request.requestData.params.query.contexts[0];
-                                var userContext = ContextHelper.getFirstUserContext(this.contextData);
                                 var request = DataHelper.cloneObject(this._searchRequest);
 
-                                if (context.user == "all") //Initial response, so reset searches
+                                if (this.roleIndex == 0 && context.user == "all") //Initial response, so reset searches
                                 {
                                     this._originalSearches = [];
                                 }
@@ -679,22 +696,23 @@
                                 if (context.user == "all") {
                                     //generate request for role
                                     request.params.query.contexts[0].user = "role";
-                                    request.params.query.contexts[0].role = userContext.role;
+                                    request.params.query.contexts[0].role = userContext.roles[this.roleIndex];
                                 }
                                 else if (context.user == "role") {
                                     //generate request for individual user
                                     request.params.query.contexts[0].user = userContext.user;
-                                    request.params.query.contexts[0].role = userContext.role;
-                                }
-                                else {
+                                    request.params.query.contexts[0].role = e.detail.request.requestData.params.query.contexts[0].role;
+                                }else{
                                     //generate request for mapping
-                                    if (DataHelper.isValidObjectPath(this._mappingRequest, "params.options")) {
+                                    var mappingRequest = DataHelper.cloneObject(this._mappingRequest);
+                                    mappingRequest.params.query.contexts[0].role = e.detail.request.requestData.params.query.contexts[0].role;
+
+                                    if (DataHelper.isValidObjectPath(mappingRequest, "params.options")) {
                                         delete this._mappingRequest.params.options;
                                     }
-                                    this.generateRequest(this._mappingRequest);
+                                    this.generateRequest(mappingRequest);
                                     return;
                                 }
-
                                 this.generateRequest(request);
                             }
                         }
@@ -803,7 +821,7 @@
                         "component": "_ALL",
                         "subComponent": "_ALL",
                         "user": user.user,
-                        "role": user.role
+                        "role": user.defaultRole
                     };
 
                     var data = {
@@ -813,7 +831,7 @@
                             "name": searchInfo["saved-search-info"].name,
                             "icon": "pebble-icon:saved-search",
                             "createdby": userContext.user,
-                            "createdbyrole": userContext.role,
+                            "createdbyrole": userContext.defaultRole,
                             "ownershipData": userContext.ownershipData,
                             "dimensions": searchInfo["dimensions"],
                             "displayQuery": searchInfo["display-query"],
@@ -851,7 +869,7 @@
 
                     if (searchInfo.accesstype) {
                         var user = userContext.user;
-                        var role = userContext.role;
+                        var role = userContext.defaultRole;
 
                         if (searchInfo.accesstype == "_ALL") {
                             user = "all"; // all users
@@ -876,7 +894,7 @@
                         "service": "_ALL",
                         "component": "_ALL",
                         "subComponent": "_ALL",
-                        "role": userContext.role,
+                        "role": userContext.defaultRole,
                         "user": userContext.user
                     };
 
