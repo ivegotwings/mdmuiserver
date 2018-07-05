@@ -611,7 +611,7 @@ BaseModelService.prototype = {
                             };
                             for (let grpAttrName in group) {
                                 if (grpAttrName.toLowerCase() != "id") {
-                                    grp[grpAttrName] = this._prepareAttributeValue(attributeProperties[attrModelName][0][grpAttrName]);
+                                    grp[grpAttrName] = this._prepareAttributeValue(attributeProperties[attrModelName][0][grpAttrName], group[grpAttrName]);
                                     grp[grpAttrName].properties = { "isProperty": true }
                                 }
                             }
@@ -712,7 +712,7 @@ BaseModelService.prototype = {
                 if (attributes[attr]) {
                     if (attributeModels[attr].group) {
                         properties[attr] = [];
-                        for (let grp of attributeModels[attr].group) {
+                        for (let grp of attributes[attr].group) {
                             let childProperties = {};
                             for (let grpAttrKey in grp) {
                                 childProperties[grpAttrKey] = this._getAttributeValue(grp[grpAttrKey]);
@@ -904,16 +904,30 @@ BaseModelService.prototype = {
         return relAttributes;
     },
 
-    _prepareAttributeValue: function (attrValue) {
-        return {
-            "values": [
-                {
-                    "source": "internal",
-                    "locale": "en-US",
-                    "value": attrValue ? attrValue : ""
-                }
-            ]
+    _prepareAttributeValue: function (attrValue, attrModelObj) {
+        let values = [], value = {}, properties = {};
+
+        if(attrModelObj) {
+            let refEntityInfo = falcorUtil.isValidObjectPath(attrModelObj, "properties.referenceEntityInfo.0") ? attrModelObj.properties.referenceEntityInfo[0] : {};
+
+            if(!isEmpty(refEntityInfo)) {
+                properties.referenceData = refEntityInfo.refEntityType + "/" + attrValue + "_" + refEntityInfo.refEntityType;
+            }
         }
+
+        value.locale = "en-US";
+        value.source = "internal";
+        value.value = attrValue ? attrValue : "";
+
+        if(!isEmpty(properties)) {
+            value.properties = properties;
+        }
+
+        if(!isEmpty(value)) {
+            values.push(value);
+        }
+
+        return {"values": values};
     },
 
     _getAttributeValue: function (attribute) {
