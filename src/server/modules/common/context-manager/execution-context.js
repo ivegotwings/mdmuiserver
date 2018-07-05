@@ -6,27 +6,7 @@ var clientId = config.get('modules.dfService.clientId');
 var clientAuthKey = config.get('modules.dfService.clientAuthKey');
 
 function createSecurityContext(req) {
-    var tid = req.headers["x-rdp-tenantid"];
-    var uid = req.headers["x-rdp-userid"];
-    var role = req.headers["x-rdp-userroles"];    
-
-    var securityContext = {
-        'user': uid,
-        'role': role,
-        'tenantId': tid,
-        'clientAuthKey': clientAuthKey ? clientAuthKey : "",
-        'headers': {
-            "clientId": clientId ? clientId : "",
-            "ownershipData": req.headers["x-rdp-ownershipdata"],
-            "ownershipEditData": req.headers["x-rdp-ownershipeditdata"],
-            "userId": uid,
-            "firstName": req.headers["x-rdp-firstname"],
-            "lastName": req.headers["x-rdp-lastname"],
-            "userName": req.headers["x-rdp-username"],
-            "userEmail": req.headers["x-rdp-useremail"],
-            "userRoles": role
-        }
-    };
+    var securityContext = readSecurityHeaders(req);
    
     //console.log('create security context with data :', JSON.stringify(securityContext));
     var session = getNamespace('User Session');
@@ -68,6 +48,58 @@ function createCallerContext(req) {
     session.set('callerContext', callerContext);
 }
 
+function readSecurityHeaders(req) {
+    var tid = req.headers["x-rdp-tenantid"];
+    var uid = req.headers["x-rdp-userid"];
+    var roles = req.headers["x-rdp-userroles"];
+    var defaultRole = req.headers["x-rdp-defaultrole"];
+    
+    //Roles comes in header as comma seperated values hence break it and make it proper array
+    if(roles && roles.length > 0) {
+        roles = roles.split(',');
+    }
+
+    if(!defaultRole && roles.length) {
+        defaultRole = roles[0];
+    }
+
+    var firstName = req.headers["x-rdp-firstname"];
+    var lastName = req.headers["x-rdp-lastname"];
+
+    var fullName = "";
+    if (firstName) {
+        fullName = firstName;
+    }
+    if (lastName) {
+        fullName = fullName + " " + lastName;
+    }
+
+    if (fullName == "") {
+        fullName = uid;
+    }
+
+    var securityContext = {
+        'user': uid,
+        'tenantId': tid,
+        'clientAuthKey': clientAuthKey ? clientAuthKey : "",
+        'headers': {
+            "clientId": clientId ? clientId : "",
+            "ownershipData": req.headers["x-rdp-ownershipdata"],
+            "ownershipEditData": req.headers["x-rdp-ownershipeditdata"],
+            "userId": uid,
+            "firstName": firstName,
+            "lastName": lastName,
+            "fullName": fullName,
+            "userName": req.headers["x-rdp-username"],
+            "userEmail": req.headers["x-rdp-useremail"],
+            "userRoles": roles,
+            "defaultRole": defaultRole
+        }
+    };
+
+    return securityContext;
+}
+
 function getCallerContext() {
     var session = getNamespace('User Session');
     if(session){
@@ -80,7 +112,8 @@ module.exports = {
     getSecurityContext: getSecurityContext,
     updateSecurityContext: updateSecurityContext,
     createCallerContext: createCallerContext,
-    getCallerContext: getCallerContext
+    getCallerContext: getCallerContext,
+    readSecurityHeaders: readSecurityHeaders
 }
 
 
