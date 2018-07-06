@@ -7,7 +7,7 @@ var clientAuthKey = config.get('modules.dfService.clientAuthKey');
 
 function createSecurityContext(req) {
     var securityContext = readSecurityHeaders(req);
-   
+
     //console.log('create security context with data :', JSON.stringify(securityContext));
     var session = getNamespace('User Session');
     session.set('securityContext', securityContext);
@@ -15,7 +15,7 @@ function createSecurityContext(req) {
 
 function getSecurityContext() {
     var session = getNamespace('User Session');
-    if(session){
+    if (session) {
         return session.get('securityContext');
     }
 }
@@ -30,10 +30,10 @@ function createCallerContext(req) {
     var hostName = "";
     var protocol = "";
 
-    if(req.headers && req.headers['referer']) {
+    if (req.headers && req.headers['referer']) {
         var urlFragments = urlModule.parse(req.headers['referer']);
 
-        if(urlFragments) {
+        if (urlFragments) {
             hostName = urlFragments.hostname;
             protocol = urlFragments.protocol;
         }
@@ -53,14 +53,15 @@ function readSecurityHeaders(req) {
     var uid = req.headers["x-rdp-userid"];
     var roles = req.headers["x-rdp-userroles"];
     var defaultRole = req.headers["x-rdp-defaultrole"];
-    
-    //Roles comes in header as comma seperated values hence break it and make it proper array
-    if(roles && roles.length > 0) {
-        roles = roles.split(',');
+
+    //console.log('roles', roles);
+
+    if (roles && roles.length) {
+        roles = JSON.parse(roles);
     }
 
-    if(!defaultRole && roles.length) {
-        defaultRole = roles[0];
+    if (!defaultRole && roles) {
+        defaultRole = Array.isArray(roles) ? roles[0] : roles;
     }
 
     var firstName = req.headers["x-rdp-firstname"];
@@ -102,7 +103,7 @@ function readSecurityHeaders(req) {
 
 function getCallerContext() {
     var session = getNamespace('User Session');
-    if(session){
+    if (session) {
         return session.get('callerContext');
     }
 }
@@ -115,5 +116,3 @@ module.exports = {
     getCallerContext: getCallerContext,
     readSecurityHeaders: readSecurityHeaders
 }
-
-
