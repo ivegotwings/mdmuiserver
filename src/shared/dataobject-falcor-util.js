@@ -304,6 +304,17 @@ DataObjectFalcorUtil.getPathKeys = function () {
 
 };
 
+DataObjectFalcorUtil.getDataIndexDomainMappings = function() {
+    return {
+        "sysBaseModel": "entityModel",
+        "governanceModel": "entityModel",
+        "sysAuthorizationModel": "entityModel",
+        "baseModel": "entityModel",
+        "sysIntegrationModel": "entityModel",
+        "taxonomyModel": "entityModel"
+    };
+};
+
 const pathKeys = DataObjectFalcorUtil.getPathKeys();
 
 DataObjectFalcorUtil.getSelfCtx = function () {
