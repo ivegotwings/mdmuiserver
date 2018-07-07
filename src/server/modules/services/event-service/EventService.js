@@ -1394,7 +1394,7 @@ Eventservice.prototype = {
                 case "process":
                 case "process-query":
                 case "process-multi-query":
-                case "createVariants":                
+                case "createvariants":                
                     taskType = "Bulk Create/Edit";
                     break;
                 case "delete":

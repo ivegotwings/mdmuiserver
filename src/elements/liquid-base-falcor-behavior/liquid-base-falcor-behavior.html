@@ -20,7 +20,7 @@
     var Globals = Globals || {};
     /** @polymerBehavior RUFBehaviors.LiquidBaseFalcorBehavior */
     RUFBehaviors.LiquidBaseFalcorBehaviorImpl = {
-        is:"liquid-base-falcor-behavior",
+        is: "liquid-base-falcor-behavior",
         attached: function () { },
         ready: function () {
 
@@ -91,9 +91,9 @@
                 type: Boolean,
                 value: false
             },
-            activeRequests:{
-                type:Array,
-                value:function(){
+            activeRequests: {
+                type: Array,
+                value: function () {
                     return [];
                 }
             }
@@ -124,10 +124,15 @@
             this._handleProgress();
             this.push('activeRequests', request);
             this._setLastRequest(request);
+
+            if (this._isDataIndexUpdateRequired(request.requestData)) {
+                await this._updateDataIndexBasedOnType(request.requestData);
+            }
+
             request.originalRequest = DataHelper.cloneObject(request);
             request.applyLocaleCoalesce = this.applyLocaleCoalesce;
             request.dataSubIndex = this.dataSubIndex;
-            if(this.applyLocaleCoalesce) {
+            if (this.applyLocaleCoalesce) {
                 await this._updateValueContextsWithFallbackLocales(request.requestData);
             }
             this._setLoading(true);
@@ -143,20 +148,57 @@
 
             return request;
         },
-        _updateValueContextsWithFallbackLocales : async function(reqData) {
-            if(reqData.params && reqData.params.query && reqData.params.query.valueContexts) {
+        _updateValueContextsWithFallbackLocales: async function (reqData) {
+            if (reqData.params && reqData.params.query && reqData.params.query.valueContexts) {
                 var valContexts = DataHelper.cloneObject(reqData.params.query.valueContexts);
-                for(let i=0; i<valContexts.length; i++) {
+                for (let i = 0; i < valContexts.length; i++) {
                     var locale = valContexts[i].locale;
                     var fallbackLocales = await DataHelper.getFallbackLocalesForLocaleAsync(locale);
-                    if(fallbackLocales) {
-                        for(let j=0; j<fallbackLocales.length; j++) {
+                    if (fallbackLocales) {
+                        for (let j = 0; j < fallbackLocales.length; j++) {
                             let fallbackLocale = fallbackLocales[j].name;
                             let existingValCtx = reqData.params.query.valueContexts.find(obj => obj.locale === fallbackLocale);
-                            if(!existingValCtx) {
+                            if (!existingValCtx) {
                                 var valCtx = DataHelper.cloneObject(valContexts[i]);
                                 valCtx.locale = fallbackLocale;
                                 reqData.params.query.valueContexts.push(valCtx);
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        _updateDataIndexBasedOnType: async function (requestData) {
+            if (requestData) {
+                let entityType, domain;
+                if (DataHelper.isValidObjectPath(requestData, "params.query.filters.typesCriterion")) {
+                    entityType = requestData.params.query.filters.typesCriterion[0];
+                }
+
+                if (entityType) {
+                    var entityTypeManager = EntityTypeManager.getInstance();
+
+                    if (entityTypeManager) {
+                        domain = await entityTypeManager.getDomainByType(entityType);
+                    }
+
+                    if (domain) {
+                        let dataIndexDomainMappings = SharedUtils.DataObjectFalcorUtil.getDataIndexDomainMappings();
+                        if (dataIndexDomainMappings) {
+                            let dataIndex = dataIndexDomainMappings[domain];
+
+                            if (!_.isEmpty(dataIndex)) {
+                                this.dataIndex = dataIndex;
+                                
+                                // TODO:: Need to come up with some good solution for dataSubIndex.
+                                let pathKeys = SharedUtils.DataObjectFalcorUtil.getPathKeys();
+                                if(DataHelper.isValidObjectPath(pathKeys, "dataIndexInfo." + dataIndex + ".dataSubIndexInfo")) {
+                                    let dataSubIndexs = Object.keys(pathKeys.dataIndexInfo[dataIndex].dataSubIndexInfo);
+
+                                    if(dataSubIndexs) {
+                                        this.dataSubIndex = this.dataSubIndex.indexOf("coalesced") > -1 ? dataSubIndexs.find(v => v.indexOf("coalesced") > -1) : dataSubIndexs.find(v => v.indexOf("coalesced") == -1);
+                                    }
+                                }
                             }
                         }
                     }
@@ -175,7 +217,7 @@
             //abstract method....do nothing...all elements implementing this behavior must implement this method
         },
         _createRequest: function () {
-            if(this.includeTypeExternalName){
+            if (this.includeTypeExternalName) {
                 this.requestData.includeTypeExternalName = true;
             }
             return {
@@ -184,7 +226,7 @@
                 "requestData": this.requestData
             }
         },
-        _getLogDetail: function(request) {
+        _getLogDetail: function (request) {
             return {
                 "operation": request.operation,
                 "request": request.requestData,
@@ -193,7 +235,7 @@
         },
         _logOnError: function (request, res) {
             if (_.isEmpty(res) || _.isEmpty(res.json) || _.isEmpty(res.json.root)) {
-                var message = "RUF_UI_LIQUID_EMPTY_RESPONSE"; 
+                var message = "RUF_UI_LIQUID_EMPTY_RESPONSE";
                 var level = "error";
                 var logDetail = this._getLogDetail(request);
                 RUFUtilities.Logger.error(message, logDetail, "liquid-manager");
@@ -229,15 +271,15 @@
             }
             return true;
         },
-        _handleResponse:async function (request, responsePkg) {
+        _handleResponse: async function (request, responsePkg) {
             if (this.verbose) {
                 console.log('_handleResponse called with :', request, responsePkg);
             }
             var formattedResponse = await this._formatResponse(request, responsePkg);
-            if(request.applyLocaleCoalesce) {
+            if (request.applyLocaleCoalesce) {
                 formattedResponse = await DataTransformHelper.transformDataToLocaleCoalescedData(formattedResponse, request.originalRequest.requestData);
             }
-            if(request.dataSubIndex === "coalescedData") {
+            if (request.dataSubIndex === "coalescedData") {
                 formattedResponse = DataTransformHelper.transformDataToContextCoalescedData(formattedResponse);
             }
             var response = this._createSuccessResponse(request, formattedResponse);
@@ -248,26 +290,26 @@
                 this._setLoading(false);
             }
             var eventDetail = {
-                detail:{
+                detail: {
                     'request': request,
                     'response': response
                 },
                 bubbles: this.bubbles,
-                composed:true
+                composed: true
             };
             if (this.verbose) {
                 //console.log('firing liquid-response event with event detail ', JSON.stringify(eventDetail, null, 4));
                 console.log('firing liquid-response event with event detail ', eventDetail);
             }
             this.dispatchEvent(new CustomEvent('response', {
-                detail:{'request': request,'response': response},
+                detail: { 'request': request, 'response': response },
                 bubbles: this.bubbles,
-                composed:true
+                composed: true
             }));
             this.dispatchEvent(new CustomEvent('liquid-response', {
-                detail:{'request': request,'response': response},
+                detail: { 'request': request, 'response': response },
                 bubbles: this.bubbles,
-                composed:true
+                composed: true
             }));
             this._discardRequest(request);
 
@@ -294,12 +336,12 @@
             }
             // Tests fail if this goes after the normal this.dispatchEvent('error', ...)
             this.dispatchEvent(new CustomEvent('liquid-error', {
-                detail:{'request': request,'response': errResponse},
+                detail: { 'request': request, 'response': errResponse },
                 bubbles: this.bubbles,
                 composed: true
             }));
             this.dispatchEvent(new CustomEvent('error', {
-                detail:{'request': request,'response': errResponse},
+                detail: { 'request': request, 'response': errResponse },
                 bubbles: this.bubbles,
                 composed: true
             }));
@@ -332,24 +374,24 @@
         },
 
         _retry: function () {
-            Polymer.Async.timeOut.after(300).run(() => {                        
-                if(!Globals.progressBar) {                            
-                    this._retry();                        
-                }                        
-                else {                            
+            Polymer.Async.timeOut.after(300).run(() => {
+                if (!Globals.progressBar) {
+                    this._retry();
+                }
+                else {
                     Polymer.Async.timeOut.after(12000).run(() => {
-                        if(!Globals.progressBar) return;
-                        
+                        if (!Globals.progressBar) return;
+
                         Globals.progressBar.value = 1000;
                         Polymer.Async.timeOut.after(1000).run(() => {
                             Globals.progressBar.value = 0;
-                            Globals.progressBar.secondaryProgress = 0; 
+                            Globals.progressBar.secondaryProgress = 0;
                             Globals.progressOver = true;
                         });
-                    });                                                                
-                    return;                        
-                }                                    
-            }) 
+                    });
+                    return;
+                }
+            })
         },
         _addRequestCount: function () {
             if (!this.excludeInProgress) {
@@ -361,11 +403,11 @@
                             Globals.progressBar.value = 1000;
                             Polymer.Async.timeOut.after(1000).run(() => {
                                 Globals.progressBar.value = 0;
-                                Globals.progressBar.secondaryProgress = 0; 
+                                Globals.progressBar.secondaryProgress = 0;
                                 Globals.progressOver = true;
                             });
                         });
-                    }            
+                    }
                 }
                 Globals.requestCount++;
                 if (this.verbose) {
@@ -373,14 +415,14 @@
                 }
             }
         },
-        _handleProgress: function () { 
+        _handleProgress: function () {
             var updateProgress = this._updateProgressBar;
             var resetProgress = this._resetProgressBar;
 
             var debounceProgressBar = _.debounce(function () {
                 updateProgress(resetProgress);
-                }, 200);
-                
+            }, 200);
+
             debounceProgressBar();
         },
         _updateProgressBar: function (resetProgress) {
@@ -390,7 +432,7 @@
 
             if (Globals.requestCount > 0) {
                 var step = (Globals.progressBar.max / 10) / (Globals.requestCount);
-                Globals.progressBar.value = 200 + Globals.currentProgress + (step * Globals.progressUpdater * Globals.responseCount/Globals.requestCount);
+                Globals.progressBar.value = 200 + Globals.currentProgress + (step * Globals.progressUpdater * Globals.responseCount / Globals.requestCount);
                 Globals.progressBar.secondaryProgress = Globals.progressBar.max;//Globals.progressBar.value * 10 * Math.random();
                 var debounceProgressBar = _.debounce(function () {
                     resetProgress();
@@ -403,7 +445,7 @@
                 Globals.progressUpdater = Globals.progressUpdater + 0.2;
                 Globals.currentProgress = Globals.progressBar.value;
             }
-        },        
+        },
         _createSuccessResponse: function (request, data) {
             return {
                 'status': 'success',
@@ -413,10 +455,16 @@
         _createErrorResponse: function (request, reason) {
 
             var errorMessage = 'Failed to submit request. Please retry after sometime.';
+            var errorMessageCode;
             if (reason && reason[0]) {
                 var value = reason[0].value;
-                if (value && value.message) {
-                    errorMessage = value.message;
+                if (value) {
+                    if (value.message) {
+                        errorMessage = value.message;
+                    }
+                    if (value.messageCode) {
+                        errorMessageCode = value.messageCode;
+                    }
                 }
             }
 
@@ -424,6 +472,9 @@
                 'status': 'error',
                 'reason': errorMessage
             };
+            if (errorMessageCode) {
+                result["errorCode"] = errorMessageCode;
+            }
             return result;
         },
         _discardRequest: function (request) {
@@ -445,6 +496,18 @@
                     }
                 });
             }
+        },
+        _isDataIndexUpdateRequired: function (reqData) {
+            let isDataIndexUpdateRequired = false;
+            if (reqData.params && this.dataIndex != "config") {
+                let options = DataHelper.isValidObjectPath(reqData, "params.options") ? reqData.params.options : undefined;
+
+                if (typeof options == "undefined" || (options && (typeof options.updateDataIndex == "undefined" || options.updateDataIndex))) {
+                    isDataIndexUpdateRequired = true;
+                }
+            }
+
+            return isDataIndexUpdateRequired;
         }
     };
     /** @polymerBehavior */

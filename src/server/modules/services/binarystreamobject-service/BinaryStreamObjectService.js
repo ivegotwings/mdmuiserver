@@ -143,7 +143,7 @@ BinaryStreamObjectService.prototype = {
 
             //Get user information...
             var userName = this.getUserName();
-            var userRole = this.getUserRole();
+            var userDefaultRole = this.getUserDefaultRole();
             var ownershipData = this.getOwnershipData();
             
             for (let binaryStreamRequest of binaryStreamRequests) {
@@ -153,7 +153,7 @@ BinaryStreamObjectService.prototype = {
                     var properties = binaryStreamRequest.binaryStreamObject.properties;
                     if(properties) {
                         properties['user'] = userName;
-                        properties['role'] = userRole;
+                        properties['role'] = userDefaultRole;
                         properties['ownershipData'] = ownershipData;
                     }
                     else {

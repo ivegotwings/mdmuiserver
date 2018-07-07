@@ -89,6 +89,17 @@ COPService.prototype = {
         //console.log('processRequest: ', JSON.stringify(processModelRequest.dataObject.properties, null, 2));
         return await this.post(processModelURL, processModelRequest);
     },
+
+    processJSON: async function (request) {
+        var processJSONURL = "copservice/processJSON";       
+        var processJSONRequest = JSON.parse(request.body.requestData);
+        processJSONRequest.dataObject.id = uuidV1();
+        var jsonStr = JSON.stringify(processJSONRequest.JSONData);
+        processJSONRequest.dataObject.data.blob = new Buffer(jsonStr).toString('base64');
+        //console.log('processJSON: ', JSON.stringify(processJSONRequest.dataObject.data.blob, null, 2));
+        return await this.post(processJSONURL, processJSONRequest);
+    },
+
     generateFieldMap: async function (request) {
         var generateFieldMapURL = "copservice/generateFieldMap";
         var validationResult = this._validateRequest(request);
