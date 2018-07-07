@@ -27,6 +27,7 @@
 		<bedrock-pubsub on-bedrock-event-editpreviewclicked="_editHtml" name="bedrock-event-editpreviewclicked"></bedrock-pubsub>
 		<bedrock-pubsub on-bedrock-event-viewdatareceived="_viewDataReceived" name="bedrock-event-viewdatareceived"></bedrock-pubsub>
 		<bedrock-pubsub on-bedrock-event-datamodelready="_modelDataReceived" name="bedrock-event-datamodelready"></bedrock-pubsub>
+		<bedrock-pubsub on-bedrock-event-stamped="_templateStamped" name="bedrock-event-stamped"></bedrock-pubsub>
 	</template>
 	<script>
 		(function () {
@@ -55,9 +56,13 @@
 					RUFBehaviors.AppBehavior
 				],
 
-				attached: function () {},
+				attached: function () {
+					this.firstLoad = true;
+				},
 
-				ready() {},
+				ready() {
+
+				},
 
 				embbedLoops() {
 					if (this.html.indexOf('loop') !== -1) {
@@ -81,7 +86,7 @@
 				embbedRichText: function () {
 					let richtexts = Polymer.dom(this.root).querySelectorAll('.richtext');
 					if (richtexts) {
-						richtexts.forEach(richtext => {
+						richtexts.forEach((richtext) => {
 							let content = richtext.getAttribute('data-content');
 							richtext.innerHTML = content;
 						})
@@ -89,23 +94,60 @@
 				},
 
 				parseViewModel: function () {
+					let view = this.view;
 					this.html =
-						this.view.substring(this.view.indexOf('<html>') + 6, this.view.indexOf(
+						this.view.substring(view.indexOf('<html>') + 6, view.indexOf(
 							'</html>'));
-					this.externStyle = this.view.substring(this.view.indexOf('<style>') + 7, this.view.indexOf(
+
+					this.externStyle = view.substring(view.indexOf('<style>') + 7, view.indexOf(
 						'</style>'));
-					//let base64 = btoa((this.view).replace(/\n/g, ' ').replace().replace(/[\u0250-\ue007]/g, ''));
-					// this.externJs = this.view.substring(this.view.indexOf('<JS>') + 4, this.view.indexOf(
-					//     '</JS>'));
-					// this.evalJS();
 				},
 
 				evalJS() {
 					try {
-						eval(this.externJs);
+						eval.call(window, this.externjs);
 					} catch (e) {
+						let timeout = setInterval(() => {
+							//rebind hack;
+							this._showEditor();
+							this.showeditor = false;
+							this._viewHtml();
+							eval.call(window, this.externjs);
+						}, 10);
+						setTimeout(() => {
+							clearTimeout(timeout);
+						}, 1000);
 						console.log('Error', e);
 					}
+				},
+
+				parseJS() {
+					let view = this.view;
+					this.externjs = view.substring(view.indexOf('<jscript>') + 9, view.indexOf(
+						'</jscript>'));
+					let regex = /(document.querySelector\()/gm;
+					this.externjs = this.externjs.replace(regex, "Polymer.dom(RUFUtilities.templateRoot).querySelector(");
+					regex = /(document.querySelectorAll\()/gm;
+					this.externjs = this.externjs.replace(regex, "Polymer.dom(RUFUtilities.templateRoot).querySelectorAll(");
+					regex = /(document.getElementsByClassName\(("|'))/gm;
+					this.externjs = this.externjs.replace(regex, 'Polymer.dom(RUFUtilities.templateRoot).querySelectorAll($2.');
+					regex = /(document.getElementById\((("|')?))/gm;
+					this.externjs = this.externjs.replace(regex, function (g1, g2, g3) {
+						var prefix = '#';
+						if (g3 === "") {
+							prefix = 'Polymer.dom(RUFUtilities.templateRoot).querySelector("#" +';
+						} else {
+							prefix = 'Polymer.dom(RUFUtilities.templateRoot).querySelector(' + g3 + "#";
+						}
+						return prefix
+					});
+					regex = /(document.getElementsByTagName\()/gm;
+					this.externjs = this.externjs.replace(regex,
+						'Polymer.dom(RUFUtilities.templateRoot).querySelectorAll(');
+					regex =
+						/((\$|jQuery)[a-zA-Z0-9!@#$%^&*(_+\-=\[\]{};':"\\|,.<>\/?]*)/gm;
+					this.externjs = this.externjs.replace(regex,
+						"$1,RUFUtilities.templateRoot");
 				},
 
 				fetchImages() {
@@ -123,17 +165,36 @@
 					this.embbedLoops();
 					this.embbedfonts();
 					this._compileTemplate();
+					this.embbedRichText();
 					this.fetchImages();
+					this.parseJS();
+					//backup execute in interval so as to ensure bindings
+					let timeout = setInterval(() => {
+						this.evalJS();
+					}, 10);
 					setTimeout(() => {
-						this.embbedRichText();
-					}, 300);
+						clearTimeout(timeout);
+					}, 500);
 				},
+
+				_templateStamped: function () {
+					if (this.firstLoad) {
+						// this is a hack.....rebind js to doc
+						this._showEditor();
+						this.showeditor = false;
+						setTimeout(() => {
+							this._viewHtml();
+						}, 100);
+					}
+					this.firstLoad = false;
+				},
+
 
 				_compileTemplate: function () {
 					this.template =
 						`
                             <dom-bind>
-                                <template is="dom-bind">
+                                <template is="dom-bind" id="templateroot">
 									${this.html}
 									<style>
                                         ${this.externStyle}
@@ -144,6 +205,7 @@
 				},
 
 				_editHtml: function () {
+					this.firstLoad = true;
 					this._showEditor();
 				},
 
@@ -163,13 +225,20 @@
 				_viewHtml: function () {
 					this.showeditor = false;
 					this.template = "";
-					this._viewDataReceived();
+					if (this.view === this.currentview) {
+						this._processTemplate();
+					} else {
+						this.currentview = this.view;
+						this._viewDataReceived();
+					}
 				},
 
 				_showEditor: function () {
 					this.showeditor = true;
 					Polymer.Async.timeOut.after(100).run(() => {
-						Polymer.dom(this.root).querySelectorAll('textarea')[0].value = this.view;
+						if (Polymer.dom(this.root).querySelectorAll('textarea')[0]) {
+							Polymer.dom(this.root).querySelectorAll('textarea')[0].value = this.view;
+						}
 					});
 					let range = document.createRange();
 					let endNode = Polymer.dom(this.root).querySelectorAll('placeholder')[0];
@@ -180,7 +249,6 @@
 					for (let i = 0; i < this.embeddedDocumentFragment.children.length; i++) {
 						this.embeddedDocumentFragment.children.item(i).setAttribute('hidden', true);
 					}
-					range.detach();
 				},
 
 				_getImageDownloadUrl: function (fileName) {
@@ -210,18 +278,80 @@
 				},
 
 				_viewDataReceived: function () {
-					let relationshipAttributes = this.view.substring(this.view.indexOf('<relationshipattributes>') + 24, this.view
-						.indexOf(
-							'</relationshipattributes>'));
-					let eventData = {
-						name: "relationshipattributes",
-						data: relationshipAttributes
-					};
-					this.dispatchEvent(new CustomEvent('bedrock-event', {
-						detail: eventData,
-						bubbles: true,
-						composed: true
-					}));
+					let view = this.view;
+					this.currentview = this.view;
+					if (view) {
+						this.externScripts = view.substring(view.indexOf('<external>') + 10, view.indexOf(
+							'</external>'));
+						this.externScripts = this.externScripts.trim().split(',');
+						for (const [index, src] of this.externScripts.entries()) {
+							const s = document.createElement('script');
+							s.setAttribute('src', src);
+							s.setAttribute('type', 'text/javascript');
+							Polymer.dom(this.root).appendChild(s);
+						}
+
+						let regex = /({{model.)(\w+).(\w+)}}/g;
+						let attributes = [];
+						let relationships = [];
+						let relationshipAttributes = [];
+						let m = regex.exec(view);
+						while (m) {
+							if (m) {
+								m[0] = m[0].substr(m[0].indexOf('{{') + 2, m[0].indexOf("}}") - 2);
+								let elems = m[0].split('.');
+								if (elems.length >= 2) {
+									//attribute
+									if (!isNaN(elems[1][elems[1].length - 1])) {
+										if (attributes.indexOf(elems[1].substring(0, elems[1].length - 1)) === -1) {
+											attributes.push(elems[1].substring(0, elems[1].length - 1))
+										}
+									} else {
+										if (attributes.indexOf(elems[1]) === -1) {
+											attributes.push(elems[1]);
+										}
+									}
+								}
+								if (elems.length >= 3) {
+									//relationship
+									if (!isNaN(elems[1][elems[1].length - 1])) {
+										if (relationships.indexOf(elems[1].substring(0, elems[1].length - 1)) === -1) {
+											relationships.push(elems[1].substring(0, elems[1].length - 1));
+										}
+									} else {
+										if (relationships.indexOf(elems[1]) === -1) {
+											relationships.push(elems[1]);
+										}
+									}
+									if (elems.length === 3 && elems[2].indexOf('prop') === -1) {
+										//relationship attribute
+										if (relationshipAttributes.indexOf(elems[2]) === -1) {
+											relationshipAttributes.push(elems[2]);
+										}
+									} else if (elems.length > 3 && elems[3].indexOf('prop') === -1) {
+										//relationship attribute
+										if (relationshipAttributes.indexOf(elems[3]) === -1) {
+											relationshipAttributes.push(elems[3]);
+										}
+									}
+								}
+							}
+							m = regex.exec(view);
+						}
+						let eventData = {
+							name: "entitydatakeys",
+							data: {
+								attributes: attributes,
+								relationships: relationships,
+								relationshipAttributes: relationshipAttributes
+							}
+						};
+						this.dispatchEvent(new CustomEvent('bedrock-event', {
+							detail: eventData,
+							bubbles: true,
+							composed: true
+						}));
+					}
 				},
 
 				_modelDataReceived: function () {
