@@ -26,7 +26,7 @@
             default: ajaxAppender.setThreshold(log4javascript.Level.OFF);
         }
 
-        ajaxAppender.addHeader("Content-Type", "application/json");
+        ajaxAppender.addHeader("Content-Type", "application/json; text/plain");
         ajaxAppender.setBatchSize(1);
         ajaxAppender.sendAllOnUnload = true;
         ajaxAppender.setSessionId();

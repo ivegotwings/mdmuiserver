@@ -228,6 +228,13 @@ var SERVICE_CONFIG = {
             "offlineSettings": {
             }
         },
+        "copservice/processJSON": {
+            "url": "/rsConnectService/process",
+            "mode": "online",
+            "timeout": 600000,
+            "offlineSettings": {
+            }
+        },
         "copservice/downloadModelExcel": {
             "url": "/rsConnectService/downloadModelExcel",
             "mode": "online",
