@@ -150,7 +150,7 @@ BaseModelService.prototype = {
                         entity.data.relationships = {};
                         let entityRelationships = entity.data.relationships[relType] = [];
 
-                        let childEntityIds = model.properties.childAttributes.map(v => v = v + "_" + model.type);
+                        let childEntityIds = _.isArray(model.properties.childAttributes) ? model.properties.childAttributes.map(v => v = v + "_" + model.type) : undefined;
 
                         if (childEntityIds) {
                             let childEntities = await modelGetManager.getModels(childEntityIds, model.type);
@@ -205,18 +205,31 @@ BaseModelService.prototype = {
             if (compositeAttributeModelData.relationships && attributeModelData.relationships) {
                 let childAttributeRelModels = compositeAttributeModelData.relationships["haschildattributes"];
                 let childAttributeRels = attributeModelData.relationships["haschildattributes"];
+                let existingAttrModels = await modelGetManager.getModels([attributeModel.id], "attributeModel")
 
-                if (childAttributeRelModels && childAttributeRels) {
+                if (childAttributeRelModels && childAttributeRels && existingAttrModels) {
                     let relModel = childAttributeRelModels[0];
+                    let existingAttrModel = existingAttrModels[0];
 
-                    if (relModel) {
+                    if (relModel && existingAttrModel) {
                         let relEntityType = falcorUtil.isValidObjectPath(relModel, "properties.relatedEntityInfo.0.relEntityType") ? relModel.properties.relatedEntityInfo[0].relEntityType : "";
 
                         if (!isEmpty(relEntityType)) {
                             let attrEntities = childAttributeRels.map(v => v.relTo.id.replace("_" + relEntityType, ""));
 
                             if (attrEntities) {
-                                properties.childAttributes = attrEntities;
+                                if(falcorUtil.isValidObjectPath(existingAttrModel, "properties.childAttributes")) {
+                                    properties.childAttributes = existingAttrModel.properties.childAttributes;
+                                    if(_.isArray(attrEntities)) {
+                                        for(let attrEntity of attrEntities) {
+                                            properties.childAttributes.push(attrEntity);
+                                        }
+                                    } else {
+                                        properties.childAttributes.push(attrEntities);
+                                    }
+                                } else {
+                                    properties.childAttributes = _.isArray(attrEntities) ? attrEntities : [attrEntities];
+                                }
                             }
                         }
                     }
@@ -709,13 +722,15 @@ BaseModelService.prototype = {
 
         if (attributeModels && attributes) {
             for (let attr in attributeModels) {
-                if (attributes[attr]) {
-                    if (attributeModels[attr].group) {
+                if (attributes[attr] && attributeModels[attr]) {
+                    let attrModel = attributeModels[attr];
+                    if (attrModel.group) {
                         properties[attr] = [];
+                        let attrModelGrp = attrModel.group[0];
                         for (let grp of attributes[attr].group) {
                             let childProperties = {};
                             for (let grpAttrKey in grp) {
-                                childProperties[grpAttrKey] = this._getAttributeValue(grp[grpAttrKey]);
+                                childProperties[grpAttrKey] = this._getAttributeValue(grp[grpAttrKey], attrModelGrp[grpAttrKey]);
                             }
                             properties[attr].push(childProperties);
                         }
@@ -907,10 +922,10 @@ BaseModelService.prototype = {
     _prepareAttributeValue: function (attrValue, attrModelObj) {
         let values = [], value = {}, properties = {};
 
-        if(attrModelObj) {
+        if (attrModelObj) {
             let refEntityInfo = falcorUtil.isValidObjectPath(attrModelObj, "properties.referenceEntityInfo.0") ? attrModelObj.properties.referenceEntityInfo[0] : {};
 
-            if(!isEmpty(refEntityInfo)) {
+            if (!isEmpty(refEntityInfo)) {
                 properties.referenceData = refEntityInfo.refEntityType + "/" + attrValue + "_" + refEntityInfo.refEntityType;
             }
         }
@@ -919,25 +934,15 @@ BaseModelService.prototype = {
         value.source = "internal";
         value.value = attrValue ? attrValue : "";
 
-        if(!isEmpty(properties)) {
+        if (!isEmpty(properties)) {
             value.properties = properties;
         }
 
-        if(!isEmpty(value)) {
+        if (!isEmpty(value)) {
             values.push(value);
         }
 
-        return {"values": values};
-    },
-
-    _getAttributeValue: function (attribute) {
-        let value;
-
-        if (attribute) {
-            value = attribute.values ? attribute.values[0].value : "";
-        }
-
-        return value;
+        return { "values": values };
     },
 
     _prepareCompositeModels: function (attributeModels, compositeAttributeModel, entityTypeModel) {
@@ -963,19 +968,19 @@ BaseModelService.prototype = {
                         for (let attrKey in attribuetModelData.attributes) {
                             let attr = attribuetModelData.attributes[attrKey];
 
-                            if(attr) {
+                            if (attr) {
                                 let clonedAttr = falcorUtil.cloneObject(attr);
                                 compositeModelData.attributes[attrKey] = clonedAttr;
                                 compositeModelData.attributes[attrKey].properties = _.pick(attr.properties, compositeAttributeModelList[compModel]);
 
-                                if(attr.group) {
+                                if (attr.group) {
                                     compositeModelData.attributes[attrKey].group = [];
-                                    for(let grp of attr.group) {
+                                    for (let grp of attr.group) {
                                         let compGrp = {};
-                                        for(let grpAttrKey in grp) {
+                                        for (let grpAttrKey in grp) {
                                             let grpAttr = grp[grpAttrKey];
 
-                                            if(grpAttr) {
+                                            if (grpAttr) {
                                                 let clonedGrpAttr = falcorUtil.cloneObject(grpAttr);
                                                 compGrp[grpAttrKey] = clonedGrpAttr;
                                                 compGrp[grpAttrKey].properties = _.pick(grpAttr.properties, compositeAttributeModelList[compModel]);
@@ -1092,10 +1097,27 @@ BaseModelService.prototype = {
         return isEARTransformRequired;
     },
 
-    _getAttributeValue: function (attribute) {
+    _getAttributeValue: function (attribute, attribuetModel) {
         if (attribute) {
             if (falcorUtil.isValidObjectPath(attribute, "values.0.value")) {
-                return attribute.values[0].value;
+                let value = attribute.values[0];
+                let modelProperties = attribuetModel ? attribuetModel.properties : undefined;
+
+                if (modelProperties && modelProperties.displayType == "referencelist") {
+                    let relInfo = modelProperties.referenceEntityInfo ? modelProperties.referenceEntityInfo[0] : undefined;
+                    if (relInfo) {
+                        let relType = relInfo.refEntityType;
+                        if (falcorUtil.isValidObjectPath(value, "properties.referenceData")) {
+                            return value.properties.referenceData.replace(relType + "/", "").replace("_" + relType, "");
+                        } else {
+                            return value.value;
+                        }
+                    } else {
+                        return value.value
+                    }
+                } else if (falcorUtil.isValidObjectPath(attribute, "values.0.value")) {
+                    return value.value;
+                }
             }
         }
     }
