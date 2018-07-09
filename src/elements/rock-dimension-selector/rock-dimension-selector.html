@@ -196,9 +196,9 @@ Custom property | Description | Default
         <liquid-rest id="contextModelGet" url="/data/pass-through/entitymodelservice/getcontext" method="POST" request-data="{{_contextModelGetReq}}"
             on-liquid-response="_onContextModelGetResponse" on-liquid-error="_onContextModelGetFailed"></liquid-rest>
         <liquid-rest id="entityModelGet" url="/data/pass-through/entitymodelservice/get" method="POST" request-data="{{_entityModelRequest}}"
-            on-liquid-response="_onEntityModelGetResponse"></liquid-rest>
+            on-liquid-response="_onEntityModelGetResponse" on-liquid-error="_onEntityModelGetError"></liquid-rest>
         <liquid-rest id="entityContextGet" url="/data/pass-through/entityservice/getcontext" method="POST" request-data="{{_entityContextRequest}}"
-            on-liquid-response="_onEntityContextGetResponse" exclude-in-progress>
+            on-liquid-response="_onEntityContextGetResponse" on-liquid-error="_onEntityContextGetError" exclude-in-progress>
         </liquid-rest>
     </template>
     <script>
@@ -459,6 +459,8 @@ Custom property | Description | Default
                     }
                     this.configData = {};
                     this.set('configData', configData);
+                } else {
+                    this.logError(this.appName + "-Dimension Selector - config is not available for rock-dimension-selector", componentConfig, true, this.domContainer);
                 }
             },
 
@@ -469,6 +471,11 @@ Custom property | Description | Default
 
             getDimensionSelectorConfig: function () {
                 return this.configData;
+            },
+
+            get domContainer() {
+                this._domContainer = this._domContainer || this.shadowRoot.querySelector("[class='horizontal layout container']");
+                return this._domContainer;
             },
 
             /**
@@ -507,6 +514,8 @@ Custom property | Description | Default
                     var liquidElement = this.$$('#entityContextGet');
                     if (liquidElement) {
                         liquidElement.generateRequest();
+                    } else {
+                        this.logError(this.appName + "-Dimension Selector - Liquid for entity context get is not found");
                     }
                 }
             },
@@ -695,10 +704,10 @@ Custom property | Description | Default
             },
 
             _onToggleButtonTap: function (event) {
-                if (event.currentTarget.disabled == true) {
-                    return;
-                }
                 if (typeof (event.currentTarget) !== "undefined") {
+                    if (event.currentTarget.disabled == true) {
+                        return;
+                    }
                     this._currentDimensionSelector = event.currentTarget;
                     if (event.model.ctx.displayType != "dialog") {
                         this._toggleLovPopover(this._currentDimensionSelector.popover);
@@ -738,16 +747,19 @@ Custom property | Description | Default
                         for (var i = 0; i < this._contextToBeRendered.length; i++) {
                             var configDataItem = this._contextToBeRendered[i];
                             var rockLov;
+                            var lovContainer = this.shadowRoot.querySelector("#" + configDataItem.id);
 
-                            if (configDataItem.dataRequestType == "entity") {
-                                rockLov = this.shadowRoot.querySelector("#" + configDataItem.id).querySelector("rock-entity-lov");
-                            }
-                            if (configDataItem.dataRequestType == "entity-context") {
-                                rockLov = this.shadowRoot.querySelector("#" + configDataItem.id).querySelector("rock-context-lov");
-                            }
+                            if(lovContainer) {
+                                if (configDataItem.dataRequestType == "entity") {
+                                    rockLov = lovContainer.querySelector("rock-entity-lov");
+                                }
+                                if (configDataItem.dataRequestType == "entity-context") {
+                                    rockLov = lovContainer.querySelector("rock-context-lov");
+                                }
 
-                            if (configDataItem.dataRequestType == "entity-model") {
-                                rockLov = this.shadowRoot.querySelector("#" + configDataItem.id).querySelector("rock-entity-model-lov");
+                                if (configDataItem.dataRequestType == "entity-model") {
+                                    rockLov = lovContainer.querySelector("rock-entity-model-lov");
+                                }
                             }
 
                             if (typeof (rockLov) !== "undefined" && rockLov && rockLov.id !== currentLovId && rockLov.multiSelect !== switchToMultiSelect && (typeof (configDataItem.multiSelect) == "undefined" || configDataItem.multiSelect)) {
@@ -807,7 +819,11 @@ Custom property | Description | Default
             },
 
             _updateToggleButtonText: function (configDataItem, rockLov) {
-                var toggleButton = this.shadowRoot.querySelector("#" + configDataItem.id).querySelector("pebble-button");
+                var buttonContainer = this.shadowRoot.querySelector("#" + configDataItem.id);
+                var toggleButton;
+                if(buttonContainer) {
+                    toggleButton = buttonContainer.querySelector("pebble-button");
+                }
                 var buttonText = configDataItem.title;
 
                 if (!rockLov.multiSelect) {
@@ -818,7 +834,9 @@ Custom property | Description | Default
                         "Selected";
                 }
 
-                toggleButton.buttonText = buttonText;
+                if(toggleButton) {
+                    toggleButton.buttonText = buttonText;
+                }
             },
 
             _getSelectedItemsInfo: function (dimensionSelector) {
@@ -920,7 +938,7 @@ Custom property | Description | Default
                 var currentDimensionButtonId = currentClassification.id.replace("-contextTree", "-toggle-button");
                 var buttonText = "";
                 var toolTip = "";
-                if (currentClassification.selectedClassifications && currentClassification.selectedClassifications.length > 0) {
+                if (!_.isEmpty(currentClassification.selectedClassifications)) {
                     for (var i = 0; i < currentClassification.selectedClassifications.length; i++) {
                         var valuePath = this._getClassificationValuePath(currentClassification.selectedClassifications[i]);
                         if (buttonText) {
@@ -987,7 +1005,7 @@ Custom property | Description | Default
             _getPathsForClassificationTree: function (selectedClassifications) {
                 var classificationPaths = [];
                 var valuePathSeperator = "#@#";
-                if (selectedClassifications && selectedClassifications.length > 0) {
+                if (!_.isEmpty(selectedClassifications)) {
                     for (var i = 0; i < selectedClassifications.length; i++) {
                         if (selectedClassifications[i] && selectedClassifications[i].valuePath) {
                             var paths = selectedClassifications[i].valuePath.split(valuePathSeperator)
@@ -1062,6 +1080,8 @@ Custom property | Description | Default
                     var liquidElement = this.$$('#contextModelGet');
                     if (liquidElement) {
                         liquidElement.generateRequest();
+                    } else {
+                        this.logError(this.appName + "-Dimension Selector - Liquid for context model get is not found");
                     }
                     this._createContextGetRequest(this.entityId, entityType);
                 }
@@ -1075,6 +1095,8 @@ Custom property | Description | Default
                     var liquidElement = this.$$('#contextModelGet');
                     if (liquidElement) {
                         liquidElement.generateRequest();
+                    } else {
+                        this.logError(this.appName + "-Dimension Selector - Liquid for context model get is not found");
                     }
                 }
             },
@@ -1096,7 +1118,8 @@ Custom property | Description | Default
                         if (!_.isEmpty(globalCoalescePath)) {
                             this._contextHierarchy = globalCoalescePath.split(">>");
                         } else {
-                            this.showErrorToast("Global coalesce path is not defined in:" + entityModel.id);
+                            this.logError(this.appName + "-Dimension Selector - Global coalesce path is not defined in:" + entityModel.id);
+                            this.showErrorToast("Global coalesce path is not defined in:" + entityModel.id, e.detail, true, this.domContainer);
                         }
 
                         if (contexts) {
@@ -1173,6 +1196,7 @@ Custom property | Description | Default
 
                         if (missingContextModel && missingContextModel.length) {
                             var message = "Dimension(s): " + missingContextModel.join(", ") + " are configured but not present in context model for entity type: " + this.entityType;
+                            this.logError(message, e.detail);
                             this.showErrorToast(message, 5000);
                         }
 
@@ -1205,14 +1229,20 @@ Custom property | Description | Default
 
                             if (entityModelGetComponent) {
                                 entityModelGetComponent.generateRequest();
+                            } else {
+                                this.logError(this.appName + "-Dimension Selector - Entity model get liquid not found");
                             }
                         }
+                    } else {
+                        this.logError(this.appName + "-Dimension Selector - There are no context models available", e.detail);
                     }
+                } else {
+                    this.logError(this.appName + "-Dimension Selector - There is some problem with contextModel get response", e.detail);
                 }
             },
 
             _onContextModelGetFailed: function (e) {
-                // Error msg . . .
+                this.logError(this.appName + "-Dimension Selector - contextModel get exception", e.detail);
             },
 
             _loadConfigBasedDimensions: function () {
@@ -1264,10 +1294,16 @@ Custom property | Description | Default
 
             _onEntityModelGetResponse: function (e) {
                 var response = e.detail.response.response;
-                if (response && response.entityModels) {
+                if (response && !_.isEmpty(response.entityModels)) {
                     this._prepareDynamicConfigBasedOnModelForContextsToBeRendered(response.entityModels);
                     this._updateSelectedDimensions();
+                } else {
+                    this.logError(this.appName + "-Dimension Selector - Entity Model get response exception", e.detail, true, this.domContainer);
                 }
+            },
+
+            _onEntityModelGetError: function (e) {
+                this.logError(this.appName + "-Dimension Selector - Entity Model get exception", e.detail, true, this.domContainer);
             },
 
             _prepareDynamicConfigBasedOnModelForContextsToBeRendered: function (entityModels) {
@@ -1301,6 +1337,8 @@ Custom property | Description | Default
                         if (externalNameAndExternalNameAttr) {
                             externalAttrName = externalNameAndExternalNameAttr.externalNameAttr;
                             ctxExtName = !_.isEmpty(externalNameAndExternalNameAttr.externalName) ? externalNameAndExternalNameAttr.externalName : ctxKey;
+                        } else {
+                            this.logError(this.appName + "-Dimension Selector - None of the attributes in the model " + entityModel.id + " marked with 'isExternalName' flag", entityModel);
                         }
 
                         if (ctxToBeLoaded && ctxToBeLoaded.length && (ctxToBeLoaded.length == 1 && ctxToBeLoaded[0] != "_ALL")) {
@@ -1753,7 +1791,13 @@ Custom property | Description | Default
                         }
                     }
                     this.refreshDimensionData();
+                } else {
+                    this.logError(this.appName + "-Dimension Selector - Entity Context get response exception", e.detail, true, this.domContainer);
                 }
+            },
+
+            _onEntityContextGetError: function (e) {
+                this.logError(this.appName + "-Dimension Selector - Entity Context get exception", e.detail);
             },
 
             _entityExternalDataFormatter: function (formattedData, data) {
