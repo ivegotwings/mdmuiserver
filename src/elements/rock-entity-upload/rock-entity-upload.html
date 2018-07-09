@@ -147,9 +147,9 @@
         <bedrock-pubsub event-name="context-mapping-back" handler="_onContextMappingsBack" target-id=""></bedrock-pubsub>
         <bedrock-pubsub event-name="context-mapping-skip" handler="_onContextMappingsSkipOrSave" target-id=""></bedrock-pubsub>
         <bedrock-pubsub event-name="context-mapping-save" handler="_onContextMappingsSkipOrSave" target-id=""></bedrock-pubsub>
-        <liquid-entity-data-get id="taxonomyGetDataService" operation="getbyids" request-data="{{_taxonomyRequest}}" on-response="_onTaxonomyResponse"></liquid-entity-data-get>
+        <liquid-entity-data-get id="taxonomyGetDataService" operation="getbyids" request-data="{{_taxonomyRequest}}" on-response="_onTaxonomyResponse" on-error="_onTaxonomyGetError"></liquid-entity-data-get>
         <liquid-rest id="taxonomyModelGet" url="/data/pass-through/entitymodelservice/get" method="POST" request-data="{{_taxonomyModelRequest}}"
-            on-liquid-response="_onTaxonomyModelGetResponse"></liquid-rest>
+            on-liquid-response="_onTaxonomyModelGetResponse" on-liquid-error="_onTaxonomyModelGetError"></liquid-rest>
         <liquid-entity-data-get id="initiateEntitySearch" operation="initiatesearch" request-data="{{entityGetrequest}}" last-response="{{initiateSearchResponse}}"
             on-error="_onGetSearchError" on-response="_onInitiateEntitySearchResponse" exclude-in-progress></liquid-entity-data-get>
         <liquid-entity-data-get id="getEntitySearchResultDetail" operation="getsearchresultdetail" request-data="{{entityGetrequest}}"
@@ -504,8 +504,14 @@
                         }
                     } else {
                         this.showErrorToast("Entity manage model not found for taxonomy.", 10000);
+                        this.logError("rock-entity-upload - Entity manage model not found for taxonomy", e.detail);
                         this._loading = false;
                     }
+                },
+
+                _onTaxonomyModelGetError: function (e) {
+                    this.logError("rock-entity-upload - Entity manage model get for taxonomy exception", e.detail);
+                    this._loading = false;
                 },
 
                 _getTaxonomy: function () {
@@ -529,22 +535,27 @@
                 },
 
                 _onTaxonomyResponse: function (e) {
-                    if (e && e.detail && e.detail.response) {
-                        var res = e.detail.response;
-                        if (res && res.content && res.content.entities && res.content.entities.length) {
-                            var entity = res.content.entities[0];
-                            if (entity && entity.data) {
-                                var attributes = entity.data.attributes;
+                    if (DataHelper.isValidObjectPath(e, "detail.response.content.entities.0")) {
+                        var entity = res.content.entities[0];
+                        if (entity && entity.data) {
+                            var attributes = entity.data.attributes;
 
-                                if (attributes && attributes[this._taxonomyExtNameAttr]) {
-                                    this._taxonomyExtName = attributes[this._taxonomyExtNameAttr].values &&
-                                        attributes[this._taxonomyExtNameAttr].values.length ?
-                                        attributes[this._taxonomyExtNameAttr].values[0].value :
-                                        undefined;
-                                }
+                            if (attributes && attributes[this._taxonomyExtNameAttr]) {
+                                this._taxonomyExtName = attributes[this._taxonomyExtNameAttr].values &&
+                                    attributes[this._taxonomyExtNameAttr].values.length ?
+                                    attributes[this._taxonomyExtNameAttr].values[0].value :
+                                    undefined;
                             }
                         }
+                    } else {
+                        this.logError("rock-entity-upload - Taxonomy get failed", e.detail);
+                        this._loading = false;
                     }
+                },
+
+                _onTaxonomyGetError: function (e) {
+                    this.logError("rock-entity-upload - Entity get for taxonomy exception", e.detail);
+                    this._loading = false;
                 },
 
                 _showView: function (viewName) {
@@ -721,6 +732,7 @@
                             }
                         }
                     } else {
+                        this.logError("rock-entity-upload - Contexts not available in " + this.entityType + "_entityContextModel", e.detail);
                         this.showErrorToast("Contexts not available, please contact administrator.");
                         this._loading = false;
 
@@ -768,38 +780,37 @@
                 },
 
                 _raiseTaxonomyError: function (detail) {
-                    this.logError("Taxonomy entity get error", detail);
+                    this.logError("rock-entity-upload - Taxonomy entity get error", detail);
                     this.showSuccessToast(
                         "Unable to get taxonomy details, please contact administrator.");
                     this._loading = false;
                 },
 
                 _onEntityTypeModelReceived: function (e, detail) {
-                    if (detail && detail.response) {
-                        var response = detail.response;
-                        if (response.status == "success" && response.content && response.content.entityModels) {
-                            var entityModels = response.content.entityModels || [];
-                            var entityTypeExternalNames = {};
-                            for (var i = 0; i < entityModels.length; i++) {
-                                entityTypeExternalNames[entityModels[i].name] = entityModels[i].properties
-                                    .externalName;
+                    if (DataHelper.isValidObjectPath(detail, "response.content.entityModels")) {
+                        var entityModels = detail.response.content.entityModels || [];
+                        var entityTypeExternalNames = {};
+                        for (var i = 0; i < entityModels.length; i++) {
+                            entityTypeExternalNames[entityModels[i].name] = entityModels[i].properties
+                                .externalName;
 
-                                //Get domain for the entityType
-                                if (entityModels[i].name == this.entityType) {
-                                    this.domain = entityModels[i].domain;
-                                }
+                            //Get domain for the entityType
+                            if (entityModels[i].name == this.entityType) {
+                                this.domain = entityModels[i].domain;
                             }
-
-                            this.entityTypeExternalName = entityTypeExternalNames[this.entityType];
-                            delete entityTypeExternalNames[this.entityType];
-                            this.contextExternalNames = entityTypeExternalNames; // Remaining context names
                         }
+
+                        this.entityTypeExternalName = entityTypeExternalNames[this.entityType];
+                        delete entityTypeExternalNames[this.entityType];
+                        this.contextExternalNames = entityTypeExternalNames; // Remaining context names
+                    } else {
+                        this.logError("rock-entity-upload - Entity type model not found for " + this.entityType, detail);
                     }
                     this._loadMappingComponent();
                 },
 
                 _onEntityTypeModelFailed: function (e, detail) {
-                    this.logError("Entity type model get error", detail);
+                    this.logError("rock-entity-upload - Entity type model get exception", detail);
                     this._loadMappingComponent();
                 },
 
@@ -888,7 +899,7 @@
                             this._onCOPProcessComplete();
                         }
                     } else {
-                        this.logWarning("UnexpectedCOP", "response", JSON.stringify(e.detail.response));
+                        this.logError("rock-entity-upload - COP response error", e.detail);
                         this.showErrorToast(statusMessage +
                             ". Please check the service or contact your administrator.");
                         this._isDirty = false;
@@ -896,7 +907,7 @@
                     }
                 },
                 _onCOPFailure: function (e) {
-                    this.logWarning("COPTransformationFail", "response", JSON.stringify(e.detail));
+                    this.logWarning("rock-entity-upload - COP process failed with exception: ", e.detail);
                     this.showErrorToast(
                         "Unable to transform excel to json. Please check the service or contact your administrator."
                     );
@@ -1306,12 +1317,12 @@
                         exportDialog.dialogTitle = "Download Smart Excel Template";
                         this._selectedCategories = [];
                         exportDialog.open();
-                    }
 
-                    const contextTree = exportDialog.querySelector('#contextTree');
+                        const contextTree = exportDialog.querySelector('#contextTree');
 
-                    if (contextTree) {
-                        contextTree.generateRequest();
+                        if (contextTree) {
+                            contextTree.generateRequest();
+                        }
                     }
                 },
                 _onCancelDownloadSelection: function () {
@@ -1384,6 +1395,7 @@
                     }
                 },
                 _onCOPDownloadFailure: function (e) {
+                    this.logError("rock-entity-upload - Failed to download category model template", e.detail);
                     this.showErrorToast(
                         "Failed to download category model template. Please contact administrator."
                     );
