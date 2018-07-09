@@ -91,7 +91,20 @@ COPService.prototype = {
     },
 
     processJSON: async function (request) {
-        var processJSONURL = "copservice/processJSON";       
+        var processJSONURL = "copservice/processJSON";
+        var validationResult = this._validateRequest(request,true);
+        if (!validationResult) {
+            return {
+                "entityOperationResponse": {
+                    "status": "Error",
+                    "statusDetail": {
+                        "code": "RSUI0001",
+                        "message": "Incorrect request for COP process model.",
+                        "messageType": "Error"
+                    }
+                }
+            };
+        }           
         var processJSONRequest = JSON.parse(request.body.requestData);
         processJSONRequest.dataObject.id = uuidV1();
         var jsonStr = JSON.stringify(processJSONRequest.JSONData);
@@ -315,11 +328,11 @@ COPService.prototype = {
         }
         return await this.post(copURL, request.body);
     },
-    _validateRequest: function (request) {
+    _validateRequest: function (request, noFileNameValidate) {
         if (!request.body) {
             return false;
         }
-        if (!request.body.fileName) {
+        if (!noFileNameValidate && !request.body.fileName) {
             return false;
         }
         if (!request.body.requestData) {
