@@ -92,14 +92,14 @@ COPService.prototype = {
 
     processJSON: async function (request) {
         var processJSONURL = "copservice/processJSON";
-        var validationResult = this._validateRequest(request,true);
+        var validationResult = this._validateRequest(request,false);
         if (!validationResult) {
             return {
                 "entityOperationResponse": {
                     "status": "Error",
                     "statusDetail": {
                         "code": "RSUI0001",
-                        "message": "Incorrect request for COP process model.",
+                        "message": "Incorrect request for JSON process model.",
                         "messageType": "Error"
                     }
                 }
@@ -328,11 +328,15 @@ COPService.prototype = {
         }
         return await this.post(copURL, request.body);
     },
-    _validateRequest: function (request, noFileNameValidate) {
+    _validateRequest: function (request, validateFileName) {
+
+        if(validateFileName != false) {
+            validateFileName = true;
+        }
         if (!request.body) {
             return false;
         }
-        if (!noFileNameValidate && !request.body.fileName) {
+        if (validateFileName && !request.body.fileName) {
             return false;
         }
         if (!request.body.requestData) {
