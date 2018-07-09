@@ -329,11 +329,8 @@ COPService.prototype = {
         }
         return await this.post(copURL, request.body);
     },
-    _validateRequest: function (request, validateFileName) {
-
-        if(validateFileName != false) {
-            validateFileName = true;
-        }
+    _validateRequest: function (request, validateFileName = true) {
+      
         if (!request.body) {
             return false;
         }
