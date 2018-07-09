@@ -310,8 +310,7 @@ DataObjectFalcorUtil.getDataIndexDomainMappings = function() {
         "governanceModel": "entityModel",
         "sysAuthorizationModel": "entityModel",
         "baseModel": "entityModel",
-        "sysIntegrationModel": "entityModel",
-        "taxonomyModel": "entityModel"
+        "sysIntegrationModel": "entityModel"
     };
 };
 
