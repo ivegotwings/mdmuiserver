@@ -108,6 +108,7 @@ COPService.prototype = {
         var processJSONRequest = JSON.parse(request.body.requestData);
         processJSONRequest.dataObject.id = uuidV1();
         var jsonStr = JSON.stringify(processJSONRequest.JSONData);
+        delete processJSONRequest.JSONData;
         processJSONRequest.dataObject.data.blob = new Buffer(jsonStr).toString('base64');
         //console.log('processJSON: ', JSON.stringify(processJSONRequest.dataObject.data.blob, null, 2));
         return await this.post(processJSONURL, processJSONRequest);
