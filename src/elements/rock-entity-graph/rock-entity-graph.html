@@ -12,6 +12,7 @@
 <link rel="import" href="../rock-entity-quick-manage/rock-entity-quick-manage.html">
 <link rel="import" href="../rock-entity-graph-tree/rock-entity-graph-tree.html">
 <link rel="import" href="../rock-component-config-behavior/rock-component-config-behavior.html">
+<link rel="import" href="../rock-classification-tree/rock-classification-tree.html">
 
 <link rel="import" href="../bedrock-helpers/data-request-helper.html">
 <link rel="import" href="../bedrock-helpers/data-helper.html">
@@ -94,10 +95,21 @@
            
         </style>
         <div class="graph-container">
+            <liquid-entity-data-get id="rootNodeGet" operation="getbyids" on-error="_onLineagePathError"
+                on-response="_onRootNodeGetResponse" exclude-in-progress></liquid-entity-data-get>
+            <liquid-entity-model-get id="liquidModelGet" operation="getbyids" request-data="[[_modelRequest]]" on-response="_onModelReceived" on-error="_onModelGetFailed"></liquid-entity-model-get>
+        
             <template is="dom-if" if="[[_isGraphTreeConfigAvailable(_graphTreeConfig)]]" restamp>
                 <pebble-resizable-panels>
                     <div class="left-panel" panel-width="30%">
-                        <rock-entity-graph-tree id="graphTree" tree-config="[[_graphTreeConfig]]" context-data="[[contextData]]" item-data="{{selectedItem}}"></rock-entity-graph-tree> 
+                        <template is="dom-if" if="[[_isClassificationTree(_graphTreeConfig)]]">
+                            <rock-classification-tree id="classificationTree" taxonomy="[[taxonomy]]" is-model-tree="[[isModelTree]]"
+                                context-data="[[contextData]]" multi-select="[[multiSelect]]" leaf-node-only="[[leafNodeOnly]]"
+                                enable-node-click="true" hide-leaf-node-checkbox="[[hideLeafNodeCheckbox]]" root-node-data="{{_rootNodeData}}"></rock-classification-tree> 
+                        </template>
+                        <template is="dom-if" if="[[!_isClassificationTree(_graphTreeConfig)]]">
+                            <rock-entity-graph-tree id="graphTree" tree-config="[[_graphTreeConfig]]" context-data="[[contextData]]" item-data="{{selectedItem}}"></rock-entity-graph-tree> 
+                        </template>
                     </div>
                     <div class="right-panel" panel-width="70%">
                         <div class="base-grid-structure">
@@ -130,6 +142,7 @@
                     </div>
                 </pebble-resizable-panels>
             </template>
+            <bedrock-pubsub event-name="classification-item-clicked" handler="_onClassificationClickHandler" target-id="classificationTree"></bedrock-pubsub>
             <bedrock-pubsub event-name="grid-data-refreshed" handler="_onRefreshTree" ></bedrock-pubsub>
         </div>
     </template>
@@ -199,8 +212,43 @@
                     value: function(){
                         return {};
                     }
+                },
+                taxonomy:{
+                    type:String,
+                    value:""
+                },
+                multiSelect:{
+                    type:Boolean,
+                    value:false
+                },
+                leafNodeOnly:{
+                    type:Boolean,
+                    value:true
+                },
+                hideLeafNodeCheckbox:{
+                    type:Boolean,
+                    value:true
+                },
+                _selectedClassificationNode:{
+                    type:Object
+                },
+                isModelTree:{
+                    type:Boolean,
+                    value:true
+                },
+                _rootNodeData:{
+                    type:Object,
+                    value: function(){
+                        return {}
+                    },
+                    notify:true
                 }
             }
+        }
+        static get observers(){
+            return [
+                
+            ]
         }
         _onContextDataChange(){
             if(!_.isEmpty(this.contextData)) {
@@ -215,25 +263,126 @@
                 this.requestConfig('rock-entity-graph', context);
             }
         }
-
-        _getEntityName() {
-            if (!_.isEmpty(this.contextData)) {
-                var itemContext = ContextHelper.getFirstItemContext(this.contextData);
-                return itemContext.name || "";
-            }
-        }
-
         onConfigLoaded(componentConfig) {
             if(componentConfig && componentConfig.config) {
                 this.configData = componentConfig.config;
                 if(_.isEmpty(this._graphTreeConfig)){
                     this._graphTreeConfig = componentConfig.config.entityGraphTreeConfig;
+                    if(this._graphTreeConfig.isClassificationTree){
+                        this._initiateClassificationTree();    
+                    }
                 }else{
                     this._onGridConfigLoaded(componentConfig.config);
                 }
             }   
         }
+        _isClassificationTree(){
+            if(this._graphTreeConfig && this._graphTreeConfig.isClassificationTree){
+                return true;
+            }
+            return false;
+        }
+        _initiateClassificationTree(){
+            var rootNodeGet = this.shadowRoot.querySelector("#rootNodeGet");
+            if(rootNodeGet){
+                rootNodeGet.requestData = DataRequestHelper.createEntityGetRequest(this.contextData);
+                rootNodeGet.generateRequest();
+            }
+        }
+        _onRootNodeGetResponse(ev){
+            var rootNodeData = {}
+            if(DataHelper.isValidObjectPath(ev, "detail.response.content.entities.0.data")){
+                rootNodeData['text'] = this._getNodeTitle(ev.detail.response.content.entities[0], this._graphTreeConfig.treeNodeTitle);
+            }
+            rootNodeData.isRootNode = true;
+            rootNodeData.expanded = true;
+            if(DataHelper.isValidObjectPath(this._graphTreeConfig, "relationships.0.relationshipName")){
+                var relationshipName = this._graphTreeConfig.relationships[0].relationshipName;
+                rootNodeData.relationshipName = relationshipName;
+                rootNodeData.relationshipOwnership = "whereused";
+            }
 
+            //start classification request
+            if (!this.taxonomy || this.taxonomy == "undefined") {
+                var firstItemContext = ContextHelper.getFirstItemContext(this.contextData);
+                if(firstItemContext && firstItemContext.id){
+                    this.taxonomy = firstItemContext.id;
+                    rootNodeData.id = firstItemContext.id;
+                    if(firstItemContext.type){
+                        rootNodeData.type = firstItemContext.type;
+                    }
+                }
+            }
+            if(this.taxonomy){
+                Polymer.Async.timeOut.after(30).run(() => {
+                    this.set("_rootNodeData", rootNodeData);
+                    const contextTree = this.shadowRoot.querySelector("#classificationTree");
+                    if (contextTree) {
+                        contextTree.generateRequest();
+                    }
+                })
+            }else{
+                console.warn("No taxonomy found.")
+            }
+        }
+        _getNodeTitle(entity, attribute){
+            var _title = "";
+            if(entity && attribute){
+                if(attribute.indexOf("attribute:") > -1){
+                    var _keyName = attribute.substr(10, attribute.length);
+                    var _attribute;
+                    if(entity.data){
+                        _attribute = EntityHelper.getAttribute(entity, _keyName);
+                    }else{
+                        if(entity.attributes && entity.attributes[_keyName]){
+                            _attribute = entity.attributes[_keyName];
+                        }
+                    }
+                    _title = AttributeHelper.getFirstAttributeValue(_attribute);
+                }else{
+                    _title = attribute;
+                }
+            }
+            if(!_title && entity.id){
+                _title = entity.id;
+            }
+            return _title;
+        }
+        _onClassificationClickHandler(ev){
+            var selectedNode = ev.detail;
+            if(selectedNode){
+                selectedNode.highlightNode = true;
+                if(!_.isEmpty(this._selectedClassificationNode)){
+                    this._selectedClassificationNode.highlightNode = false;
+                }
+                this._selectedClassificationNode = selectedNode;
+                if(selectedNode.nodeData){
+                    var clonedClassification = DataHelper.cloneObject(selectedNode.nodeData);
+                    clonedClassification.viewMode = "GRID";
+                    this.set("selectedItem", clonedClassification);
+                }
+            }
+        }
+        _initiateModelRequest(){
+            if(!this.selectedItem.modelLoaded){
+                var entityModelElement = this.shadowRoot.querySelector("#liquidModelGet");
+                if(entityModelElement){
+                    if(this.selectedItem.isRootNode){
+                        var ids = [this.selectedItem.relationshipName+"_relationshipModel"];
+                        entityModelElement.requestData = DataRequestHelper.createGetModelRequest("relationshipModel", ids);
+                        entityModelElement.generateRequest();
+                    }
+                }
+            }else{
+                this._onGridConfigLoaded();
+            }
+        }
+        _onModelReceived(ev){
+
+            // this.selectedItem.modelResponse = ev.
+            this.selectedItem.modelLoaded = true;
+            this._onGridConfigLoaded();
+        }
         /**
          * Checks if the given component is visible or not
          */ 
@@ -276,7 +425,10 @@
             if(!_.isEmpty(this.selectedItem) && this.selectedItem.viewMode){
                 this.set("_entityContextData", this._getEntityContextData());
                 
-                
+                if(this._isClassificationTree()){
+                    this._onGridConfigLoaded();
+                    return;
+                }
                 if(this._isGridView()){
                     this.set("_panelContentLoaded", false);
                     var context = DataHelper.cloneObject(this._entityContextData);
@@ -353,18 +505,7 @@
         _onGridConfigLoaded(tabConfig){
             var configContext = {};
             var mode, doSyncValidation, noOfColumns;
-            if(this.selectedItem){
-                if(this.selectedItem.relationshipName){
-                    configContext.relationshipNames = [this.selectedItem.relationshipName];
-                }
-                if(this.selectedItem.relationshipOwnership && this.selectedItem.relationshipOwnership == "whereused"){
-                    configContext.direction = "up";
-                    if(this.selectedItem.type){
-                        configContext.fromEntityType = this.selectedItem.type
-                    }
-                }
-                configContext.relationshipTypeName = this.selectedItem.relationshipName;
-            }
+            
             if(tabConfig && !_.isEmpty(tabConfig)){
                 var componentProperties;
                 if(tabConfig.tabItems){
@@ -399,6 +540,28 @@
                     if(componentProperties['no-of-columns']){
                         noOfColumns = componentProperties['no-of-columns'];
                     }
+                }
+            }else if(this._isClassificationTree()){
+                if(this.selectedItem.isRootNode){
+                    if(this.selectedItem){
+                        if(this.selectedItem.relationshipName){
+                            configContext.relationshipNames = [this.selectedItem.relationshipName];
+                            configContext.relationshipTypeName = this.selectedItem.relationshipName;
+                            configContext["relationshipType"] = this.selectedItem.relationshipName;
+                        }
+                        if(this.selectedItem.relationshipOwnership && this.selectedItem.relationshipOwnership == "whereused"){
+                            configContext.direction = "up";
+                            if(this.selectedItem.type){
+                                configContext.fromEntityType = this.selectedItem.type
+                            }
+                        }
+                    }
+                }
+                else{
+                    configContext.relationshipNames = ["belongsto"];
+                    configContext.direction = "up";
+                    configContext.relationshipTypeName = "belongsto";
+                    configContext.fromEntityType = "classification";
                 }
             }
             this.set("_panelContentLoaded", true);
@@ -441,11 +604,7 @@
         }
 
         _onConfigureVariantsTap() {
-            this.openBusinessFunctionDialog({
-                name: 'rock-wizard-variant-configurator',
-                mergeTitle: true,
-                title: this._getEntityName()
-            });
+            this.openBusinessFunctionDialog({name: 'rock-wizard-variant-configurator'});
         }
     }
 
