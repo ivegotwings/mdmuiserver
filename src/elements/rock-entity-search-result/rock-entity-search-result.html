@@ -87,7 +87,7 @@ It filters the data as per filter criteria.
             }
         </style>
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
-        <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{attributeModelRequest}}" on-entity-model-composite-get-response="_onCompositeModelGetResponse">
+        <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{attributeModelRequest}}" on-entity-model-composite-get-response="_onCompositeModelGetResponse" on-error="_onCompositeGetError">
         </liquid-entity-model-composite-get>
         <liquid-rest id="getDownloadUrl" url="/data/binarystreamobjectservice/prepareDownload" method="POST" on-liquid-response="_onGetDownloadUrlResponse">
         </liquid-rest>
@@ -146,6 +146,7 @@ It filters the data as per filter criteria.
             <bedrock-pubsub event-name="grid-bulk-edit-items" handler="_onBulkEdit" target-id="entityGrid"></bedrock-pubsub>
             <bedrock-pubsub event-name="grid-bulk-delete-items" handler="_showConfirmationDialog" target-id="entityGrid"></bedrock-pubsub>
             <bedrock-pubsub event-name="download-original-asset" handler="_onOriginalAssetDownloadAction" target-id="entityGrid"></bedrock-pubsub>
+            <bedrock-pubsub event-name="search-error" handler="_onSearchError" target-id="searchGridDatasource"></bedrock-pubsub>
         </template>
 
         <pebble-dialog id="confirmationDialog" dialog-title="Confirmation" modal alert-box show-cancel show-ok no-cancel-on-outside-click
@@ -747,6 +748,7 @@ It filters the data as per filter criteria.
                                 this.contextData);
                     if (contextData && contextData.ItemContexts) {
                         var index = 0;
+                        this._notFoundEntityTypes = [];
                         for (var i = 0; i < this.contextData.ItemContexts.length; i++) {
 
                             contextData.ItemContexts = [this.contextData.ItemContexts[i]];
@@ -765,31 +767,65 @@ It filters the data as per filter criteria.
                 },
 
                 _onCompositeModelGetResponse: function (e) {
+                    var requestData = e.detail.request.requestData;
                     if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
                         var entityModels = e.detail.response.content.entityModels;
-                        for (var i = 0; i < entityModels.length; i++) {
-                            var entityModel = entityModels[i];
-                            var properties = entityModel.properties;
-                            if (properties && properties.hasOwnProperty("defaultThumbnailId")) {
-                                this._typeThumbnailMapping[entityModel.name] = properties.defaultThumbnailId;
+                        if(!_.isEmpty(entityModels)) {
+                            for (var i = 0; i < entityModels.length; i++) {
+                                var entityModel = entityModels[i];
+                                var properties = entityModel.properties;
+                                if (properties && properties.hasOwnProperty("defaultThumbnailId")) {
+                                    this._typeThumbnailMapping[entityModel.name] = properties.defaultThumbnailId;
+                                }
                             }
+                            this.push("_selectedEntityTypes", entityModels[0]);
+                        } else if(_.isEmpty(entityModels) && DataHelper.isValidObjectPath(requestData, "params.query.name")) {
+                            this._notFoundEntityTypes.push(requestData.params.query.name);
                         }
-                        this.push("_selectedEntityTypes", entityModels[0]);
-                        if (this._selectedEntityTypes.length == this._selectedEntityTypesCount) {
-
-                            for(let key in this._selectedEntityTypes){
-                                var formattedModels = DataTransformHelper.transformAttributeModels(this._selectedEntityTypes[key], {});
-                                _.extend(this.attributeModels, formattedModels);
-                            }
-                            
-                            var attributeModels = DataHelper.cloneObject(this.attributeModels);
-                            this.attributeModels = {};
-                            this.set("attributeModels", attributeModels);
-                            this.reloadGrid();
-                            this._selectedEntityTypes = [];
+                    } else {
+                        if(DataHelper.isValidObjectPath(requestData, "params.query.name")) {
+                            this._notFoundEntityTypes.push(requestData.params.query.name);
                         }
+                        this.logError("rock-entity-search-result - Composite model get response error", e);
                     }
-                    
+
+                    var responseLength = this._selectedEntityTypes.length + this._notFoundEntityTypes.length;
+
+                    if (responseLength == this._selectedEntityTypesCount) {
+
+                        for(let key in this._selectedEntityTypes){
+                            var formattedModels = DataTransformHelper.transformAttributeModels(this._selectedEntityTypes[key], {});
+                            _.extend(this.attributeModels, formattedModels);
+                        }
+                        
+                        var attributeModels = DataHelper.cloneObject(this.attributeModels);
+                        this.attributeModels = {};
+                        this.set("attributeModels", attributeModels);
+                        this.reloadGrid();
+
+                        if (!_.isEmpty(this._notFoundEntityTypes)) {
+                            var messageContent = this._notFoundEntityTypes.join(", ");
+                            this.logError("Attribute models not found for entity type(s) " + messageContent);
+                            this.showErrorToast("Attribute models not found for entity type(s) " + messageContent + ". Please contact administrator.");
+                            if(this._notFoundEntityTypes.length === this._selectedEntityTypesCount) {
+                                this.fireBedrockEvent('grid-load-error');
+                            }
+                        }
+                        this._selectedEntityTypes = [];
+                        this._notFoundEntityTypes = [];
+                    }
+                },
+
+                _onSearchError: function () {
+                    this.fireBedrockEvent('grid-load-error');
+                },
+
+                _onCompositeGetError: function (e) {
+                    this._notFoundEntityTypes.push(requestData.params.query.name);
+                    this.logError("rock-entity-search-result - Failed to get composite model", e);
+                    if(this._notFoundEntityTypes.length == this._selectedEntityTypesCount) {
+                        this.fireBedrockEvent('grid-load-error');
+                    }
                 },
 
                 _searchResultFiltersChanged: function (currentFilters) {

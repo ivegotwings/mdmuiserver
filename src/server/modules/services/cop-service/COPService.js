@@ -91,10 +91,24 @@ COPService.prototype = {
     },
 
     processJSON: async function (request) {
-        var processJSONURL = "copservice/processJSON";       
+        var processJSONURL = "copservice/processJSON";
+        var validationResult = this._validateRequest(request,false);
+        if (!validationResult) {
+            return {
+                "entityOperationResponse": {
+                    "status": "Error",
+                    "statusDetail": {
+                        "code": "RSUI0001",
+                        "message": "Incorrect request for JSON process model.",
+                        "messageType": "Error"
+                    }
+                }
+            };
+        }           
         var processJSONRequest = JSON.parse(request.body.requestData);
         processJSONRequest.dataObject.id = uuidV1();
         var jsonStr = JSON.stringify(processJSONRequest.JSONData);
+        delete processJSONRequest.JSONData;
         processJSONRequest.dataObject.data.blob = new Buffer(jsonStr).toString('base64');
         //console.log('processJSON: ', JSON.stringify(processJSONRequest.dataObject.data.blob, null, 2));
         return await this.post(processJSONURL, processJSONRequest);
@@ -315,11 +329,12 @@ COPService.prototype = {
         }
         return await this.post(copURL, request.body);
     },
-    _validateRequest: function (request) {
+    _validateRequest: function (request, validateFileName = true) {
+      
         if (!request.body) {
             return false;
         }
-        if (!request.body.fileName) {
+        if (validateFileName && !request.body.fileName) {
             return false;
         }
         if (!request.body.requestData) {

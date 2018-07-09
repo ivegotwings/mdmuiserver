@@ -213,6 +213,9 @@
                                        data="[[_passedBC.data]]"    on-tap="_onBusinessConditionTap">
                         </pebble-button>
                     </template>
+                    <div id="noBusinessCondditionsMessage" hidden>
+                        <div class="default-message">No business conditions mapped to this activity</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -360,7 +363,8 @@
                         this._governDataRequest = req;
                         governDataLiquid.generateRequest();
                     } else {
-                        this.showErrorToast("Types criterion is undefied or empty for govern get.");
+                        this.logError("Default entity types are empty or undefined in appsettings");
+                        this.showErrorToast("Types criterion is undefined or empty for govern get.");
                         this._setTaskLoadingIndicatorVisibility(false);
                     }
                 }
@@ -379,6 +383,8 @@
                         } else {
                             this._numberOfTasks = totalRecords;
                         }
+                    } else {
+                        this.logError("Dashboard-My To Do's Summary - Some problem with Govern data Get response", e.detail);
                     }
 
                     this._setTaskLoadingIndicatorVisibility(false);
@@ -391,6 +397,7 @@
             },
 
             _onGovernDataError: function (e) {
+                this.logError("Dashboard-My To Do's Summary - Governdata Get Exception", e.detail);
                 this.showErrorToast(e.detail.response.reason);
                 this._setTaskLoadingIndicatorVisibility(false);
             },
@@ -445,8 +452,7 @@
 
                 var businessConditionsMappingGet = this.shadowRoot.querySelector('#businessConditionsMappingGet');
                 if (typeof (businessConditionsMappingGet) === "undefined" || businessConditionsMappingGet == null) {
-                    this.logError("BusinessConditionError");
-                    this.showErrorToast(this._errorMessage);
+                    this.logError("Dashboard-My To Do's Summary - BusinessConditions mappings liquid not found");
                     return;
                 }
 
@@ -549,15 +555,21 @@
                                 this._prepareBusinessConditions(businessConditions);
                             }
                         }
+                    } else {
+                        var noBusinessCondditionsMessageDiv = this.shadowRoot.querySelector("#noBusinessCondditionsMessage");
+                        if(noBusinessCondditionsMessageDiv) {
+                            noBusinessCondditionsMessageDiv.hidden = false;
+                        }
                     }
                 } else {
+                    this.logError("Dashboard-My To Do's Summary - Some problem with businessConditions mapping Get response", e.detail);
                     this.showErrorToast("Business conditions not found.");
                 }
             },
 
             _onBusinessConditionsMappingGetError: function (e) {
+                this.logError("Dashboard-My To Do's Summary - BusinessConditions mapping Get Exception", e.detail);
                 this.showErrorToast(e.detail.response.reason);
-
             },
 
             _prepareBusinessConditions: function (businessConditions) {
@@ -612,7 +624,7 @@
                     var initBusinessConditionsMapingGet = this.shadowRoot.querySelector('#initBusinessConditionsMappingGet');
 
                     if (typeof (initBusinessConditionsMapingGet) === "undefined" || initBusinessConditionsMapingGet == null) {
-                        this.logError("BusinessConditionError");
+                        this.logError("Dashboard-My To Do's Summary - Init BusinessConditions mappings liquid not found");
                         return;
                     }
                     this._businessConditionMappingRequest = req;
@@ -666,7 +678,7 @@
                         delete  passedBCOptions.businessConditionName;
                         this._getPassedBusinessConditionsCount(passedBCOptions,this._businessConditionMappings);
                     } else {
-                        this.logError("TypesCriterionEmptyError");
+                        this.logError("Default entity types are empty or undefined in appsettings");
                     }
                 }
             },
@@ -684,6 +696,7 @@
                     governGetLiquid.requestData = req;
                     governGetLiquid.excludeInProgress = true;
                     governGetLiquid.addEventListener('response', this._onGetPassedBusinessConditionsCountResponse.bind(this));
+                    governGetLiquid.addEventListener('error', this._onGetPassedBusinessConditionsCountError.bind(this));
                     governGetLiquid.generateRequest();
                 }
             },
@@ -703,24 +716,43 @@
             _onGetPassedBusinessConditionsCountResponse:function (e) {
                 if (e && e.currentTarget && e.detail) {
                     var businessConditionButton = this.$$('pebble-button[id=passedBCButton]');
+                    if(!businessConditionButton) {
+                        this.logError("Dashboard-My To Do's Summary - Passed BusinessCondition button notfound");
+                        return;
+                    }
                     var response = e.detail.response;
-                    if (response && response.content && businessConditionButton) {
+                    if (response && response.content) {
                        this._addCountToBCButton(response,businessConditionButton);
+                    } else {
+                        businessConditionButton.iconUrl = ''
+                        this.logError("Dashboard-My To Do's Summary - Some problem with passed BusinessCondition count response", e.detail);
                     }
                 }
+            },
+
+            _onGetPassedBusinessConditionsCountError: function (e) {
+                this.logError("Dashboard-My To Do's Summary - Get Passed BusinessConditions Get Exception", e.detail);
             },
 
             _getBusinessConditionCountResponse: function (e) {
                 if (e && e.currentTarget && e.detail) {
                     var businessConditionButton = this.shadowRoot.querySelector('pebble-button[id=' + e.currentTarget.id + ']');
+                    if(!businessConditionButton) {
+                        this.logError("Dashboard-My To Do's Summary - Passed BusinessCondition button notfound");
+                        return;
+                    }
                     var response = e.detail.response;
-                    if (response && response.content && businessConditionButton) {
+                    if (response && response.content) {
                         this._addCountToBCButton(response,businessConditionButton);
+                    } else {
+                        businessConditionButton.iconUrl = ''
+                        this.logError("Dashboard-My To Do's Summary - Some problem with BusinessCondition count response", e.detail);
                     }
                 }
             },
 
             _getBusinessConditionCountFailed: function (e) {
+                this.logError("Dashboard-My To Do's Summary - Get BusinessConditions count Exception", e.detail);
                 this.showErrorToast(e.detail.response.reason);
             },
 
@@ -753,10 +785,15 @@
             _getAppNameToRedirect: function () {
                 var appName = "search-thing";
 
-                if (this.myTodo.mappedEntityTypes) {
+                var entityTypeManager = EntityTypeManager.getInstance();
+
+                if (this.myTodo.mappedEntityTypes && entityTypeManager) {
                     this.myTodo.mappedEntityTypes.forEach(function (entityType) {
-                        if (entityType == "image" || entityType == "video" || entityType == "document") {
+                        var domain = entityTypeManager.getDomainByEntityTypeName(entityType);
+                        if(domain === "digitalAsset") {
                             appName = "asset-discovery";
+                        } else if(domain !== ""){
+                            appName = "search-" + domain;
                         }
                     }, this);
                 }
