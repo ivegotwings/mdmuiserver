@@ -1069,7 +1069,7 @@ BaseModelService.prototype = {
                                 compositeAttributeModelList.entityManageModel.push(attrKey);
                                 break;
                             case "restriction":
-                            case "constrains":
+                            case "constraints":
                                 compositeAttributeModelList.entityValidationModel.push(attrKey);
                                 break;
                             case "display":
