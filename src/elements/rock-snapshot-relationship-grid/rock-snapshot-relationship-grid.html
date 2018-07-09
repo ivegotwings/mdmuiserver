@@ -44,6 +44,7 @@
 
         <liquid-entity-data-get id="getRelEntities" operation="getbyids" data-index="entityData" data-sub-index="data" on-response="_onEntityGetResponse"></liquid-entity-data-get>
         <liquid-entity-data-get id="getRelAttributes" operation="getbyids" data-index="entityData" data-sub-index="data" on-response="_onRelAttrsResponse"></liquid-entity-data-get>
+        <liquid-entity-model-composite-get name="liquidModelGet" request-data={{relationshipRequest}} on-entity-model-composite-get-response="_onModelReceived" on-error="_onModelGetFailed" exclude-in-progress></liquid-entity-model-composite-get>       
 
     </template>
     <script>
@@ -67,6 +68,12 @@
                             return {}
                         }
                     },
+                    _attributes: {
+                        type: Object,
+                        value: function () {
+                            return {}
+                        }
+                    },
                     entityReqData: {
                         type: Array,
                         value: function () {
@@ -76,6 +83,18 @@
                     entityType: {
                         type: String,
                         value: ""
+                    },
+                    relationshipRequest: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _relationshipModels: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
                     },
                     gridData: {
                         type: Array,
@@ -142,6 +161,36 @@
                     })
                     this._ids = ids;
                 }
+
+                //composite Model Call
+                this._getCompositeModel()
+            }
+
+            _getCompositeModel() {
+                var entityContextData = DataHelper.cloneObject(this.contextData);
+                entityContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [{
+                    'type': this.contextData.ItemContexts[0].type,
+                    'relationships': [this._relationshipType],
+                }];
+
+                var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(entityContextData);
+                this.set("relationshipRequest", compositeModelGetRequest);
+                var liquidModelGet = this.shadowRoot.querySelector("[name=liquidModelGet]");
+                if (liquidModelGet && compositeModelGetRequest) {
+                    liquidModelGet.generateRequest();
+                }
+
+            }
+
+            _onModelReceived(e) {
+                var itemContext = this.getFirstItemContext();
+                if (e && e.detail && DataHelper.validateGetModelsResponse(e.detail.response)) {
+                    var compositeModel = e.detail.response.content.entityModels[0];
+                    if (DataHelper.isValidObjectPath(compositeModel, 'data.relationships')) {
+                        this._relationshipModels = compositeModel.data.relationships[this._relationshipType];
+                        // this._relationshipModels = DataTransformHelper.transformRelationshipModels(compositeModel, this._entityContextData);
+                    }
+                }
             }
 
             _getRelationshipType() {
@@ -170,14 +219,17 @@
                 gridConfig.schemaType = "simple"
                 gridConfig.advanceSelectionEnabled = false;
                 gridConfig.itemConfig.isMultiSelect = false;
+                gridConfig.itemConfig.selectionEnabled=false;
+                //to disable navigation from compare screen to the entity being displayed
+                delete gridConfig.itemConfig.linkTemplate;
                 this.set('_gridConfig', gridConfig);
 
                 let attributes = this._getEntityAttributes();
+                this._attributes = attributes;
                 this._entityAttributes = [...attributes.relatedEntityAttributes, ...attributes.relationshipAttributes];
                 this._relationshipAttributes = attributes.relationshipAttributes;
                 this._rowsModel = this._getRowModel(componentConfig.config);
                 this.getEntityData();
-                this.getRelationshipAttributes(attributes.relationshipAttributes);
             }
 
             _getEntityAttributes() {
@@ -185,6 +237,8 @@
                 var _relAttrs = [];
                 var fields = this._gridConfig.itemConfig.fields;
                 for (prop in fields) {
+                    //remove link template
+                    delete fields[prop].linkTemplate;
                     if(fields[prop].isRelatedEntityAttribute == true) {
                         _attrs.push(fields[prop].name);
                     } else {
@@ -248,17 +302,128 @@
             _onEntityGetResponse(e, detail) {
                 var data = detail.response.content.entities;
                 this._entityData = data;
+                if(this.entityReqData.isSnapshot) {
+                    this.getRelationshipAttributes(this._attributes.relationshipAttributes);
+                } else {
+                    this._prepareGridColumnData(this._entityData);
+                }
             }
-            _onRelAttrsResponse(e, detail) {
+
+            async snapshotTransformRelationships(entity, relationshipModels, contextData, outputSchema, applySort) {
+                var firstDataContext = ContextHelper.getFirstDataContext(contextData);
+                var firstValueContext = ContextHelper.getFirstValueContext(contextData);
+                var firstItemContext = ContextHelper.getFirstItemContext(contextData);
+                var activeAdditionalCtx;
+                var activePrimaryCtx;
+
+                var mergedRelationships = {};
+
+                var sortedAttributeModels = relationshipModels;
+                if (applySort) {
+                    sortedAttributeModels = this.sortAttributeModels(relationshipModels);
+                }
+
+                if (firstDataContext) {
+                    let dataContexts = [];
+
+                    if (this._isAdditionalContextPresent && this._contextsObj && this._contextsObj.primaryContexts) {
+                        let primaryContext = _.pick(firstDataContext, this._contextsObj.primaryContexts);
+                        dataContexts.push(primaryContext);
+                    }
+                    dataContexts.push(firstDataContext);
+
+
+                    for (let dataContext of dataContexts) {
+                        if (dataContext) {
+                            for (let dataContext of dataContexts) {
+                                var ctxRelationships = SharedUtils.DataObjectFalcorUtil.getRelationshipsByCtx(
+                                    entity, dataContext);
+
+                                if (!_.isEmpty(ctxRelationships)) {
+                                    Object.keys(ctxRelationships).forEach((relName) => {
+                                        mergedRelationships[relName] = DataHelper.cloneObject(
+                                            ctxRelationships[relName]);
+                                    });
+                                }
+                            }
+
+                        }
+                    }
+                
+                    //only tx+cl case 
+                    let contextArray = Object.keys(firstDataContext);
+                    if (contextArray.includes('taxonomy') &&
+                        contextArray.includes('classification') && contextArray.length == 2) {
+                        mergedRelationships = entity.data.relationships;
+                    }
+                } else {
+                    //taking self
+                    mergedRelationships = entity.data.relationships;
+                }
+
+                var outputData = undefined;
+
+                if (outputSchema == "array") {
+                    //manage returns output as array...instead of keyed attributes
+                    outputData = _.map(mergedRelationships, function (value, index) {
+                        return value;
+                    });
+                } else {
+                    outputData = mergedRelationships;
+                }
+
+                return outputData;
+            };
+
+           async _onRelAttrsResponse(e, detail) {
                 if (DataHelper.isValidObjectPath(detail, 'response.content.entities')) {
                     var relAttributeData = detail.response.content.entities;
                 }
-                if (relAttributeData) {
-                    this._updateEntDataAttrsWithRelAttributes(relAttributeData[0].data.relationships[this._relationshipType])
+                //get primary and secondary context
+                if (this._relationshipModels && this._relationshipModels.length) {
+                            var compositeModel = DataHelper.cloneObject(this._relationshipModels[0]);
+                        }
+                        this._contextsObj = await this._getPrimaryAndAdditionalContexts();
+                        if (this._contextsObj) {
+                            if (!_.isEmpty(this._contextsObj.primaryContexts) && this._contextsObj.primaryContexts
+                                .indexOf('self') !== -1) {
+                                this._isAdditionalContextPresent = false;
+                            } else if (!_.isEmpty(this._contextsObj.additionalContexts)) {
+                                this._isAdditionalContextPresent = true;
+                            }
+                        }
+
+                if (!_.isEmpty(relAttributeData)) {
+                       var rels = await this.snapshotTransformRelationships(relAttributeData[0],
+                                this._relationshipModels, this.contextData, this._contextsObj);
+                    this._updateEntDataAttrsWithRelAttributes([rels]);
                     if (!_.isEmpty(this._entityData)) {
-                        this._prepareGridColumnData(this._entityData, relAttributeData);
+                        this._prepareGridColumnData(this._entityData);
                     }
 
+                }
+            }
+
+            async _getPrimaryAndAdditionalContexts() {
+                if (!_.isEmpty(this.contextData)) {
+                    if( DataHelper.isValidObjectPath(this.contextData, 'ItemContexts.0')) {
+                        var entityType = this.contextData.ItemContexts[0].type;
+                    }
+                    if(DataHelper.isValidObjectPath(this.contextData, 'Contexts.0') && entityType) {
+                        var contextModel = await ContextModelManager.getContextModelByEntityTypeAndDataContext(
+                        entityType, this.contextData.Contexts[0]);
+                    }
+                    if (contextModel) {
+                        var additionalContexts = contextModel.properties ? contextModel.properties.additionalcontexts :
+                            undefined;
+                        var primaryContexts = DataTransformHelper.getPrimaryContextKeysFromContextModel(
+                            contextModel, additionalContexts);
+                    }
+                    var mergedContexts = {
+                        "additionalContexts": additionalContexts,
+                        "primaryContexts": primaryContexts
+                    }
+                    return mergedContexts;
                 }
             }
 
@@ -275,7 +440,7 @@
                     }
                 });
             }
-            _prepareGridColumnData(entities, relationshipAttributeData) {
+            _prepareGridColumnData(entities) {
                 var items = [];
                 var rowModel = this._rowsModel;
                 entities.forEach(function (relItem) {
@@ -302,6 +467,9 @@
                                 }
                             }, this);
                         }
+                        //If navigation to displayed entity is needed in future un-comment this and enable linkTemplate in config
+                        // record.id=relItem.id;
+                        // record.type = relItem.type;
                         items.push(record);
                     }
                 })

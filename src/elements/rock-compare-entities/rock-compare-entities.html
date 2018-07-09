@@ -288,6 +288,12 @@
                             return [];
                         }
                     },
+                    _contexts: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
                     _contextsObj: {
                         type: Object,
                         value: function () {
@@ -540,7 +546,8 @@
                         //looping over relationships
                         if (this._isRelationshipsPresent) {
                             Object.keys(relationships).forEach(function (key, index) {
-                                if (relationships[key]) {
+                                //Second condition is to skip the where-used scenario...will be handled in future
+                                if (relationships[key] && relationships[key][0].properties.relationshipOwnership == 'owned') {
                                     var relationship = relationships[key];
                                     if (relationship.length > 0) {
                                         if (this.frozenAttributes.indexOf(key) >= 0) {
@@ -797,6 +804,81 @@
                 return outputData;
             };
 
+            async snapshotTransformRelationships(entity, relationshipModels, contextData, outputSchema, applySort) {
+                var firstDataContext = ContextHelper.getFirstDataContext(contextData);
+                var firstValueContext = ContextHelper.getFirstValueContext(contextData);
+                var firstItemContext = ContextHelper.getFirstItemContext(contextData);
+                var activeAdditionalCtx;
+                var activePrimaryCtx;
+
+                var mergedRelationships = {};
+
+                var sortedAttributeModels = relationshipModels;
+                if (applySort) {
+                    sortedAttributeModels = this.sortAttributeModels(relationshipModels);
+                }
+
+                //second condition added to check for a normal entity.
+                if (firstDataContext) {
+                    let dataContexts = [];
+
+                    if (this._isAdditionalContextPresent && this._contextsObj && this._contextsObj.primaryContexts) {
+                        let primaryContext = _.pick(firstDataContext, this._contextsObj.primaryContexts);
+                        dataContexts.push(primaryContext);
+                    }
+                    dataContexts.push(firstDataContext);
+
+
+                    for (let dataContext of dataContexts) {
+                        if (dataContext) {
+                            for (let dataContext of dataContexts) {
+                                var ctxRelationships = SharedUtils.DataObjectFalcorUtil.getRelationshipsByCtx(
+                                    entity, dataContext);
+
+                                if (!_.isEmpty(ctxRelationships)) {
+                                    Object.keys(ctxRelationships).forEach((relName) => {
+                                        mergedRelationships[relName] = DataHelper.cloneObject(
+                                            ctxRelationships[relName]);
+                                    });
+                                }
+                            }
+
+                        }
+                    }
+                
+                    //only tx+cl case 
+                    let contextArray = Object.keys(firstDataContext);
+                    if (contextArray.includes('taxonomy') &&
+                        contextArray.includes('classification') && contextArray.length == 2) {
+                        mergedRelationships = entity.data.relationships;
+                    }
+                } else {
+                    //taking self
+                    mergedRelationships = entity.data.relationships;
+                }
+                // var transformedRelationships;
+                // if (!_.isEmpty(relationshipModels)) {
+                //     transformedRelationships = await DataTransformHelper._transformAttributes(
+                //         mergedRelationships, sortedAttributeModels, firstValueContext,
+                //         firstDataContext, firstItemContext);
+                // } else {
+                //     transformedRelationships = DataTransformHelper._transformAttributesWithoutModels(
+                //         mergedRelationships, firstValueContext);
+                // }
+
+                var outputData = undefined;
+
+                if (outputSchema == "array") {
+                    //manage returns output as array...instead of keyed attributes
+                    outputData = _.map(mergedRelationships, function (value, index) {
+                        return value;
+                    });
+                } else {
+                    outputData = mergedRelationships;
+                }
+
+                return outputData;
+            };
             //relationships grid column prepare
             async _prepareGridColumnsModelAndDataRelationshipGrid(entities, columnRelationships, itemsRelationships) {
                 if (this._rowsModelRelationships) {
@@ -832,7 +914,8 @@
                             }
                         }
                     }
-                    // var transformedAttrModels = DataTransformHelper.transformAttributeModels(compositeModel, this._contextData);
+                    var transformedRelModels = DataTransformHelper.transformRelationshipModels(compositeModel, this.contextData);
+                    // var transformedRelModels = DataTransformHelper.transformRelationshipAttributeModels(relationshipModels, this._contextData);
                     //Add column for new entity - if compare triggered from entity create.
                     // if (!_.isEmpty(this.compareEntitiesContext) && this.compareEntitiesContext.newEntity) {
                     //     entities.unshift(this.compareEntitiesContext.newEntity);
@@ -856,20 +939,20 @@
                                 }
                                 nonSortedColumns.push(colDetails);
                             }
-                            // var relationships = await this.snapshotTransformAttributes(entity,
-                            //     transformedAttrModels, this._contextData, this._contextsObj);
-                            var rels;
+                            var relationships = await this.snapshotTransformRelationships(entity,
+                            transformedRelModels, this._contextData, this._contextsObj);
+                            var rels = relationships;
                             // this._entities.forEach(function (currentModel) {
 
                             //check to see if the context is self because snapshot get call cannot do context filtering as data is saved iin h-base
-                            if (_.isEmpty(this.contextData.Contexts) &&
-                                (DataHelper.isValidObjectPath(entity, 'data.relationships'))) {
-                                rels = entity.data.relationships;
+                            // if (_.isEmpty(this.contextData.Contexts) &&
+                            //     (DataHelper.isValidObjectPath(entity, 'data.relationships'))) {
+                            //     rels = entity.data.relationships;
 
-                            } else if ((DataHelper.isValidObjectPath(entity,
-                                'data.contexts.0.relationships'))) {
-                                rels = entity.data.contexts[0].relationships;
-                            }
+                            // } else if ((DataHelper.isValidObjectPath(entity,
+                            //     'data.contexts.0.relationships'))) {
+                            //     rels = entity.data.contexts[0].relationships;
+                            // }
                             if (rels && rels[row.name]) {
                                 item[entity.id] = rels[row.name];
                                 item.relationshipModel = this._relationshipModels;
@@ -933,6 +1016,8 @@
                         if(row.hasOwnProperty('isRelationship')) {
                             item.isRelationshipType = true;
                         }
+                        //adding snapshot flag
+                        item.isSnapshot = this.isSnapshot;
                         item["Attributes"] = row.header;
                         item["attributeName"] = row.name;
                         item["isEmpty"] = isEmpty;
@@ -1193,7 +1278,34 @@
                 req.params.fields.attributes = ["_ALL"]
                 return req;
             }
-            _dataGet() {
+
+            async _getPrimaryAndFullContexts() {
+                let dataContexts = [];
+                this._contextsObj = await this._getPrimaryAndAdditionalContexts();
+
+                if (this._contextsObj) {
+                    if (!_.isEmpty(this._contextsObj.primaryContexts) && this._contextsObj.primaryContexts
+                        .indexOf('self') !== -1) {
+                            this._isAdditionalContextPresent = false;
+                    } else if (!_.isEmpty(this._contextsObj.additionalContexts)) {
+                                this._isAdditionalContextPresent = true;
+                    }
+                }
+
+                var firstDataContext = ContextHelper.getFirstDataContext(this.contextData);
+                    if (this._isAdditionalContextPresent && this._contextsObj && this._contextsObj.primaryContexts) {
+                        let primaryContext = _.pick(firstDataContext, this._contextsObj.primaryContexts);
+                        dataContexts.push(primaryContext);
+                    }
+
+                    if(!_.isEmpty(dataContexts)) {
+                        dataContexts.push(firstDataContext);
+                        return dataContexts;
+                    }
+                        return null;
+            }
+
+            async _dataGet() {
                 if (this._contextData) {
                     var onlySnapshotsSelected = true;
                     var firstItemContext = this._contextData[ContextHelper.CONTEXT_TYPE_ITEM] &&
@@ -1206,6 +1318,12 @@
                     ContextHelper.addDefaultValContext(this._contextData);
                     var req = DataRequestHelper.createEntityGetRequest(this._contextData);
 
+                    //getting primary and fullContext
+                    this._contexts = await this._getPrimaryAndFullContexts();
+
+                    if (!this._isAdditionalContextPresent) {
+                        this._contexts = this.contextData.Contexts;
+                    }
                     //adding params to get relationship related data
                     req.params.fields.relationships = ["_ALL"];
 
@@ -1229,6 +1347,9 @@
                             .filters.typesCriterion[0] + "_snapshot";
                         reqSnapshot.params.fields.attributes = ["_ALL"];
                         reqEntity.params.fields.attributes = ["_ALL"];
+
+                        //adding custom context 
+                        reqEntity.params.query.contexts = this._contexts;
                         this.set("_snapshotGetRequest", reqSnapshot);
                         this.set("_entityGetRequest", reqEntity);
                     } else {

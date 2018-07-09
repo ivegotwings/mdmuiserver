@@ -198,6 +198,16 @@
                         value: function() {
                             return [];
                         }
+                    },
+                    _isAdditionalContextPresent: {
+                        type: Boolean,
+                        value: false
+                    },
+                    _contexts: {
+                        type: Array,
+                        value: function() {
+                            return [];
+                        }
                     },                    
                     maximamSnapshotCount:{
                         type:Number,
@@ -217,22 +227,78 @@
                         "name": "published",
                         "header": "Created On"
                     }]
-                var liquidRest = this.shadowRoot.querySelector("#getEntitySnapshots");
-                liquidRest.requestData = this._getEntitySnapshotRequest();
-                liquidRest.requestData.params.options.snapshotGetMode = "all";
-                liquidRest.generateRequest();
+                this._getEntitySnapshotCall();
             }
             _isGridConfigLoaded(){
                 return (this._gridConfig && !_.isEmpty(this._gridConfig))
             }
 
-            _getEntitySnapshotRequest(){
+            async _getPrimaryAndAdditionalContexts() {
+                if (!_.isEmpty(this.contextData)) {
+                    if( DataHelper.isValidObjectPath(this.contextData, 'ItemContexts.0')) {
+                        var entityType = this.contextData.ItemContexts[0].type;
+                    }
+                    if(DataHelper.isValidObjectPath(this.contextData, 'Contexts.0') && entityType) {
+                        var contextModel = await ContextModelManager.getContextModelByEntityTypeAndDataContext(
+                        entityType, this.contextData.Contexts[0]);
+                    }
+                    if (contextModel) {
+                        var additionalContexts = contextModel.properties ? contextModel.properties.additionalcontexts :
+                            undefined;
+                        var primaryContexts = DataTransformHelper.getPrimaryContextKeysFromContextModel(
+                            contextModel, additionalContexts);
+                    }
+                    var mergedContexts = {
+                        "additionalContexts": additionalContexts,
+                        "primaryContexts": primaryContexts
+                    }
+                    return mergedContexts;
+                }
+            }
+
+            async _getPrimaryAndFullContexts() {
+                let dataContexts = [];
+                this._contextsObj = await this._getPrimaryAndAdditionalContexts();
+
+                if (this._contextsObj) {
+                    if (!_.isEmpty(this._contextsObj.primaryContexts) && this._contextsObj.primaryContexts
+                        .indexOf('self') !== -1) {
+                            this._isAdditionalContextPresent = false;
+                    } else if (!_.isEmpty(this._contextsObj.additionalContexts)) {
+                                this._isAdditionalContextPresent = true;
+                    }
+                }
+
+                var firstDataContext = ContextHelper.getFirstDataContext(this.contextData);
+                    if (this._isAdditionalContextPresent && this._contextsObj && this._contextsObj.primaryContexts) {
+                        let primaryContext = _.pick(firstDataContext, this._contextsObj.primaryContexts);
+                        dataContexts.push(primaryContext);
+                    }
+
+                    if(!_.isEmpty(dataContexts)) {
+                        //In snapshot scenario we just want to push the primary context and not the full
+                        // dataContexts.push(firstDataContext);
+                        return dataContexts;
+                    }
+                        return "";
+            }
+
+            async _getEntitySnapshotCall(){
+                var liquidRest = this.shadowRoot.querySelector("#getEntitySnapshots");
                 var contextData = DataHelper.cloneObject(this.contextData);
                 var req = DataRequestHelper.createEntityGetRequest(contextData)
                 
                 req.params.fields.attributes = ["originalObjectId", "originalObjectType", "snapshotLabel", "version"]
                 req.params.fields.properties = ["modifiedDate"];
                 req.params.options.maxRecords = 200;
+                req.params.options.snapshotGetMode = "all";
+                req.params.options.nonContextual = false;
+                this._contexts = await this._getPrimaryAndFullContexts();
+
+                if(!this._isAdditionalContextPresent) {
+                        this._contexts = this.contextData.Contexts;
+                } else if(_.isEmpty(this._contextsObj.additionalContexts)) {this._contexts = [];}
+                req.params.query.contexts = this._contexts;
                 req.params.sort = {
                     "properties": [
                                     {
@@ -241,7 +307,8 @@
                                     }
                                 ]
                 }
-                return req;
+                liquidRest.requestData = req;
+                liquidRest.generateRequest();
             }
 
             _onSnapshotsReponse (ev) {
