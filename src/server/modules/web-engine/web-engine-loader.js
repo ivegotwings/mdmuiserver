@@ -140,6 +140,9 @@ logger.info('Web engine start - binary object service routes are loaded');
 
 app.use(fileUpload());
 
+// Fileupload middleware is resetting the cls session hence we need to reload the contextMgr middleware again
+contextMgrMiddleware(app);
+
 var copRoute = require('../services/cop-service/cop-route');
 copRoute(app);
 
