@@ -122,6 +122,13 @@
                             }
                         },
 
+                        masterVariantsData: {
+                            type: Array,
+                            value: function () {
+                                return [];
+                            }
+                        },
+
                         variantOptionsGridData: {
                             type: Array,
                             value: function () {
@@ -193,7 +200,7 @@
                         copContext: {
                             type: Object,
                             value: function () { return {}; }
-                        }
+                        }                        
                     }
                 }
 
@@ -407,7 +414,10 @@
 
                         if (response.status == "success" && !this.createVariants) {
                             //Display the variants grid
-                            var gridData = await DataTransformHelper.transformEntitiesToVariantGridFormat(response.entities, this._getGridColumns());
+                            this.masterVariantsData = await DataTransformHelper.transformEntitiesToVariantGridFormat(response.entities, this._getGridColumns());
+                            //Display only leaf level entitites
+                            var leafLevelEntity = _.max(this.businessFunctionData.targetEntities, function(targetEntity){ return targetEntity.levelNumber; });
+                            var gridData = this.masterVariantsData[leafLevelEntity.targetEntity];
                             //Show the entities with status new on the top
                             this.variantOptionsGridData = _.sortBy(gridData, 'variantStatus').reverse();
                             this.isVariantOptionsGridReady = true;
@@ -520,23 +530,27 @@
                         } else if (selectedEntities.length <= this.maxThresholdForSyncCreate) {
                             //Create or update entities in sync mode
                             this._currentIndex = selectedEntities.length;
-                            this._currentItems = [];                           
+                            this._currentItems = [];  
+                            let additionalEntities = this._getAdditionalSelectedEntities(selectedEntities);                          
+                            if(!_.isEmpty(additionalEntities)){
+                                selectedEntities = selectedEntities.concat(additionalEntities); 
+                            }
                             for (var i = 0; i < selectedEntities.length; i++) {
                                 //update or create based on requirement
                                 if(selectedEntities[i].orgVariantStatus == "newForContext"){
                                     this._entityDataOperation = "update";
                                 } else {
-                                    this._entityDataOperation = "create";
+                                    this._entityDataOperation = "create";                                   
                                 }
                                 requestData = this._getSyncCreateRequest(selectedEntities[i]);
                                 liquidObj = this.shadowRoot.querySelector("#syncEntityCreate");
                                 liquidObj.requestData = requestData;
                                 liquidObj.generateRequest();
-                            }                           
+                            }
                         } else { 
                             //If all the variants in the grid are selected and no exclusions are there, invoke createVariants api 
                             if(selectedEntities.length == this.businessFunctionData.totalVariantsCount){
-                                this._createVariants();
+                               this._createVariants();
                             } else {
                                 //Invoke cop request to create entities in batch job   
                                 this._onBulkEntityCreate(selectedEntities);      
@@ -546,6 +560,49 @@
                        //Invoke createVariants api 
                        this._createVariants();
                     }                    
+                }
+
+                /**
+                 * Function to get the parent entities of the given selected entities 
+                 * If isBulkEntityCreate is true , return the concatenated set of selected and parent entities
+                 **/ 
+                 _getAdditionalSelectedEntities(selectedEntities, isBulkEntityCreate){
+                    let tempParentEntityList = [];
+                    for (var i = 0; i < selectedEntities.length; i++) {
+                        //Get the parent entities for new variants only, ignore the newForContext
+                        if(selectedEntities[i].orgVariantStatus == "newForContext"){
+                            selectedEntities[i].action = "update";
+                        } else {
+                            selectedEntities[i].action = "create";
+                            //Get Selected Entity's relationships's id and type
+                            let key = Object.keys(selectedEntities[i].data.relationships)[0];
+                            if(key) {
+                                let relToId = selectedEntities[i].data.relationships[key][0].relTo.id;
+                                let relToType = selectedEntities[i].data.relationships[key][0].relTo.type;
+                                //Do not add the root level parent to the tempParentEntityList  
+                                if(relToId == this.businessFunctionData.id){
+                                    continue;
+                                }
+                                //Avoid adding duplicate parent entity
+                                var matchFound = _.find(tempParentEntityList, function(item){ return item.id == relToId; });
+                                //Add the parent entity
+                                if(!matchFound) {
+                                    let parentEntity = DataHelper._findItemByKeyValue(this.masterVariantsData[relToType], "id", relToId);
+                                    parentEntity.action = "create";
+                                    tempParentEntityList.push(parentEntity);
+                                }
+                            }
+                        }
+                    }
+
+                    if(isBulkEntityCreate) {
+                        if(!_.isEmpty(tempParentEntityList)){
+                            selectedEntities = selectedEntities.concat(tempParentEntityList);
+                        }
+                        return selectedEntities;
+                    }
+
+                    return tempParentEntityList;
                 }
 
                 /**
@@ -600,21 +657,13 @@
                 */
                 _onBulkEntityCreate(selectedEntities) {
 
-                    //Update the action as update or create
-                    for (var i = 0; i < selectedEntities.length; i++) {
-                        if(selectedEntities[i].orgVariantStatus == "newForContext"){
-                            selectedEntities[i].action = "update";
-                        } else {
-                            selectedEntities[i].action = "create";
-                        }
-                    }
-
+                   
                     var formData = new FormData();
                     var req = DataRequestHelper.createImportRequest({}, this.copContext);
                     this._taskId = DataHelper.generateUUID();
                     req.dataObject.properties.workAutomationId = this._taskId;                   
-                    req["userId"] = DataHelper.getUserId();;
-                    req["JSONData"] = selectedEntities;
+                    req["userId"] = DataHelper.getUserId();
+                    req["JSONData"] = this._getAdditionalSelectedEntities(selectedEntities,true);  
                     formData.append("requestData", JSON.stringify(req));
                    
                     var xhr = new XMLHttpRequest();
@@ -635,7 +684,7 @@
 
                         }
                     }.bind(this);                    
-                    
+                                        
                     xhr.send(formData);
                 }    
                 
