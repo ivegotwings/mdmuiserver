@@ -96,6 +96,22 @@
                             return {};
                         }
                     },
+                    _contextsObj: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _contexts: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _isAdditionalContextPresent: {
+                        type: Boolean,
+                        value: false
+                    },
                     gridData: {
                         type: Array,
                         value: function () {
@@ -289,10 +305,64 @@
                 liqDataElement.generateRequest();
             }
 
+            async _getPrimaryAndFullContexts() {
+                let dataContexts = [];
+                this._contextsObj = await this._getPrimaryAndAdditionalContexts();
+
+                if (this._contextsObj) {
+                    if (!_.isEmpty(this._contextsObj.primaryContexts) && this._contextsObj.primaryContexts
+                        .indexOf('self') !== -1) {
+                            this._isAdditionalContextPresent = false;
+                    } else if (!_.isEmpty(this._contextsObj.additionalContexts)) {
+                                this._isAdditionalContextPresent = true;
+                    }
+                }
+
+                var firstDataContext = ContextHelper.getFirstDataContext(this.contextData);
+                    if (this._isAdditionalContextPresent && this._contextsObj && this._contextsObj.primaryContexts) {
+                        let primaryContext = _.pick(firstDataContext, this._contextsObj.primaryContexts);
+                        dataContexts.push(primaryContext);
+                    }
+
+                    if(!_.isEmpty(dataContexts)) {
+                        dataContexts.push(firstDataContext);
+                        return dataContexts;
+                    }
+                        return null;
+            }
+
+            async _getPrimaryAndAdditionalContexts() {
+                if (!_.isEmpty(this.contextData)) {
+                    if( DataHelper.isValidObjectPath(this.contextData, 'ItemContexts.0')) {
+                        var entityType = this.contextData.ItemContexts[0].type;
+                    }
+                    if(DataHelper.isValidObjectPath(this.contextData, 'Contexts.0') && entityType) {
+                        var contextModel = await ContextModelManager.getContextModelByEntityTypeAndDataContext(
+                        entityType, this.contextData.Contexts[0]);
+                    }
+                    if (contextModel) {
+                        var additionalContexts = contextModel.properties ? contextModel.properties.additionalcontexts :
+                            undefined;
+                        var primaryContexts = DataTransformHelper.getPrimaryContextKeysFromContextModel(
+                            contextModel, additionalContexts);
+                    }
+                    var mergedContexts = {
+                        "additionalContexts": additionalContexts,
+                        "primaryContexts": primaryContexts
+                    }
+                    return mergedContexts;
+                }
+            }
+
             //call to get the relationshipAttributes like order and isPrimary.
-            getRelationshipAttributes(relationshipAttributes) {
+           async getRelationshipAttributes(relationshipAttributes) {
                 var req = DataRequestHelper.createEntityGetRequest(this.contextData);
                 var liqDataElement = this.shadowRoot.querySelector("#getRelAttributes");
+                this._contexts = await this._getPrimaryAndFullContexts();
+
+                if(this._isAdditionalContextPresent && this._contexts.length ==2) {
+                    req.params.query.contexts = this._contexts;
+                }
                 req.params.query.id = this.contextData.ItemContexts[0].id;
                 req.params.fields.relationships = [this._relationshipType];
                 req.params.fields.relationshipAttributes = relationshipAttributes;
@@ -311,8 +381,6 @@
 
             async snapshotTransformRelationships(entity, relationshipModels, contextData, outputSchema, applySort) {
                 var firstDataContext = ContextHelper.getFirstDataContext(contextData);
-                var firstValueContext = ContextHelper.getFirstValueContext(contextData);
-                var firstItemContext = ContextHelper.getFirstItemContext(contextData);
                 var activeAdditionalCtx;
                 var activePrimaryCtx;
 
@@ -329,13 +397,14 @@
                     if (this._isAdditionalContextPresent && this._contextsObj && this._contextsObj.primaryContexts) {
                         let primaryContext = _.pick(firstDataContext, this._contextsObj.primaryContexts);
                         dataContexts.push(primaryContext);
+                    } else if (!_.isEmpty(this._contextsObj.primaryContexts) && this._contextsObj.primaryContexts[0]=="self") {
+                        mergedRelationships = entity.data.relationships; 
                     }
                     dataContexts.push(firstDataContext);
 
 
                     for (let dataContext of dataContexts) {
                         if (dataContext) {
-                            for (let dataContext of dataContexts) {
                                 var ctxRelationships = SharedUtils.DataObjectFalcorUtil.getRelationshipsByCtx(
                                     entity, dataContext);
 
@@ -345,17 +414,10 @@
                                             ctxRelationships[relName]);
                                     });
                                 }
-                            }
 
                         }
                     }
-                
-                    //only tx+cl case 
-                    let contextArray = Object.keys(firstDataContext);
-                    if (contextArray.includes('taxonomy') &&
-                        contextArray.includes('classification') && contextArray.length == 2) {
-                        mergedRelationships = entity.data.relationships;
-                    }
+
                 } else {
                     //taking self
                     mergedRelationships = entity.data.relationships;
@@ -396,7 +458,7 @@
                 if (!_.isEmpty(relAttributeData)) {
                        var rels = await this.snapshotTransformRelationships(relAttributeData[0],
                                 this._relationshipModels, this.contextData, this._contextsObj);
-                    this._updateEntDataAttrsWithRelAttributes([rels]);
+                    this._updateEntDataAttrsWithRelAttributes(rels);
                     if (!_.isEmpty(this._entityData)) {
                         this._prepareGridColumnData(this._entityData);
                     }
@@ -429,7 +491,7 @@
 
 //updating _entityData to have relationshiAttributes and it's values. This is then directly used to prepare grid
             _updateEntDataAttrsWithRelAttributes(relationshipAttributes) {
-                relationshipAttributes.forEach(elm=> {
+                relationshipAttributes[this._relationshipType].forEach(elm=> {
                     if(!_.isEmpty(elm.attributes)) {
                         this._entityData.forEach(entity=> {
                             if(elm.id.includes(entity.id)) {
