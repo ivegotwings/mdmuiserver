@@ -35,6 +35,9 @@ BaseModelService.prototype = {
                 case "relationshipModel":
                     response = await this._getRelationshipModels(request);
                     break;
+                case "classification":
+                    response = await this._getClassifications(request);
+                    break;
             }
         }
 
@@ -218,10 +221,10 @@ BaseModelService.prototype = {
                             let attrEntities = childAttributeRels.map(v => v.relTo.id.replace("_" + relEntityType, ""));
 
                             if (attrEntities) {
-                                if(falcorUtil.isValidObjectPath(existingAttrModel, "properties.childAttributes")) {
+                                if (falcorUtil.isValidObjectPath(existingAttrModel, "properties.childAttributes")) {
                                     properties.childAttributes = existingAttrModel.properties.childAttributes;
-                                    if(_.isArray(attrEntities)) {
-                                        for(let attrEntity of attrEntities) {
+                                    if (_.isArray(attrEntities)) {
+                                        for (let attrEntity of attrEntities) {
                                             properties.childAttributes.push(attrEntity);
                                         }
                                     } else {
@@ -573,6 +576,53 @@ BaseModelService.prototype = {
         return transformedModel;
     },
 
+    _getClassifications: async function (request) {
+        let response, classficaitons;
+
+        // get classification entities
+        response = await this.post("entityservice/get", request);
+        logger.debug("CLASSIFICATION_ENTITIES", { entitiesResponse: response }, "modelService");
+
+        if (falcorUtil.isValidObjectPath(request, "params.fields.relationships") && falcorUtil.isValidObjectPath(response, "response.entities")) {
+            if (request.params.fields.relationships.indexOf("_ALL") > -1 || request.params.fields.relationships.indexOf("hasclassificationattributes") > -1) {
+                let classificationId = falcorUtil.isValidObjectPath(request, "params.query.id") ? request.params.query.id : "";
+                if (!isEmpty(classificationId)) {
+                    let classificationEntity = response.response.entities.find(v => v.id == classificationId);
+
+                    if (classificationEntity) {
+                        // get classification model "<classification name>_entityCompositeModel"
+                        let classificationModel = await modelGetManager.getCompositeModel(classificationId);
+                        logger.debug("CLASSIFICATION_ENTITY_COMPOSITE_MODEL", { compositeClassificationModel: classificationModel }, "modelService");
+
+                        // get composite model of classification model "classificationModel"
+                        let compositeClassificationModel = await modelGetManager.getCompositeModel("classification");
+                        logger.debug("CLASSIFICATION_COMPOSITE_MODEL", { compositeClassificationModel: compositeClassificationModel }, "modelService");
+
+                        // transform classificaiton models into entities based on composite classification model.
+                        if (classificationModel && compositeClassificationModel) {
+                            let transformedClassificaitonModel = this._transformCompositeModelObjectToCompositeModelEntity(compositeClassificationModel, [classificationModel]);
+
+                            if (falcorUtil.isValidObjectPath(transformedClassificaitonModel, "0.data.relationships.hasclassificationattributes")) {
+
+                                if (!classificationEntity.data) {
+                                    classificationEntity.data = {};
+                                }
+
+                                if (!classificationEntity.data.relationships) {
+                                    classificationEntity.data.relationships = {};
+                                }
+
+                                classificationEntity.data.relationships["hasclassificationattributes"] = transformedClassificaitonModel[0].data.relationships["hasclassificationattributes"];
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return response;
+    },
+
     _deleteModel: async function (request, dataObjectType) {
         let dataOperationResults = [], dataOperationResult, modelId;
 
@@ -752,6 +802,7 @@ BaseModelService.prototype = {
                 if (!isEmpty(relModel)) {
                     switch (rel.toLowerCase()) {
                         case "hasattributes":
+                        case "hasclassificationattributes":
                         case "haschildattributes":
                         case "hasrelationshipattributes":
                             if (attrAndRelModels.attributes) {
