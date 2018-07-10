@@ -8,6 +8,7 @@
 <link rel="import" href="../bedrock-helpers/component-helper.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 
 <link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
 <link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
@@ -153,7 +154,7 @@
             on-error="_onCompositeModelGetError"></liquid-entity-model-composite-get>
         <liquid-entity-model-get id="getRelDomains" operation="getbyids" on-response="_onRelModelsReceived" on-error="_onModelGetFailed"></liquid-entity-model-get>
         <liquid-entity-model-get id="getEntityDomain" operation="getbyids" on-response="_onDomainReceived" on-error="_onDomainGetFailed"></liquid-entity-model-get>
-        <liquid-entity-data-get id="getEntity" operation="getbyids" data-index="entityData" data-sub-index="data" on-response="_onEntityGetResponse"></liquid-entity-data-get>
+        <liquid-entity-data-get id="getEntity" operation="getbyids" data-index="entityData" data-sub-index="data" on-response="_onEntityGetResponse" on-error="_onEntityGetFailed"></liquid-entity-data-get>
 
     </template>
     <script>
@@ -267,6 +268,7 @@
                 },
                 behaviors: [
                     RUFBehaviors.AppBehavior,
+                    RUFBehaviors.UIBehavior,
                     RUFBehaviors.ComponentContextBehavior,
                     RUFBehaviors.ComponentConfigBehavior
                 ],
@@ -351,6 +353,9 @@
                     if (responseContent && responseContent.entityModels && responseContent.entityModels
                         .length > 0) {
                         this.domain = responseContent.entityModels[0].domain;
+                    } else {
+                        var contentDiv = this.shadowRoot.querySelector("[class='content']");
+                        this.logError("app-entity-manage - Domain get response error", e.detail, true, contentDiv);
                     }
                     if (this.domain) {
                         this.contextData[ContextHelper.CONTEXT_TYPE_DOMAIN] = [{
@@ -401,7 +406,15 @@
                         this.contextData = {};
                         this.set("contextData", contextData);
                         this._entityReceived = true;
+                    } else {
+                        var contentDiv = this.shadowRoot.querySelector("[class='content']");
+                        this.logError("app-entity-manage - Entity get response error", e.detail, true, contentDiv);
                     }
+                },
+
+                _onEntityGetFailed: function () {
+                    var contentDiv = this.shadowRoot.querySelector("[class='content']");
+                    this.logError("app-entity-manage - Entity get response exception", e.detail, true, contentDiv);
                 },
 
                 _componentsReceived: function () {
@@ -414,7 +427,8 @@
                  * Function to handle error during domain get
                  */
                 _onDomainGetFailed: function () {
-                    this.showErrorToast("Unable to fetch domain. Please contact administrator.");
+                    var contentDiv = this.shadowRoot.querySelector("[class='content']");
+                    this.logError("app-entity-manage - Domain get response exception", e.detail, true, contentDiv);
                 },
 
                 get dimensionSelector() {
@@ -572,6 +586,7 @@
                     }
 
                     if(!taxonomy) {
+                        this.logError("Taxonomy is not available for the process", e.detail);
                         this.showErrorToast("Taxonomy is not available for the process, please contact administrator");
                         return;
                     }
@@ -731,30 +746,34 @@
                             this.readonly = true;
                             this.showSuccessToast(
                                 "Entity delete request submitted successfully");
-                        } else if (response.status == "error") {
-                            var messageCode;
-                            if (response.statusDetail && response.statusDetail.messages &&
-                                response.statusDetail
-                                .messages.length > 0) {
-                                var message = response.statusDetail.messages[0];
-                                if (message) {
-                                    messageCode = message.messageCode;
+                        } else {
+                            if (response.status == "error") {
+                                var messageCode;
+                                if (response.statusDetail && response.statusDetail.messages &&
+                                    response.statusDetail
+                                    .messages.length > 0) {
+                                    var message = response.statusDetail.messages[0];
+                                    if (message) {
+                                        messageCode = message.messageCode;
+                                    }
                                 }
-                            }
 
-                            if (messageCode == "PD001") {
-                                this.showErrorToast(
-                                    "You do not have permission to delete an entity!");
+                                if (messageCode == "PD001") {
+                                    this.showErrorToast(
+                                        "You do not have permission to delete an entity!");
+                                } else {
+                                    this.showErrorToast("Failed to perform delete on the entity");
+                                }
                             } else {
                                 this.showErrorToast("Failed to perform delete on the entity");
                             }
-                        } else {
-                            this.showErrorToast("Failed to perform delete on the entity");
+                            this.logError("Failed to perform delete on the entity", e.detail);
                         }
                     }
                 },
                 _deleteFailure: function (e) {
                     //console.warn("Failed to perform delete with error: ", e.detail);
+                    this.logError("Failed to perform delete on the entity", e.detail);
                     this.showErrorToast("Failed to perform delete on the entity");
                 },
                 _cutEvent: function (e, detail, sender) {
@@ -798,6 +817,7 @@
                     }, sharedData);
                 },
                 _onCOPDownloadFailure: function (e) {
+                    this.logError("Failed to download entity data", e.detail);
                     this.showErrorToast(
                         "Failed to download entity data. Please contact administrator.");
                     this._loading = false;
@@ -823,6 +843,7 @@
                             this.showErrorToast(
                                 "Relationships are not configured for this action. Please contact administrator."
                             );
+                            this.logError("Relationships are not configured for this action", detail);
                             return;
                         }
                     } else if (detail.type == "manageAttributes") {
@@ -840,6 +861,7 @@
                                 this.showErrorToast(
                                     "Attributes are not configured for this action. Please contact administrator."
                                 );
+                                this.logError("Attributes are not configured for this action", detail);
                             }
                         }
                     } else if (detail.type == "manageRelationships") {
@@ -849,6 +871,7 @@
                             this.showErrorToast(
                                 "Relationships are not configured for this action. Please contact administrator."
                             );
+                            this.logError("Relationships are not configured for this action", detail);
                             return;
                         }
                     }
@@ -907,6 +930,7 @@
                     } else {
                         this.showErrorToast(
                             "Relationship model missing. Please contact administrator.");
+                        this.logError("Link Assets - Composite model get response error", detail);
                     }
                 },
                 _triggerManageAttributes: function () {
@@ -960,6 +984,7 @@
                     } else {
                         this.showErrorToast(
                             "Attributes not available. Please contact administrator.");
+                        this.logError("Manage Attributes - Composite model get response error", detail);
                     }
                 },
                 _triggerManageRelationships: function (relationshipTypeName) {
@@ -987,11 +1012,17 @@
                         if (models && models.length > 0) {
                             this._openManageRelationshipsDialog(models[0]);
                         }
+                    } else {
+                        this.logError("Manage Relationships - relationship model get response error", detail);
                     }
+                },
+                _onModelGetFailed: function(e) {
+                    this.logError("Manage Relationships - relationship model get response error", e.detail);
                 },
                 _onCompositeModelGetError: function (e, detail) {
                     this.showErrorToast(
                         "Unable to perform the action now. Please contact administrator.");
+                    this.logError("Composite model get exception", e.detail);
                 },
                 _openLinkAssetsDialog: function (relationshipDetails) {
                     const {
@@ -1173,13 +1204,12 @@
                             if (retryCount < 50) {
                                 this._loadDetailTabs(++retryCount);
                             } else {
-                                console.warn(
-                                    "The details tab did not load for entity id " +
-                                    this._entityId + " with entity type " + this._entityType
-                                );
                                 this.showWarningToast(
                                     "Please click on the refresh button to reload the details tab"
                                 );
+                                var contentDiv = this.shadowRoot.querySelector("[class='content']");
+                                this.logError("app-entity-manage - The details tab did not load for entity id " +
+                                    this._entityId + " with entity type " + this._entityType, {}, true, contentDiv);
                             }
                         } else {
                             this._debouncer = Polymer.Debouncer.debounce(this._debouncer,
