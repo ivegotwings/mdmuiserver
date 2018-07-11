@@ -155,7 +155,7 @@ BaseModelService.prototype = {
                         entity.data.relationships = {};
                         let entityRelationships = entity.data.relationships[relType] = [];
 
-                        let childEntityIds = _.isArray(model.properties.childAttributes) ? model.properties.childAttributes.map(v => v = v + "_" + model.type) : undefined;
+                        let childEntityIds = _.isArray(model.properties.childAttributes) ? model.properties.childAttributes.map(v => v = v + "_" + model.type) : [model.properties.childAttributes + "_" + model.type];
 
                         if (childEntityIds) {
                             let childEntities = await modelGetManager.getModels(childEntityIds, model.type);
@@ -224,16 +224,14 @@ BaseModelService.prototype = {
 
                             if (attrEntities) {
                                 if (falcorUtil.isValidObjectPath(existingAttrModel, "properties.childAttributes")) {
-                                    properties.childAttributes = existingAttrModel.properties.childAttributes;
-                                    if (_.isArray(attrEntities)) {
-                                        for (let attrEntity of attrEntities) {
+                                    properties.childAttributes = _.isArray(existingAttrModel.properties.childAttributes) ? existingAttrModel.properties.childAttributes : [existingAttrModel.properties.childAttributes];
+                                    for (let attrEntity of attrEntities) {
+                                        if(properties.childAttributes.indexOf(attrEntity) < 0) {
                                             properties.childAttributes.push(attrEntity);
                                         }
-                                    } else {
-                                        properties.childAttributes.push(attrEntities);
                                     }
                                 } else {
-                                    properties.childAttributes = _.isArray(attrEntities) ? attrEntities : [attrEntities];
+                                    properties.childAttributes = attrEntities;
                                 }
                             }
                         }
@@ -672,8 +670,8 @@ BaseModelService.prototype = {
                 }
             }
 
-            if(entityIdentifierAttrName) {
-                if(falcorUtil.isValidObjectPath(request, "entity.data.attributes." + entityIdentifierAttrName)) {
+            if (entityIdentifierAttrName) {
+                if (falcorUtil.isValidObjectPath(request, "entity.data.attributes." + entityIdentifierAttrName)) {
                     request.entity.id = this._getAttributeValue(request.entity.data.attributes[entityIdentifierAttrName]);
                 }
             }
