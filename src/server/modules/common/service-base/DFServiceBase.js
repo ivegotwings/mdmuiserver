@@ -170,7 +170,8 @@ var DFServiceBase = function (options) {
                 "x-rdp-userid": userId.indexOf("_user") < 0 ? userId + "_user" : userId,
                 "x-rdp-username": secHeaders.userName,
                 "x-rdp-useremail": secHeaders.userEmail,
-                "x-rdp-userroles": JSON.stringify(userRoles)
+                "x-rdp-userroles": JSON.stringify(userRoles),
+                "x-rdp-defaultrole": secHeaders.defaultRole
             };  
         }
 
