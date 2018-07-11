@@ -986,7 +986,7 @@ Eventservice.prototype = {
         }
         
         //Generate details get request...
-        var totalRecords = (taskDetails && taskDetails.totalRecords) ? taskDetails.totalRecords : 200;
+        var totalRecords = (taskDetails.totalRecords == "N/A") ? 200 : taskDetails.totalRecords;
         var taskDetailsGetRequest = this._generateTaskDetailsGetReq(taskId, isBulkWorkflowTask, totalRecords);
         
         //console.log('Task details get request to RDF', JSON.stringify(taskDetailsGetRequest));
