@@ -171,7 +171,7 @@ var DFServiceBase = function (options) {
                 "x-rdp-username": secHeaders.userName || "",
                 "x-rdp-useremail": secHeaders.userEmail || "",
                 "x-rdp-userroles": JSON.stringify(userRoles),
-                "x-rdp-defaultrole": secHeaders.defaultRole
+                "x-rdp-defaultrole": secHeaders.defaultRole || ""
             };  
         }
 
