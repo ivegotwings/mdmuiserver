@@ -984,9 +984,10 @@ Eventservice.prototype = {
         if(taskDetails.taskType.toLowerCase().indexOf("workflow") >= 0) {
             isBulkWorkflowTask = true;
         }
-
+        
         //Generate details get request...
-        var taskDetailsGetRequest = this._generateTaskDetailsGetReq(taskId, isBulkWorkflowTask, taskDetails.totalRecords);
+        var totalRecords = (taskDetails && taskDetails.totalRecords) ? taskDetails.totalRecords : 200;
+        var taskDetailsGetRequest = this._generateTaskDetailsGetReq(taskId, isBulkWorkflowTask, totalRecords);
         
         //console.log('Task details get request to RDF', JSON.stringify(taskDetailsGetRequest));
         var taskDetailsGetUrl = 'requesttrackingservice/get';
