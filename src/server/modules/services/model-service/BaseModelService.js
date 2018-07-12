@@ -226,7 +226,7 @@ BaseModelService.prototype = {
                                 if (falcorUtil.isValidObjectPath(existingAttrModel, "properties.childAttributes")) {
                                     properties.childAttributes = _.isArray(existingAttrModel.properties.childAttributes) ? existingAttrModel.properties.childAttributes : [existingAttrModel.properties.childAttributes];
                                     for (let attrEntity of attrEntities) {
-                                        if(properties.childAttributes.indexOf(attrEntity) < 0) {
+                                        if (properties.childAttributes.indexOf(attrEntity) < 0) {
                                             properties.childAttributes.push(attrEntity);
                                         }
                                     }
@@ -631,28 +631,53 @@ BaseModelService.prototype = {
         logger.debug("CLASSIFICATION_COMPOSITE_MODEL", { compositeClassificationModel: compositeClassificationModel }, "modelService");
 
         if (compositeClassificationModel && falcorUtil.isValidObjectPath(request, "entity.data.relationships.hasclassificationattributes")) {
-            let clonedRequest = falcorUtil.cloneObject(request);
-            delete request.entity.data.relationships["hasclassificationattributes"];
+            let classificationId = falcorUtil.isValidObjectPath(request, "entity.id") ? request.entity.id : undefined;
 
-            // get composite model of entity type model "attributeModel"
-            let compositeAttributeModel = await modelGetManager.getCompositeModel("attributeModel");
-            logger.debug("BASE_MODEL_COMPOSITE_ATTRIBUTE_MODEL", { compositeAttributeModel: compositeAttributeModel }, "modelService");
+            if (classificationId) {
+                let clonedRequest = falcorUtil.cloneObject(request);
+                delete request.entity.data.relationships["hasclassificationattributes"];
 
-            if (compositeAttributeModel) {
-                let compositeModels;
-                let transformedModel = await this._transformCompositeModelForSave(compositeClassificationModel, clonedRequest.entity);
+                // Composite Model save for classification should have classificaiton name for coalesce.
+                // request.entity doesn't have name. So for now we have to do get call of classification entity and need to fetch name from classfication entity.
+                let classificationRequest = {
+                    "params": {
+                        "query": {
+                            "id": classificationId,
+                            "filters": {
+                                "typesCriterion": [
+                                    "classification"
+                                ]
+                            }
+                        }
+                    }
+                };
 
-                if (transformedModel) {
-                    compositeModels = this._prepareCompositeModels(transformedModel, compositeAttributeModel, clonedRequest.entity, true);
-                }
+                let existingClassifications = await this.post("entityservice/get", classificationRequest);
 
-                delete clonedRequest.entity;
-                clonedRequest.dataIndex = "entityModel"
-                if (!isEmpty(compositeModels)) {
-                    for (let compositeModel of compositeModels) {
-                        clonedRequest[clonedRequest.dataIndex] = compositeModel;
-                        let dataOperationResult = await dataObjectManageService.process(clonedRequest, action);
-                        dataOperationResults.push(dataOperationResult);
+                if (falcorUtil.isValidObjectPath(existingClassifications, "response.entities.0")) {
+                    clonedRequest.entity.name = existingClassifications.response.entities[0].name;
+
+                    // get composite model of entity type model "attributeModel"
+                    let compositeAttributeModel = await modelGetManager.getCompositeModel("attributeModel");
+                    logger.debug("BASE_MODEL_COMPOSITE_ATTRIBUTE_MODEL", { compositeAttributeModel: compositeAttributeModel }, "modelService");
+
+                    if (compositeAttributeModel) {
+                        let compositeModels;
+                        let transformedModel = await this._transformCompositeModelForSave(compositeClassificationModel, clonedRequest.entity);
+
+                        if (transformedModel) {
+                            compositeModels = this._prepareCompositeModels(transformedModel, compositeAttributeModel, clonedRequest.entity, true);
+                        }
+
+                        delete clonedRequest.entity;
+                        clonedRequest.dataIndex = "entityModel"
+                        if (!isEmpty(compositeModels)) {
+                            for (let compositeModel of compositeModels) {
+                                clonedRequest[clonedRequest.dataIndex] = compositeModel;
+                                let dataOperationResult = await dataObjectManageService.process(clonedRequest, action);
+                                dataOperationResults.push(dataOperationResult);
+                            }
+                        }
                     }
                 }
             }
@@ -1085,7 +1110,7 @@ BaseModelService.prototype = {
                 let id = isIdEntityIdentifier ? entityTypeModel.id + "_" + compModel : attributeModels.name ? (attributeModels.name + "_" + compModel) : entityTypeModel.id
                 let compositeModel = {
                     "id": id,
-                    "name": entityTypeModel.name,
+                    "name": entityTypeModel.name ? entityTypeModel.name : attributeModels.name,
                     "type": compModel,
                     "domain": "generic",
                     "data": {}
