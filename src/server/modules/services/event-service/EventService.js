@@ -984,9 +984,10 @@ Eventservice.prototype = {
         if(taskDetails.taskType.toLowerCase().indexOf("workflow") >= 0) {
             isBulkWorkflowTask = true;
         }
-
+        
         //Generate details get request...
-        var taskDetailsGetRequest = this._generateTaskDetailsGetReq(taskId, isBulkWorkflowTask, taskDetails.totalRecords);
+        var totalRecords = (taskDetails.totalRecords == "N/A") ? 200 : taskDetails.totalRecords;
+        var taskDetailsGetRequest = this._generateTaskDetailsGetReq(taskId, isBulkWorkflowTask, totalRecords);
         
         //console.log('Task details get request to RDF', JSON.stringify(taskDetailsGetRequest));
         var taskDetailsGetUrl = 'requesttrackingservice/get';
@@ -1394,7 +1395,7 @@ Eventservice.prototype = {
                 case "process":
                 case "process-query":
                 case "process-multi-query":
-                case "createVariants":                
+                case "createvariants":                
                     taskType = "Bulk Create/Edit";
                     break;
                 case "delete":

@@ -170,7 +170,7 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
             //var valCtxItem = { 'source': CONST_ANY, 'locale': CONST_ANY }; //TODO: How to find out val contexts keys from the flat list of values object..??
 
             var valCtxItems = {};
-            if(reqData.dataIndex === "entityModel") {
+            if(reqData.dataIndex === "entityModel" && reqData.valCtxKeys) {
                 for(let valCtxKey of reqData.valCtxKeys) {
                     var valCtxItem = falcorUtil.getOrCreate(valCtxItems, valCtxKey, {});
                     var group = falcorUtil.getOrCreate(valCtxItem, 'group', []);

@@ -25,6 +25,11 @@ var COPRouter = function (app) {
         //console.log('cop response:', JSON.stringify(response, null, 2));
         res.status(200).send(response);
     });
+    app.post('/data/cop/processJSON', async function (req, res) {
+        var response = await copService.processJSON(req);
+        //console.log('cop response:', JSON.stringify(response, null, 2));
+        res.status(200).send(response);
+    });
     app.post('/data/cop/downloadModelExcel', async function (req, res) {
         copService.downloadModelExcel(req, res);
     });

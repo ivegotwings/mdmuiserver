@@ -176,6 +176,11 @@
                     value: function() {
                         return [];
                     }
+                },
+                isModelGetInitiated: {
+                    type: Boolean,
+                    value: false,
+                    notify: true
                 }
             },
 
@@ -246,6 +251,7 @@
                         };
                         this.requestData = undefined;
                         this.requestData = modelGetRequest;
+                        this.isModelGetInitiated = true;
                     } else {
                         var contextData = DataHelper.cloneObject(this.contextData);
                         if (this.contextData.ItemContexts) {
@@ -273,6 +279,10 @@
                                 this.set('requestData', compositeModelGetRequest);
                                 this.reTriggerRequest();
                             }
+                            this.isModelGetInitiated = true;
+                        } else {
+                            //ItemContext not available to fetch the attribute models
+                            this.isModelGetInitiated = false;
                         }
                     }
                 }
@@ -297,19 +307,21 @@
 
             _getAttributeFormattedDataForCompositeModel: function (data, requestData) {
                 if (data && data.content && data.content.entityModels) {
-                    var atributeModels = DataTransformHelper.transformAttributeModels(data.content.entityModels[0], this.contextData);
-                    if (atributeModels) {
+                    var attributeModels = DataTransformHelper.transformAttributeModels(data.content.entityModels[0], this.contextData);
+                    if (!_.isEmpty(attributeModels)) {
                         if (this._currentIndex == 1) {
                             this._currentItems = [];
                         }
-                        this.push('_currentItems', DataTransformHelper.transformAtributeModelsToLovSchema(atributeModels, this._lovColumnNameValueCollection));
+                        this.push('_currentItems', DataTransformHelper.transformAtributeModelsToLovSchema(attributeModels, this._lovColumnNameValueCollection));
 
-                        if ((!atributeModels || _.isEmpty(atributeModels)) && requestData) {
+                        if ((!attributeModels || _.isEmpty(attributeModels)) && DataHelper.isValidObjectPath(requestData, "params.query.name")) {
                             this._notFoundEntityTypes.push(requestData.params.query.name);
                         }
                     }
                 
-                    if (this._currentItems.length == this._currentIndex) {
+                    var responseLength = this._currentItems.length + this._notFoundEntityTypes.length;
+
+                    if (responseLength == this._currentIndex) {
                         var currentItems = this._currentItems;
                         currentItems = currentItems.reduce(function (array1, array2) {
                             return array1.concat(array2);
@@ -357,8 +369,8 @@
                         this.set("items",filteredCurrentItems);
                         if (this._notFoundEntityTypes && this._notFoundEntityTypes.length) {
                             var messageContent = this._notFoundEntityTypes.join(", ");
-                            console.warn("Attribute models not found for entity type(s) " + messageContent)
-                            // this.showErrorToast("Attribute models not found for entity type(s) " + messageContent + ". Please contact administrator.");
+                            this.logError("rock-attribute-model-lov - Attribute models not found for entity type(s) " + messageContent)
+                            this.showErrorToast("Attribute models not found for entity type(s) " + messageContent + ". Please contact administrator.");
                         }
                     }
                 }

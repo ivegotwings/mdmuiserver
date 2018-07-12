@@ -39,7 +39,7 @@
                 position: relative;
                 display: block;
                 width: 100%;
-                padding-top:10px;
+                padding:10px 10px 0 10px;
                 margin-bottom:5px;
             }
 
@@ -49,7 +49,7 @@
 
             .search-container .resetsearch {
                 position: absolute;
-                right: 0;
+                right: 10px;
                 bottom: -12px;
                 font-size: var(--font-size-xs, 10px);
                 color: var(--link-text-color, #036Bc3);
@@ -73,7 +73,8 @@
         </style>
         <liquid-entity-data-get id="lineagepath" operation="getbyids" request-data="{{lineagerequest}}" on-error="_onLineagePathError"
             on-response="_onLineagePathResponse" exclude-in-progress></liquid-entity-data-get>
-
+        <liquid-entity-data-get id="rootNodeGet" operation="getbyids" request-data="{{_rootNodeGetRequest}}" on-error="_onLineagePathError"
+            on-response="_onRootNodeGetResponse" exclude-in-progress></liquid-entity-data-get>
         <liquid-entity-data-get id="initiateSearch" operation="initiatesearch" request-data="{{request}}" last-response="{{initiateSearchResponse}}"
             on-error="_onGetSearchError" on-response="_onInitiateSearchResponse" exclude-in-progress></liquid-entity-data-get>
         <liquid-entity-data-get id="getSearchResultDetail" operation="getsearchresultdetail" request-data="{{request}}" request-id="[[initiateSearchResponse.content.requestId]]"
@@ -95,7 +96,7 @@
             <div class="base-grid-structure-child-2">
                 <pebble-tree id="contextTree" class="contextTree" leaf-node-only="[[leafNodeOnly]]" data="{{classifications}}" check-child-nodes
                     default-child-depth="10" selected-items="{{_selectedItems}}" selected-item="{{_selectedItem}}" multi-select="[[multiSelect]]"
-                    disable-child-node="[[disableChildNode]]"></pebble-tree>
+                    disable-child-node="[[disableChildNode]]" hide-leaf-node-checkbox="[[hideLeafNodeCheckbox]]"></pebble-tree>
             </div>
         </div>
         <bedrock-pubsub event-name="tree-node-child-list-refreshed" handler="_childListRefreshed"></bedrock-pubsub>
@@ -225,6 +226,11 @@
                     value: false
                 },
 
+                hideLeafNodeCheckbox:{
+                    type:Boolean,
+                    value:false
+                },
+
                 _classificationModelRequest: {
                     type: Object,
                     value: function () {
@@ -235,6 +241,23 @@
                 disableChildNode: {
                     type: Boolean,
                     value: false
+                },
+                enableNodeClick:{
+                    type:Boolean,
+                    value:false
+                },
+                _rootNodeGetRequest:{
+                    type:Object
+                },
+                isModelTree:{
+                    type:Boolean,
+                    value:false
+                },
+                rootNodeData:{
+                    type:Object,
+                    value: function(){
+                        return {}
+                    }
                 }
             },
 
@@ -246,7 +269,8 @@
                 RUFBehaviors.UIBehavior
             ],
             listeners: {
-                'tree-node-expanded': '_treeNodeExpanded'
+                'tree-node-expanded': '_treeNodeExpanded',
+                'tree-node-clicked': '_treeNodeClicked',
             },
             _onSearch: function (e) {
                 this._isSearchMode = true;
@@ -455,7 +479,12 @@
                 } else {
                     this._classificationsList.sort(function (a, b) { return (a.text > b.text) ? 1 : ((b.text > a.text) ? -1 : 0); });
                     if (!this._currentNode || _.isEmpty(this._currentNode)) {
-                        this.classifications = this._classificationsList;
+                        if(this.isModelTree && this.rootNodeData && !_.isEmpty(this.rootNodeData)){
+                            this.rootNodeData.children = this._classificationsList;
+                            this.classifications = [this.rootNodeData];
+                        }else{
+                            this.classifications = this._classificationsList;
+                        }
                         this._checkForSelectedClassification();
                     } else {
                         if (!this._classificationsList.length) {
@@ -520,6 +549,15 @@
                 if (!this._currentNode.nodeData.children || this._currentNode.nodeData.children.length == 0) {
                     this.executeRequest(this._currentNode.nodeData.id);
                     this._currentNode.startLoading();
+                }
+            },
+            _treeNodeClicked:function(ev){
+                if(this.enableNodeClick){
+                    //fire event for node click
+                    if(ev.detail.data){
+                        var _node = ev.detail.data;
+                        this.fireBedrockEvent("classification-item-clicked", _node, {targetId:true})
+                    }
                 }
             },
             _childListRefreshed: function () {

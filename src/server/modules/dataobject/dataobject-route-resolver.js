@@ -396,7 +396,7 @@ function _getService(dataObjectType, isInitiateSearch, dataIndex) {
     else if (dataObjectType == "externalevent" || dataObjectType == "bulkoperationevent" || dataIndex == "eventData") {
         return eventService;
     }    
-    else if (!isInitiateSearch && (dataObjectType == "attributeModel" || dataObjectType == "relationshipModel" || dataObjectType == "entityType")) {
+    else if (!isInitiateSearch && (dataObjectType == "attributeModel" || dataObjectType == "relationshipModel" || dataObjectType == "entityType" || dataObjectType == "classification")) { //|| dataObjectType == "classification"
         return baseModelService;
     }
     else {

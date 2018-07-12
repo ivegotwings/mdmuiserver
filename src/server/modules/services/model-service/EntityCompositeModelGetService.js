@@ -78,7 +78,7 @@ EntityCompositeModelGetService.prototype = {
             objectName = query.id.replace('_entityCompositeModel', '');
         }
         
-        var manageModel = response.response.entityModels.find(obj => obj.type == "entityManageModel");
+        var manageModel = response && response.response && response.response.entityModels ? response.response.entityModels.find(obj => obj.type == "entityManageModel") : undefined;
 
         if (!manageModel) {
             var msg = "\n Entity manage model is not available or user does not have permission. Request: " + JSON.stringify(request);

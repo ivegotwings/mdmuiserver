@@ -35,6 +35,9 @@ BaseModelService.prototype = {
                 case "relationshipModel":
                     response = await this._getRelationshipModels(request);
                     break;
+                case "classification":
+                    response = await this._getClassifications(request);
+                    break;
             }
         }
 
@@ -57,6 +60,8 @@ BaseModelService.prototype = {
                     case "relationshipModel":
                         dataOperationResult = await this._processRelationshipModel(request, action);
                         break;
+                    case "classification":
+                        dataOperationResult = await this._processClassificationModel(request, action);
                 }
                 break;
             case "delete":
@@ -150,7 +155,7 @@ BaseModelService.prototype = {
                         entity.data.relationships = {};
                         let entityRelationships = entity.data.relationships[relType] = [];
 
-                        let childEntityIds = model.properties.childAttributes.map(v => v = v + "_" + model.type);
+                        let childEntityIds = _.isArray(model.properties.childAttributes) ? model.properties.childAttributes.map(v => v = v + "_" + model.type) : [model.properties.childAttributes + "_" + model.type];
 
                         if (childEntityIds) {
                             let childEntities = await modelGetManager.getModels(childEntityIds, model.type);
@@ -188,7 +193,7 @@ BaseModelService.prototype = {
             return transformedModel;
         }
 
-        let properties;
+        let properties = {};
         let compositeAttributeModelData = compositeAttributeModel.data;
         let attributeModelData = attributeModel.data;
 
@@ -202,8 +207,36 @@ BaseModelService.prototype = {
                 properties = this._transformAttributesToAttributeProperties(compositeAttributeModelData.attributes, attributeModelData.attributes);
             }
 
-            if (compositeAttributeModelData.relationships) {
-                // In case if we support.
+            if (compositeAttributeModelData.relationships && attributeModelData.relationships) {
+                let childAttributeRelModels = compositeAttributeModelData.relationships["haschildattributes"];
+                let childAttributeRels = attributeModelData.relationships["haschildattributes"];
+                let existingAttrModels = await modelGetManager.getModels([attributeModel.id], "attributeModel")
+
+                if (childAttributeRelModels && childAttributeRels && existingAttrModels) {
+                    let relModel = childAttributeRelModels[0];
+                    let existingAttrModel = existingAttrModels[0];
+
+                    if (relModel && existingAttrModel) {
+                        let relEntityType = falcorUtil.isValidObjectPath(relModel, "properties.relatedEntityInfo.0.relEntityType") ? relModel.properties.relatedEntityInfo[0].relEntityType : "";
+
+                        if (!isEmpty(relEntityType)) {
+                            let attrEntities = childAttributeRels.map(v => v.relTo.id.replace("_" + relEntityType, ""));
+
+                            if (attrEntities) {
+                                if (falcorUtil.isValidObjectPath(existingAttrModel, "properties.childAttributes")) {
+                                    properties.childAttributes = _.isArray(existingAttrModel.properties.childAttributes) ? existingAttrModel.properties.childAttributes : [existingAttrModel.properties.childAttributes];
+                                    for (let attrEntity of attrEntities) {
+                                        if(properties.childAttributes.indexOf(attrEntity) < 0) {
+                                            properties.childAttributes.push(attrEntity);
+                                        }
+                                    }
+                                } else {
+                                    properties.childAttributes = attrEntities;
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -543,6 +576,131 @@ BaseModelService.prototype = {
         return transformedModel;
     },
 
+    _getClassifications: async function (request) {
+        let response, classficaitons;
+
+        // get classification entities
+        response = await this.post("entityservice/get", request);
+        logger.debug("CLASSIFICATION_ENTITIES", { entitiesResponse: response }, "modelService");
+
+        if (falcorUtil.isValidObjectPath(request, "params.fields.relationships") && falcorUtil.isValidObjectPath(response, "response.entities")) {
+            if (request.params.fields.relationships.indexOf("_ALL") > -1 || request.params.fields.relationships.indexOf("hasclassificationattributes") > -1) {
+                let classificationId = falcorUtil.isValidObjectPath(request, "params.query.id") ? request.params.query.id : "";
+                if (!isEmpty(classificationId)) {
+                    let classificationEntity = response.response.entities.find(v => v.id == classificationId);
+
+                    if (classificationEntity) {
+                        // get classification model "<classification name>_entityCompositeModel"
+                        let classificationModel = await modelGetManager.getCompositeModel(classificationId);
+                        logger.debug("CLASSIFICATION_ENTITY_COMPOSITE_MODEL", { compositeClassificationModel: classificationModel }, "modelService");
+
+                        // get composite model of classification model "classificationModel"
+                        let compositeClassificationModel = await modelGetManager.getCompositeModel("classification");
+                        logger.debug("CLASSIFICATION_COMPOSITE_MODEL", { compositeClassificationModel: compositeClassificationModel }, "modelService");
+
+                        // transform classificaiton models into entities based on composite classification model.
+                        if (classificationModel && compositeClassificationModel) {
+                            let transformedClassificaitonModel = this._transformCompositeModelObjectToCompositeModelEntity(compositeClassificationModel, [classificationModel]);
+
+                            if (falcorUtil.isValidObjectPath(transformedClassificaitonModel, "0.data.relationships.hasclassificationattributes")) {
+
+                                if (!classificationEntity.data) {
+                                    classificationEntity.data = {};
+                                }
+
+                                if (!classificationEntity.data.relationships) {
+                                    classificationEntity.data.relationships = {};
+                                }
+
+                                classificationEntity.data.relationships["hasclassificationattributes"] = transformedClassificaitonModel[0].data.relationships["hasclassificationattributes"];
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return response;
+    },
+
+    _processClassificationModel: async function (request, action) {
+        let dataOperationResults = [], entityIdentifierAttrName;
+
+        // get composite model of classification model "classificationModel"
+        let compositeClassificationModel = await modelGetManager.getCompositeModel("classification");
+        logger.debug("CLASSIFICATION_COMPOSITE_MODEL", { compositeClassificationModel: compositeClassificationModel }, "modelService");
+
+        if (compositeClassificationModel && falcorUtil.isValidObjectPath(request, "entity.data.relationships.hasclassificationattributes")) {
+            let clonedRequest = falcorUtil.cloneObject(request);
+            delete request.entity.data.relationships["hasclassificationattributes"];
+
+            // get composite model of entity type model "attributeModel"
+            let compositeAttributeModel = await modelGetManager.getCompositeModel("attributeModel");
+            logger.debug("BASE_MODEL_COMPOSITE_ATTRIBUTE_MODEL", { compositeAttributeModel: compositeAttributeModel }, "modelService");
+
+            if (compositeAttributeModel) {
+                let compositeModels;
+                let transformedModel = await this._transformCompositeModelForSave(compositeClassificationModel, clonedRequest.entity);
+
+                if (transformedModel) {
+                    compositeModels = this._prepareCompositeModels(transformedModel, compositeAttributeModel, clonedRequest.entity, true);
+                }
+
+                delete clonedRequest.entity;
+                clonedRequest.dataIndex = "entityModel"
+                if (!isEmpty(compositeModels)) {
+                    for (let compositeModel of compositeModels) {
+                        clonedRequest[clonedRequest.dataIndex] = compositeModel;
+                        let dataOperationResult = await dataObjectManageService.process(clonedRequest, action);
+                        dataOperationResults.push(dataOperationResult);
+                    }
+                }
+            }
+        }
+
+        if (action == "create") {
+            if (falcorUtil.isValidObjectPath(compositeClassificationModel, "data.attributes")) {
+                let compositeModelAttributes = compositeClassificationModel.data.attributes;
+                for (let attrModelKey in compositeModelAttributes) {
+                    if (falcorUtil.isValidObjectPath(compositeModelAttributes, attrModelKey + ".properties.isEntityIdentifier")) {
+                        if (compositeModelAttributes[attrModelKey].properties.isEntityIdentifier) {
+                            entityIdentifierAttrName = attrModelKey;
+                        }
+                    }
+                }
+            }
+
+            if (entityIdentifierAttrName) {
+                if (falcorUtil.isValidObjectPath(request, "entity.data.attributes." + entityIdentifierAttrName)) {
+                    request.entity.id = this._getAttributeValue(request.entity.data.attributes[entityIdentifierAttrName]);
+                }
+            }
+        }
+
+        let dataOperationResult = await dataObjectManageService.process(request, action);
+        dataOperationResults.push(dataOperationResult);
+
+        // TODO:: Need to come up with cache module for baseModel
+        // if (modelCacheEnabled) {
+        //     if (!isEmpty(model.name)) {
+        //         let cacheKey = modelGetManager.getCompositeModelCacheKey(model.name);
+        //         await localCacheManager.delByCacheKey(cacheKey);
+        //     }
+
+        //     if (!isEmpty(model.id)) {
+        //         let cacheKey = modelGetManager.getModelCacheKey("entityType");
+        //         await localCacheManager.delByCacheKeyAndId(cacheKey, model.id);
+        //     }
+        // }
+
+        return {
+            "response": {
+                "status": "success",
+                "content": dataOperationResults
+            }
+        }
+    },
+
     _deleteModel: async function (request, dataObjectType) {
         let dataOperationResults = [], dataOperationResult, modelId;
 
@@ -594,7 +752,7 @@ BaseModelService.prototype = {
                             };
                             for (let grpAttrName in group) {
                                 if (grpAttrName.toLowerCase() != "id") {
-                                    grp[grpAttrName] = this._prepareAttributeValue(attributeProperties[attrModelName][0][grpAttrName]);
+                                    grp[grpAttrName] = this._prepareAttributeValue(attributeProperties[attrModelName][0][grpAttrName], group[grpAttrName]);
                                     grp[grpAttrName].properties = { "isProperty": true }
                                 }
                             }
@@ -692,13 +850,16 @@ BaseModelService.prototype = {
 
         if (attributeModels && attributes) {
             for (let attr in attributeModels) {
-                if (attributes[attr]) {
-                    if (attributeModels[attr].group) {
+                if (attributes[attr] && attributeModels[attr]) {
+                    let attrModel = attributeModels[attr];
+
+                    if (attrModel.group) {
                         properties[attr] = [];
-                        for (let grp of attributeModels[attr].group) {
+                        let attrModelGrp = attrModel.group[0];
+                        for (let grp of attributes[attr].group) {
                             let childProperties = {};
                             for (let grpAttrKey in grp) {
-                                childProperties[grpAttrKey] = this._getAttributeValue(grp[grpAttrKey]);
+                                childProperties[grpAttrKey] = this._getAttributeValue(grp[grpAttrKey], attrModelGrp[grpAttrKey]);
                             }
                             properties[attr].push(childProperties);
                         }
@@ -720,6 +881,7 @@ BaseModelService.prototype = {
                 if (!isEmpty(relModel)) {
                     switch (rel.toLowerCase()) {
                         case "hasattributes":
+                        case "hasclassificationattributes":
                         case "haschildattributes":
                         case "hasrelationshipattributes":
                             if (attrAndRelModels.attributes) {
@@ -747,6 +909,7 @@ BaseModelService.prototype = {
             if (entityTypeModelData.relationships[relType] && !isEmpty(relationshipModel)) {
                 switch (relType.toLowerCase()) {
                     case "hasattributes":
+                    case "hasclassificationattributes":
                     case "haschildattributes":
                     case "hasrelationshipattributes":
                         let attributes = entityTypeModelData.relationships[relType];
@@ -794,7 +957,7 @@ BaseModelService.prototype = {
                                     if (rel.action || rel.attributes) {
                                         let relEntity = relEntities.find(v => v.id == rel.relTo.id);
                                         if (relEntity) {
-                                             //Handle delete scenarios...
+                                            //Handle delete scenarios...
                                             if (rel.action) {
                                                 relEntity.action = rel.action;
                                             }
@@ -887,36 +1050,41 @@ BaseModelService.prototype = {
         return relAttributes;
     },
 
-    _prepareAttributeValue: function (attrValue) {
-        return {
-            "values": [
-                {
-                    "source": "internal",
-                    "locale": "en-US",
-                    "value": attrValue ? attrValue : ""
-                }
-            ]
-        }
-    },
+    _prepareAttributeValue: function (attrValue, attrModelObj) {
+        let values = [], value = {}, properties = {};
 
-    _getAttributeValue: function (attribute) {
-        let value;
+        if (attrModelObj) {
+            let refEntityInfo = falcorUtil.isValidObjectPath(attrModelObj, "properties.referenceEntityInfo.0") ? attrModelObj.properties.referenceEntityInfo[0] : {};
 
-        if (attribute) {
-            value = attribute.values ? attribute.values[0].value : "";
+            if (!isEmpty(refEntityInfo)) {
+                properties.referenceData = refEntityInfo.refEntityType + "/" + attrValue + "_" + refEntityInfo.refEntityType;
+            }
         }
 
-        return value;
+        value.locale = "en-US";
+        value.source = "internal";
+        value.value = attrValue ? attrValue : "";
+
+        if (!isEmpty(properties)) {
+            value.properties = properties;
+        }
+
+        if (!isEmpty(value)) {
+            values.push(value);
+        }
+
+        return { "values": values };
     },
 
-    _prepareCompositeModels: function (attributeModels, compositeAttributeModel, entityTypeModel) {
+    _prepareCompositeModels: function (attributeModels, compositeAttributeModel, entityTypeModel, isIdEntityIdentifier) {
         let compositeModels = [];
         let compositeAttributeModelList = this._fetchListOfAttributesBasedOnGroup(compositeAttributeModel);
 
         if (!isEmpty(attributeModels) && !isEmpty(compositeAttributeModelList)) {
             for (let compModel of compositeModelTypes) {
+                let id = isIdEntityIdentifier ? entityTypeModel.id + "_" + compModel : attributeModels.name ? (attributeModels.name + "_" + compModel) : entityTypeModel.id
                 let compositeModel = {
-                    "id": attributeModels.name ? (attributeModels.name + "_" + compModel) : entityTypeModel.id,
+                    "id": id,
                     "name": entityTypeModel.name,
                     "type": compModel,
                     "domain": "generic",
@@ -924,15 +1092,36 @@ BaseModelService.prototype = {
                 }
 
                 if (attributeModels.data) {
-                    let attribuetModelData = falcorUtil.cloneObject(attributeModels.data);
+                    let attribuetModelData = attributeModels.data;
                     let compositeModelData = compositeModel.data;
 
                     if (attribuetModelData.attributes) {
                         compositeModelData.attributes = {};
                         for (let attrKey in attribuetModelData.attributes) {
                             let attr = attribuetModelData.attributes[attrKey];
-                            compositeModelData.attributes[attrKey] = attr;
-                            compositeModelData.attributes[attrKey].properties = _.pick(attr.properties, compositeAttributeModelList[compModel]);
+
+                            if (attr) {
+                                let clonedAttr = falcorUtil.cloneObject(attr);
+                                compositeModelData.attributes[attrKey] = clonedAttr;
+                                compositeModelData.attributes[attrKey].properties = _.pick(attr.properties, compositeAttributeModelList[compModel]);
+
+                                if (attr.group) {
+                                    compositeModelData.attributes[attrKey].group = [];
+                                    for (let grp of attr.group) {
+                                        let compGrp = {};
+                                        for (let grpAttrKey in grp) {
+                                            let grpAttr = grp[grpAttrKey];
+
+                                            if (grpAttr) {
+                                                let clonedGrpAttr = falcorUtil.cloneObject(grpAttr);
+                                                compGrp[grpAttrKey] = clonedGrpAttr;
+                                                compGrp[grpAttrKey].properties = _.pick(grpAttr.properties, compositeAttributeModelList[compModel]);
+                                            }
+                                        }
+                                        compositeModelData.attributes[attrKey].group.push(compGrp);
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -1012,7 +1201,7 @@ BaseModelService.prototype = {
                                 compositeAttributeModelList.entityManageModel.push(attrKey);
                                 break;
                             case "restriction":
-                            case "constrains":
+                            case "constraints":
                                 compositeAttributeModelList.entityValidationModel.push(attrKey);
                                 break;
                             case "display":
@@ -1040,10 +1229,27 @@ BaseModelService.prototype = {
         return isEARTransformRequired;
     },
 
-    _getAttributeValue: function (attribute) {
+    _getAttributeValue: function (attribute, attribuetModel) {
         if (attribute) {
             if (falcorUtil.isValidObjectPath(attribute, "values.0.value")) {
-                return attribute.values[0].value;
+                let value = attribute.values[0];
+                let modelProperties = attribuetModel ? attribuetModel.properties : undefined;
+
+                if (modelProperties && modelProperties.displayType == "referencelist") {
+                    let relInfo = modelProperties.referenceEntityInfo ? modelProperties.referenceEntityInfo[0] : undefined;
+                    if (relInfo) {
+                        let relType = relInfo.refEntityType;
+                        if (falcorUtil.isValidObjectPath(value, "properties.referenceData")) {
+                            return value.properties.referenceData.replace(relType + "/", "").replace("_" + relType, "");
+                        } else {
+                            return value.value;
+                        }
+                    } else {
+                        return value.value
+                    }
+                } else if (falcorUtil.isValidObjectPath(attribute, "values.0.value")) {
+                    return value.value;
+                }
             }
         }
     }
