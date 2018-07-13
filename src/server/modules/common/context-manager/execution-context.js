@@ -99,6 +99,14 @@ function readSecurityHeaders(req) {
         }
     };
 
+    if(securityContext.headers.ownershipData == "undefined") {
+        securityContext.headers.ownershipData = "";
+    }
+
+    if(securityContext.headers.ownershipEditData == "undefined") {
+        securityContext.headers.ownershipEditData = "";
+    }
+    
     //console.log('sec context created', JSON.stringify(securityContext));
 
     return securityContext;
