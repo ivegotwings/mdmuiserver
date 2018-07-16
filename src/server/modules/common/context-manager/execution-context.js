@@ -79,14 +79,15 @@ function readSecurityHeaders(req) {
         fullName = uid;
     }
 
+    //console.log('ownership data header', JSON.stringify(req.headers));
     var securityContext = {
         'user': uid,
         'tenantId': tid,
         'clientAuthKey': clientAuthKey ? clientAuthKey : "",
         'headers': {
             "clientId": clientId ? clientId : "",
-            "ownershipData": req.headers["x-rdp-ownershipdata"],
-            "ownershipEditData": req.headers["x-rdp-ownershipeditdata"],
+            "ownershipData": req.headers["x-rdp-ownershipdata"] || "",
+            "ownershipEditData": req.headers["x-rdp-ownershipeditdata"] || "",
             "userId": uid,
             "firstName": firstName,
             "lastName": lastName,
@@ -97,6 +98,16 @@ function readSecurityHeaders(req) {
             "defaultRole": defaultRole
         }
     };
+
+    if(securityContext.headers.ownershipData == "undefined") {
+        securityContext.headers.ownershipData = "";
+    }
+
+    if(securityContext.headers.ownershipEditData == "undefined") {
+        securityContext.headers.ownershipEditData = "";
+    }
+    
+    //console.log('sec context created', JSON.stringify(securityContext));
 
     return securityContext;
 }
