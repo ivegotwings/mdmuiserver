@@ -795,6 +795,17 @@ Eventservice.prototype = {
                             ]};
                             eventAttributes["userId"] = attributes["submittedBy"];
 
+                            //Updating the taskName for createVariants
+                            if(attributes["taskType"].values[0].value.search(/createvariants/i) > -1){
+                                eventAttributes["taskName"] = {"values": [
+                                    {
+                                        "locale": "en-US",
+                                        "source": "internal",
+                                        "id": uuidV1(),
+                                        "value": "Create Variants"
+                                    }
+                                ]};
+                            }
                             var data = externalEvent["data"] = {};
                             data["attributes"] = eventAttributes;
                         }
@@ -821,7 +832,7 @@ Eventservice.prototype = {
             var requestObject = taskSummaryGetRes.response.requestObjects[0];
 
             var taskType = this._getTaskType(requestObject);
-            var taskName = this._getAttributeValue(requestObject, "taskName");
+            var taskName = this._getTaskName(requestObject);
             var taskStatus = this._getAttributeValue(requestObject, "status");
             var fileName = this._getAttributeValue(requestObject, "fileName");
             var fileId = this._getAttributeValue(requestObject, "fileId");
@@ -1349,6 +1360,15 @@ Eventservice.prototype = {
         }
 
         return createdDate;
+    },
+    _getTaskName: function (requestObject) {
+        var taskName = "";
+        if(requestObject.data.attributes["taskType"].values[0].value.search(/createvariants/i) > -1){
+            taskName = "Create Variants";
+        } else {
+            taskName = this._getAttributeValue(requestObject, "taskName");
+        }
+        return taskName;
     },
     _getTaskType: function (obj) {
         var taskType;
