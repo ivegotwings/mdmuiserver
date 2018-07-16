@@ -832,7 +832,7 @@ Eventservice.prototype = {
             var requestObject = taskSummaryGetRes.response.requestObjects[0];
 
             var taskType = this._getTaskType(requestObject);
-            var taskName = this._getTaskName(taskType,requestObject);
+            var taskName = this._getTaskName(requestObject);
             var taskStatus = this._getAttributeValue(requestObject, "status");
             var fileName = this._getAttributeValue(requestObject, "fileName");
             var fileId = this._getAttributeValue(requestObject, "fileId");
@@ -1361,9 +1361,9 @@ Eventservice.prototype = {
 
         return createdDate;
     },
-    _getTaskName: function (taskType, requestObject) {
+    _getTaskName: function (requestObject) {
         var taskName = "";
-        if(taskType.search(/bulk create/i) > -1){
+        if(requestObject.data.attributes["taskType"].values[0].value.search(/createvariants/i) > -1){
             taskName = "Create Variants";
         } else {
             taskName = this._getAttributeValue(requestObject, "taskName");
