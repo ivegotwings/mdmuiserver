@@ -614,7 +614,7 @@ EntityHistoryEventservice.prototype = {
         var current = base;
         var components = path.split(".");
         for (var i = 0; i < components.length; i++) {
-            if ((typeof current !== "object") || (!components[i] in current)) {
+            if ((typeof current !== "object") || !(components[i] in current)) {
                 return false;
             }
             current = current[components[i]];
