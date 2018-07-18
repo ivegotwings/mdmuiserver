@@ -314,11 +314,16 @@ Eventservice.prototype = {
                     var totalRecords = this._getAttributeValue(highOrderEvent, "recordCount");
                     var message = this._getAttributeValue(highOrderEvent, "message");
 
+                    var intTaskType = this._getInternalTaskType(highOrderEvent);
+                    if(intTaskType && intTaskType.toLowerCase() == "createvariants"){
+                        response.fileName = "N/A";                   
+                    } else {
+                        response.fileName = fileName ? fileName : response.fileId;    
+                    }
                     response.taskId = taskId;
                     response.taskName = taskName ? taskName : "N/A";
                     response.taskType = taskType;
-                    response.fileId = fileId ? fileId : "N/A";
-                    response.fileName = fileName ? fileName : response.fileId;
+                    response.fileId = fileId ? fileId : "N/A";                    
                     response.fileType = fileType ? fileType : "N/A";
                     response.submittedBy = submittedBy ? submittedBy.replace("_user", "") : "N/A";
                     response.totalRecords = totalRecords ? totalRecords : "N/A";
@@ -796,7 +801,7 @@ Eventservice.prototype = {
                             eventAttributes["userId"] = attributes["submittedBy"];
 
                             //Updating the taskName for createVariants
-                            if(attributes["taskType"].values[0].value.search(/createvariants/i) > -1){
+                            if(attributes["taskType"] && attributes["taskType"].values[0].value.search(/createvariants/i) > -1){
                                 eventAttributes["taskName"] = {"values": [
                                     {
                                         "locale": "en-US",
@@ -843,12 +848,17 @@ Eventservice.prototype = {
             var message = this._getAttributeValue(requestObject, "errorMessage");
             var startTime = requestObject.properties.createdDate;
 
+            var intTaskType = this._getInternalTaskType(requestObject);
+            if(intTaskType && intTaskType.toLowerCase() == "createvariants"){
+                response.fileName = "N/A";                   
+            } else {
+                response.fileName = fileName ? fileName : response.fileId;    
+            }
             response.taskId = taskId;
             response.taskName = taskName ? taskName : "N/A";
             response.taskType = taskType;
             response.taskStatus = taskStatus ? taskStatus : "N/A";
             response.fileId = fileId ? fileId : "N/A";
-            response.fileName = fileName ? fileName : response.fileId;
             response.fileType = fileType ? fileType : "N/A";
             response.fileExtension = fileExtension ? fileExtension : "N/A";
             response.submittedBy = submittedBy ? submittedBy.replace("_user", "") : "N/A";
@@ -1362,22 +1372,25 @@ Eventservice.prototype = {
         return createdDate;
     },
     _getTaskName: function (requestObject) {
+        var taskType = this._getInternalTaskType(requestObject);
         var taskName = "";
-        if(requestObject.data.attributes["taskType"].values[0].value.search(/createvariants/i) > -1){
+        if(taskType && taskType.toLowerCase() == "createvariants"){
             taskName = "Create Variants";
         } else {
             taskName = this._getAttributeValue(requestObject, "taskName");
-        }
+        }    
         return taskName;
     },
-    _getTaskType: function (obj) {
-        var taskType;
-
+    _getInternalTaskType: function (obj){
         var taskType = this._getAttributeValue(obj, "profileType");
         if (!taskType) {
             taskType = this._getAttributeValue(obj, "taskType");
         }
-
+        
+        return taskType;
+    },    
+    _getTaskType: function (obj) {
+        var taskType = this._getInternalTaskType(obj);
         if (taskType) {
             switch (taskType.toLowerCase()) {
                 case "entity_import":
