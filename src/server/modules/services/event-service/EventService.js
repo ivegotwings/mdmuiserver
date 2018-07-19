@@ -842,17 +842,17 @@ Eventservice.prototype = {
             var totalRecords = this._getAttributeValue(requestObject, "totalRecords");
             var message = this._getAttributeValue(requestObject, "errorMessage");
             var startTime = requestObject.properties.createdDate;
-
-            if(taskName && taskName.search(/create variants/i) > -1){
-                response.fileName = "N/A";                   
-            } else {
-                response.fileName = fileName ? fileName : response.fileId;    
-            }
+            
             response.taskId = taskId;
             response.taskName = taskName ? taskName : "N/A";
             response.taskType = taskType;
             response.taskStatus = taskStatus ? taskStatus : "N/A";
             response.fileId = fileId ? fileId : "N/A";
+            if(taskName && taskName.search(/create variants/i) > -1){
+                response.fileName = "N/A";                   
+            } else {
+                response.fileName = fileName ? fileName : response.fileId;    
+            }
             response.fileType = fileType ? fileType : "N/A";
             response.fileExtension = fileExtension ? fileExtension : "N/A";
             response.submittedBy = submittedBy ? submittedBy.replace("_user", "") : "N/A";
