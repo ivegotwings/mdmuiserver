@@ -229,6 +229,32 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                 margin-top: 1px;
             }
 
+            .warning {
+                color: var(--warning-color, #f78e1e);
+                font-size: var(--font-size-sm, 12px);
+                font-weight: var(--font-medium, 500);
+                letter-spacing: 0.011em;
+                line-height: 11px;
+                width: 85%;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                display: inline-block;
+            }
+
+            .warning-circle {
+                height: 18px;
+                width: 18px;
+                line-height: 18px;
+                text-align: center;
+                border-radius: 50%;
+                background: var(--warning-color, #f78e1e);
+                color: var(--palette-white, #fff);
+                font-size: var(--font-size-xs, 10px);
+                float: right;
+                margin-top: 1px;
+            }
+
             pebble-textbox-collection {
                 --text-collection-label: {
                     font-size: var(--font-size-sm, 12px);
@@ -594,16 +620,16 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                     </template>
                 </template>
 
-                <bedrock-validator validation-errors="{{validationErrors}}" input="[[_getInputValue(attributeObject.value)]]" input-data-type="[[attributeModelObject.dataType]]"
+                <bedrock-validator validation-errors="{{validationErrors}}" validation-warnings="{{validationWarnings}}" input="[[_getInputValue(attributeObject.value)]]" input-data-type="[[attributeModelObject.dataType]]"
                     pattern="[[attributeModelObject.pattern]]" allowed-input="[[attributeModelObject.allowedInput]]" min-length="[[attributeModelObject.minLength]]" max-length="[[attributeModelObject.maxLength]]"
                     precision="[[attributeModelObject.precision]]" required="[[attributeModelObject.required]]" invalid="{{invalid}}"
                     min="[[attributeModelObject.rangeFrom]]" max="[[attributeModelObject.rangeTo]]" min-inclusive="[[attributeModelObject.isRangeFromInclusive]]"
                     max-inclusive="[[attributeModelObject.isRangeToInclusive]]" date-format="[[attributeModelObject.dateFormat]]"
                     type="[[attributeModelObject.validationType]]" type-array="[[attributeModelObject.validationTypeArray]]"></bedrock-validator>
 
-                <div id="error-display" hidden="[[_errorAbsent(errors)]]" on-tap="_errorTapped">
-                    <span class="error">[[errorMessage]] </span>
-                    <span id="error-circle" class="error-circle">[[errorLength]]</span>
+                <div id="error-display" hidden="[[_messageAbsent(messages)]]" on-tap="_messageTapped">
+                    <span class$="[[_getValidationClass(validationMessage)]]">[[validationMessage.text]] </span>
+                    <span id="message-circle" class$="[[_getValidationClass(validationMessage, 'true')]]">[[messagesLength]]</span>
                 </div>
             </div>
             <!-- <div>
@@ -612,8 +638,8 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                     </template>
                 </div> -->
         </div>
-        <pebble-popover id="errorPopover" for="error-circle" no-overlap horizontal-align="right">
-            <pebble-error-list id="attrErrorList" errors="[[errors]]" show-fix-now="[[!_isEditMode(mode)]]"></pebble-error-list>
+        <pebble-popover id="messagePopover" for="message-circle" no-overlap horizontal-align="right">
+            <pebble-error-list id="attrErrorList" messages="[[messages]]" errors="[[errors]]" warnings="[[validationWarnings]]" show-fix-now="[[!_isEditMode(mode)]]"></pebble-error-list>
         </pebble-popover>
         <bedrock-pubsub target-id="attrErrorList" event-name="fix-error" handler="_fixError"></bedrock-pubsub>
 
@@ -731,8 +757,7 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                         value: function () {
                             return [];
                         },
-                        notify: true,
-                        observer: '_errorsChanged'
+                        notify: true
                     },
                     /**
                      * Specifies the errors that are raised after validating the attribute object value.
@@ -742,21 +767,32 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                         value: function () {
                             return [];
                         },
-                        notify: true,
-                        observer: '_errorsChanged'
+                        notify: true
+                    },
+                    validationWarnings: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        },
+                        notify: true
                     },
                     /**
                      * Indicates all server errors and validation errors of attribute object value.
                      */
+                    messages: {
+                        type: Array,
+                        notify: true,
+                        computed: '_getAllMessages(serverErrors, validationErrors, validationWarnings)'
+                    },
                     errors: {
                         type: Array,
                         notify: true,
-                        computed: '_getAllErrors(serverErrors,validationErrors)'
+                        computed: '_getAllMessages(serverErrors, validationErrors)'
                     },
                     /**
                      * Specifies the length of the error message.
                      */
-                    errorLength: {
+                    messagesLength: {
                         type: Number,
                         notify: true,
                         value: 0
@@ -764,10 +800,10 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                     /**
                      * Specifies the error message to be shown.
                      */
-                    errorMessage: {
-                        type: String,
+                     validationMessage: {
+                        type: Object,
                         notify: true,
-                        computed: '_getErrorMessage(errors)'
+                        computed: '_getMessage(serverErrors, validationErrors, validationWarnings)'
                     },
                     /**
                      * Indicates the functional mode of the attribute object.
@@ -845,26 +881,39 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                     },
                 },
                 observers: [
-                    '_attributeObjectChanged(attributeObject.*)'
+                    '_attributeObjectChanged(attributeObject.*)',
+                    '_messagesChanged(serverErrors, validationErrors, validationWarnings)'
                 ],
                 behaviors: [
                     RUFBehaviors.UIBehavior,
                     RUFBehaviors.ComponentContextBehavior
                 ],
                 FALLBACK_PATH_DELIMITER: ">>",
-                addValidationErrors: function (errorMessage) {
-                    var validationErrors = this.validationErrors;
-                    if (validationErrors.indexOf(errorMessage) == -1) {
-                        validationErrors.push(errorMessage);
+                addValidationMessages: function (validationMessage, isError = true) {
+                    var validationMessages = isError ? this.validationErrors : this.validationWarnings;
+                    if (validationMessages.indexOf(validationMessage) == -1) {
+                        validationMessages.push(validationMessage);
                     }
-                    this.validationErrors = [];
-                    this.validationErrors = validationErrors;
+
+                    if (isError) {
+                        this.validationErrors = [];
+                        this.validationErrors = validationMessages;
+                    } else {
+                        this.validationWarnings = [];
+                        this.validationWarnings = validationMessages;
+                    }
                 },
-                removeValidationErrorsAt: function (index) {
-                    var validationErrors = this.validationErrors;
-                    validationErrors.splice(index, 1);
-                    this.validationErrors = [];
-                    this.validationErrors = validationErrors;
+                removeValidationMessagesAt: function (index, isError = true) {
+                    var validationMessages = isError ? this.validationErrors : this.validationWarnings;
+                    validationMessages.splice(index, 1);
+
+                    if (isError) {
+                        this.validationErrors = [];
+                        this.validationErrors = validationMessages;
+                    } else {
+                        this.validationWarnings = [];
+                        this.validationWarnings = validationMessages;
+                    }
                 },
                 _formatValue: function (model, object) {
                     if (model &&
@@ -1086,12 +1135,16 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                         alert('picker-id attribute not found on target.');
                     }
                 },
-                _getAllErrors: function (serverErrors, validationErrors) {
-                    return serverErrors.concat(validationErrors);
+                _getAllMessages: function (serverErrors, validationErrors, validationWarnings) {
+                    return _.uniq((serverErrors || []).concat(validationErrors || []).concat(validationWarnings || []));
                 },
-                _getErrorMessage: function (errors) {
+                _getMessage: function () {
+                    var errors = (this.serverErrors || []).concat(this.validationErrors || []);
                     if (errors.length) {
-                        return this.errors[0];
+                        return { "text": errors[0], "isError": true};
+                    }
+                    if(this.validationWarnings && this.validationWarnings.length) {
+                        return { "text": this.validationWarnings[0], "isError": false};
                     }
                 },
                 /**
@@ -1100,24 +1153,29 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                 hasModelErrors: function () {
                     return this.validationErrors && this.validationErrors.length > 0;
                 },
-                _errorsChanged: function () {
-                    if (this.serverErrors && this.validationErrors) {
-                        this.errorLength = this.serverErrors.length + this.validationErrors.length;
-                    }
+                _messagesChanged: function () {
+                    this.messagesLength = _.uniq((this.serverErrors || []).concat(this.validationErrors || []).concat(this.validationWarnings || [])).length;
                 },
-                _errorAbsent: function (errors) {
+                _messageAbsent: function (messages) {
                     if (this._isGridType) {
                         return true;
                     }
-                    return errors.length == 0;
+                    return messages.length == 0;
                 },
-                _errorTapped: function () {
-                    this.$.errorPopover.positionTarget = this.shadowRoot.querySelector('#error-circle');
-                    this.$.errorPopover.open();
+                _messageTapped: function () {
+                    this.$.messagePopover.positionTarget = this.shadowRoot.querySelector('#message-circle');
+                    this.$.messagePopover.open();
+                },
+                _getValidationClass: function (message, isIcon = false) {
+                    if(isIcon) {
+                        return message && message.isError ? "error-circle" : "warning-circle"
+                    } else {
+                        return message && message.isError ? "error" : "warning"
+                    }
                 },
                 _fixError: function (e) {
                     this._onEditClick(e);
-                    this.$.errorPopover.close();
+                    this.$.messagePopover.close();
                 },
                 _isGrid: function (functionalMode) {
                     return functionalMode == "grid";
