@@ -74,7 +74,7 @@ Update **root**\Windows\System32\etc\drivers\hosts file:
 4. All the developers running their local nginx need to do below change to get this running.
 
      - Go to your authservice/src/server folder and open passport.js file. 
-     - Search for tenantId and replace value there with “riverworks”.
+     - Search for tenantId and replace value there with “rdw”.
      - Restart your auth service
      
 5. Run your normal ui-platform using “npm run app” in ui-platform folder.
@@ -353,7 +353,7 @@ Below steps are needed only for the first time when you setup your OSX dev machi
 5. All the developers running their local nginx need to do below change:
 
      - Go to '/platformsvc-authenticationsvc/src/server' folder and open 'passport.js' file. 
-     - Search for "tenantId" and replace value there with “riverworks”.
+     - Search for "tenantId" and replace value there with “rdw”.
      - Restart your auth service in terminal `pm2 restart all`
      
 6. Run your normal ui-platform using `npm run app` in ui-platform folder.

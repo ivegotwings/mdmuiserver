@@ -2,7 +2,7 @@ var request = {
   "method": "POST",
   "headers": {
     "x-rdp-clientid": "rufClient",
-    "x-rdp-tenantid": "riverworks",
+    "x-rdp-tenantid": "rdw",
     "x-rdp-ownershipdata": "",
     "x-rdp-userid": "system_user",
     "x-rdp-username": "system",
