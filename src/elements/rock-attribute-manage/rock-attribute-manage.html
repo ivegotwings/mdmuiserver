@@ -460,7 +460,7 @@ It is responsible to "get" and "save" the attributes.
 
                         if(!this._isDependentModelsResponse) {
                             this._attributeModels = await DataTransformHelper.transformAttributeModelsAsync(e.detail.response.content.entityModels[0], this.contextData, writePermission);
-                            var dependentAttributeNames = this._getDependentAttributeNames(this._attributeModels);
+                            var dependentAttributeNames = this._getDependentAttributeNames();
 
                             if(dependentAttributeNames.length > 0) {
                                 var clonedContextData = DataHelper.cloneObject(this.contextData);
@@ -543,11 +543,21 @@ It is responsible to "get" and "save" the attributes.
                 _getDependentAttributeNames: function(attributeModels) {
                     var dependentAttributeNames = [];
                     this._dependentAttributeModels = this._dependentAttributeModels || {};
-                    for(let model in attributeModels) {
-                        if(DataHelper.isValidObjectPath(attributeModels[model], "properties.dependencyInfo.0.dependentOn")) {
-                            var attrName = attributeModels[model].properties.dependencyInfo[0].dependentOn;
-                            if(attributeModels[attrName]) {
-                                this._dependentAttributeModels[attrName] = attributeModels[attrName];
+                    if(_.isEmpty(attributeModels)) {
+                        attributeModels = this._attributeModels;
+                    }
+                    for(let attributeName in attributeModels) {
+                        var model = attributeModels[attributeName];
+                        if(model.dataType.toLowerCase() === "nested" && !_.isEmpty(model.group)) {
+                            var childAttrModels = model.group[0];
+                            var childDependentAttributeNames = this._getDependentAttributeNames(childAttrModels);
+                            if(!_.isEmpty(childDependentAttributeNames)) {
+                                dependentAttributeNames = dependentAttributeNames.concat(childDependentAttributeNames);
+                            }
+                        } else if(DataHelper.isValidObjectPath(model, "properties.dependencyInfo.0.dependentOn")) {
+                            var attrName = model.properties.dependencyInfo[0].dependentOn;
+                            if(this._attributeModels[attrName]) {
+                                this._dependentAttributeModels[attrName] = this._attributeModels[attrName];
                             } else if(dependentAttributeNames.indexOf(attrName) === -1) {
                                 dependentAttributeNames.push(attrName);
                             }
@@ -606,6 +616,10 @@ It is responsible to "get" and "save" the attributes.
                 },
                 _loadAttributeList() {
                     const listContainer = this.$['rock-attribute-list-container'];
+
+                    for(var modelName in this._attributeModels) {
+                        this._dependentAttributeModels[modelName] = this._attributeModels[modelName];
+                    }
 
                     const meta = {
                         "name": "rock-attribute-list",

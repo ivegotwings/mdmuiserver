@@ -39,7 +39,7 @@
         <div class="grid" hidden$="[[!_showGrid]]">
             <rock-grid id="attributesGrid" config="{{_gridConfig}}" data="{{_gridData}}" attribute-models="[[_attributeModels]]" no-header
                 page-size="20" is-dirty="{{_isGridDirty}}" context-data="[[contextData]]" apply-locale-coalesce="[[applyLocaleCoalesce]]"
-                inline-validation-enabled>
+                dependent-attribute-objects="[[dependentAttributeObjects]]" dependent-attribute-model-objects="[[dependentAttributeModelObjects]]" inline-validation-enabled>
             </rock-grid>
             <bedrock-pubsub event-name="delete-item" handler="_onRowDelete" target-id="attributesGrid"></bedrock-pubsub>
             <bedrock-pubsub event-name="refresh-grid" handler="_onRefreshGrid" target-id="attributesGrid"></bedrock-pubsub>
@@ -161,6 +161,18 @@
                     applyLocaleCoalesce: {
                         type: Boolean,
                         value: false
+                    },
+                    dependentAttributeObjects: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    dependentAttributeModelObjects: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
                     }
                 },
                 behaviors: [
@@ -173,6 +185,11 @@
                     '_modeChanged(mode)',
                     '_gridDataChanged(_isGridDirty)'
                 ],
+
+                get attributesGrid() {
+                    this._attributesGrid = this._attributesGrid || this.shadowRoot.querySelector("#attributesGrid");
+                    return this._attributesGrid;
+                },
                 _attributeModelObjectChanged: function (attributeModelObject) {
                     if (!_.isEmpty(attributeModelObject)) {
                         this._prepareGridConfig(attributeModelObject);
@@ -216,6 +233,7 @@
                         var attributeModels = attributeModelObject.group[0];
                         for (var model in attributeModels) {
                             attributeModels[model].hasWritePermission = true;
+                            this.dependentAttributeModelObjects[model] = attributeModels[model];
                         }
                         gridConfig.mode = this.mode === "edit" ? "edit" : "read";
                         this.set("_attributeModels", attributeModels);
@@ -297,9 +315,8 @@
                     const _gridMode = mode === 'view' ? 'read' : mode;
                     this.set('_gridConfig.mode', _gridMode);
 
-                    var grid = this.$$("#attributesGrid");
-                    if(grid){ 
-                       grid.reRenderGrid();
+                    if(this.attributesGrid){ 
+                       this.attributesGrid.reRenderGrid();
                     }                    
                 },
                 _gridDataChanged: function (_isGridDirty) {
@@ -332,8 +349,10 @@
                 },
                 _setAttributeObject: function () {
                     if (this.changed) {
-                        var grid = this.shadowRoot.querySelector("#attributesGrid");
-                        var modifiedData = grid.getModifiedData();
+                        var modifiedData;
+                        if(this.attributesGrid) {
+                            modifiedData = this.attributesGrid.getModifiedData();
+                        }
 
                         if (modifiedData && modifiedData.length > 0) {
                             for (var i = 0; i < modifiedData.length; i++) {
@@ -482,12 +501,15 @@
                             newRowItem[attrName + "_referenceDataId"] = value[attrName].referenceDataId;
                         }
                     }
-                    var grid = this.shadowRoot.querySelector("#attributesGrid");
-                    grid.addNewRecords([newRowItem]);
+                    if(this.attributesGrid) {
+                        this.attributesGrid.addNewRecords([newRowItem]);
+                    }
                 },
                 _notifyDirty: function () {
-                    var grid = this.shadowRoot.querySelector("#attributesGrid");
-                    var modifiedData = grid.getModifiedData();
+                    var modifiedData;
+                    if(this.attributesGrid) {
+                        modifiedData = this.attributesGrid.getModifiedData();
+                    }
                     if (!_.isEmpty(modifiedData)) {
                         this._isGridDirty = undefined;
                         this._isGridDirty = true;
@@ -508,6 +530,19 @@
                     }
 
                     return false;
+                },
+                getChildAttributeElements: function() {
+                    var allChildAttributeElements = [];
+                    if(this.attributesGrid && this.attributesGrid.getAllAttributeElements) {
+                        allChildAttributeElements = this.attributesGrid.getAllAttributeElements();
+                    }
+
+                    return allChildAttributeElements;
+                },
+                updateAttributeErrors: function () {
+                    if(this.attributesGrid && this.attributesGrid.updateAttributeErrors) {
+                        this.attributesGrid.updateAttributeErrors();
+                    }
                 }
             });
         })();
