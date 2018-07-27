@@ -94,7 +94,18 @@
         top: 0;
         bottom: 0;
         right: 0;
+        display: -webkit-box; 
+        display: -moz-box;
+        display: -ms-flexbox;
+        display: -webkit-flex; 
         display: flex;
+        -webkit-box-orient: vertical;
+        -moz-box-orient: vertical;
+        -webkit-box-direction: normal;
+        -moz-box-direction: normal;
+        -webkit-flex-direction: column;
+        -moz-flex-direction: column;
+        -ms-flex-direction: column;
         flex-direction: column;
       }
 
@@ -140,6 +151,12 @@
         padding: 0!important;
         flex-basis: 48px!important;
         flex-grow: 0;
+        -webkit-box-orient: horizontal;
+        -moz-box-orient: horizontal;
+        -webkit-box-direction: normal;
+        -moz-box-direction: normal;
+        -webkit-flex-direction: row;
+        -ms-flex-direction: row;
         flex-direction: row;
       }
 
@@ -163,6 +180,12 @@
         -webkit-transition: opacity 200ms;
         @apply --list;
       }
+      
+      /* IE edge specific fix for #list */
+      _:-ms-lang(x), _:-webkit-full-screen,  #list { 
+        transition: initial;
+        -webkit-transition: initial;
+      }
 
       .data-table-cell {
         position: relative;
@@ -181,6 +204,7 @@
         list-style-type: none;
         padding: 0px;
         margin: 0px;
+        display: -moz-box;
         display: -webkit-box;
         display: -webkit-flex;
         display: -ms-flexbox;
@@ -713,7 +737,7 @@
             this.set('columns', cols);
             //this.set('columns', this.shadowRoot.querySelector('slot[select=data-table-column]').assignedNodes({flatten:true})
             //            .filter(n => n.nodeType === Node.ELEMENT_NODE));
-            this.$.list.notifyResize();
+            //this.$.list.notifyResize();
           }
 
           if (info.addedNodes.filter(hasDetails).length > 0) {
@@ -740,7 +764,7 @@
       },
 
       notifyResize:function(){
-        this.$.list.notifyResize();
+        //this.$.list.notifyResize();
       },
       _stopPropagation: function (e) {
         e.stopImmediatePropagation();
@@ -833,7 +857,15 @@
 
         if (this.selectedItems.inverted) {
           if (index === -1) {
-            this.push('selectedItems', item);
+            if(this.items) {
+              this.selectedItems.inverted = false;
+              var selectedItems = this.items;
+              var unselectedIndex = selectedItems.indexOf(item);
+              this._setSelectedItems(selectedItems);
+              this.splice('selectedItems', unselectedIndex, 1); 
+            } else {
+              this.push('selectedItems', item);            
+            }
           }
         } else {
           if (index > -1) {
@@ -860,6 +892,14 @@
        * Selects all the items in the list.
        */
       selectAll: function () {
+        
+        //When the filter is enabled, fetch the all selected items from the filtered list
+        if (this.items){
+          var selectedItems = this._getValidSelectedItems();
+          this._setSelectedItems(selectedItems);
+          return; 				
+        }
+            
         var selectedItems = [];
         selectedItems.inverted = true;
         // use a copy of filter so that we can safely send separate changed
@@ -913,8 +953,8 @@
         if(isItemDisabled){
           if (this._isSelectAllChecked(this.selectedItems.length, this.selectedItems.inverted, this.selectedItems.length)) {
             this.clearSelection();
-          } else {
-            var selectedItems = _.filter(this.items, function (currentElement) {if (!currentElement.disabled) { return currentElement; }});
+          } else {            
+            var selectedItems = this._getValidSelectedItems();
             this._setSelectedItems(selectedItems);
           }
         } else {
@@ -924,6 +964,30 @@
             this._fireEvent("selecting-all-items", { items: this.selectedItems }, this.selectAll);
           }
         }        
+      },
+
+      /**
+       *  Function to get the enabled and/or filtered items if any
+       */ 
+       _getValidSelectedItems: function (){
+
+        if(this.items) {
+          //Ignore the disabled items
+          var enabledItems = [];
+          //When the filter is enabled, fetch the all selected items from the filtered list
+          if (this.selectedItems && this.selectedItems.filters && this.selectedItems.filters.length > 0) {
+            var filterItems = _.filter(this.selectedItems.filters, function(item){ return item.filter != "" });
+            if(!_.isEmpty(filterItems)) {
+              enabledItems = _.filter(this.$.list.items, function (currentElement) {if (!currentElement.disabled) { return currentElement; }});
+              return enabledItems; 
+            }							
+          }
+          enabledItems = _.filter(this.items, function (currentElement) {if (!currentElement.disabled) { return currentElement; }});
+          return enabledItems; 
+        } else {
+          this.logWarning("Items not loaded in the pebble-data-table");
+        }
+
       },
 
       _isSelectAllChecked: function (selectedItemsLength, inverted, size) {
@@ -1201,9 +1265,9 @@
         // resize required for variable row height items.
         // debouncing for optimizing when multiple requests are running at
         // the same time.
-        this._debouncerLoadPage = Polymer.Debouncer.debounce(this._debouncerLoadPage, Polymer.Async.timeOut.after(100), () => {
-          this.$.list.notifyResize();
-        });
+        // this._debouncerLoadPage = Polymer.Debouncer.debounce(this._debouncerLoadPage, Polymer.Async.timeOut.after(100), () => {
+        //   this.$.list.notifyResize();
+        // });
 
         this._removeLoadingPage(page);
         this._fireEvent('is-data-loaded', true);
@@ -1565,11 +1629,14 @@
         var pebbleDataTableOffsetY,mouseEventOffSetTop,gridTopHeight;
         var gridRowHeight = 0, gridHeaderHeight = 0;
         gridHeaderHeight = this.querySelectorAll('data-table-row')[0].offsetHeight;
-        for (var key = 0; key < event.path.length; key++) {
-          if (event.path[key].tagName) {
-            if (event.path[key].tagName.toUpperCase() == "DATA-TABLE-ROW") {
-              gridRowHeight = event.path[key].offsetHeight;
-              break;
+        var paths = ElementHelper.getElementPath(event);
+        if (paths) {
+          for (let key = 0; key < paths.length; key++) {
+            if (paths[key].tagName) {
+              if (paths[key].tagName.toUpperCase() == "DATA-TABLE-ROW") {
+                gridRowHeight = paths[key].offsetHeight;
+                break;
+              }
             }
           }
         }
