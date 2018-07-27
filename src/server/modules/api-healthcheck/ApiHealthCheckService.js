@@ -277,7 +277,6 @@ ApiHealthCheckService.prototype = {
         var getRequest = apiConfig.getRequest;
         var getApiUrl = apiConfig.getApiUrl;
         var deleteApiUrl = apiConfig.deleteApiUrl;
-        var createApiUrl = apiConfig.createApiUrl;
         var createRequest = apiConfig.createRequest;
         var deleteRequest = apiConfig.deleteRequest;
         var attributesToUpdate = apiConfig.attributesToUpdate;
@@ -298,7 +297,7 @@ ApiHealthCheckService.prototype = {
             var dataObject = createRequest.body[objectName];
             this.setAttrVal(dataObject.data.attributes, attrName, newVal);
 
-            createRequest.url = createApiUrl ? dfUrl.replace(apiUrl, createApiUrl) : dfUrl;
+            createRequest.url = dfUrl;
 
             var createStartTick = process.hrtime();
 
