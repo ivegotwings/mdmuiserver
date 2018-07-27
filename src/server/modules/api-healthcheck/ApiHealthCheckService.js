@@ -69,6 +69,12 @@ ApiHealthCheckService.prototype = {
             response = this.createFatalError(apiUrl);
         }
         else {
+            var isCOPService = false;
+            if(dfUrl.indexOf("copservice/") > -1){
+                isCOPService = true;
+                dfUrl = dfUrl.replace("copservice/", "rsConnectService/");
+                dfUrl = dfUrl.replace("7075", "9095")
+            }
             request.url = dfUrl;
 
             var getStartTick = process.hrtime();
@@ -78,8 +84,8 @@ ApiHealthCheckService.prototype = {
             var getEndTick = process.hrtime(getStartTick);
             var getTimeTaken = getEndTick[1] / 1000000;
 
-            if (apiResponse && apiResponse.response) {
-                if (apiResponse.response[collectionName] && apiResponse.response[collectionName].length > 0) {
+            if ((apiResponse && apiResponse.response) || isCOPService) {
+                if ((isCOPService && apiResponse[collectionName]) || (apiResponse.response[collectionName] && apiResponse.response[collectionName].length > 0)) {
                     response = {
                         "status": "success",
                         "msg": "All is well...! " + apiUrl + " call returned with data.",
@@ -271,6 +277,7 @@ ApiHealthCheckService.prototype = {
         var getRequest = apiConfig.getRequest;
         var getApiUrl = apiConfig.getApiUrl;
         var deleteApiUrl = apiConfig.deleteApiUrl;
+        var createApiUrl = apiConfig.createApiUrl;
         var createRequest = apiConfig.createRequest;
         var deleteRequest = apiConfig.deleteRequest;
         var attributesToUpdate = apiConfig.attributesToUpdate;
@@ -291,7 +298,7 @@ ApiHealthCheckService.prototype = {
             var dataObject = createRequest.body[objectName];
             this.setAttrVal(dataObject.data.attributes, attrName, newVal);
 
-            createRequest.url = dfUrl;
+            createRequest.url = createApiUrl ? dfUrl.replace(apiUrl, createApiUrl) : dfUrl;
 
             var createStartTick = process.hrtime();
 
