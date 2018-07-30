@@ -3,6 +3,7 @@
 <link rel="import" href="../bedrock-helpers/component-helper.html">
 
 <link rel="import" href="../pebble-toolbar/pebble-toolbar.html">
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
 
 <link rel="import" href="../rock-relationship-grid/rock-relationship-grid.html">
 <link rel="import" href="../rock-where-used-grid/rock-where-used-grid.html">
@@ -28,6 +29,7 @@
                 margin: 0 auto;
             }
         </style>
+        <pebble-spinner active="[[_loading]]"></pebble-spinner>
         <div class="base-grid-structure">
             <div class="base-grid-structure-child-1">
                 <div id="messageCard" hidden="[[!_isMessageAvailable]]"></div>
@@ -161,6 +163,14 @@
                     excludeNonContextual: {
                         type: Boolean,
                         value: false
+                    },
+                    _loading: {
+                        type: Boolean,
+                        value: false
+                    },
+                    _isAttrModelReqInitiated: {
+                        type: Boolean,
+                        value: false
                     }
                 }
             }
@@ -178,6 +188,7 @@
             }
             _onContextDataChange() {
                 if (!_.isEmpty(this.contextData)) {
+                    this._loading = true;
                     var context = DataHelper.cloneObject(this.contextData);
                     //App specific
                     var appName = ComponentHelper.getCurrentActiveAppName();
@@ -209,7 +220,8 @@
                     if (!_.isEmpty(this.configContext) && this.configContext.direction == "up") {
                         var config = this._getConfigForUpDirection(componentConfig.config);
                         if (!config) {
-                            return
+                            this._loading = false;
+                            return;
                         }
 
                         this._relConfig = config;
@@ -230,8 +242,9 @@
                         this.addRelationshipGridConfig = componentConfig.config.addRelAssetConfig;
                     }
                     this.initiateRelationshipManage();
-                } else {                    
+                } else {
                     this._showMessage("Relationships are not configured for current entity type");
+                    this._loading = false;
                     return;
                 }
             }
@@ -286,6 +299,7 @@
                     return config;
                 } else {
                     this._showMessage("Relationships are not configured for current entity type");
+                    this._loading = false;
                     return;
                 }
             }
@@ -303,6 +317,7 @@
 
                     //No fields
                     if (_.isEmpty(gridConfig.itemConfig)) {
+                        this._loading = false;
                         return;
                     }
 
@@ -375,6 +390,8 @@
 
                     this._prepareRequest();
                     this._initiateRelationshipModelRequest(this.relationship, relationshipAttributes);
+                } else {
+                    this._loading = false;
                 }
             }
 
@@ -478,6 +495,7 @@
                                         if (relatedEntityAttributes && relatedEntityAttributes.length) {
                                             //Initiate attr model get
                                             this._initiateAttributeModelRequest(relType, relatedEntityInfo, relatedEntityAttributes);
+                                            this._isAttrModelReqInitiated = true;
                                         } else {
                                             this._relConfig.relatedEntityModel.relatedEntityAttributeModels = {};
                                             this.relGridConfig = this._relConfig;
@@ -489,6 +507,9 @@
                     } else {
                         this._showMessage("Relationships are not configured for current entity type");
                     }
+                }
+                if(!this._isAttrModelReqInitiated) {
+                    this._loading = false;
                 }
             }
 
@@ -532,6 +553,8 @@
                             }
                         }
                     }, this);
+                } else {
+                    this._loading = false;
                 }
             }
             _onRelatedEntityAttributeModelGetResponse(e) {
@@ -563,6 +586,7 @@
 
                 if (this._relatedEntityRequestTracker == 0) {
                     this.relGridConfig = this._relConfig;
+                    this._resetSpinner();
                 }
             }
             _onRelatedEntityAttributeModelGetResponseFailed(e) {
@@ -573,7 +597,14 @@
                 this._relatedEntityRequestTracker--;
                 if (this._relatedEntityRequestTracker == 0) {
                     this.relGridConfig = this._relConfig;
+                    this._resetSpinner();
                 }
+            }
+            _resetSpinner() {
+                // After rel config update give a pause to stop spinner
+                this.async(function () {
+                    this._loading = false;
+                }, 1000);
             }
             _isUpdirection() {
                 return this._relConfig && this._relConfig.direction == "up";
