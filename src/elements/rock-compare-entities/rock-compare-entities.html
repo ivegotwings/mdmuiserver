@@ -69,7 +69,7 @@
                             <pebble-spinner active="[[_loading]]"></pebble-spinner>
                             <bedrock-pubsub event-name="pebble-actions-action-click" handler="_onActionItemTap" target-id=""></bedrock-pubsub>
                             <div class$="[[_getButtonSiblingsClass(showActionButtons)]]">
-                                <rock-grid id="compareRelationshipsGrid" data="{{_gridData}}" attribute-models="{{_attributeModels}}" config="{{_gridConfig}}"
+                                <rock-grid id="compareEntitiesGrid" data="{{_gridData}}" attribute-models="{{_attributeModels}}" config="{{_gridConfig}}"
                                     page-size="5" enable-column-select=[[enableColumnSelect]] context-data="[[contextData]]" nested-attribute-message="{noOfValues} values"
                                     hide-view-selector hide-toolbar grid-item-view></rock-grid>
                             </div>
@@ -86,7 +86,7 @@
                                 <!-- <pebble-dropdown id="actionsButtonRelationships" label="Filter By" selected-value="{{_selectedValueRel}}" items="[[_dropDownItems]]"></pebble-dropdown> -->
                                 <bedrock-pubsub event-name="pebble-actions-action-click" handler="_onActionItemTap" target-id=""></bedrock-pubsub>
                                 <div class$="[[_getButtonSiblingsClass(showActionButtons)]]">
-                                    <rock-grid id="compareEntitiesGrid" data="{{_gridDataRelationships}}" attribute-models="{{_relationshipModels}}" config="{{_gridConfigRelationships}}"
+                                    <rock-grid id="compareRelationshipsGrid" data="{{_gridDataRelationships}}" attribute-models="{{_relationshipModels}}" config="{{_gridConfigRelationships}}"
                                         page-size="5" context-data="[[contextData]]" nested-attribute-message="{noOfValues} Relationships"
                                         hide-view-selector hide-toolbar grid-item-view></rock-grid>
                                 </div>
@@ -120,6 +120,7 @@
                 on-liquid-response="_onEntityDataGetSuccess">
             </liquid-rest>
             <bedrock-pubsub event-name="refresh-grid" handler="_onRefreshGrid" target-id="compareEntitiesGrid"></bedrock-pubsub>
+            <bedrock-pubsub event-name="refresh-grid" handler="_onRefreshGrid" target-id="compareRelationshipsGrid"></bedrock-pubsub>
 
     </template>
     <script>
@@ -571,7 +572,7 @@
                                         } else {
                                             if (index == 0) {
                                                 normalRowModelsRelationshipGrid.push({
-                                                    "header":relationship[0]? relationship[0].properties.externalName: key,
+                                                    "header": relationship[0]? relationship[0].properties.externalName: key,
                                                     "name": key,
                                                     "isRelationship": true
                                                 });
@@ -1006,7 +1007,7 @@
                         }
                         //adding snapshot flag
                         item.isSnapshot = this.isSnapshot;
-                        item["Attributes"] = row.header;
+                        item["Relationships"] = row.header;
                         item["attributeName"] = row.name;
                         item["isEmpty"] = isEmpty;
                         item["hasPartialValues"] = hasPartialValues;
@@ -1127,9 +1128,14 @@
                                 };
                             }, this);
                             var currAttrDatatype;
-                            if (this._entityModels && this._entityModels[0].data.attributes && this._entityModels[0].data.attributes[row.name]
-                                && this._entityModels[0].data.attributes[row.name].properties) {
+                            if (DataHelper.isValidObjectPath(this._entityModels[0], 'data.contexts.0')) {
+                                if (DataHelper.isValidObjectPath(this._entityModels[0].data, 'contexts.0.attributes.' + row.name + 'properties.dataType')) {
+                                        currAttrDatatype = this._entityModels[0].data.contexts[0].attributes[row.name].properties.dataType;
+                                    }
+                            } else if (DataHelper.isValidObjectPath(this._entityModels[0], 'data.attributes')) {
                                 currAttrDatatype = this._entityModels[0].data.attributes[row.name].properties.dataType;
+                            } else {
+                                console.error('_prepareGridColumnsModelAndData:- attributeModels does not have the attribute you are looking for');
                             }
                             if (!_isAttributeMapped) {
                                 item[entity.id] = "NA";
@@ -1198,35 +1204,71 @@
 
                         } else {
 
+                            var isNumber = false;
+                            var isBoolean = false;
                     //setting filter values for other attrs.
                             Object.keys(item).forEach(function (key) {
-                            if (!hasPartialValues) {
-                                if (_.isEmpty(item[key])) {
-                                    if (hasValues) {
-                                        hasPartialValues = true;
-                                        hasValues = false;
-                                    } else {
-                                        isEmpty = true;
+
+                                //checking for prmitive types which _isEmpty cannot check 
+                                if (!!item[key]) {
+                                    if (typeof item[key] == 'number') {
+                                        item[key] = item[key] + "";
+                                        isNumber = true;
                                     }
-                                } else {
-                                    if (isEmpty) {
-                                        hasPartialValues = true;
-                                        isEmpty = false;
-                                    } else {
-                                        hasValues = true;
+                                    if (typeof item[key] == 'boolean') {
+                                        item[key] = item[key] + "";
+                                        isBoolean = true;
                                     }
                                 }
-                            }
+                                if (!hasPartialValues) {
+                                    if (_.isEmpty(item[key])) {
+                                        if (hasValues) {
+                                            hasPartialValues = true;
+                                            hasValues = false;
+                                        } else {
+                                            isEmpty = true;
+                                        }
+                                    } else {
+                                        if (isEmpty) {
+                                            hasPartialValues = true;
+                                            isEmpty = false;
+                                        } else {
+                                            hasValues = true;
+                                        }
+                                    }
+                                }
                         }, this);
-                        if (hasValues) {
-                            var uniqueValues = _.uniq(_.values(item));
-                            if (uniqueValues && uniqueValues.length == 1) {
-                                sameValues = true;
-                            } else {
-                                diffValues = true;
-                            }
-                        }
+                            if (hasValues) {
+                                //comparison of collection type attributes
+                                if (Array.isArray(item[Object.keys(item)[0]])) {
+                                    let spreadItems = _.values(item);
+                                    var areAllArraysEqual = _.isEqual(...spreadItems);
+                                    sameValues = areAllArraysEqual;
+                                    diffValues = !sameValues;
+                                } else {
+                                    var uniqueValues = _.uniq(_.values(item));
+                                    if (uniqueValues && uniqueValues.length == 1) {
+                                        sameValues = true;
+                                    } else {
+                                        diffValues = true;
+                                    }
+                                }
+                                
+                                    //replacing original values once filtering flags are computed
+                                Object.keys(item).forEach(key => {
+                                    if (isNumber && !_.isEmpty(item[key])) {
+                                        item[key] = parseFloat(item[key]).toFixed(2);
+                                        
+                                    }
+                                    if (isBoolean && !_.isEmpty(item[key])) {
+                                        item[key] = item[key] == 'true';
+                                        
+                                    }
 
+                                });
+                                isNumber = false;
+                                isBoolean = false;                                
+                            }
                         }
                         item["Attributes"] = row.header;
                         item["attributeName"] = row.name;

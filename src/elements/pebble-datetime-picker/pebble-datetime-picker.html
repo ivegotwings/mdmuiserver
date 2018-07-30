@@ -144,8 +144,8 @@ See the docs for `Polymer.IronOverlayBehavior` for accessibility features implem
                                     readonly="{{isReadonlyInput}}"
                                     no-label-float="[[noLabelFloat]]"
                                     description-object="[[descriptionObject]]"
-                                    value="{{text}}"
-                                    on-tap="_showPicker"></pebble-textbox>
+                                    value="{{text}}" placeholder="[[getPlaceholder()]]"
+                                    ></pebble-textbox>
                 </div>
                 <bedrock-validator  show-error validation-errors="{{validationErrors}}" input="[[value]]"  required="[[required]]" invalid="{{invalid}}" error-message="{{errorMessage}}" type="[[validationType]]"></bedrock-validator>
             </template>
@@ -391,7 +391,36 @@ See the docs for `Polymer.IronOverlayBehavior` for accessibility features implem
                 value: function () {
                     return {};
                 }
+            },
+
+            timePattern:{
+                type: String,
+                value: ""
+            },
+            cursorStartPosition:{
+                type: Number,
+                value: 0
+            },
+            autoCompleteTime:{
+                type: Boolean,
+                value: true
+            },
+            autoCompleteTimeValue:{
+                type: String,
+                value: " 12:00:00 AM"
+            },
+            updateInProgress: {
+                type: Boolean,
+                value : false
+            },
+            specialCharacter:{
+                type: String,
+                value: "/ :"
             }
+        },
+        listeners: {
+            'input-key-up': '_onInputKeyUp',
+            'input-focus-out':'_onInputFocusOut'
         },
 
         attached: function(){
@@ -408,12 +437,72 @@ See the docs for `Polymer.IronOverlayBehavior` for accessibility features implem
                 this._target = "datetimePickerIcon";
             }
         },
-
+        getPlaceholder: function(){
+            if(this.pickerType == "datetime"){
+                return this.datetimeFormat + "M/PM";
+            }else{
+                return this.dateFormat
+            }
+        },
+        _onInputFocusOut: function(event){
+            var inputValue = event.detail.inputValue;
+            if(inputValue && this.pickerType == "datetime"){
+                if(inputValue.length == this.dateFormat.length + 1){
+                    this.text += this.autoCompleteTimeValue;
+                }
+            }
+        },
+        _onInputKeyUp: function(event){
+            var keycode = event.detail.sourceEvent.keyCode;
+            var inputElement = this.$$("pebble-textbox").getInputElement();
+            if(keycode && inputElement){
+                if(this.autoCompleteTime && inputElement.selectionStart == this.dateFormat.length + 1 && inputElement.selectionEnd == this.datetimeFormat.length + 1){
+                    this.autoCompleteTime = false;
+                }
+            }
+        },
+        
+        getStringDiff: function(newvalue, oldvalue){ 
+            var diffObject = {};
+            if(oldvalue){
+                oldvalue.split("").every(function(value, index){
+                    if (value != newvalue.charAt(index)){
+                        diffObject["text"] = value;
+                        diffObject["index"] = index;
+                        return false;
+                    }else{
+                        return true
+                    }
+                });
+            }
+            
+            return diffObject;
+        },
         // When textbox value change, set the value to date value for validation
-        _onDateTextChange: function() {
+        _onDateTextChange: function(newvalue,oldvalue) {
             var _format = this.pickerType == "datetime" ? this.datetimeFormat : this.dateFormat;                     
             var isoFormat = this.pickerType == "datetime" ? this._isoDateTimeFormat : this._isoDateFormat;
-
+            var strDiff = this.getStringDiff(newvalue,oldvalue);
+            if(this.$$("pebble-textbox")){
+                var inputElement = this.$$("pebble-textbox").getInputElement();
+                if(!_.isEmpty(strDiff)){
+                    if(!this.updateInProgress){
+                        this.updateInProgress = true;
+                        if("AMP".indexOf(strDiff.text) > -1){
+                            this.timePattern = "";
+                        }else if(":/".indexOf(strDiff.text) > -1){
+                            this.cursorStartPosition = inputElement.selectionStart - 2;
+                            this.text = this.text.slice(0, strDiff.index - 1) + this.text.slice(strDiff.index, this.text.length)
+                        }else if(" ".indexOf(strDiff.text) > -1){
+                            this.cursorStartPosition = inputElement.selectionStart - 1;
+                            this.text = this.text.slice(0, strDiff.index - 1) + this.text.slice(strDiff.index, this.text.length)
+                        }
+                        this.cursorStartPosition = inputElement.selectionStart
+                    }
+                }else{
+                    this.cursorStartPosition = inputElement.selectionStart
+                }
+            }
             var isoDateFromText = moment(this.text, _format, true).format(isoFormat);
 
             if (this.value == isoDateFromText) {
@@ -435,10 +524,96 @@ See the docs for `Polymer.IronOverlayBehavior` for accessibility features implem
                 this.text = FormatHelper.convertFromISODateTime(this.value, this.pickerType, format);
             } else {
                 this.text = this.value;
-            }            
+            } 
+            if(this.text.length == 0){
+                if(!this.autoCompleteTime){
+                    this.autoCompleteTime = true;
+                }
+            }           
+            if (this.text && this.$$("pebble-textbox")) {
+                var currentValue = this.text;
+                var currentPatternIndex = 0;
+                var currentPattern = this.dateFormat;
+                var totalDashesAdded = 0;
+                var formattedValue = '';
+                var patternSeperator = "/";
+                var timeFormatLength = 0;
+                var timePattrenCharacters = "AP";
+                var dateFormatLength = (this.dateFormat ? this.dateFormat.length : 0) - (this.dateFormat.match(/\//g) || []).length;
+                if (this.timeFormat) {
+                    timeFormatLength = (this.timeFormat ? this.timeFormat.length : 0) - (this.timeFormat.match(/:/g) || []).length;
+                }
+                var maxLength = this.pickerType == "datetime" ? dateFormatLength + timeFormatLength : dateFormatLength;
+                var specialCharacter = this.specialCharacter;
+                var inputElement = this.$$("pebble-textbox").getInputElement();
+                var start  = inputElement.selectionStart
+                var previousCharADash = specialCharacter.indexOf(currentValue.charAt(start - 1)) > -1;
+                if(currentValue.length == 22){
+                    this.timePattern = currentValue.slice(-2);
+                }
+                currentValue = currentValue.replace(/\//g, "").replace(/ /g, "").replace(/:/g, "");
+                var isCharacterAllowed = true;
+                for (var currentValueIndex = 0; currentValueIndex < currentValue.length; currentValueIndex++) {
+                    isCharacterAllowed = true;
+                    if (currentValueIndex < dateFormatLength + timeFormatLength - 2 && isNaN(currentValue[currentValueIndex]) || currentValueIndex >= maxLength) {
+                        isCharacterAllowed = false;
+                    }else if (currentValueIndex >= dateFormatLength + timeFormatLength - 2) {
+                        if (timePattrenCharacters.indexOf(currentValue[currentValueIndex].toUpperCase()) > -1 && currentValueIndex == dateFormatLength + timeFormatLength - 2 || timePattrenCharacters.indexOf(currentValue[currentValueIndex-1].toUpperCase()) > -1 && currentValue[currentValueIndex].toUpperCase() == "M") {
+                            if (currentValueIndex == dateFormatLength + timeFormatLength - 2) {
+                                formattedValue += " ";
+                            }
+                            currentValue = currentValue.replace(currentValue[currentValueIndex], currentValue[currentValueIndex].toUpperCase());
+                        } else {
+                            continue;
+                        }
+                    }
+                    if (currentValueIndex == dateFormatLength) {
+                        totalDashesAdded = 0;
+                        currentPattern = this.timeFormat;
+                        currentPatternIndex = 0;
+                        patternSeperator = ":"
+                    }
+                    currentPatternIndex = currentPattern.indexOf(patternSeperator, currentPatternIndex);
+                    var patternSeperatorIndex = currentPatternIndex - totalDashesAdded;
+                    if(isCharacterAllowed){
+                        formattedValue += currentValue[currentValueIndex];
+                    }else{
+                        currentValue = currentValue.slice(0,currentValueIndex - 1) + currentValue.slice(currentValueIndex, this.text.length);
+                        currentValueIndex--;
+                    }
+                    if (currentPatternIndex > -1 && currentValueIndex != dateFormatLength - 1 && (currentValueIndex == patternSeperatorIndex - 1 || currentValueIndex == (dateFormatLength + patternSeperatorIndex - 1))) {
+                        formattedValue += patternSeperator;
+                        currentPatternIndex++;
+                        totalDashesAdded++;
+                    }else if(currentValueIndex == dateFormatLength - 1 && this.pickerType == "datetime"){
+                        formattedValue += " ";
+                    }
+                }
+                if(formattedValue.length == 19){
+                    if(this.timePattern){
+                        formattedValue += " " + this.timePattern;
+                    }
+                }
+                var nextCharADash = specialCharacter.indexOf(formattedValue.charAt(this.cursorStartPosition)) > -1;
+                if(formattedValue.length == this.dateFormat.length + 1 && this.autoCompleteTime && this.pickerType == "datetime"){
+                        formattedValue += this.autoCompleteTimeValue;
+                }
+                this.text = formattedValue;
+                this.updateInProgress = false;
+                if(this.autoCompleteTime){
+                        inputElement.selectionStart = this.dateFormat.length + 1
+                        inputElement.selectionEnd = formattedValue.length;
+                }else{
+                    inputElement.selectionStart = this.cursorStartPosition;
+                    inputElement.selectionEnd = this.cursorStartPosition;
+                    if (!previousCharADash && specialCharacter.indexOf(this.text.charAt(this.cursorStartPosition - 1)) > -1 || nextCharADash) {
+                        inputElement.selectionStart = this.cursorStartPosition + 1;
+                        inputElement.selectionEnd = this.cursorStartPosition + 1;
+                    }
+                }
+            }
         }
       });
-    // })();
   </script>
 
 
