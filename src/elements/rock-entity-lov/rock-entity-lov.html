@@ -8,6 +8,8 @@
 <link rel="import" href="../bedrock-lov-behavior/bedrock-lov-behavior.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 
+<link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
+
 <link rel="import" href="../pebble-lov/pebble-lov.html">
 <link rel="import" href="../rock-image-source-provider/rock-image-source-provider.html">
 
@@ -32,14 +34,14 @@ It filters the data as per the filter criteria.
             keywords-criterion-builder="{{_keywordsCriterionBuilder}}" sort-criterion-builder="{{_sortCriterionBuilder}}" attributes-criterion-builder="{{_attributesCriterionBuilder}}"
             is-attribute-filter="{{_isAttributeFilter}}">
         </entity-lov-datasource>
-            <rock-image-source-provider image-source="{{imageSource}}"></rock-image-source-provider>
-            <pebble-lov id="entityLov" readonly=[[readonly]] image-source="{{imageSource}}" page-size="[[pageSize]]" multi-select="[[multiSelect]]"
-                show-image="[[_showImage(imageField,imageIdField)]]" show-color="[[showColor]]" no-sub-title="[[noSubTitle]]" show-action-buttons="[[showActionButtons]]"
-                r-data-source="{{rDataSource}}" items="[[items]]" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}"
-                allow-search-query-format on-selection-changed="_onLovSelectionChanged" on-lov-confirm-button-tap="_onLovConfirmButtonTapped"
-                on-lov-close-button-tap="_onLovCloseButtonTapped" disable-selection="[[disableSelection]]">
-            </pebble-lov>
-        </template>
+        <rock-image-source-provider image-source="{{imageSource}}"></rock-image-source-provider>
+        <pebble-lov id="entityLov" readonly=[[readonly]] image-source="{{imageSource}}" page-size="[[pageSize]]" multi-select="[[multiSelect]]" show-image="[[_showImage(imageField,imageIdField)]]" show-color="[[showColor]]"
+            no-sub-title="[[noSubTitle]]" show-action-buttons="[[showActionButtons]]" r-data-source="{{rDataSource}}" items="[[items]]"
+            selected-item="{{selectedItem}}" selected-items="{{selectedItems}}"  allow-search-query-format on-selection-changed="_onLovSelectionChanged" 
+            on-lov-confirm-button-tap="_onLovConfirmButtonTapped" on-lov-close-button-tap="_onLovCloseButtonTapped"  disable-selection="[[disableSelection]]">
+        </pebble-lov>
+        <liquid-entity-model-get id="getReferenceModels" operation="getbyids" request-data=[[_getRefModelsRequest]]></liquid-entity-model-get>
+    </template>
     <script>
         Polymer({
             is: 'rock-entity-lov',
@@ -89,6 +91,10 @@ It filters the data as per the filter criteria.
                  * Indicates the title for the item.
                  */
                 titlePattern: {
+                    type: String,
+                    value: ""
+                },
+                _titlePattern: {
                     type: String,
                     value: ""
                 },
@@ -221,6 +227,16 @@ It filters the data as per the filter criteria.
                 disableSelection:{
                     type: Boolean,
                     value: false
+                },
+                _getRefModelsRequest: {
+                    type: Object,
+                    value: function() {
+                        return {};
+                    }
+                },
+                getTitleFromModel: {
+                    type: Boolean,
+                    value: false
                 }
             },
 
@@ -244,19 +260,37 @@ It filters the data as per the filter criteria.
                 this.logInfo("AttributeModelReady","id",this.idField,"requestData",JSON.stringify(this.requestData));
             },
 
-            _prepareAttributes: function (idField, titlePattern, subTitlePattern, imageField,imageIdField, colorField,
+            _prepareAttributes: async function (idField, titlePattern, subTitlePattern, imageField,imageIdField, colorField,
                 valueField, typeField, sortField, requestData) {
                 var defaultAttributes = this._attributes;
                 this._attributes = [];
                 var attributes = [];
 
+                if(_.isEmpty(this.requestData)) {
+                    return;
+                }
+
                 if (typeof (this.idField) !== 'undefined' && this.idField !== "") {
                     attributes.push(this.idField);
                 }
 
-                if (typeof (this.titlePattern) !== 'undefined' && this.titlePattern !== "") {
-                    if (!attributes.includes(this.titlePattern)) {
-                        var titleFields = DataHelper.getAttributesBetweenCurlies(this.titlePattern);
+                if (this.getTitleFromModel && !this._titlePattern) {
+                    try {
+                        await new Promise((resolve, reject) => {
+                            this._setLovTitleField(resolve, reject);
+                        });
+                    } catch(e) {
+                        this.logWarning(e);
+                    }
+                }
+
+                if (!this._titlePattern) {
+                    this._titlePattern = this.titlePattern;
+                }
+
+                if (typeof (this._titlePattern) !== 'undefined' && this._titlePattern !== "") {
+                    if (!attributes.includes(this._titlePattern)) {
+                        var titleFields = DataHelper.getAttributesBetweenCurlies(this._titlePattern);
                         if (titleFields && titleFields instanceof Array) {
                             attributes.push(...titleFields);
                             this._isAttributeFilter = true;
@@ -326,7 +360,7 @@ It filters the data as per the filter criteria.
                     this.requestData.params.fields.attributes = this._attributes;
                 }
 
-
+                this.reset(); //Reset lov after request update
                 this._prepareAttributeMaps();
             },
             _prepareSortCriterion: function () {
@@ -371,7 +405,7 @@ It filters the data as per the filter criteria.
             },
             _prepareAttributeMaps: function () {
                 this._lovColumnNameValueCollection.id = this.idField;
-                this._lovColumnNameValueCollection.title = this.titlePattern;
+                this._lovColumnNameValueCollection.title = this._titlePattern;
                 this._lovColumnNameValueCollection.subtitle = this.subTitlePattern;
                 this._lovColumnNameValueCollection.image = this.imageField;
                 this._lovColumnNameValueCollection.imageId = this.imageIdField;
@@ -380,11 +414,11 @@ It filters the data as per the filter criteria.
                 this._lovColumnNameValueCollection.type = this.typeField;
 
                 if(this.applyLocaleCoalescedStyle) {
-                    this._lovColumnNameValueCollection.textColor = this.titlePattern;
+                    this._lovColumnNameValueCollection.textColor = this._titlePattern;
                 }
                 
                 if(this.applyContextCoalescedStyle) {
-                    this._lovColumnNameValueCollection.fontStyle = this.titlePattern;
+                    this._lovColumnNameValueCollection.fontStyle = this._titlePattern;
                 }
             },
 
@@ -409,7 +443,7 @@ It filters the data as per the filter criteria.
             },
 
             _prepareAttributesCriteria: function (searchText) {
-                return DataRequestHelper.createAttributesCriteria(searchText, this.titlePattern, this.subTitlePattern);
+                return DataRequestHelper.createAttributesCriteria(searchText, this._titlePattern, this.subTitlePattern);
             },
 
             _onLovSelectionChanged: function (event) {
@@ -449,6 +483,52 @@ It filters the data as per the filter criteria.
             },
             _showImage:function () {
                 return (this.imageField || this.imageIdField);
+            },
+
+            _setLovTitleField: function (resolve, reject) {
+                var typesCriterion = [];
+                if (DataHelper.isValidObjectPath(this.requestData, "params.query.filters.typesCriterion")) {
+                    typesCriterion = this.requestData.params.query.filters.typesCriterion;
+                }
+
+                var _onRefModelsReceived = function (e) {
+                    var responseContent = DataHelper.validateAndGetResponseContent(e.detail.response);
+                    var externalNameAttributeName;
+
+                    if (responseContent && !_.isEmpty(responseContent.entityModels)) {
+                        var responseData = responseContent.entityModels[0];
+                        externalNameAttributeName = DataHelper.getExternalNameAttributeFromModel(responseData);
+                    }
+
+                    this._titlePattern = externalNameAttributeName ? "{entity.attributes."+ externalNameAttributeName +"}" : "";
+
+                    if (resolve) {
+                        resolve();
+                    }
+                }
+
+                var _onRefModelsGetFailed = function (e) {
+                    this.logWarning("ReferenceManageModelGetFail", e);
+                    if (reject) {
+                        reject();
+                    }
+                }
+
+                if (!DataHelper.isEmptyObject(typesCriterion)) {
+                    let req = DataRequestHelper.createGetManageModelRequest(typesCriterion);
+                    this.set("_getRefModelsRequest", req);
+
+                    let refModelsGetLiquid = this.shadowRoot.querySelector("[id=getReferenceModels]");
+                    if (refModelsGetLiquid) {
+                        refModelsGetLiquid.addEventListener("response", _onRefModelsReceived.bind(this));
+                        refModelsGetLiquid.addEventListener("error", _onRefModelsGetFailed.bind(this));
+                        refModelsGetLiquid.generateRequest();
+                    }
+                } else {
+                    if (reject) {
+                        reject("ReferenceManageModelGetFail - TypesCriterion not available for request.");
+                    }
+                }
             }
         });
     </script>
