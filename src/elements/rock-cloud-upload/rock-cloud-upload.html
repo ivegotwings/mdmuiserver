@@ -52,7 +52,7 @@
 
         <div id="content-upload" class="content-upload-wrapper">
             <div class="placeHolder">
-                <pebble-bulk-file-upload method="PUT" accept="" no-auto="true" s3-upload="true" max-file-size="[[maxFileSize]]" max-files="[[maxFiles]]" headers="{{_headersObj}}"></pebble-bulk-file-upload>
+                <pebble-bulk-file-upload method="PUT" accept="" no-auto="true" s3-upload="true" max-file-size="[[maxFileSize]]" max-files="[[maxFiles]]"></pebble-bulk-file-upload>
                 <bedrock-pubsub event-name="pebble-bulk-file-upload-started" handler="_onUploadStarted"></bedrock-pubsub>
                 <bedrock-pubsub event-name="pebble-bulk-file-upload-success" handler="_onUploadSuccess"></bedrock-pubsub>
                 <bedrock-pubsub event-name="pebble-bulk-file-upload-failed" handler="_onUploadFailed"></bedrock-pubsub>
@@ -99,10 +99,6 @@
                         type: Object,
                         value: function () { return {}; }
                     },
-                    _headersObj: {
-                        type: Object,
-                        value: function () { return {}; }
-                    },
                     allowedFileTypes: {
                         type: Array,
                         value: function () { return []; }
@@ -146,7 +142,6 @@
                 _onUploadStarted: function (e, uploadedFiles, sender) {
                     var prepareUploadRequest = [];
                     this.files = [];
-                    this._headersObj = {};
 
                     Object.keys(uploadedFiles).forEach(key => {
                         var file = uploadedFiles[key]
@@ -160,7 +155,7 @@
                             //Allowed types check
                             if(this.allowedFileTypes && this.allowedFileTypes.length) {
                                 if(!ValidationHelper.fileExtensionValidator(file.name, this.allowedFileTypes)) {
-                                    this.showErrorToast("The uploaded file's type is not valid. Valid extensions are " + this.allowedFileTypes.join(", "));
+                                    this.showWarningToast("The uploaded file's type is not valid. Valid extensions are " + this.allowedFileTypes.join(", "));
                                     this._resetUploadElement();
                                     return;
                                 }
@@ -216,20 +211,20 @@
                         var binarystreamobjects = response.response.binaryStreamObjects;
                         if (binarystreamobjects) {
                             for (let binarystreamobject of binarystreamobjects) {
+                                var headersObj = {};
                                 var data = binarystreamobject.data;
 
                                 if (data && data.properties && data.properties.uploadURL && data.properties.uploadURL.length > 0) {
                                     if(data.properties.headers && data.properties.headers.length > 0){
                                         var headers = data.properties.headers;
-                                        var headerObj = {}
                                         for (let i = 0; i < headers.length; i++) {
-                                            headerObj = Object.assign(headerObj, headers[i]);
+                                            headersObj = Object.assign(headersObj, headers[i]);
                                         }
-                                        this._headersObj = headerObj;
                                     }
                                     for (let file of this.files) {
                                         if (file.s3ObjectKey == data.properties.objectKey) {
                                             file.uploadTarget = data.properties.uploadURL;
+                                            file.headers = headersObj;
                                             canUpload = true;
                                             break;
                                         }
@@ -243,14 +238,12 @@
                         this.bulkEditUploadElement.uploadFiles(this.files);
                     }
                     else {
-                        console.warn("Unexpected response:" + e.detail.response);
-                        this.showErrorToast("Unable to upload. Please check the service or contact your administrator.");
+                        this.logError("Unable to upload.", e.detail);
                         this._resetUploadElement();
                     }
                 },
                 _onPrepareUploadLiquidFailure: function (e) {
-                    console.warn('Upload failed with error ', e.detail);
-                    this.showErrorToast("Unable to upload. Please check the service or contact your administrator.");
+                    this.logError("Unable to upload.", e.detail);
                     this._resetUploadElement();
                 },
                 _onUploadSuccess: function (e, succeededFilesData, sender) {
@@ -297,11 +290,10 @@
                     }, 5000);
                 },
                 _onUploadFailed: function (e, errorMessage, sender) {
-                    this.showErrorToast(errorMessage);
+                    this.logError(errorMessage);
                 },
                 _onCreateUploadedFilesLiquidFailure: function (e) {
-                    console.warn('Asset upload failed with error ', e.detail);
-                    this.showErrorToast("Unable to upload. Please check the service or contact your administrator.");
+                    this.logError("Unable to upload.", e.detail);
                     this._resetUploadElement();
                 },
                 /**

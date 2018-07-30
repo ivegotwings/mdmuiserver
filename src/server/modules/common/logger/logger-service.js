@@ -108,7 +108,7 @@ LoggerService.prototype = {
   },
   _log: async function (level, msg, obj, callerModuleName, calleeServiceName) {
     if (!this._isConfigured) {
-      throw "Logger is not configured. Please call logger.configure before using log method";
+      throw "Logger is not configured. Call logger.configure before using log method";
     }
 
     var moduleSetting = await this._getModuleLogConfig(callerModuleName, calleeServiceName);
