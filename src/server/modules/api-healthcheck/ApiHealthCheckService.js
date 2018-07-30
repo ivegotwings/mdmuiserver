@@ -104,7 +104,7 @@ ApiHealthCheckService.prototype = {
                 else {
                     response = {
                         "status": "warning",
-                        "msg": apiUrl + " call returned without any data. Please check the system.",
+                        "msg": apiUrl + " call returned without any data. Check the system.",
                         "detail": {
                             "request": request.body,
                             "response": apiResponse,
@@ -163,7 +163,7 @@ ApiHealthCheckService.prototype = {
             if (!(getApiResponse && getApiResponse.response && getApiResponse.response[collectionName] && getApiResponse.response[collectionName].length > 0)) {
                 response = {
                     "status": "error",
-                    "msg": getRequest.url + " call returned without any data. Please check the healthcheck config.",
+                    "msg": getRequest.url + " call returned without any data. Check the healthcheck config.",
                     "detail": {
                         "request": getRequest.body,
                         "response": getApiResponse
@@ -469,7 +469,7 @@ ApiHealthCheckService.prototype = {
     createFatalError: function (serviceName) {
         var errResponse = {
             "status": "error",
-            "msg": "Failed to execute healthcheck path for the " + serviceName + " service and verify result. Please check configuration and contact administrator",
+            "msg": "Failed to execute healthcheck path for the " + serviceName + " service and verify result. Check configuration and contact administrator",
             "detail": {
                 "request": {},
                 "response": {},
