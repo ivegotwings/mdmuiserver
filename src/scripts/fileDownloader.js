@@ -35,7 +35,7 @@
             //if jQuery UI is installed this will be a dialog, otherwise it will be an alert
             //Set to null to disable the message and attempt to download anyway
             //
-            androidPostUnsupportedMessageHtml: "Unfortunately your Android browser doesn't support this type of file download. Please try again with a different browser.",
+            androidPostUnsupportedMessageHtml: "Unfortunately your Android browser doesn't support this type of file download. Try again with a different browser.",
 
             //
             //Requires jQuery UI: options to pass into jQuery UI Dialog
