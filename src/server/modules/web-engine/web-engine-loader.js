@@ -63,11 +63,11 @@ logger.info('Web engine start - views are loaded');
 
 // parse application/x-www-form-urlencoded
 app.use(bodyParser.urlencoded({
-    limit: '10mb',
+    limit: '50mb',
     extended: false
 }));
 app.use(bodyParser.json({
-    limit: '10mb'
+    limit: '50mb'
 }));
 
 logger.info('Web engine start - body parser middleware is loaded');
