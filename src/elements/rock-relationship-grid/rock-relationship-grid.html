@@ -323,10 +323,12 @@ The following JSON object is a sample of data which binds the grid.
             <div class="contentContainer accordion-grid-content-row-item base-grid-structure-child-2">
               <div class$="grid-wrap-container [[_applyClass(_quickManageEnabled)]]">
                 <div class="container col-8-4-grid-child-1">
-                  <entity-relationship-grid-datasource id="datasource_[[relationship]]" request="[[_getRelationshipGridRequest(relationship)]]"
+                  <template is="dom-if" if="[[_loadRelationshipEntities]]">
+                    <entity-relationship-grid-datasource id="datasource_[[relationship]]" request="[[_getRelationshipGridRequest(relationship)]]"
                     r-data-source="{{rDataSource}}" data-index$="[[dataIndex]]" data-sub-index$="[[dataSubIndex]]" r-data-formatter="{{rDataFormatter}}"
                     buffer-record-size="{{size}}" current-record-size="{{currentRecordSize}}" data-object-type="[[relationshipGridConfig.gridConfig.dataObjectType]]"
-                    result-record-size="{{resultRecordSize}}" total-count="{{totalCount}}" apply-context-coalesce="[[relationshipGridConfig.gridConfig.applyContextCoalesce]]"></entity-relationship-grid-datasource>
+                    result-record-size="{{resultRecordSize}}" total-count="{{totalCount}}" apply-context-coalesce="[[relationshipGridConfig.gridConfig.applyContextCoalesce]]" filter-attribute="{{filterAttribute}}" ></entity-relationship-grid-datasource>
+                  </template>
                   <div class="base-grid-structure">
                     <div class="relation-name-container accordion-grid-header-row-item base-grid-structure-child-1">
                       <template is="dom-if" if="[[relationshipGridConfig.gridConfig.hasWritePermission]]">
@@ -342,13 +344,17 @@ The following JSON object is a sample of data which binds the grid.
                           <bedrock-pubsub event-name="entity-created" handler="_onEntityCreated"></bedrock-pubsub>
                         </template>
                       </template>
-                      <pebble-popover for$="button_[[relationship]]" vertical-align="auto" horizontal-align="auto" no-overlap>
-                        <rock-entity-lov on-lov-confirm-button-tap="_onLovConfirmButtonTapped" id="lov_[[relationship]]" data-index$="[[dataIndex]]"
-                          data-sub-index$="[[dataSubIndex]]" request-data="[[_requestForAddRelationshipList(relationship)]]"
-                          id-field="[[_getIdField()]]" image-id-field="[[_getImageIdField()]]" title-pattern="[[_getTitlePattern()]]"
-                          selected-items="[[_getSavedRelationshipItems( relationship, _savedRelationshipItems)]]" excluded-ids=[[excludedIds]]
-                          multi-select no-sub-title show-action-buttons></rock-entity-lov>
-                      </pebble-popover>
+                      <template is="dom-if" if="[[_loadLovEntities]]">
+                        <pebble-popover for$="button_[[relationship]]" vertical-align="auto" horizontal-align="auto" no-overlap>
+                          <rock-entity-lov on-lov-confirm-button-tap="_onLovConfirmButtonTapped" id="lov_[[relationship]]" data-index$="[[dataIndex]]"
+                            data-sub-index$="[[dataSubIndex]]" request-data="[[_requestForAddRelationshipList(relationship)]]"
+                            id-field="[[_getIdField()]]" image-id-field="[[_getImageIdField()]]" title-pattern="[[_getTitlePattern()]]"
+                            selected-items="[[_getSavedRelationshipItems( relationship, _savedRelationshipItems)]]" excluded-ids=[[excludedIds]]
+                            multi-select no-sub-title show-action-buttons></rock-entity-lov>
+                        </pebble-popover>
+                      </template>
+                      
+                      <bedrock-pubsub event-name="relationshipsGet" handler="_onRelationshipsGet"></bedrock-pubsub>
                       <bedrock-pubsub event-name="entity-lov-confirm-button-tap" handler="_onLovConfirmButtonTapped" target-id="lov_[[relationship]]"></bedrock-pubsub>
                       <bedrock-pubsub event-name="entity-lov-close-button-tap" handler="_onLovCloseButtonTapped" target-id="lov_[[relationship]]"></bedrock-pubsub>
                     </div>
@@ -693,6 +699,26 @@ The following JSON object is a sample of data which binds the grid.
           domain: {
             type: String,
             value: "generic"
+          },
+          _loadLovEntities:{
+            type: Boolean,
+            value: false
+          },
+          filterRules:{
+            type : Array,
+            value : []
+          },
+          filterAttribute:{
+            type: String,
+            value:""
+          },
+          filterAttributeValue:{
+            type: String,
+            value: ""
+          },
+          _loadRelationshipEntities:{
+            type: Boolean,
+            value: false
           }
         },
 
@@ -921,6 +947,9 @@ The following JSON object is a sample of data which binds the grid.
               req.params.fields.relatedEntityAttributes = relAttr.relatedEntityAttributes;
             }
             req.params.fields.relationships = [relationshipTypeName];
+            if(this.filterAttribute){
+              req.params.fields.attributes = [this.filterAttribute]
+            }
           }
           return req;
         },
@@ -1256,6 +1285,7 @@ The following JSON object is a sample of data which binds the grid.
             const { id, type } = ContextHelper.getFirstItemContext(this.contextData);
             var mode = this.domain == "digitalAsset" ? "asset" : "relationship";
             var savedRelationships = this._getSavedRelationshipItems(rel, this._savedRelationshipItems);
+            var filterRules = this._prepareFilterRules();
             const sharedData = {
               "mode": mode,
               "types-criterion": relatedEntityTypes,
@@ -1266,7 +1296,8 @@ The following JSON object is a sample of data which binds the grid.
               "self-context": selfContext,
               "add-relationship-grid-config": this.addRelationshipGridConfig,
               "dataIndex": this.dataIndex,
-              "dataSubIndex": this.dataSubIndex
+              "dataSubIndex": this.dataSubIndex,
+              "filter-rules": filterRules
             };
 
             this.openBusinessFunctionDialog({ 
@@ -1934,10 +1965,11 @@ The following JSON object is a sample of data which binds the grid.
         _requestForAddRelationshipList: function (relationship) {
           var relatedEntityContexts = this._getRelatedEntityContexts();
           var attributes = this._getRelatedEntityAttributeList();
+          var filterRules = this._prepareFilterRules();
+          var attributesCriterion = filterRules.filterAttributesCriterion;
 
           var typesCriterion = [];
           var contexts = [];
-
           if (relatedEntityContexts) {
             relatedEntityContexts.forEach(function (relContext) {
               if (relContext) {
@@ -1950,15 +1982,18 @@ The following JSON object is a sample of data which binds the grid.
               }
             }, this);
 
-            var valueContext = this.getFirstValueContext();
+          if(!_.isEmpty(filterRules.filterContexts)){
+            contexts.push(filterRules.filterContexts);
+          }
+          var valueContext = this.getFirstValueContext();
 
-            var req = {
+          var req = {
               "params": {
                 "query": {
                   "contexts": contexts,
                   "valueContexts": [valueContext],
                   "filters": {
-                    "attributesCriterion": [],
+                    "attributesCriterion": attributesCriterion,
                     "typesCriterion": typesCriterion
                   }
                 },
@@ -1982,6 +2017,50 @@ The following JSON object is a sample of data which binds the grid.
             messageDiv.textContent = "Relationships are not configured for current entity type: " + this.relationshipTitle;
             this._isMessageAvailable = true;
           }
+        },
+        _prepareFilterRules: function(){
+          var contextObj = {};
+          var filterobj = {};
+          var attributesCriterion = [];
+          var dataContext = this.getDataContexts();
+          if(!_.isEmpty(this.filterRules)){
+            this.filterRules.forEach(filterRule => {
+              var attrName = filterRule.filterByToEntityAttribute;
+              if(attrName){
+                var attrObject = {};
+                var attrCriterionObj = {};
+                if(filterRule.filterByValues){
+                  this.filterAttributeValue = filterRule.filterByValues
+                } 
+                if(!_.isEmpty(this.filterAttributeValue)){
+                  attrObject["exacts"] = this.filterAttributeValue;
+                  attrObject["operator"] = "_OR";
+                  attrObject["type"] = "_STRING";
+                  attrCriterionObj[attrName] = attrObject;
+                  attributesCriterion.push(attrCriterionObj);
+                }
+              }
+
+              if(!_.isEmpty(filterRule.filterByCurrentContext) && dataContext.length > 0){
+                var contextsToFilter =  filterRule.filterByCurrentContext;
+                if(!_.isEmpty(contextsToFilter)){
+                  contextsToFilter.forEach(contextToFilter =>{
+                    contextObj[contextToFilter] = dataContext[0][contextToFilter]
+                  })
+                }
+              }
+            })
+          }
+          filterobj["filterAttributesCriterion"] = attributesCriterion;
+          filterobj["filterContexts"] = !_.isEmpty(contextObj) ? contextObj : {};
+
+          return filterobj;
+        },
+        _onRelationshipsGet: function(event){
+          if(!_.isEmpty(event.detail.attributes) && !_.isEmpty(event.detail.attributes[this.filterAttribute])){
+            this.filterAttributeValue = AttributeHelper.getAttributeValues(event.detail.attributes[this.filterAttribute].values)
+          }
+          this._loadLovEntities = true;
         },
         _getIdField: function () {
           var idField = "";
@@ -2254,6 +2333,20 @@ The following JSON object is a sample of data which binds the grid.
             var compositeModel = e.detail.response.content.entityModels[0];
             if (compositeModel && compositeModel.data) {
               this._relationshipModels = DataTransformHelper.transformRelationshipModels(compositeModel, this.contextData);
+              var relationshipModel = this._relationshipModels[this.relationship][0];
+              if(!_.isEmpty(relationshipModel) && DataHelper.isValidObjectPath(relationshipModel, 'properties.filterRules')){
+                this.filterRules = relationshipModel.properties.filterRules;
+                if(!_.isEmpty(this.filterRules) && _.isEmpty(this.filterRules[0].filterByValues)){
+                  this.filterAttribute = this.filterRules[0].filterByFromEntityAttribute;
+                  this._loadRelationshipEntities = true;
+                }else{
+                  this._loadRelationshipEntities = true;
+                  this._loadLovEntities = true;
+                }
+              }else{
+                this._loadRelationshipEntities = true;
+                this._loadLovEntities = true;
+              }
             }
           } else {
             this.logError("Composite get model request failed", e.detail);
