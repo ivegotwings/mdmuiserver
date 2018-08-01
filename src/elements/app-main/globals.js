@@ -1,5 +1,8 @@
-var Globals = Globals || {};
-
-Globals.requestCount = 0;
-Globals.responseCount = 0;
-
+Globals = function () {
+    let requestCount = 0;
+    let responseCount = 0;
+    return{
+        requestCount:requestCount,
+        responseCount:responseCount
+    };
+}();
