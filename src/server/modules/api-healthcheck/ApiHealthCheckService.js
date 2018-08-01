@@ -22,7 +22,12 @@ ApiHealthCheckService.prototype = {
 
         var timeStamp = moment().toISOString();
         var baseUrl = this._serverUrl + '/' + tenantId + '/api/';
-        var dfUrl = baseUrl + apiUrl + '?timeStamp=' + timeStamp;
+        var copUrl = this._copServerUrl + '/' + tenantId + '/api/';
+        var isCOPService = false;
+        if(apiUrl.indexOf("copservice/") > -1){
+            isCOPService = true;
+        }
+        var dfUrl = (isCOPService ? copUrl : baseUrl) + apiUrl + '?timeStamp=' + timeStamp;
         var apiConfigKey = apiUrl.replace('/', '-');
 
         var healthcheckConfigs = await this.getHealthcheckConfig(baseUrl, apiConfigKey);
@@ -40,7 +45,7 @@ ApiHealthCheckService.prototype = {
 
             switch (operation) {
                 case "get": {
-                    return this.executeGetRequest(dfUrl, apiUrl, apiConfig);
+                    return this.executeGetRequest(dfUrl, apiUrl, apiConfig, isCOPService);
                     break;
                 }
                 case "update": {
@@ -59,7 +64,7 @@ ApiHealthCheckService.prototype = {
 
         return {};
     },
-    executeGetRequest: async function (dfUrl, apiUrl, apiConfig) {
+    executeGetRequest: async function (dfUrl, apiUrl, apiConfig, isCOPService) {
         var response = {};
 
         var request = apiConfig.request;
@@ -69,11 +74,8 @@ ApiHealthCheckService.prototype = {
             response = this.createFatalError(apiUrl);
         }
         else {
-            var isCOPService = false;
-            if(dfUrl.indexOf("copservice/") > -1){
-                isCOPService = true;
+            if(isCOPService){
                 dfUrl = dfUrl.replace("copservice/", "rsConnectService/");
-                dfUrl = dfUrl.replace("7075", "9095")
             }
             request.url = dfUrl;
 
@@ -85,7 +87,7 @@ ApiHealthCheckService.prototype = {
             var getTimeTaken = getEndTick[1] / 1000000;
 
             if ((apiResponse && apiResponse.response) || isCOPService) {
-                if ((isCOPService && apiResponse[collectionName]) || (apiResponse.response[collectionName] && apiResponse.response[collectionName].length > 0)) {
+                if ((isCOPService && apiResponse[collectionName]) || (apiResponse.response && apiResponse.response[collectionName] && apiResponse.response[collectionName].length > 0)) {
                     response = {
                         "status": "success",
                         "msg": "All is well...! " + apiUrl + " call returned with data.",
