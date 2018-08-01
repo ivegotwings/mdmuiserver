@@ -21,6 +21,7 @@
 <link rel="import" href="../rock-entity-search-filter/rock-entity-search-filter.html">
 <link rel="import" href="../rock-entity-search-result/rock-entity-search-result.html">
 <link rel="import" href="../rock-assets-search-grid/rock-assets-search-grid.html">
+<link rel="import" href="../rock-search-query-parser/rock-search-query-parser.html" />
 
 <!--
  `rock-relationship-add` Represents an element that selects the assets or entities from the list of assets or entities and provides a link to the selected entity.
@@ -115,6 +116,7 @@
                 <liquid-entity-data-save name="entitySaveService" data-index="[[dataIndex]]" data-sub-index="[[dataSubIndex]]" request-data="{{_saveRequest}}" last-response="{{_saveResponse}}" on-response="_onSaveResponse"
                 on-error="_onSaveError">
             </liquid-entity-data-save>
+            <rock-search-query-parser id="queryParser" context-data="[[contextData]]"></rock-search-query-parser>
             <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{_attributeModelRequest}}" on-entity-model-composite-get-response="_onCompositeModelGetResponse">
             </liquid-entity-model-composite-get>    
             </div>
@@ -250,6 +252,15 @@
                 preSelectedItems: {
                     type: Array,
                     value: []
+                },
+                filterRules:{
+                    type: Object,
+                    value: {}
+                },
+                _attributeModels:{
+                    type: Object,
+                    value: {}
+
                 }
             },
             observers: [
@@ -309,8 +320,11 @@
                     }
                     this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
                     this._refreshGrid();
-
+                    this._buildQueryString();
                     var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this._entityContextData);
+                    if (DataHelper.isValidObjectPath(compositeModelGetRequest, 'params.fields.attributes')) {
+                        compositeModelGetRequest.params.fields.attributes = "_ALL";
+                    }
                     this.set("_attributeModelRequest", compositeModelGetRequest);
                     var liquidModelGet = this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
                     if (liquidModelGet && compositeModelGetRequest) {
@@ -528,7 +542,55 @@
                 }
                 this.set('_selectedSearchFilters', _selectedSearchFilters);
                 this._refreshGrid();
+                this._buildQueryString(tags);
             },
+
+            _buildQueryString: function(attributeList){
+                var attributeListArray = [];
+                if (attributeList) {
+                        let displayValue = "";
+                        var keywordSearchStr = "";
+                        if (this._searchQuery) {
+                            keywordSearchStr = this._searchQuery;
+                        }
+                        var queryParser = this.shadowRoot.querySelector("[id=queryParser]");
+                        for (var i = 0; i < attributeList.length; i++) {
+                            var value = attributeList[i].displayValue;
+                            if ((DataHelper.isValidObjectPath(attributeList[i], 'options.dataType')) && attributeList[i].options.dataType == "boolean") {
+                                value = attributeList[i].booleanSearchValue;
+                            }
+                            if (queryParser) {
+                                value = queryParser.formatValue(value);
+                            }
+                            let newItem = {
+                                name: attributeList[i].longName,
+                                value: value,
+                                attributeModel: attributeList[i].options
+                            }
+                            attributeListArray.push(newItem);
+                        }
+                        this.attributeGridData = attributeListArray;
+                    }
+                    var queryString = RUFBehaviors.QueryBuilderBehavior.buildQuery(this.typesCriterion, attributeListArray, {}, false, keywordSearchStr);
+                    this._displayQuery(queryString);
+
+            },
+
+            _displayQuery: function (queryStr, parsableQueryStr) {
+                    var searchBarElement = this.shadowRoot.querySelector("#searchBar");
+                    if (!searchBarElement) {
+                        return;
+                    }
+                    if (queryStr) {
+                        searchBarElement.searchText = this._searchQuery;
+                        searchBarElement.setAttribute("placeholder", "");
+                        if (queryStr.indexOf("!%&") > -1) {
+                            queryStr = queryStr.replace(/!%&/g, "");
+                        }
+                        searchBarElement.setAttribute("placeholder", queryStr);
+                    }
+                },
+            
 
             _refreshGrid: function () {
                 Polymer.Async.microTask.run(() => {
@@ -555,10 +617,77 @@
                 if (e && e.detail && DataHelper.validateGetModelsResponse(e.detail.response)) {
                     var compositeModel = e.detail.response.content.entityModels[0];
                     if (compositeModel && compositeModel.data) {
+                        this._attributeModels = DataTransformHelper.transformAttributeModels(compositeModel, this.contextData);
+                        if(!_.isEmpty(this._attributeModels) && !_.isEmpty(this.filterRules) && !_.isEmpty(this.filterRules.filterAttributesCriterion[0])){
+                            this._formatFilterRulesTags(this.filterRules.filterAttributesCriterion,this._attributeModels);
+                        }
                         this._relationshipModels = DataTransformHelper.transformRelationshipModels(compositeModel, this._entityContextData);
                     }
                 }
             },
+
+            _formatFilterRulesTags: function (searchFilters, attributeModels) {
+                        var rockSearchFilter = this._getElement('rockSearchFilter');
+                        var tags = [];
+                        // searchFilters = this.getFilterValue(searchFilters);
+                        for (var i = 0; i < searchFilters.length; i++) {
+                            var filter = searchFilters[i];
+                            if (!_.isEmpty(filter)) {
+                                var tag = {};
+                                for (var attrName in filter) {
+                                    var keys = Object.keys(this.filterRules.filterAttributesCriterion[0]);
+                                    var attrModel = attributeModels[keys[0]]
+                                    var attribute = filter[attrName];
+                                    if (attrModel) {
+                                        if (attrModel.dataType.toLowerCase() == "integer" || attrModel.dataType.toLowerCase() == "decimal") {
+                                            attrModel.displayType = "numeric";
+                                        }
+                                        tag.name = attrName;
+                                        tag.longName = attrModel.externalName;
+                                        tag.options = DataHelper.cloneObject(attrModel);
+                                    }
+                                    tag.value = attribute;
+                                    if (attribute.hasvalue != undefined) {
+                                        tag.displayValue = attribute.hasvalue ? "!%&has value!%&" : "!%&has no value!%&";
+                                    } else if (attribute.type === "_STRING") {
+                                        if (attribute.exacts) {
+                                            tag.displayValue = rockSearchFilter.formatFilterCollectionDisplay(attribute.exacts);
+                                        } else if (attribute.contains) {
+                                            tag.displayValue = rockSearchFilter.formatFilterCollectionDisplay(attribute.contains.split(" "));
+                                        } else if (attribute.exact) {
+                                            tag.displayValue = attribute.exact;
+                                        }
+                                    } else if (attribute.type === "_DECIMAL" || attribute.type === "_INTEGER") {
+                                        if (attribute.lte && attribute.gte) {
+                                            tag.displayValue = attribute.gte + " - " + attribute.lte;
+                                        } else if (attribute.contains) {
+                                            tag.displayValue = rockSearchFilter.formatFilterCollectionDisplay(attribute.contains.split(" "));
+                                        }
+                                    } else if (attribute.type === "_BOOLEAN") {
+                                        tag.displayValue = attribute.eq;
+                                    } else if (attribute.type === "_DATETIME") {
+                                        if (attribute.lte === attribute.gte) {
+                                            tag.displayValue = FormatHelper.convertFromISODateTime(attribute.gte, tag.options.dataType);
+                                        } else {
+                                            tag.displayValue = FormatHelper.convertFromISODateTime(attribute.gte, tag.options.dataType) + " - " + FormatHelper.convertFromISODateTime(attribute.lte, tag.options.dataType);
+                                        }
+                                    }
+                                    tag.value.hasvalue = true;
+                                }
+                                //Set no popover for saved searches
+                                if (tag.options) {
+                                    tag.options.noPopoverOnAttach = true;
+                                } else {
+                                    tag.options = { "noPopoverOnAttach": true };
+                                }
+
+                                tags.push(tag);
+                            }
+                        }
+                        
+                        rockSearchFilter.tags = tags;
+                        this._searchFiltersChanged(null,tags);
+                },
 
             _getFilterContextData: function (contextData, mode) {
                 if(mode && contextData) {
