@@ -387,7 +387,7 @@ The following JSON object is a sample of data which binds the grid.
                 </div>
                 <bedrock-pubsub event-name="grid-selecting-item" handler="_onSelectingGridItem" target-id="[[relationship]]"></bedrock-pubsub>
                 <bedrock-pubsub event-name="delete-item" handler="_onDeleteEntityRelationshipAction" target-id="[[relationship]]"></bedrock-pubsub>
-            <!-- <bedrock-pubsub target-id="[[relationship]]" event-name="on-grid-msg-dialog-ok" handler="_onDialogOk"></bedrock-pubsub> -->
+            <bedrock-pubsub target-id="[[relationship]]" event-name="on-grid-msg-dialog-ok" handler="_onRevertDialogOk"></bedrock-pubsub>
             <bedrock-pubsub event-name="grid-download-item" handler="_onDownload" target-id="[[relationship]]"></bedrock-pubsub>
             <bedrock-pubsub event-name="grid-upload-item" handler="_onUpload" target-id="[[relationship]]"></bedrock-pubsub>
             <bedrock-pubsub event-name="grid-custom-toolbar-event" handler="_onCustomToolbarEvent" target-id="[[relationship]]"></bedrock-pubsub>
@@ -1261,8 +1261,16 @@ The following JSON object is a sample of data which binds the grid.
         _onRevertDialogOk: function (e) {
           var currentRel = e.target.__dataHost.parentModel.relationship; //e.model.relationship;
           var currentRelGrid = this.shadowRoot.querySelector('rock-grid[id=' + currentRel + ']');
-          currentRelGrid.changeToReadMode();
-          this._changeRelationshipToReadMode();
+          if(currentRelGrid) {
+            let gridData = currentRelGrid.getData();
+
+            // Revert the grid data and set to read mode
+            currentRelGrid.revertModifiedData(gridData);
+            this._changeRelationshipToReadMode();
+
+            // Reset Add LoV selection
+            this._resetAddLoVSelection(currentRelGrid);
+          }          
         },
 
         _onCustomToolbarEvent: function (e, detail) {
@@ -1505,17 +1513,7 @@ The following JSON object is a sample of data which binds the grid.
             relGrid.set('config.mode', "read");
             relGrid.reRenderGrid();
           }
-          var relationshipLov = Polymer.dom(this).node.shadowRoot.querySelector('rock-entity-lov[id=lov_' + this.relationship + ']');
-          if (relationshipLov) {
-            var gridData = relGrid.getData();
-            var savedRelationshipItemsToLov = gridData.map(function (item) {
-              if (item.id) {
-                return { 'id': item.id, 'title': item.id }
-              }
-            });
-            this._savedRelationshipItems[this.relationship] = DataHelper.cloneObject(savedRelationshipItemsToLov);
-            relationshipLov.selectedItems = savedRelationshipItemsToLov[this.relationship] || [];
-          }
+          this._resetAddLoVSelection(relGrid);
         },
         _onRelationsSaveError: function (e, detail) {
           this._relationshipDeleteItems = {};
@@ -1837,6 +1835,28 @@ The following JSON object is a sample of data which binds the grid.
             savedRelationshipItems = clonedSavedRelationshipItems[relationship];
           }
           return savedRelationshipItems;
+        },
+
+        // Reset LoV selection
+        _resetAddLoVSelection: function(currentRelGrid) {
+          let relationship = this.relationship;
+          let relationshipLov = this.$$('rock-entity-lov[id=lov_' + relationship + ']');
+
+          if (currentRelGrid && relationshipLov) {
+            let gridData = currentRelGrid.getData();
+
+            if(gridData) {
+              let savedRelationshipItems = [];
+              savedRelationshipItems = gridData.map(item => {
+                if (item.id) {
+                  return { 'id': item.id, 'title': item.id };
+                }
+              });
+
+              this._savedRelationshipItems[relationship] = savedRelationshipItems;
+              relationshipLov.selectedItems = savedRelationshipItems;
+            }
+          }
         }
 
       });
