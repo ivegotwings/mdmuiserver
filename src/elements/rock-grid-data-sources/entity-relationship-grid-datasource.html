@@ -1,6 +1,8 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 
 <link rel="import" href="../bedrock-grid-datasource-behavior/bedrock-grid-datasource-behavior.html">
+<link rel="import" href="../bedrock-logger-behavior/bedrock-logger-behavior.html">
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
 <link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 <link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
@@ -13,16 +15,24 @@
 -->
 <dom-module id="entity-relationship-grid-datasource">
     <template>
-        <template is="dom-if" if="[[!_isDataObjectTypeModel()]]">
-            <liquid-entity-data-get id="getEntityRelationships" operation="getbyids" request-data="[[request]]" last-response="{{entityRelationshipsResponse}}"
-                exclude-in-progress include-type-external-name>
-            </liquid-entity-data-get>
-        </template>
-        <template is="dom-if" if="[[_isDataObjectTypeModel()]]">
-            <liquid-entity-model-get id="getEntityModelRelationships" operation="getbyids" request-data="[[request]]" last-response="{{entityRelationshipsResponse}}"
-                exclude-in-progress include-type-external-name>
-            </liquid-entity-model-get>
-        </template>
+            <style include="bedrock-style-common"></style>
+
+            <template is="dom-if" if="{{hasComponentErrored(isComponentErrored)}}">
+                <div id="error-container"></div>
+            </template>
+            
+            <template is="dom-if" if="{{!hasComponentErrored(isComponentErrored)}}">
+                <template is="dom-if" if="[[!_isDataObjectTypeModel()]]">
+                    <liquid-entity-data-get id="getEntityRelationships" operation="getbyids" request-data="[[request]]" last-response="{{entityRelationshipsResponse}}"
+                        exclude-in-progress include-type-external-name>
+                    </liquid-entity-data-get>
+                </template>
+                <template is="dom-if" if="[[_isDataObjectTypeModel()]]">
+                    <liquid-entity-model-get id="getEntityModelRelationships" operation="getbyids" request-data="[[request]]" last-response="{{entityRelationshipsResponse}}"
+                        exclude-in-progress include-type-external-name>
+                    </liquid-entity-model-get>
+                </template>
+            </template>            
     </template>
     <script>
         Polymer({
@@ -33,7 +43,7 @@
                     value: false
                 },
                 dataObjectType: {
-                    type: Boolean,
+                    type: String,
                     value: "entity"
                 },
                 _success: {
@@ -52,7 +62,8 @@
 
             behaviors: [
                 RUFBehaviors.GridDataSourceBehavior,
-                RUFBehaviors.AppBehavior
+                RUFBehaviors.AppBehavior,
+                RUFBehaviors.LoggerBehavior
             ],
             /**
               * <b><i>Content development is under progress... </b></i> 
@@ -66,25 +77,30 @@
                 this._success = success;
                 this._error = error;
 
-                let liquidElement = this.dataObjectType && this.dataObjectType.toLowerCase() == "entitymodel" ? this.shadowRoot.querySelector('#getEntityModelRelationships') : this.shadowRoot.querySelector('#getEntityRelationships');
-                liquidElement.returnObjectsCollectionName = 'entities';
+                Polymer.Async.timeOut.after(100).run(() => {
+                    let liquidElement = this.dataObjectType && this.dataObjectType.toLowerCase() == "entitymodel" ? this.shadowRoot.querySelector('#getEntityModelRelationships') : this.shadowRoot.querySelector('#getEntityRelationships');
+                    if (liquidElement) {
+                        liquidElement.returnObjectsCollectionName = 'entities';
+                    
+                        DataHelper.oneTimeEvent(liquidElement, 'response', this._onRelationshipsReponse.bind(this));
 
-                DataHelper.oneTimeEvent(liquidElement, 'response', this._onRelationshipsReponse
-                    .bind(this));
+                        // Set Options
+                        this._options = options;
 
-                // Set Options
-                this._options = options;
+                        // Set Range
+                        var requestOptions = this._prepareRequestOptions(options);
+                        this.set("request.params.options", requestOptions);
 
-                // Set Range
-                var requestOptions = this._prepareRequestOptions(options);
-                this.set("request.params.options", requestOptions);
+                        if (this.applyContextCoalesce) {
+                            liquidElement.useDataCoalesce = true;
+                        }
 
-                if (this.applyContextCoalesce) {
-                    liquidElement.useDataCoalesce = true;
-                }
-
-                // Make Request
-                liquidElement.generateRequest();
+                        // Make Request
+                        liquidElement.generateRequest();
+                    } else {
+                        this.logError("Not able to access liquid element from DOM", "", true);
+                    }
+                });
             },
 
             _onRelationshipsReponse: async function (event) {
