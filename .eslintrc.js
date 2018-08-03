@@ -100,6 +100,7 @@ module.exports = {
         "RUFUtilities": true,
         "LocaleManager": true,
         "EntityTypeManager": true,
+        "SharedUtils": true,
         "_": true
     }
 };
