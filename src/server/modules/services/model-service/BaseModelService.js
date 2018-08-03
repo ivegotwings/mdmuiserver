@@ -234,6 +234,12 @@ BaseModelService.prototype = {
                                     properties.childAttributes = attrEntities;
                                 }
                             }
+
+                            // Handling delete scenarion of nested attribute mapping.
+                            let deletedAttrEntities = childAttributeRels.map(v => v.action && v.action == "delete" ? v.relTo.id.replace("_" + relEntityType, "") : undefined);
+                            if(deletedAttrEntities) {
+                                properties.childAttributes = properties.childAttributes.filter(v => deletedAttrEntities.indexOf(v) == -1);
+                            }
                         }
                     }
                 }
