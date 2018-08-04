@@ -77,30 +77,51 @@
                 this._success = success;
                 this._error = error;
 
-                Polymer.Async.timeOut.after(100).run(() => {
-                    let liquidElement = this.dataObjectType && this.dataObjectType.toLowerCase() == "entitymodel" ? this.shadowRoot.querySelector('#getEntityModelRelationships') : this.shadowRoot.querySelector('#getEntityRelationships');
-                    if (liquidElement) {
-                        liquidElement.returnObjectsCollectionName = 'entities';
-                    
-                        DataHelper.oneTimeEvent(liquidElement, 'response', this._onRelationshipsReponse.bind(this));
+                // Set Options
+                this._options = options;
 
-                        // Set Options
-                        this._options = options;
+                this._generateRequest(1);
+            },
 
-                        // Set Range
-                        var requestOptions = this._prepareRequestOptions(options);
-                        this.set("request.params.options", requestOptions);
-
-                        if (this.applyContextCoalesce) {
-                            liquidElement.useDataCoalesce = true;
+            _generateRequest: function(retryCount) {                
+                const maxRetryCount = 5;
+                Polymer.Async.timeOut.after(ConstantHelper.MILLISECONDS_30).run(() => {
+                    if(!this.liqElementType) {  
+                        // if liquid element not found retry
+                        if (retryCount < maxRetryCount) {
+                            this._generateRequest(++retryCount);
+                        } else {
+                            this.logError("ENTITY-RELATIONSHIP-GRID_DATASOURCE:- Not able to access liquid element from DOM", "", true);
                         }
-
-                        // Make Request
-                        liquidElement.generateRequest();
                     } else {
-                        this.logError("Not able to access liquid element from DOM", "", true);
+                        // if liquid element found
+                        this._debouncer = Polymer.Debouncer.debounce(this._debouncer,
+                            Polymer.Async.timeOut.after(ConstantHelper.MILLISECONDS_30), () => {
+
+                                let liquidElement = this.liqElementType;
+
+                                liquidElement.returnObjectsCollectionName = 'entities';
+                    
+                                DataHelper.oneTimeEvent(liquidElement, 'response', this._onRelationshipsReponse.bind(this));
+
+                                // Set Range
+                                var requestOptions = this._prepareRequestOptions(this._options);
+                                this.set("request.params.options", requestOptions);
+
+                                if (this.applyContextCoalesce) {
+                                    liquidElement.useDataCoalesce = true;
+                                }
+
+                                // Make Request
+                                liquidElement.generateRequest();                                
+                            });
+                        return;
                     }
                 });
+            },
+
+            get liqElementType () {
+                return this.dataObjectType && this.dataObjectType.toLowerCase() == "entitymodel" ? this.shadowRoot.querySelector('#getEntityModelRelationships') : this.shadowRoot.querySelector('#getEntityRelationships');
             },
 
             _onRelationshipsReponse: async function (event) {
