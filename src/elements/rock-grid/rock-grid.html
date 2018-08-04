@@ -1720,55 +1720,7 @@ The following JSON object is a config sample which configures the grid in all ab
 						this._onRefresh();
 					}
 				},
-				/**
-				  * <b><i>Content development is under progress... </b></i> 
-				  */
-				revertData: function () {
-					this.set('config.mode', "read");
 
-					var attrs = this.shadowRoot.querySelectorAll('rock-attribute');
-					if (attrs && attrs.length) {
-						for (var i = 0; i < attrs.length; i++) {
-							attrs[i].mode = "read";
-						}
-					}
-
-					var data = this.getData();
-					var filteredData = [];
-
-					if (data && data.length > 0) {
-						filteredData = data.filter(function (item) {
-							if (item._rowStatus) {
-								if (item._rowStatus.status) {
-									if (item._rowStatus.status != "new") {
-										if (item._rowStatus.status == "update") {
-											this._setOriginalValue(item);
-										}
-										item._rowStatus = {
-											"statusIcon": ""
-										};
-										return item;
-									}
-								} else {
-									item._rowStatus = {
-										"statusIcon": ""
-									};
-									return item;
-								}
-							} else {
-								item._rowStatus = {
-									"statusIcon": ""
-								};
-								return item;
-							}
-						}.bind(this));
-					}
-
-					this.data = [];
-					this.data = filteredData;
-
-					this.reRenderGrid();
-				},
 				/**
 				  * <b><i>Content development is under progress... </b></i> 
 				  */
@@ -2367,10 +2319,26 @@ The following JSON object is a config sample which configures the grid in all ab
 					}
 				},
 				_getAttributeObject: function (item, currentAttributeModelObject, columnIndex, index) {
-					var columnName = this._fields[columnIndex].name
+					var columnName = this._fields[columnIndex].name;
+					/**
+					 * When item[columnName] is undefined, initial value of attributeObject passed to
+					 * attribute control is 'undefined'. In later iterations when item[columnName] has value or
+					 * empty string/array/object, value is changed and attribute control value change observer fired which
+					 * making the attribute dirty in turn parent nested too dirty without any user interaction.
+					 * Hence sending default value based on attribute model will reduce observer calls and
+					 * multiple rendering of attributes grid.
+					 * Note: This issue is observable only in build. Not replicable with local unbundled code.
+					 * */
+					var value = item[columnName];
+					if(typeof value === 'undefined') {
+						value = "";
+						if(currentAttributeModelObject.isCollection) {
+							value = [];
+						}
+					}
 					var attributeObject = {
 						"name": currentAttributeModelObject.name,
-						"value": item[columnName]
+						"value": value
 					};
 					if (this.config.schemaType == "attribute" && item.attributes && item.attributes.hasOwnProperty(columnName)) {
 						if (item.attributes[columnName].referenceDataId) {
@@ -3476,6 +3444,31 @@ The following JSON object is a config sample which configures the grid in all ab
 						return DataHelper.isValidObjectPath(rowItem, "_rowStatus.status") && 
 									rowItem._rowStatus.status.toLowerCase() == "new";
 					}
+				},
+
+				/* 
+				 * Reverts the modified rows
+				*/
+				revertModifiedData: function(data){	
+					var filteredData = [];
+
+					if (data && data.length > 0) {
+						filteredData = data.filter(item => {
+							if (item._rowStatus) {
+								let status = item._rowStatus.status;
+								if(!status || (status.toLowerCase() != "new" && status.toLowerCase() != "update" && status.toLowerCase() != "delete")) {
+									return item;
+								}
+							}
+						});
+					}
+
+					this.set('data', {});
+					this.set('data', filteredData);
+					this.set('config.mode', "read");
+
+					// Render grid
+					this.reRenderGrid();
 				}
 			});
 		})();
