@@ -15,24 +15,24 @@
 -->
 <dom-module id="entity-relationship-grid-datasource">
     <template>
-            <style include="bedrock-style-common"></style>
+        <style include="bedrock-style-common"></style>
 
-            <template is="dom-if" if="{{hasComponentErrored(isComponentErrored)}}">
-                <div id="error-container"></div>
+        <template is="dom-if" if="{{hasComponentErrored(isComponentErrored)}}">
+            <div id="error-container"></div>
+        </template>
+
+        <template is="dom-if" if="{{!hasComponentErrored(isComponentErrored)}}">
+            <template is="dom-if" if="[[!_isDataObjectTypeModel()]]">
+                <liquid-entity-data-get id="getEntityRelationships" operation="getbyids" request-data="[[request]]" last-response="{{entityRelationshipsResponse}}"
+                    exclude-in-progress include-type-external-name>
+                </liquid-entity-data-get>
             </template>
-            
-            <template is="dom-if" if="{{!hasComponentErrored(isComponentErrored)}}">
-                <template is="dom-if" if="[[!_isDataObjectTypeModel()]]">
-                    <liquid-entity-data-get id="getEntityRelationships" operation="getbyids" request-data="[[request]]" last-response="{{entityRelationshipsResponse}}"
-                        exclude-in-progress include-type-external-name>
-                    </liquid-entity-data-get>
-                </template>
-                <template is="dom-if" if="[[_isDataObjectTypeModel()]]">
-                    <liquid-entity-model-get id="getEntityModelRelationships" operation="getbyids" request-data="[[request]]" last-response="{{entityRelationshipsResponse}}"
-                        exclude-in-progress include-type-external-name>
-                    </liquid-entity-model-get>
-                </template>
-            </template>            
+            <template is="dom-if" if="[[_isDataObjectTypeModel()]]">
+                <liquid-entity-model-get id="getEntityModelRelationships" operation="getbyids" request-data="[[request]]" last-response="{{entityRelationshipsResponse}}"
+                    exclude-in-progress include-type-external-name>
+                </liquid-entity-model-get>
+            </template>
+        </template>
     </template>
     <script>
         Polymer({
@@ -80,47 +80,49 @@
                 // Set Options
                 this._options = options;
 
-                this._generateRequest(1);
+
+                this._debouncer = Polymer.Debouncer.debounce(this._debouncer, Polymer.Async.timeOut.after(ConstantHelper.MILLISECONDS_30), () => {
+                    this._generateRequest();
+                });
             },
 
-            _generateRequest: function(retryCount) {                
+            _generateRequest: function (retryCount = 1) {
                 const maxRetryCount = 5;
                 Polymer.Async.timeOut.after(ConstantHelper.MILLISECONDS_30).run(() => {
-                    if(!this.liqElementType) {  
-                        // if liquid element not found retry
+                    if (!this.liqElementType) {
+                        // retry for 5 times if liquid element not found 
+
                         if (retryCount < maxRetryCount) {
                             this._generateRequest(++retryCount);
                         } else {
                             this.logError("ENTITY-RELATIONSHIP-GRID_DATASOURCE:- Not able to access liquid element from DOM", "", true);
-                        }
+                        }                        
                     } else {
                         // if liquid element found
-                        this._debouncer = Polymer.Debouncer.debounce(this._debouncer,
-                            Polymer.Async.timeOut.after(ConstantHelper.MILLISECONDS_30), () => {
 
-                                let liquidElement = this.liqElementType;
+                        let liquidElement = this.liqElementType;
 
-                                liquidElement.returnObjectsCollectionName = 'entities';
-                    
-                                DataHelper.oneTimeEvent(liquidElement, 'response', this._onRelationshipsReponse.bind(this));
+                        liquidElement.returnObjectsCollectionName = 'entities';
 
-                                // Set Range
-                                var requestOptions = this._prepareRequestOptions(this._options);
-                                this.set("request.params.options", requestOptions);
+                        DataHelper.oneTimeEvent(liquidElement, 'response', this._onRelationshipsReponse.bind(this));
 
-                                if (this.applyContextCoalesce) {
-                                    liquidElement.useDataCoalesce = true;
-                                }
+                        // Set Range
+                        var requestOptions = this._prepareRequestOptions(this._options);
+                        this.set("request.params.options", requestOptions);
 
-                                // Make Request
-                                liquidElement.generateRequest();                                
-                            });
+                        if (this.applyContextCoalesce) {
+                            liquidElement.useDataCoalesce = true;
+                        }
+
+                        // Make Request
+                        liquidElement.generateRequest();
+
                         return;
                     }
                 });
             },
 
-            get liqElementType () {
+            get liqElementType() {
                 return this.dataObjectType && this.dataObjectType.toLowerCase() == "entitymodel" ? this.shadowRoot.querySelector('#getEntityModelRelationships') : this.shadowRoot.querySelector('#getEntityRelationships');
             },
 
@@ -149,7 +151,7 @@
                                     attributes = entity.data.attributes;
                                 }
                                 var eventDetail = {
-                                    "attributes" : attributes
+                                    "attributes": attributes
                                 }
                                 this.fireBedrockEvent("relationshipsGet", eventDetail, { ignoreId: true });
                             }
@@ -170,8 +172,8 @@
                 this._resetDataSource();
             },
 
-            _isDataObjectTypeModel: function() {
-                if(!_.isEmpty(this.dataObjectType) && this.dataObjectType.toLowerCase() == "entitymodel") {
+            _isDataObjectTypeModel: function () {
+                if (!_.isEmpty(this.dataObjectType) && this.dataObjectType.toLowerCase() == "entitymodel") {
                     return true;
                 }
                 return false;
