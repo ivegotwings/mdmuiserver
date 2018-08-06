@@ -269,6 +269,8 @@
 
                     <div class="queryHeading">
                         <liquid-entity-model-composite-get id="liquidModelGet" request-data={{relationshipRequest}} on-entity-model-composite-get-response="_onModelReceived" on-error="_onModelGetFailed" exclude-in-progress></liquid-entity-model-composite-get>        
+                        <liquid-rest id="entityModelGet" url="/data/pass-through/entitymodelservice/get" method="POST" request-data="{{_relModelGetRequest}}"
+            on-liquid-response="_onRelModelReceived" on-liquid-error="_onRelModelGetFailed"></liquid-rest>
                         <pebble-popover id="relationshipPopover" for="relationshipButton" vertical-align="auto" horizontal-align="auto">
                             <pebble-lov id="relationshipModelLov" on-selection-changed="_onRelationshipLovSelectionChanged" selected-item="{{selectedRelationship}}"></pebble-lov>    
                         </pebble-popover>
@@ -445,6 +447,12 @@
                 value: function () {
                     return [];
                 }
+            },
+            _relModelGetRequest: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
             },                   
             selectedEntityTypes: {
                 type: Array,
@@ -464,6 +472,12 @@
                 type: Boolean,
                 value: false
             },
+            _relationshipsToQuery: {
+                type: Array,
+                value: function() {
+                    return [];
+                }
+            },
 			domains: {
 				type: Array,
 				value: function () { return []; }
@@ -479,7 +493,13 @@
                 value: function () {
                     return {};
                 }
-            },          
+            },
+            _relationshipAttributesLookup: {
+                type: Object,
+                value: function() {
+                    return {}
+                }
+            },
             attributeGridData: {
                 type: Array,
                 value: function () {
@@ -899,20 +919,150 @@
             return _currentGridData;
         }
         _getRelationshipModels() {
-            var clonedContextData = DataHelper.cloneObject(this.contextData);
-            var entityTypes =  this.getSelectedEntityTypes(this.selectedEntityTypes);  
+            let entityTypes =  this.getSelectedEntityTypes(this.selectedEntityTypes); 
+            let isRestEnabled = false;
+            let entityTypesListCopy = DataHelper.cloneObject(entityTypes);
+            if (!_.isEmpty(entityTypes)) {
+                entityTypes = entityTypes.map(entityType => {
+                    entityType = entityType + "_entityManageModel";
+                    return entityType;
+                });
+
+            }
+
+            if(!_.isEmpty(this._relationshipAttributesLookup)) {
+                let existingEntTypesInLookup = Object.keys(this._relationshipAttributesLookup);
+                
+            for (let index=0; index < entityTypesListCopy.length; index++) {
+                if(!existingEntTypesInLookup.includes(entityTypesListCopy[index])) {
+                    isRestEnabled = true;
+                    break;
+                }
+            }
+            } else {
+                isRestEnabled = true;
+            }
+           
+
+            if(isRestEnabled) {
+                //preparing request for Rest call to fetch relationshipAttributes and relationships.
+                this._relModelGetRequest = {
+                                "params": {
+                                    "query": {
+                                        "ids": entityTypes,
+                                        "filters": {
+                                            "typesCriterion": [
+                                                "entityManageModel"
+                                            ]
+                                        }
+                                    },
+                                    "fields": {
+                                        "relationships": [
+                                            "_ALL"
+                                        ],
+                                        "relationshipAttributes": [
+                                            "_ALL"
+                                        ]
+                                    }
+                                }
+                            };
+
+                let liquidGet = this.shadowRoot.querySelector("#entityModelGet");
+                if (liquidGet) {
+                    liquidGet.generateRequest();
+                }
+            } else {
+                //fetch the relationshipAttributes and relationships from the existingEntTypesInLookup and make the composite call
+                let relationshipAttributesToQuery = [];
+                entityTypesListCopy.forEach(entType=> {
+                    let relationships = this._relationshipAttributesLookup[entType];
+                    for(let relAttr in relationships) {
+                        let relationshipAttributes =  relationships[relAttr];
+                        if(!_.isEmpty(relationshipAttributes)) {
+                            relationshipAttributesToQuery.push(...relationshipAttributes);
+                        }
+                    }
+                });
+
+                this._entityCompositeGet(this._relationshipsToQuery, relationshipAttributesToQuery);
+            }
+                
+        }
+
+        /**
+         *  On liquidModelGet success
+         */
+         _onRelModelReceived(e) {
+
+            if(DataHelper.isValidObjectPath(e, 'detail.response.response.entityModels')) {
+                var entityModels = e.detail.response.response.entityModels;
+            } else {
+                 this.logError("No models found on entity-get-composite call", e.detail);
+                 return;
+             }
+             if(DataHelper.isValidObjectPath(entityModels[0], 'data.relationships')) {
+                this._relationshipsToQuery = Object.keys(entityModels[0].data.relationships);
+             } else {
+                this.logError("No relationships found on entityModel", e.detail);
+                return;
+             }
+
+            //preparing relationnshipAttributes lookup
+                 var _relationshipAttributesLookup = {};
+                 entityModels.forEach(entityModel => {
+                     var obj = {};
+                     if(DataHelper.isValidObjectPath(entityModel, 'data.relationships')) {
+                        var rels = entityModel.data.relationships;
+                     } else {
+                        this.logError("No relationships found on entityModel", e.detail);
+                        return;
+                     }
+                     if(!_.isEmpty(rels)) {
+                        for (var rel in rels) {
+                         if(rels.hasOwnProperty(rel) && !_.isEmpty(rels[rel]) && rels[rel][0].attributes) {
+                            obj[rel] = Object.keys(rels[rel][0].attributes);
+                         }
+                     }
+                     _relationshipAttributesLookup[entityModel.name] = obj;
+                     } else {
+                        this.logError("No relationships found on entityModel", e.detail);
+                     }
+                 });
+                 this.set("_relationshipAttributesLookup", _relationshipAttributesLookup);
+
+             //extracting relationshipAttributes
+             let relationships = entityModels[0].data.relationships;
+             var relationshipAttributesToQuery = [];
+             for(var rel in relationships) {
+                 let relAttributes = relationships[rel][0].attributes;
+                 if(!_.isEmpty(relAttributes)) {
+                    relationshipAttributesToQuery.push(...(Object.keys(relAttributes)));
+                 }
+             }
+
+             //updating the relationshipAttributes lookup
+
+             this._entityCompositeGet(this._relationshipsToQuery, relationshipAttributesToQuery);
+
+         }
+         _onRelModelGetFailed(e) {
+            this.logError("Entity model get failed", e.detail);
+         }
+
+        _entityCompositeGet(relationships, relationshipAttributes) {
+            var entityTypes = this.getSelectedEntityTypes(this.selectedEntityTypes);
             this._currentIndex = entityTypes.length;
             this._currentItems = [];
-            for(let i=0; i<entityTypes.length; i++) {
+
+            let clonedContextData = DataHelper.cloneObject(this.contextData);
+            for (let i = 0; i < entityTypes.length; i++) {
                 var type = entityTypes[i];
-                var itemContexts = [];
                 var itemContext = {};
                 itemContext.type = type;
-                itemContext.relationships = ["_ALL"];
-                itemContext.relationshipAttributes = ["status", "isprimary", "order", "swatchimage", "hascolorized", "issiblingswatch", "imagetype", "linkdescription", "enabled", "componentskuquantity"];
+                itemContext.relationships = relationships
+                itemContext.relationshipAttributes = relationshipAttributes;
 
-                itemContexts.push(itemContext);
-                clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
+                clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
 
                 var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(clonedContextData);
 
@@ -925,14 +1075,14 @@
             }
         }
 
-        /**
+                /**
          *  On liquidModelGet success
          */
         _onModelReceived(e){
             var response = e.detail.response;
             var relationshipModels = DataTransformHelper.transformRelationshipModels(response.content.entityModels[0], this.contextData);
             var entityType = response.content.entityModels[0].name;
-
+            
             if (this._currentIndex == 1) {
                 this._currentItems = {};
             }
@@ -1262,7 +1412,8 @@
             //get mapped workflows data for the selected entity types
             this._getWorkflowMappings();
             
-            this._onEntityTypePopoverClose();            
+            this._onEntityTypePopoverClose();  
+            this._onResetRelationship();          
         }
 
         /**
@@ -1411,7 +1562,8 @@
         /**
          *  Function to populate relationship attributes
          */
-        _onRelationshipLovSelectionChanged(e){
+        _onRelationshipLovSelectionChanged(e){            
+           this._onResetRelationship();
             var attributesList = [];
             if(DataHelper.isValidObjectPath(e.detail,"item.relationshipOwnership")){
                 if(e.detail.item.relationshipOwnership == "owned"){
@@ -1459,7 +1611,7 @@
            relationshipPopover.close();
            
            //Display the related entity
-           this.populateRelatedEntity(e);
+           this.populateRelatedEntity(e);           
         }
 
         _updateRelationshipData() {
