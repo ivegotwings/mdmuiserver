@@ -202,6 +202,8 @@ Custom property | Description | Default
             on-liquid-response="_onEntityModelGetResponse" on-liquid-error="_onEntityModelGetError"></liquid-rest>
         <liquid-rest id="entityContextGet" url="/data/pass-through/entityservice/getcontext" method="POST" request-data="{{_entityContextRequest}}"
             on-liquid-response="_onEntityContextGetResponse" on-liquid-error="_onEntityContextGetError" exclude-in-progress>
+        <liquid-rest id="preselectedContextGet"  url="/data/pass-through/entityservice/get" method="POST" request-data="{{_preselectedContextRequest}}" 
+            on-liquid-response="_onPreselectedContextGetResponse" on-liquid-error="_onPreselectedContextGetGetError" exclude-in-progress></liquid-entity-data-get>
         </liquid-rest>
     </template>
     <script>
@@ -341,6 +343,12 @@ Custom property | Description | Default
                         return [];
                     }
                 },
+                _parsedContexts: {
+                    type: Array,
+                    value: function () {
+                        return [];
+                    }
+                },
                 _entityModelRequest: {
                     type: Object,
                     value: function () {
@@ -408,6 +416,12 @@ Custom property | Description | Default
                 disableChildNode: {
                     type: Boolean,
                     value: false
+                },
+                _preselectedContextRequest: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
                 }
             },
 
@@ -675,6 +689,9 @@ Custom property | Description | Default
                     formattedSelectedItem["id"] = selectedItem.id ? selectedItem.id : this._default.id;
                     formattedSelectedItem["title"] = selectedItem.title ? selectedItem.title : this._default.title;
                     formattedSelectedItem["type"] = selectedItem.type ? selectedItem.type : this._default.type;
+                    if(selectedItem.relTo) {
+                        formattedSelectedItem["relTo"] = selectedItem.relTo;
+                    }
 
                     if (selectedItem.type == "locale") {
                         var _localeObj = ComponentHelper.getLocaleManager().getByName(selectedItem.id);
@@ -1294,7 +1311,6 @@ Custom property | Description | Default
                 var response = e.detail.response.response;
                 if (response && !_.isEmpty(response.entityModels)) {
                     this._prepareDynamicConfigBasedOnModelForContextsToBeRendered(response.entityModels);
-                    this._updateSelectedDimensions();
                 } else {
                     this.logError(this.appName + "-Dimension Selector - Entity Model get response exception", e.detail, true);
                 }
@@ -1437,8 +1453,35 @@ Custom property | Description | Default
                     }
                 }, this);
 
-                this._contextToBeRendered = undefined;
-                this._contextToBeRendered = parsedContexts;
+                if(this._checkPreselectedContextOnLoad(parsedContexts)) {
+                    this._parsedContexts = parsedContexts;
+                } else {
+                    this._contextToBeRendered = undefined;
+                    this._contextToBeRendered = parsedContexts;
+                    this._updateSelectedDimensions();
+                }
+            },
+
+            _checkPreselectedContextOnLoad(parsedContexts){
+                if(parsedContexts && parsedContexts.length){
+                    let firstContext = parsedContexts[0];
+                    if(firstContext && firstContext.mappedValueContexts 
+                        && firstContext.selectedItem && firstContext.selectedItem.title){
+                        //generate request.
+                        var firstContextRequest = DataHelper.cloneObject(firstContext.dataRequest);
+                        firstContextRequest.params.query.name = firstContext.selectedItem.title;
+                        delete firstContextRequest.params.query.filters.attributesCriterion;
+                        firstContextRequest.params.query.filters.excludeNonContextual = true;
+                        this.set("_preselectedContextRequest", firstContextRequest);
+                        let preselectedContextGet = this.shadowRoot.querySelector("#preselectedContextGet")
+                        if(preselectedContextGet){
+                            preselectedContextGet.generateRequest();
+                            return true;
+                        }
+                    }
+                }
+
+                return false;
             },
 
             _updateSelectedDimensions: function () {
@@ -1641,7 +1684,7 @@ Custom property | Description | Default
                                                 lovElement.selectedItemInfo = ctxData.selectedItemInfo;
                                             }
                                             lovElement.reset();
-                                        } else {
+                                        } else if(ctxData.dimensionType !== "value") {
                                             var reqData = ctxData.dataRequest;
                                             var ctxToBeLoaded = flattenedCtx[item];
 
@@ -1675,6 +1718,7 @@ Custom property | Description | Default
                             if (valueTypeDimensions) {
                                 for (let valueTypeDimension of valueTypeDimensions) {
                                     var ctxType = valueTypeDimension.id;
+                                    var ctxToBeLoaded = flattenedCtx[ctxType];
                                     var lovElement = this.$$('#' + ctxType + '-lov');
 
                                     if (lovElement) {
@@ -1683,6 +1727,19 @@ Custom property | Description | Default
                                         if (ctxData) {
                                             var reqData = ctxData.dataRequest;
                                             if (reqData) {
+                                                if (ctxToBeLoaded && ctxToBeLoaded.length && ctxToBeLoaded.indexOf('_ALL') < 0 && ctxData.externalAttrName) {
+                                                    var attributesCriterion = [];
+                                                    var attrCriterion = {};
+                                                    attrCriterion[ctxData.externalAttrName] = {
+                                                        "exacts": ctxToBeLoaded
+                                                    }
+
+                                                    attributesCriterion.push(attrCriterion);
+                                                    reqData.params.query.filters.attributesCriterion = attributesCriterion;
+                                                    selectedItems = this._getSelectedCtxItems(ctxType, ctxToBeLoaded);
+                                                } else {
+                                                    delete reqData.params.query.filters.attributesCriterion;
+                                                }
                                                 if (!_.isEmpty(dependentLovRelationships[ctxType])) {
                                                     reqData.params.query.ids = dependentLovRelationships[ctxType];
                                                 } else {
@@ -1692,6 +1749,7 @@ Custom property | Description | Default
                                         }
 
                                         lovElement.selectedItems = selectedItems;
+                                        lovElement.selectedItem = !_.isEmpty(selectedItems) ? selectedItems[0] : {};
                                         lovElement.requestData = reqData;
                                         lovElement.reset();
                                     }
@@ -1805,16 +1863,47 @@ Custom property | Description | Default
                 this.logError(this.appName + "-Dimension Selector - Entity Context get exception", e.detail);
             },
 
-            _entityExternalDataFormatter: function (formattedData, data) {
+            _onPreselectedContextGetResponse: function (ev) {
+                if(DataHelper.isValidObjectPath(ev, 'detail.response.response.entities.0')) {
+                    var entity = ev.detail.response.response.entities[0];
+                    if(entity && !_.isEmpty(this._parsedContexts) ) {
+                        for(let idx=0; idx<this._parsedContexts.length; idx++) {
+                            if(this._parsedContexts[idx].ctxName === entity.type) {
+                                var _selectedItemData = this._entityExternalDataFormatter([this._parsedContexts[idx].selectedItem], [entity], this._parsedContexts[idx]);
+                                if(!_.isEmpty(_selectedItemData)) {
+                                    this._parsedContexts[idx].selectedItem = _selectedItemData[0];
+                                }
+                                break;
+                            }
+                        }
+                    }
+                } else {
+                    this.logError(this.appName + "-Dimension Selector - Entity Pre selected Context get exception", ev.detail);
+                }
+
+                this._contextToBeRendered = undefined;
+                this._contextToBeRendered = this._parsedContexts;
+                this._updateSelectedDimensions();
+            },
+
+            _onPreselectedContextGetGetError: function (ev) {
+                this.logError(this.appName + "-Dimension Selector - Entity Pre selected Context get exception", ev.detail);
+                this._contextToBeRendered = undefined;
+                this._contextToBeRendered = this._parsedContexts;
+                this._updateSelectedDimensions();
+            },
+
+            _entityExternalDataFormatter: function (formattedData, data, _rData) {
                 if (formattedData && formattedData.length) {
-                    var elementInfo = this.rData;
+                    var elementInfo = _rData ? _rData : this.rData;
 
                     if (elementInfo) {
                         var ctxType = elementInfo.id;
 
                         // Add relationship detail into formatted item if entity has dependent relationship
                         // If entity has dependent relationship then check for "isDefault" relationship attribute to get preselected dependent value for current entity.
-                        this.domHost._setDepenedencyRelationshipAndPreSelectedItems(data, formattedData, elementInfo);
+                        var _domHost = _rData ? this : this.domHost;
+                        _domHost._setDepenedencyRelationshipAndPreSelectedItems(data, formattedData, elementInfo);
 
                         if (elementInfo.dimensionType.toLowerCase() == "value" && DataHelper.isValidObjectPath(this.requestData, "params.query.ids")) {
                             var selectedItemIds = this.selectedItems.map(v => v.id);
@@ -1829,12 +1918,13 @@ Custom property | Description | Default
                                 if (!_.isEmpty(selectedItems)) {
                                     if (!DataHelper.areEqualArrays(this.selectedItems, selectedItems)) {
                                         this.selectedItems = selectedItems;
-                                        this.domHost._setSelectedDimensions();
+                                        _domHost._setSelectedDimensions();
                                     }
                                 } else {
-                                    var preSelectedItemId = this.domHost.selectedDimensionsDetail["PreSelectedItems"] && this.domHost.selectedDimensionsDetail["PreSelectedItems"][ctxType];
-                                    if (preSelectedItemId) {
-                                        var preselctedItem = data.find(v => v.id == preSelectedItemId);
+                                    var preSelectedItems = _domHost.selectedDimensionsDetail["PreSelectedItems"] && _domHost.selectedDimensionsDetail["PreSelectedItems"][ctxType];
+                                    if (!_.isEmpty(preSelectedItems)) {
+                                        //var preselctedItem = data.find(v => v.id == preSelectedItemId);
+                                        var preselctedItem = data.find(v => preSelectedItems.find(u => u === v.id));
 
                                         if (preselctedItem) {
                                             var name = preselctedItem.data.attributes[elementInfo.externalAttrName].values[0].value;
@@ -1842,23 +1932,23 @@ Custom property | Description | Default
 
                                             if (item) {
                                                 this.selectedItems = [item];
-                                                this.domHost._setSelectedDimensions();
+                                                _domHost._setSelectedDimensions();
                                             }
                                         }
                                     } else {
                                         this.selectedItems = [];
-                                        this.domHost._setSelectedDimensions();
+                                        _domHost._setSelectedDimensions();
                                     }
                                 }
                             }
                         }
 
-                        if (this.domHost) {
-                            var filteredCtx = this.domHost._getExistingContextsOfEntity();
+                        if (_domHost) {
+                            var filteredCtx = _domHost._getExistingContextsOfEntity();
                         }
 
                         if (filteredCtx && filteredCtx.length) {
-                            var flattenedCtx = this.domHost._getFlattenedContexts(filteredCtx, false);
+                            var flattenedCtx = _domHost._getFlattenedContexts(filteredCtx, false);
 
                             if (flattenedCtx && flattenedCtx[ctxType]) {
                                 var existingContext = flattenedCtx[ctxType];
@@ -1922,6 +2012,7 @@ Custom property | Description | Default
                 var mappedValueContexts = elementInfo && elementInfo.mappedValueContexts;
 
                 if (mappedValueContexts && data && formattedData) {
+                    this.selectedDimensionsDetail["PreSelectedItems"] = {};
                     for (let d of data) {
                         if (d.data && d.data.relationships) {
                             for (let rel in d.data.relationships) {
@@ -1929,7 +2020,7 @@ Custom property | Description | Default
                                     var name = d.data.attributes[elementInfo.externalAttrName].values[0].value;
                                     var item = formattedData.find(v => v.id == name);
 
-                                    if (!item.relTo) {
+                                    if (item && !item.relTo) {
                                         item.relTo = [];
                                     }
 
@@ -1940,13 +2031,17 @@ Custom property | Description | Default
                                         if (r.attributes && mappedValueContext) {
                                             var relAttr = r.attributes[this._getDefaultSelectedAttrName()];
 
-                                            if (relAttr && relAttr.values && relAttr.values[0].value == "true") {
+                                            if (DataHelper.isValidObjectPath(relAttr, "values.0.value") && relAttr.values[0].value.toString() == "true") {
                                                 if (!this.selectedDimensionsDetail["PreSelectedItems"]) {
                                                     this.selectedDimensionsDetail["PreSelectedItems"] = {};
                                                 }
 
                                                 if (_.isEmpty(this.selectedDimensionsDetail["PreSelectedItems"][mappedValueContext.valueContext])) {
-                                                    this.selectedDimensionsDetail["PreSelectedItems"][mappedValueContext.valueContext] = r.relTo.id;
+                                                    this.selectedDimensionsDetail["PreSelectedItems"][mappedValueContext.valueContext] = [];
+                                                }
+
+                                                if(this.selectedDimensionsDetail["PreSelectedItems"][mappedValueContext.valueContext].indexOf(r.relTo.id) === -1) {
+                                                    this.selectedDimensionsDetail["PreSelectedItems"][mappedValueContext.valueContext].push(r.relTo.id);
                                                 }
                                             }
                                         }
