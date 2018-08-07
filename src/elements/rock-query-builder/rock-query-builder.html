@@ -472,12 +472,6 @@
                 type: Boolean,
                 value: false
             },
-            _relationshipsToQuery: {
-                type: Array,
-                value: function() {
-                    return [];
-                }
-            },
 			domains: {
 				type: Array,
 				value: function () { return []; }
@@ -922,6 +916,7 @@
             let entityTypes =  this.getSelectedEntityTypes(this.selectedEntityTypes); 
             let isRestEnabled = false;
             let entityTypesListCopy = DataHelper.cloneObject(entityTypes);
+            let entitiesNotInLookup = [];
             if (!_.isEmpty(entityTypes)) {
                 entityTypes = entityTypes.map(entityType => {
                     entityType = entityType + "_entityManageModel";
@@ -933,14 +928,15 @@
             if(!_.isEmpty(this._relationshipAttributesLookup)) {
                 let existingEntTypesInLookup = Object.keys(this._relationshipAttributesLookup);
                 
-            for (let index=0; index < entityTypesListCopy.length; index++) {
-                if(!existingEntTypesInLookup.includes(entityTypesListCopy[index])) {
+            entityTypesListCopy.forEach(entityType=> {
+                if(!existingEntTypesInLookup.includes(entityType)) {
                     isRestEnabled = true;
-                    break;
+                    entitiesNotInLookup.push(entityType + "_entityManageModel");
                 }
-            }
+            });            
             } else {
                 isRestEnabled = true;
+                entitiesNotInLookup = entityTypes;
             }
            
 
@@ -949,7 +945,7 @@
                 this._relModelGetRequest = {
                                 "params": {
                                     "query": {
-                                        "ids": entityTypes,
+                                        "ids": entitiesNotInLookup,
                                         "filters": {
                                             "typesCriterion": [
                                                 "entityManageModel"
@@ -974,19 +970,31 @@
             } else {
                 //fetch the relationshipAttributes and relationships from the existingEntTypesInLookup and make the composite call
                 let relationshipAttributesToQuery = [];
+                let relationshipsToQuery = [];
                 let dataSource = "lookup-dictionary";
                 relationshipAttributesToQuery = this._getRelationshipAttributesToQuery(this._relationshipAttributesLookup, dataSource, entityTypesListCopy);
+                relationshipsToQuery = this._getRelationshipsToQuery(entityTypesListCopy);
 
-                this._entityCompositeGet(this._relationshipsToQuery, relationshipAttributesToQuery);
+                this._entityCompositeGet(relationshipsToQuery, relationshipAttributesToQuery);
             }
                 
+        }
+
+        _getRelationshipsToQuery(entityTypesList) {
+            let relationshipsToQuery = [];
+            let relationships;
+            entityTypesList.forEach(entityType=> {
+                relationships = Object.keys(this._relationshipAttributesLookup[entityType]);
+                relationshipsToQuery.push(...relationships);
+            });
+            return relationshipsToQuery;
         }
 
         _getRelationshipAttributesToQuery(relationships, dataSource, entityTypesList) {
             let relationshipAttributesToQuery = [];
             if(dataSource == "lookup-dictionary") {
-                entityTypesList.forEach(entType=> {
-                    let relationships = this._relationshipAttributesLookup[entType];
+                entityTypesList.forEach(entityType=> {
+                    let relationships = this._relationshipAttributesLookup[entityType];
                     for(let relAttr in relationships) {
                         let relationshipAttributes =  relationships[relAttr];
                         if(!_.isEmpty(relationshipAttributes)) {
@@ -1011,6 +1019,7 @@
          */
          _onRelModelReceived(e) {
             let entityModels;
+            let relationshipsToQuery = [];
             if(DataHelper.isValidObjectPath(e, 'detail.response.response.entityModels')) {
                 entityModels = e.detail.response.response.entityModels;
             } else {
@@ -1018,7 +1027,7 @@
                  return;
              }
              if(DataHelper.isValidObjectPath(entityModels[0], 'data.relationships')) {
-                this._relationshipsToQuery = Object.keys(entityModels[0].data.relationships);
+                relationshipsToQuery = Object.keys(entityModels[0].data.relationships);
              } else {
                 this.logError("No relationships found on entityModel", e.detail);
                 return;
@@ -1056,7 +1065,7 @@
 
              //updating the relationshipAttributes lookup
 
-             this._entityCompositeGet(this._relationshipsToQuery, relationshipAttributesToQuery);
+             this._entityCompositeGet(relationshipsToQuery, relationshipAttributesToQuery);
 
          }
          _onRelModelGetFailed(e) {
@@ -1576,8 +1585,8 @@
         /**
          *  Function to populate relationship attributes
          */
-        _onRelationshipLovSelectionChanged(e){            
-           this._onResetRelationship();
+        _onRelationshipLovSelectionChanged(e){
+            this._onResetRelationshipGrid();
             var attributesList = [];
             if(DataHelper.isValidObjectPath(e.detail,"item.relationshipOwnership")){
                 if(e.detail.item.relationshipOwnership == "owned"){
