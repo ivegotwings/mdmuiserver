@@ -819,7 +819,7 @@ BaseModelService.prototype = {
             if (falcorUtil.isValidObjectPath(entity, "properties.childAttributes")) {
                 attributes[entity.name].group = [];
                 let group = {};
-                let childEntityIds = entity.properties.childAttributes.map(v => v = v + "_" + entity.type);
+                let childEntityIds = _.isArray(entity.properties.childAttributes) ? entity.properties.childAttributes.map(v => v = v + "_" + entity.type) : [entity.properties.childAttributes + "_" + entity.type];;
 
                 if (childEntityIds) {
                     let childEntities = await modelGetManager.getModels(childEntityIds, "attributeModel");
