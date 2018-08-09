@@ -1,5 +1,5 @@
-var isArray = Array.isArray;
-var isObject = require("./isObject");
+let isArray = Array.isArray;
+let isObject = require("./isObject");
 
 module.exports = function isJSONGraphEnvelope(envelope) {
     return isObject(envelope) && isArray(envelope.paths) && (

@@ -1,11 +1,11 @@
 require("babel-register");
 require("babel-polyfill");
 
-var ApiHealthCheckService = require('./ApiHealthCheckService');
+let ApiHealthCheckService = require('./ApiHealthCheckService');
 
-var apiHealthCheckService = new ApiHealthCheckService();
+let apiHealthCheckService = new ApiHealthCheckService();
 
-ApiHealthCheckServiceTest = function() {
+let ApiHealthCheckServiceTest = function() {
 }
 
 ApiHealthCheckServiceTest.prototype = {
@@ -17,7 +17,7 @@ ApiHealthCheckServiceTest.prototype = {
     }
 }
 
-var testService = new ApiHealthCheckServiceTest();
+let testService = new ApiHealthCheckServiceTest();
 
 //check entityappservice/get api
 //testService.callService("/data/healthcheck/entityappservice/get");

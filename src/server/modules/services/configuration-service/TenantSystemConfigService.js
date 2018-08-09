@@ -1,30 +1,30 @@
 'use strict';
 
-var DFRestService = require('../../common/df-rest-service/DFRestService');
-var RuntimeVersionManager = require('../version-service/RuntimeVersionManager');
+let DFRestService = require('../../common/df-rest-service/DFRestService');
+let RuntimeVersionManager = require('../version-service/RuntimeVersionManager');
 
 const falcorUtil = require('../../../../shared/dataobject-falcor-util');
 
-var TenantSystemConfigService = function (options) {
+let TenantSystemConfigService = function (options) {
     DFRestService.call(this, options);
 };
 
-var localConfigCache = {};
+let localConfigCache = {};
 
 TenantSystemConfigService.prototype = {
     get: async function (url, tenantConfigRequest) {
-        var tenant = this.getTenantId();
+        let tenant = this.getTenantId();
 
-        var mode = "online";
-        var configId = tenantConfigRequest.params.query.id;
-        var cacheKey = await this.getCacheKey(tenant, configId);
+        let mode = "online";
+        let configId = tenantConfigRequest.params.query.id;
+        let cacheKey = await this.getCacheKey(tenant, configId);
 
         if (localConfigCache[cacheKey]) {
             return falcorUtil.cloneObject(localConfigCache[cacheKey]);
         }
 
-        var tenantConfigResponse;
-        var tenantConfigMetadata;
+        let tenantConfigResponse;
+        let tenantConfigMetadata;
 
         //rdf returns tenant config only if the tenant is dataplatform
         tenantConfigResponse = await this.post(url, tenantConfigRequest, "dataplatform");
@@ -34,16 +34,16 @@ TenantSystemConfigService.prototype = {
         return tenantConfigMetadata;
     },
     getCacheKey: async function(tenant, configId) {
-        var runtimeVersion = await RuntimeVersionManager.getVersion();
-        var cacheKey = "".concat(tenant,"_", configId,"_", runtimeVersion);
+        let runtimeVersion = await RuntimeVersionManager.getVersion();
+        let cacheKey = "".concat(tenant,"_", configId,"_", runtimeVersion);
         return cacheKey;
     },
     getTenantMetadata: function(config){
         
-        var tenantMetadata={};
+        let tenantMetadata={};
         if(falcorUtil.isValidObjectPath(config, "response.configObjects.0")){
-            var configObject = config.response.configObjects[0];
-            var {defaultValueLocale, defaultValueSource, timezone} = configObject.data.jsonData; 
+            let configObject = config.response.configObjects[0];
+            let {defaultValueLocale, defaultValueSource, timezone} = configObject.data.jsonData; 
             tenantMetadata.defaultValueLocale = defaultValueLocale;
             tenantMetadata.defaultValueSource = defaultValueSource;
             tenantMetadata.timezone = timezone;

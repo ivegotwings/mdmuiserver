@@ -1,6 +1,6 @@
 'use strict';
 
-var Enums = function () { };
+let Enums = function () { };
 
 Enums.actions = {
     SystemSaveComplete:1,
@@ -29,6 +29,7 @@ Enums.operations = {
     BusinessCondition:3
 }
 
+// eslint-disable-next-line no-var
 var SharedEnumsUtil = SharedEnumsUtil || {};
 
 //register as module or as js 

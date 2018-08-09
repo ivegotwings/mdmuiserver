@@ -1,10 +1,10 @@
-var DFConnection = require('../common/service-base/DFConnection');
-var moment = require('moment');
-var sleep = require('system-sleep');
-var uuidV1 = require('uuid/v1');
+let DFConnection = require('../common/service-base/DFConnection');
+let moment = require('moment');
+let sleep = require('system-sleep');
+let uuidV1 = require('uuid/v1');
 
-var ApiHealthCheckService = function (options) {
-    var _dataConnection = new DFConnection();
+let ApiHealthCheckService = function (options) {
+    let _dataConnection = new DFConnection();
     this._restRequest = _dataConnection.getRequest();
     this._serverUrl = _dataConnection.getServerUrl();
     this._copServerUrl = _dataConnection.getCOPServerUrl();
@@ -14,47 +14,44 @@ ApiHealthCheckService.prototype = {
     call: async function (url) {
         //console.log('actual url', url);
 
-        var urlSegments = url.split('/');
+        let urlSegments = url.split('/');
 
-        var tenantId = urlSegments[1];
-        var apiUrl = url.replace('/' + tenantId + '/data/healthcheck/', '');
+        let tenantId = urlSegments[1];
+        let apiUrl = url.replace('/' + tenantId + '/data/healthcheck/', '');
         //console.log(tenantId);
 
-        var timeStamp = moment().toISOString();
-        var baseUrl = this._serverUrl + '/' + tenantId + '/api/';
-        var copUrl = this._copServerUrl + '/' + tenantId + '/api/';
-        var isCOPService = false;
+        let timeStamp = moment().toISOString();
+        let baseUrl = this._serverUrl + '/' + tenantId + '/api/';
+        let copUrl = this._copServerUrl + '/' + tenantId + '/api/';
+        let isCOPService = false;
         if(apiUrl.indexOf("copservice/") > -1){
             isCOPService = true;
         }
-        var dfUrl = (isCOPService ? copUrl : baseUrl) + apiUrl + '?timeStamp=' + timeStamp;
-        var apiConfigKey = apiUrl.replace('/', '-');
+        let dfUrl = (isCOPService ? copUrl : baseUrl) + apiUrl + '?timeStamp=' + timeStamp;
+        let apiConfigKey = apiUrl.replace('/', '-');
 
-        var healthcheckConfigs = await this.getHealthcheckConfig(baseUrl, apiConfigKey);
+        let healthcheckConfigs = await this.getHealthcheckConfig(baseUrl, apiConfigKey);
         //console.log('healthcheck configs ', JSON.stringify(healthcheckConfigs));
 
         if (!(healthcheckConfigs && healthcheckConfigs.response && healthcheckConfigs.response.configObjects)) {
             return this.createFatalError(apiUrl);
         }
 
-        var response = undefined;
+        let response = undefined;
 
-        var apiConfig = this.getApiConfig(healthcheckConfigs, apiConfigKey);
+        let apiConfig = this.getApiConfig(healthcheckConfigs, apiConfigKey);
         if (apiConfig) {
-            var operation = apiConfig.operation;
+            let operation = apiConfig.operation;
 
             switch (operation) {
                 case "get": {
                     return this.executeGetRequest(dfUrl, apiUrl, apiConfig, isCOPService);
-                    break;
                 }
                 case "update": {
                     return this.executeUpdateRequest(dfUrl, apiUrl, apiConfig);
-                    break;
                 }
                 case "create": {
                     return this.executeCreateRequest(dfUrl, apiUrl, apiConfig);
-                    break;
                 }
                 default: {
                     return this.createFatalError(apiUrl);
@@ -65,10 +62,10 @@ ApiHealthCheckService.prototype = {
         return {};
     },
     executeGetRequest: async function (dfUrl, apiUrl, apiConfig, isCOPService) {
-        var response = {};
+        let response = {};
 
-        var request = apiConfig.request;
-        var collectionName = apiConfig.responseInfo.collectionName;
+        let request = apiConfig.request;
+        let collectionName = apiConfig.responseInfo.collectionName;
 
         if (!request) {
             response = this.createFatalError(apiUrl);
@@ -79,12 +76,12 @@ ApiHealthCheckService.prototype = {
             }
             request.url = dfUrl;
 
-            var getStartTick = process.hrtime();
+            let getStartTick = process.hrtime();
 
-            var apiResponse = await this.callRdfApi(request);
+            let apiResponse = await this.callRdfApi(request);
 
-            var getEndTick = process.hrtime(getStartTick);
-            var getTimeTaken = getEndTick[1] / 1000000;
+            let getEndTick = process.hrtime(getStartTick);
+            let getTimeTaken = getEndTick[1] / 1000000;
 
             if ((apiResponse && apiResponse.response) || isCOPService) {
                 if ((isCOPService && apiResponse[collectionName]) || (apiResponse.response && apiResponse.response[collectionName] && apiResponse.response[collectionName].length > 0)) {
@@ -141,26 +138,26 @@ ApiHealthCheckService.prototype = {
         return response;
     },
     executeUpdateRequest: async function (dfUrl, apiUrl, apiConfig) {
-        var response = undefined;
+        let response = undefined;
 
-        var getRequest = apiConfig.getRequest;
-        var getApiUrl = apiConfig.getApiUrl;
-        var updateRequest = apiConfig.updateRequest;
-        var attributesToUpdate = apiConfig.attributesToUpdate;
-        var attrName = attributesToUpdate[0];
-        var verificationDelayIntervals = apiConfig.verificationDelayIntervals;
-        var collectionName = apiConfig.objectInfo.collectionName;
-        var objectName = apiConfig.objectInfo.objectName;
+        let getRequest = apiConfig.getRequest;
+        let getApiUrl = apiConfig.getApiUrl;
+        let updateRequest = apiConfig.updateRequest;
+        let attributesToUpdate = apiConfig.attributesToUpdate;
+        let attrName = attributesToUpdate[0];
+        let verificationDelayIntervals = apiConfig.verificationDelayIntervals;
+        let collectionName = apiConfig.objectInfo.collectionName;
+        let objectName = apiConfig.objectInfo.objectName;
 
         if (!getRequest) {
             response = this.createFatalError(apiUrl);
         }
         else {
-            var newVal = moment().format("YYYY-MM-DDTHH:mm:ss.SSS-0500"); // just set new value as current timestamp..
+            let newVal = moment().format("YYYY-MM-DDTHH:mm:ss.SSS-0500"); // just set new value as current timestamp..
             //console.log('new val', newVal);
             getRequest.url = dfUrl.replace(apiUrl, getApiUrl);
 
-            var getApiResponse = await this.callRdfApi(getRequest);
+            let getApiResponse = await this.callRdfApi(getRequest);
 
             if (!(getApiResponse && getApiResponse.response && getApiResponse.response[collectionName] && getApiResponse.response[collectionName].length > 0)) {
                 response = {
@@ -175,32 +172,32 @@ ApiHealthCheckService.prototype = {
                 return response;
             }
 
-            var dataObject = updateRequest.body[objectName];
+            let dataObject = updateRequest.body[objectName];
             this.setAttrVal(dataObject.data.attributes, attrName, newVal);
 
             updateRequest.url = dfUrl;
 
-            var updateStartTick = process.hrtime();
+            let updateStartTick = process.hrtime();
 
-            var updateApiResponse = await this.callRdfApi(updateRequest);
+            let updateApiResponse = await this.callRdfApi(updateRequest);
 
-            var updateEndTick = process.hrtime(updateStartTick);
-            var updateTime = updateEndTick[1] / 1000000;
+            let updateEndTick = process.hrtime(updateStartTick);
+            let updateTime = updateEndTick[1] / 1000000;
 
             if (updateApiResponse && updateApiResponse.response) {
-                var status = updateApiResponse.response.status;
+                let status = updateApiResponse.response.status;
 
-                var verificationStartTick = process.hrtime();
+                let verificationStartTick = process.hrtime();
 
                 if (status == "success") {
-                    var i = 0;
-                    var totalDelay = 0;
+                    let i = 0;
+                    let totalDelay = 0;
                     do {
-                        var val = await this.getDataObjectAttrVal(getRequest, collectionName, attrName);
+                        let val = await this.getDataObjectAttrVal(getRequest, collectionName, attrName);
                         //console.log('val ', val);
                         if (val == newVal) {
-                            var verificationEndTick = process.hrtime(verificationStartTick);
-                            var verificationTime = verificationEndTick[1] / 1000000;
+                            let verificationEndTick = process.hrtime(verificationStartTick);
+                            let verificationTime = verificationEndTick[1] / 1000000;
 
                             response = {
                                 "status": "success",
@@ -218,15 +215,15 @@ ApiHealthCheckService.prototype = {
                             };
                             break;
                         }
-                        var interval = verificationDelayIntervals[i];
+                        let interval = verificationDelayIntervals[i];
                         totalDelay += interval;
                         sleep(interval);
                         i++;
                     } while (i < verificationDelayIntervals.length);
 
                     if (!response) {
-                        var verificationEndTick = process.hrtime(verificationStartTick);
-                        var verificationTime = verificationEndTick[1] / 1000000;
+                        let verificationEndTick = process.hrtime(verificationStartTick);
+                        let verificationTime = verificationEndTick[1] / 1000000;
 
                         response = {
                             "status": "warning",
@@ -244,8 +241,8 @@ ApiHealthCheckService.prototype = {
                         };
                     }
                 } else {
-                    var verificationEndTick = process.hrtime(verificationStartTick);
-                    var verificationTime = verificationEndTick[1] / 1000000;
+                    let verificationEndTick = process.hrtime(verificationStartTick);
+                    let verificationTime = verificationEndTick[1] / 1000000;
 
                     response = {
                         "status": "error",
@@ -271,57 +268,57 @@ ApiHealthCheckService.prototype = {
         return response;
     },
     executeCreateRequest: async function (dfUrl, apiUrl, apiConfig) {
-        var response = undefined;
-        var newEntityGuid = uuidV1();
-        var apiConfigAsString = JSON.stringify(apiConfig);
+        let response = undefined;
+        let newEntityGuid = uuidV1();
+        let apiConfigAsString = JSON.stringify(apiConfig);
         apiConfigAsString = apiConfigAsString.replace(/<GUID>/g, newEntityGuid);
         apiConfig = JSON.parse(apiConfigAsString);
-        var getRequest = apiConfig.getRequest;
-        var getApiUrl = apiConfig.getApiUrl;
-        var deleteApiUrl = apiConfig.deleteApiUrl;
-        var createRequest = apiConfig.createRequest;
-        var deleteRequest = apiConfig.deleteRequest;
-        var attributesToUpdate = apiConfig.attributesToUpdate;
-        var attrName = attributesToUpdate[0];
-        var verificationDelayIntervals = apiConfig.verificationDelayIntervals;
-        var collectionName = apiConfig.objectInfo.collectionName;
-        var objectName = apiConfig.objectInfo.objectName;
+        let getRequest = apiConfig.getRequest;
+        let getApiUrl = apiConfig.getApiUrl;
+        let deleteApiUrl = apiConfig.deleteApiUrl;
+        let createRequest = apiConfig.createRequest;
+        let deleteRequest = apiConfig.deleteRequest;
+        let attributesToUpdate = apiConfig.attributesToUpdate;
+        let attrName = attributesToUpdate[0];
+        let verificationDelayIntervals = apiConfig.verificationDelayIntervals;
+        let collectionName = apiConfig.objectInfo.collectionName;
+        let objectName = apiConfig.objectInfo.objectName;
 
         if (!getRequest) {
             response = this.createFatalError(apiUrl);
         }
         else {
-            var newVal = moment().format("YYYY-MM-DDTHH:mm:ss.SSS-0500"); // just set new value as current timestamp..
+            let newVal = moment().format("YYYY-MM-DDTHH:mm:ss.SSS-0500"); // just set new value as current timestamp..
             //console.log('new val', newVal);
             getRequest.url = dfUrl.replace(apiUrl, getApiUrl);
             deleteRequest.url = dfUrl.replace(apiUrl, deleteApiUrl);
 
-            var dataObject = createRequest.body[objectName];
+            let dataObject = createRequest.body[objectName];
             this.setAttrVal(dataObject.data.attributes, attrName, newVal);
 
             createRequest.url = dfUrl;
 
-            var createStartTick = process.hrtime();
+            let createStartTick = process.hrtime();
 
-            var createApiResponse = await this.callRdfApi(createRequest);
+            let createApiResponse = await this.callRdfApi(createRequest);
 
-            var createEndTick = process.hrtime(createStartTick);
-            var createTime = createEndTick[1] / 1000000;
+            let createEndTick = process.hrtime(createStartTick);
+            let createTime = createEndTick[1] / 1000000;
 
             if (createApiResponse && createApiResponse.response) {
-                var status = createApiResponse.response.status;
+                let status = createApiResponse.response.status;
 
-                var verificationStartTick = process.hrtime();
+                let verificationStartTick = process.hrtime();
 
                 if (status == "success") {
-                    var i = 0;
-                    var totalDelay = 0;
+                    let i = 0;
+                    let totalDelay = 0;
                     do {
-                        var val = await this.getDataObjectAttrVal(getRequest, collectionName, attrName);
+                        let val = await this.getDataObjectAttrVal(getRequest, collectionName, attrName);
                         //console.log('val ', val);
                         if (val == newVal) {
-                            var verificationEndTick = process.hrtime(verificationStartTick);
-                            var verificationTime = verificationEndTick[1] / 1000000;
+                            let verificationEndTick = process.hrtime(verificationStartTick);
+                            let verificationTime = verificationEndTick[1] / 1000000;
 
                             response = {
                                 "status": "success",
@@ -338,20 +335,20 @@ ApiHealthCheckService.prototype = {
                                 }
                             };
 
-                            var deleteApiResponse = await this.callRdfApi(deleteRequest);
+                            let deleteApiResponse = await this.callRdfApi(deleteRequest);
                             response.detail.cleanupResponse = deleteApiResponse;
 
                             break;
                         }
-                        var interval = verificationDelayIntervals[i];
+                        let interval = verificationDelayIntervals[i];
                         totalDelay += interval;
                         sleep(interval);
                         i++;
                     } while (i < verificationDelayIntervals.length);
 
                     if (!response) {
-                        var verificationEndTick = process.hrtime(verificationStartTick);
-                        var verificationTime = verificationEndTick[1] / 1000000;
+                        let verificationEndTick = process.hrtime(verificationStartTick);
+                        let verificationTime = verificationEndTick[1] / 1000000;
 
                         response = {
                             "status": "warning",
@@ -368,12 +365,12 @@ ApiHealthCheckService.prototype = {
                             }
                         };
 
-                        var deleteApiResponse = await this.callRdfApi(deleteRequest);
+                        let deleteApiResponse = await this.callRdfApi(deleteRequest);
                         response.detail.cleanupResponse = deleteApiResponse;
                     }
                 } else {
-                    var verificationEndTick = process.hrtime(verificationStartTick);
-                    var verificationTime = verificationEndTick[1] / 1000000;
+                    let verificationEndTick = process.hrtime(verificationStartTick);
+                    let verificationTime = verificationEndTick[1] / 1000000;
 
                     response = {
                         "status": "error",
@@ -399,15 +396,15 @@ ApiHealthCheckService.prototype = {
         return response;
     },
     getDataObjectAttrVal: async function (getRequest, collectionName, attrName) {
-        var attrVal = undefined;
+        let attrVal = undefined;
 
-        var getApiResponse = await this.callRdfApi(getRequest);
+        let getApiResponse = await this.callRdfApi(getRequest);
 
         if (getApiResponse && getApiResponse.response && getApiResponse.response[collectionName] && getApiResponse.response[collectionName].length > 0) {
-            var dataObject = getApiResponse.response[collectionName][0];
+            let dataObject = getApiResponse.response[collectionName][0];
 
             if (dataObject && dataObject.data && dataObject.data.attributes && dataObject.data.attributes[attrName]) {
-                var attr = dataObject.data.attributes[attrName];
+                let attr = dataObject.data.attributes[attrName];
                 if (attr && attr.values && attr.values.length > 0) {
                     attrVal = attr.values[0].value;
                 }
@@ -417,10 +414,10 @@ ApiHealthCheckService.prototype = {
         return await attrVal;
     },
     callRdfApi: async function (options) {
-        var res = {};
+        let res = {};
 
         //console.log('RDF api call ', JSON.stringify(options, null, 2));
-        var reqPromise = this._restRequest(options)
+        let reqPromise = this._restRequest(options)
             .catch(function (error) {
                 res = {
                     "status": "error",
@@ -440,22 +437,22 @@ ApiHealthCheckService.prototype = {
         return await reqPromise;
     },
     getHealthcheckConfig: async function (baseUrl, apiConfigKey) {
-        var request = require('./healthcheckconfig-get').request;
+        let request = require('./healthcheckconfig-get').request;
 
         request.body.params.query.id = apiConfigKey + "_apihealthcheckconfig";
         request.url = baseUrl + "configurationservice/get";
 
-        var result = await this.callRdfApi(request);
+        let result = await this.callRdfApi(request);
 
         //console.log('health check configs ', JSON.stringify(result));
         return result;
     },
     getApiConfig: function (healthcheckConfigs, configKey) {
-        var config = undefined;
+        let config = undefined;
         if (healthcheckConfigs && healthcheckConfigs.response && healthcheckConfigs.response.configObjects) {
-            var configObjects = healthcheckConfigs.response.configObjects;
+            let configObjects = healthcheckConfigs.response.configObjects;
             if (configObjects.length > 0) {
-                for (var configObject of configObjects) {
+                for (let configObject of configObjects) {
                     if (configObject.name == configKey) {
                         if (configObject.data && configObject.data.contexts && configObject.data.contexts.length > 0
                             && configObject.data.contexts[0].jsonData && configObject.data.contexts[0].jsonData.config)
@@ -469,7 +466,7 @@ ApiHealthCheckService.prototype = {
         return config;
     },
     createFatalError: function (serviceName) {
-        var errResponse = {
+        let errResponse = {
             "status": "error",
             "msg": "Failed to execute healthcheck path for the " + serviceName + " service and verify result. Check configuration and contact administrator",
             "detail": {
@@ -487,8 +484,8 @@ ApiHealthCheckService.prototype = {
         return errResponse;
     },
     setAttrVal: function (attributes, attrName, val) {
-        var attr = this.getOrCreate(attributes, attrName, {});
-        var values = [{
+        let attr = this.getOrCreate(attributes, attrName, {});
+        let values = [{
             "source": "internal",
             "locale": "en-US",
             "value": val
@@ -497,7 +494,7 @@ ApiHealthCheckService.prototype = {
         attr.values = values;
     },
     getOrCreate: function (obj, key, defaultVal) {
-        var keyObj = obj[key];
+        let keyObj = obj[key];
 
         if (keyObj === undefined) {
             keyObj = defaultVal;

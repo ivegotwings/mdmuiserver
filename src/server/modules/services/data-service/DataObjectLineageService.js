@@ -75,10 +75,6 @@ DataObjectLineageService.prototype = {
             };
         }
 
-        finally {
-
-        }
-
         return response;
     },
 

@@ -2,29 +2,29 @@
 //require("babel-polyfill");
 require("hogan.js");
 
-var express = require('express');
-var history = require('connect-history-api-fallback');
-var cors = require('cors');
-var bodyParser = require('body-parser');
-var compression = require('compression');
-var cookieParser = require('cookie-parser');
-var fileUpload = require('express-fileupload');
-var path = require("path");
-var RuntimeVersionManager = require('../services/version-service/RuntimeVersionManager');
-var ModuleVersionManager = require('../services/version-service/ModuleVersionManager');
-var executionContext = require('../common/context-manager/execution-context');
+let express = require('express');
+let history = require('connect-history-api-fallback');
+let cors = require('cors');
+let bodyParser = require('body-parser');
+let compression = require('compression');
+let cookieParser = require('cookie-parser');
+let fileUpload = require('express-fileupload');
+let path = require("path");
+let RuntimeVersionManager = require('../services/version-service/RuntimeVersionManager');
+let ModuleVersionManager = require('../services/version-service/ModuleVersionManager');
+let executionContext = require('../common/context-manager/execution-context');
 
-var config = require('config');
+let config = require('config');
 
-var logger = require('../common/logger/logger-service');
-var loggerConfig = config.get('modules.common.logger');
+let logger = require('../common/logger/logger-service');
+let loggerConfig = config.get('modules.common.logger');
 logger.configure(loggerConfig);
 
-var buildPath = process.cwd();
+let buildPath = process.cwd();
 
-var relativePath = process.env.PROJECT_PATH;
+let relativePath = process.env.PROJECT_PATH;
 //relativePath = '.';
-var isNodMonitorProcess = false;
+let isNodMonitorProcess = false;
 
 if (process.env.NODE_MON_PROCESS) {
     isNodMonitorProcess = true;
@@ -41,13 +41,13 @@ logger.info('Web engine start - build path identified', {
     "buildPath": buildPath
 });
 
-var pjson = require(buildPath + '/package.json');
+let pjson = require(buildPath + '/package.json');
 const buildVersion = pjson.version;
 RuntimeVersionManager.initialize(buildVersion);
 ModuleVersionManager.initialize();
 
-var app = express();
-var http = require('http').Server(app);
+let app = express();
+let http = require('http').Server(app);
 
 app.use(cookieParser());
 
@@ -77,7 +77,7 @@ app.use(cors());
 
 logger.info('Web engine start - cors middleware is loaded');
 
-var contextMgrMiddleware = require('../common/context-manager/middleware');
+let contextMgrMiddleware = require('../common/context-manager/middleware');
 contextMgrMiddleware(app);
 
 logger.info('Web engine start - context manager middleware is loaded');
@@ -94,46 +94,46 @@ app.get('/', function (req, res) {
 logger.info('Web engine start - default location route is loaded');
 
 //Load falcor api routes
-var dataobjectRoute = require('../dataobject/dataobject-router');
+let dataobjectRoute = require('../dataobject/dataobject-router');
 dataobjectRoute(app);
 
 logger.info('Web engine start - dataobject service routes are loaded');
 
-var passThroughRoute = require('../services/pass-through-service/pass-through-route');
+let passThroughRoute = require('../services/pass-through-service/pass-through-route');
 passThroughRoute(app);
 
 logger.info('Web engine start - passthrough service routes are loaded');
 
-var eventServiceRoute = require('../services/event-service/event-service-route');
+let eventServiceRoute = require('../services/event-service/event-service-route');
 eventServiceRoute(app);
 
 logger.info('Web engine start - event service routes are loaded');
 
-var fileDownloadRoute = require('../file-download/file-download-route');
+let fileDownloadRoute = require('../file-download/file-download-route');
 fileDownloadRoute(app);
 
 logger.info('Web engine start - filedownload routes are loaded');
 
-var loggerRoute = require('../common/logger/logger-route');
+let loggerRoute = require('../common/logger/logger-route');
 loggerRoute(app);
 
 logger.info('Web engine start - client logger routes are loaded');
 
-var healthCheckRoute = require('../api-healthcheck/api-health-check-route');
+let healthCheckRoute = require('../api-healthcheck/api-health-check-route');
 healthCheckRoute(app);
 
-var notificationEngine = require("../notification-engine/socket");
-var notificationService = require('../services/notification-service/notification-route');
+let notificationEngine = require("../notification-engine/socket");
+let notificationService = require('../services/notification-service/notification-route');
 notificationService(app);
 
 logger.info('Web engine start - notification service routes are loaded');
 
-var binaryStreamObjectRoute = require('../services/binarystreamobject-service/binarystreamobject-route');
+let binaryStreamObjectRoute = require('../services/binarystreamobject-service/binarystreamobject-route');
 binaryStreamObjectRoute(app);
 
 logger.info('Web engine start - binary stream object service routes are loaded');
 
-var binaryObjectRoute = require('../services/binaryobject-service/binaryobject-route');
+let binaryObjectRoute = require('../services/binaryobject-service/binaryobject-route');
 binaryObjectRoute(app);
 
 logger.info('Web engine start - binary object service routes are loaded');
@@ -143,17 +143,17 @@ app.use(fileUpload());
 // Fileupload middleware is resetting the cls session hence we need to reload the contextMgr middleware again
 contextMgrMiddleware(app);
 
-var copRoute = require('../services/cop-service/cop-route');
+let copRoute = require('../services/cop-service/cop-route');
 copRoute(app);
 
 logger.info('Web engine start - cop service routes are loaded');
 
-var fileUploadRoute = require('../file-upload/file-upload-route');
+let fileUploadRoute = require('../file-upload/file-upload-route');
 fileUploadRoute(app);
 
 logger.info('Web engine start - fileupload routes are loaded');
 
-var versionRoute = require('../services/version-service/version-route');
+let versionRoute = require('../services/version-service/version-route');
 versionRoute(app);
 
 logger.info('Web engine start - version routes are loaded');
@@ -164,12 +164,12 @@ app.use(express.static(buildPath, {
 
 //register static file root ...index.html..
 app.get('*', function (req, res) {
-    var isES5 = (req.headers['user-agent'].indexOf('rv:11') !== -1);
-    var userId = req.header("x-rdp-userid");
-    var tenantId = req.header("x-rdp-tenantid");
+    let isES5 = (req.headers['user-agent'].indexOf('rv:11') !== -1);
+    let userId = req.header("x-rdp-userid");
+    let tenantId = req.header("x-rdp-tenantid");
     if (tenantId && userId) {
-        var url = req.url;
-        var urlRedirected = false;
+        let url = req.url;
+        let urlRedirected = false;
 
         if (url.indexOf(tenantId) > -1) {
             url = url.replace("/" + tenantId + "/", "");
@@ -182,7 +182,7 @@ app.get('*', function (req, res) {
         }
 
         if (!isNodMonitorProcess) {
-            var staticPath = isES5 ? "/../static/es5-bundled" : "/../static/es6-bundled";
+            let staticPath = isES5 ? "/../static/es5-bundled" : "/../static/es6-bundled";
 
             if (req.url.indexOf("/bower_components/") > -1) {
                 url = req.url.replace("/bower_components/", staticPath + "/bower_components/");
@@ -215,7 +215,7 @@ app.get('*', function (req, res) {
     if (!renderAuthenticatedPage(req, res)) {
         console.log('sending non-authenticated index page');
         //If request is not authenticated, we are trying see if URL has tenant after root of the URL
-        var urlComps = req.url.split('/');
+        let urlComps = req.url.split('/');
         tenantId = urlComps[0] != "" ? urlComps[0] : urlComps.length > 1 ? urlComps[1] : "";
         //If we find tenant id (assumed tenant id), we set that tenant id in index file
         if (tenantId && tenantId != "") {
@@ -236,9 +236,9 @@ logger.info('Web engine start - base static file root route is loaded');
 logger.info('Web engine start - starting web engine...');
 
 // Finally, start the web server...
-var server = app.listen(5005, function () {
-    var host = server.address().address === '::' ? 'localhost' : server.address().address;
-    var port = server.address().port;
+let server = app.listen(5005, function () {
+    let host = server.address().address === '::' ? 'localhost' : server.address().address;
+    let port = server.address().port;
 
     logger.info('Web engine start - web engine is started', {
         "host": host,
@@ -256,19 +256,19 @@ logger.info('Web engine start - notification engine is started');
 server.timeout = config.get('modules.webEngine').connectionTimeout;
 
 async function renderAuthenticatedPage(req, res) {
-    var userId = req.header("x-rdp-userid");
-    var tenantId = req.header("x-rdp-tenantid");
+    let userId = req.header("x-rdp-userid");
+    let tenantId = req.header("x-rdp-tenantid");
 
     if (tenantId && userId) {
-        var securityContext = executionContext.getSecurityContext();
+        let securityContext = executionContext.getSecurityContext();
         
         if (securityContext && securityContext.headers && securityContext.headers.userRoles) {
             
-            var secHeaders = securityContext.headers;
+            let secHeaders = securityContext.headers;
 
-            var noPreload = true;
+            let noPreload = true;
 
-            var versionInfo = {
+            let versionInfo = {
                 'buildVersion': await RuntimeVersionManager.getBuildVersion(),
                 'runtimeVersion': await RuntimeVersionManager.getVersion(),
                 'moduleVersions': ModuleVersionManager.getAll()

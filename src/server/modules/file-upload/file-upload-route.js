@@ -1,16 +1,16 @@
 'use strict';
-var config = require('config');
-var isEmpty = require('../common/utils/isEmpty');
+let config = require('config');
+let isEmpty = require('../common/utils/isEmpty');
 
-var fileUpload = require('express-fileupload'),
+let fileUpload = require('express-fileupload'),
     fs = require('fs'),
     uuidV1 = require('uuid/v1');
 
 module.exports = function(app) {
     app.use(fileUpload());
-    var dir = './upload';
+    let dir = './upload';
 
-    var fileStoragePath = config.get('modules.fileDownload.fileStoragePath');
+    let fileStoragePath = config.get('modules.fileDownload.fileStoragePath');
 
     if (isEmpty(fileStoragePath)) {
         if (fs.existsSync(fileStoragePath)) {
@@ -27,9 +27,9 @@ module.exports = function(app) {
                 res.send('No files were uploaded.');
                 return;
             }
-            var file = req.files.file;
-            var fileName = file.name;
-            var newFileName = fileName + '__' + uuidV1();
+            let file = req.files.file;
+            let fileName = file.name;
+            let newFileName = fileName + '__' + uuidV1();
 
             file.mv(dir + '/' + newFileName, function (err) {
                 if (err) {

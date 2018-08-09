@@ -6,9 +6,9 @@ const OfflineServiceBase = require('../service-base/OfflineServiceBase'),
     requireDir = require('require-dir'),
     executionContext = require('../context-manager/execution-context');
 
-var SERVICE_CONFIG = require('./df-rest-service-config.js').SERVICE_CONFIG;
+let SERVICE_CONFIG = require('./df-rest-service-config.js').SERVICE_CONFIG;
 
-var OfflineRestService = function (options) {
+let OfflineRestService = function (options) {
     OfflineServiceBase.call(this, options);
 };
 
@@ -16,8 +16,8 @@ OfflineRestService.prototype = {
     post: async function (url, request) {
         //console.log('url', url, 'request ', JSON.stringify(request));
 
-        var serviceConfig = SERVICE_CONFIG.services[url];
-        var offlineSettings = serviceConfig["offlineSettings"];
+        let serviceConfig = SERVICE_CONFIG.services[url];
+        let offlineSettings = serviceConfig["offlineSettings"];
 
         if (!offlineSettings) {
             offlineSettings = { "operation": "process" };
@@ -31,22 +31,22 @@ OfflineRestService.prototype = {
         }
     },
     _getOperation: async function (request, offlineSettings) {
-        var outputJson = {};
+        let outputJson = {};
 
-        var requestPathToSelectDataFile = offlineSettings["requestPathToSelectDataFile"];
-        var requestPathToFilterData = offlineSettings["requestPathToFilterData"];
-        var fieldToCompareInData = offlineSettings["fieldToCompareInData"];
+        let requestPathToSelectDataFile = offlineSettings["requestPathToSelectDataFile"];
+        let requestPathToFilterData = offlineSettings["requestPathToFilterData"];
+        let fieldToCompareInData = offlineSettings["fieldToCompareInData"];
 
-        var filterVal = this._getPathValue(request, requestPathToFilterData);
+        let filterVal = this._getPathValue(request, requestPathToFilterData);
         //console.log('filterVal', filterVal);
 
         if (requestPathToSelectDataFile) {
-            var filePrefixes = offlineSettings.ignoreFilePrefixes ? "" : this._getPathValue(request, requestPathToSelectDataFile);
-            var files = [];
+            let filePrefixes = offlineSettings.ignoreFilePrefixes ? "" : this._getPathValue(request, requestPathToSelectDataFile);
+            let files = [];
 
-            var tenantId = 't1';
+            let tenantId = 't1';
 
-            var securityContext = executionContext.getSecurityContext();
+            let securityContext = executionContext.getSecurityContext();
 
             if (securityContext) {
                 tenantId = securityContext.tenantId;
@@ -54,16 +54,16 @@ OfflineRestService.prototype = {
 
             //console.log('tenant id', tenantId);
 
-            var basePath = process.cwd() + '/offline-data/' + tenantId + '/';
+            let basePath = process.cwd() + '/offline-data/' + tenantId + '/';
 
             //console.log('file prefixes: ', JSON.stringify(filePrefixes));
             files = requireDir(basePath);
-            var filteredFiles = {};
+            let filteredFiles = {};
 
             if (isEmpty(filePrefixes)) {
                 //work around to support offline configuration
                 if (offlineSettings.ignoreFilePrefixes && filterVal) {
-                    var newFilterVal = filterVal.split('_')[0];
+                    let newFilterVal = filterVal.split('_')[0];
                     for (let fileId in files) {
                         if (fileId.indexOf(newFilterVal) >= 0) {
                             filteredFiles[fileId] = files[fileId];
@@ -87,20 +87,20 @@ OfflineRestService.prototype = {
 
             for (let fileId in filteredFiles) {
 
-                var fileContent = files[fileId];
+                let fileContent = files[fileId];
 
                 if (!isEmpty(fileContent)) {
 
-                    var metaInfo = fileContent["metaInfo"];
+                    let metaInfo = fileContent["metaInfo"];
 
                     if (metaInfo === undefined) {
                         continue;
                     }
 
-                    var responseObjName = metaInfo.responseObjectName;
-                    var outputCollectionName = metaInfo.collectionName;
+                    let responseObjName = metaInfo.responseObjectName;
+                    let outputCollectionName = metaInfo.collectionName;
 
-                    var collectionData = fileContent[outputCollectionName];
+                    let collectionData = fileContent[outputCollectionName];
 
                     if (outputJson[responseObjName] === undefined) {
                         outputJson[responseObjName] = {};
@@ -115,7 +115,7 @@ OfflineRestService.prototype = {
                     }
 
                     if (!isEmpty(filterVal)) {
-                        var filteredObj = this._findObject(collectionData, fieldToCompareInData, filterVal);
+                        let filteredObj = this._findObject(collectionData, fieldToCompareInData, filterVal);
                         if (filteredObj != null) {
                             outputJson[responseObjName][outputCollectionName].push(filteredObj);
                         }
@@ -142,8 +142,8 @@ OfflineRestService.prototype = {
         }, jsonObj);
     },
     _findObject: function (jsonObj, field, value) {
-        for (var idx in jsonObj) {
-            var obj = jsonObj[idx];
+        for (let idx in jsonObj) {
+            let obj = jsonObj[idx];
             if (obj && obj[field] === value) {
                 return obj;
             }

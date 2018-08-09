@@ -1,11 +1,11 @@
 'use-strict'
 
-var DataObjectNotificationUtil = function () { };
+let DataObjectNotificationUtil = function () { };
 
 DataObjectNotificationUtil.updateRequestObjectForNotification = function (request, userId, timeStamp, clientUrl, mode) {
     if (request && request.clientState) {
         if (!isEmpty(request.clientState)) {
-            var notificationInfo = request.clientState.notificationInfo;
+            let notificationInfo = request.clientState.notificationInfo;
             if (!isEmpty(notificationInfo)) {
                 notificationInfo.id = getRandomId();
                 notificationInfo.timeStamp = timeStamp;
@@ -38,11 +38,11 @@ DataObjectNotificationUtil._populateNotificationContext = function (request, not
         notificationInfo.context.id = requestData.id;
         notificationInfo.context.type = requestData.type;
         if (request.operation && request.operation == "whereUsed") {
-            var relationshipList = requestData.data.relationships;
-            var relationshipNames = Object.keys(relationshipList);
+            let relationshipList = requestData.data.relationships;
+            let relationshipNames = Object.keys(relationshipList);
             if (!_.isEmpty(relationshipNames)) {
-                var firstRelationshipName = relationshipNames[0];
-                var relationshipObjects = relationshipList[firstRelationshipName];
+                let firstRelationshipName = relationshipNames[0];
+                let relationshipObjects = relationshipList[firstRelationshipName];
                 if (!_.isEmpty(relationshipObjects)) {
                     notificationInfo.context.id = relationshipObjects[0].relTo.id;
                     notificationInfo.context.type = relationshipObjects[0].relTo.type;
@@ -55,7 +55,7 @@ DataObjectNotificationUtil._populateNotificationContext = function (request, not
 function isEmpty(obj) {
     //if (obj === undefined) { return true };
 
-    for (var x in obj) { return false; }
+    for (let x in obj) { return false; }
 
     return true;
 };
@@ -69,6 +69,7 @@ function getRandomId() {
     return randomToken() + randomToken() + randomToken() + randomToken();
 };
 
+// eslint-disable-next-line no-var
 var SharedUtils = SharedUtils || {};
 
 //register as module or as js 

@@ -1,6 +1,6 @@
-var config = require('config');
-var socketManager = require('../socket.js');
-var logger = require('../../common/logger/logger-service');
+let config = require('config');
+let socketManager = require('../socket.js');
+let logger = require('../../common/logger/logger-service');
 
 function sendMessageToAllUser(data) {
         if (socketManager.sendMessage) {

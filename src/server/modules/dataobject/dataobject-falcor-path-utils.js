@@ -1,7 +1,7 @@
 'use strict';
 
-var isObject = require('../common/utils/isObject');
-var defaultExpiryDurationInMs = - (480 * 60 * 1000); // 480 mins...means 8 hours..
+let isObject = require('../common/utils/isObject');
+let defaultExpiryDurationInMs = - (480 * 60 * 1000); // 480 mins...means 8 hours..
 
 function createPath(pathSet, value, expires) {
     if (isObject(value)) {
@@ -25,14 +25,14 @@ function prepareValueJson(value, expires) {
 }
 
 function mergePathSets() {
-    var mergedPathSets = [];
-    var args = Array.prototype.splice.call(arguments, 0);
-    var mergedPathSets = Array.prototype.concat.apply([], args);
+    let mergedPathSets = [];
+    let args = Array.prototype.splice.call(arguments, 0);
+    mergedPathSets = Array.prototype.concat.apply([], args);
     return mergedPathSets;
 }
 
 function mergeAndCreatePath(basePath, pathSet, value, expires) {
-    var mergedPathSet = mergePathSets(basePath, pathSet);
+    let mergedPathSet = mergePathSets(basePath, pathSet);
     return createPath(mergedPathSet, value, expires);
 }
 

@@ -1,10 +1,10 @@
 'use strict';
 require('../df-rest-service/df-rest-service-config.js');
-var stateManager = require('../state-manager/state-manager.js');
-var executionContext = require('../context-manager/execution-context');
-var isEmpty = require('../utils/isEmpty');
+let stateManager = require('../state-manager/state-manager.js');
+let executionContext = require('../context-manager/execution-context');
+let isEmpty = require('../utils/isEmpty');
 
-var LOGGER_CONFIG = function () {
+let LOGGER_CONFIG = function () {
     /*  Log fomrat should be in following order
     ["RequestId", "GUID", "TenantId", "CallerServiceName", "CalleeServiceName", 
         "RelatedRequestId", "GroupRequestId", "TaskId", "UserId", "EntityId", 
@@ -268,9 +268,9 @@ var LOGGER_CONFIG = function () {
     }
 
     this.getCurrentModulesObject = async function () {
-        var key = this.getCacheKey();
+        let key = this.getCacheKey();
         //console.log('get modules key:', key);
-        var modulesObject = await stateManager.get(key);
+        let modulesObject = await stateManager.get(key);
         //console.log('state mgr op', JSON.stringify(modulesObject));
         // if(!_obj) {
         //     _obj = await stateManager.get("ALL-TENANT-ALL-USER");
@@ -292,7 +292,7 @@ var LOGGER_CONFIG = function () {
     };
 
     this.setCurrentModulesObject = async function (modulesObject) {
-        var key = this.getCacheKey();
+        let key = this.getCacheKey();
         await stateManager.set(key, modulesObject);
     };
 
@@ -304,9 +304,9 @@ var LOGGER_CONFIG = function () {
         // } else if (val.globalSettings.tenant) {
         //     key = "ALL-TENANT";
         // }
-        var securityContext = executionContext && executionContext.getSecurityContext();
-        var tenantId = "unknown";
-        var userId = "unknown";
+        let securityContext = executionContext && executionContext.getSecurityContext();
+        let tenantId = "unknown";
+        let userId = "unknown";
         if (securityContext) {
             tenantId = securityContext.tenantId;
             if (securityContext.headers && securityContext.headers.userId) {
@@ -314,12 +314,12 @@ var LOGGER_CONFIG = function () {
             }
         }
 
-        var key = "".concat('logsettings_tenant_', tenantId, '#@#user_', userId);
+        let key = "".concat('logsettings_tenant_', tenantId, '#@#user_', userId);
 
         return key;
     }
 };
 
-var config = new LOGGER_CONFIG();
+let config = new LOGGER_CONFIG();
 module.exports = config;
 

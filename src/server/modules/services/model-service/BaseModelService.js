@@ -65,7 +65,7 @@ BaseModelService.prototype = {
                 }
                 break;
             case "delete":
-                dataOperationResult = await this._deleteModel(request, dataObjectType);
+                dataOperationResult = await this._deleteModel(request, dataObjectType, action);
                 break;
         }
 
@@ -732,7 +732,7 @@ BaseModelService.prototype = {
         }
     },
 
-    _deleteModel: async function (request, dataObjectType) {
+    _deleteModel: async function (request, dataObjectType, action) {
         let dataOperationResults = [], dataOperationResult, modelId;
 
         dataOperationResult = await dataObjectManageService.process(request, action);
@@ -942,7 +942,7 @@ BaseModelService.prototype = {
                     case "hasattributes":
                     case "hasclassificationattributes":
                     case "haschildattributes":
-                    case "hasrelationshipattributes":
+                    case "hasrelationshipattributes": {
                         let attributes = entityTypeModelData.relationships[relType];
                         let entityIds = attributes.map(v => v.relTo.id);
 
@@ -975,7 +975,8 @@ BaseModelService.prototype = {
                             }
                         }
                         break;
-                    case "hasrelationships":
+                    }
+                    case "hasrelationships": {
                         let relationships = entityTypeModelData.relationships[relType];
                         let relEntityIds = relationships.map(v => v.relTo.id);
 
@@ -1017,6 +1018,7 @@ BaseModelService.prototype = {
                             }
                         }
                         break;
+                    }
                 }
             }
         }

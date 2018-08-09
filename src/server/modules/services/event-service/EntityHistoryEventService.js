@@ -1,12 +1,12 @@
-var DFRestService = require('../../common/df-rest-service/DFRestService'),
+let DFRestService = require('../../common/df-rest-service/DFRestService'),
     isEmpty = require('../../common/utils/isEmpty'),
     uuidV1 = require('uuid/v1'),
     arrayContains = require('../../common/utils/array-contains'),
     moment = require('moment');
 
-var _ = require('underscore');
+let _ = require('underscore');
 
-var EntityHistoryEventservice = function (options) {
+let EntityHistoryEventservice = function (options) {
     DFRestService.call(this, options);
 };
 
@@ -15,10 +15,10 @@ const pathKeys = falcorUtil.getPathKeys();
 
 EntityHistoryEventservice.prototype = {
     get: async function (requestObj) {
-        var response = {};
+        let response = {};
 
         try {
-            request = falcorUtil.cloneObject(requestObj);
+            let request = falcorUtil.cloneObject(requestObj);
             if (request.params) {
                 if (request.params.query && request.params.query.filters) {
                     request.params.query.filters.typesCriterion = ["entitymanageevent"]
@@ -29,17 +29,17 @@ EntityHistoryEventservice.prototype = {
                     response = await this.post("eventservice/get", request);
 
                     if (response && response.response && response.response.events) {
-                        var events = response.response.events;
+                        let events = response.response.events;
 
-                        for (var i = 0; i < events.length; i++) {
-                            var event = events[i];
+                        for (let i = 0; i < events.length; i++) {
+                            let event = events[i];
                             event.type = "entityhistoryevent";
                         }
                     }
                 } else {
                     //This is for getbyids...
-                    var valContexts = undefined;
-                    var dataContexts = undefined;
+                    let valContexts = undefined;
+                    let dataContexts = undefined;
                     if (request.params.query && request.params.query.valueContexts) {
                         valContexts = falcorUtil.cloneObject(request.params.query.valueContexts);
                         delete request.params.query.valueContexts;
@@ -55,8 +55,8 @@ EntityHistoryEventservice.prototype = {
 
                     response = await this.post("eventservice/get", request);
                     if (response && response.response && response.response.events) {
-                        var events = response.response.events;
-                        var historyList = await this._generateHistoryData(events, valContexts, dataContexts);
+                        let events = response.response.events;
+                        let historyList = await this._generateHistoryData(events, valContexts, dataContexts);
 
                         response.response.events = historyList;
                     }
@@ -78,60 +78,58 @@ EntityHistoryEventservice.prototype = {
             };
         }
 
-        finally {
-        }
         return response;
     },
 
     _generateHistoryData: async function (events, valContexts, dataContexts) {
-        var historyList = [];
-        var historyListToBeReturned = [];
-        var defaultAttribute = ['clientId', 'relatedRequestId', 'eventSubType', 'entityType', 'entityId', 'eventType', 'entityAction', 'taskId'];
-        var defaultRelationship = ['eventTarget'];
-        var defaultRelationshipAttributes = ['typeExternalName', 'id', 'name']
-        var internalIds = {};
+        let historyList = [];
+        let historyListToBeReturned = [];
+        let defaultAttribute = ['clientId', 'relatedRequestId', 'eventSubType', 'entityType', 'entityId', 'eventType', 'entityAction', 'taskId'];
+        let defaultRelationship = ['eventTarget'];
+        let defaultRelationshipAttributes = ['typeExternalName', 'id', 'name']
+        let internalIds = {};
         internalIds.attributeList = [];
         internalIds.relationshipList = [];
         internalIds.entityTypeList = [];
         internalIds.userIdList = [];
         internalIds.currentEntityType = "";
 
-        for (var i = 0; i < events.length; i++) {
-            var event = events[i];
+        for (let i = 0; i < events.length; i++) {
+            let event = events[i];
 
             //Note: When multiple updates happens at the same time, display updates in the order-
             //context attributes, relationships, self attributes, entity create. 
             //Hence adding updates in this order
             if (this._isValidObjectPath(event, 'data.contexts.0.attributes')) {
-                var contextAttributes = event.data.contexts[0].attributes;
-                var contextAttributeUpdateHistoryEvent = this._createAttributeUpdateHistoryEvent(event, contextAttributes, defaultAttribute, internalIds)
+                let contextAttributes = event.data.contexts[0].attributes;
+                let contextAttributeUpdateHistoryEvent = this._createAttributeUpdateHistoryEvent(event, contextAttributes, defaultAttribute, internalIds)
                 Array.prototype.push.apply(historyList, contextAttributeUpdateHistoryEvent);
             }
 
             if (this._isValidObjectPath(event, 'data.relationships')) {
-                var relationships = event.data.relationships;
-                var relatioshipsHistoryEvent = this._createRelationshipHistoryEvent(event, relationships, defaultRelationship, internalIds, defaultRelationshipAttributes)
+                let relationships = event.data.relationships;
+                let relatioshipsHistoryEvent = this._createRelationshipHistoryEvent(event, relationships, defaultRelationship, internalIds, defaultRelationshipAttributes)
                 Array.prototype.push.apply(historyList, relatioshipsHistoryEvent);
             }
 
             if (this._isValidObjectPath(event, 'data.attributes')) {
-                var attributes = event.data.attributes;
+                let attributes = event.data.attributes;
 
                 if (i == 0 && this._isValidObjectPath(attributes, 'entityType.values.0.value')) {
                     internalIds.currentEntityType = attributes.entityType.values[0].value;
                 }
 
                 if (this._isValidObjectPath(attributes, 'eventType.values.0.value')) {
-                    var actionType = attributes.eventType.values[0].value;
+                    let actionType = attributes.eventType.values[0].value;
                     if (actionType == 'EntityAdd') {
-                        var attributeUpdateHistoryEvent = this._createAttributeUpdateHistoryEvent(event, attributes, defaultAttribute, internalIds)
+                        let attributeUpdateHistoryEvent = this._createAttributeUpdateHistoryEvent(event, attributes, defaultAttribute, internalIds)
                         Array.prototype.push.apply(historyList, attributeUpdateHistoryEvent);
 
-                        var attributeAddHistoryEvent = this._createEntityAddHistoryEvent(event, attributes, internalIds);
+                        let attributeAddHistoryEvent = this._createEntityAddHistoryEvent(event, attributes, internalIds);
                         Array.prototype.push.apply(historyList, attributeAddHistoryEvent);
                     }
                     else if (actionType == 'EntityUpdate') {
-                        var attributeUpdateHistoryEvent = this._createAttributeUpdateHistoryEvent(event, attributes, defaultAttribute, internalIds)
+                        let attributeUpdateHistoryEvent = this._createAttributeUpdateHistoryEvent(event, attributes, defaultAttribute, internalIds)
                         Array.prototype.push.apply(historyList, attributeUpdateHistoryEvent);
                     }
                 }
@@ -139,13 +137,13 @@ EntityHistoryEventservice.prototype = {
         }
 
         //Resolve all internal ids to external names...
-        var attributesKeyValue = {};
-        var relationshipKeyValue = {};
-        var userNamebyIdKeyValue = {};
-        var entityTypeKeyValue = {};
+        let attributesKeyValue = {};
+        let relationshipKeyValue = {};
+        let userNamebyIdKeyValue = {};
+        let entityTypeKeyValue = {};
 
         if (internalIds.attributeList.length > 0) {
-            var externalResponse = await this._fetchCurrentEntityManageModel(internalIds, valContexts, dataContexts);
+            let externalResponse = await this._fetchCurrentEntityManageModel(internalIds, valContexts, dataContexts);
 
             if(externalResponse) {
                 this._getAttributeAndRelTypeExternalName(externalResponse, attributesKeyValue, relationshipKeyValue)
@@ -153,9 +151,9 @@ EntityHistoryEventservice.prototype = {
         }
 
         if (internalIds.userIdList.length > 0) {
-            var userDetailResponse = await this._fetchUserDetails(internalIds.userIdList);
+            let userDetailResponse = await this._fetchUserDetails(internalIds.userIdList);
             if (this._isValidObjectPath(userDetailResponse, "response.entityModels")) {
-                var userList = userDetailResponse.response.entityModels;
+                let userList = userDetailResponse.response.entityModels;
                 if (userList && userList.length > 0) {
                     userNamebyIdKeyValue = this._getUserNamebyId(userList);
                 }
@@ -163,18 +161,18 @@ EntityHistoryEventservice.prototype = {
         }
 
         if (internalIds.entityTypeList.length > 0) {
-            var entityTypeDetailResponse = await this._fetchEntityTypeDetails(internalIds.entityTypeList);
+            let entityTypeDetailResponse = await this._fetchEntityTypeDetails(internalIds.entityTypeList);
             if (this._isValidObjectPath(entityTypeDetailResponse, "response.entityModels")) {
-                var entityTypeList = entityTypeDetailResponse.response.entityModels;
+                let entityTypeList = entityTypeDetailResponse.response.entityModels;
                 if (entityTypeList && entityTypeList.length > 0) {
                     entityTypeKeyValue = this._getEntityTypeName(entityTypeList);
                 }
             }
         }
 
-        for (var h = 0; h < historyList.length; h++) {
-            var historyRecord = historyList[h];
-            var message = "", userName = undefined, attributeExternalName = undefined, relationshipExternalName = undefined, 
+        for (let h = 0; h < historyList.length; h++) {
+            let historyRecord = historyList[h];
+            let message = "", userName = undefined, attributeExternalName = undefined, relationshipExternalName = undefined, 
                 entityTypeExternalName = undefined, relToTypeExternalName = undefined;
 
             if (historyRecord.user) {
@@ -246,16 +244,16 @@ EntityHistoryEventservice.prototype = {
                 }
             }
 
-            var messageValue = {
+            let messageValue = {
                 "id": uuidV1(),
                 "value": message
             };
 
             //Check whether this historyRecord already added in historyListToBeReturned...
             //If yes append this message to the added record
-            var addedHistoryRecord = undefined;
-            for (var i = 0; i < historyListToBeReturned.length; i++) {
-                var record = historyListToBeReturned[i];
+            let addedHistoryRecord = undefined;
+            for (let i = 0; i < historyListToBeReturned.length; i++) {
+                let record = historyListToBeReturned[i];
 
                 if(record.id == historyRecord.id) {
                     addedHistoryRecord = record;
@@ -264,7 +262,7 @@ EntityHistoryEventservice.prototype = {
             }
 
             if(addedHistoryRecord) {
-                var attributes = addedHistoryRecord.data.attributes;
+                let attributes = addedHistoryRecord.data.attributes;
                 attributes.message.values.push(messageValue);
                 attributes.action.values.push(historyRecord.data.attributes.action.values[0])
             } else {
@@ -282,8 +280,8 @@ EntityHistoryEventservice.prototype = {
     },
 
     _createEntityAddHistoryEvent: function (event, attributes, internalIds) {
-        var historyList = []
-        var historyObj = {};
+        let historyList = []
+        let historyObj = {};
         this._populateHistoryRecord(event, undefined, historyObj, internalIds);
         historyObj.eventType = "entityAdd"
 
@@ -296,11 +294,11 @@ EntityHistoryEventservice.prototype = {
         return historyList;
     },
     _getCombinedAttributeValues:function(attrObj){
-        var attrValues="";
+        let attrValues="";
         if (attrObj && attrObj.values) {
-            var attributeValues = attrObj.values;
-            for (var k = 0; k < attributeValues.length; k++) {
-                var attrbuteValue = attributeValues[k];
+            let attributeValues = attrObj.values;
+            for (let k = 0; k < attributeValues.length; k++) {
+                let attrbuteValue = attributeValues[k];
                 if (attrbuteValue && attrbuteValue.value !== undefined) {
                     if (k > 0) {
                         attrValues = attrValues + ',';
@@ -312,13 +310,13 @@ EntityHistoryEventservice.prototype = {
         return attrValues;
     },
     _createAttributeUpdateHistoryEvent: function (event, attributes, defaultAttribute, internalIds) {
-        var historyList = [];
-        var historyObj = {};
-        for (var attribute in attributes) {
+        let historyList = [];
+        let historyObj = {};
+        for (let attribute in attributes) {
             if (attributes.hasOwnProperty(attribute)) {
                 if ((defaultAttribute.indexOf(attribute) < 0) && (attribute.indexOf("previous-") < 0)) {
                     internalIds.attributeList.push(attribute);
-                    var attrObj = attributes[attribute]
+                    let attrObj = attributes[attribute]
                     historyObj = {};
                     this._populateHistoryRecord(event, attrObj, historyObj, internalIds);
                     
@@ -340,18 +338,18 @@ EntityHistoryEventservice.prototype = {
     },
 
     _createRelationshipHistoryEvent: function (event, relatioships, defaultRelationship, internalIds, defaultAttribute) {
-        var historyList = [];
-        var historyObj = {}
-        for (var relationship in relatioships) {
+        let historyList = [];
+        let historyObj = {}
+        for (let relationship in relatioships) {
             if (relatioships.hasOwnProperty(relationship)) {
                 if (defaultRelationship.indexOf(relationship) < 0) {
-                    var relationshipWith = relatioships[relationship];
-                    for (var k = 0; k < relationshipWith.length; k++) {
-                        var relTorelationship = relationshipWith[k];
+                    let relationshipWith = relatioships[relationship];
+                    for (let k = 0; k < relationshipWith.length; k++) {
+                        let relTorelationship = relationshipWith[k];
                         if (relTorelationship && relTorelationship.relTo && relTorelationship.relTo.id) {
                             internalIds.relationshipList.push(relationship);
-                            var isRelAttributeUpdate = false;
-                            var relationshipChangeType = "";
+                            let isRelAttributeUpdate = false;
+                            let relationshipChangeType = "";
                             if (this._isValidObjectPath(relTorelationship, 'properties.changeType')) {
                                 relationshipChangeType = relTorelationship.properties.changeType;
                                 if (relationshipChangeType.toLowerCase().indexOf('attribute') !== -1) {
@@ -360,10 +358,10 @@ EntityHistoryEventservice.prototype = {
                             }
 
                             if((isRelAttributeUpdate || relTorelationship.attributes) && !relationshipChangeType.startsWith("deleteRelationship")) {
-                                var relAttributes = relTorelationship.attributes;
-                                for (var attribute in relAttributes) {
+                                let relAttributes = relTorelationship.attributes;
+                                for (let attribute in relAttributes) {
                                     if (relAttributes.hasOwnProperty(attribute) && (defaultAttribute.indexOf(attribute) < 0) && (attribute.indexOf("previous-") < 0)) {
-                                        var attrObj = relAttributes[attribute]
+                                        let attrObj = relAttributes[attribute]
                                         historyObj = {};
                                         this._populateHistoryRecord(event, relTorelationship, historyObj, internalIds);
 
@@ -393,7 +391,7 @@ EntityHistoryEventservice.prototype = {
                                 historyList.push(historyObj);
                             }
 
-                            var relToTypeId = relTorelationship.relTo.type + "_entityType";
+                            let relToTypeId = relTorelationship.relTo.type + "_entityType";
                             if(internalIds.entityTypeList.indexOf(relToTypeId) == -1) {
                                 internalIds.entityTypeList.push(relToTypeId);
                             }
@@ -408,10 +406,10 @@ EntityHistoryEventservice.prototype = {
     _populateHistoryRecord: function (event, modelObj, historyObj, internalIds) {
         historyObj.id = event.id;
         historyObj.type = "entityhistoryevent";
-        var data = historyObj["data"] = {};
-        var historyAttributes = data["attributes"] = {};
+        let data = historyObj["data"] = {};
+        let historyAttributes = data["attributes"] = {};
 
-        var user = "System",  action = "add";
+        let user = "System",  action = "add";
         if(modelObj) {
             action = this._getActionType(modelObj);
         }
@@ -445,9 +443,9 @@ EntityHistoryEventservice.prototype = {
     },
 
     _getActionType: function (eventsObject) {
-        var actionType = ""
+        let actionType = ""
         if (this._isValidObjectPath(eventsObject, 'properties.changeType')) {
-            var changeType = eventsObject.properties.changeType;
+            let changeType = eventsObject.properties.changeType;
             if (changeType.startsWith('add')) {
                 actionType = "add";
             } else if (changeType.startsWith('update')) {
@@ -460,7 +458,7 @@ EntityHistoryEventservice.prototype = {
     },
 
     _fetchCurrentEntityManageModel: async function (internalIds, valContexts, dataContexts) {
-        var req = {
+        let req = {
             "params": {
                 "query": {
                     "filters": {
@@ -478,12 +476,12 @@ EntityHistoryEventservice.prototype = {
                 }
             }
         }
-        response = await this.post("entitymodelservice/getcoalesce", req);
-        return response
+        let response = await this.post("entitymodelservice/getcoalesce", req);
+        return response;
     },
 
     _fetchUserDetails: async function (userIdList) {
-         var req = {
+         let req = {
             "params": {
                 "query": {
                     "ids": userIdList,
@@ -504,12 +502,12 @@ EntityHistoryEventservice.prototype = {
                 }
             }
         };
-        response = await this.post("entitymodelservice/get", req);
-        return response
+        let response = await this.post("entitymodelservice/get", req);
+        return response;
     },
 
     _fetchEntityTypeDetails: async function (entityTypeIdList) {
-        var req = {
+        let req = {
             "params": {
                 "query": {
                     "filters": {
@@ -526,19 +524,19 @@ EntityHistoryEventservice.prototype = {
                 }
             }
         }
-        response = await this.post("entitymodelservice/get", req);
-        return response
+        let response = await this.post("entitymodelservice/get", req);
+        return response;
     },
     
     _getAttributeAndRelTypeExternalName: function (externalResponse, attributesKeyValue, relationshipKeyValue) {
         if (this._isValidObjectPath(externalResponse, "response.entityModels.0.data")) {
-            var data = externalResponse.response.entityModels[0].data;
+            let data = externalResponse.response.entityModels[0].data;
 
             if(data.attributes && !isEmpty(data.attributes)) {
-                var attributes = data.attributes;
-                for (var attribute in attributes) {
+                let attributes = data.attributes;
+                for (let attribute in attributes) {
                     if (attributes.hasOwnProperty(attribute)) {
-                        var attrObj = attributes[attribute];
+                        let attrObj = attributes[attribute];
                         if (this._isValidObjectPath(attrObj, 'properties.externalName')) {
                             attributesKeyValue[attribute] = attrObj.properties.externalName;
                         }
@@ -547,14 +545,14 @@ EntityHistoryEventservice.prototype = {
             }
         
             if(data.contexts && !isEmpty(data.contexts)) {
-                var contexts = data.contexts;
-                for (var i = 0; i < contexts.length; i++) {
-                    var context = contexts[i];
+                let contexts = data.contexts;
+                for (let i = 0; i < contexts.length; i++) {
+                    let context = contexts[i];
 
                     if(context.attributes) {
-                        for (var attribute in context.attributes) {
+                        for (let attribute in context.attributes) {
                             if (context.attributes.hasOwnProperty(attribute)) {
-                                var attrObj = context.attributes[attribute];
+                                let attrObj = context.attributes[attribute];
                                 if (this._isValidObjectPath(attrObj, 'properties.externalName')) {
                                     attributesKeyValue[attribute] = attrObj.properties.externalName;
                                 }
@@ -566,18 +564,18 @@ EntityHistoryEventservice.prototype = {
             }
 
             if(data.relationships && !isEmpty(data.relationships)) {
-                var relationships = data.relationships;
-                for (var relationship in relationships) {
+                let relationships = data.relationships;
+                for (let relationship in relationships) {
                     if (relationships.hasOwnProperty(relationship)) {
-                        var relObj = relationships[relationship][0];
+                        let relObj = relationships[relationship][0];
                         if (this._isValidObjectPath(relObj, 'properties.externalName')) {
                             relationshipKeyValue[relationship] = relObj.properties.externalName;
                         }
 
                         if(relObj.attributes) {
-                            for (var attribute in relObj.attributes) {
+                            for (let attribute in relObj.attributes) {
                                 if (relObj.attributes.hasOwnProperty(attribute)) {
-                                    var attrObj = relObj.attributes[attribute];
+                                    let attrObj = relObj.attributes[attribute];
                                     if (this._isValidObjectPath(attrObj, 'properties.externalName')) {
                                         attributesKeyValue[attribute] = attrObj.properties.externalName;
                                     }
@@ -591,9 +589,9 @@ EntityHistoryEventservice.prototype = {
     },
 
     _getUserNamebyId: function (userList) {
-        var userNames = {};
-        for (var m = 0; m < userList.length; m++) {
-            var userRecord = userList[m];
+        let userNames = {};
+        for (let m = 0; m < userList.length; m++) {
+            let userRecord = userList[m];
             if (this._isValidObjectPath(userRecord, 'properties.firstName'))
                 userNames[userRecord.id] = userRecord.properties.firstName + ' ' + userRecord.properties.lastName;
         }
@@ -601,9 +599,9 @@ EntityHistoryEventservice.prototype = {
     },
 
     _getEntityTypeName: function (entityTypeList) {
-        var entityTypeNames = {};
-        for (var m = 0; m < entityTypeList.length; m++) {
-            var entityTypeRecord = entityTypeList[m];
+        let entityTypeNames = {};
+        for (let m = 0; m < entityTypeList.length; m++) {
+            let entityTypeRecord = entityTypeList[m];
             if (this._isValidObjectPath(entityTypeRecord, 'properties.externalName'))
             entityTypeNames[entityTypeRecord.name] = entityTypeRecord.properties.externalName;
         }
@@ -611,9 +609,9 @@ EntityHistoryEventservice.prototype = {
     },
 
     _isValidObjectPath: function (base, path) {
-        var current = base;
-        var components = path.split(".");
-        for (var i = 0; i < components.length; i++) {
+        let current = base;
+        let components = path.split(".");
+        for (let i = 0; i < components.length; i++) {
             if ((typeof current !== "object") || !(components[i] in current)) {
                 return false;
             }

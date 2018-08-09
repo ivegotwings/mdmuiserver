@@ -1,16 +1,16 @@
 module.exports = function arrayContains(arr, needle) {
     // Per spec, the way to identify NaN is that it is not equal to itself
-    var findNaN = needle !== needle;
-    var indexOf;
+    let findNaN = needle !== needle;
+    let indexOf;
 
     if(!findNaN && typeof Array.prototype.indexOf === 'function') {
         indexOf = Array.prototype.indexOf;
     } else {
         indexOf = function(needle) {
-            var i = -1, index = -1;
+            let i = -1, index = -1;
 
             for(i = 0; i < arr.length; i++) {
-                var item = arr[i];
+                let item = arr[i];
 
                 if((findNaN && item !== item) || item === needle) {
                     index = i;

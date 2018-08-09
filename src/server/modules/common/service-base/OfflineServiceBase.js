@@ -1,6 +1,6 @@
 'use strict';
 
-var OfflineServiceBase = function (options) {
+let OfflineServiceBase = function (options) {
     //console.log('Offline service instance initiated with ', JSON.stringify({options: options}, null, 4));
 };
 

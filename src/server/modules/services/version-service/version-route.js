@@ -1,7 +1,7 @@
 'use strict';
 const VersionService = require('./VersionService');
-var options = {};
-var runOffline = process.env.RUN_OFFLINE;
+let options = {};
+let runOffline = process.env.RUN_OFFLINE;
 
 if (runOffline) {
     options.runOffline = runOffline;
@@ -9,9 +9,9 @@ if (runOffline) {
 
 const versionService = new VersionService(options);
 
-var VersionRouter = function (app) {
+let VersionRouter = function (app) {
     app.use('/data/version/updateRuntimeVersion', async function (req, res) {
-        var response = await versionService.updateRuntimeVersion(req);
+        let response = await versionService.updateRuntimeVersion(req);
         res.status(200).send(response);
     });
 };

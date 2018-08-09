@@ -1,19 +1,19 @@
-var userManager = require('./api/user-manager');
-var config = require('config');
+let userManager = require('./api/user-manager');
+let config = require('config');
 
-var defaultUserId = "unassigned";
-var serverSocket;
-var io;
+let defaultUserId = "unassigned";
+let serverSocket;
+let io;
 
 function initSockets(http) {
     io = require('socket.io')(http, { origins: '*:*', transports: ['websocket', 'polling'] });
 
-    var isStateServerEnabled = config.get('modules.stateServer.enabled');
+    let isStateServerEnabled = config.get('modules.stateServer.enabled');
 
     if (isStateServerEnabled) {
-        var redis = require('socket.io-redis');
-        var connectionConfig = config.get('modules.stateServer.connection');
-        var redisUrl = "redis://" + connectionConfig.host + ":" + connectionConfig.port;
+        let redis = require('socket.io-redis');
+        let connectionConfig = config.get('modules.stateServer.connection');
+        let redisUrl = "redis://" + connectionConfig.host + ":" + connectionConfig.port;
         io.adapter(redis(redisUrl));
     }
 
@@ -52,7 +52,7 @@ function sendMessage(data, userId) {
         throw "Socket.io service is not initialized or is unavailable right now";
     }
 
-    var currentUserSocketIds = [];
+    let currentUserSocketIds = [];
 
     if (userId) {
         userManager.getConnectionIdsOfUser(userId).then(function (currentUserSocketIds) {
