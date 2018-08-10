@@ -1,4 +1,6 @@
-<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/polymer/polymer-element.html">
+<link rel="import" href="../../../bower_components/polymer/lib/mixins/mutable-data.html">
+
 <link rel="import" href="../../../bower_components/paper-input/paper-input.html">
 <link rel="import" href="../../../bower_components/paper-tooltip/paper-tooltip.html">
 <link rel="import" href="../../../bower_components/paper-input/paper-textarea.html">
@@ -1076,10 +1078,332 @@ The following JSON object is a config sample which configures the grid in all ab
 	</template>
 
 	<script>
-		(function () {
-			'use strict';
-			Polymer({
-				is: 'rock-grid',
+
+			// Polymer({
+			// 	is: 'rock-grid',
+				class RockGrid
+					extends Polymer.mixinBehaviors([
+						RUFBehaviors.UIBehavior
+					], Polymer.OptionalMutableData(Polymer.Element)) {
+					static get is() {
+						return 'rock-grid';
+					}
+					static get observers() {
+						return [
+							'_calculatePageRange(currentRecordSize, pageSize,resultRecordSize)',
+							'_computeTitle(config, data, currentRecordSize, sortOrder,resultRecordSize,rDataSource,config.viewMode, config.*)',
+							'_setSelectionTitle(currentRecordSize,selectionInfo,selectedItems.*)',
+							'_prepareConfig(config, attributeModels)',
+							'_viewModeChanged(config.viewMode)',
+							'_modeChange(config.mode)'
+						]
+					}
+
+					static get properties() {
+						return {
+							data: {
+								type: Array,
+								notify: true,
+								observer: '_gridDataLoad'
+							},
+
+							id: {
+								type: String,
+								value: 'pebbleDataTable'
+							},
+							/**
+							 *  If set as true , it indicates the component is in read only mode
+							 */
+							readonly: {
+								type: Boolean,
+								value: false
+							},
+							/**
+							 * Indicates the number of items fetched at a time from the grid-data-source.
+							 */
+							pageSize: {
+								type: Number,
+								notify: true,
+								value: 0
+							},
+							/**
+							 * Indicates a config object which decides the rendering behavior.
+							 * The format for the JSON object is given in the above description.
+							 */
+							config: {
+								type: Object,
+								value: function () {
+									return {}
+								},
+								notify: true
+							},
+							contextData: {
+								type: Object,
+								value: function () {
+									return {}
+								}
+							},
+							/**
+							 * Indicates an identifier of grid-data-source component used for a particular grid.
+							 * It requires to reset the grid-data-source for a particular grid.
+							 */
+							rDataSourceId: {
+								type: String,
+								value: ''
+							},
+							/**
+							 * Indicates a function that provides items lazily. The function receives the parameters such as `opts`, `callback`, and `err`.
+							 *
+							 * `opts.page` indicates a requested page index.
+							 *
+							 * `opts.pageSize` indicates the current page size.
+							 *
+							 * `opts.filter` indicates the current filter parameters.
+							 *
+							 * `opts.sortOrder` indicates the current sorting parameters.
+							 */
+							rDataSource: {
+								type: Function,
+								notify: true
+							},
+							/**
+							 * Indicates an incremental data size for each page in the grid along with the use of "rDataSource" for virtualization.
+							 * The above description depicts on how to increase this `gridDataSize`.
+							 **/
+							gridDataSize: {
+								type: Number,
+								notify: true,
+								value: 0
+							},
+							/**
+							 * Indicates the total record size of the grid.
+							 * The above description depicts on how to increase this `currentRecordSize`.
+							 */
+							currentRecordSize: {
+								notify: true,
+								type: Number,
+								value: 0
+							},
+							/**
+							 * Indicates the total record size of the data available for the grid.
+							 *
+							 */
+
+							resultRecordSize: {
+								notify: true,
+								type: Number,
+								value: 0
+							},
+							/**
+							 * Indicates an attribute model to be use if the schema type is an <b>attribute</b>.
+							 */
+							attributeModels: {
+								type: Object,
+								value: function () {
+									return {};
+								}
+							},
+							/**
+							 * Indicates an array that contains the selected items when `multiSelection` is set to true.
+							 * It indicates null if no item is selected.
+							 */
+							selectedItems: {
+								type: Array,
+								value: function () {
+									return [];
+								},
+								notify: true
+							},
+							/**
+							 * Indicates the currently selected item when `multiSelection` is set to false.
+							 * It indicates null if no item is selected.
+							 */
+							selectedItem: {
+								type: Object,
+								//value : {},
+								notify: true
+							},
+							/**
+							 * Specifies whether or not multiple items are selected at once. When it is set to <b>true</b>,
+							 * you can select multiple items at once. In this case, it indicates an array of currently selected items.
+							 * When it is set to <b>false</b>, you can select only one item at a time.
+							 */
+							multiSelection: {
+								type: Boolean,
+								value: false,
+								notify: true
+							},
+							/**
+							 * Indicates the title for the grid.
+							 */
+							title: {
+								type: String,
+								notify: true
+							},
+							/**
+							 * Indicates an array with a path and a sort order. The <b>`asc`</b> or <b>`desc</b>` pairs
+							 * are used to sort the items.
+							 */
+							sortOrder: {
+								type: Array,
+								value: function () {
+									return [];
+								},
+								notify: true
+							},
+							/**
+							* Specifies whether or not a row tapping selects the item. If it is set to true, tapping a row selects the item.
+			
+							*/
+							selectionEnabled: {
+								type: Boolean,
+								value: false
+							},
+							/**
+							 * Specifies whether or not grid header is shown.
+							 */
+							noHeader: {
+								type: Boolean,
+								value: false
+							},
+							/**
+							  * <b><i>Content development is under progress... </b></i> 
+							  */
+							maxConfiguredCount: {
+								type: Number,
+								value: 0
+							},
+							isDirty: {
+								type: Boolean,
+								value: false,
+								notify: true
+							},
+							selectionInfo: {
+								type: Object,
+								value: function () { return {} },
+								observer: "_onSelectionInfoChange"
+							},
+							totalCount: {
+								type: Number
+							},
+							selectionTitle: {
+								type: String
+							},
+
+							minFilterLength: {
+								type: Number,
+								value: 2
+							},
+							isWorkflowCriterion: {
+								type: Boolean,
+								value: false
+							},
+							rowDragDropEnabled: {
+								type: Boolean
+							},
+
+							applyLocaleCoalesceStyle: {
+								type: Boolean,
+								value: false
+							},
+							domain: {
+								type: String
+							},
+
+							_pageRange: {
+								value: ""
+							},
+							_attributeModelMap: {
+								type: Object
+							},
+							_dataTableWidth: {
+								type: Number
+							},
+							_fields: {
+								type: Array,
+								value: function () {
+									return [];
+								},
+								computed: '_getArrayFromObject(config.itemConfig.fields)'
+							},
+							_actions: {
+								type: Array,
+								value: function () {
+									return [];
+								}
+							},
+							applyLocaleCoalesce: {
+								type: Boolean,
+								value: false
+							},
+							applyContextCoalesce: {
+								type: Boolean,
+								value: false
+							},
+							inlineValidationEnabled: {
+								type: Boolean,
+								value: false
+							},
+							defaultSortingEnabled: {
+								type: Boolean,
+								value: true
+							},
+							enableColumnSelect: {
+								type: Boolean,
+								value: false
+							},
+							enableColumnMultiSelect: {
+								type: Boolean,
+								value: false
+							},
+							hideViewSelector: {
+								type: Boolean,
+								value: false
+							},
+							sortType: {
+								type: String
+							},
+							hideToolbar: {
+								type: Boolean,
+								value: false
+							},
+							gridItemView: {
+								type: Boolean,
+								value: false
+							},
+							nestedAttributeMessage: {
+								type: String,
+								value: function () {
+									return "click here to see values ({noOfValues})";
+								}
+							},
+							preSelectedItems: {
+								type: [],
+								value: function () {
+									return [];
+								}
+							},
+							currentSelectedItem: {
+								type: Object,
+								value: function () {
+									return {};
+								}
+							},
+							dependentAttributeObjects: {
+								type: Array,
+								value: function () {
+									return [];
+								}
+							},
+							dependentAttributeModelObjects: {
+								type: Object,
+								value: function () {
+									return {};
+								}
+							}
+						}
+					}
+
 				/**
 				 * Fired when the user clicks on a item to select it.
 				 *
@@ -1122,357 +1446,34 @@ The following JSON object is a config sample which configures the grid in all ab
 				 * @param {Object} detail
 				 * @param {Object} detail.item item to be collapsed
 				 */
-				properties: {
 					/**
 					 * Indicates the data which is wrapped in a grid-data-source that is used as a "grid data".
 					 * The format for the JSON object is given in the above description.
 					 */
-					data: {
-						type: Array,
-						notify: true,
-						observer: '_gridDataLoad'
-					},
-
-					id: {
-						type: String,
-						value: 'pebbleDataTable'
-					},
-					/**
-					 *  If set as true , it indicates the component is in read only mode
-					 */
-					readonly: {
-						type: Boolean,
-						value: false
-					},
-					/**
-					 * Indicates the number of items fetched at a time from the grid-data-source.
-					 */
-					pageSize: {
-						type: Number,
-						notify: true,
-						value: 0
-					},
-					/**
-					 * Indicates a config object which decides the rendering behavior.
-					 * The format for the JSON object is given in the above description.
-					 */
-					config: {
-						type: Object,
-						value: function () {
-							return {}
-						},
-						notify: true
-					},
-					contextData: {
-						type: Object,
-						value: function () {
-							return {}
-						}
-					},
-					/**
-					 * Indicates an identifier of grid-data-source component used for a particular grid.
-					 * It requires to reset the grid-data-source for a particular grid.
-					 */
-					rDataSourceId: {
-						type: String,
-						value: ''
-					},
-					/**
-					 * Indicates a function that provides items lazily. The function receives the parameters such as `opts`, `callback`, and `err`.
-					 *
-					 * `opts.page` indicates a requested page index.
-					 *
-					 * `opts.pageSize` indicates the current page size.
-					 *
-					 * `opts.filter` indicates the current filter parameters.
-					 *
-					 * `opts.sortOrder` indicates the current sorting parameters.
-					 */
-					rDataSource: {
-						type: Function,
-						notify: true
-					},
-					/**
-					 * Indicates an incremental data size for each page in the grid along with the use of "rDataSource" for virtualization.
-					 * The above description depicts on how to increase this `gridDataSize`.
-					 **/
-					gridDataSize: {
-						type: Number,
-						notify: true,
-						value: 0
-					},
-					/**
-					 * Indicates the total record size of the grid.
-					 * The above description depicts on how to increase this `currentRecordSize`.
-					 */
-					currentRecordSize: {
-						notify: true,
-						type: Number,
-						value: 0
-					},
-					/**
-					 * Indicates the total record size of the data available for the grid.
-					 *
-					 */
-
-					resultRecordSize: {
-						notify: true,
-						type: Number,
-						value: 0
-					},
-					/**
-					 * Indicates an attribute model to be use if the schema type is an <b>attribute</b>.
-					 */
-					attributeModels: {
-						type: Object,
-						value: function () {
-							return {};
-						}
-					},
-					/**
-					 * Indicates an array that contains the selected items when `multiSelection` is set to true.
-					 * It indicates null if no item is selected.
-					 */
-					selectedItems: {
-						type: Array,
-						value: function () {
-							return [];
-						},
-						notify: true
-					},
-					/**
-					 * Indicates the currently selected item when `multiSelection` is set to false.
-					 * It indicates null if no item is selected.
-					 */
-					selectedItem: {
-						type: Object,
-						//value : {},
-						notify: true
-					},
-					/**
-					 * Specifies whether or not multiple items are selected at once. When it is set to <b>true</b>,
-					 * you can select multiple items at once. In this case, it indicates an array of currently selected items.
-					 * When it is set to <b>false</b>, you can select only one item at a time.
-					 */
-					multiSelection: {
-						type: Boolean,
-						value: false,
-						notify: true
-					},
-					/**
-					 * Indicates the title for the grid.
-					 */
-					title: {
-						type: String,
-						notify: true
-					},
-					/**
-					 * Indicates an array with a path and a sort order. The <b>`asc`</b> or <b>`desc</b>` pairs
-					 * are used to sort the items.
-					 */
-					sortOrder: {
-						type: Array,
-						value: function () {
-							return [];
-						},
-						notify: true
-					},
-					/**
-					* Specifies whether or not a row tapping selects the item. If it is set to true, tapping a row selects the item.
-	
-					*/
-					selectionEnabled: {
-						type: Boolean,
-						value: false
-					},
-					/**
-					 * Specifies whether or not grid header is shown.
-					 */
-					noHeader: {
-						type: Boolean,
-						value: false
-					},
-					/**
-					  * <b><i>Content development is under progress... </b></i> 
-					  */
-					maxConfiguredCount: {
-						type: Number,
-						value: 0
-					},
-					isDirty: {
-						type: Boolean,
-						value: false,
-						notify: true
-					},
-					selectionInfo: {
-						type: Object,
-						value: function () { return {} },
-						observer: "_onSelectionInfoChange"
-					},
-					totalCount: {
-						type: Number
-					},
-					selectionTitle: {
-						type: String
-					},
-
-					minFilterLength: {
-						type: Number,
-						value: 2
-					},
-					isWorkflowCriterion: {
-						type: Boolean,
-						value: false
-					},
-					rowDragDropEnabled: {
-						type: Boolean
-					},
-
-					applyLocaleCoalesceStyle: {
-						type: Boolean,
-						value: false
-					},
-					domain: {
-						type: String
-					},
-
-					_pageRange: {
-						value: ""
-					},
-					_attributeModelMap: {
-						type: Object
-					},
-					_dataTableWidth: {
-						type: Number
-					},
-					_fields: {
-						type: Array,
-						value: function () {
-							return [];
-						},
-						computed: '_getArrayFromObject(config.itemConfig.fields)'
-					},
-					_actions: {
-						type: Array,
-						value: function () {
-							return [];
-						}
-					},
-					applyLocaleCoalesce: {
-						type: Boolean,
-						value: false
-					},
-					applyContextCoalesce: {
-						type: Boolean,
-						value: false
-					},
-					inlineValidationEnabled: {
-						type: Boolean,
-						value: false
-					},
-					defaultSortingEnabled: {
-						type: Boolean,
-						value: true
-					},
-					enableColumnSelect: {
-						type: Boolean,
-						value: false
-					},
-					enableColumnMultiSelect: {
-						type: Boolean,
-						value: false
-					},
-					hideViewSelector: {
-						type: Boolean,
-						value: false
-					},
-					sortType: {
-						type: String
-					},
-					hideToolbar: {
-						type: Boolean,
-						value: false
-					},
-					gridItemView: {
-						type: Boolean,
-						value: false
-					},
-					nestedAttributeMessage: {
-						type: String,
-						value: function () {
-							return "click here to see values ({noOfValues})";
-						}
-					},
-					preSelectedItems:{
-						type:[],
-						value:function(){
-							return [];
-						}
-					},
-					currentSelectedItem:{
-						type:Object,
-						value:function(){
-							return {};
-						}
-					},
-					dependentAttributeObjects: {
-                        type: Array,
-                        value: function () {
-                            return [];
-                        }
-                    },
-                    dependentAttributeModelObjects: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    }
-				},
-				behaviors: [
-					RUFBehaviors.UIBehavior
-				],
-				observers: [
-					'_calculatePageRange(currentRecordSize, pageSize,resultRecordSize)',
-					'_computeTitle(config, data, currentRecordSize, sortOrder,resultRecordSize,rDataSource,config.viewMode, config.*)',
-					'_setSelectionTitle(currentRecordSize,selectionInfo,selectedItems.*)',
-					'_prepareConfig(config, attributeModels)',
-					'_viewModeChanged(config.viewMode)',
-					'_modeChange(config.mode)'
-				],
-				listeners: {
-					'selecting-item': '_onSelectingItem',
-					'deselecting-item': '_onDeselectingItem',
-					'selecting-all-items': '_onSelectingAllItems',
-					'deselecting-all-items': '_onDeselectingAllItems',
-					'expanding-item': '_onExpandingItem',
-					'collapsing-item': '_onCollapsingItem',
-					'sort-direction-changed': '_sortDirectionChanged',
-					'is-data-loaded':'_isDataLoaded',
-					'items-filtered': '_onFilteringItems',					
-				},
-				_getContextData:function(){
+		
+				_getContextData(){
 					return this.contextData;
-				},
+				}
 				/**
 				  * <b><i>Content development is under progress... </b></i> 
 				  */
-				reloadListData: function () {
+				reloadListData () {
 					var listView = this.shadowRoot.querySelector("#gridListView");
 					if (listView) {
 						listView.reloadData();
 					}
-				},
+				}
 				/**
 				  * <b><i>Content development is under progress... </b></i> 
 				  */
-				reloadTileData: function () {
+				reloadTileData () {
 					var tileView = this.shadowRoot.querySelector("#gridTileView");
 					if (tileView) {
 						tileView.reloadData();
 					}
-				},
+				}
 				//On selection info change, set the delete button
-				_onSelectionInfoChange: function () {
+				_onSelectionInfoChange () {
 					var disable = false;
 					if ((this.selectionInfo && this.selectionInfo.mode == "query")) {
 						disable = true;
@@ -1483,8 +1484,8 @@ The following JSON object is a config sample which configures the grid in all ab
 					if (gridActionsEl) {
 						gridActionsEl.setAttributeToToolbarButton("bulkdelete", "disabled", disable);
 					}
-				},
-				_onToolbarEvent: function (e, detail) {
+				}
+				_onToolbarEvent (e, detail) {
 					var event = detail.name;
 
 					switch (event.toLowerCase()) {
@@ -1522,8 +1523,8 @@ The following JSON object is a config sample which configures the grid in all ab
 							this.fireBedrockEvent("grid-custom-toolbar-event", detail);
 							break;
 					}
-				},
-				_addNewRow: function (e, detail) {
+				}
+				_addNewRow (e, detail) {
 					//only to be used with tabular view static mode
 					var newItem = {};
 					newItem.status = 'new';
@@ -1535,35 +1536,35 @@ The following JSON object is a config sample which configures the grid in all ab
 					this._getIronDataTable()._sizeChanged(oldsize + 1, oldsize);
 					this._getIronDataTable()._resetData(this.rDataSource);
 					this.setRowMode(0, 'edit');
-				},
-				_prepareConfig: function (config, attributeModel) {
+				}
+				_prepareConfig (config, attributeModel) {
 					if (this._fields && this._fields.length > 0 && attributeModel) {
 						this._fields.forEach(function (column) {
 							column.headerDescription = this._extractHeaderDescription(column);
 							column.dataType = this._extractDataType(column);
 						}.bind(this));
 					}
-				},
-				_extractDataType: function (column) {
+				}
+				_extractDataType (column) {
 					var dataType = "";
 					var attributeModel = this._getAttributeModelObject(column);
 					if (attributeModel && attributeModel.properties) {
 						dataType = attributeModel.properties.dataType;
 					}
 					return dataType;
-				},
-				_extractHeaderDescription: function (column) {
+				}
+				_extractHeaderDescription (column) {
 					var descriptionObject = {};
 					var attributeModel = this._getAttributeModelObject(column);
 					if (attributeModel && attributeModel.properties) {
 						descriptionObject.description = attributeModel.properties.description;
 					}
 					return descriptionObject;
-				},
+				}
 				/**
 				 * Can be used to add the new rows to the grid.
 				 */
-				addNewRows: function (noOfRows) {
+				addNewRows (noOfRows) {
 					for (var i = 0; i < noOfRows; i++) {
 						var newItem = {};
 						newItem.status = 'new';
@@ -1576,11 +1577,11 @@ The following JSON object is a config sample which configures the grid in all ab
 						var oldSize = ironDataTable.size;
 						ironDataTable.size = oldSize + noOfRows.length;
 					}
-				},
+				}
 				/**
 				  * <b><i>Content development is under progress... </b></i> 
 				  */
-				addNewRecords: function (records) {
+				addNewRecords (records) {
 					//                  Only to be used with tabular mode
 					if (records && records.length > 0) {
 						var ironDataTable = this._getIronDataTable();
@@ -1615,16 +1616,16 @@ The following JSON object is a config sample which configures the grid in all ab
 							this._modeChange('edit');
 						}, 0);
 					}
-				},
+				}
 
-				_closePopup: function (e) {
+				_closePopup (e) {
 					this.shadowRoot.querySelector("#relationshipDialog").close();
-				},
+				}
 
 				/**
 				  * <b><i>Content development is under progress... </b></i> 
 				  */
-				getIsDirty: function () {
+				getIsDirty () {
 					var data = this.getData();
 					if (data && data.length > 0) {
 						for (var i = 0; i < data.length; i++) {
@@ -1637,11 +1638,11 @@ The following JSON object is a config sample which configures the grid in all ab
 					}
 
 					return false;
-				},
-				_isIconColumn: function (col) {
+				}
+				_isIconColumn (col) {
 					return (col.icon && col.icon != "") || col.iconColumn;
-				},
-				getControlIsDirty: function () {
+				}
+				getControlIsDirty () {
 					//To-do Need to have logic to check whether selected Item attr is updated in quick manage
 					// Currently allowing selectedItems is only one.. assuming that one item is selected and page is not dirty.
 					var controlDirty = this.getSelectedItems().length > 1;
@@ -1655,8 +1656,8 @@ The following JSON object is a config sample which configures the grid in all ab
 					}
 
 					return controlDirty || rockAttributeDirty || editMode;
-				},
-				getItemFromData:function(item){
+				}
+				getItemFromData(item){
 					if(item.id && item.type){
 						var data = this.getData();
 						if(data && data.length){
@@ -1668,8 +1669,8 @@ The following JSON object is a config sample which configures the grid in all ab
 						}
 					}
 					return;
-				},
-				_isDataLoaded:function(ev){
+				}
+				_isDataLoaded(ev){
 					if(ev && ev.detail && ev.detail.item) {
 						this.fireBedrockEvent("grid-data-loaded");					
 						if(!_.isEmpty(this.preSelectedItems)){
@@ -1693,8 +1694,8 @@ The following JSON object is a config sample which configures the grid in all ab
 					}
 
 
-				},
-				refresh: function (options) {
+				}
+				refresh (options) {
 					//Resetting preSelectItem
 					this.preSelectedItems = []
 					var _isRefresh = true;
@@ -1719,12 +1720,39 @@ The following JSON object is a config sample which configures the grid in all ab
 					if(_isRefresh){
 						this._onRefresh();
 					}
-				},
+				}
+
+				connectedCallback() {
+					super.connectedCallback();
+					this.addEventListener('selecting-item', this._onSelectingItem);
+					this.addEventListener('deselecting-item', this._onDeselectingItem);
+					this.addEventListener('selecting-all-items', this._onSelectingAllItems);
+					this.addEventListener('deselecting-all-items', this._onDeselectingAllItems);
+					this.addEventListener('expanding-item', this._onExpandingItem);
+					this.addEventListener('collapsing-item', this._onCollapsingItem);
+					this.addEventListener('sort-direction-changed', this._sortDirectionChanged);
+					this.addEventListener('is-data-loaded', this._isDataLoaded);
+					this.addEventListener('items-filtered', this._onFilteringItems);
+
+				}
+
+				disconnectedCallback() {
+					super.disconnectedCallback();
+					this.removeEventListener('selecting-item', this._onSelectingItem);
+					this.removeEventListener('deselecting-item', this._onDeselectingItem);
+					this.removeEventListener('selecting-all-items', this._onSelectingAllItems);
+					this.removeEventListener('deselecting-all-items', this._onDeselectingAllItems);
+					this.removeEventListener('expanding-item', this._onExpandingItem);
+					this.removeEventListener('collapsing-item', this._onCollapsingItem);
+					this.removeEventListener('sort-direction-changed', this._sortDirectionChanged);
+					this.removeEventListener('is-data-loaded', this._isDataLoaded);
+					this.removeEventListener('items-filtered', this._onFilteringItems);
+				}
 
 				/**
 				  * <b><i>Content development is under progress... </b></i> 
 				  */
-				getData: function () {
+				getData () {
 					if (this.config.viewMode == "List") {
 						var listView = this.shadowRoot.querySelector("#gridListView");
 						if (listView) {
@@ -1773,11 +1801,11 @@ The following JSON object is a config sample which configures the grid in all ab
 						}
 						return filteredData;
 					}
-				},
+				}
 				/*
 					 * Can be used to get updated rows from the grid.
 					 */
-				getModifiedData: function () {
+				getModifiedData () {
 					var modifiedData = [];
 					var gridData = this.getData();
 					if (gridData && gridData.length > 0) {
@@ -1793,11 +1821,11 @@ The following JSON object is a config sample which configures the grid in all ab
 						}, this);
 					}
 					return modifiedData;
-				},
+				}
 				/*
 				 * Can be used to re-render the grid.
 				 */
-				reRenderGrid: function () {
+				reRenderGrid () {
 					if (!this.config) {
 						return;
 					}
@@ -1828,8 +1856,8 @@ The following JSON object is a config sample which configures the grid in all ab
 					this.fireBedrockEvent('grid-data-refreshed', null, { ignoreId: true });
 					this.clearSelection();
 					this._resetAdvanceSelection();
-				},
-				_resetAdvanceSelection: function () {
+				}
+				_resetAdvanceSelection () {
 					if (this.config.viewMode == "Tabular") {
 						var getPebbleDataTable = this.shadowRoot.querySelector(this.id);
 						if (getPebbleDataTable && getPebbleDataTable.resetAdvanceSelection) {
@@ -1846,34 +1874,34 @@ The following JSON object is a config sample which configures the grid in all ab
 							getgridTileView.resetAdvanceSelection();
 						}
 					}
-				},
+				}
 				/**
 				 * Can be used to clear the cached pages and reload the data from the data-source when needed.
 				 */
-				clearCache: function () {
+				clearCache () {
 					var ironDataTable = this._getIronDataTable();
 					ironDataTable.clearCache();
-				},
+				}
 				/**
 				 * Can be used to clear the cache for a page and reload the data from the data-source.
 				 */
-				refreshPage: function (page) {
+				refreshPage (page) {
 					var ironDataTable = this._getIronDataTable();
 					if (ironDataTable) {
 						ironDataTable.refreshPage(page);
 					}
-				},
+				}
 				/*
 				 * Can be used to select all the items in the list.
 				 */
-				selectAll: function () {
+				selectAll () {
 					var ironDataTable = this._getIronDataTable();
 					ironDataTable.selectAll();
-				},
+				}
 				/**
 				 * Can be used to clear the current selection state.
 				 */
-				clearSelection: function () {
+				clearSelection () {
 					if (this.config.viewMode == "List") {
 						var listView = this.shadowRoot.querySelector("#gridListView");
 						if (listView) {
@@ -1890,14 +1918,14 @@ The following JSON object is a config sample which configures the grid in all ab
 							ironDataTable.clearSelection();
 						}
 					}
-				},
+				}
 				/**
 				 * Can be used to select the list item at the given index.
 				 *
 				 * @method selectItem
 				 * @param {(Object|number)} item The item object or its index
 				 */
-				selectItem: function (item) {
+				selectItem (item) {
 					if (this.config.viewMode == "Tile") {
 						var tileView = this.shadowRoot.querySelector("#gridTileView");
 						tileView.selectItem(item);
@@ -1908,14 +1936,14 @@ The following JSON object is a config sample which configures the grid in all ab
 						var ironDataTable = this._getIronDataTable();
 						ironDataTable.selectItem(item);
 					}
-				},
+				}
 				/**
 				 * Can be used to deselect the given item list if it is already selected.
 				 *
 				 * @method deselect
 				 * @param {(Object|number)} item The item object or its index
 				 */
-				deselectItem: function (item) {
+				deselectItem (item) {
 					if (this.config.viewMode == "Tile") {
 						var tileView = this.shadowRoot.querySelector("gridTileView");
 						tileView.deselectItem(item);
@@ -1926,21 +1954,21 @@ The following JSON object is a config sample which configures the grid in all ab
 						var ironDataTable = this._getIronDataTable();
 						ironDataTable.deselectItem(item);
 					}
-				},
+				}
 				/**
 				 * Can be used to expand the row details for this item if it is available.
 				 */
-				expandItem: function (item) {
+				expandItem (item) {
 					var ironDataTable = this._getIronDataTable();
 					ironDataTable.expandItem(item);
-				},
+				}
 				/**
 				 * Can be used to collapse the row details for this item if it is expanded.
 				 */
-				collapseItem: function (item) {
+				collapseItem (item) {
 					var ironDataTable = this._getIronDataTable();
 					ironDataTable.collapseItem(item);
-				},
+				}
 				/**
 				 * Can be used to return the array of `selectedItems`.
 				 * When `multiSelection` is set to true, then the array contains the selected items.
@@ -1948,14 +1976,14 @@ The following JSON object is a config sample which configures the grid in all ab
 				 * If `selectedItems.inverted` is `true`, then the array contains deselected items.
 				 * The `selectedItems.filters` contains an array of filters that are active when the selection changes.
 				 */
-				getSelectedItem: function () {
+				getSelectedItem () {
 					var ironDataTable = this._getIronDataTable();
 					return ironDataTable.selectedItem;
-				},
+				}
 				/**
 				  * <b><i>Content development is under progress... </b></i> 
 				  */
-				getSelectedItems: function () {
+				getSelectedItems () {
 					if (!this.selectedItems.inverted) {
 						return this.selectedItems;
 					} else {
@@ -1968,24 +1996,24 @@ The following JSON object is a config sample which configures the grid in all ab
 						});
 						return items;
 					}
-				},
+				}
 				/**
 				 * Can be used to change the mode to edit mode.
 				 *
 				 */
 
-				getSelectionMode: function () {
+				getSelectionMode () {
 					if (this.selectionInfo && this.selectionInfo.mode) {
 						return this.selectionInfo.mode;
 					}
 					return 'count';//default value
-				},
+				}
 
 				_isStatusEnabled(statusEnabled, mode) {
 					return statusEnabled && mode === 'edit';
-				},
+				}
 
-				_changeToEditMode: function (detail) {
+				_changeToEditMode (detail) {
 					this.set('config.mode', "edit");
 					if (this.config.viewMode != "Tabular") {
 						this.set('config.viewMode', "Tabular");
@@ -1998,7 +2026,7 @@ The following JSON object is a config sample which configures the grid in all ab
 						this.refresh();
 					}
 					this._dataChanged();
-				},
+				}
 
 				_modeChange(mode,detail) {
 					switch (mode) {
@@ -2025,11 +2053,11 @@ The following JSON object is a config sample which configures the grid in all ab
 							attrs[i].mode = mode;
 						}
 					}
-				},
+				}
 				/**
 				  * <b><i>Content development is under progress... </b></i> 
 				  */
-				_changeToReadMode: function () {
+				_changeToReadMode () {
 					this.set('config.mode', "read");
 					var data = this.data ? this.data : this.getData();
 					if (data && data.length) {
@@ -2047,21 +2075,21 @@ The following JSON object is a config sample which configures the grid in all ab
 						}
 					}
 					this.reRenderGrid();
-				},
+				}
 				changeToReadMode() {
 					this._modeChange('read');
-				},
+				}
 				changeToEditMode() {
 					this._modeChange('edit');
-				},
+				}
 				/**
 				  * <b><i>Content development is under progress... </b></i> 
 				  */
-				openGridMsgDialog: function (msg) {
+				openGridMsgDialog (msg) {
 					this.shadowRoot.querySelector('#msgDialog').innerText = msg;
 					this.shadowRoot.querySelector('#gridMsgDialog').open();
-				},
-				_computeTitle: function (config, data, currentRecordSize, sortOrder) {					
+				}
+				_computeTitle (config, data, currentRecordSize, sortOrder) {					
 					var status = "";
 					if (config && config.header && config.header.displayTitle) {
 						if (config.title) {
@@ -2147,8 +2175,8 @@ The following JSON object is a config sample which configures the grid in all ab
 
 					}
 					this.set('title', status);
-				},
-				_calculatePageRange: function (currentRecordSize, pageSize, resultRecordSize) {
+				}
+				_calculatePageRange (currentRecordSize, pageSize, resultRecordSize) {
 					if (!(currentRecordSize === undefined || pageSize === undefined || resultRecordSize === undefined)) {
 						var from = currentRecordSize && currentRecordSize > 0 ? 1 : 0;
 
@@ -2161,14 +2189,14 @@ The following JSON object is a config sample which configures the grid in all ab
 						//Set range to pebble-toolbar
 						this._setPageRange();
 					}
-				},
-				_setPageRange: function () {
+				}
+				_setPageRange () {
 					var gridActionsEl = this._getToolbar();
 					if (gridActionsEl) {
 						gridActionsEl.setPageRange(this._pageRange);
 					}
-				},
-				_getToolbar: function () {
+				}
+				_getToolbar () {
 					//Finding element under slot
 					var gridActionsEl = this._getSlotNode("gridActions");
 					//Find default toolbar
@@ -2176,8 +2204,8 @@ The following JSON object is a config sample which configures the grid in all ab
 						gridActionsEl = this.shadowRoot.querySelector("#gridActions");
 					}
 					return gridActionsEl;
-				},
-				_getSlotNode: function (id) {
+				}
+				_getSlotNode (id) {
 					var slotNodes = Polymer.FlattenedNodesObserver.getFlattenedNodes(this).filter(n => n.nodeType === Node.ELEMENT_NODE);
 					var slotNode;
 					for (var i = 0; i < slotNodes.length; i++) {
@@ -2187,12 +2215,12 @@ The following JSON object is a config sample which configures the grid in all ab
 						}
 					}
 					return slotNode;
-				},
-				_isToolbarSlotEmpty: function () {
+				}
+				_isToolbarSlotEmpty () {
 					var gridActionsEl = this._getSlotNode("gridActions");
 					return !gridActionsEl;
-				},
-				_columnValue: function (gridData, index, columnObj) {
+				}
+				_columnValue (gridData, index, columnObj) {
 					var cellData;
 					var columnName = this._fields[index].name;
 					var defaultValue = this._fields[index].defaultValue;
@@ -2221,8 +2249,8 @@ The following JSON object is a config sample which configures the grid in all ab
 						//Had to manually convert to string because pebble-boolean is not working when you pass boolean.
 					}
 					return cellData;
-				},
-				_columnIcon: function (gridData, index) {
+				}
+				_columnIcon (gridData, index) {
 					var cellData;
 					var icon = this._fields[index].icon;
 					if (this.config.schemaType == "attribute") {
@@ -2232,9 +2260,9 @@ The following JSON object is a config sample which configures the grid in all ab
 					}
 
 					return cellData;
-				},
+				}
 
-				_columnIconTooltip: function (gridData, index) {
+				_columnIconTooltip (gridData, index) {
 					var cellData;
 					var iconTooltip = this._fields[index].iconTooltip;
 					if (this.config.schemaType == "attribute") {
@@ -2243,9 +2271,9 @@ The following JSON object is a config sample which configures the grid in all ab
 						}
 					}
 					return cellData;
-				},
+				}
 
-				_formatValue: function (value, columnName) {
+				_formatValue (value, columnName) {
 					if (this.attributeModels.hasOwnProperty(columnName)) {
 						var dataType = this.attributeModels[columnName].dataType.toLowerCase();
 						//formatting for date & time
@@ -2259,8 +2287,8 @@ The following JSON object is a config sample which configures the grid in all ab
 						}
 					}
 					return value;
-				},
-				_formatCollectionAttributeValueForGrid: function (value, columnName) {
+				}
+				_formatCollectionAttributeValueForGrid (value, columnName) {
 					//formatting for object collections
 					if (!_.isEmpty(value) && Array.isArray(value)) {
 						var resultString = value[0];
@@ -2271,17 +2299,17 @@ The following JSON object is a config sample which configures the grid in all ab
 					} else {
 						return value;
 					}
-				},
-				_isTabularMode: function (viewMode) {
+				}
+				_isTabularMode (viewMode) {
 					return viewMode == 'Tabular';
-				},
-				_isTileMode: function (viewMode) {
+				}
+				_isTileMode (viewMode) {
 					return viewMode == 'Tile';
-				},
-				_isListMode: function (viewMode) {
+				}
+				_isListMode (viewMode) {
 					return viewMode == 'List';
-				},
-				_getAttributeModelObject: function (col) {
+				}
+				_getAttributeModelObject (col) {
 					var displayType = "";
 					if (this.config.schemaType == undefined || this.config.schemaType == "simple") {
 						if (!col.displayType) {
@@ -2297,8 +2325,8 @@ The following JSON object is a config sample which configures the grid in all ab
 							return {};
 						}
 					}
-				},
-				_getAttributeRowModelObject: function (attrName) {
+				}
+				_getAttributeRowModelObject (attrName) {
 					// var displayType = "";
 					// if (this.config.schemaType == undefined || this.config.schemaType == "simple") {
 					// 	if (!col.displayType) {
@@ -2317,8 +2345,8 @@ The following JSON object is a config sample which configures the grid in all ab
 					if (attrName && this.attributeModels) {
 						return this.attributeModels[attrName];
 					}
-				},
-				_getAttributeObject: function (item, currentAttributeModelObject, columnIndex, index) {
+				}
+				_getAttributeObject (item, currentAttributeModelObject, columnIndex, index) {
 					var columnName = this._fields[columnIndex].name;
 					/**
 					 * When item[columnName] is undefined, initial value of attributeObject passed to
@@ -2372,27 +2400,29 @@ The following JSON object is a config sample which configures the grid in all ab
 					}
 
 					return attributeObject;
-				},
-				_isFilterEnabled: function (col) {
+				}
+				
+				_isFilterEnabled (col) {
 					return col.filterable ? col.name : undefined;
-				},
-				_isSortable: function (col) {
+				}
+				
+				_isSortable (col) {
 					return col.sortable ? col.name : undefined;
-				},
-				_getColumnSortType: function (col) {
+				}
+				_getColumnSortType (col) {
 					if (this.config && this.config.itemConfig && this.config.itemConfig.sort && this.config.itemConfig.sort.default) {
 						const sortColumn = DataHelper._findItemByKeyValue(this.config.itemConfig.sort.default, "field", col.name);
 						if (!_.isEmpty(sortColumn)) {
 							return sortColumn.sortType;
 						}
 					}
-				},
-				_getColumnDataType: function (col) {
+				}
+				_getColumnDataType (col) {
 					if (col && !_.isEmpty(col) && col.dataType) {
 							return col.dataType;
 					}
-				},
-				_dataIsNotNull: function (config, attributeModels) {
+				}
+				_dataIsNotNull (config, attributeModels) {
 					var result = typeof (config) == "object" && Object.keys(config).length ? true : false;
 					if (result) {
 						if ((config.schemaType == "attribute" || config.schemaType == "colModel") && Object.keys(attributeModels).length == 0) {
@@ -2417,63 +2447,63 @@ The following JSON object is a config sample which configures the grid in all ab
 					}
 
 					return result;
-				},
-				_onRefresh: function (e, detail) {
+				}
+				_onRefresh (e, detail) {
 					this.reRenderGrid();
 					var eventDetail = { "invalidateEntityCache": true };
 					this.fireBedrockEvent("grid-refresh-items", eventDetail);
-				},
-				_onBulkEdit: function (e) {
+				}
+				_onBulkEdit (e) {
 					this.fireBedrockEvent("grid-bulk-edit-items");
-				},
-				_onBulkRelationshipEdit: function (e) {
+				}
+				_onBulkRelationshipEdit (e) {
 					this.fireBedrockEvent("grid-bulk-relationship-edit-items");
-				},
-				_onBulkDelete: function (e) {
+				}
+				_onBulkDelete (e) {
 					this.fireBedrockEvent("grid-bulk-delete-items", e.detail);
-				},
-				_onDownload: function (e) {
+				}
+				_onDownload (e) {
 					this.fireBedrockEvent("grid-download-item");
-				},
-				_onUpload: function (e, detail) {
+				}
+				_onUpload (e, detail) {
 					//this.clearSelection();
 					this.fireBedrockEvent("grid-upload-item");
-				},
-				_getIronDataTable: function () {
+				}
+				_getIronDataTable () {
 					return ElementHelper.getElement(this, "pebble-data-table");
-				},
-				_getIronList: function (elementId) {
+				}
+				_getIronList (elementId) {
 					var view = this.shadowRoot.querySelector("#" + elementId)
 					return ElementHelper.getElement(view, "iron-list");
-				},
-				_onSelectingItem: function (e) {
+				}
+				_onSelectingItem (e) {
 					this.fireBedrockEvent("grid-selecting-item", e.detail);
-				},
-				_onDeselectingItem: function (e) {
+				}
+				_onDeselectingItem (e) {
 					this.fireBedrockEvent("grid-deselecting-item", e.detail);
-				},
-				_onSelectingAllItems: function (e) {
+				}
+				_onSelectingAllItems (e) {
 					this.fireBedrockEvent("grid-selecting-all-items", e.detail);
-				},
-				_onDeselectingAllItems: function (e) {
+				}
+				_onDeselectingAllItems (e) {
 					this.fireBedrockEvent("grid-deselecting-all-items", e.detail);
-				},
-				_onExpandingItem: function (e) {
+				}
+				_onExpandingItem (e) {
 					this.fireBedrockEvent("grid-expanding-item", e.detail);
-				},
-				_onCollapsingItem: function (e) {
+				}
+				_onCollapsingItem (e) {
 					this.fireBedrockEvent("grid-collapsing-item", e.detail);
-				},
-				_dataChanged: function () {
+				}
+				_dataChanged () {
 					//TO-DO will get changed
 					this.dispatchEvent(new CustomEvent('editMode', { bubbles: true, composed: true }));
-				},
-				_onFilteringItems: function () {
+				}
+				_onFilteringItems () {
 					var ironDataTable = this._getIronDataTable();
 					var filteredItems = ironDataTable.getFilteredItems(); 
 					this.currentRecordSize = filteredItems.length;
-				},				
-				_actionValue: function (action) {
+				}				
+				_actionValue (action) {
 					if (action) {
 						var icon = action.icon;
 						if (!icon) {
@@ -2487,8 +2517,8 @@ The following JSON object is a config sample which configures the grid in all ab
 						}
 						return icon;
 					}
-				},
-				_updateValue: function (e) {
+				}
+				_updateValue (e) {
 					var columnIndex = typeof e.target.column === 'undefined' ? e.target.__dataHost.column.columnIndex : e.target.column.columnIndex;
 					var item = e.target.item;
 					var value = e.detail.value;
@@ -2567,14 +2597,14 @@ The following JSON object is a config sample which configures the grid in all ab
 					var attribute = e.currentTarget || e.sourceElement;
 					var isRevertClicked = e.detail.revertClicked;
 					this._updateDependentAttributes(attribute, row.index, isRevertClicked);
-				},
+				}
 
-				_updateDependentAttributes: function (currentAttribute, rowIndex, isRevertButtonClicked) {
+				_updateDependentAttributes (currentAttribute, rowIndex, isRevertButtonClicked) {
 					var dependentAttributeElements = this.getDependentAttributeElementsInRow(currentAttribute, rowIndex);
 					DataHelper.updateDependentAttributeElements(dependentAttributeElements, currentAttribute, isRevertButtonClicked);
-				},
+				}
 
-				getDependentAttributeElementsInRow: function (currentAttribute, rowIndex) {
+				getDependentAttributeElementsInRow (currentAttribute, rowIndex) {
 					var node = Polymer.dom(this).node;
 					var allAttributeElements = Polymer.dom(this).node.querySelectorAll('rock-attribute[row-index="' + rowIndex + '"]');
 					if (allAttributeElements == undefined || allAttributeElements.length == 0) {
@@ -2582,8 +2612,8 @@ The following JSON object is a config sample which configures the grid in all ab
 					}
 
 					return DataHelper.getDependentAttributesOfAttribute(allAttributeElements, currentAttribute);
-				},
-				getAllAttributeElements: function () {
+				}
+				getAllAttributeElements () {
 					var node = Polymer.dom(this).node;
 					var allAttributeElements = Polymer.dom(this).node.querySelectorAll('rock-attribute');
 					if (allAttributeElements == undefined || allAttributeElements.length == 0) {
@@ -2591,8 +2621,8 @@ The following JSON object is a config sample which configures the grid in all ab
 					}
 
 					return allAttributeElements;
-				},
-				_fireActionEvent: function (e) {
+				}
+				_fireActionEvent (e) {
 					var action = e.model.action;
 					var eventName = action.eventName;
 					var detail = e.currentTarget.item;
@@ -2628,8 +2658,8 @@ The following JSON object is a config sample which configures the grid in all ab
 						
 					}
 					this.fireBedrockEvent(eventName, detail);
-				},
-				_markRowAsDelete: function (row) {
+				}
+				_markRowAsDelete (row) {
 					if (row) {
 						var rowStatusIcon = row.querySelector('pebble-icon[id="rowStatus"]');
 						rowStatusIcon.icon = "pebble-icon:action-delete";
@@ -2639,16 +2669,16 @@ The following JSON object is a config sample which configures the grid in all ab
 							item._rowStatus.status = "delete";
 						}
 					}
-				},
-				_showActions: function (mode) {
+				}
+				_showActions (mode) {
 					if (this._actions) {
 						if (mode === "edit" || this.applyContextCoalesce) {
 							return true;
 						}
 					}
 					return false;
-				},
-				_getActions: function (mode, item) {
+				}
+				_getActions (mode, item) {
 					var actions = undefined;
 					if (this._actions) {
 						var actions = this._actions;
@@ -2684,15 +2714,15 @@ The following JSON object is a config sample which configures the grid in all ab
 					}
 
 					return actions;
-				},
-				updateAttributeErrors: function () {
+				}
+				updateAttributeErrors () {
 					var gridData = this.getData();
 					for(let i = 0; i < gridData.length; i++) {
 						var item = gridData[i];
 						this._updateError(item, i);
 					}
-				},
-				_updateError: function (item, index) {
+				}
+				_updateError (item, index) {
 					var errors = [];
 					var warnings = [];
 					for (var i = 0; i < this._fields.length; i++) {
@@ -2738,8 +2768,8 @@ The following JSON object is a config sample which configures the grid in all ab
 							warningCircle.hidden = true;
 						}
 					}
-				},
-				_openPopover: function (e) {
+				}
+				_openPopover (e) {
 					var sp = e.currentTarget;
 					var item = e.currentTarget.item;
 					var index = e.currentTarget.index;
@@ -2758,17 +2788,17 @@ The following JSON object is a config sample which configures the grid in all ab
 						popover.setAttribute("for", name + index);
 						popover.show();
 					}
-				},
+				}
 				// Can be used to change the mode of a row to the read/edit mode.
-				setRowMode: function (index, mode) {
+				setRowMode (index, mode) {
 					for (var i = 0; i < this._fields.length; i++) {
 						var attr = this.shadowRoot.querySelector("#row" + index + "col" + i);
 						if (attr) {
 							attr.mode = mode;
 						}
 					}
-				},
-				_gridDataLoad: function () {
+				}
+				_gridDataLoad () {
 					if (this.data) {
 						this.gridDataSize = this.currentRecordSize = this.data.length;
 						if (this.data.length > 0 && this.defaultSortingEnabled) {
@@ -2776,8 +2806,8 @@ The following JSON object is a config sample which configures the grid in all ab
 							this.defaultSortingEnabled = !this.defaultSortingEnabled;
 						}
 					}
-				},
-				_sortGridData: function () {
+				}
+				_sortGridData () {
 					if (this.config && this.config.itemConfig && this.config.itemConfig.sort && this.config.itemConfig.sort.default) {
 						var sortConfig = this.config.itemConfig.sort.default;
 						if (sortConfig && sortConfig.length) {
@@ -2803,14 +2833,14 @@ The following JSON object is a config sample which configures the grid in all ab
 							}
 						}
 					}
-				},
-				_onDialogOk: function (e) {
+				}
+				_onDialogOk (e) {
 					this.fireBedrockEvent("on-grid-msg-dialog-ok", e);
-				},
-				_onDialogCancel: function (e) {
+				}
+				_onDialogCancel (e) {
 					this.fireBedrockEvent("on-grid-msg-dialog-cancel", e);
-				},
-				_getParentRow: function (element) {
+				}
+				_getParentRow (element) {
 					if (element) {
 						if (element.is == "data-table-row") {
 							return element;
@@ -2819,8 +2849,8 @@ The following JSON object is a config sample which configures the grid in all ab
 						}
 					}
 					return undefined;
-				},
-				_setOriginalValue: function (element) {
+				}
+				_setOriginalValue (element) {
 					if (element) {
 						if (this.config.schemaType == undefined || this.config.schemaType == "simple" || this.config.schemaType ==
 							"colModel") {
@@ -2838,8 +2868,8 @@ The following JSON object is a config sample which configures the grid in all ab
 							}
 						}
 					}
-				},
-				_getRowStatusIcon: function (item) {
+				}
+				_getRowStatusIcon (item) {
 					if (item && Object.keys(item).length > 0) {
 						var icon = "";
 						if (item && item._rowStatus) {
@@ -2855,8 +2885,8 @@ The following JSON object is a config sample which configures the grid in all ab
 						}
 						return icon;
 					}
-				},
-				_addClassOnUpdateRow: function (event) {
+				}
+				_addClassOnUpdateRow (event) {
 					var dataTableRows;
 					if(event && !_.isEmpty(event.path)) {
 						for (var key = 0; key < event.path.length; key++) {
@@ -2872,8 +2902,8 @@ The following JSON object is a config sample which configures the grid in all ab
 					if(!_.isEmpty(dataTableRows)) {
 						dataTableRows.classList.add('value-updated');
 					}
-				},
-				_updateRowStatus: function (item, status) {
+				}
+				_updateRowStatus (item, status) {
 					if (item) {
 						if (status == "read") {
 							if (this.config.schemaType == undefined || this.config.schemaType == "simple" || this.config.schemaType == "colModel") {
@@ -2904,9 +2934,9 @@ The following JSON object is a config sample which configures the grid in all ab
 							}
 						}
 					}
-				},
+				}
 
-				_getLink: function (col, item) {
+				_getLink (col, item) {
 					var _this = this;
 
 					if (col.linkTemplate) {
@@ -2936,9 +2966,9 @@ The following JSON object is a config sample which configures the grid in all ab
 					}
 
 					return "";
-				},
+				}
 
-				_hasLinkTemplate: function (col, item) {
+				_hasLinkTemplate (col, item) {
 					if (col) {
 						if (col.linkTemplate && col.linkTemplate != "") {
 							var notEditable = (this.config && this.config.mode && this.config.mode.toLowerCase() != "edit") || (item && item.mode && item.mode.toLowerCase() !=
@@ -2950,8 +2980,8 @@ The following JSON object is a config sample which configures the grid in all ab
 					}
 
 					return false;
-				},
-				_hasIcon: function (col, item) {
+				}
+				_hasIcon (col, item) {
 					if (col) {
 						if ((col.icon && col.icon != "") || col.iconColumn) {
 							return true;
@@ -2959,8 +2989,8 @@ The following JSON object is a config sample which configures the grid in all ab
 					}
 
 					return false;
-				},
-				_hasImage: function (col) {
+				}
+				_hasImage (col) {
 					if (col) {
 						if (col.displayType && col.imageSrc) {
 							if (col.displayType == "image") {
@@ -2978,8 +3008,8 @@ The following JSON object is a config sample which configures the grid in all ab
 						}
 					}
 					return false;
-				},
-				_getAssetDetails: function (item) {
+				}
+				_getAssetDetails (item) {
 					if (item) {
 						if (item.property_objectkey && item.property_originalfilename && item.type) {
 							var item = {
@@ -2992,23 +3022,23 @@ The following JSON object is a config sample which configures the grid in all ab
 
 					}
 
-				},
+				}
 				/**
 				 * Can be used to set the multi-selection on the grid.
 				 */
-				setMultiSelection: function (flag) {
+				setMultiSelection (flag) {
 					if (flag != undefined) {
 						var ironDataTable = this._getIronDataTable();
 						if (ironDataTable) {
 							ironDataTable.multiSelection = flag;
 						}
 					}
-				},
+				}
 
 				/**
 				 * Can be used to reset the grid size.
 				 */
-				notifyResize: function (e) {
+				notifyResize (e) {
 					// var ironDataTable = this._getIronDataTable();
 
 					// if (ironDataTable) {
@@ -3022,12 +3052,12 @@ The following JSON object is a config sample which configures the grid in all ab
 					// if (gridTileView) {
 					// 	gridTileView.notifyResize(e);
 					// }
-				},
+				}
 
 				/**
 				 * Can be used to set the scroll position dynamically.
 				 */
-				scrollToIndex: function (index) {
+				scrollToIndex (index) {
 					if (this.config.viewMode == "Tile") {
 						var ironList = this._getIronList("gridTileView");
 						ironList.scrollToIndex(index);
@@ -3038,47 +3068,47 @@ The following JSON object is a config sample which configures the grid in all ab
 						var ironDataTable = this._getIronDataTable();
 						ironDataTable.shadowRoot.querySelector('#list').scrollToIndex(index);
 					}
-				},
+				}
 
 				/**
 				 * Can be used to get the selected grid row.
 				 */
-				getSelectedGridRow: function () {
+				getSelectedGridRow () {
 					var ironDataTable = this._getIronDataTable();
 					return ironDataTable.querySelector('data-table-row[selected]');
-				},
+				}
 
 				/**
 				 * Can be used to get the selected item index.
 				 */
-				getSelectedItemIndex: function () {
+				getSelectedItemIndex () {
 					if (this.getData().length > 0 && this.selectedItem) {
 						return this.getData().indexOf(this.selectedItem);
 					}
 
 					return -1;
-				},
-				_fixError: function (e, detail) {
+				}
+				_fixError (e, detail) {
 					var errors = detail.data;
 					if (errors.length) {
 						this.setRowMode(errors[0].index, 'edit');
 					}
 					this.shadowRoot.querySelector("#errorPopover").hide();
-				},
-				_getDataSourceElement: function () {
+				}
+				_getDataSourceElement () {
 					var dataSourceElement;
 					if (this.rDataSourceId) {
 						dataSourceElement = ComponentHelper.getParentElement(Polymer.dom(this).node).shadowRoot.querySelector('#' + this.rDataSourceId);
 					}
 					return dataSourceElement
-				},
-				_sortDirectionChanged: function (e) {
+				}
+				_sortDirectionChanged (e) {
 					if (e.detail && !e.detail.direction) {
 						this.sortOrder = [];
 					}
 					this._resetAdvanceSelection();
-				},
-				_setSelectionTitle: function (currentRecordSize, selectionInfo) {
+				}
+				_setSelectionTitle (currentRecordSize, selectionInfo) {
 					var startStatusMsg = '('
 					var endStatusMsg = ' selected)'
 					var selectionMode = this.getSelectionMode();
@@ -3095,8 +3125,8 @@ The following JSON object is a config sample which configures the grid in all ab
 							this.selectionTitle = startStatusMsg + selectedItems.length + endStatusMsg;
 						}
 					}
-				},
-				getSelectedItemsAsQuery: function (e) {
+				}
+				getSelectedItemsAsQuery (e) {
 					var queryObject = {};
 					var dataSourceElement = this._getDataSourceElement();
 					var selectionMode = this.getSelectionMode();
@@ -3132,8 +3162,8 @@ The following JSON object is a config sample which configures the grid in all ab
 						}
 					}
 					return queryObject;
-				},
-				_getColWidth: function (col) {
+				}
+				_getColWidth (col) {
 					if (col.width) {
 						if (!this._dataTableWidth) {
 							var dataTable = this._getIronDataTable();
@@ -3143,11 +3173,11 @@ The following JSON object is a config sample which configures the grid in all ab
 							return (this._dataTableWidth * col.width) / 100 + "px";
 						}
 					}
-				},
-				_getDependentAttributeModels: function (currentAttributeModel) {
+				}
+				_getDependentAttributeModels (currentAttributeModel) {
 					return DataHelper.getDependentAttributeModels(this.attributeModels, this.dependentAttributeModelObjects,  currentAttributeModel);
-				},
-				_getDependentAttributes: function (item, currentAttributeModel, index) {
+				}
+				_getDependentAttributes (item, currentAttributeModel, index) {
 					var dependentAttributeModels = DataHelper.getDependentAttributeModels(this.attributeModels, this.dependentAttributeModelObjects, currentAttributeModel);
 					var dependentAttributeValues = [];
 
@@ -3173,14 +3203,14 @@ The following JSON object is a config sample which configures the grid in all ab
 					}
 
 					return dependentAttributeValues;
-				},
-				_onRowDropEvent: function (e, detail) {
+				}
+				_onRowDropEvent (e, detail) {
 					if (this.config.mode != "edit") {
 						this._modeChange('edit');
 					}
 					this.dispatchEvent(new CustomEvent("row-drop-event-raised", { detail: detail, bubbles: true, composed: true }));
-				},
-				_rowDblClicked: function (e) {
+				}
+				_rowDblClicked (e) {
 					//Disabling double click on row if configured
 					if(this.config.isRowDoubleClickDisabled){
 						return;
@@ -3197,14 +3227,14 @@ The following JSON object is a config sample which configures the grid in all ab
 							window.dispatchEvent(new CustomEvent('location-changed'));
 						}
 					}
-				},
-				_configPresent: function (type) {
+				}
+				_configPresent (type) {
 					if (this.config && this.config.viewConfig && this.config.viewConfig[type]) {
 						return true;
 					}
 					return false;
-				},
-				_viewModeChanged: function () {
+				}
+				_viewModeChanged () {
 					if (this.config && this.config.viewMode) {
 						if (this.config.viewMode === 'List') {
 							this.importHref(this.resolveUrl('grid-list-view.html'), () => {
@@ -3223,9 +3253,9 @@ The following JSON object is a config sample which configures the grid in all ab
 							this.currentRecordSize = 0;
 						}
 					}
-				},
+				}
 
-				_isNestedAttribute: function (col, item) {
+				_isNestedAttribute (col, item) {
 					if (item && item.isRelationshipType == true) {
 						return true;
 					}
@@ -3238,9 +3268,9 @@ The following JSON object is a config sample which configures the grid in all ab
 					}
 
 					return false;
-				},
+				}
 
-				_getRowModelAndData: function (item, col) {
+				_getRowModelAndData (item, col) {
 					if (item) {
 						var attrName = this.gridItemView ? item.attributeName : col.name;
 						var attrModel = this.attributeModels[attrName];
@@ -3266,9 +3296,9 @@ The following JSON object is a config sample which configures the grid in all ab
 							};
 						}
 					}
-				},
+				}
 
-				_getRelToRelationshipTypes: function (relationshipModel) {
+				_getRelToRelationshipTypes (relationshipModel) {
 					//Making an array with the relEntityType (like 'audio', 'product') and the correcponding id (like 'hasaudio', 'hasimages') so we can use this in rock-snapshot-grid-compare
 					var keysRel = [];
 					for (let rel in relationshipModel) {
@@ -3276,8 +3306,8 @@ The following JSON object is a config sample which configures the grid in all ab
 						keysRel.push({relEntityType: relationshipModel[rel][0].properties.relatedEntityInfo[0].relEntityType, relEntityId: relationshipModel[rel][0].id});					}
 
 					return keysRel;
-				},
-				_openNestedAttr: function (e) {
+				}
+				_openNestedAttr (e) {
 					var parentRow = this._getParentRow(e.currentTarget);
 					var item;
 					if (parentRow) {
@@ -3345,38 +3375,38 @@ The following JSON object is a config sample which configures the grid in all ab
 							attrDialog.open();
 						}
 					}
-				},
-				updateRowStatus: function (item, status) {
+				}
+				updateRowStatus (item, status) {
 					this._updateRowStatus(item, status);
-				},
-				_getNestedAttributeValueCount: function (item, col) {
+				}
+				_getNestedAttributeValueCount (item, col) {
 					if (!_.isEmpty(item) && col) {
 						if (this.gridItemView) {
 							return item[col.name] ? item[col.name].length : '0';
 						}
 						return item[col.header] && item[col.header].value ? item[col.header].value.length : '0';
 					}
-				},
-				_getNestedAttributeMessage: function (item, col, index) {
+				}
+				_getNestedAttributeMessage (item, col, index) {
 					if(index !==0) {
 						var count = this._getNestedAttributeValueCount(item, col) || 0;
 						return this.nestedAttributeMessage.replace("{noOfValues}", count);
 					} else {
 						return item[col.name] || item.attributeName;
 					}
-				},
-				_flashTileview: function (e) {
+				}
+				_flashTileview (e) {
 					// setTimeout(() => {
 					// 	this.notifyResize(e);
 					// }, 500);
-				},
-				updateGridData: function (data, detail) {
+				}
+				updateGridData (data, detail) {
 					var ironDataTable = this._getIronDataTable();
 					if (ironDataTable) {
 						ironDataTable.updateData(data, detail);
 					}
-				},
-				_getCellClassValue: function (gridRowData, columnIndex) {
+				}
+				_getCellClassValue (gridRowData, columnIndex) {
 					var styleClass = "";
 					if (this.applyLocaleCoalesceStyle) {
 						let attributeName = this._fields[columnIndex].name;
@@ -3394,39 +3424,39 @@ The following JSON object is a config sample which configures the grid in all ab
 					}
 
 					return styleClass;
-				},
-				_isLocalizbale: function (columnName) {
+				}
+				_isLocalizbale (columnName) {
 					return this.attributeModels[columnName] && this.attributeModels[columnName].isLocalizable;
-				},
-				_hasLocaleCoalescePath: function (gridRowData, columnName) {
+				}
+				_hasLocaleCoalescePath (gridRowData, columnName) {
 					return gridRowData &&
 						gridRowData.attributes &&
 						gridRowData.attributes[columnName] &&
 						gridRowData.attributes[columnName].properties &&
 						gridRowData.attributes[columnName].properties.localeCoalescePath;
-				},
-				_getArrayFromObject: function (obj) {
+				}
+				_getArrayFromObject (obj) {
 					return DataHelper.convertObjectToArray(obj);
-				},
+				}
 
-				_hasContextCoalescedValue: function (item) {
+				_hasContextCoalescedValue (item) {
 					if (!_.isEmpty(item.contextCoalescePaths)) {
 						return true;
 					}
-				},
+				}
 
-				_hasPopoverInfo: function (action) {
+				_hasPopoverInfo (action) {
 					if (action && action.name.toLowerCase() == "sourceinfo") {
 						return true;
 					}
 					return false;
-				},
+				}
 
 				/**
 				 * Can be used to delete the row with status as 'new' or record id having status 'new'.
 				 * {id} id record id having status as 'new'
 				 */
-				_deleteNewRowById: function (id) {
+				_deleteNewRowById (id) {
 					var ironDataTable = this._getIronDataTable();
 					if(id){
 						ironDataTable._cachedItems = ironDataTable._cachedItems.filter(function(dataItem){
@@ -3436,7 +3466,7 @@ The following JSON object is a config sample which configures the grid in all ab
 					this.set("data", "");
 					this.set("data", ironDataTable._cachedItems);
 					this.currentRecordSize = ironDataTable.size;
-				},
+				}
 
 				_isNewlyAddedDataRow(rowDetail) {
 					if(rowDetail && rowDetail.__data && rowDetail.__data.item){
@@ -3444,12 +3474,12 @@ The following JSON object is a config sample which configures the grid in all ab
 						return DataHelper.isValidObjectPath(rowItem, "_rowStatus.status") && 
 									rowItem._rowStatus.status.toLowerCase() == "new";
 					}
-				},
+				}
 
 				/* 
 				 * Reverts the modified rows
 				*/
-				revertModifiedData: function(data){	
+				revertModifiedData(data){	
 					var filteredData = [];
 
 					if (data && data.length > 0) {
@@ -3470,7 +3500,8 @@ The following JSON object is a config sample which configures the grid in all ab
 					// Render grid
 					this.reRenderGrid();
 				}
-			});
-		})();
+			}
+			customElements.define(RockGrid.is, RockGrid)
+
 	</script>
 </dom-module>
