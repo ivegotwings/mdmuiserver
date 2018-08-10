@@ -1,19 +1,19 @@
 'use strict';
-var notificationManager = require('../../notification-engine/api/notification-manager');
-var config = require('config');
-var isEmpty = require('../../common/utils/isEmpty');
-var enums = require('../../../../shared/enums-util');
-var logger = require('../../common/logger/logger-service');
-var executionContext = require('../../common/context-manager/execution-context');
+let notificationManager = require('../../notification-engine/api/notification-manager');
+let config = require('config');
+let isEmpty = require('../../common/utils/isEmpty');
+let enums = require('../../../../shared/enums-util');
+let logger = require('../../common/logger/logger-service');
+let executionContext = require('../../common/context-manager/execution-context');
 
 function prepareNotificationObject(data) {
-    var notificationInfo = {};
+    let notificationInfo = {};
 
     if (!isEmpty(data)) {
-        var attributes = data.attributes;
-        var jsonData = data.jsonData;
+        let attributes = data.attributes;
+        let jsonData = data.jsonData;
         if (!isEmpty(attributes) && !isEmpty(jsonData)) {
-            var clientState = jsonData['clientState'];
+            let clientState = jsonData['clientState'];
 
             if (!isEmpty(clientState)) {
                 notificationInfo = clientState.notificationInfo;
@@ -45,7 +45,7 @@ function _getAttributeValue(attributes, attrKey) {
 }
 
 function getAction(serviceName, status, operation, description) {
-    var action = "";
+    let action = "";
 
     if (!isEmpty(status) && !isEmpty(status)) {
         if (serviceName.toLowerCase() == "entitymanageservice") {
@@ -126,7 +126,7 @@ function getAction(serviceName, status, operation, description) {
 };
 
 function getUserId(data) {
-    var userId = 'unknown';
+    let userId = 'unknown';
     if (isValidObjectPath(data, "notificationObject.data.jsonData.clientState.notificationInfo.userId")) {
         userId = data.notificationObject.data.jsonData.clientState.notificationInfo.userId;
     }
@@ -135,10 +135,10 @@ function getUserId(data) {
 }
 
 function isValidObjectPath(base, path) {
-    var current = base;
-    var components = path.split(".");
-    for (var i = 0; i < components.length; i++) {
-        if ((typeof current !== "object") || (!components[i] in current)) {
+    let current = base;
+    let components = path.split(".");
+    for (let i = 0; i < components.length; i++) {
+        if ((typeof current !== "object") || (!(components[i] in current))) {
             return false;
         }
         current = current[components[i]];
@@ -148,7 +148,7 @@ function isValidObjectPath(base, path) {
 
 function sendNotificationToUI(notificationObject, tenantId) {
     if (notificationObject) {
-        var notificationInfo = prepareNotificationObject(notificationObject.data);
+        let notificationInfo = prepareNotificationObject(notificationObject.data);
         logger.debug("NOTIFICATION_INFO_OBJECT_PREPARED", { detail: notificationInfo }, "notification-service");
 
         if (!isEmpty(notificationInfo)) {
@@ -165,7 +165,7 @@ function sendNotificationToUI(notificationObject, tenantId) {
 }
 
 function updateExecutionContext(tenantId, userId) {
-    var securityContext = executionContext.getSecurityContext();
+    let securityContext = executionContext.getSecurityContext();
 
     if (!securityContext) {
         securityContext = {};
@@ -189,8 +189,8 @@ function updateExecutionContext(tenantId, userId) {
 
 module.exports = function (app) {
     app.post('/api/notify', function (req, res) {
-        var tenantId = req.body && req.body.tenantId ? req.body.tenantId : 'unknown';
-        var userId = getUserId(req.body);
+        let tenantId = req.body && req.body.tenantId ? req.body.tenantId : 'unknown';
+        let userId = getUserId(req.body);
 
         if (tenantId == 'unknown' || userId == 'unknown') {
             //TODO: send failed acknowledgement to RDF
@@ -201,11 +201,11 @@ module.exports = function (app) {
 
         logger.debug("RDF_NOTIFICATION_RECEIVED", { request: req }, "notification-service");
 
-        var notificationObject = req.body.notificationObject;
+        let notificationObject = req.body.notificationObject;
 
         sendNotificationToUI(notificationObject, tenantId);
 
-        var notiificationObjectOperation = {};
+        let notiificationObjectOperation = {};
         notiificationObjectOperation.dataObjectOperationResponse = {};
         notiificationObjectOperation.dataObjectOperationResponse.status = "success";
         res.status(200).send(notiificationObjectOperation);

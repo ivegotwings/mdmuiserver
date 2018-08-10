@@ -1,8 +1,8 @@
-var DFRestService = require('../../common/df-rest-service/DFRestService'),
+let DFRestService = require('../../common/df-rest-service/DFRestService'),
     isEmpty = require('../../common/utils/isEmpty'),
     uuidV1 = require('uuid/v1');
 
-var BinaryStreamObjectService = function (options) {
+let BinaryStreamObjectService = function (options) {
     DFRestService.call(this, options);
 };
 
@@ -10,18 +10,18 @@ BinaryStreamObjectService.prototype = {
     prepareUpload: async function (request) {
 
         //console.log('prepare upload request: ', request);
-        var prepareUploadResponse = {};
+        let prepareUploadResponse = {};
 
         try {
-            var prepareUploadURL = 'binarystreamobjectservice/prepareUpload';
-            var validationResult = this._validateRequest(request);
+            let prepareUploadURL = 'binarystreamobjectservice/prepareUpload';
+            let validationResult = this._validateRequest(request);
             if (!validationResult) {
                 throw new Error("Incorrect request for upload.");
             }
             
-            var binaryStreamRequests = request.body;
+            let binaryStreamRequests = request.body;
             for (let binaryStreamRequest of binaryStreamRequests) {
-                var res = await this.post(prepareUploadURL, binaryStreamRequest);
+                let res = await this.post(prepareUploadURL, binaryStreamRequest);
 
                 //Collect successfull responses...
                 if(res && res.response && res.response.status && res.response.status.toLowerCase() == "success") {
@@ -63,29 +63,27 @@ BinaryStreamObjectService.prototype = {
                 };
             }
         }
-        finally {
-        }
 
         return prepareUploadResponse;
     },
     prepareDownload: async function (request) {
 
         //console.log('prepare download request: ', request);
-        var prepareDownloadResponse = {};
+        let prepareDownloadResponse = {};
 
         try {
-            var prepareDownloadURL = 'binarystreamobjectservice/prepareDownload';
-            var validationResult = this._validateRequest(request);
+            let prepareDownloadURL = 'binarystreamobjectservice/prepareDownload';
+            let validationResult = this._validateRequest(request);
             if (!validationResult) {
                 throw new Error("Incorrect request for download.");
             }
 
-            var binaryStreamRequests = request.body;
+            let binaryStreamRequests = request.body;
             for (let binaryStreamRequest of binaryStreamRequests) {
                 binaryStreamRequest.binaryStreamObject.properties = {"objectKey": binaryStreamRequest.binaryStreamObject.id};
 
                 //console.log('binary stream object for download ', JSON.stringify(binaryStreamRequest))
-                var res = await this.post(prepareDownloadURL, binaryStreamRequest);
+                let res = await this.post(prepareDownloadURL, binaryStreamRequest);
                 
                 //Collect successfull responses...
                 if(res && res.response && res.response.status && res.response.status.toLowerCase() == "success") {
@@ -122,35 +120,33 @@ BinaryStreamObjectService.prototype = {
                 }
             };
         }
-        finally {
-        }
 
         return prepareDownloadResponse;
     },
     create: async function (request) {
 
         //console.log('create request: ', request);
-        var response = {};
+        let response = {};
 
         try {
-            var createURL = 'binarystreamobjectservice/create';
-            var validationResult = this._validateRequest(request);
+            let createURL = 'binarystreamobjectservice/create';
+            let validationResult = this._validateRequest(request);
             if (!validationResult) {
                 throw new Error("Incorrect request for create.");
             }
             
-            var binaryStreamRequests = request.body;
+            let binaryStreamRequests = request.body;
 
             //Get user information...
-            var userName = this.getUserName();
-            var userDefaultRole = this.getUserDefaultRole();
-            var ownershipData = this.getOwnershipData();
+            let userName = this.getUserName();
+            let userDefaultRole = this.getUserDefaultRole();
+            let ownershipData = this.getOwnershipData();
             
             for (let binaryStreamRequest of binaryStreamRequests) {
 
                 //Add user information...
                 if(binaryStreamRequest.binaryStreamObject) {
-                    var properties = binaryStreamRequest.binaryStreamObject.properties;
+                    let properties = binaryStreamRequest.binaryStreamObject.properties;
                     if(properties) {
                         properties['user'] = userName;
                         properties['role'] = userDefaultRole;
@@ -161,7 +157,7 @@ BinaryStreamObjectService.prototype = {
                         //How to handle error for single request when we are processing in bulk?
                     }
                 }
-                var res = await this.post(createURL, binaryStreamRequest);
+                let res = await this.post(createURL, binaryStreamRequest);
 
                 //Collect successfull responses...
                 if(res && res.response && res.response.status && res.response.status.toLowerCase() == "success") {
@@ -189,8 +185,6 @@ BinaryStreamObjectService.prototype = {
                     }
                 };
             }
-        }
-        finally {
         }
 
         return response;

@@ -1,13 +1,13 @@
 'use strict';
-var config = require('config');
-var isEmpty = require('../common/utils/isEmpty');
+let config = require('config');
+let isEmpty = require('../common/utils/isEmpty');
 
-var fs = require('fs');
+let fs = require('fs');
 
 module.exports = function (app) {
-    var dir = './download';
+    let dir = './download';
 
-    var fileStoragePath = config.get('modules.fileDownload.fileStoragePath');
+    let fileStoragePath = config.get('modules.fileDownload.fileStoragePath');
     if (!isEmpty(fileStoragePath)) {
         if (fs.existsSync(fileStoragePath)) {
             dir = fileStoragePath + '/download';
@@ -24,7 +24,7 @@ module.exports = function (app) {
             return;
         }
 
-        var fileName = req.query["fileName"];
+        let fileName = req.query["fileName"];
         res.download(dir + '/' + fileName);
     }
     );

@@ -1,7 +1,7 @@
-var isObject = require("./../support/isObject");
+let isObject = require("./../support/isObject");
 
 module.exports = function getType(node, anyType) {
-    var type = isObject(node) && node.$type || void 0;
+    let type = isObject(node) && node.$type || void 0;
     if (anyType && type) {
         return "branch";
     }

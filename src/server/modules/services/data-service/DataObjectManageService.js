@@ -1,35 +1,35 @@
 'use strict';
 
-var DFRestService = require('../../common/df-rest-service/DFRestService');
+let DFRestService = require('../../common/df-rest-service/DFRestService');
 
-var DataObjectManageService = function (options) {
+let DataObjectManageService = function (options) {
     DFRestService.call(this, options);
 };
 
 DataObjectManageService.prototype = {
     get: async function (request) {
-        var serviceName = this._getServiceName(request);
+        let serviceName = this._getServiceName(request);
         // console.log('------------------' + serviceName + '------------------------------');
         // console.log('GET CALL: ', JSON.stringify(request));
         // console.log('-----------------------------------------------------------------\n\n');
         return this.post(serviceName + "/get", request);
     },
     getNearest: async function (request) {
-        var serviceName = this._getServiceName(request);
+        let serviceName = this._getServiceName(request);
         // console.log('------------------' + serviceName + '------------------------------');
         // console.log('GET CALL: ', JSON.stringify(request));
         // console.log('-----------------------------------------------------------------\n\n');
         return this.post(serviceName + "/getnearest", request);
     },
     getCoalesce: async function (request) {
-        var serviceName = this._getServiceName(request);
+        let serviceName = this._getServiceName(request);
         // console.log('------------------' + serviceName + '------------------------------');
         // console.log('GET CALL: ', JSON.stringify(request));
         // console.log('-----------------------------------------------------------------\n\n');
         return this.post(serviceName + "/getcoalesce", request);
     },
     getCombined: async function (request) {
-        var serviceName = this._getServiceName(request);
+        let serviceName = this._getServiceName(request);
 
         //Need some better logic to set service name...
         serviceName = serviceName.replace('service', 'appservice');
@@ -40,7 +40,7 @@ DataObjectManageService.prototype = {
         return this.post(serviceName + "/getcombined", request);
     },
     getRelated: async function (request) {
-        var serviceName = this._getServiceName(request);
+        let serviceName = this._getServiceName(request);
 
         //Need some better logic to set service name...
         serviceName = serviceName.replace('service', 'appservice');
@@ -58,22 +58,17 @@ DataObjectManageService.prototype = {
                 // console.log('CREATE CALL: ', JSON.stringify(request));
                 // console.log('-----------------------------------------------------------------\n\n');
                 return this.post(serviceName + "/create", request);
-                break;
-
             case "update":
                 // console.log('------------------' + serviceName + '------------------------------');
                 // console.log('UPDATE CALL: ', JSON.stringify(request));
                 // console.log('-----------------------------------------------------------------\n\n');
                 return this.post(serviceName + "/update", request);
-                break;
-
             case "delete":
                 // console.log('------------------' + serviceName + '------------------------------');
                 // console.log('DELETE CALL: ', JSON.stringify(request));
                 // console.log('-----------------------------------------------------------------\n\n');
                 return this.post(serviceName + "/delete", request);
-                break;
-        }
+            }
     },
     _getServiceName: function (request) {
         if (!request) {

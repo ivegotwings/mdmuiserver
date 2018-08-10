@@ -14,10 +14,10 @@ let LocalCacheManager = new localCacheManager();
 
 ModelManager.prototype = {
     getCompositeModel: async function (modelType) {
-        let baseCompositeModel, cachekey;
+        let baseCompositeModel;
+        let cacheKey = this.getCompositeModelCacheKey(modelType);
 
         if(modelCacheEnabled) {
-            cacheKey = this.getCompositeModelCacheKey(modelType);
             baseCompositeModel = await LocalCacheManager.get(cacheKey);
         }
 

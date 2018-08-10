@@ -1,12 +1,12 @@
 module.exports = function arrayFlatMap(array, selector) {
-    var index = -1;
-    var i = -1;
-    var n = array.length;
-    var array2 = [];
+    let index = -1;
+    let i = -1;
+    let n = array.length;
+    let array2 = [];
     while (++i < n) {
-        var array3 = selector(array[i], i, array);
-        var j = -1;
-        var k = array3.length;
+        let array3 = selector(array[i], i, array);
+        let j = -1;
+        let k = array3.length;
         while (++j < k) {
             array2[++index] = array3[j];
         }

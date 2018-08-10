@@ -1,10 +1,10 @@
-var DFRestService = require('../../common/df-rest-service/DFRestService'),
+let DFRestService = require('../../common/df-rest-service/DFRestService'),
     uuidV1 = require('uuid/v1'),
     fs = require('fs'),
     config = require('config'),
     isEmpty = require('../../common/utils/isEmpty');
 
-var COPService = function (options) {
+let COPService = function (options) {
     options.serverType = "cop";
     DFRestService.call(this, options);
 };
@@ -12,8 +12,8 @@ var COPService = function (options) {
 COPService.prototype = {
     transform: async function (request) {
         //console.log('COPService.transform url ', request.url);
-        var copURL = "copservice/transform";
-        var validationResult = this._validateRequest(request);
+        let copURL = "copservice/transform";
+        let validationResult = this._validateRequest(request);
         if (!validationResult) {
             return {
                 "entityOperationResponse": {
@@ -27,17 +27,17 @@ COPService.prototype = {
             };
         }
 
-        var copRequest = JSON.parse(request.body.requestData);
-        var fileName = request.body.fileName;
-        var files = request.files;
+        let copRequest = JSON.parse(request.body.requestData);
+        let fileName = request.body.fileName;
+        let files = request.files;
         copRequest.dataObject.data.blob = this._getFileContent(fileName, files);
         copRequest.dataObject.id = uuidV1();
         // console.log('copRequest: ', JSON.stringify(copRequest, null, 2));
         return await this.post(copURL, copRequest);
     },
     process: async function (request) {
-        var processURL = "copservice/process";
-        var validationResult = this._validateRequest(request);
+        let processURL = "copservice/process";
+        let validationResult = this._validateRequest(request);
         if (!validationResult) {
             return {
                 "entityOperationResponse": {
@@ -51,13 +51,13 @@ COPService.prototype = {
             };
         }
 
-        var fileName = request.body.fileName;
-        var files = request.files;
-        var processRequest = JSON.parse(request.body.requestData);
+        let fileName = request.body.fileName;
+        let files = request.files;
+        let processRequest = JSON.parse(request.body.requestData);
         processRequest.dataObject.id = uuidV1();
         processRequest.dataObject.data.blob = this._getFileContent(fileName, files);
         //console.log('processRequest: ', JSON.stringify(processRequest.dataObject.properties, null, 2));
-        var result = await this.post(processURL, processRequest);
+        let result = await this.post(processURL, processRequest);
 
         // console.log('------------------RDF CALL RESPONSE ------------------------------');
         // console.log(JSON.stringify(result, null, 4));
@@ -66,8 +66,8 @@ COPService.prototype = {
         return result;
     },
     processmodel: async function (request) {
-        var processModelURL = "copservice/processmodel";
-        var validationResult = this._validateRequest(request);
+        let processModelURL = "copservice/processmodel";
+        let validationResult = this._validateRequest(request);
         if (!validationResult) {
             return {
                 "entityOperationResponse": {
@@ -81,9 +81,9 @@ COPService.prototype = {
             };
         }
 
-        var fileName = request.body.fileName;
-        var files = request.files;
-        var processModelRequest = JSON.parse(request.body.requestData);
+        let fileName = request.body.fileName;
+        let files = request.files;
+        let processModelRequest = JSON.parse(request.body.requestData);
         processModelRequest.dataObject.id = uuidV1();
         processModelRequest.dataObject.data.blob = this._getFileContent(fileName, files);
         //console.log('processRequest: ', JSON.stringify(processModelRequest.dataObject.properties, null, 2));
@@ -91,8 +91,8 @@ COPService.prototype = {
     },
 
     processJSON: async function (request) {
-        var processJSONURL = "copservice/processJSON";
-        var validationResult = this._validateRequest(request,false);
+        let processJSONURL = "copservice/processJSON";
+        let validationResult = this._validateRequest(request,false);
         if (!validationResult) {
             return {
                 "entityOperationResponse": {
@@ -105,9 +105,9 @@ COPService.prototype = {
                 }
             };
         }           
-        var processJSONRequest = JSON.parse(request.body.requestData);
+        let processJSONRequest = JSON.parse(request.body.requestData);
         processJSONRequest.dataObject.id = uuidV1();
-        var jsonStr = JSON.stringify(processJSONRequest.JSONData);
+        let jsonStr = JSON.stringify(processJSONRequest.JSONData);
         delete processJSONRequest.JSONData;
         processJSONRequest.dataObject.data.blob = new Buffer(jsonStr).toString('base64');
         //console.log('processJSON: ', JSON.stringify(processJSONRequest.dataObject.data.blob, null, 2));
@@ -115,8 +115,8 @@ COPService.prototype = {
     },
 
     generateFieldMap: async function (request) {
-        var generateFieldMapURL = "copservice/generateFieldMap";
-        var validationResult = this._validateRequest(request);
+        let generateFieldMapURL = "copservice/generateFieldMap";
+        let validationResult = this._validateRequest(request);
         if (!validationResult) {
             return {
                 "entityOperationResponse": {
@@ -130,18 +130,18 @@ COPService.prototype = {
             };
         }
 
-        var fileName = request.body.fileName;
-        var files = request.files;
+        let fileName = request.body.fileName;
+        let files = request.files;
 
-        var generateFieldMapRequest = JSON.parse(request.body.requestData);
+        let generateFieldMapRequest = JSON.parse(request.body.requestData);
         generateFieldMapRequest.binaryObject.id = uuidV1();
         generateFieldMapRequest.binaryObject.data.blob = this._getFileContent(fileName, files);
         //console.log('generateFieldMapRequest: ', JSON.stringify(generateFieldMapRequest, null, 2));
         return await this.post(generateFieldMapURL, generateFieldMapRequest);
     },
     getHeaderFields: async function (request) {
-        var getHeaderFieldsURL = "copservice/getHeaderFields";
-        var validationResult = this._validateRequest(request);
+        let getHeaderFieldsURL = "copservice/getHeaderFields";
+        let validationResult = this._validateRequest(request);
         if (!validationResult) {
             return {
                 "entityOperationResponse": {
@@ -155,16 +155,16 @@ COPService.prototype = {
             };
         }
 
-        var fileName = request.body.fileName;
-        var files = request.files;
+        let fileName = request.body.fileName;
+        let files = request.files;
 
-        var getHeaderFieldsRequest = JSON.parse(request.body.requestData);
+        let getHeaderFieldsRequest = JSON.parse(request.body.requestData);
         getHeaderFieldsRequest.dataObject.id = uuidV1();
         getHeaderFieldsRequest.dataObject.data.blob = this._getFileContent(fileName, files);
         return await this.post(getHeaderFieldsURL, getHeaderFieldsRequest);
     },
     getMappings: async function (request) {
-        var getMappingsURL = "copservice/getMappings";
+        let getMappingsURL = "copservice/getMappings";
         if (!request.body) {
             return {
                 "entityOperationResponse": {
@@ -180,7 +180,7 @@ COPService.prototype = {
         return await this.post(getMappingsURL, request.body);
     },
     saveMappings: async function (request) {
-        var saveMappingsURL = "copservice/saveMappings";
+        let saveMappingsURL = "copservice/saveMappings";
         if (!request.body) {
             return {
                 "entityOperationResponse": {
@@ -196,33 +196,33 @@ COPService.prototype = {
         return await this.post(saveMappingsURL, request.body);
     },
     downloadModelExcel: async function (request, response) {
-        var downloadModelURL = "copservice/downloadModelExcel";
-        var timeStamp = Date.now();
-        var parsedRequest = JSON.parse(request.body.data);
-        var fileName = parsedRequest.fileName + '-' + timeStamp;
+        let downloadModelURL = "copservice/downloadModelExcel";
+        let timeStamp = Date.now();
+        let parsedRequest = JSON.parse(request.body.data);
+        let fileName = parsedRequest.fileName + '-' + timeStamp;
 
         //console.log('downloadModelRequest: ', JSON.stringify(request.body, null, 2));
-        var modelResponse = await this.post(downloadModelURL, parsedRequest);
+        let modelResponse = await this.post(downloadModelURL, parsedRequest);
 
         this._handleDownloadResponse(modelResponse, fileName, response);
     },
     downloadModelJob: async function (request, response) {
-        var downloadModelURL = "copservice/downloadModelJob";
-        var timeStamp = Date.now();
-        var request = request.body || {};
-        var fileName = request.fileName + '-' + timeStamp;
+        let downloadModelURL = "copservice/downloadModelJob";
+        //let timeStamp = Date.now();
+        let requestBody = request.body || {};
+        //let fileName = request.fileName + '-' + timeStamp;
 
         //console.log('downloadModelRequest: ', JSON.stringify(request.body, null, 2));
-        return await this.post(downloadModelURL, request);
+        return await this.post(downloadModelURL, requestBody);
     },
     downloadDataExcel: async function (request, response) {
-        var downloadDataURL = "copservice/downloadDataExcel";
-        var timeStamp = Date.now();
-        var parsedRequest = JSON.parse(request.body.data);
-        var fileName = parsedRequest.fileName + '-' + timeStamp;
+        let downloadDataURL = "copservice/downloadDataExcel";
+        let timeStamp = Date.now();
+        let parsedRequest = JSON.parse(request.body.data);
+        let fileName = parsedRequest.fileName + '-' + timeStamp;
 
         //console.log('downloadDataRequest: ', JSON.stringify(parsedRequest, null, 2));
-        var copResponse = await this.post(downloadDataURL, parsedRequest);
+        let copResponse = await this.post(downloadDataURL, parsedRequest);
 
         this._handleDownloadResponse(copResponse, fileName, response);
     },
@@ -231,7 +231,7 @@ COPService.prototype = {
             if (copResponse.response.status.toLowerCase() == "success") {
                 this._downloadFileContent(copResponse.response, fileName, response);
             } else {
-                var message = 'Failed to get response from COP service.';
+                let message = 'Failed to get response from COP service.';
                 if (copResponse.response.statusDetail && copResponse.response.statusDetail.message) {
                     message = copResponse.response.statusDetail.message;
                 }
@@ -240,8 +240,8 @@ COPService.prototype = {
         }
     },
     downloadDataJob: async function (request, response) {
-        var downloadDataURL = "copservice/downloadDataJob";
-        var downloadDataJobRequest = request.body;
+        let downloadDataURL = "copservice/downloadDataJob";
+        let downloadDataJobRequest = request.body;
 
         if (!downloadDataJobRequest) {
             return {
@@ -264,10 +264,10 @@ COPService.prototype = {
 
             //delete options at each search query level.
             if (downloadDataJobRequest.entity && downloadDataJobRequest.entity.data && downloadDataJobRequest.entity.data.jsonData) {
-                var searchQueries = downloadDataJobRequest.entity.data.jsonData.searchQueries;
+                let searchQueries = downloadDataJobRequest.entity.data.jsonData.searchQueries;
                 if (searchQueries) {
-                    for (var i = 0; i < searchQueries.length; i++) {
-                        var searchQuery = searchQueries[i];
+                    for (let i = 0; i < searchQueries.length; i++) {
+                        let searchQuery = searchQueries[i];
 
                         if (searchQuery.searchQuery && searchQuery.searchQuery.options) {
                             delete searchQuery.searchQuery.options;
@@ -282,7 +282,7 @@ COPService.prototype = {
     },
     publish: async function (request) {
         //console.log('COPService.publish url ', request.url);
-        var copURL = "copservice/publish";
+        let copURL = "copservice/publish";
         if (!request.body) {
             return {
                 "dataOperationResponse": {
@@ -298,7 +298,7 @@ COPService.prototype = {
         return await this.post(copURL, request.body);
     },
     getOverrides: async function (request) {
-        var copURL = "copservice/getprofile";
+        let copURL = "copservice/getprofile";
         if (!request.body) {
             return {
                 "dataOperationResponse": {
@@ -314,7 +314,7 @@ COPService.prototype = {
         return await this.post(copURL, request.body);
     },
     saveOverrides: async function (request) {
-        var copURL = "copservice/saveoverrides";
+        let copURL = "copservice/saveoverrides";
         if (!request.body) {
             return {
                 "dataOperationResponse": {
@@ -344,13 +344,13 @@ COPService.prototype = {
         return true;
     },
     _getFileContent: function (fileName, files) {
-        var binaryData = "";
+        let binaryData = "";
         try {
 
             if (!files) {
-                var dir = './upload';
+                let dir = './upload';
 
-                var fileStoragePath = config.get('modules.fileDownload.fileStoragePath');
+                let fileStoragePath = config.get('modules.fileDownload.fileStoragePath');
                 if (!isEmpty(fileStoragePath)) {
                     if (fs.existsSync(fileStoragePath)) {
                         dir = fileStoragePath + '/download';
@@ -372,14 +372,14 @@ COPService.prototype = {
     _downloadFileContent: function (copResponse, fileName, response) {
         //console.log(JSON.stringify(response));
         if (copResponse && copResponse.binaryObjects && copResponse.binaryObjects.length) {
-            var binaryObject = copResponse.binaryObjects[0];
+            let binaryObject = copResponse.binaryObjects[0];
             if (binaryObject) {
-                var fileExtension = "xlsm";
+                let fileExtension = "xlsm";
                 if (binaryObject.properties && binaryObject.properties.extension) {
                     fileExtension = binaryObject.properties.extension;
                 }
 
-                var blob = binaryObject.data && binaryObject.data.blob ? binaryObject.data.blob : "";
+                let blob = binaryObject.data && binaryObject.data.blob ? binaryObject.data.blob : "";
                 response.cookie('fileDownload', true, {
                     path: "/",
                     httpOnly: false

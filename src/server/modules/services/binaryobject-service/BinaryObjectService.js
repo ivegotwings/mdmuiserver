@@ -1,19 +1,19 @@
-var DFRestService = require('../../common/df-rest-service/DFRestService'),
+let DFRestService = require('../../common/df-rest-service/DFRestService'),
     isEmpty = require('../../common/utils/isEmpty'),
     mime = require('mime-types'),
     uuidV1 = require('uuid/v1');
 
-var BinaryObjectService = function (options) {
+let BinaryObjectService = function (options) {
     DFRestService.call(this, options);
 };
 
 BinaryObjectService.prototype = {
     downloadBinaryObject: async function (request, response) {
         try {
-            var URL = 'binaryobjectservice/getById';
-            var parsedRequest = JSON.parse(request.body.data);
+            let URL = 'binaryobjectservice/getById';
+            let parsedRequest = JSON.parse(request.body.data);
 
-            var binaryObjectResponse = await this.post(URL, parsedRequest);
+            let binaryObjectResponse = await this.post(URL, parsedRequest);
             if (binaryObjectResponse && binaryObjectResponse.response) {
                 this._downloadFileContent(binaryObjectResponse.response, parsedRequest, response);
             }
@@ -24,21 +24,19 @@ BinaryObjectService.prototype = {
         catch (err) {
             console.log('Failed to get task details.\nError:', err.message, '\nStackTrace:', err.stack);
         }
-        finally {
-        }
     },
     _downloadFileContent: function (binaryObjectResponse, parsedRequest, response) {
         if (binaryObjectResponse && binaryObjectResponse.binaryObjects && binaryObjectResponse.binaryObjects.length > 0) {
-            var binaryObject = binaryObjectResponse.binaryObjects[0];
+            let binaryObject = binaryObjectResponse.binaryObjects[0];
             //console.log('binary object retrived ', JSON.stringify(binaryObject));
 
             if (binaryObject) {
-                var fileName = parsedRequest.fileName;
-                var taskType = parsedRequest.taskType;
-                var fileExtension = parsedRequest.fileExtension && parsedRequest.fileExtension.toLowerCase() != "n/a" ? parsedRequest.fileExtension : 'xlsm';
+                let fileName = parsedRequest.fileName;
+                let taskType = parsedRequest.taskType;
+                let fileExtension = parsedRequest.fileExtension && parsedRequest.fileExtension.toLowerCase() != "n/a" ? parsedRequest.fileExtension : 'xlsm';
 
                 //Get filename and file extension from binary object
-                var areFileDetailsAvailableInBinaryObject = false;
+                let areFileDetailsAvailableInBinaryObject = false;
                 if (binaryObject.properties) {
                     if(binaryObject.properties.fileName) {
                         fileName = binaryObject.properties.fileName;
@@ -49,7 +47,7 @@ BinaryObjectService.prototype = {
                         fileExtension = binaryObject.properties.extension;
 
                         //Remove extension from fileName if exists...
-                        var indexOfExtension = fileName.lastIndexOf("." + fileExtension);
+                        let indexOfExtension = fileName.lastIndexOf("." + fileExtension);
                         if(indexOfExtension > 0) {
                             fileName = fileName.substr(0, indexOfExtension);
                         }
@@ -59,7 +57,7 @@ BinaryObjectService.prototype = {
                 if(!areFileDetailsAvailableInBinaryObject) {
                     //File details are not available...
                     //Try to get details from fileName of the parsedRequest object
-                    var indexOfExtension = fileName.lastIndexOf(".");
+                    let indexOfExtension = fileName.lastIndexOf(".");
 
                     if(indexOfExtension > 0) {
                         //This logic is buggy in case fileName having '.' without extension
@@ -69,7 +67,7 @@ BinaryObjectService.prototype = {
                     } else {
                         //fileName is not having extension...
                         //Find out extension based on file type...
-                        var fileType = parsedRequest.fileType;
+                        let fileType = parsedRequest.fileType;
                         if(fileType && fileType.toLowerCase() == 'rsjson') {
                             fileExtension = 'json';
                         }
@@ -77,15 +75,15 @@ BinaryObjectService.prototype = {
                 }
 
                 //Get content type based on extension
-                var contentType = mime.lookup(fileExtension);
+                let contentType = mime.lookup(fileExtension);
 
                 //Identify object type...
-                var objectType = 'binaryObject';
+                let objectType = 'binaryObject';
                 if(taskType && taskType.toLowerCase().indexOf("system") >= 0) {
                     objectType = 'dataObject';
                 }
 
-                var blob = (binaryObject.data && binaryObject.data.blob) ? binaryObject.data.blob : "";
+                let blob = (binaryObject.data && binaryObject.data.blob) ? binaryObject.data.blob : "";
                 response.cookie('fileDownload', true, { path: "/", httpOnly: false });
                 response.writeHead(200, {
                     'Content-Type': contentType, 
@@ -94,21 +92,17 @@ BinaryObjectService.prototype = {
                     'Content-disposition': 'attachment;filename="' + fileName + "." + fileExtension + '"'
                 });
 
-                var baseString = new Buffer(blob, 'base64');
+                let baseString = new Buffer(blob, 'base64');
 
-                var utfString = baseString.toString('utf8');
+                let utfString = baseString.toString('utf8');
 
                 if (utfString) {
-                    try {
-                        var jsonParsedResponse = JSON.parse(utfString);
-                        if (jsonParsedResponse) {
-                            var object = jsonParsedResponse[objectType];
-                            if(object && object.data && object.data.blob) {
-                                blob = object.data.blob;
-                            }
+                    let jsonParsedResponse = JSON.parse(utfString);
+                    if (jsonParsedResponse) {
+                        let object = jsonParsedResponse[objectType];
+                        if(object && object.data && object.data.blob) {
+                            blob = object.data.blob;
                         }
-                    }
-                    catch (e) {
                     }
                 }
 

@@ -7,8 +7,8 @@ class ModuleVersionManager {
     }
 
     static get DEFAULTS() {
-        var defaultVer = this.DEFAULT_VERSION;
-        var timestamp = Date.now();
+        let defaultVer = this.DEFAULT_VERSION;
+        let timestamp = Date.now();
         return {
             'entityData': {'version': defaultVer, 'timestamp': timestamp},
             'entityModel': {'version': defaultVer, 'timestamp': timestamp},

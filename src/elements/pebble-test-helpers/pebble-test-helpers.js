@@ -1,4 +1,4 @@
-var PebbleTestHelpers = {};
+let PebbleTestHelpers = {};
 
 (function(scope, global) {
   'use strict';
@@ -13,7 +13,7 @@ var PebbleTestHelpers = {};
       }
 
       function triggerScrollEvent() {
-        var scrollTop = scroller.scrollTop;
+        let scrollTop = scroller.scrollTop;
         if (test.y === scrollTop) {
           scrollEventHandler();
         } 
@@ -23,7 +23,7 @@ var PebbleTestHelpers = {};
         }
       }
       
-      var scrollTarget = scroller;
+      let scrollTarget = scroller;
       scrollTarget.addEventListener('scroll', scrollEventHandler);
       triggerScrollEvent();
     }

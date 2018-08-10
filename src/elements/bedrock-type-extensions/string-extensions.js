@@ -4,9 +4,9 @@
 // First, checks if it isn't implemented yet.
 if (!String.prototype.format) {
     String.prototype.format = function () {
-        var content = this;
-        for (var i = 0; i < arguments.length; i++) {
-            var replacement = '{' + i + '}';
+        let content = this;
+        for (let i = 0; i < arguments.length; i++) {
+            let replacement = '{' + i + '}';
             content = content.replace(replacement, arguments[i]);
         }
         return content;
