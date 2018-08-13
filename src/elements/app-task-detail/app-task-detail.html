@@ -1,4 +1,5 @@
-<link rel="import" href="../../../bower_components/polymer/polymer.html" />
+<link rel="import" href="../../../bower_components/polymer/polymer-element.html">
+<link rel="import" href="../../../bower_components/polymer/lib/mixins/mutable-data.html">
 
 <link rel="import" href="../../../bower_components/polymer/lib/utils/async.html">
 
@@ -48,7 +49,8 @@
                 color: var(--palette-dark, #1a2028);
                 opacity: 0.7;
             }
-            .app-task-content-height{
+
+            .app-task-content-height {
                 @apply --app-task-content-height;
             }
         </style>
@@ -65,10 +67,10 @@
             </rock-titlebar>
 
             <template is="dom-if" if="[[_isContextUpdateCompleted]]">
-                <div class="base-grid-structure app-task-content-height" >
+                <div class="base-grid-structure app-task-content-height">
                     <div class="summary-container base-grid-structure-child-1">
                         <!-- <template is="dom-if" if="[[_isTaskDetailsLoading]]"> -->
-                        <pebble-accordion header-text="Summary & Filters"    >
+                        <pebble-accordion header-text="Summary & Filters">
                             <div slot="accordion-content">
                                 <rock-task-summary id="rockTaskSummary" task-details="[[_taskDetails]]"></rock-task-summary>
                             </div>
@@ -115,13 +117,14 @@
 
     </template>
     <script>
-        (function () {
-            "use strict";
+        class AppTaskDetail
+            extends Polymer.mixinBehaviors([
+                RUFBehaviors.AppBehavior
+            ], Polymer.Element) {
+            static get is() { return 'app-task-detail' }
 
-            Polymer({
-                is: "app-task-detail",
-
-                properties: {
+            static get properties() {
+                return {
                     contextData: {
                         type: Object,
                         value: function () {
@@ -206,230 +209,233 @@
                         type: Boolean,
                         value: false
                     }
-                },
+                }
+            }
+            ready() {
+                super.ready();
+                this.taskId = DataHelper.getParamValue("id");
 
-                behaviors: [
-                    RUFBehaviors.AppBehavior
-                ],
+                this._message = this._defaultMessage;
+            }
+            constructor() {
+                super();
+                let userContext = {
+                    "roles": this.roles,
+                    "user": this.userId,
+                    "ownershipData": this.ownershipData,
+                    "tenant": this.tenantId,
+                    "defaultRole": this.defaultRole
+                };
+                this.contextData[ContextHelper.CONTEXT_TYPE_USER] = [userContext];
 
-                ready: function () {
-                    this.taskId = DataHelper.getParamValue("id");
+            }
+            disconnectedCallback() {
+                super.disconnectedCallback();
+            }
+            connectedCallback() {
+                super.connectedCallback();
+                this._searchTimeStamp = new Date().toLocaleString();
+                this._initiateTaskDetailsGetRequest();
+            }
 
-                    this._message = this._defaultMessage;
-                },
-                created: function () {
-                    let userContext = {
-                        "roles": this.roles,
-                        "user": this.userId,
-                        "ownershipData": this.ownershipData,
-                        "tenant": this.tenantId,
-                        "defaultRole":this.defaultRole
+
+
+            /**
+             * Function to display the left nav info
+             */
+            getAppCurrentStatus(customArgs) {
+                if (customArgs && customArgs.queryParams) {
+                    this.queryParams = customArgs.queryParams;
+                }
+                return {
+                    title: "Task Details",
+                    subTitle: "Last Searched",
+                    subTitleValue: this._searchTimeStamp ? this._searchTimeStamp : new Date().toLocaleString(),
+                    queryParams: this.queryParams
+                };
+            }
+
+            /**
+             *  After the page has loaded, update the title to display on the left nav
+             */
+            updateAppCurrentStatus(pTitle) {
+                if (pTitle) {
+                    let appStatus = this.getAppCurrentStatus();
+                    appStatus.title = pTitle;
+                    let eventData = {
+                        name: "appstatusupdated",
+                        data: appStatus
                     };
-                    this.contextData[ContextHelper.CONTEXT_TYPE_USER] = [userContext];
+                    this.dispatchEvent(new CustomEvent("bedrock-event", { detail: eventData, bubbles: true, composed: true }));
+                }
+            }
 
-                },
+            refresh() {
+                this._onRefreshClick();
+            }
 
-                attached: function () {
-                    this._searchTimeStamp = new Date().toLocaleString();
-                    this._initiateTaskDetailsGetRequest();
-                },
+            _loadCompletedTasks() {
+                if (this._showCompletedTasks) {
+                    return true;
+                }
+                return false;
+            }
 
-                /**
-                 * Function to display the left nav info
-                 */
-                getAppCurrentStatus: function (customArgs) {
-                    if (customArgs && customArgs.queryParams) {
-                        this.queryParams = customArgs.queryParams;
-                    }
-                    return {
-                        title: "Task Details",
-                        subTitle: "Last Searched",
-                        subTitleValue: this._searchTimeStamp ? this._searchTimeStamp : new Date().toLocaleString(),
-                        queryParams: this.queryParams
-                    };
-                },
+            _loadErrorTasks() {
+                if (this._showErroredTasks) {
+                    return true;
+                }
+            }
 
-                /**
-                 *  After the page has loaded, update the title to display on the left nav
-                 */
-                updateAppCurrentStatus: function (pTitle) {
-                    if (pTitle) {
-                        let appStatus = this.getAppCurrentStatus();
-                        appStatus.title = pTitle;
-                        let eventData = {
-                            name: "appstatusupdated",
-                            data: appStatus
-                        };
-                        this.dispatchEvent(new CustomEvent("bedrock-event", { detail: eventData, bubbles: true, composed: true }));
-                    }
-                },
+            _computeStatus() {
+                return !this._loading;
+            }
 
-                refresh: function () {
-                    this._onRefreshClick();
-                },
+            _initiateTaskDetailsGetRequest() {
+                this._taskDetailsGet = this._taskDetailsGet || this.shadowRoot.querySelector("#taskDetailsGet");
+                if (this._taskDetailsGet) {
+                    this._taskDetailsGet.requestData = { "taskId": this.taskId };
+                    this._taskDetailsGet.generateRequest();
+                }
+            }
 
-                _loadCompletedTasks: function () {
-                    if (this._showCompletedTasks) {
-                        return true;
-                    }
-                    return false;
-                },
+            _onTaskDetailsGetResponse(e, detail) {
+                this._loading = false;
+                let taskDetails = detail.response;
 
-                _loadErrorTasks: function () {
-                    if (this._showErroredTasks) {
-                        return true;
-                    }
-                },
+                if (taskDetails && !_.isEmpty(taskDetails)) {
 
-                _computeStatus: function () {
-                    return !this._loading;
-                },
+                    //Convert task startTime and endTime
+                    taskDetails.startTime = FormatHelper.convertFromISODateTimeToClientFormat(taskDetails.startTime, "datetime");
+                    taskDetails.endTime = FormatHelper.convertFromISODateTimeToClientFormat(taskDetails.endTime, "datetime");
 
-                _initiateTaskDetailsGetRequest: function () {
-                    this._taskDetailsGet = this._taskDetailsGet || this.shadowRoot.querySelector("#taskDetailsGet");
-                    if (this._taskDetailsGet) {
-                        this._taskDetailsGet.requestData = { "taskId": this.taskId };
-                        this._taskDetailsGet.generateRequest();
-                    }
-                },
-
-                _onTaskDetailsGetResponse: function (e, detail) {
-                    this._loading = false;
-                    let taskDetails = detail.response;
-
-                    if (taskDetails && !_.isEmpty(taskDetails)) {
-
-                        //Convert task startTime and endTime
-                        taskDetails.startTime = FormatHelper.convertFromISODateTimeToClientFormat(taskDetails.startTime, "datetime");
-                        taskDetails.endTime = FormatHelper.convertFromISODateTimeToClientFormat(taskDetails.endTime, "datetime");
-
-                        if (taskDetails.successEntities && taskDetails.successEntities.ids &&
-                            taskDetails.successEntities.ids.length > 0) {
-                            this.entityIdList = taskDetails.successEntities.ids;
-                            this.entityTypeList = taskDetails.successEntities.types;
-                            if(taskDetails.taskStatus.toLowerCase() === "completed with errors"){
-                                this._showErroredTasks = true;
-                            }else if (!this._showCompletedTasks) {
-                                this._showCompletedTasks = true;
-                            } else {
-                                this._reloadRockDiscovery();
-                            }
-                        } else if (taskDetails.taskStatus.toLowerCase() == "errored" || taskDetails.taskStatus.toLowerCase() === "completed with errors") {
-                            if (taskDetails.preProcessFailure) {
-                                this._message = taskDetails.message;
-                                this._showMessage = true;
-                            } else {
-                                this._showErroredTasks = true;
-                            }
+                    if (taskDetails.successEntities && taskDetails.successEntities.ids &&
+                        taskDetails.successEntities.ids.length > 0) {
+                        this.entityIdList = taskDetails.successEntities.ids;
+                        this.entityTypeList = taskDetails.successEntities.types;
+                        if (taskDetails.taskStatus.toLowerCase() === "completed with errors") {
+                            this._showErroredTasks = true;
+                        } else if (!this._showCompletedTasks) {
+                            this._showCompletedTasks = true;
                         } else {
+                            this._reloadRockDiscovery();
+                        }
+                    } else if (taskDetails.taskStatus.toLowerCase() == "errored" || taskDetails.taskStatus.toLowerCase() === "completed with errors") {
+                        if (taskDetails.preProcessFailure) {
+                            this._message = taskDetails.message;
                             this._showMessage = true;
+                        } else {
+                            this._showErroredTasks = true;
                         }
                     } else {
-                        //Task details are not available...
-                        //It could be still task is waiting to be queued... set default values
-                        taskDetails.taskId = detail.request.requestData.taskId;
-                        taskDetails.taskStatus = "Waiting To Be Queued";
-                        taskDetails.fileName = "N/A";
-                        taskDetails.fileId = "N/A";
-                        taskDetails.taskType = "N/A";
-                        taskDetails.startTime = "N/A";
-                        taskDetails.endTime = "N/A";
-                        taskDetails.submittedBy = "N/A";
-                        taskDetails.totalRecords = "N/A";
-                        taskDetails.taskStats = {
-                            "error": "0%", "processing": "100%", "success": "0%", "createRecords": "0%",
-                            "updateRecords": "0%", "deleteRecords": "0%", "noChangeRecords": "100%"
-                        };
-
-                        this._message = this._defaultMessage;
                         this._showMessage = true;
                     }
+                } else {
+                    //Task details are not available...
+                    //It could be still task is waiting to be queued... set default values
+                    taskDetails.taskId = detail.request.requestData.taskId;
+                    taskDetails.taskStatus = "Waiting To Be Queued";
+                    taskDetails.fileName = "N/A";
+                    taskDetails.fileId = "N/A";
+                    taskDetails.taskType = "N/A";
+                    taskDetails.startTime = "N/A";
+                    taskDetails.endTime = "N/A";
+                    taskDetails.submittedBy = "N/A";
+                    taskDetails.totalRecords = "N/A";
+                    taskDetails.taskStats = {
+                        "error": "0%", "processing": "100%", "success": "0%", "createRecords": "0%",
+                        "updateRecords": "0%", "deleteRecords": "0%", "noChangeRecords": "100%"
+                    };
 
-                    this._taskDetails = taskDetails;
-                    //update the nav menu contents
-                    let navBarTitle = "";
-                    if (taskDetails.taskType != "N/A") {
-                        navBarTitle = taskDetails.taskType;
-                    }
-                    if (taskDetails.fileName != "N/A") {
-                        navBarTitle = navBarTitle + ": " + taskDetails.fileName;
-                    } else if (taskDetails.taskName != "N/A") {
-                        navBarTitle = navBarTitle + ": " + taskDetails.taskName;
-                    }
-                    this.updateAppCurrentStatus(navBarTitle);
-                },
-
-                _onTaskDetailsGetError: function () {
-                    this._loading = false;
-                    // Show Error Toast
-                },
-
-                _onInProgressClick: function () {
-                    // this.showChart = true;
-                },
-
-                _onCompletedClick: function () {
-                    let successEntities = this._taskDetails.successEntities;
-
-                    if (!DataHelper.isEmptyObject(successEntities)) {
-                        this.entityIdList = successEntities.ids;
-                        this.entityTypeList = successEntities.types;
-                        this._showCompletedTasks = true;
-                        this._showMessage = !this._showCompletedTasks;
-                        this._showInProgressTasks = !this._showCompletedTasks;
-                        this._showErroredTasks = !this._showCompletedTasks;
-                    } else {
-                        this._message = this._defaultMessage;
-                        this._showMessage = true;
-                    }
-
-                    //this.showChart = false;
-                },
-
-                _onErrorsClick: function () {
-                    if (!DataHelper.isEmptyObject(this._taskDetails)) {
-                        this.taskId = this._taskDetails.taskId;
-                        this._showErroredTasks = true;
-                        this._showMessage = !this._showErroredTasks;
-                        this._showInProgressTasks = !this._showErroredTasks;
-                        this._showCompletedTasks = !this._showErroredTasks;
-                    } else {
-                        this._message = this._defaultMessage;
-                        this._showMessage = true;
-                    }
-
-                    // this.showChart = true;
-                },
-                _onContextChanged: function () {
-                    let contextData = this.contextData;
-                    this.contextData = {}; // To notify
-                    this.contextData = contextData;
-                    this._isContextUpdateCompleted = true; //To load full component
-                },
-
-                _onRefreshClick: function () {
-                    this._loading = true;
-                    this._initiateTaskDetailsGetRequest();
-                },
-
-                _reloadRockDiscovery: function () {
-                    this._entitySearchDiscoveryGrid = this._entitySearchDiscoveryGrid || this.shadowRoot.querySelector("#entitySearchDiscoveryGrid");
-                    if (this._entitySearchDiscoveryGrid) {
-                        this._entitySearchDiscoveryGrid.refresh();
-                    }
-                },
-
-                _onDimensionsChanged: function (e) {
-                    let newDimensions = e.detail.dimensions;
-                    newDimensions["app"] = ["app-task-detail"];
-
-                    if (this.domain) {
-                        newDimensions["domain"] = [this.domain];
-                    }
-                    ContextHelper.updateContextData(this.contextData, newDimensions);
-                    this._onContextChanged();
+                    this._message = this._defaultMessage;
+                    this._showMessage = true;
                 }
-            });
-        })();
+
+                this._taskDetails = taskDetails;
+                //update the nav menu contents
+                let navBarTitle = "";
+                if (taskDetails.taskType != "N/A") {
+                    navBarTitle = taskDetails.taskType;
+                }
+                if (taskDetails.fileName != "N/A") {
+                    navBarTitle = navBarTitle + ": " + taskDetails.fileName;
+                } else if (taskDetails.taskName != "N/A") {
+                    navBarTitle = navBarTitle + ": " + taskDetails.taskName;
+                }
+                this.updateAppCurrentStatus(navBarTitle);
+            }
+
+            _onTaskDetailsGetError() {
+                this._loading = false;
+                // Show Error Toast
+            }
+
+            _onInProgressClick() {
+                // this.showChart = true;
+            }
+
+            _onCompletedClick() {
+                let successEntities = this._taskDetails.successEntities;
+
+                if (!DataHelper.isEmptyObject(successEntities)) {
+                    this.entityIdList = successEntities.ids;
+                    this.entityTypeList = successEntities.types;
+                    this._showCompletedTasks = true;
+                    this._showMessage = !this._showCompletedTasks;
+                    this._showInProgressTasks = !this._showCompletedTasks;
+                    this._showErroredTasks = !this._showCompletedTasks;
+                } else {
+                    this._message = this._defaultMessage;
+                    this._showMessage = true;
+                }
+
+                //this.showChart = false;
+            }
+
+            _onErrorsClick() {
+                if (!DataHelper.isEmptyObject(this._taskDetails)) {
+                    this.taskId = this._taskDetails.taskId;
+                    this._showErroredTasks = true;
+                    this._showMessage = !this._showErroredTasks;
+                    this._showInProgressTasks = !this._showErroredTasks;
+                    this._showCompletedTasks = !this._showErroredTasks;
+                } else {
+                    this._message = this._defaultMessage;
+                    this._showMessage = true;
+                }
+
+                // this.showChart = true;
+            }
+            _onContextChanged() {
+                let contextData = this.contextData;
+                this.contextData = {}; // To notify
+                this.contextData = contextData;
+                this._isContextUpdateCompleted = true; //To load full component
+            }
+
+            _onRefreshClick() {
+                this._loading = true;
+                this._initiateTaskDetailsGetRequest();
+            }
+
+            _reloadRockDiscovery() {
+                this._entitySearchDiscoveryGrid = this._entitySearchDiscoveryGrid || this.shadowRoot.querySelector("#entitySearchDiscoveryGrid");
+                if (this._entitySearchDiscoveryGrid) {
+                    this._entitySearchDiscoveryGrid.refresh();
+                }
+            }
+
+            _onDimensionsChanged(e) {
+                let newDimensions = e.detail.dimensions;
+                newDimensions["app"] = ["app-task-detail"];
+
+                if (this.domain) {
+                    newDimensions["domain"] = [this.domain];
+                }
+                ContextHelper.updateContextData(this.contextData, newDimensions);
+                this._onContextChanged();
+            }
+        }
+        customElements.define(AppTaskDetail.is, AppTaskDetail)
     </script>
 </dom-module>
