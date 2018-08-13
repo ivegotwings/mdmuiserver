@@ -488,7 +488,7 @@
                     return {};
                 }
             },
-            _relationshipAttributesLookup: {
+            _relationshipsLookup: {
                 type: Object,
                 value: function() {
                     return {}
@@ -913,88 +913,90 @@
             return _currentGridData;
         }
         _getRelationshipModels() {
-            let entityTypes =  this.getSelectedEntityTypes(this.selectedEntityTypes); 
-            let isRestEnabled = false;
-            let entityTypesListCopy = DataHelper.cloneObject(entityTypes);
+            let entityTypes = this.getSelectedEntityTypes(this.selectedEntityTypes);
+            let makeRelationshipGetRestCall = false;
             let entitiesNotInLookup = [];
+
             if (!_.isEmpty(entityTypes)) {
-                entityTypes = entityTypes.map(entityType => {
-                    entityType = entityType + "_entityManageModel";
-                    return entityType;
-                });
+                if (!_.isEmpty(this._relationshipsLookup)) {
+                    let existingEntTypesInLookup = Object.keys(this._relationshipsLookup);
 
-            }
-
-            if(!_.isEmpty(this._relationshipAttributesLookup)) {
-                let existingEntTypesInLookup = Object.keys(this._relationshipAttributesLookup);
-                
-            entityTypesListCopy.forEach(entityType=> {
-                if(!existingEntTypesInLookup.includes(entityType)) {
-                    isRestEnabled = true;
-                    entitiesNotInLookup.push(entityType + "_entityManageModel");
+                    entityTypes.forEach(entityType => {
+                        if (!existingEntTypesInLookup.includes(entityType)) {
+                            makeRelationshipGetRestCall = true;
+                            entitiesNotInLookup.push(entityType + "_entityManageModel");
+                        }
+                    });
+                } else {
+                    makeRelationshipGetRestCall = true;
+                    entitiesNotInLookup = entityTypes.map(entityType => {
+                        entityType = entityType + "_entityManageModel";
+                        return entityType;
+                    });
                 }
-            });            
-            } else {
-                isRestEnabled = true;
-                entitiesNotInLookup = entityTypes;
-            }
-           
 
-            if(isRestEnabled) {
-                //preparing request for Rest call to fetch relationshipAttributes and relationships.
-                this._relModelGetRequest = {
-                                "params": {
-                                    "query": {
-                                        "ids": entitiesNotInLookup,
-                                        "filters": {
-                                            "typesCriterion": [
-                                                "entityManageModel"
-                                            ]
-                                        }
-                                    },
-                                    "fields": {
-                                        "relationships": [
-                                            "_ALL"
-                                        ],
-                                        "relationshipAttributes": [
-                                            "_ALL"
-                                        ]
-                                    }
+
+                if (makeRelationshipGetRestCall) {
+                    //preparing request for Rest call to fetch relationshipAttributes and relationships.
+                    this._relModelGetRequest = {
+                        "params": {
+                            "query": {
+                                "ids": entitiesNotInLookup,
+                                "filters": {
+                                    "typesCriterion": [
+                                        "entityManageModel"
+                                    ]
                                 }
-                            };
+                            },
+                            "fields": {
+                                "relationships": [
+                                    "_ALL"
+                                ],
+                                "relationshipAttributes": [
+                                    "_ALL"
+                                ]
+                            }
+                        }
+                    };
 
-                let liquidGet = this.shadowRoot.querySelector("#entityModelGet");
-                if (liquidGet) {
-                    liquidGet.generateRequest();
+                    let liquidGet = this.shadowRoot.querySelector("#entityModelGet");
+                    if (liquidGet) {
+                        liquidGet.generateRequest();
+                    }
+                } else {
+                    //fetch the relationshipAttributes and relationships from the existingEntTypesInLookup and make the composite call
+                    let relationshipAttributesToQuery = [];
+                    let relationshipsToQuery = [];
+                    let responseData = this._getRelationshipsAndRelationshipAttributesToQuery(this._relationshipsLookup, entityTypes);
+                    relationshipAttributesToQuery = responseData.relationshipAttributesToQuery;
+                    relationshipsToQuery = responseData.relationshipsToQuery;
+
+                    this._entityCompositeGet(relationshipsToQuery, relationshipAttributesToQuery);
                 }
-            } else {
-                //fetch the relationshipAttributes and relationships from the existingEntTypesInLookup and make the composite call
-                let relationshipAttributesToQuery = [];
-                let relationshipsToQuery = [];
-                let dataSource = "lookup-dictionary";
-                relationshipAttributesToQuery = this._getRelationshipAttributesToQuery(this._relationshipAttributesLookup, dataSource, entityTypesListCopy);
-                relationshipsToQuery = this._getRelationshipsToQuery(entityTypesListCopy);
-
-                this._entityCompositeGet(relationshipsToQuery, relationshipAttributesToQuery);
             }
-                
+
         }
 
         _getRelationshipsToQuery(entityTypesList) {
             let relationshipsToQuery = [];
             let relationships;
             entityTypesList.forEach(entityType=> {
-                relationships = Object.keys(this._relationshipAttributesLookup[entityType]);
+                relationships = Object.keys(this._relationshipsLookup[entityType]);
                 relationshipsToQuery.push(...relationships);
             });
             return relationshipsToQuery;
         }
 
-        _getRelationshipAttributesToQuery(relationships, dataSource, entityTypesList) {
+        _getRelationshipsAndRelationshipAttributesToQuery(relationships, entityTypesList) {
             let relationshipAttributesToQuery = [];
-            if(dataSource == "lookup-dictionary") {
+            let relationshipKeys = [];
+            let relationshipsToQuery = [];
+            let resultObject = [];
+
                 entityTypesList.forEach(entityType=> {
-                    let relationships = this._relationshipAttributesLookup[entityType];
+                    let relationships = this._relationshipsLookup[entityType];
+                    relationshipKeys = Object.keys(relationshipKeys);
+                    relationshipsToQuery.push(...(Object.keys(relationships)));
                     for(let relAttr in relationships) {
                         let relationshipAttributes =  relationships[relAttr];
                         if(!_.isEmpty(relationshipAttributes)) {
@@ -1002,16 +1004,13 @@
                         }
                     }
                 });
-            } else {
-                for (let rel in relationships) {
-                    let relAttributes = relationships[rel][0].attributes;
-                    if (!_.isEmpty(relAttributes)) {
-                        relationshipAttributesToQuery.push(...(Object.keys(relAttributes)));
-                    }
-                }
+                
+            resultObject = {
+                relationshipsToQuery: _.uniq(relationshipsToQuery),
+                relationshipAttributesToQuery: _.uniq(relationshipAttributesToQuery)
             }
 
-            return relationshipAttributesToQuery;
+            return resultObject;
         }
 
         /**
@@ -1026,20 +1025,19 @@
                  this.logError("No models found on entity-get-composite call", e.detail);
                  return;
              }
-             if(DataHelper.isValidObjectPath(entityModels[0], 'data.relationships')) {
-                relationshipsToQuery = Object.keys(entityModels[0].data.relationships);
-             } else {
-                this.logError("No relationships found on entityModel", e.detail);
-                return;
-             }
+  
+            //preparing relationshipAttributes lookup
 
-            //preparing relationnshipAttributes lookup
-                 let _relationshipAttributesLookup = {};
+                 let _relationshipsLookup = {};
+                 let relationships = {};
+                 let relationshipAttributesToQuery = [];
+
                  entityModels.forEach(entityModel => {
                      let obj = {};
                      let rels;
                      if(DataHelper.isValidObjectPath(entityModel, 'data.relationships')) {
                         rels = entityModel.data.relationships;
+                        relationshipsToQuery.push(...(Object.keys(rels)));
                      } else {
                         this.logError("No relationships found on entityModel", e.detail);
                         return;
@@ -1048,22 +1046,21 @@
                         for (let rel in rels) {
                          if(rels.hasOwnProperty(rel) && !_.isEmpty(rels[rel]) && rels[rel][0].attributes) {
                             obj[rel] = Object.keys(rels[rel][0].attributes);
+                            relationshipAttributesToQuery.push(...obj[rel]);
                          }
                      }
-                     _relationshipAttributesLookup[entityModel.name] = obj;
+                     _relationshipsLookup[entityModel.name] = obj;
                      } else {
                         this.logError("No relationships found on entityModel", e.detail);
                      }
                  });
-                 this.set("_relationshipAttributesLookup", _relationshipAttributesLookup);
 
-             //extracting relationshipAttributes
-            let relationships = entityModels[0].data.relationships;
-            let relationshipAttributesToQuery = [];
-            let dataSource ="rest" 
-            relationshipAttributesToQuery = this._getRelationshipAttributesToQuery(relationships, dataSource);
+                 //picking out the unique relationships
+                 relationshipsToQuery = _.uniq(relationshipsToQuery);
+                 relationshipAttributesToQuery = _.uniq(relationshipAttributesToQuery);
+                 this.set("_relationshipsLookup", _relationshipsLookup);
 
-             //updating the relationshipAttributes lookup
+             //making composite call
 
              this._entityCompositeGet(relationshipsToQuery, relationshipAttributesToQuery);
 
