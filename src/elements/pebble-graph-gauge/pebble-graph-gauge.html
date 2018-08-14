@@ -1,4 +1,4 @@
-<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/polymer/polymer-element.html">
 <link rel="import" href="../../../bower_components/iron-flex-layout/iron-flex-layout-classes.html">
 <link rel="import" href="../../../bower_components/iron-ajax/iron-ajax.html">
 
@@ -28,7 +28,7 @@ Custom property | Description | Default
 -->
 <dom-module id="pebble-graph-gauge">
 	<template>
-			<style include="iron-flex iron-flex-alignment">
+		<style include="iron-flex iron-flex-alignment">
 			.chart-gauge {
 				width: 400px;
 				margin: 100px auto
@@ -54,178 +54,181 @@ Custom property | Description | Default
 		<div class="chart-gauge"></div>
 	</template>
 	<script>
-		(function () {
-			Polymer({
-				is: 'pebble-graph-gauge',
-				properties: {
+		class PebbleGraphGauge extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior], Polymer.Element) {
+			static get is() {
+				return "pebble-graph-gauge";
+			}
+
+			static get properties() {
+				return {
 					data: {
 						type: Array,
 						value: [],
 					}
-				},
+				};
+			}
 
-				behaviors: [
-					RUFBehaviors.UIBehavior,
-				],
+			connectedCallback() {
+				super.connectedCallback();
+				this.createElements();
+			}
 
-				createElements:
-				function () {
-					let barWidth, chart, chartInset, degToRad, repaintGauge,
-						height, margin, numSections, padRad, percToDeg, percToRad,
-						percent, radius, sectionIndx, svg, totalPercent, width;
+			disconnectedCallback() {
+				super.disconnectedCallback();
+			}
 
-					percent = .65;
-					numSections = 1;
-					sectionPerc = 1 / numSections / 2;
-					padRad = 0.025;
-					chartInset = 10;
-					let me = this;
-					me.data.forEach(function (d) {
-						d.value = +d.value;
-					});
+			createElements() {
+				let barWidth, chart, chartInset, degToRad, repaintGauge,
+					height, margin, numSections, padRad, percToDeg, percToRad,
+					percent, radius, sectionIndx, svg, totalPercent, width;
 
-					// Orientation of gauge:
-					totalPercent = .75;
+				percent = .65;
+				numSections = 1;
+				sectionPerc = 1 / numSections / 2;
+				padRad = 0.025;
+				chartInset = 10;
+				let me = this;
+				me.data.forEach(function (d) {
+					d.value = +d.value;
+				});
 
-					el = d3.select('.chart-gauge');
+				// Orientation of gauge:
+				totalPercent = .75;
 
-					margin = {
-						top: 20,
-						right: 20,
-						bottom: 30,
-						left: 20
+				el = d3.select('.chart-gauge');
+
+				margin = {
+					top: 20,
+					right: 20,
+					bottom: 30,
+					left: 20
+				};
+
+				width = el[0][0].offsetWidth - margin.left - margin.right;
+				height = width;
+				radius = Math.min(width, height) / 2;
+				barWidth = 40 * width / 300;
+
+
+				/*
+					Utility methods 
+				*/
+				percToDeg = function (perc) {
+					return perc * 360;
+				};
+
+				percToRad = function (perc) {
+					return degToRad(percToDeg(perc));
+				};
+
+				degToRad = function (deg) {
+					return deg * Math.PI / 180;
+				};
+
+				// Create SVG element
+				svg = el.append('svg').attr('width', width + margin.left + margin.right).attr('height', height + margin.top + margin.bottom);
+
+				// Add layer for the panel
+				chart = svg.append('g').attr('transform', "translate(" + ((width + margin.left) / 2) + ", " + ((height + margin.top) / 2) + ")");
+				chart.append('path').attr('class', "arc chart-filled").style('fill', 'steelblue')
+				chart.append('path').attr('class', "arc chart-empty").style('fill', '#dedede');
+
+
+				arc2 = d3.svg.arc().outerRadius(radius - chartInset).innerRadius(radius - chartInset - barWidth)
+				arc1 = d3.svg.arc().outerRadius(radius - chartInset).innerRadius(radius - chartInset - barWidth)
+
+				repaintGauge = function (perc) {
+					let next_start = totalPercent;
+					arcStartRad = percToRad(next_start);
+					arcEndRad = arcStartRad + percToRad(perc / 2);
+					next_start += perc / 2;
+
+
+					arc1.startAngle(arcStartRad).endAngle(arcEndRad);
+
+					arcStartRad = percToRad(next_start);
+					arcEndRad = arcStartRad + percToRad((1 - perc) / 2);
+
+					arc2.startAngle(arcStartRad + padRad).endAngle(arcEndRad);
+
+
+					chart.select(".chart-filled").attr('d', arc1);
+					chart.select(".chart-empty").attr('d', arc2);
+
+				}
+
+				let Needle = (function () {
+
+					/** 
+					* Helper function that returns the `d` value
+					* for moving the needle
+					**/
+					let recalcPointerPos = function (perc) {
+						let centerX, centerY, leftX, leftY, rightX, rightY, thetaRad, topX, topY;
+						thetaRad = percToRad(perc / 2);
+						centerX = 0;
+						centerY = 0;
+						topX = centerX - this.len * Math.cos(thetaRad);
+						topY = centerY - this.len * Math.sin(thetaRad);
+						leftX = centerX - this.radius * Math.cos(thetaRad - Math.PI / 2);
+						leftY = centerY - this.radius * Math.sin(thetaRad - Math.PI / 2);
+						rightX = centerX - this.radius * Math.cos(thetaRad + Math.PI / 2);
+						rightY = centerY - this.radius * Math.sin(thetaRad + Math.PI / 2);
+						return "M " + leftX + " " + leftY + " L " + topX + " " + topY + " L " + rightX + " " + rightY;
 					};
 
-					width = el[0][0].offsetWidth - margin.left - margin.right;
-					height = width;
-					radius = Math.min(width, height) / 2;
-					barWidth = 40 * width / 300;
-
-
-					/*
-						Utility methods 
-					*/
-					percToDeg = function (perc) {
-						return perc * 360;
-					};
-
-					percToRad = function (perc) {
-						return degToRad(percToDeg(perc));
-					};
-
-					degToRad = function (deg) {
-						return deg * Math.PI / 180;
-					};
-
-					// Create SVG element
-					svg = el.append('svg').attr('width', width + margin.left + margin.right).attr('height', height + margin.top + margin.bottom);
-
-					// Add layer for the panel
-					chart = svg.append('g').attr('transform', "translate(" + ((width + margin.left) / 2) + ", " + ((height + margin.top) / 2) + ")");
-					chart.append('path').attr('class', "arc chart-filled").style('fill', 'steelblue')
-					chart.append('path').attr('class', "arc chart-empty").style('fill', '#dedede');
-
-
-					arc2 = d3.svg.arc().outerRadius(radius - chartInset).innerRadius(radius - chartInset - barWidth)
-					arc1 = d3.svg.arc().outerRadius(radius - chartInset).innerRadius(radius - chartInset - barWidth)
-
-					repaintGauge = function (perc) {
-						let next_start = totalPercent;
-						arcStartRad = percToRad(next_start);
-						arcEndRad = arcStartRad + percToRad(perc / 2);
-						next_start += perc / 2;
-
-
-						arc1.startAngle(arcStartRad).endAngle(arcEndRad);
-
-						arcStartRad = percToRad(next_start);
-						arcEndRad = arcStartRad + percToRad((1 - perc) / 2);
-
-						arc2.startAngle(arcStartRad + padRad).endAngle(arcEndRad);
-
-
-						chart.select(".chart-filled").attr('d', arc1);
-						chart.select(".chart-empty").attr('d', arc2);
-
+					function Needle(el) {
+						this.el = el;
+						this.len = width / 3;
+						this.radius = this.len / 6;
 					}
 
-					let Needle = (function () {
 
-						/** 
-						* Helper function that returns the `d` value
-						* for moving the needle
-						**/
-						let recalcPointerPos = function (perc) {
-							let centerX, centerY, leftX, leftY, rightX, rightY, thetaRad, topX, topY;
-							thetaRad = percToRad(perc / 2);
-							centerX = 0;
-							centerY = 0;
-							topX = centerX - this.len * Math.cos(thetaRad);
-							topY = centerY - this.len * Math.sin(thetaRad);
-							leftX = centerX - this.radius * Math.cos(thetaRad - Math.PI / 2);
-							leftY = centerY - this.radius * Math.sin(thetaRad - Math.PI / 2);
-							rightX = centerX - this.radius * Math.cos(thetaRad + Math.PI / 2);
-							rightY = centerY - this.radius * Math.sin(thetaRad + Math.PI / 2);
-							return "M " + leftX + " " + leftY + " L " + topX + " " + topY + " L " + rightX + " " + rightY;
-						};
+					Needle.prototype.render = function () {
+						this.el.append('circle').attr('class', 'needle-center').style('fill', '#e74c3c').attr('cx', 0).attr('cy', 0).attr('r', this.radius)
+						return this.el.append('path').attr('class', 'needle').style('fill', '#e74c3c').attr('d', recalcPointerPos.call(this, 0));
+					};
 
-						function Needle(el) {
-							this.el = el;
-							this.len = width / 3;
-							this.radius = this.len / 6;
-						}
+					Needle.prototype.moveTo = function (perc) {
+						let self,
+							oldValue = this.perc || 0;
 
+						this.perc = perc;
+						self = this;
 
-						Needle.prototype.render = function () {
-							this.el.append('circle').attr('class', 'needle-center').style('fill', '#e74c3c').attr('cx', 0).attr('cy', 0).attr('r', this.radius)
-							return this.el.append('path').attr('class', 'needle').style('fill', '#e74c3c').attr('d', recalcPointerPos.call(this, 0));
-						};
+						// Reset pointer position
+						this.el.transition().delay(100).ease('quad').duration(200).select('.needle').tween('reset-progress', function () {
+							return function (percentOfPercent) {
+								let progress = (1 - percentOfPercent) * oldValue;
 
-						Needle.prototype.moveTo = function (perc) {
-							let self,
-								oldValue = this.perc || 0;
+								repaintGauge(progress);
+								return d3.select(this).attr('d', recalcPointerPos.call(self, progress));
+							};
+						});
 
-							this.perc = perc;
-							self = this;
+						this.el.transition().delay(300).ease('bounce').duration(1500).select('.needle').tween('progress', function () {
+							return function (percentOfPercent) {
+								let progress = percentOfPercent * perc;
 
-							// Reset pointer position
-							this.el.transition().delay(100).ease('quad').duration(200).select('.needle').tween('reset-progress', function () {
-								return function (percentOfPercent) {
-									let progress = (1 - percentOfPercent) * oldValue;
+								repaintGauge(progress);
+								return d3.select(this).attr('d', recalcPointerPos.call(self, progress));
+							};
+						});
 
-									repaintGauge(progress);
-									return d3.select(this).attr('d', recalcPointerPos.call(self, progress));
-								};
-							});
+					};
 
-							this.el.transition().delay(300).ease('bounce').duration(1500).select('.needle').tween('progress', function () {
-								return function (percentOfPercent) {
-									let progress = percentOfPercent * perc;
+					return Needle;
 
-									repaintGauge(progress);
-									return d3.select(this).attr('d', recalcPointerPos.call(self, progress));
-								};
-							});
+				})();
 
-						};
+				needle = new Needle(chart);
+				needle.render();
 
-						return Needle;
-
-					})();
-
-					needle = new Needle(chart);
-					needle.render();
-
-					//inject JSON int for needle read here
-					needle.moveTo(me.data[0].value);
-					console.log('Array includes ', JSON.stringify(me.data));
-				},
-
-				attached: function () {
-					this.createElements();
-				},
-			});
-		})();
+				//inject JSON int for needle read here
+				needle.moveTo(me.data[0].value);
+				console.log('Array includes ', JSON.stringify(me.data));
+			}
+		}
+		customElements.define(PebbleGraphGauge.is, PebbleGraphGauge);
 	</script>
-
 </dom-module>

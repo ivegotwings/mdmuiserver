@@ -1,6 +1,5 @@
-<link rel="import" href="../../../bower_components/polymer/polymer.html">
-
-
+<link rel="import" href="../../../bower_components/polymer/polymer-element.html">
+<link rel="import" href="../../../bower_components/polymer/lib/mixins/mutable-data.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 <link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
@@ -151,7 +150,8 @@ It renders the list of attributes based on the specified parameters.
                                                 dependent-attribute-objects="[[_getDependentAttributes(attribute)]]"
                                                 dependent-attribute-model-objects="[[_getDependentAttributeModels(attribute)]]"
                                                 on-attribute-mode-changed="_onModeChange"
-                                                apply-locale-coalesce="[[applyLocaleCoalesce]]">
+                                                apply-locale-coalesce="[[applyLocaleCoalesce]]"
+                                                hide-revert-and-history$="[[hideRevertAndHistory]]">
                                             </rock-attribute>
                                         </div>
                                     </template>
@@ -166,12 +166,12 @@ It renders the list of attributes based on the specified parameters.
         <bedrock-pubsub event-name="attribute-delete" handler="_ondeletingAttribute" target-id=""></bedrock-pubsub>
     </template>
     <script>
-        (function () {
-            'use strict';
-            Polymer({
-                is: 'rock-attribute-list',
-
-                properties: {
+         class RockAttributeList extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehaviors.ComponentContextBehavior],Polymer.OptionalMutableData(Polymer.Element)){
+            static get is() {
+                return "rock-attribute-list";
+            }
+            static get properties() {
+                return {
                     /**
                       * <b><i>Content development is under progress... </b></i> 
                       */
@@ -318,439 +318,441 @@ It renders the list of attributes based on the specified parameters.
                         value: function () {
                             return [];
                         }
+                    },
+                    hideRevertAndHistory: {
+                        type: Boolean,
+                        value: false
                     }
-                },
-                behaviors: [
-                    RUFBehaviors.UIBehavior,
-                    RUFBehaviors.ComponentContextBehavior
-                ],
-                observers: [
-                    '_onAttributeValuesChange(attributeValues.*)'
-                ],
+                }
+            }
+            static get observers(){
+                return [
+                '_onAttributeValuesChange(attributeValues.*)'
+                ]
+            }
+            constructor() {
+                super();
+                this._onScrollListDebounce = _.debounce(this._onScrollList.bind(this), 300);
+            }
+            connectedCallback() {
+                super.connectedCallback();
+                this.scrollContainer.addEventListener('scroll', this._onScrollListDebounce);
+            }
+            disconnectedCallback() {
+                super.disconnectedCallback();
+                this.scrollContainer.removeEventListener('scroll', this._onScrollListDebounce)
+            }
+            get scrollContainer() {
+                this._scrollContainer = this._scrollContainer || this.shadowRoot.querySelector('.content');
+                return this._scrollContainer;
+            }
 
-                created: function () {
-                    this._onScrollListDebounce = _.debounce(this._onScrollList.bind(this), 300);
-                },
+            get hasScroll() {
+                const { scrollHeight, offsetHeight } = this.scrollContainer;
 
-                attached() {
-                    this.scrollContainer.addEventListener('scroll', this._onScrollListDebounce);
-                },
+                return scrollHeight > offsetHeight;
+            }
 
-                detached() {
-                    this.scrollContainer.removeEventListener('scroll', this._onScrollListDebounce)
-                },
+            get isLoadFinished() {
+                return this.attributesGroups[0] && this.attributesGroups[0].attributes.length === this.attributeValues.length;
+            }
 
-                get scrollContainer() {
-                    this._scrollContainer = this._scrollContainer || this.shadowRoot.querySelector('.content');
-                    return this._scrollContainer;
-                },
+            _onScrollList(activeContent) {
+                if(!this._lazyLoad || this.needAttributesGrouping) return;
 
-                get hasScroll() {
-                    const { scrollHeight, offsetHeight } = this.scrollContainer;
+                const { scrollHeight, scrollTop, offsetHeight } = this.scrollContainer;
 
-                    return scrollHeight > offsetHeight;
-                },
+                const scrollDiff = scrollHeight - offsetHeight - scrollTop;
 
-                get isLoadFinished() {
-                    return this.attributesGroups[0] && this.attributesGroups[0].attributes.length === this.attributeValues.length;
-                },
+                const PRELOAD_HEIGHT = 100;
 
-                _onScrollList(activeContent) {
-                    if(!this._lazyLoad || this.needAttributesGrouping) return;
+                if(this.isLoadFinished) {
+                    this.loading = false;
+                    return;
+                }
 
-                    const { scrollHeight, scrollTop, offsetHeight } = this.scrollContainer;
+                if (scrollTop && scrollDiff <= PRELOAD_HEIGHT)
+                    return this._loadMoreAttributes();
+            }
 
-                    const scrollDiff = scrollHeight - offsetHeight - scrollTop;
+            _loadMoreAttributes() {
+                const displayedAttributes = this.attributesGroups[0].attributes;
+                const itemsToPush = this.attributeValues.slice(displayedAttributes.length, displayedAttributes.length + this.attributesChunkLength);
 
-                    const PRELOAD_HEIGHT = 100;
+                if (!itemsToPush.length) {
+                    this.loading = false;
+                    return;
+                }
 
-                    if(this.isLoadFinished) {
-                        this.loading = false;
-                        return;
-                    }
+                this.loading = true;
 
-                    if (scrollTop && scrollDiff <= PRELOAD_HEIGHT)
-                        return this._loadMoreAttributes();
-                },
+                window.requestAnimationFrame(()=> {
+                    this.set(`attributesGroups.0.attributes`, displayedAttributes.concat(itemsToPush));
+                });
+            }
 
-                _loadMoreAttributes() {
-                    const displayedAttributes = this.attributesGroups[0].attributes;
-                    const itemsToPush = this.attributeValues.slice(displayedAttributes.length, displayedAttributes.length + this.attributesChunkLength);
+            _onAttributeValuesChange(changeRecord) {
+                this._previousViewName = "";
+                this.loading = true;
 
-                    if (!itemsToPush.length) {
-                        this.loading = false;
-                        return;
-                    }
+                if (!this.attributeValues.length) {
+                    this.loading = false;
+                    this.attributesGroups = [];
+                    return;
+                }
 
-                    this.loading = true;
+                this._calculateErrorLength(this.attributeValues);
 
-                    window.requestAnimationFrame(()=> {
-                        this.set(`attributesGroups.0.attributes`, displayedAttributes.concat(itemsToPush));
-                    });
-                },
+                Polymer.Async.microTask.run(() => {
+                    const attributesByGroup = this._getAttributesByGroup();
 
-                _onAttributeValuesChange: function (changeRecord) {
-                    this._previousViewName = "";
-                    this.loading = true;
-
-                    if (!this.attributeValues.length) {
-                        this.loading = false;
-                        this.attributesGroups = [];
-                        return;
-                    }
-
-                    this._calculateErrorLength(this.attributeValues);
-
-                    Polymer.Async.microTask.run(() => {
-                        const attributesByGroup = this._getAttributesByGroup();
-
-                        this.attributesGroups = Object.keys(attributesByGroup).map(groupName => {
-                            return {
-                                groupName,
-                                attributes: attributesByGroup[groupName]
-                            };
-                        });
-
-                        this._lazyLoad = !this._isMultipleGroups() && !!this.attributesChunkLength;
-
-                        if(!this._lazyLoad || this.isLoadFinished) {
-                            this.loading = false;
-                            return;
-                        }
-
-                        //after rendering initial attributes need to check if container has scroll
-                        //in case it doesn't have, need to trigger loading next chunk manually
-                        setTimeout(()=> {
-                            if(!this.hasScroll)
-                                this._loadMoreAttributes();
-                        }, 0);
-                    });
-                },
-
-                getGroupAttributes(group, atts) {
-                    //need array mutation here to render changes in bulk-edit
-                    return group.attributes.slice(0, group.attributes.length);
-                },
-
-                _getAttributesByGroup() {
-                    if(!this.needAttributesGrouping) {
-                        const displayedAttributes = this.attributesChunkLength ? this.attributeValues.slice(0, this.attributesChunkLength) : this.attributeValues;
-
-                        return {[this.groupName]: displayedAttributes};
-                    }
-
-                    return this.attributeValues.reduce((res, attribute) => {
-                        const { groupName } = this.attributeModels[attribute.name] || this.groupName;
-
-                        if(!res[groupName])
-                            res[groupName] = [];
-
-                        attribute.groupName = groupName;
-                        
-                        res[groupName].push(attribute);
-                        return res;
-                    }, {});
-                },
-
-                _getAttributeClass: function (n, attribute) {
-                    var model = this._getAttributeModel(this.attributeModels, attribute);
-                    var displayType = model && model.displayType ? model.displayType.toLowerCase() : "";
-                    if(displayType === "textarea" || displayType === "richtexteditor" || displayType === "nestedgrid") {
-                        n = 1;
-                    }
-                    if(displayType === "nestedgrid"){
-                        n += " nested-attribute";
-                    }
-                    return "attribute-box attribute-box-" + n;
-                },
-                _getAttributeModel: function (attributeModels, attribute) {
-                    var model;
-                    if (attributeModels) {
-                        if (attribute.name in attributeModels) {
-                            model = attributeModels[attribute.name];
-                        }
-                    }
-
-                    if (_.isEmpty(model)) {
-                        //set default model as textbox
-                        //TODO: find a better way for getting default model
-                        model = {
-                            "name": attribute.name,
-                            "longName": attribute.name,
-                            "displayType": "textbox",
-                            "viewName": "Other Attributes"
+                    this.attributesGroups = Object.keys(attributesByGroup).map(groupName => {
+                        return {
+                            groupName,
+                            attributes: attributesByGroup[groupName]
                         };
-                    }
-
-                    if (_.isEmpty(model.dataType)) {
-                        model.dataType = 'string';
-                    }
-
-                    if (_.isEmpty(model.displayType)) {
-                        var dataType = model.dataType ? model.dataType.toLowerCase() : model.dataType;
-                        model.displayType = this._getDisplayType(dataType);
-                    }
-
-                    return model;
-                },
-                _getDisplayType: function (dataType) {
-                    var displayType = 'textbox';
-
-                    switch (dataType) {
-                        case 'boolean':
-                            {
-                                displayType = 'boolean';
-                                break;
-                            }
-                        case 'date':
-                            {
-                                displayType = 'date';
-                                break;
-                            }
-                        case 'datetime':
-                            {
-                                displayType = 'datetime';
-                                break;
-                            }
-                        case 'decimal':
-                            {
-                                displayType = 'textbox';
-                                break;
-                            }
-                    }
-
-                    return displayType;
-                },
-                /**
-                * Can be used to get all the attribute objects that are changed in the attribute-list.
-                */
-                getChangedAttributeElements: function () {
-                    var node = Polymer.dom(this).node;
-                    var changedAttributeElements = Polymer.dom(this).node.querySelectorAll('rock-attribute[changed]');
-                    if (changedAttributeElements == undefined || changedAttributeElements.length == 0) {
-                        changedAttributeElements = Polymer.dom(this).node.root.querySelectorAll('rock-attribute[changed]');
-                    }
-                    return changedAttributeElements;
-                },
-                /**
-                * Can be used to get all the attribute objects that are changed in the attribute-list.
-                */
-                getDependentAttributeElements: function(currentAttribute) {
-                    var node = Polymer.dom(this).node;
-                    var allAttributeElements = Polymer.dom(this).node.querySelectorAll('rock-attribute');
-                    if(allAttributeElements == undefined || allAttributeElements.length == 0) {
-                        allAttributeElements = Polymer.dom(this).node.root.querySelectorAll('rock-attribute');
-                    }
-
-                    return DataHelper.getDependentAttributesOfAttribute(allAttributeElements, currentAttribute);
-                },
-
-                /**
-                 * Can be used to reset all the changed attribute objects to their original object values.
-                 */
-                resetChanged: function () {
-                    var changedAttributeElements = this.getChangedAttributeElements();
-                    for (var i = 0; i < changedAttributeElements.length; i++) {
-                        var attributeElement = changedAttributeElements[i];
-                        attributeElement.changed = false;
-                    }
-                },
-                /**
-                 * Can be used to reset all the changed attribute objects to their original object values and switch
-                 * the mode from "edit" to "view".
-                 */
-                revertAll: function () {
-                    var changedAttributeElements = this.getChangedAttributeElements();
-                    for (var i = 0; i < changedAttributeElements.length; i++) {
-                        var attributeElement = changedAttributeElements[i];
-                        attributeElement.attributeObject = this._cloneObject(attributeElement.originalAttributeObject);
-                        this._updateDependentAttributes(attributeElement, true);
-                        attributeElement.changed = false;
-                    }
-                    this.mode = "view";
-                },
-                _cloneObject: function (o) {
-                    return DataHelper.cloneObject(o);
-                },
-
-                _isMultipleGroups() {
-                    return this.attributesGroups.length > 1;
-                },
-
-                _getMultiAttributeClass:function(){
-                    return this._isMultipleGroups() ? "multi-attribute-group" : "";
-                },
-
-                /**
-                 * <b><i>Content development is under progress... </b></i> 
-                 */
-                updateDependentAttributesAndResetErrors: function (e) {
-                    if(e) {
-                        var attribute = e.currentTarget || e.sourceElement;
-                        /***
-                         * Bug 337779: When there are more than 30 attributes in list,
-                         * due to lazy loading feature of attributes in list as user scrolls down
-                         * changed nested attributes up above the list as well reloading
-                         * As changed child attribute values not propagating till attribute-list control.
-                         * Hence had to update nested one manually
-                         * */
-                        this._updateNestedAttributeObject(attribute);
-                        var isRevertClicked = e.detail.revertClicked;
-                        this._updateDependentAttributes(attribute, isRevertClicked);
-                    }
-
-                    this._calculateErrorLength(this.attributeValues);
-                },
-
-                _updateNestedAttributeObject: function(attribute) {
-                    if(attribute && attribute.attributeModelObject && attribute.attributeModelObject.dataType && attribute.attributeModelObject.dataType.toLowerCase() === "nested") {
-                        var attributeName = attribute.attributeModelObject.name;
-                        var attributeGroupName = this.needAttributesGrouping ? attribute.attributeModelObject.groupName : this.groupName;
-                        var attributesGroup = !_.isEmpty(this.attributesGroups) ? this.attributesGroups.find(group => group.groupName === attributeGroupName) : undefined;
-                        if(attributesGroup && !_.isEmpty(attributesGroup.attributes)) {
-                            var groupIndex = this.attributesGroups.indexOf(attributesGroup);
-                            var attributeFromGroup = attributesGroup.attributes.find(attr => attr.name === attributeName);
-                            if(attributeFromGroup) {
-                                var attributeIndex = attributesGroup.attributes.indexOf(attributeFromGroup);
-                                this.attributesGroups[groupIndex].attributes[attributeIndex] = attribute.attributeObject;
-                            }
-                        }
-                    }
-                },
-
-                _updateDependentAttributes: function(currentAttribute, isRevertButtonClicked) {
-                    var dependentAttributeElements = this.getDependentAttributeElements(currentAttribute);
-                    DataHelper.updateDependentAttributeElements(dependentAttributeElements, currentAttribute, isRevertButtonClicked);
-                },
-
-                _calculateErrorLength: function (attributeValues) {
-                    var errorCount = 0;
-                    for (var i = 0; i < attributeValues.length; i++) {
-                        var att = attributeValues[i];
-                        if (att.errors && att.errors.length > 0) {
-                            errorCount++;
-                        }
-                    }
-
-                    this.fireBedrockEvent("error-length-changed", errorCount, {
-                        ignoreId: true
                     });
-                },
-                //On messages change re-calculate tab error length
-                _onAttributeMessagesChange: function () {
-                    if (this.attributeValues && this.attributeMessages) {
-                        for (var i = 0; i < this.attributeValues.length; i++) {
-                            var _currentAttribute = this.attributeValues[i];
-                            if (this.attributeMessages[_currentAttribute.name]) {
-                                if (!_currentAttribute["errors"] || _currentAttribute["errors"].length == 0) {
-                                    _currentAttribute["errors"] = this.attributeMessages[_currentAttribute.name];
-                                }
-                            }
-                        }
+
+                    this._lazyLoad = !this._isMultipleGroups() && !!this.attributesChunkLength;
+
+                    if(!this._lazyLoad || this.isLoadFinished) {
+                        this.loading = false;
+                        return;
                     }
-                },
-                _onModeChange(e) {
-                    const mode = e.detail.mode;
+
+                    //after rendering initial attributes need to check if container has scroll
+                    //in case it doesn't have, need to trigger loading next chunk manually
+                    setTimeout(()=> {
+                        if(!this.hasScroll)
+                            this._loadMoreAttributes();
+                    }, 0);
+                });
+            }
+
+            getGroupAttributes(group, atts) {
+                //need array mutation here to render changes in bulk-edit
+                return group.attributes.slice(0, group.attributes.length);
+            }
+
+            _getAttributesByGroup() {
+                if(!this.needAttributesGrouping) {
+                    const displayedAttributes = this.attributesChunkLength ? this.attributeValues.slice(0, this.attributesChunkLength) : this.attributeValues;
+
+                    return {[this.groupName]: displayedAttributes};
+                }
+
+                return this.attributeValues.reduce((res, attribute) => {
+                    const { groupName } = this.attributeModels[attribute.name] || this.groupName;
+
+                    if(!res[groupName])
+                        res[groupName] = [];
+
+                    attribute.groupName = groupName;
                     
-                    if(!mode) return;
+                    res[groupName].push(attribute);
+                    return res;
+                }, {});
+            }
 
-                    this.mode = mode;
+            _getAttributeClass(n, attribute) {
+                var model = this._getAttributeModel(this.attributeModels, attribute);
+                var displayType = model && model.displayType ? model.displayType.toLowerCase() : "";
+                if(displayType === "textarea" || displayType === "richtexteditor" || displayType === "nestedgrid") {
+                    n = 1;
+                }
+                if(displayType === "nestedgrid"){
+                    n += " nested-attribute";
+                }
+                return "attribute-box attribute-box-" + n;
+            }
+            _getAttributeModel(attributeModels, attribute) {
+                var model;
+                if (attributeModels) {
+                    if (attribute.name in attributeModels) {
+                        model = attributeModels[attribute.name];
+                    }
+                }
 
-                    this.dispatchEvent(new CustomEvent("list-mode-changed", {
-                        detail: { mode }, 
-                        bubbles: true, 
-                        composed: true
-                    }));
-                },
-                /**
-                 * Can be used to get the elements if they are dirty.
-                 */
-                getIsDirty: function () {
-                    var changedAttributeElements = this.getChangedAttributeElements();
-                    return !!(changedAttributeElements && changedAttributeElements.length);
-                },
-                /**
-                * Can be used to get the controls if they are dirty.
-                */
-                getControlIsDirty: function () {
-                    return this.mode == "edit";
-                },
-                _checkRenderGroupBar: function (groupName) {
-                    if (this._previousViewName === groupName) return false;
+                if (_.isEmpty(model)) {
+                    //set default model as textbox
+                    //TODO: find a better way for getting default model
+                    model = {
+                        "name": attribute.name,
+                        "longName": attribute.name,
+                        "displayType": "textbox",
+                        "viewName": "Other Attributes"
+                    };
+                }
 
-                    this._previousViewName = groupName;
+                if (_.isEmpty(model.dataType)) {
+                    model.dataType = 'string';
+                }
 
-                    if(this.needAttributesGrouping && this._isMultipleGroups()) return true;
+                if (_.isEmpty(model.displayType)) {
+                    var dataType = model.dataType ? model.dataType.toLowerCase() : model.dataType;
+                    model.displayType = this._getDisplayType(dataType);
+                }
 
-                    return this._isMultipleGroups();
-                },
+                return model;
+            }
+            _getDisplayType(dataType) {
+                var displayType = 'textbox';
 
-                _getAttributeGroupTitle(groupName) {
-                    return this.needAttributesGrouping ? groupName : this.groupName;
-                },
+                switch (dataType) {
+                    case 'boolean':
+                        {
+                            displayType = 'boolean';
+                            break;
+                        }
+                    case 'date':
+                        {
+                            displayType = 'date';
+                            break;
+                        }
+                    case 'datetime':
+                        {
+                            displayType = 'datetime';
+                            break;
+                        }
+                    case 'decimal':
+                        {
+                            displayType = 'textbox';
+                            break;
+                        }
+                }
 
-                _getAttributeMessage: function (attribute) {
-                    if (attribute && this.attributeMessages) {
-                        var messages = this.attributeMessages[attribute.name];
-                        if (messages && messages.length) {
-                            return messages;
+                return displayType;
+            }
+            /**
+            * Can be used to get all the attribute objects that are changed in the attribute-list.
+            */
+            getChangedAttributeElements() {
+                var node = Polymer.dom(this).node;
+                var changedAttributeElements = Polymer.dom(this).node.querySelectorAll('rock-attribute[changed]');
+                if (changedAttributeElements == undefined || changedAttributeElements.length == 0) {
+                    changedAttributeElements = Polymer.dom(this).node.root.querySelectorAll('rock-attribute[changed]');
+                }
+                return changedAttributeElements;
+            }
+            /**
+            * Can be used to get all the attribute objects that are changed in the attribute-list.
+            */
+            getDependentAttributeElements(currentAttribute) {
+                var node = Polymer.dom(this).node;
+                var allAttributeElements = Polymer.dom(this).node.querySelectorAll('rock-attribute');
+                if(allAttributeElements == undefined || allAttributeElements.length == 0) {
+                    allAttributeElements = Polymer.dom(this).node.root.querySelectorAll('rock-attribute');
+                }
+
+                return DataHelper.getDependentAttributesOfAttribute(allAttributeElements, currentAttribute);
+            }
+
+            /**
+             * Can be used to reset all the changed attribute objects to their original object values.
+             */
+            resetChanged() {
+                var changedAttributeElements = this.getChangedAttributeElements();
+                for (var i = 0; i < changedAttributeElements.length; i++) {
+                    var attributeElement = changedAttributeElements[i];
+                    attributeElement.changed = false;
+                }
+            }
+            /**
+             * Can be used to reset all the changed attribute objects to their original object values and switch
+             * the mode from "edit" to "view".
+             */
+            revertAll() {
+                var changedAttributeElements = this.getChangedAttributeElements();
+                for (var i = 0; i < changedAttributeElements.length; i++) {
+                    var attributeElement = changedAttributeElements[i];
+                    attributeElement.attributeObject = this._cloneObject(attributeElement.originalAttributeObject);
+                    this._updateDependentAttributes(attributeElement, true);
+                    attributeElement.changed = false;
+                }
+                this.mode = "view";
+            }
+            _cloneObject(o) {
+                return DataHelper.cloneObject(o);
+            }
+
+            _isMultipleGroups() {
+                return this.attributesGroups.length > 1;
+            }
+
+            _getMultiAttributeClass(){
+                return this._isMultipleGroups() ? "multi-attribute-group" : "";
+            }
+
+            /**
+             * <b><i>Content development is under progress... </b></i> 
+             */
+            updateDependentAttributesAndResetErrors(e) {
+                if(e) {
+                    var attribute = e.currentTarget || e.sourceElement;
+                    /***
+                     * Bug 337779: When there are more than 30 attributes in list,
+                     * due to lazy loading feature of attributes in list as user scrolls down
+                     * changed nested attributes up above the list as well reloading
+                     * As changed child attribute values not propagating till attribute-list control.
+                     * Hence had to update nested one manually
+                     * */
+                    this._updateNestedAttributeObject(attribute);
+                    var isRevertClicked = e.detail.revertClicked;
+                    this._updateDependentAttributes(attribute, isRevertClicked);
+                }
+
+                this._calculateErrorLength(this.attributeValues);
+            }
+
+            _updateNestedAttributeObject(attribute) {
+                if(attribute && attribute.attributeModelObject && attribute.attributeModelObject.dataType && attribute.attributeModelObject.dataType.toLowerCase() === "nested") {
+                    var attributeName = attribute.attributeModelObject.name;
+                    var attributeGroupName = this.needAttributesGrouping ? attribute.attributeModelObject.groupName : this.groupName;
+                    var attributesGroup = !_.isEmpty(this.attributesGroups) ? this.attributesGroups.find(group => group.groupName === attributeGroupName) : undefined;
+                    if(attributesGroup && !_.isEmpty(attributesGroup.attributes)) {
+                        var groupIndex = this.attributesGroups.indexOf(attributesGroup);
+                        var attributeFromGroup = attributesGroup.attributes.find(attr => attr.name === attributeName);
+                        if(attributeFromGroup) {
+                            var attributeIndex = attributesGroup.attributes.indexOf(attributeFromGroup);
+                            this.attributesGroups[groupIndex].attributes[attributeIndex] = attribute.attributeObject;
                         }
                     }
-                    return [];
-                },
-                /**
-                  * <b><i>Content development is under progress... </b></i> 
-                  */
-                hasModelErrors: function () {
-                    var _attributes = Polymer.dom(this).node.querySelectorAll('rock-attribute');
-                    if (_attributes == undefined || _attributes.length == 0) {
-                        _attributes = Polymer.dom(this).node.root.querySelectorAll('rock-attribute');
-                    }
-                    for (var i = 0; i < _attributes.length; i++) {
-                        if (_attributes[i].hasModelErrors()) {
-                            return true;
-                        }
-                    }
-                    return false;
-                },
-                _getTabIndex: function(attribute) {
-                    return this._runningTabIndex++;
-                },
-                getAttributeValues: function() {
-                    return this.attributeValues;
-                },
-                _ondeletingAttribute: function(e, detail) {
-                    var attributeModelObject = detail.data;
-                    var attribute = this.attributeValues.find(obj => obj.name === attributeModelObject.name);
-                    if(attribute) {
-                        var index = this.attributeValues.indexOf(attribute);
-                        this.splice("attributeValues", index, 1);
-                        this.fireBedrockEvent("attribute-control-delete", { data: attribute }, { ignoreId: true });
-                    }
-                },
-                _getDependentAttributes: function(currentAttribute) {
-                    var dependentAttributeModels = DataHelper.getDependentAttributeModels(this.attributeModels, this.dependentAttributeModels, currentAttribute);
-                    var dependentAttributeValues = [];
+                }
+            }
 
-                    if(!_.isEmpty(this.dependentAttributeValues)) {
-                        for(var attributeName in dependentAttributeModels) {
+            _updateDependentAttributes(currentAttribute, isRevertButtonClicked) {
+                var dependentAttributeElements = this.getDependentAttributeElements(currentAttribute);
+                DataHelper.updateDependentAttributeElements(dependentAttributeElements, currentAttribute, isRevertButtonClicked);
+            }
 
-                            var dependentAttributeModel = dependentAttributeModels[attributeName];
-                            for(let j = 0; j < this.dependentAttributeValues.length; j++) {
-                                if(dependentAttributeModel.name === this.dependentAttributeValues[j].name) {
-                                    dependentAttributeValues.push(this.dependentAttributeValues[j]);
-                                    break;
-                                }
+            _calculateErrorLength(attributeValues) {
+                var errorCount = 0;
+                for (var i = 0; i < attributeValues.length; i++) {
+                    var att = attributeValues[i];
+                    if (att.errors && att.errors.length > 0) {
+                        errorCount++;
+                    }
+                }
+
+                this.fireBedrockEvent("error-length-changed", errorCount, {
+                    ignoreId: true
+                });
+            }
+            //On messages change re-calculate tab error length
+            _onAttributeMessagesChange() {
+                if (this.attributeValues && this.attributeMessages) {
+                    for (var i = 0; i < this.attributeValues.length; i++) {
+                        var _currentAttribute = this.attributeValues[i];
+                        if (this.attributeMessages[_currentAttribute.name]) {
+                            if (!_currentAttribute["errors"] || _currentAttribute["errors"].length == 0) {
+                                _currentAttribute["errors"] = this.attributeMessages[_currentAttribute.name];
                             }
                         }
                     }
+                }
+            }
+            _onModeChange(e) {
+                const mode = e.detail.mode;
+                
+                if(!mode) return;
 
-                    return dependentAttributeValues;
-                },
-                _getDependentAttributeModels: function(currentAttribute) {
-                    return DataHelper.getDependentAttributeModels(this.attributeModels, this.dependentAttributeModels, currentAttribute);
-                }                
-            });
-        })();
+                this.mode = mode;
+
+                this.dispatchEvent(new CustomEvent("list-mode-changed", {
+                    detail: { mode }, 
+                    bubbles: true, 
+                    composed: true
+                }));
+            }
+            /**
+             * Can be used to get the elements if they are dirty.
+             */
+            getIsDirty() {
+                var changedAttributeElements = this.getChangedAttributeElements();
+                return !!(changedAttributeElements && changedAttributeElements.length);
+            }
+            /**
+            * Can be used to get the controls if they are dirty.
+            */
+            getControlIsDirty() {
+                return this.mode == "edit";
+            }
+            _checkRenderGroupBar(groupName) {
+                if (this._previousViewName === groupName) return false;
+
+                this._previousViewName = groupName;
+
+                if(this.needAttributesGrouping && this._isMultipleGroups()) return true;
+
+                return this._isMultipleGroups();
+            }
+
+            _getAttributeGroupTitle(groupName) {
+                return this.needAttributesGrouping ? groupName : this.groupName;
+            }
+
+            _getAttributeMessage(attribute) {
+                if (attribute && this.attributeMessages) {
+                    var messages = this.attributeMessages[attribute.name];
+                    if (messages && messages.length) {
+                        return messages;
+                    }
+                }
+                return [];
+            }
+            /**
+                 * <b><i>Content development is under progress... </b></i> 
+                */
+            hasModelErrors() {
+                var _attributes = Polymer.dom(this).node.querySelectorAll('rock-attribute');
+                if (_attributes == undefined || _attributes.length == 0) {
+                    _attributes = Polymer.dom(this).node.root.querySelectorAll('rock-attribute');
+                }
+                for (var i = 0; i < _attributes.length; i++) {
+                    if (_attributes[i].hasModelErrors()) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+            _getTabIndex(attribute) {
+                return this._runningTabIndex++;
+            }
+            getAttributeValues() {
+                return this.attributeValues;
+            }
+            _ondeletingAttribute(e, detail) {
+                var attributeModelObject = detail.data;
+                var attribute = this.attributeValues.find(obj => obj.name === attributeModelObject.name);
+                if(attribute) {
+                    var index = this.attributeValues.indexOf(attribute);
+                    this.splice("attributeValues", index, 1);
+                    this.fireBedrockEvent("attribute-control-delete", { data: attribute }, { ignoreId: true });
+                }
+            }
+            _getDependentAttributes(currentAttribute) {
+                var dependentAttributeModels = DataHelper.getDependentAttributeModels(this.attributeModels, this.dependentAttributeModels, currentAttribute);
+                var dependentAttributeValues = [];
+
+                if(!_.isEmpty(this.dependentAttributeValues)) {
+                    for(var attributeName in dependentAttributeModels) {
+
+                        var dependentAttributeModel = dependentAttributeModels[attributeName];
+                        for(let j = 0; j < this.dependentAttributeValues.length; j++) {
+                            if(dependentAttributeModel.name === this.dependentAttributeValues[j].name) {
+                                dependentAttributeValues.push(this.dependentAttributeValues[j]);
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                return dependentAttributeValues;
+            }
+            _getDependentAttributeModels(currentAttribute) {
+                return DataHelper.getDependentAttributeModels(this.attributeModels, this.dependentAttributeModels, currentAttribute);
+            }            
+        }
+        customElements.define(RockAttributeList.is, RockAttributeList);
     </script>
 </dom-module>
