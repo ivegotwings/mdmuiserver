@@ -655,7 +655,7 @@ Eventservice.prototype = {
             let taskTypeOperator = undefined;
             let userId = undefined;
             let integrationType = undefined;
-            let parentIdHasValue = undefined;
+            let parentTaskHasValue = undefined;
 
             for (let i in requestedAttributeCriteria) {
                 if(requestedAttributeCriteria[i].eventSubType) {
@@ -667,8 +667,8 @@ Eventservice.prototype = {
                     userId = requestedAttributeCriteria[i].userId.eq;
                 } else if(requestedAttributeCriteria[i].integrationType) {
                     integrationType = requestedAttributeCriteria[i].integrationType.eq;
-                } else if(requestedAttributeCriteria[i].parentId) {
-                    parentIdHasValue = requestedAttributeCriteria[i].parentId.hasvalue;
+                } else if(requestedAttributeCriteria[i].parentTaskId) {
+                    parentTaskHasValue = requestedAttributeCriteria[i].parentTaskId.hasvalue;
                 }
             }
 
@@ -721,11 +721,11 @@ Eventservice.prototype = {
                 attributesCriteria.push(integrationTypeCriterion);
             }
 
-            if(typeof parentIdHasValue === "boolean") {
+            if(typeof parentTaskHasValue === "boolean") {
                 //Add parentId criterion...
                 let parentIdCriterion = {
-                    "parentId": {
-                        "hasvalue": parentIdHasValue
+                    "parentTaskId": {
+                        "hasvalue": parentTaskHasValue
                     }
                 };
                 attributesCriteria.push(parentIdCriterion);
@@ -1067,7 +1067,7 @@ Eventservice.prototype = {
 
         //Add task id criterion...
         let taskIdCriterion = {};
-        taskIdCriterion[isRequestByParent ? "parentId" : "taskId"] = {
+        taskIdCriterion[isRequestByParent ? "parentTaskId" : "taskId"] = {
             "exact": taskId
         };
         attributesCriteria.push(taskIdCriterion);
