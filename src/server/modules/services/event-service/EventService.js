@@ -655,6 +655,7 @@ Eventservice.prototype = {
             let taskTypeOperator = undefined;
             let userId = undefined;
             let integrationType = undefined;
+            let parentIdHasValue = undefined;
 
             for (let i in requestedAttributeCriteria) {
                 if(requestedAttributeCriteria[i].eventSubType) {
@@ -666,11 +667,13 @@ Eventservice.prototype = {
                     userId = requestedAttributeCriteria[i].userId.eq;
                 } else if(requestedAttributeCriteria[i].integrationType) {
                     integrationType = requestedAttributeCriteria[i].integrationType.eq;
+                } else if(requestedAttributeCriteria[i].parentId) {
+                    parentIdHasValue = requestedAttributeCriteria[i].parentId.hasvalue;
                 }
             }
 
             let attributesCriteria = [];
-            
+
             //Add task type criterion...
             let taskTypeCriterion = {
                 "taskType": {
@@ -716,6 +719,16 @@ Eventservice.prototype = {
                     }
                 };
                 attributesCriteria.push(integrationTypeCriterion);
+            }
+
+            if(typeof parentIdHasValue === "boolean") {
+                //Add parentId criterion...
+                let parentIdCriterion = {
+                    "parentId": {
+                        "hasvalue": parentIdHasValue
+                    }
+                };
+                attributesCriteria.push(parentIdCriterion);
             }
 
             req.params.query.filters.attributesCriterion = attributesCriteria;
@@ -777,6 +790,8 @@ Eventservice.prototype = {
                             eventAttributes["eventSubType"] = attributes["status"];
                             eventAttributes["recordCount"] = attributes["totalRecords"];
                             eventAttributes["profileName"] = attributes["profileName"];
+                            eventAttributes["hasChildTasks"] = attributes["hasChildTasks"];
+                            eventAttributes["isExtractionCompleted"] = attributes["isExtractionCompleted"];
                             eventAttributes["createdOn"] = {"values": [
                                 {
                                     "locale": "en-US",
@@ -833,17 +848,19 @@ Eventservice.prototype = {
             let submittedBy = this._getAttributeValue(requestObject, "submittedBy");
             let totalRecords = this._getAttributeValue(requestObject, "totalRecords");
             let message = this._getAttributeValue(requestObject, "errorMessage");
+            let hasChildTasks = this._getAttributeValue(requestObject, "hasChildTasks");
+            let isExtractionCompleted = this._getAttributeValue(requestObject, "isExtractionCompleted");
             let startTime = requestObject.properties.createdDate;
-            
+
             response.taskId = taskId;
             response.taskName = taskName ? taskName : "N/A";
             response.taskType = taskType;
             response.taskStatus = taskStatus ? taskStatus : "N/A";
             response.fileId = fileId ? fileId : "N/A";
             if(taskName && taskName.search(/create variants/i) > -1){
-                response.fileName = "N/A";                   
+                response.fileName = "N/A";
             } else {
-                response.fileName = fileName ? fileName : response.fileId;    
+                response.fileName = fileName ? fileName : response.fileId;
             }
             response.fileType = fileType ? fileType : "N/A";
             response.fileExtension = fileExtension ? fileExtension : "N/A";
@@ -852,6 +869,8 @@ Eventservice.prototype = {
             response.message = message ? message : "N/A";
             response.startTime = startTime ? startTime : "N/A";
             response.endTime = "N/A";
+            response.hasChildTasks = typeof hasChildTasks === "boolean" ? hasChildTasks : "N/A";
+            response.isExtractionCompleted = typeof isExtractionCompleted === "boolean" ? isExtractionCompleted : "N/A";
 
             let taskStats = response["taskStats"] = {};
             taskStats.error = "0%";
@@ -994,8 +1013,9 @@ Eventservice.prototype = {
         
         //Generate details get request...
         let totalRecords = (taskDetails.totalRecords == "N/A") ? 200 : taskDetails.totalRecords;
-        let taskDetailsGetRequest = this._generateTaskDetailsGetReq(taskId, isBulkWorkflowTask, totalRecords);
-        
+        let isRequestByParent = taskDetails.hasChildTasks && taskDetails.hasChildTasks != "N/A";
+        let taskDetailsGetRequest = this._generateTaskDetailsGetReq(taskId, isBulkWorkflowTask, totalRecords, isRequestByParent);
+
         //console.log('Task details get request to RDF', JSON.stringify(taskDetailsGetRequest));
         let taskDetailsGetUrl = 'requesttrackingservice/get';
         let taskDetailsGetRes = await this.post(taskDetailsGetUrl, taskDetailsGetRequest);
@@ -1032,7 +1052,7 @@ Eventservice.prototype = {
     },
 
     //Task summarization processor temp changes...
-    _generateTaskDetailsGetReq: function (taskId, isBulkWorkflowTask, totalRecords) {
+    _generateTaskDetailsGetReq: function (taskId, isBulkWorkflowTask, totalRecords, isRequestByParent) {
         let types = ["requestobject"];
         let req = this._getRequestJson(types);
 
@@ -1044,12 +1064,11 @@ Eventservice.prototype = {
         }];
 
         let attributesCriteria = [];
-        
+
         //Add task id criterion...
-        let taskIdCriterion = {
-            "taskId": {
-                "exact": taskId
-            }
+        let taskIdCriterion = {};
+        taskIdCriterion[isRequestByParent ? "parentId" : "taskId"] = {
+            "exact": taskId
         };
         attributesCriteria.push(taskIdCriterion);
 
