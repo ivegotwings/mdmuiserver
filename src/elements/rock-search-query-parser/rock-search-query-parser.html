@@ -1,4 +1,4 @@
-<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/polymer/polymer-element.html">
 
 <link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
@@ -23,13 +23,12 @@
     </liquid-entity-model-composite-get>
   </template>
   <script>
-    (function () {
-      'use strict';
-
-      Polymer({
-        is: "rock-search-query-parser",
-
-        properties: {
+    class RockSearchQueryParser extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.ComponentContextBehavior],Polymer.Element) {
+      static get is() {
+        return "rock-search-query-parser";
+      }
+      static get properties() {
+        return {
           contextData: {
             type: Object,
             value: function () {
@@ -49,23 +48,33 @@
           },
           _entityAttributes: {
             type: Object,
-            value: function () { return {}; }
+            value: function () {
+              return {};
+            }
           },
           _relationshipAttributes: {
             type: Object,
-            value: function () { return {}; }
+            value: function () {
+              return {};
+            }
           },
           _relatedEntityAttributes: {
             type: Object,
-            value: function () { return {}; }
+            value: function () {
+              return {};
+            }
           },
           _relToEntityTypes: {
             type: Array,
-            value: function () { return []; }
+            value: function () {
+              return [];
+            }
           },
           searchFilters: {
             type: Object,
-            value: function () { return {}; }
+            value: function () {
+              return {};
+            }
           },
           filterCriterionKey: {
             type: String,
@@ -73,461 +82,481 @@
           },
           //Relationship name is notified from query builder
           relationshipName: {
-              type: String,
-              value:""
+            type: String,
+            value: ""
           }
-        },
+        }
+      }
+      get compositeAttributeModelGetLiq() {
+        this._compositeAttributeModelGetLiq = this._compositeAttributeModelGetLiq || this.shadowRoot.querySelector(
+          "[name=compositeAttributeModelGet]");
+        return this._compositeAttributeModelGetLiq;
+      }
 
-        behaviors: [
-          RUFBehaviors.UIBehavior,
-          RUFBehaviors.ComponentContextBehavior
-        ],
+      parseQueryToFilters(query) {
+        var parsedQuery = this.parseQuery(query);
+        this.transformQueryToFilters(parsedQuery);
+      }
 
-        get compositeAttributeModelGetLiq() {
-          this._compositeAttributeModelGetLiq = this._compositeAttributeModelGetLiq || this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
-          return this._compositeAttributeModelGetLiq;
-        },
+      parseQuery(query) {
+        this.set("query", query);
+        var parsedQuery = queryParser.parse(query);
+        return parsedQuery;
+      }
 
-        parseQueryToFilters: function (query) {
-          var parsedQuery = this.parseQuery(query);
-          this.transformQueryToFilters(parsedQuery);
-        },
+      transformQueryToFilters(queryObject) {
+        var clonedContextData = DataHelper.cloneObject(this.contextData);
+        var itemContexts = [];
+        var itemContext = {};
 
-        parseQuery: function (query) {
-          this.set("query", query);
-          var parsedQuery = queryParser.parse(query);
-          return parsedQuery;
-        },
+        var entityTypes = queryObject.entityData && queryObject.entityData.types ? queryObject.entityData.types : [];
+        this.searchFilters["typesCriterion"] = entityTypes;
 
-        transformQueryToFilters: function (queryObject) {
-          var clonedContextData = DataHelper.cloneObject(this.contextData);
-          var itemContexts = [];
-          var itemContext = {};
+        var searchQuery = queryObject.searchQuery ? queryObject.searchQuery : undefined;
+        this.searchFilters["searchQuery"] = searchQuery;
 
-          var entityTypes = queryObject.entityData && queryObject.entityData.types ? queryObject.entityData.types : [];
-          this.searchFilters["typesCriterion"] = entityTypes;
+        var workflowCriterion = queryObject.workflowCriterion ? queryObject.workflowCriterion : undefined;
+        this.searchFilters["workflowCriterion"] = workflowCriterion;
 
-          var searchQuery = queryObject.searchQuery ? queryObject.searchQuery : undefined;
-          this.searchFilters["searchQuery"] = searchQuery;
+        var attributeNames = queryObject.entityData && queryObject.entityData.attributes ? this._getAttributeNames(
+          queryObject.entityData.attributes) : ["_ALL"];
+        itemContext.attributeNames = attributeNames;
+        this._entityAttributes = queryObject.entityData && queryObject.entityData.attributes ? queryObject.entityData
+          .attributes : undefined;
 
-          var workflowCriterion = queryObject.workflowCriterion ? queryObject.workflowCriterion : undefined;
-          this.searchFilters["workflowCriterion"] = workflowCriterion;
+        var relationshipName = queryObject.entityRelationships && queryObject.entityRelationships.relationshipName ?
+          queryObject.entityRelationships.relationshipName : undefined;
+        this.searchFilters["relationshipName"] = relationshipName;
+        if (relationshipName) {
+          if (relationshipName.indexOf("!%&") > -1) {
+            relationshipName = relationshipName.replace(/!%&/g, "");
+          }
+          itemContext.relationships = [relationshipName];
+          this._relationshipAttributes = queryObject.entityRelationships && queryObject.entityRelationships.attributes ?
+            queryObject.entityRelationships.attributes : undefined;
+          var relationshipAttributes = this._relationshipAttributes ? this._getAttributeNames(this._relationshipAttributes) :
+            ["_ALL"];
+          itemContext.relationshipAttributes = relationshipAttributes;
 
-          var attributeNames = queryObject.entityData && queryObject.entityData.attributes ? this._getAttributeNames(queryObject.entityData.attributes) : ["_ALL"];
-          itemContext.attributeNames = attributeNames;
-          this._entityAttributes = queryObject.entityData && queryObject.entityData.attributes ? queryObject.entityData.attributes : undefined;
+          this._relatedEntityAttributes = undefined;
+          this._relToEntityTypes = [];
+          if (queryObject.entityRelationships && queryObject.entityRelationships.relatedEntityData) {
+            this._relatedEntityAttributes = queryObject.entityRelationships.relatedEntityData.attributes ?
+              queryObject.entityRelationships.relatedEntityData.attributes : undefined;
+            var relEntityAttributes = this._relatedEntityAttributes ? this._getAttributeNames(this._relatedEntityAttributes) :
+              undefined;
 
-          var relationshipName = queryObject.entityRelationships && queryObject.entityRelationships.relationshipName ? queryObject.entityRelationships.relationshipName : undefined;
-          this.searchFilters["relationshipName"] = relationshipName;
-          if (relationshipName) {
-            if(relationshipName.indexOf("!%&") >  -1){
-              relationshipName = relationshipName.replace( /!%&/g, "" );
+            if (relEntityAttributes) {
+              itemContext.attributeNames = itemContext.attributeNames.concat(relEntityAttributes);
             }
-            itemContext.relationships = [relationshipName];
-            this._relationshipAttributes = queryObject.entityRelationships && queryObject.entityRelationships.attributes ? queryObject.entityRelationships.attributes : undefined;
-            var relationshipAttributes = this._relationshipAttributes ? this._getAttributeNames(this._relationshipAttributes) : ["_ALL"];
-            itemContext.relationshipAttributes = relationshipAttributes;
 
-            this._relatedEntityAttributes = undefined;
-            this._relToEntityTypes = [];
-            if(queryObject.entityRelationships && queryObject.entityRelationships.relatedEntityData) {
-              this._relatedEntityAttributes = queryObject.entityRelationships.relatedEntityData.attributes ? queryObject.entityRelationships.relatedEntityData.attributes : undefined;
-              var relEntityAttributes = this._relatedEntityAttributes ? this._getAttributeNames(this._relatedEntityAttributes) : undefined;
+            this._relToEntityTypes = queryObject.entityRelationships.relatedEntityData.types || [];
+            entityTypes = entityTypes.concat(this._relToEntityTypes);
+          }
+        }
 
-              if(relEntityAttributes) {
-                itemContext.attributeNames = itemContext.attributeNames.concat(relEntityAttributes);
-              }
+        if (entityTypes && entityTypes.length > 0) {
+          this._currentIndex = entityTypes.length;
+          this._currentItems = [];
+          for (var i = 0; i < entityTypes.length; i++) {
+            var entityType = entityTypes[i];
 
-              this._relToEntityTypes = queryObject.entityRelationships.relatedEntityData.types || [];
-              entityTypes = entityTypes.concat(this._relToEntityTypes);
+            itemContext.type = entityType;
+
+            itemContexts.push(itemContext);
+            clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
+
+            var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(clonedContextData);
+
+            if (this.compositeAttributeModelGetLiq && compositeModelGetRequest) {
+              this.compositeAttributeModelGetLiq.requestData = compositeModelGetRequest;
+              this.compositeAttributeModelGetLiq.generateRequest();
             }
           }
+        }
+      }
 
-          if (entityTypes && entityTypes.length > 0) {
-            this._currentIndex = entityTypes.length;
+      _onCompositeModelGetResponse(e) {
+        if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
+          var attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[
+            0], this.contextData);
+
+          var entityType = e.detail.response.content.entityModels[0] ? e.detail.response.content.entityModels[0].name :
+            undefined;
+
+          if (entityType) {
+            this._relationshipModels = this._relationshipModels || {};
+            this._relationshipModels[entityType] = DataTransformHelper.transformRelationshipModels(e.detail.response
+              .content.entityModels[0], this.contextData);
+          }
+
+          if (this._currentIndex == 1) {
             this._currentItems = [];
-            for (var i = 0; i < entityTypes.length; i++) {
-              var entityType = entityTypes[i];
-
-              itemContext.type = entityType;
-
-              itemContexts.push(itemContext);
-              clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
-
-              var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(clonedContextData);
-
-              if (this.compositeAttributeModelGetLiq && compositeModelGetRequest) {
-                this.compositeAttributeModelGetLiq.requestData = compositeModelGetRequest;
-                this.compositeAttributeModelGetLiq.generateRequest();
-              }
-            }
           }
-        },
+          this.push('_currentItems', attributeModels);
 
-        _onCompositeModelGetResponse: function (e) {
-          if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
-            var attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], this.contextData);
-
-            var entityType = e.detail.response.content.entityModels[0] ? e.detail.response.content.entityModels[0].name : undefined;
-
-            if(entityType) {
-              this._relationshipModels = this._relationshipModels || {};
-              this._relationshipModels[entityType] = DataTransformHelper.transformRelationshipModels(e.detail.response.content.entityModels[0], this.contextData);
-            }
-
-            if (this._currentIndex == 1) {
-              this._currentItems = [];
-            }
-            this.push('_currentItems', attributeModels);
-
-            if (this._currentItems.length == this._currentIndex) {
-              var compositeModelsWithNestedAttrs = [];
-              for (var i = 0; i < this._currentItems.length; i++) {
-                var currentItem = this._currentItems[i];
-                if(currentItem){
-                  var keys = Object.keys(currentItem);
-                  if (keys && keys.length > 0) {
-                    for (var j = 0; j < keys.length; j++) {
-                      var key = keys[j];
-                      if (!(compositeModelsWithNestedAttrs.find(obj => obj.name === key))) {
-                        if (currentItem[key].dataType == "nested") {
-                          var nestedAttributeItems = [];
-                          nestedAttributeItems = DataHelper.getNestedAttributeItems(currentItem[key],true,true);
-                          if(nestedAttributeItems.length > 0){
-                            compositeModelsWithNestedAttrs = compositeModelsWithNestedAttrs.concat(nestedAttributeItems)
-                          }
-                        }else{
-                          compositeModelsWithNestedAttrs.push(currentItem[key]);
+          if (this._currentItems.length == this._currentIndex) {
+            var compositeModelsWithNestedAttrs = [];
+            for (var i = 0; i < this._currentItems.length; i++) {
+              var currentItem = this._currentItems[i];
+              if (currentItem) {
+                var keys = Object.keys(currentItem);
+                if (keys && keys.length > 0) {
+                  for (var j = 0; j < keys.length; j++) {
+                    var key = keys[j];
+                    if (!(compositeModelsWithNestedAttrs.find(obj => obj.name === key))) {
+                      if (currentItem[key].dataType == "nested") {
+                        var nestedAttributeItems = [];
+                        nestedAttributeItems = DataHelper.getNestedAttributeItems(currentItem[key], true, true);
+                        if (nestedAttributeItems.length > 0) {
+                          compositeModelsWithNestedAttrs = compositeModelsWithNestedAttrs.concat(
+                            nestedAttributeItems)
                         }
+                      } else {
+                        compositeModelsWithNestedAttrs.push(currentItem[key]);
                       }
                     }
                   }
                 }
               }
-              //Delete the model only if source and destination type is not equal. Done for supporting
-              //relationship from and to the same entity type.
-              var relationshipName = this.searchFilters.relationshipName;
-              if(relationshipName && !_.isEmpty(this._relToEntityTypes)){
-                var relModel = this._relationshipModels[this._relToEntityTypes[0]][relationshipName].find( (relModel)=> { return relModel.id === this.relationshipName; });
-                if(relModel == undefined){
+            }
+            //Delete the model only if source and destination type is not equal. Done for supporting
+            //relationship from and to the same entity type.
+            var relationshipName = this.searchFilters.relationshipName;
+            if (relationshipName && !_.isEmpty(this._relToEntityTypes)) {
+              var relModel = this._relationshipModels[this._relToEntityTypes[0]][relationshipName].find((relModel) => {
+                return relModel.id === this.relationshipName;
+              });
+              if (relModel == undefined) {
+                delete this._relationshipModels[this._relToEntityTypes[0]];
+              } else {
+                if (DataHelper.isValidObjectPath(relModel, 'properties.relatedEntityInfo.0.relEntityType') &&
+                  relModel.properties.relatedEntityInfo[0].relEntityType != this._relToEntityTypes[0]) {
                   delete this._relationshipModels[this._relToEntityTypes[0]];
                 }
-                else{
-                  if (DataHelper.isValidObjectPath(relModel, 'properties.relatedEntityInfo.0.relEntityType') && 
-                        relModel.properties.relatedEntityInfo[0].relEntityType != this._relToEntityTypes[0]) {
-                    delete this._relationshipModels[this._relToEntityTypes[0]];
-                  }
-                }
               }
-              var attrsCriterion = this._prepareAttrsCriterion(compositeModelsWithNestedAttrs, this._entityAttributes);
-              var relationshipsCriterion = this._prepareRelationshipsCriterion(this._relationshipModels, this._relationshipAttributes, this._relatedEntityAttributes, this._relToEntityTypes, compositeModelsWithNestedAttrs);
-              this.searchFilters[this.filterCriterionKey] = !_.isEmpty(attrsCriterion) ? attrsCriterion : undefined;
-              this.searchFilters["relationshipsCriterion"] = !_.isEmpty(relationshipsCriterion) ? [relationshipsCriterion] : undefined;
-              this.searchFilters["compositeModels"] = compositeModelsWithNestedAttrs;
-              this.searchFilters["relationshipModels"] = this._mergeRelationships(this._relationshipModels);
-              this.fireBedrockEvent('on-search-filters', this.searchFilters);
             }
+            var attrsCriterion = this._prepareAttrsCriterion(compositeModelsWithNestedAttrs, this._entityAttributes);
+            var relationshipsCriterion = this._prepareRelationshipsCriterion(this._relationshipModels, this._relationshipAttributes,
+              this._relatedEntityAttributes, this._relToEntityTypes, compositeModelsWithNestedAttrs);
+            this.searchFilters[this.filterCriterionKey] = !_.isEmpty(attrsCriterion) ? attrsCriterion : undefined;
+            this.searchFilters["relationshipsCriterion"] = !_.isEmpty(relationshipsCriterion) ? [
+              relationshipsCriterion
+            ] : undefined;
+            this.searchFilters["compositeModels"] = compositeModelsWithNestedAttrs;
+            this.searchFilters["relationshipModels"] = this._mergeRelationships(this._relationshipModels);
+            this.fireBedrockEvent('on-search-filters', this.searchFilters);
           }
-        },
+        }
+      }
 
-        _prepareAttrsCriterion: function (attributeModels, attributes) {
-          if (attributes && attributes.length > 0) {
-            var prefix = /^\*/i;
-            var suffix = /^.+\*$/gm;
-            var selectedContext = ContextHelper.getDataContexts(this.contextData);
-            for (var i = 0; i < attributes.length; i++) {
-              var attribute = attributes[i];
-              for (var attrName in attribute) {
-                var attrModel = attributeModels.find(obj => obj.name === attrName);
-                if (attrModel) {
-                  var attrVal = attribute[attrName];
-                  var displayType = attrModel.displayType.toLowerCase();
-                  var dataType = ConstantHelper.getDataTypeConstant(attrModel.dataType.toLowerCase());
-                  if (dataType === "_DECIMAL" || dataType === "_INTEGER") {
-                    displayType = "numeric";
-                  }
-                  var keys = Object.keys(attrVal);
-                  if (keys && keys.length > 0) {
-                    for (var j = 0; j < keys.length; j++) {
-                      var key = keys[j];
-                      var val = attrVal[key];
-                      var isPrefixed = prefix.test(val);
-                      var isSuffixed = suffix.test(val);
-                      var isPartialSearch = false;
-                      if(isPrefixed || isSuffixed) {
-                        isPartialSearch = true;
-                      }
+      _prepareAttrsCriterion(attributeModels, attributes) {
+        if (attributes && attributes.length > 0) {
+          var prefix = /^\*/i;
+          var suffix = /^.+\*$/gm;
+          var selectedContext = ContextHelper.getDataContexts(this.contextData);
+          for (var i = 0; i < attributes.length; i++) {
+            var attribute = attributes[i];
+            for (var attrName in attribute) {
+              var attrModel = attributeModels.find(obj => obj.name === attrName);
+              if (attrModel) {
+                var attrVal = attribute[attrName];
+                var displayType = attrModel.displayType.toLowerCase();
+                var dataType = ConstantHelper.getDataTypeConstant(attrModel.dataType.toLowerCase());
+                if (dataType === "_DECIMAL" || dataType === "_INTEGER") {
+                  displayType = "numeric";
+                }
+                var keys = Object.keys(attrVal);
+                if (keys && keys.length > 0) {
+                  for (var j = 0; j < keys.length; j++) {
+                    var key = keys[j];
+                    var val = attrVal[key];
+                    var isPrefixed = prefix.test(val);
+                    var isSuffixed = suffix.test(val);
+                    var isPartialSearch = false;
+                    if (isPrefixed || isSuffixed) {
+                      isPartialSearch = true;
+                    }
 
-                      var operator;
-                      var splitQueryByAnd = val.toLowerCase().split(' and ');
-                      var splitQueryByOr = val.toLowerCase().split(' or ');
-                      var containsStr = val;
+                    var operator;
+                    var splitQueryByAnd = val.toLowerCase().split(' and ');
+                    var splitQueryByOr = val.toLowerCase().split(' or ');
+                    var containsStr = val;
 
-                      if (splitQueryByAnd.length > 1) {
-                        operator = "_AND";
-                        containsStr = splitQueryByAnd;
-                      } else if (splitQueryByOr.length > 1) {
-                        operator = "_OR";
-                        containsStr = splitQueryByOr;
-                      }
+                    if (splitQueryByAnd.length > 1) {
+                      operator = "_AND";
+                      containsStr = splitQueryByAnd;
+                    } else if (splitQueryByOr.length > 1) {
+                      operator = "_OR";
+                      containsStr = splitQueryByOr;
+                    }
 
-                      if (containsStr instanceof Array) {
-                        containsStr = containsStr.join(' ');
-                      }
+                    if (containsStr instanceof Array) {
+                      containsStr = containsStr.join(' ');
+                    }
 
-                      if(isPartialSearch) {
-                        attrVal["contains"] = containsStr;
-                        if(operator) attrVal["operator"] = operator;
+                    if (isPartialSearch) {
+                      attrVal["contains"] = containsStr;
+                      if (operator) attrVal["operator"] = operator;
+                      delete attrVal[key];
+                    } else {
+                      if (val.indexOf("!%&") > -1) {
+                        attrVal["hasvalue"] = val == "!%&has value!%&" ? true : false;
                         delete attrVal[key];
-                      } else {
-                        if(val.indexOf("!%&") > -1){
-                          attrVal["hasvalue"] = val == "!%&has value!%&" ? true : false;
-                          delete attrVal[key];
-                        }else if (displayType === "referencelist" || displayType === "textbox"){
-                          if(key === "equals") {
-                            var valSplitByOr = val.split(' or ');
-                            var valSplitByAnd = val.split(' and ');
+                      } else if (displayType === "referencelist" || displayType === "textbox") {
+                        if (key === "equals") {
+                          var valSplitByOr = val.split(' or ');
+                          var valSplitByAnd = val.split(' and ');
 
-                            if(valSplitByAnd.length > 1) {
-                              attrVal["exacts"] = valSplitByAnd;
-                              attrVal["operator"] = "_AND"
-                            } else if(valSplitByOr.length > 1) {
-                              attrVal["exacts"] = valSplitByOr;
-                              attrVal["operator"] = "_OR"
-                            } else {
-                              attrVal["exact"] = containsStr;
-                            }
-                            delete attrVal[key];
-                          }
-                        }else if (displayType === "numeric") {
-                          if(key === "equals") {
-                            var valSplitByOr = val.split(' or ');
-                            var valSplitByAnd = val.split(' and ');
-
-                            if(valSplitByAnd.length > 1) {
-                              attrVal["eq"] = valSplitByAnd;
-                              attrVal["operator"] = "_AND"
-                            } else if(valSplitByOr.length > 1) {
-                              attrVal["eq"] = valSplitByOr;
-                              attrVal["operator"] = "_OR"
-                            } else {
-                              attrVal["eq"] = containsStr;
-                            }
-                            delete attrVal[key];
-                          }
-                        } else if (displayType === "boolean") {
-                          attrVal["eq"] = containsStr;
-                          delete attrVal[key];
-                        } else if (displayType === "richtexteditor") {
-                          attrVal["contains"] = containsStr;
-                          attrVal["operator"] = operator;
-                          delete attrVal[key];
-                        } else if (displayType === "datetime") {
-                          if(key === "gte") {
-                            attrVal[key] = moment(attrVal[key]).startOf("day").format(FormatHelper.getISODateTimeFormat());
-                          } else if(key === "lte") {
-                            attrVal[key] = moment(attrVal[key]).endOf("day").format(FormatHelper.getISODateTimeFormat());
-                          } else if(key === "equals") {
-                            attrVal["gte"] = moment(attrVal[key]).startOf("day").format(FormatHelper.getISODateTimeFormat());
-                            attrVal["lte"] = moment(attrVal[key]).endOf("day").format(FormatHelper.getISODateTimeFormat());
-                            delete attrVal[key];
-                          }
-                        } else if(displayType === "date") {
-                            var isoFormatDate = moment(attrVal[key], "MM/DD/YYYY", true).format("YYYY-MM-DD");
-                            if (key === "equals") {
-                              attrVal["gte"] = isoFormatDate;
-                              attrVal["lte"] = isoFormatDate;
-                              delete attrVal[key];
-                            } else {
-                              attrVal[key] = isoFormatDate;
-                            }
-                        } else {
-                          if (operator) {
-                            attrVal["contains"] = containsStr;
-                            attrVal["operator"] = operator;
+                          if (valSplitByAnd.length > 1) {
+                            attrVal["exacts"] = valSplitByAnd;
+                            attrVal["operator"] = "_AND"
+                          } else if (valSplitByOr.length > 1) {
+                            attrVal["exacts"] = valSplitByOr;
+                            attrVal["operator"] = "_OR"
                           } else {
                             attrVal["exact"] = containsStr;
                           }
                           delete attrVal[key];
                         }
-                      }
-                    }
-                    attrVal["type"] = isPartialSearch ? "_STRING" : dataType;
-                    var defaultValCtx = DataHelper.getDefaultValContext();
-                    if(!attrModel.isLocalizable) {
-                      attrVal["valueContexts"] = [ defaultValCtx ];
-                    }
-                  }
-                } else {
-                  //TODO: Need to change. 
-                  // Temperory fix. When search filters have context specific attribute and context is removed/changed
-                  // from dimension selector, we don't get model for that attribute.
-                  // request attributes criterion will go with empty object for this attribute, request throws error.
-                  // To handle this, when attribute model not found, sending it as contains search for that attribute
-                  var attrVal = attribute[attrName];
-                  if(attrVal["equals"]) {
-                    attrVal["contains"] = attrVal["equals"];
-                    attrVal["type"] = "_STRING";
-                    delete attrVal["equals"];
-                  }
-                }
-                if (attrName.indexOf(".") > -1) {
-                  var attrLevels = attrName.split(".");
-                  var nestedAttributeObj = {};
-                  if (attrLevels.length > 0) {
-                    for (var j = attrLevels.length; j > 0; j--) {
-                      var keyIndex = j - 1;
-                      var _currentLevel = attrLevels[keyIndex];
-                      if (_.isEmpty(nestedAttributeObj)) {
-                        var attrData = attrVal["contains"];
-                        if(attrData && (attrData.indexOf("!%&") > -1)){
-                          attrVal = {};
-                          attrVal["hasvalue"] = attrData == "!%&has value!%&" ? true : false;
+                      } else if (displayType === "numeric") {
+                        if (key === "equals") {
+                          var valSplitByOr = val.split(' or ');
+                          var valSplitByAnd = val.split(' and ');
+
+                          if (valSplitByAnd.length > 1) {
+                            attrVal["eq"] = valSplitByAnd;
+                            attrVal["operator"] = "_AND"
+                          } else if (valSplitByOr.length > 1) {
+                            attrVal["eq"] = valSplitByOr;
+                            attrVal["operator"] = "_OR"
+                          } else {
+                            attrVal["eq"] = containsStr;
+                          }
+                          delete attrVal[key];
                         }
-                        nestedAttributeObj[_currentLevel] = attrVal;
+                      } else if (displayType === "boolean") {
+                        attrVal["eq"] = containsStr;
+                        delete attrVal[key];
+                      } else if (displayType === "richtexteditor") {
+                        attrVal["contains"] = containsStr;
+                        attrVal["operator"] = operator;
+                        delete attrVal[key];
+                      } else if (displayType === "datetime") {
+                        if (key === "gte") {
+                          attrVal[key] = moment(attrVal[key]).startOf("day").format(FormatHelper.getISODateTimeFormat());
+                        } else if (key === "lte") {
+                          attrVal[key] = moment(attrVal[key]).endOf("day").format(FormatHelper.getISODateTimeFormat());
+                        } else if (key === "equals") {
+                          attrVal["gte"] = moment(attrVal[key]).startOf("day").format(FormatHelper.getISODateTimeFormat());
+                          attrVal["lte"] = moment(attrVal[key]).endOf("day").format(FormatHelper.getISODateTimeFormat());
+                          delete attrVal[key];
+                        }
+                      } else if (displayType === "date") {
+                        var isoFormatDate = moment(attrVal[key], "MM/DD/YYYY", true).format("YYYY-MM-DD");
+                        if (key === "equals") {
+                          attrVal["gte"] = isoFormatDate;
+                          attrVal["lte"] = isoFormatDate;
+                          delete attrVal[key];
+                        } else {
+                          attrVal[key] = isoFormatDate;
+                        }
                       } else {
-                        nestedAttributeObj = { "attributes": [nestedAttributeObj] };
-                        var clonedNestedAttribute = DataHelper.cloneObject(nestedAttributeObj);
-                        nestedAttributeObj[_currentLevel] = clonedNestedAttribute;
-                        if (nestedAttributeObj["attributes"] != undefined) {
-                          delete nestedAttributeObj["attributes"];
+                        if (operator) {
+                          attrVal["contains"] = containsStr;
+                          attrVal["operator"] = operator;
+                        } else {
+                          attrVal["exact"] = containsStr;
                         }
+                        delete attrVal[key];
                       }
                     }
-                    attribute = nestedAttributeObj;
+                  }
+                  attrVal["type"] = isPartialSearch ? "_STRING" : dataType;
+                  var defaultValCtx = DataHelper.getDefaultValContext();
+                  if (!attrModel.isLocalizable) {
+                    attrVal["valueContexts"] = [defaultValCtx];
                   }
                 }
-
-                attributes[i] = attribute;
-              }
-            }
-          }
-          return attributes;
-        },
-
-        _prepareRelationshipsCriterion: function (relationshipModels, relationshipAttributes, relatedEntityAttributes, relToEntityTypes, compositeModels) {
-          var relType = this.searchFilters["relationshipName"];
-          var relationshipsCriterion = {};
-          if (relType) {
-            var rel;
-            if(relType.indexOf("!%&") > -1){
-              var isNoRelationshipSearchRequest = true;
-              relType = relType.replace( /!%&/g, "" );
-            }
-            if(!_.isEmpty(relationshipModels)) {
-              for(var entityType in relationshipModels) {
-                if(relationshipModels[entityType] && relationshipModels[entityType][relType] && relationshipModels[entityType][relType].length > 0) {
-                  
-                  rel = relationshipModels[entityType][relType].find( (relModel)=> { return relModel.id === this.relationshipName; });
-                }
-              }
-            }
-            relationshipsCriterion[relType] = relationshipsCriterion[relType] || {};
-            var relOwnership = rel && rel.properties ? rel.properties.relationshipOwnership : undefined;
-            if(!_.isEmpty(relToEntityTypes)) {
-              relationshipsCriterion[relType] = relationshipsCriterion[relType] || {};
-              if(isNoRelationshipSearchRequest){
-                relationshipsCriterion[relType]["hasvalue"] = false;
-              }else{
-                relationshipsCriterion[relType]["relTo"] = {
-                  "type": relToEntityTypes[0]
-                };
-              }
-                
-                relationshipsCriterion[relType]["query"] = {
-                  "filters": {
-                      "typesCriterion": relToEntityTypes
-                    }
-                };
-              
-              if (!_.isEmpty(relatedEntityAttributes)) {
-                var relEntityAttrsCriterion = this._prepareAttrsCriterion(compositeModels, relatedEntityAttributes);
-
-                relationshipsCriterion[relType].query.filters[this.filterCriterionKey] = relEntityAttrsCriterion;
               } else {
-                if(relOwnership !== "whereused") {
-                  delete relationshipsCriterion[relType]["query"];
+                //TODO: Need to change. 
+                // Temperory fix. When search filters have context specific attribute and context is removed/changed
+                // from dimension selector, we don't get model for that attribute.
+                // request attributes criterion will go with empty object for this attribute, request throws error.
+                // To handle this, when attribute model not found, sending it as contains search for that attribute
+                var attrVal = attribute[attrName];
+                if (attrVal["equals"]) {
+                  attrVal["contains"] = attrVal["equals"];
+                  attrVal["type"] = "_STRING";
+                  delete attrVal["equals"];
                 }
               }
-            }
-            if (rel && rel.attributes) {
-              var relData = {};
-              relData.data = {};
-              relData.data.attributes = rel.attributes;
-              var relationshipAttrModels = DataTransformHelper.transformAttributeModels(relData, this.contextData);
-              var keys = Object.keys(relationshipAttrModels);
-              var relationshipAttributeModels = [];
-              if (keys && keys.length > 0) {
-                for (let i = 0; i < keys.length; i++) {
-                  relationshipAttributeModels.push(relationshipAttrModels[keys[i]]);
+              if (attrName.indexOf(".") > -1) {
+                var attrLevels = attrName.split(".");
+                var nestedAttributeObj = {};
+                if (attrLevels.length > 0) {
+                  for (var j = attrLevels.length; j > 0; j--) {
+                    var keyIndex = j - 1;
+                    var _currentLevel = attrLevels[keyIndex];
+                    if (_.isEmpty(nestedAttributeObj)) {
+                      var attrData = attrVal["contains"];
+                      if (attrData && (attrData.indexOf("!%&") > -1)) {
+                        attrVal = {};
+                        attrVal["hasvalue"] = attrData == "!%&has value!%&" ? true : false;
+                      }
+                      nestedAttributeObj[_currentLevel] = attrVal;
+                    } else {
+                      nestedAttributeObj = {
+                        "attributes": [nestedAttributeObj]
+                      };
+                      var clonedNestedAttribute = DataHelper.cloneObject(nestedAttributeObj);
+                      nestedAttributeObj[_currentLevel] = clonedNestedAttribute;
+                      if (nestedAttributeObj["attributes"] != undefined) {
+                        delete nestedAttributeObj["attributes"];
+                      }
+                    }
+                  }
+                  attribute = nestedAttributeObj;
                 }
               }
-              var relationshipAttrsCriterion = this._prepareAttrsCriterion(relationshipAttributeModels, relationshipAttributes);
-              relationshipsCriterion[relType] = relationshipsCriterion[relType] || {};
-              relationshipsCriterion[relType]["attributes"] = relationshipAttrsCriterion;
+
+              attributes[i] = attribute;
             }
           }
-
-          return relationshipsCriterion;
-        },
-
-        _getAttributeNames: function(attributes) {
-          var attributeNames = [];
-          for(let i=0; i<attributes.length; i++) {
-            var attribute = attributes[i];
-            for(var attrName in attribute) {
-              if(attrName.indexOf(".") > -1){
-                attrName = attrName.split(".")[0];
-              }
-              attributeNames.push(attrName);
-            }
-          }
-          return attributeNames;
-        },
-
-        formatValue: function(value) {
-          var valSplitByOr = value.split(' or ');
-          var valSplitByAnd = value.split(' and ');
-
-          var values = valSplitByAnd.length > 1 ? valSplitByAnd : valSplitByOr.length > 1 ? valSplitByOr : [];
-
-          if(!_.isEmpty(values)) {
-            for(let i=0; i<values.length; i++) {
-              values[i] = this._formatValue(values[i]);
-            }
-
-            value = valSplitByAnd.length > 1 ? values.join(' and ') : valSplitByOr.length > 1 ? values.join(' or ') : value;
-          } else {
-            value = this._formatValue(value);
-          }
-
-          return value;
-        },
-
-        _formatValue: function(value) {
-          var prefix = /^\'|"/i;
-          var suffix1 = /^.+\'$/gm;
-          var suffix2 = /^.+\"$/gm;
-
-          if(prefix.test(value)) {
-              value = value.replace(/^.|$/g, '')
-          }
-          if(suffix1.test(value) || suffix2.test(value)) {
-              value = value.replace(/^|.$/g, '')
-          }
-
-          return value;
-        },
-
-        _mergeRelationships: function(relationshipModels) {
-          var mergedRelationships = {};
-          Object.keys(relationshipModels).forEach(function(entityType) {
-            mergedRelationships = DataMergeHelper.mergeRelationships(mergedRelationships, relationshipModels[entityType], true);
-          });
-
-          return mergedRelationships;
         }
-      });
-    })();
+        return attributes;
+      }
+
+      _prepareRelationshipsCriterion(relationshipModels, relationshipAttributes, relatedEntityAttributes,
+        relToEntityTypes, compositeModels) {
+        var relType = this.searchFilters["relationshipName"];
+        var relationshipsCriterion = {};
+        if (relType) {
+          var rel;
+          if (relType.indexOf("!%&") > -1) {
+            var isNoRelationshipSearchRequest = true;
+            relType = relType.replace(/!%&/g, "");
+          }
+          if (!_.isEmpty(relationshipModels)) {
+            for (var entityType in relationshipModels) {
+              if (relationshipModels[entityType] && relationshipModels[entityType][relType] && relationshipModels[
+                  entityType][relType].length > 0) {
+
+                rel = relationshipModels[entityType][relType].find((relModel) => {
+                  return relModel.id === this.relationshipName;
+                });
+              }
+            }
+          }
+          relationshipsCriterion[relType] = relationshipsCriterion[relType] || {};
+          var relOwnership = rel && rel.properties ? rel.properties.relationshipOwnership : undefined;
+          if (!_.isEmpty(relToEntityTypes)) {
+            relationshipsCriterion[relType] = relationshipsCriterion[relType] || {};
+            if (isNoRelationshipSearchRequest) {
+              relationshipsCriterion[relType]["hasvalue"] = false;
+            } else {
+              relationshipsCriterion[relType]["relTo"] = {
+                "type": relToEntityTypes[0]
+              };
+            }
+
+            relationshipsCriterion[relType]["query"] = {
+              "filters": {
+                "typesCriterion": relToEntityTypes
+              }
+            };
+
+            if (!_.isEmpty(relatedEntityAttributes)) {
+              var relEntityAttrsCriterion = this._prepareAttrsCriterion(compositeModels, relatedEntityAttributes);
+
+              relationshipsCriterion[relType].query.filters[this.filterCriterionKey] = relEntityAttrsCriterion;
+            } else {
+              if (relOwnership !== "whereused") {
+                delete relationshipsCriterion[relType]["query"];
+              }
+            }
+          }
+          if (rel && rel.attributes) {
+            var relData = {};
+            relData.data = {};
+            relData.data.attributes = rel.attributes;
+            var relationshipAttrModels = DataTransformHelper.transformAttributeModels(relData, this.contextData);
+            var keys = Object.keys(relationshipAttrModels);
+            var relationshipAttributeModels = [];
+            if (keys && keys.length > 0) {
+              for (let i = 0; i < keys.length; i++) {
+                relationshipAttributeModels.push(relationshipAttrModels[keys[i]]);
+              }
+            }
+            var relationshipAttrsCriterion = this._prepareAttrsCriterion(relationshipAttributeModels,
+              relationshipAttributes);
+            relationshipsCriterion[relType] = relationshipsCriterion[relType] || {};
+            relationshipsCriterion[relType]["attributes"] = relationshipAttrsCriterion;
+          }
+        }
+
+        return relationshipsCriterion;
+      }
+
+      _getAttributeNames(attributes) {
+        var attributeNames = [];
+        for (let i = 0; i < attributes.length; i++) {
+          var attribute = attributes[i];
+          for (var attrName in attribute) {
+            if (attrName.indexOf(".") > -1) {
+              attrName = attrName.split(".")[0];
+            }
+            attributeNames.push(attrName);
+          }
+        }
+        return attributeNames;
+      }
+
+      formatValue(value) {
+        var valSplitByOr = value.split(' or ');
+        var valSplitByAnd = value.split(' and ');
+
+        var values = valSplitByAnd.length > 1 ? valSplitByAnd : valSplitByOr.length > 1 ? valSplitByOr : [];
+
+        if (!_.isEmpty(values)) {
+          for (let i = 0; i < values.length; i++) {
+            values[i] = this._formatValue(values[i]);
+          }
+
+          value = valSplitByAnd.length > 1 ? values.join(' and ') : valSplitByOr.length > 1 ? values.join(' or ') :
+            value;
+        } else {
+          value = this._formatValue(value);
+        }
+
+        return value;
+      }
+
+      _formatValue(value) {
+        var prefix = /^\'|"/i;
+        var suffix1 = /^.+\'$/gm;
+        var suffix2 = /^.+\"$/gm;
+
+        if (prefix.test(value)) {
+          value = value.replace(/^.|$/g, '')
+        }
+        if (suffix1.test(value) || suffix2.test(value)) {
+          value = value.replace(/^|.$/g, '')
+        }
+
+        return value;
+      }
+
+      _mergeRelationships(relationshipModels) {
+        var mergedRelationships = {};
+        Object.keys(relationshipModels).forEach(function (entityType) {
+          mergedRelationships = DataMergeHelper.mergeRelationships(mergedRelationships, relationshipModels[
+            entityType], true);
+        });
+
+        return mergedRelationships;
+      }
+    }
+    customElements.define(RockSearchQueryParser.is, RockSearchQueryParser);
   </script>
 </dom-module>
