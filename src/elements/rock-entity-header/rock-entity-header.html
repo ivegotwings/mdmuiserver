@@ -1,4 +1,4 @@
-<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/polymer/polymer-element.html">
 <link rel="import" href="../../../bower_components/iron-flex-layout/iron-flex-layout.html">
 <link rel="import" href="../../../bower_components/iron-ajax/iron-ajax.html">
 
@@ -349,499 +349,503 @@ performed.
         <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{headerAttributeModelRequest}}" on-entity-model-composite-get-response="_onCompositeModelGetResponse"></liquid-entity-model-composite-get>
     </template>
     <script>
-        Polymer({
-            is: "rock-entity-header",
-            ready: function () {
-                this.logInfo("EntityHeaderReady");
-            },
-            _getDescriptionInfo: function (item) {
-                return this._headerAttributeModels[item.name] && this._headerAttributeModels[item.name].properties || {};
-            },
-            behaviors: [
-                RUFBehaviors.ComponentContextBehavior,
-                RUFBehaviors.UIBehavior,
-                RUFBehaviors.ComponentConfigBehavior
-            ],
-            properties: {
+        class RockEntityHeader
+                extends Polymer.mixinBehaviors([
+                    RUFBehaviors.ComponentContextBehavior,
+                    RUFBehaviors.UIBehavior,
+                    RUFBehaviors.ComponentConfigBehavior
+                ], Polymer.Element) {
+                static get is() { return 'rock-entity-header' }
+
+                static get properties() {
+                    return {
+                        contextData: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            },
+                            observer: '_onContextDataChange'
+                        },
+                        /**
+                         * If set as true , it indicates the component is in read only mode
+                         */
+                        readonly: {
+                            type: Boolean,
+                            value: false
+                        },
+                        /**
+                         * Indicates the attributes that gets displayed in the header section.
+                         */
+                        headerConfig: {
+                            type: Array,
+                            value: []
+                        },
+
+                        /**
+                         * Indicates the data of all missing or invalid fields, errors, and warnings of the loaded entity.
+                         */
+                        toFixData: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        /**
+                         * Indicates the request object that is passed to the data element to retrieve the attribute data.
+                         Sample: {
+                                    action: "getAttributes"
+                                    }
+                         */
+                        headerAttributeRequest: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        /**
+                         * Indicates the request object that is passed to the data element to retrieve the attribute model data.
+                         Sample: {
+                                    action: "getAttributeModels"
+                                    }
+                         */
+                        headerAttributeModelRequest: {
+                            type: Object,
+                            value: function () {
+                                return {
+                                };
+                            }
+                        },
+                        _headerAttributeValues: {
+                            type: Array,
+                            value: function () {
+                                return [];
+                            }
+                        },
+                        _headerAttributeModels: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        /**
+                         * Specifies whether or not to write the logs.
+                         */
+                        verbose: {
+                            type: Boolean,
+                            value: false
+                        },
+                        _entityAttributes: {
+                            type: Array,
+                            value: function () {
+                                return [];
+                            }
+                        },
+                        _referenceAttributeModels: {
+                            type: Array,
+                            value: function () {
+                                return [];
+                            }
+                        },
+                        _messageAttribute: {
+                            type: String,
+                            value: null
+                        },
+                        _messageAttributeValue: {
+                            type: String,
+                            value: null
+                        },
+                        collapse: {
+                            type: Boolean,
+                            value: false
+                        },
+                        collapsable: {
+                            type: Boolean,
+                            value: false
+                        },
+                        workflowInfo: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        dataIndex: {
+                            type: String,
+                            value: "entityData"
+                        },
+                        dataSubIndex: {
+                            type: String,
+                            value: "data"
+                        },
+                        writePermission: {
+                            type: Boolean,
+                            value: false
+                        }
+                    }
+                }
+                static get observers() {
+                    return [
+                        '_setHeaderValuesAsPerConfig(_headerAttributeValues)'
+                    ]
+                }
+                ready() {
+                    super.ready();
+                    this.logInfo("EntityHeaderReady");
+                }
+                _getDescriptionInfo(item) {
+                    return this._headerAttributeModels[item.name] && this._headerAttributeModels[item.name].properties || {};
+                }
+
+
+                _onContextDataChange() {
+                    if (!_.isEmpty(this.contextData)) {
+                        var context = DataHelper.cloneObject(this.contextData);
+                        this._setWritePermission();
+                        //App specific
+                        var appName = ComponentHelper.getCurrentActiveAppName();
+                        if (appName) {
+                            context[ContextHelper.CONTEXT_TYPE_APP] = [{
+                                "app": appName
+                            }];
+                        }
+
+                        this.requestConfig('rock-entity-header', context);
+                    }
+                }
+
+                onConfigLoaded(componentConfig) {
+                    if (componentConfig && componentConfig.config) {
+                        this.headerConfig = DataHelper.convertObjectToArray(componentConfig.config.headerConfig);
+                        this.thumbnailConfig = componentConfig.config.thumbnailConfig;
+                        this.businessActionsConfig = componentConfig.config.businessActionsConfig;
+                        //Set the data-index and data-sub-index for liquid-entity-model-get call using liquid-entity-data-get                   
+                        if (componentConfig.config["dataIndex"] && componentConfig.config["dataSubIndex"]) {
+                            this.dataIndex = componentConfig.config["dataIndex"];
+                            this.dataSubIndex = componentConfig.config["dataSubIndex"];
+                            this.refresh(true);
+                        }
+                    }
+                }
+
+                _setHeaderValuesAsPerConfig() {
+                    if (this._headerAttributeValues && this._headerAttributeValues.length > 0 && this._messageAttribute) {
+                        for (var i = 0; i < this._headerAttributeValues.length; i++) {
+                            if (this._headerAttributeValues[i].name == this._messageAttribute) {
+                                var configItem = this._getConfigItem(this.headerConfig, this._headerAttributeValues[i].name);
+                                this._messageAttributeValue = this._headerAttributeValues[i].value;
+
+                                //Remove if attribute not for header
+                                if (!configItem) {
+                                    this._headerAttributeValues.splice(i, 1);
+                                }
+
+                                break;
+                            }
+                        }
+                    }
+                }
+                _getCollapseClass() {
+                    if (this.collapsable && this.collapse) {
+                        return "header-collapse";
+                    } else {
+                        return "";
+                    }
+                }
+                _toggleCollapse() {
+                    var headerSection = this.shadowRoot.querySelector('#headerSection');
+                    var mainApp = RUFUtilities.mainApp;
+                    let windowInnerHeight;
+                    if (headerSection.classList.contains('header-collapse')) {
+                        headerSection.classList.remove('header-collapse');
+                        if (!(window.navigator.userAgent.indexOf("Edge") > -1)) {
+                            windowInnerHeight = window.innerHeight;
+                            mainApp.updateStyles({
+                                '--window-inner-height': windowInnerHeight + 'px'
+                            });
+                        }
+                    } else {
+                        headerSection.classList.add('header-collapse');
+                        if (!(window.navigator.userAgent.indexOf("Edge") > -1)) {
+                            windowInnerHeight = window.innerHeight + 61;
+                            mainApp.updateStyles({
+                                '--window-inner-height': windowInnerHeight + 'px'
+                            });
+                        }
+                    }
+                }
                 /**
                  * <b><i>Content development is under progress... </b></i>
                  */
-                contextData: {
-                    type: Object,
-                    value: function () {
-                        return {};
-                    },
-                    observer: '_onContextDataChange'
-                },
-                /**
-                 * If set as true , it indicates the component is in read only mode
-                 */
-                readonly: {
-                    type: Boolean,
-                    value: false
-                },
-                /**
-                 * Indicates the attributes that gets displayed in the header section.
-                 */
-                headerConfig: {
-                    type: Array,
-                    value: []
-                },
+                refresh(invalidateEntityCache = true) {
 
-                /**
-                 * Indicates the data of all missing or invalid fields, errors, and warnings of the loaded entity.
-                 */
-                toFixData: {
-                    type: Object,
-                    value: function () {
-                        return {};
-                    }
-                },
-                /**
-                 * Indicates the request object that is passed to the data element to retrieve the attribute data.
-                 Sample: {
-                            action: "getAttributes"
-                            }
-                 */
-                headerAttributeRequest: {
-                    type: Object,
-                    value: function () {
-                        return {};
-                    }
-                },
-                /**
-                 * Indicates the request object that is passed to the data element to retrieve the attribute model data.
-                 Sample: {
-                            action: "getAttributeModels"
-                            }
-                 */
-                headerAttributeModelRequest: {
-                    type: Object,
-                    value: function () {
-                        return {
-                        };
-                    }
-                },
-                _headerAttributeValues: {
-                    type: Array,
-                    value: function () {
-                        return [];
-                    }
-                },
-                _headerAttributeModels: {
-                    type: Object,
-                    value: function () {
-                        return {};
-                    }
-                },
-                /**
-                 * Specifies whether or not to write the logs.
-                 */
-                verbose: {
-                    type: Boolean,
-                    value: false
-                },
-                _entityAttributes: {
-                    type: Array,
-                    value: function () {
-                        return [];
-                    }
-                },
-                _referenceAttributeModels: {
-                    type: Array,
-                    value: function () {
-                        return [];
-                    }
-                },
-                _messageAttribute: {
-                    type: String,
-                    value: null
-                },
-                _messageAttributeValue: {
-                    type: String,
-                    value: null
-                },
-                collapse: {
-                    type: Boolean,
-                    value: false
-                },
-                collapsable: {
-                    type: Boolean,
-                    value: false
-                },
-                workflowInfo: {
-                    type: Object,
-                    value: function () {
-                        return {};
-                    }
-                },
-                dataIndex: {
-                    type: String,
-                    value: "entityData"
-                },
-                dataSubIndex: {
-                    type: String,
-                    value: "data"
-                },
-                writePermission: {
-                    type: Boolean,
-                    value: false
-                }
-            },
-            observers: [
-                '_setHeaderValuesAsPerConfig(_headerAttributeValues)'
-            ],
-
-            _onContextDataChange: function () {
-                if (!_.isEmpty(this.contextData)) {
-                    var context = DataHelper.cloneObject(this.contextData);
-                    this._setWritePermission();
-                    //App specific
-                    var appName = ComponentHelper.getCurrentActiveAppName();
-                    if (appName) {
-                        context[ContextHelper.CONTEXT_TYPE_APP] = [{
-                            "app": appName
-                        }];
+                    if (invalidateEntityCache) {
+                        //Invalidate entity cache
+                        var entity = this._getEntityObject();
+                        LiquidDataObjectUtils.invalidateDataObjectCache(entity, this.dataIndex);
                     }
 
-                    this.requestConfig('rock-entity-header', context);
-                }
-            },
+                    let dataContext = ContextHelper.getFirstDataContext(this.contextData);
+                    let valueContext = ContextHelper.getFirstValueContext(this.contextData);
+                    let itemContext = ContextHelper.getFirstItemContext(this.contextData);
 
-            onConfigLoaded: function (componentConfig) {
-                if (componentConfig && componentConfig.config) {
-                    this.headerConfig = DataHelper.convertObjectToArray(componentConfig.config.headerConfig);
-                    this.thumbnailConfig = componentConfig.config.thumbnailConfig;
-                    this.businessActionsConfig = componentConfig.config.businessActionsConfig;
-                    //Set the data-index and data-sub-index for liquid-entity-model-get call using liquid-entity-data-get                   
-                    if (componentConfig.config["dataIndex"] && componentConfig.config["dataSubIndex"]) {
-                        this.dataIndex = componentConfig.config["dataIndex"];
-                        this.dataSubIndex = componentConfig.config["dataSubIndex"];
-                        this.refresh(true);
-                    }
-                }
-            },
-
-            _setHeaderValuesAsPerConfig: function () {
-                if (this._headerAttributeValues && this._headerAttributeValues.length > 0 && this._messageAttribute) {
-                    for (var i = 0; i < this._headerAttributeValues.length; i++) {
-                        if (this._headerAttributeValues[i].name == this._messageAttribute) {
-                            var configItem = this._getConfigItem(this.headerConfig, this._headerAttributeValues[i].name);
-                            this._messageAttributeValue = this._headerAttributeValues[i].value;
-
-                            //Remove if attribute not for header
-                            if (!configItem) {
-                                this._headerAttributeValues.splice(i, 1);
-                            }
-
-                            break;
-                        }
-                    }
-                }
-            },
-            _getCollapseClass: function () {
-                if (this.collapsable && this.collapse) {
-                    return "header-collapse";
-                } else {
-                    return "";
-                }
-            },
-            _toggleCollapse: function () {
-                var headerSection = this.shadowRoot.querySelector('#headerSection');
-                var mainApp = RUFUtilities.mainApp;
-                let windowInnerHeight;
-                if (headerSection.classList.contains('header-collapse')) {
-                    headerSection.classList.remove('header-collapse');
-                    if(!(window.navigator.userAgent.indexOf("Edge") > -1)){
-                        windowInnerHeight = window.innerHeight;
-                        mainApp.updateStyles({            
-                        '--window-inner-height': windowInnerHeight + 'px'
-                        });
-                    }
-                } else {
-                    headerSection.classList.add('header-collapse');
-                    if(!(window.navigator.userAgent.indexOf("Edge") > -1)){
-                        windowInnerHeight = window.innerHeight + 61;
-                        mainApp.updateStyles({            
-                        '--window-inner-height': windowInnerHeight + 'px'
-                        });
-                    }
-                }
-            },
-            /**
-             * <b><i>Content development is under progress... </b></i>
-             */
-            refresh: function (invalidateEntityCache = true) {
-
-                if (invalidateEntityCache) {
-                    //Invalidate entity cache
-                    var entity = this._getEntityObject();
-                    LiquidDataObjectUtils.invalidateDataObjectCache(entity, this.dataIndex);
-                }
-
-                let dataContext = ContextHelper.getFirstDataContext(this.contextData);
-                let valueContext = ContextHelper.getFirstValueContext(this.contextData);
-                let itemContext = ContextHelper.getFirstItemContext(this.contextData);
-
-                let attrContainer = this.$$('#attributePanel');
-                let attrErrorContainer = this.$$('#attributeErrorPanel');
-
-                let valid = function () {
-                    attrContainer && (attrContainer.hidden = false);
-                    attrErrorContainer && (attrErrorContainer.hidden = true);
-                }
-
-                let invalid = function (statusCode) {
-                    attrContainer && (attrContainer.hidden = true);
-                    if (attrErrorContainer) {
-                        if (!_.isEmpty(statusCode)) {
-                            let errorList = "<ul>";
-                            for (let sc of statusCode) {
-                                errorList = errorList + "<li>" + sc + "</li>";
-                            }
-                            errorList = errorList + "</ul>"
-                            attrErrorContainer.innerHTML = errorList;
-                        }
-                        attrErrorContainer.hidden = false;
-                    }
-                }
-
-                //refreshing rock-business-actions
-                var rockBusinessActions = this.shadowRoot.querySelector('#businessActions');
-                rockBusinessActions.reloadComponent();
-
-                ContextHelper.isValidContext(itemContext.type, dataContext, valueContext, valid, invalid);
-                this._startDataLoad();
-                this._refreshEntityThumbnail();
-            },
-            _refreshEntityThumbnail: function () {
-                var entityThumbnailComp = this.shadowRoot.querySelector("rock-entity-thumbnail");
-                if (entityThumbnailComp) {
-                    entityThumbnailComp.contextData = this.contextData;
-                }
-            },
-            _onToolbarEvent: function (e, detail) {
-                this.fireBedrockEvent("toolbar-button-event", detail);
-            },
-            _startDataLoad: function () {
-                var headerConfig = this.headerConfig;
-                this.logInfo("EntityHeadDataLoad", "config", headerConfig);
-
-                if (headerConfig && headerConfig.length > 0 && this.contextData) {
-                    var attributeNames = [];
-
-                    for (var i = 0; i < headerConfig.length; i++) {
-                        if (headerConfig[i].attributeName) {
-                            attributeNames.push(headerConfig[i].attributeName);
-                        }
-                    }
-
-                    //Add messageAttribute if not available in the request attributes list
-                    if (this.businessActionsConfig && this.businessActionsConfig.messageAttribute) {
-                        this._messageAttribute = this.businessActionsConfig.messageAttribute;
-                        if (attributeNames.indexOf(this._messageAttribute) == -1) {
-                            attributeNames.push(this._messageAttribute);
-                        }
-                    }
-
-                    var itemContext = this.getFirstItemContext();
-                    //add attribute names in item context
-                    itemContext.attributeNames = attributeNames;
-
-                    var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
-
-                    this.set("headerAttributeModelRequest", compositeModelGetRequest);
-                    var liquidModelGet = this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
-                    if (liquidModelGet) {
-                        liquidModelGet.generateRequest();
-                    }
-                }
-            },
-            _onCompositeModelGetResponse: function (e) {
-                // this.logInfo("EntityHeaderModelResponse", "response", JSON.stringify(e, null, 2));
-
-                if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
-                    var entityModel = e.detail.response.content.entityModels[0];
-                    var properties = entityModel.properties;
-                    if (properties.hasOwnProperty("defaultThumbnailId")) {
-                        this._defaultThumbnailId = properties.defaultThumbnailId;
-                    }
-                    this._headerAttributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], this.contextData);
-
-                    var clonedContextData = DataHelper.cloneObject(this.contextData);
-                    var attributeNames = Object.keys(this._headerAttributeModels);
-
-                    if (clonedContextData) {
-                        //add attribute names in item context
-                        var itemContext = this.getFirstItemContext();
-                        itemContext.attributeNames = attributeNames;
-                        clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
-
-                        this.set("headerAttributeRequest", DataRequestHelper.createEntityGetRequest(clonedContextData, true));
-                        this.shadowRoot.querySelector("liquid-entity-data-get").generateRequest();
-                    }
-                } else {
                     let attrContainer = this.$$('#attributePanel');
                     let attrErrorContainer = this.$$('#attributeErrorPanel');
-                    attrContainer.hidden = true;
-                    attrErrorContainer.hidden = false;
-                    this.logError("rock-entity-header - Header attribute models get response error", e.detail, true, "",attrErrorContainer);
+
+                    let valid = function () {
+                        attrContainer && (attrContainer.hidden = false);
+                        attrErrorContainer && (attrErrorContainer.hidden = true);
+                    }
+
+                    let invalid = function (statusCode) {
+                        attrContainer && (attrContainer.hidden = true);
+                        if (attrErrorContainer) {
+                            if (!_.isEmpty(statusCode)) {
+                                let errorList = "<ul>";
+                                for (let sc of statusCode) {
+                                    errorList = errorList + "<li>" + sc + "</li>";
+                                }
+                                errorList = errorList + "</ul>"
+                                attrErrorContainer.innerHTML = errorList;
+                            }
+                            attrErrorContainer.hidden = false;
+                        }
+                    }
+
+                    //refreshing rock-business-actions
+                    var rockBusinessActions = this.shadowRoot.querySelector('#businessActions');
+                    rockBusinessActions.reloadComponent();
+
+                    ContextHelper.isValidContext(itemContext.type, dataContext, valueContext, valid, invalid);
+                    this._startDataLoad();
+                    this._refreshEntityThumbnail();
                 }
-            },
-            _onHeaderAttributesGetResponse: async function (e) {
-                var headerAttributeResponse = e.detail.response;
+                _refreshEntityThumbnail() {
+                    var entityThumbnailComp = this.shadowRoot.querySelector("rock-entity-thumbnail");
+                    if (entityThumbnailComp) {
+                        entityThumbnailComp.contextData = this.contextData;
+                    }
+                }
+                _onToolbarEvent(e, detail) {
+                    this.fireBedrockEvent("toolbar-button-event", detail);
+                }
+                _startDataLoad() {
+                    var headerConfig = this.headerConfig;
+                    this.logInfo("EntityHeadDataLoad", "config", headerConfig);
 
-                this.logInfo("EntityHeaderAttributeResponse", "response", headerAttributeResponse);
+                    if (headerConfig && headerConfig.length > 0 && this.contextData) {
+                        var attributeNames = [];
 
-                var attributesData = [];
-                if (DataHelper.validateGetEntitiesResponse(headerAttributeResponse) && this._headerAttributeModels) {
-                    var entity = headerAttributeResponse.content.entities[0];
+                        for (var i = 0; i < headerConfig.length; i++) {
+                            if (headerConfig[i].attributeName) {
+                                attributeNames.push(headerConfig[i].attributeName);
+                            }
+                        }
 
-                    if (entity) {
-                        var attributesData = await DataTransformHelper.transformAttributes(entity, this._headerAttributeModels, this.contextData, "array", false);
-                        this._entityAttributes = attributesData;
+                        //Add messageAttribute if not available in the request attributes list
+                        if (this.businessActionsConfig && this.businessActionsConfig.messageAttribute) {
+                            this._messageAttribute = this.businessActionsConfig.messageAttribute;
+                            if (attributeNames.indexOf(this._messageAttribute) == -1) {
+                                attributeNames.push(this._messageAttribute);
+                            }
+                        }
 
-                        var self = this;
-                        //Find the date attributes and change the values from ISO
-                        Object.keys(this._headerAttributeModels).map(function (attributeModel) {
-                            if (self._headerAttributeModels[attributeModel].dataType == "datetime" ||
-                                self._headerAttributeModels[attributeModel].dataType == "date") {
-                                var datatype = self._headerAttributeModels[attributeModel].dataType;
-                                for (var i = 0; i < attributesData.length; i++) {
-                                    if (self._headerAttributeModels[attributeModel].name == attributesData[i].name) {
-                                        attributesData[i].value = FormatHelper.convertFromISODateTime(attributesData[i].value, datatype);
-                                        break;
+                        var itemContext = this.getFirstItemContext();
+                        //add attribute names in item context
+                        itemContext.attributeNames = attributeNames;
+
+                        var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
+
+                        this.set("headerAttributeModelRequest", compositeModelGetRequest);
+                        var liquidModelGet = this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
+                        if (liquidModelGet) {
+                            liquidModelGet.generateRequest();
+                        }
+                    }
+                }
+                _onCompositeModelGetResponse(e) {
+                    // this.logInfo("EntityHeaderModelResponse", "response", JSON.stringify(e, null, 2));
+
+                    if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
+                        var entityModel = e.detail.response.content.entityModels[0];
+                        var properties = entityModel.properties;
+                        if (properties.hasOwnProperty("defaultThumbnailId")) {
+                            this._defaultThumbnailId = properties.defaultThumbnailId;
+                        }
+                        this._headerAttributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], this.contextData);
+
+                        var clonedContextData = DataHelper.cloneObject(this.contextData);
+                        var attributeNames = Object.keys(this._headerAttributeModels);
+
+                        if (clonedContextData) {
+                            //add attribute names in item context
+                            var itemContext = this.getFirstItemContext();
+                            itemContext.attributeNames = attributeNames;
+                            clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+
+                            this.set("headerAttributeRequest", DataRequestHelper.createEntityGetRequest(clonedContextData, true));
+                            this.shadowRoot.querySelector("liquid-entity-data-get").generateRequest();
+                        }
+                    } else {
+                        let attrContainer = this.$$('#attributePanel');
+                        let attrErrorContainer = this.$$('#attributeErrorPanel');
+                        attrContainer.hidden = true;
+                        attrErrorContainer.hidden = false;
+                        this.logError("rock-entity-header - Header attribute models get response error", e.detail, true, "", attrErrorContainer);
+                    }
+                }
+                async _onHeaderAttributesGetResponse(e) {
+                    var headerAttributeResponse = e.detail.response;
+
+                    this.logInfo("EntityHeaderAttributeResponse", "response", headerAttributeResponse);
+
+                    var attributesData = [];
+                    if (DataHelper.validateGetEntitiesResponse(headerAttributeResponse) && this._headerAttributeModels) {
+                        var entity = headerAttributeResponse.content.entities[0];
+
+                        if (entity) {
+                            var attributesData = await DataTransformHelper.transformAttributes(entity, this._headerAttributeModels, this.contextData, "array", false);
+                            this._entityAttributes = attributesData;
+
+                            var self = this;
+                            //Find the date attributes and change the values from ISO
+                            Object.keys(this._headerAttributeModels).map(function (attributeModel) {
+                                if (self._headerAttributeModels[attributeModel].dataType == "datetime" ||
+                                    self._headerAttributeModels[attributeModel].dataType == "date") {
+                                    var datatype = self._headerAttributeModels[attributeModel].dataType;
+                                    for (var i = 0; i < attributesData.length; i++) {
+                                        if (self._headerAttributeModels[attributeModel].name == attributesData[i].name) {
+                                            attributesData[i].value = FormatHelper.convertFromISODateTime(attributesData[i].value, datatype);
+                                            break;
+                                        }
                                     }
                                 }
+                            });
+
+                            this._setMetadataAttributes(entity);
+                            this.set("_headerAttributeValues", this._entityAttributes);
+                            this.$.headerAttributes.render();
+                        }
+                    } else {
+                        let attrContainer = this.$$('#attributePanel');
+                        let attrErrorContainer = this.$$('#attributeErrorPanel');
+                        attrContainer.hidden = true;
+                        attrErrorContainer.hidden = false;
+                        this.logError("rock-entity-header - Header attributes get response error", e.detail, true, "", attrErrorContainer);
+                    }
+                }
+
+                _setMetadataAttributes(entity) {
+                    if (this.headerConfig && this.headerConfig.length > 0) {
+                        for (var i = 0; i < this.headerConfig.length; i++) {
+                            if (this.headerConfig[i].isMetadataAttribute) {
+                                var attrObj = {
+                                    "name": this.headerConfig[i].attributeName,
+                                    "value": entity[this.headerConfig[i].attributeName]
+                                };
+                                this._entityAttributes.push(attrObj);
                             }
-                        });
-
-                        this._setMetadataAttributes(entity);
-                        this.set("_headerAttributeValues", this._entityAttributes);
-                        this.$.headerAttributes.render();
-                    }
-                } else {
-                    let attrContainer = this.$$('#attributePanel');
-                    let attrErrorContainer = this.$$('#attributeErrorPanel');
-                    attrContainer.hidden = true;
-                    attrErrorContainer.hidden = false;
-                    this.logError("rock-entity-header - Header attributes get response error", e.detail, true, "", attrErrorContainer);
-                }
-            },
-
-            _setMetadataAttributes: function (entity) {
-                if (this.headerConfig && this.headerConfig.length > 0) {
-                    for (var i = 0; i < this.headerConfig.length; i++) {
-                        if (this.headerConfig[i].isMetadataAttribute) {
-                            var attrObj = {
-                                "name": this.headerConfig[i].attributeName,
-                                "value": entity[this.headerConfig[i].attributeName]
-                            };
-                            this._entityAttributes.push(attrObj);
                         }
                     }
                 }
-            },
 
-            _getAttributeLabel: function (attributeItem) {
-                var configItem = this._getConfigItem(this.headerConfig, attributeItem.name);
+                _getAttributeLabel(attributeItem) {
+                    var configItem = this._getConfigItem(this.headerConfig, attributeItem.name);
 
-                if (configItem && configItem.label) {
-                    return configItem.label;
+                    if (configItem && configItem.label) {
+                        return configItem.label;
+                    }
+
+                    var attributeModel = this._headerAttributeModels[attributeItem.name];
+
+                    if (attributeModel && attributeModel.properties && attributeModel.properties.externalName) {
+                        return attributeModel.properties.externalName;
+                    }
                 }
-
-                var attributeModel = this._headerAttributeModels[attributeItem.name];
-
-                if (attributeModel && attributeModel.properties && attributeModel.properties.externalName) {
-                    return attributeModel.properties.externalName;
-                }
-            },
-            _getAttributeValue: function (values, configItem) {
-                var attrValue = "";
-                for (var i = 0; i < values.length; i++) {
-                    var attributes = values[i].attributes;
-                    for (var j = 0; j < attributes.length; j++) {
-                        if (attributes[j].name == configItem.attributeName) {
-                            attrValue = attributes[j].value;
+                _getAttributeValue(values, configItem) {
+                    var attrValue = "";
+                    for (var i = 0; i < values.length; i++) {
+                        var attributes = values[i].attributes;
+                        for (var j = 0; j < attributes.length; j++) {
+                            if (attributes[j].name == configItem.attributeName) {
+                                attrValue = attributes[j].value;
+                            }
                         }
                     }
                 }
-            },
-            _computeIcon: function (percentage) {
-                var per = Math.round(percentage / 10) * 10;
-                return "pebble-icon:percentage-circle";
-            },
-            _openPopover: function () {
-                this.$.tofixPopover.show();
-            },
-            _getConfigItem: function (headerConfig, attributeName) {
-                if (!headerConfig) {
-                    return;
+                _computeIcon(percentage) {
+                    var per = Math.round(percentage / 10) * 10;
+                    return "pebble-icon:percentage-circle";
                 }
-
-                for (var i = 0; i < headerConfig.length; i++) {
-                    if (headerConfig[i].attributeName == attributeName) {
-                        return headerConfig[i];
-                    }
+                _openPopover() {
+                    this.$.tofixPopover.show();
                 }
-            },
-
-            _getEntityObject: function () {
-                var itemCtx = ContextHelper.getFirstItemContext(this.contextData);
-                var entity = {
-                    "id": itemCtx.id,
-                    "type": itemCtx.type
-                };
-                return entity;
-            },
-
-            _refreshView: function () {
-                var contentView = undefined;
-                var app = ComponentHelper.getCurrentActiveApp();
-                if (app) {
-                    contentView = ComponentHelper.getParentElement(app);
-                }
-                if (contentView) {
-                    contentView.render();
-                }
-            },
-
-            _onTabsChange: function (event) {
-                if (event && event.detail) {
-                    var ignoreList = ["workflow", "recentActivity"];
-                    if (ignoreList.indexOf(event.detail) != -1) {
+                _getConfigItem(headerConfig, attributeName) {
+                    if (!headerConfig) {
                         return;
                     }
 
-                    var hideButton = false;
-                    if (event.detail == 'summary' || event.detail == 'entity-graph') {
-                        hideButton = true;
-                    }
-
-                    var toolbar = this.shadowRoot.querySelector('#entityActions');
-                    if (toolbar) {
-                        toolbar.setAttributeToToolbarButton("edit", "hidden", hideButton);
+                    for (var i = 0; i < headerConfig.length; i++) {
+                        if (headerConfig[i].attributeName == attributeName) {
+                            return headerConfig[i];
+                        }
                     }
                 }
-            },
 
-            refreshThumbnail: function () {
-                var entityThumbnail = this.shadowRoot.querySelector('#entityThumbnail');
-                if (entityThumbnail) {
-                    entityThumbnail.refreshThumbnail();
-                }
-            },
-
-            _setWritePermission: function () {
-                var writePermission = true;
-                var itemContext = this.getFirstItemContext();
-                if (DataHelper.isValidObjectPath(itemContext, "permissionContext.writePermission")) {
-                    writePermission = itemContext.permissionContext.writePermission;
+                _getEntityObject() {
+                    var itemCtx = ContextHelper.getFirstItemContext(this.contextData);
+                    var entity = {
+                        "id": itemCtx.id,
+                        "type": itemCtx.type
+                    };
+                    return entity;
                 }
 
-                this.set("writePermission", writePermission);
-            }
+                _refreshView() {
+                    var contentView = undefined;
+                    var app = ComponentHelper.getCurrentActiveApp();
+                    if (app) {
+                        contentView = ComponentHelper.getParentElement(app);
+                    }
+                    if (contentView) {
+                        contentView.render();
+                    }
+                }
 
-        });
+                _onTabsChange(event) {
+                    if (event && event.detail) {
+                        var ignoreList = ["workflow", "recentActivity"];
+                        if (ignoreList.indexOf(event.detail) != -1) {
+                            return;
+                        }
+
+                        var hideButton = false;
+                        if (event.detail == 'summary' || event.detail == 'entity-graph') {
+                            hideButton = true;
+                        }
+
+                        var toolbar = this.shadowRoot.querySelector('#entityActions');
+                        if (toolbar) {
+                            toolbar.setAttributeToToolbarButton("edit", "hidden", hideButton);
+                        }
+                    }
+                }
+
+                refreshThumbnail() {
+                    var entityThumbnail = this.shadowRoot.querySelector('#entityThumbnail');
+                    if (entityThumbnail) {
+                        entityThumbnail.refreshThumbnail();
+                    }
+                }
+
+                _setWritePermission() {
+                    var writePermission = true;
+                    var itemContext = this.getFirstItemContext();
+                    if (DataHelper.isValidObjectPath(itemContext, "permissionContext.writePermission")) {
+                        writePermission = itemContext.permissionContext.writePermission;
+                    }
+
+                    this.set("writePermission", writePermission);
+                }
+        }
+                customElements.define(RockEntityHeader.is, RockEntityHeader)
     </script>
 </dom-module>

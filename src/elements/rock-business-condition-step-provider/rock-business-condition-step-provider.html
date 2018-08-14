@@ -1,9 +1,7 @@
-<link rel="import" href="../../../bower_components/polymer/polymer.html">
-
+<link rel="import" href="../../../bower_components/polymer/polymer-element.html">
+<link rel="import" href="../../../bower_components/polymer/lib/mixins/mutable-data.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
-
 <link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
-
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
 <!--
 <b><i>Content development is under progress... </b></i>
@@ -16,249 +14,264 @@
 
         <liquid-entity-model-get id="businessConditionsGet" operation="getbyids" request-id="businessConditionsGet" on-response="_onBusinessConditionsGetResponse"
             on-error="_onBusinessConditionsGetError"></liquid-entity-model-get>
-        <liquid-entity-model-get id="getRelDomains" operation="getbyids"  on-response="_onRelModelsReceived"
-                                 on-error="_onModelGetFailed"></liquid-entity-model-get>
+        <liquid-entity-model-get id="getRelDomains" operation="getbyids" on-response="_onRelModelsReceived" on-error="_onModelGetFailed"></liquid-entity-model-get>
     </template>
     <script>
-        (function () {
-            'use strict';
+        class RockBusinessConditionStepProvider extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior], Polymer.OptionalMutableData(Polymer.Element)) {
+            static get is() {
+                return "rock-business-condition-step-provider";
+            }
 
-            Polymer({
-                is: "rock-business-condition-step-provider",
-
-                properties: {
-                    /**
-            * <b><i>Content development is under progress... </b></i> 
-            */
+            static get properties() {
+                return {
                     businessConditionId: {
                         type: String,
                         value: ""
                     },
-                    /**
-                      * <b><i>Content development is under progress... </b></i> 
-                      */
+
                     contextData: {
                         type: Object,
                         value: function () {
                             return {};
                         }
                     },
-                    /**
-                      * <b><i>Content development is under progress... </b></i> 
-                      */
+
                     configContext: {
                         type: Object,
                         value: function () {
                             return {}
                         }
                     },
+
                     _impactAttributes: {
                         type: Array,
                         value: function () {
                             return [];
                         }
                     },
+
                     _impactRelationships: {
                         type: Array,
                         value: function () {
                             return [];
                         }
                     },
+
                     _impactTaxonomies: {
                         type: Array,
                         value: function () {
                             return [];
                         }
                     },
+
                     _callback: {
                         type: Function
                     },
+
                     _relationshipDomain: {
                         type: String,
                         value: ""
                     }
-                },
-                behaviors: [
-                    RUFBehaviors.UIBehavior
-                ],
-                observers: [
+                };
+            }
+
+            static get observers() {
+                return [
                     '_initialConditionsLoaded(businessConditionId,contextData)'
-                ],
-                _initialConditionsLoaded: function (businessConditionId, contextData) {
-                    if (businessConditionId && contextData && !_.isEmpty(contextData)) {
-                        this._requestBusinessConditions();
-                    }
+                ];
+            }
 
-                },
-                _requestBusinessConditions: function () {
-                    var clonedContextData = DataHelper.cloneObject(this.contextData);
-                    // Prepare ItemContext
-                    var itemContext = ContextHelper.getFirstItemContext(clonedContextData);
-                    itemContext.id = this.businessConditionId;
-                    itemContext.type = "businessCondition";
-                    itemContext.attributeNames = ["impactAttributes", "impactRelationships", "impactTaxonomies"];
-                    clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
-                    //business condition models are defined with default value context. Hence the request is set with default value context.
-                    clonedContextData[ContextHelper.CONTEXT_TYPE_VALUE] = [DataHelper.getDefaultValContext()];
-                    // Create Request and Get
-                    var businessConditionsGet = this.shadowRoot.querySelector('#businessConditionsGet');
-                    if (businessConditionsGet) {
-                        businessConditionsGet.requestData = DataRequestHelper.createEntityGetRequest(clonedContextData);
-                        businessConditionsGet.generateRequest();
-                    }
-                },
-                _onBusinessConditionsGetResponse: function (e) {
-                    var responseContent = DataHelper.validateAndGetResponseContent(e.detail.response);
-                    if (responseContent) {
-                        var businessConditions = responseContent.entityModels;
-                        if (typeof (businessConditions) !== "undefined" && businessConditions.length > 0) {
-                            var businessCondition = businessConditions[0];
-                            this.configContext = { "groupName": businessCondition.name };
-                            var impactAttributesObj = EntityHelper.getAttribute(businessCondition, "impactAttributes");
-                            var impactRelationshipsObj = EntityHelper.getAttribute(businessCondition, "impactRelationships");
-                            var impactTaxonomiesObj = EntityHelper.getAttribute(businessCondition, "impactTaxonomies");
-                            // impactTaxonomiesObj = {
-                            //     values: [
-                            //         {
-                            //             value: "Product Setup Taxonomy"
-                            //         }
-                            //     ]
-                            // };
-                            if (impactAttributesObj) {
-                                this._impactAttributes = AttributeHelper.getAttributeValues(impactAttributesObj.values, this.contextData[ContextHelper.CONTEXT_TYPE_VALUE]);
-                            }
-                            if (impactRelationshipsObj) {
-                                this._impactRelationships = AttributeHelper.getAttributeValues(impactRelationshipsObj.values, this.contextData[ContextHelper.CONTEXT_TYPE_VALUE]);
-                            }
-                            if (impactTaxonomiesObj) {
-                                this._impactTaxonomies = AttributeHelper.getAttributeValues(impactTaxonomiesObj.values, this.contextData[ContextHelper.CONTEXT_TYPE_VALUE]);
-                            }
-                        }
-                    }
-                    if(this._impactRelationships && this._impactRelationships.length){
-                        this._generateCheckDomainRequest(this._impactRelationships);
-                        return;
-                    }
-                    this._prepareSteps();
-                },
-                _generateCheckDomainRequest:function (relationshipTypeNames) {
-                    var req = {
-                        "params": {
-                            "query": {
-                                "id": relationshipTypeNames[0]+"_relationshipModel",
-                                "filters": {
-                                    "typesCriterion": ["relationshipModel"]
-                                }
-                            },
-                            "fields": {}
-                        }
-                    };
-                    req.params.query.domain="digitalAsset";
-                    var checkDomainLiquid=this.shadowRoot.querySelector("#getRelDomains");
-                    if(checkDomainLiquid){
-                        checkDomainLiquid.requestData=req;
-                        checkDomainLiquid.generateRequest();
-                    }
-                },
-                _onRelModelsReceived: function (e) {
-                    var responseContent = DataHelper.validateAndGetResponseContent(e.detail.response)
-                    if (responseContent) {
-                        var models=responseContent.entityModels;
-                        if(models[0] && models[0].domain=="digitalAsset") {
-                            this._isAsset=true;
-                            this._relationshipDomain = models[0].domain;
-                        }
-                    }
-                    this._prepareSteps();
+            constructor(){
+                super();
+            }
 
-                },
-                _prepareSteps: function () {
-                    var steps = [];
-                    var itemContext = ContextHelper.getFirstItemContext(this.contextData);
-                    if (!_.isEmpty(this._impactTaxonomies)) {
-                        var stepConfig = {
-                            "name": "step-1-rock-extension-manage",
-                            "label": "Manage extension for a New Entity",
+            connectedCallback() {
+                super.connectedCallback();
+            }
+
+            disconnectedCallback() {
+                super.disconnectedCallback();
+            }
+
+            _initialConditionsLoaded(businessConditionId, contextData) {
+                if (businessConditionId && contextData && !_.isEmpty(contextData)) {
+                    this._requestBusinessConditions();
+                }
+            }
+
+            _requestBusinessConditions() {
+                var clonedContextData = DataHelper.cloneObject(this.contextData);
+                // Prepare ItemContext
+                var itemContext = ContextHelper.getFirstItemContext(clonedContextData);
+                itemContext.id = this.businessConditionId;
+                itemContext.type = "businessCondition";
+                itemContext.attributeNames = ["impactAttributes", "impactRelationships", "impactTaxonomies"];
+                clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+                //business condition models are defined with default value context. Hence the request is set with default value context.
+                clonedContextData[ContextHelper.CONTEXT_TYPE_VALUE] = [DataHelper.getDefaultValContext()];
+                // Create Request and Get
+                var businessConditionsGet = this.shadowRoot.querySelector('#businessConditionsGet');
+                if (businessConditionsGet) {
+                    businessConditionsGet.requestData = DataRequestHelper.createEntityGetRequest(clonedContextData);
+                    businessConditionsGet.generateRequest();
+                }
+            }
+
+            _onBusinessConditionsGetResponse(e) {
+                var responseContent = DataHelper.validateAndGetResponseContent(e.detail.response);
+                if (responseContent) {
+                    var businessConditions = responseContent.entityModels;
+                    if (typeof (businessConditions) !== "undefined" && businessConditions.length > 0) {
+                        var businessCondition = businessConditions[0];
+                        this.configContext = { "groupName": businessCondition.name };
+                        var impactAttributesObj = EntityHelper.getAttribute(businessCondition, "impactAttributes");
+                        var impactRelationshipsObj = EntityHelper.getAttribute(businessCondition, "impactRelationships");
+                        var impactTaxonomiesObj = EntityHelper.getAttribute(businessCondition, "impactTaxonomies");
+                        // impactTaxonomiesObj = {
+                        //     values: [
+                        //         {
+                        //             value: "Product Setup Taxonomy"
+                        //         }
+                        //     ]
+                        // };
+                        if (impactAttributesObj) {
+                            this._impactAttributes = AttributeHelper.getAttributeValues(impactAttributesObj.values, this.contextData[ContextHelper.CONTEXT_TYPE_VALUE]);
+                        }
+                        if (impactRelationshipsObj) {
+                            this._impactRelationships = AttributeHelper.getAttributeValues(impactRelationshipsObj.values, this.contextData[ContextHelper.CONTEXT_TYPE_VALUE]);
+                        }
+                        if (impactTaxonomiesObj) {
+                            this._impactTaxonomies = AttributeHelper.getAttributeValues(impactTaxonomiesObj.values, this.contextData[ContextHelper.CONTEXT_TYPE_VALUE]);
+                        }
+                    }
+                }
+                if (this._impactRelationships && this._impactRelationships.length) {
+                    this._generateCheckDomainRequest(this._impactRelationships);
+                    return;
+                }
+                this._prepareSteps();
+            }
+
+            _generateCheckDomainRequest(relationshipTypeNames) {
+                var req = {
+                    "params": {
+                        "query": {
+                            "id": relationshipTypeNames[0] + "_relationshipModel",
+                            "filters": {
+                                "typesCriterion": ["relationshipModel"]
+                            }
+                        },
+                        "fields": {}
+                    }
+                };
+                req.params.query.domain = "digitalAsset";
+                var checkDomainLiquid = this.shadowRoot.querySelector("#getRelDomains");
+                if (checkDomainLiquid) {
+                    checkDomainLiquid.requestData = req;
+                    checkDomainLiquid.generateRequest();
+                }
+            }
+
+            _onRelModelsReceived(e) {
+                var responseContent = DataHelper.validateAndGetResponseContent(e.detail.response)
+                if (responseContent) {
+                    var models = responseContent.entityModels;
+                    if (models[0] && models[0].domain == "digitalAsset") {
+                        this._isAsset = true;
+                        this._relationshipDomain = models[0].domain;
+                    }
+                }
+                this._prepareSteps();
+            }
+
+            _prepareSteps() {
+                var steps = [];
+                var itemContext = ContextHelper.getFirstItemContext(this.contextData);
+                if (!_.isEmpty(this._impactTaxonomies)) {
+                    var stepConfig = {
+                        "name": "step-1-rock-extension-manage",
+                        "label": "Manage extension for a New Entity",
+                        "component": {
+                            "name": "rock-extension-manage",
+                            "path": "/../../src/elements/rock-extension-manage/rock-extension-manage.html",
+                            "properties": {
+                                "taxonomy": this._impactTaxonomies[0],
+                                "functional-mode": "dataFunction",
+                            }
+                        },
+                        "nextEvent": "onSave",
+                        "skipEvent": "onSkip"
+                    }
+                    steps.push(stepConfig);
+                }
+                if (!_.isEmpty(this._impactAttributes)) {
+                    //step config for attribute manage
+                    itemContext.attributeNames = this._impactAttributes;
+                    var stepConfig =
+                        {
+                            "name": "fix-attribute-errors",
+                            "label": "Fix attribute errors for an entity",
                             "component": {
-                                "name": "rock-extension-manage",
-                                "path": "/../../src/elements/rock-extension-manage/rock-extension-manage.html",
+                                "name": "rock-attribute-manage",
+                                "path": "/../../src/elements/rock-attribute-manage/rock-attribute-manage.html",
                                 "properties": {
-                                    "taxonomy": this._impactTaxonomies[0],
-                                     "functional-mode": "dataFunction",
+                                    "allow-save-on-error": true,
+                                    "no-of-columns": 3,
+                                    "functional-mode": "dataFunction",
+                                    "mode": "edit",
+                                    "config-context": this.configContext,
+                                    "context-data": this.contextData
                                 }
                             },
                             "nextEvent": "onSave",
                             "skipEvent": "onSkip"
-                        }
-                        steps.push(stepConfig);
+                        };
+                    steps.push(stepConfig);
+                }
+                if (!_.isEmpty(this._impactRelationships)) {
+                    itemContext.relationships = this._impactRelationships;
+                    var stepConfig =
+                        {
+                            "name": "fix-relationships-errors",
+                            "label": "Fix relationships errors for an entity",
+                            "component": {
+                                "name": "rock-relationship-manage",
+                                "path": "/../../src/elements/rock-relationship-manage/rock-relationship-manage.html",
+                                "properties": {
+                                    "mode": "edit",
+                                    "no-of-columns": 2,
+                                    "config-context": {
+                                        "relationshipTypeName": this._impactRelationships[0]
+                                    },
+                                    "functional-mode": "dataFunction",
+                                    "context-data": this.contextData
+                                }
+                            },
+                            "nextEvent": "onSave",
+                            "skipEvent": "onSkip"
+                        };
+                    if (this._isAsset) {
+                        stepConfig.component.properties["config-context"].addRelationshipMode = "businessFunction";
+                    } else {
+                        stepConfig.component.properties["config-context"].addRelationshipMode = "lov";
                     }
-                    if (!_.isEmpty(this._impactAttributes)) {
-                        //step config for attribute manage
-                        itemContext.attributeNames = this._impactAttributes;
-                        var stepConfig =
-                            {
-                                "name": "fix-attribute-errors",
-                                "label": "Fix attribute errors for an entity",
-                                "component": {
-                                    "name": "rock-attribute-manage",
-                                    "path": "/../../src/elements/rock-attribute-manage/rock-attribute-manage.html",
-                                    "properties": {
-                                        "allow-save-on-error": true,
-                                        "no-of-columns": 3,
-                                        "functional-mode": "dataFunction",
-                                        "mode": "edit",
-                                        "config-context": this.configContext,
-                                        "context-data": this.contextData
-                                    }
-                                },
-                                "nextEvent": "onSave",
-                                "skipEvent": "onSkip"
-                            };
-                        steps.push(stepConfig);
-                    }
-                    if (!_.isEmpty(this._impactRelationships)) {
-                        itemContext.relationships = this._impactRelationships;
-                        var stepConfig =
-                            {
-                                "name": "fix-relationships-errors",
-                                "label": "Fix relationships errors for an entity",
-                                "component": {
-                                    "name": "rock-relationship-manage",
-                                    "path": "/../../src/elements/rock-relationship-manage/rock-relationship-manage.html",
-                                    "properties": {
-                                        "mode": "edit",
-                                        "no-of-columns": 2,
-                                        "config-context": {
-                                            "relationshipTypeName": this._impactRelationships[0]
-                                        },
-                                        "functional-mode": "dataFunction",
-                                        "context-data": this.contextData
-                                    }
-                                },
-                                "nextEvent": "onSave",
-                                "skipEvent": "onSkip"
-                            };
-                        if(this._isAsset){
-                            stepConfig.component.properties["config-context"].addRelationshipMode="businessFunction";
-                        } else{
-                            stepConfig.component.properties["config-context"].addRelationshipMode="lov";
-                        }
 
-                        if(!_.isEmpty(this._relationshipDomain)) {
-                            stepConfig.component.properties["config-context"].domain = this._relationshipDomain;
-                        }
-                        steps.push(stepConfig);
+                    if (!_.isEmpty(this._relationshipDomain)) {
+                        stepConfig.component.properties["config-context"].domain = this._relationshipDomain;
                     }
-                    this._callback(steps);
-                },
-                getSteps: function (data, callback) {
-                    this._callback = callback;
-                    if (!_.isEmpty(data) && data["business-condition-id"] && data["context-data"]) {
-                        this.contextData = data["context-data"];
-                        this.businessConditionId = data["business-condition-id"];
-                    }
-                },
-            });
-        })();
+                    steps.push(stepConfig);
+                }
+                this._callback(steps);
+            }
+
+            getSteps(data, callback) {
+                this._callback = callback;
+                if (!_.isEmpty(data) && data["business-condition-id"] && data["context-data"]) {
+                    this.contextData = data["context-data"];
+                    this.businessConditionId = data["business-condition-id"];
+                }
+            }
+        }
+        customElements.define(RockBusinessConditionStepProvider.is, RockBusinessConditionStepProvider);
     </script>
 </dom-module>

@@ -1,4 +1,4 @@
-<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/polymer/polymer-element.html">
 
 <link rel="import" href="../../../bower_components/iron-flex-layout/iron-flex-layout.html">
 <link rel="import" href="../../../bower_components/paper-ripple/paper-ripple.html">
@@ -85,8 +85,8 @@
       .bulk-file-upload-list {
         overflow-x: hidden;
         padding-top: 10px;
-        overflow-y: auto;  
-        max-height:30vh;    
+        overflow-y: auto;
+        max-height: 30vh;
       }
 
       :host([dragover-valid]) #dropLabel {
@@ -113,311 +113,329 @@
           </div>
         </div>
       </div>
-      <div id="fileList" class="relative">         
-        <div class="full-height bulk-file-upload-list">        
-          <template is="dom-repeat" items="[[files]]" as="file"> 
+      <div id="fileList" class="relative">
+        <div class="full-height bulk-file-upload-list">
+          <template is="dom-repeat" items="[[files]]" as="file">
             <pebble-bulk-file-upload-file-item file="[[file]]"></pebble-bulk-file-upload-file-item>
           </template>
         </div>
       </div>
     </div>
-    <input type="file" id="fileInput" on-change="_onFileInputChange" hidden accept$="{{accept}}" multiple$="[[_isMultiple(maxFiles)]]">
+    <input type="file" id="fileInput" on-change="_onFileInputChange" name="[[_getUniqueName()]]" hidden accept$="{{accept}}" multiple$="[[_isMultiple(maxFiles)]]">
     <paper-ripple id="dragRipple" noink></paper-ripple>
   </template>
 
   <script>
 
-    Polymer({
+    class PebbleBulkFileUpload
+      extends Polymer.mixinBehaviors([
+        RUFBehaviors.UIBehavior,
+        RUFBehaviors.ComponentContextBehavior
+      ], Polymer.Element) {
+      static get is() { return 'pebble-bulk-file-upload' }
 
-      is: 'pebble-bulk-file-upload',
+      static get properties() {
+        return {
+          /**
+           * Specifies whether or not the element supports files-drop on it for the file upload.
+           * By default it is enabled in the desktop and disabled in the touch devices
+           * as mobile devices do not support the drag events. Set it to <b>true</b> to disable the 
+           * files-drop on all devices. If it is <b>false</b>, files-drop is enabled even in touch devices.
+           *
+           * @default true in touch-devices, false otherwise.
+           */
+          nodrop: {
+            type: Boolean,
+            reflectToAttribute: true,
+            value: false
+          },
 
-      properties: {
-        /**
-         * Specifies whether or not the element supports files-drop on it for the file upload.
-         * By default it is enabled in the desktop and disabled in the touch devices
-         * as mobile devices do not support the drag events. Set it to <b>true</b> to disable the 
-         * files-drop on all devices. If it is <b>false</b>, files-drop is enabled even in touch devices.
-         *
-         * @default true in touch-devices, false otherwise.
-         */
-        nodrop: {
-          type: Boolean,
-          reflectToAttribute: true,
-          value: false
-        },
+          /**
+           * Indicates the server URL. The default value is an empty string. The value 
+           * `_window.location_` is used when it is empty string. 
+           */
+          target: {
+            type: String,
+            value: ''
+          },
 
-        /**
-         * Indicates the server URL. The default value is an empty string. The value 
-         * `_window.location_` is used when it is empty string. 
-         */
-        target: {
-          type: String,
-          value: ''
-        },
+          /**
+           * Indicates a HTTP method to send the files. The allowed values are "POST" and "PUT".
+           */
+          method: {
+            type: String,
+            value: 'POST'
+          },
 
-        /**
-         * Indicates a HTTP method to send the files. The allowed values are "POST" and "PUT".
-         */
-        method: {
-          type: String,
-          value: 'POST'
-        },
+          /**
+           * Indicates the maximum time in milliseconds for the entire upload process. If it exceeds the
+           * the given `timeout` request is aborted. If the set value is "zero", it indicates there is no timeout.
+           *
+           */
+          timeout: {
+            type: Number,
+            value: 0
+          },
 
-        /**
-         * Indicates the maximum time in milliseconds for the entire upload process. If it exceeds the
-         * the given `timeout` request is aborted. If the set value is "zero", it indicates there is no timeout.
-         *
-         */
-        timeout: {
-          type: Number,
-          value: 0
-        },
+          _dragover: {
+            type: Boolean,
+            value: false,
+            observer: '_dragoverChanged'
+          },
 
-        _dragover: {
-          type: Boolean,
-          value: false,
-          observer: '_dragoverChanged'
-        },
+          /**
+           * Indicates the array of files that are either processed, or already uploaded.
+           *
+           * Each element is a [`File`](https://developer.mozilla.org/en-US/docs/Web/API/File)
+           * object with a number of extra properties  to track the upload process:
+           * - `uploadTarget`: Indicates the target URL used to upload `this` file.
+           * - `elapsed`: Indicates an elapsed time since the upload started.
+           * - `elapsedStr`: Indicates human-readable elapsed time.
+           * - `remaining`: Indicates number of seconds remaining for the upload to finish.
+           * - `remainingStr`: Indicates human-readable remaining time for the upload to finish.
+           * - `progress`: Indicates the percentage of the file already uploaded.
+           * - `speed`: Indicates the upload speed in kilo-bytes per second.
+           * - `size`: Indicates the file size in bytes.
+           * - `totalStr`: Indicates the human-readable total size of the file.
+           * - `loaded`: Indicates number of "bytes" transferred so far.
+           * - `loadedStr`: Indicates human-readable uploaded size at the moment.
+           * - `status`: Indicates the status of the upload process.
+           * - `error`: Indicates an error message in case the upload is failed.
+           * - `abort`: Specifies whether or not the file upload is canceled. It is set to "true", if the upload canceled.
+           * - `complete`: Specifies whether or not the file is transferred to the server. It is set to "true", if the file is transferred to the server.
+           * - `uploading`: Specifies whether or not the file data is getting transferred to the server. It is set to "true", if the file data is getting transferred to the server.
+           */
+          files: {
+            type: Array,
+            notify: true,
+            value: function () {
+              return [];
+            }
+          },
 
-        /**
-         * Indicates the array of files that are either processed, or already uploaded.
-         *
-         * Each element is a [`File`](https://developer.mozilla.org/en-US/docs/Web/API/File)
-         * object with a number of extra properties  to track the upload process:
-         * - `uploadTarget`: Indicates the target URL used to upload `this` file.
-         * - `elapsed`: Indicates an elapsed time since the upload started.
-         * - `elapsedStr`: Indicates human-readable elapsed time.
-         * - `remaining`: Indicates number of seconds remaining for the upload to finish.
-         * - `remainingStr`: Indicates human-readable remaining time for the upload to finish.
-         * - `progress`: Indicates the percentage of the file already uploaded.
-         * - `speed`: Indicates the upload speed in kilo-bytes per second.
-         * - `size`: Indicates the file size in bytes.
-         * - `totalStr`: Indicates the human-readable total size of the file.
-         * - `loaded`: Indicates number of "bytes" transferred so far.
-         * - `loadedStr`: Indicates human-readable uploaded size at the moment.
-         * - `status`: Indicates the status of the upload process.
-         * - `error`: Indicates an error message in case the upload is failed.
-         * - `abort`: Specifies whether or not the file upload is canceled. It is set to "true", if the upload canceled.
-         * - `complete`: Specifies whether or not the file is transferred to the server. It is set to "true", if the file is transferred to the server.
-         * - `uploading`: Specifies whether or not the file data is getting transferred to the server. It is set to "true", if the file data is getting transferred to the server.
-         */
-        files: {
-          type: Array,
-          notify: true,
-          value: function () {
-            return [];
+          /**
+           * Indicates the number of files to upload. By default it is unlimited. If the value is
+           * set to one, native file browser prevents selection of multiple files.
+           */
+          maxFiles: {
+            type: Number,
+            value: Infinity
+          },
+
+          /**
+           * Specifies whether or not number of files uploaded reached the maximum limit set.
+           */
+          maxFilesReached: {
+            type: Boolean,
+            value: false,
+            notify: true,
+            readOnly: true,
+            computed: '_maxFilesAdded(maxFiles, files.length)'
+          },
+
+          /**
+           * Specifies the types of files that the server accepts.
+           * Syntax: A comma-separated list of MIME type patterns (wildcards are
+           * allowed) or file extensions.
+           * Note that MIME types are widely supported while file extensions
+           * are only implemented in certain browsers. Therefore, avoid using it.
+           * Example: accept="video/*,image/tiff" or accept=".pdf,audio/mp3"
+           */
+          accept: {
+            type: String,
+            value: ''
+          },
+
+          /**
+           * Specifies the maximum file size in bytes allowed to upload.
+           * Note that it is a client-side constraint and is checked before
+           * the request is sent. Do the same validation in
+           * the server-side and make sure that they are aligned.
+           */
+          maxFileSize: {
+            type: Number,
+            value: Infinity
+          },
+
+          /**
+           * Specifies if the `dragover` is validated with `maxFiles` and
+           * accept properties.
+           */
+          _dragoverValid: {
+            type: Boolean,
+            value: false,
+            observer: '_dragoverValidChanged'
+          },
+
+          /**
+           * Specifies the 'name' property at `content-disposition`.
+           */
+          formDataName: {
+            type: String,
+            value: 'file'
+          },
+
+          /**
+           * Prevents upload(s) from immediately uploading upon adding file(s).
+           * When set, you must manually trigger the uploads using the `uploadFiles` method.
+           */
+          noAuto: {
+            type: Boolean,
+            value: false
+          },
+          /**
+            * <b><i>Content development is under progress... </b></i> 
+            */
+          loadCompleteFilesCount: {
+            type: Number,
+            value: 0
+          },
+
+          validFilesCount: {
+            type: Number,
+            value: 0
+          },
+          /**
+            * <b><i>Content development is under progress... </b></i> 
+            */
+          succeededFiles: {
+            type: Array,
+            notify: true,
+            value: function () {
+              return [];
+            }
+          },
+
+          /**
+           * Specifies whether or not the upload is "S3 upload".
+           */
+          s3Upload: {
+            type: Boolean,
+            value: false
+          },
+
+          /**
+           * Indicates the object that localizes "this" component.
+           * To change the default localization, either change the entire
+           * "_i18n_"" object or the property you want to modify.
+           *
+           * The object has the following JSON structure and default values:
+    
+        {
+          dropFiles: {
+           one: 'Drop file here...',
+           many: 'Drop files here...'
+          },
+          addFiles: {
+           one: 'Select File',
+           many: 'Upload Files'
+          },
+          cancel: 'Cancel',
+          error: {
+           tooManyFiles: 'Too Many Files.',
+           fileIsTooBig: 'Failed to upload. Max allowed file size is ',
+           fileIsEmpty: 'Failed to upload. File is empty.',
+           incorrectFileType: 'Incorrect File Type.'
+          },
+          uploading: {
+           status: {
+             connecting: 'Connecting...',
+             stalled: 'Stalled.',
+             processing: 'Processing File...',
+             held: 'Queued'
+           },
+           remainingTime: {
+             prefix: 'remaining time: ',
+             unknown: 'unknown remaining time'
+           },
+           error: {
+             serverUnavailable: 'Server Unavailable',
+             unexpectedServerError: 'Unexpected Server Error',
+             forbidden: 'Failed to upload. Retry...'
+           }
+          },
+          units: {
+           size: ['B', 'kB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
+          },
+          formatSize: function(bytes) {
+           // returns the size followed by the best suitable unit
+          },
+          formatTime: function(seconds, [secs, mins, hours]) {
+           // returns a 'HH:MM:SS' string
           }
-        },
-
-        /**
-         * Indicates the number of files to upload. By default it is unlimited. If the value is
-         * set to one, native file browser prevents selection of multiple files.
-         */
-        maxFiles: {
-          type: Number,
-          value: Infinity
-        },
-
-        /**
-         * Specifies whether or not number of files uploaded reached the maximum limit set.
-         */
-        maxFilesReached: {
-          type: Boolean,
-          value: false,
-          notify: true,
-          readOnly: true,
-          computed: '_maxFilesAdded(maxFiles, files.length)'
-        },
-
-        /**
-         * Specifies the types of files that the server accepts.
-         * Syntax: A comma-separated list of MIME type patterns (wildcards are
-         * allowed) or file extensions.
-         * Note that MIME types are widely supported while file extensions
-         * are only implemented in certain browsers. Therefore, avoid using it.
-         * Example: accept="video/*,image/tiff" or accept=".pdf,audio/mp3"
-         */
-        accept: {
-          type: String,
-          value: ''
-        },
-
-        /**
-         * Specifies the maximum file size in bytes allowed to upload.
-         * Note that it is a client-side constraint and is checked before
-         * the request is sent. Do the same validation in
-         * the server-side and make sure that they are aligned.
-         */
-        maxFileSize: {
-          type: Number,
-          value: Infinity
-        },
-
-        /**
-         * Specifies if the `dragover` is validated with `maxFiles` and
-         * accept properties.
-         */
-        _dragoverValid: {
-          type: Boolean,
-          value: false,
-          observer: '_dragoverValidChanged'
-        },
-
-        /**
-         * Specifies the 'name' property at `content-disposition`.
-         */
-        formDataName: {
-          type: String,
-          value: 'file'
-        },
-
-        /**
-         * Prevents upload(s) from immediately uploading upon adding file(s).
-         * When set, you must manually trigger the uploads using the `uploadFiles` method.
-         */
-        noAuto: {
-          type: Boolean,
-          value: false
-        },
-        /**
-          * <b><i>Content development is under progress... </b></i> 
-          */
-        loadCompleteFilesCount: {
-          type: Number,
-          value: 0
-        },
-
-        validFilesCount: {
-          type: Number,
-          value: 0
-        },
-        /**
-          * <b><i>Content development is under progress... </b></i> 
-          */
-        succeededFiles: {
-          type: Array,
-          notify: true,
-          value: function () {
-            return [];
+        }
+    
+           *
+           * @default {English}
+           */
+          i18n: {
+            type: Object,
+            value: function () {
+              return {
+                dropFiles: {
+                  one: 'Drop file here',
+                  many: 'Drop files here'
+                },
+                addFiles: {
+                  one: 'Upload File',
+                  many: 'Upload Files'
+                },
+                cancel: 'Cancel',
+                error: {
+                  tooManyFiles: 'Too Many Files.',
+                  fileIsTooBig: 'Failed to upload. Max allowed file size is ',
+                  fileIsEmpty: 'Failed to upload. File is empty.',
+                  incorrectFileType: 'Incorrect File Type.'
+                },
+                uploading: {
+                  status: {
+                    connecting: 'Connecting...',
+                    stalled: 'Stalled.',
+                    processing: 'Uploading File...',
+                    held: 'Queued'
+                  },
+                  remainingTime: {
+                    prefix: 'remaining time: ',
+                    unknown: 'unknown remaining time'
+                  },
+                  error: {
+                    serverUnavailable: 'Server Unavailable',
+                    unexpectedServerError: 'Unexpected Server Error',
+                    forbidden: 'Failed to upload. Retry...'
+                  }
+                },
+                units: {
+                  size: ['B', 'kB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
+                }
+              };
+            }
           }
-        },
-
-        /**
-         * Specifies whether or not the upload is "S3 upload".
-         */
-        s3Upload: {
-          type: Boolean,
-          value: false
-        },
-
-        /**
-         * Indicates the object that localizes "this" component.
-         * To change the default localization, either change the entire
-         * "_i18n_"" object or the property you want to modify.
-         *
-         * The object has the following JSON structure and default values:
-  
-      {
-        dropFiles: {
-         one: 'Drop file here...',
-         many: 'Drop files here...'
-        },
-        addFiles: {
-         one: 'Select File',
-         many: 'Upload Files'
-        },
-        cancel: 'Cancel',
-        error: {
-         tooManyFiles: 'Too Many Files.',
-         fileIsTooBig: 'Failed to upload. Max allowed file size is ',
-         fileIsEmpty: 'Failed to upload. File is empty.',
-         incorrectFileType: 'Incorrect File Type.'
-        },
-        uploading: {
-         status: {
-           connecting: 'Connecting...',
-           stalled: 'Stalled.',
-           processing: 'Processing File...',
-           held: 'Queued'
-         },
-         remainingTime: {
-           prefix: 'remaining time: ',
-           unknown: 'unknown remaining time'
-         },
-         error: {
-           serverUnavailable: 'Server Unavailable',
-           unexpectedServerError: 'Unexpected Server Error',
-           forbidden: 'Failed to upload. Retry...'
-         }
-        },
-        units: {
-         size: ['B', 'kB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
-        },
-        formatSize: function(bytes) {
-         // returns the size followed by the best suitable unit
-        },
-        formatTime: function(seconds, [secs, mins, hours]) {
-         // returns a 'HH:MM:SS' string
         }
       }
-  
-         *
-         * @default {English}
-         */
-        i18n: {
-          type: Object,
-          value: function () {
-            return {
-              dropFiles: {
-                one: 'Drop file here',
-                many: 'Drop files here'
-              },
-              addFiles: {
-                one: 'Upload File',
-                many: 'Upload Files'
-              },
-              cancel: 'Cancel',
-              error: {
-                tooManyFiles: 'Too Many Files.',
-                fileIsTooBig: 'Failed to upload. Max allowed file size is ',
-                fileIsEmpty: 'Failed to upload. File is empty.',
-                incorrectFileType: 'Incorrect File Type.'
-              },
-              uploading: {
-                status: {
-                  connecting: 'Connecting...',
-                  stalled: 'Stalled.',
-                  processing: 'Uploading File...',
-                  held: 'Queued'
-                },
-                remainingTime: {
-                  prefix: 'remaining time: ',
-                  unknown: 'unknown remaining time'
-                },
-                error: {
-                  serverUnavailable: 'Server Unavailable',
-                  unexpectedServerError: 'Unexpected Server Error',
-                  forbidden: 'Failed to upload. Retry...'
-                }
-              },
-              units: {
-                size: ['B', 'kB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
-              }
-            };
-          }
-        }
-      },
 
-      listeners: {
-        'dragover': '_onDragover',
-        'dragleave': '_onDragleave',
-        'drop': '_onDrop',
-        'file-retry': '_onFileRetry',
-        'file-abort': '_onFileAbort',
-        'file-remove': '_onFileRemove'
-      },
+      disconnectedCallback() {
+        super.disconnectedCallback();
+        this.removeEventListener("dragover", this._onDragover);
+        this.removeEventListener("dragleave", this._onDragleave);
+        this.removeEventListener("drop", this._onDrop);
+        this.removeEventListener("file-retry", this._onFileRetry);
+        this.removeEventListener("file-abort", this._onFileAbort);
+        this.removeEventListener("file-remove", this._onFileRemove);
+      }
+      connectedCallback() {
+        super.connectedCallback();
+        this.addEventListener("dragover", this._onDragover);
+        this.addEventListener("dragleave", this._onDragleave);
+        this.addEventListener("drop", this._onDrop);
+        this.addEventListener("file-retry", this._onFileRetry);
+        this.addEventListener("file-abort", this._onFileAbort);
+        this.addEventListener("file-remove", this._onFileRemove);
+      }
 
-      _formatSize: function (bytes) {
+
+
+
+      _formatSize(bytes) {
         if (typeof this.i18n.formatSize === 'function') {
           return this.i18n.formatSize(bytes);
         }
@@ -428,9 +446,9 @@
         let dec = Math.max(0, Math.min(3, unit - 1));
         let size = parseFloat((bytes / Math.pow(base, unit)).toFixed(dec));
         return size + ' ' + this.i18n.units.size[unit];
-      },
+      }
 
-      _splitTimeByUnits: function (time) {
+      _splitTimeByUnits(time) {
         let unitSizes = [60, 60, 24, Infinity];
         let timeValues = [0];
 
@@ -440,9 +458,9 @@
         }
 
         return timeValues;
-      },
+      }
 
-      _formatTime: function (seconds, split) {
+      _formatTime(seconds, split) {
         if (typeof this.i18n.formatTime === 'function') {
           return this.i18n.formatTime(seconds, split);
         }
@@ -458,22 +476,22 @@
             return (number < 10 ? '0' : '') + number;
           })
           .join(':');
-      },
+      }
 
-      _formatFileProgress: function (file) {
+      _formatFileProgress(file) {
         return file.totalStr + ': ' +
           file.progress + '% (' +
           (file.loaded > 0 ?
             this.i18n.uploading.remainingTime.prefix + file.remainingStr :
             this.i18n.uploading.remainingTime.unknown) +
           ')';
-      },
+      }
 
-      _maxFilesAdded: function (maxFiles, numFiles) {
+      _maxFilesAdded(maxFiles, numFiles) {
         return maxFiles >= 0 && numFiles > maxFiles;
-      },
+      }
 
-      _dragRippleAction: function (action, event) {
+      _dragRippleAction(action, event) {
         let rippleActionEvent = {
           detail: {
             x: event.clientX,
@@ -514,9 +532,9 @@
         } else {
           this.$.dragRipple.upAction(rippleActionEvent);
         }
-      },
+      }
 
-      _onDragover: function (event) {
+      _onDragover(event) {
         event.preventDefault();
         if (!this.nodrop && !this._dragover) {
           this._dragoverValid = !this.maxFilesReached;
@@ -526,9 +544,9 @@
           this._dragover = true;
         }
         event.dataTransfer.dropEffect = !this._dragoverValid || this.nodrop ? 'none' : 'copy';
-      },
+      }
 
-      _onDragleave: function (event) {
+      _onDragleave(event) {
         // Dragleave sometimes fired on children, skipping them. Fixes flickeing
         // when quickly dragging over.
         if (event.composedPath()[0] === this) {
@@ -538,9 +556,9 @@
             this._dragover = this._dragoverValid = false;
           }
         }
-      },
+      }
 
-      _onDrop: function (event) {
+      _onDrop(event) {
         if (!this.nodrop) {
           event.preventDefault();
           this._dragRippleAction('up', event);
@@ -548,14 +566,14 @@
           this._dragRippleAction('upAction', event);
           this._addFiles(event.dataTransfer.files);
         }
-      },
+      }
 
       // Override for tests
-      _createXhr: function () {
+      _createXhr() {
         return new XMLHttpRequest();
-      },
+      }
 
-      _configureXhr: function (xhr, headers) {
+      _configureXhr(xhr, headers) {
         xhr.responseType = 'json';
 
         if (typeof headers == 'string') {
@@ -573,9 +591,9 @@
         if (this.timeout) {
           xhr.timeout = this.timeout;
         }
-      },
+      }
 
-      _setStatus: function (file, total, loaded, elapsed) {
+      _setStatus(file, total, loaded, elapsed) {
         file.elapsed = elapsed;
         file.elapsedStr = this._formatTime(file.elapsed, this._splitTimeByUnits(file.elapsed));
         file.remaining = Math.ceil(elapsed * (total / loaded - 1));
@@ -584,22 +602,22 @@
         file.totalStr = this._formatSize(total);
         file.loadedStr = this._formatSize(loaded);
         file.status = this._formatFileProgress(file);
-      },
+      }
 
       /**
        * Can be used to trigger the upload of any files that are not completed.
        *
        * @param {Array} [files] - Files being uploaded. Defaults to all outstanding files
        */
-      uploadFiles: function (files) {
+      uploadFiles(files) {
         // files = files || this.files;
         // files = files.filter(function(file) {
         //   return !file.complete;
         // });
         Array.prototype.forEach.call(files, this._uploadFile.bind(this));
-      },
+      }
 
-      _uploadFile: function (file) {
+      _uploadFile(file) {
         if (file.uploading) {
           return;
         }
@@ -739,18 +757,18 @@
             xhr.send(formData);
           }
         }
-      },
+      }
 
-      _retryFileUpload: function (file) {
+      _retryFileUpload(file) {
         let evt = this.dispatchEvent(new CustomEvent('upload-retry', { detail: { file: file, xhr: file.xhr }, cancelable: true, bubbles: true, composed: true }));
         if (!evt.defaultPrevented) {
           Polymer.Async.microTask.run(() => {
             this._uploadFile(file)
           });
         }
-      },
+      }
 
-      _abortFileUpload: function (file) {
+      _abortFileUpload(file) {
         let evt = this.dispatchEvent(new CustomEvent('upload-abort', { detail: { file: file, xhr: file.xhr }, cancelable: true, bubbles: true, composed: true }));
         if (!evt.defaultPrevented) {
           file.abort = true;
@@ -759,18 +777,18 @@
           }
           this._notifyFileChanges(file);
         }
-      },
+      }
 
-      _notifyFileChanges: function (file) {
+      _notifyFileChanges(file) {
         let p = 'files.' + this.files.indexOf(file) + '.';
         for (let i = 0; i < file.length; i++) {
           if (file.hasOwnProperty(i)) {
             this.notifyPath(p + i, file[i]);
           }
         }
-      },
+      }
 
-      _addFiles: function (files) {
+      _addFiles(files) {
         let totalFiles = this.files.length + files.length;
         if (this._maxFilesAdded(this.maxFiles, totalFiles)) {
           let eventData = "Failed to upload. Max files allowed is 350.";
@@ -789,14 +807,14 @@
           this.set('complete', true);
           this.set('progress', 100);
         }
-      },
+      }
 
       /**
        * Add the file for uploading. Called internally for each file after picking files from dialog or dropping files.
        *
        * @param {File} file File being added
        */
-      _addFile: function (file) {
+      _addFile(file) {
         let fileExt = file.name.match(/\.[^\.]*$|$/)[0];
         let re = new RegExp('^(' + this.accept.replace(/[, ]+/g, '|').replace(/\/\*/g, '/.*') + ')$', 'i');
         if (this.accept && !(re.test(file.type) || re.test(fileExt))) {
@@ -820,17 +838,17 @@
         if (!this.noAuto && !file.error) {
           this._uploadFile(file);
         }
-      },
+      }
 
       /**
        * Remove file from upload list. Called internally if file upload was canceled.
        * @param {File} file File to remove
        */
-      _removeFile: function (file) {
+      _removeFile(file) {
         this.splice('files', this.files.indexOf(file), 1);
-      },
+      }
 
-      _onAddFilesClick: function () {
+      _onAddFilesClick() {
         if (Polymer.Gestures.resetMouseCanceller) {
           /*
             With Polymer v1.7.1, the ghost-click prevention cancels the synthetic
@@ -843,44 +861,44 @@
 
         this.$.fileInput.value = '';
         this.$.fileInput.click();
-      },
+      }
 
-      _onFileInputChange: function (event) {
+      _onFileInputChange(event) {
         this._addFiles(event.target.files);
-      },
+      }
 
-      _onFileRetry: function (event) {
+      _onFileRetry(event) {
         this._retryFileUpload(event.detail.file);
-      },
+      }
 
-      _onFileAbort: function (event) {
+      _onFileAbort(event) {
         this._abortFileUpload(event.detail.file);
-      },
+      }
 
-      _onFileRemove: function (event) {
+      _onFileRemove(event) {
         event.stopPropagation();
         this._removeFile(event.detail.file);
-      },
+      }
 
-      _dragoverChanged: function (dragover) {
+      _dragoverChanged(dragover) {
         this.toggleAttribute('dragover', dragover);
-      },
+      }
 
-      _dragoverValidChanged: function (dragoverValid) {
+      _dragoverValidChanged(dragoverValid) {
         this.toggleAttribute('dragover-valid', dragoverValid);
-      },
+      }
 
-      _i18nPlural: function (value, plural) {
+      _i18nPlural(value, plural) {
         return value == 1 ? plural.one : plural.many;
-      },
+      }
 
-      _isMultiple: function () {
+      _isMultiple() {
         return this.maxFiles != 1;
-      },
+      }
       /**
         * <b><i>Content development is under progress... </b></i> 
         */
-      reset: function () {
+      reset() {
         for (let key in this.files) {
           let file = this.files[key];
           file.abort = true;
@@ -897,7 +915,14 @@
         this.set('complete', false);
         this.set('progress', 0);
       }
-    });
+      _getUniqueName(){
+        let uid = DataHelper.getParamValue("uid");
+        if(uid){
+          return "user_" + uid;
+        }
+      }
+    }
+    customElements.define(PebbleBulkFileUpload.is, PebbleBulkFileUpload)
 
   </script>
 </dom-module>
