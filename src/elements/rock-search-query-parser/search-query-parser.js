@@ -136,7 +136,7 @@ Parsed query json after stage4 looks like:
 }
 */
 
-var queryParser = {};
+let queryParser = {};
 
 queryParser.options = {};
 queryParser.options["startsWith"] = "!%&show&%!";
@@ -179,29 +179,29 @@ queryParser.parse = function (string, options, mappings) {
         return "invalid string";
     }
 
-    var parsedQuery = queryParser.parseQuery(string, true);
+    let parsedQuery = queryParser.parseQuery(string, true);
 
-    var finalQuery = queryParser.getFinalQuery(parsedQuery, options, mappings);
+    let finalQuery = queryParser.getFinalQuery(parsedQuery, options, mappings);
 
     return finalQuery;
 
 };
 
 queryParser.parseQuery = function (string, followPreference, isSubQuery) {
-    var keywordIndices = queryParser.getKeywordIndices(string, queryParser.options.keywords);
+    let keywordIndices = queryParser.getKeywordIndices(string, queryParser.options.keywords);
 
     if(keywordIndices.length > 0) {
         if(followPreference) {
             keywordIndices = queryParser.removeExtraIndices(keywordIndices);
         }
         keywordIndices.sort(function (a, b) { return a.index - b.index });
-        var keyValuesFromIndices = queryParser.getKeyValuesFromIndices(string, keywordIndices, isSubQuery);
+        let keyValuesFromIndices = queryParser.getKeyValuesFromIndices(string, keywordIndices, isSubQuery);
         
         if(!queryParser.isEmptyObject(keyValuesFromIndices)) {
-            var keysWithSplitValuesByKeywords = queryParser.splitValuesByKeywords(keyValuesFromIndices, queryParser.options.attributeKeywords, isSubQuery);
+            let keysWithSplitValuesByKeywords = queryParser.splitValuesByKeywords(keyValuesFromIndices, queryParser.options.attributeKeywords, isSubQuery);
 
             if(!queryParser.isEmptyObject(keysWithSplitValuesByKeywords)) {
-                var keysWithSplitValuesByOperators = queryParser.splitValuesByOperators(keysWithSplitValuesByKeywords, queryParser.options.operators, queryParser.mappings);
+                let keysWithSplitValuesByOperators = queryParser.splitValuesByOperators(keysWithSplitValuesByKeywords, queryParser.options.operators, queryParser.mappings);
 
                 return keysWithSplitValuesByOperators;
             }
@@ -212,12 +212,12 @@ queryParser.parseQuery = function (string, followPreference, isSubQuery) {
 };
 
 queryParser.getKeywordIndices = function (string, keywords) {
-    var keywordIndices = [];
-    for (var i = 0; i < keywords.length; i++) {
-        var keyword = keywords[i];
-        var keywordIndex = string.indexOf(keyword);
+    let keywordIndices = [];
+    for (let i = 0; i < keywords.length; i++) {
+        let keyword = keywords[i];
+        let keywordIndex = string.indexOf(keyword);
         if (keywordIndex !== -1) {
-            var obj = {
+            let obj = {
                 "key": keyword,
                 "index": keywordIndex
             };
@@ -226,10 +226,11 @@ queryParser.getKeywordIndices = function (string, keywords) {
     }
 
     if(keywordIndices.length > 0) {
-        var obj = {
+        let obj = {
             "key": "end",
             "index": string.length
         }
+
         keywordIndices.push(obj);
     }
 
@@ -237,15 +238,16 @@ queryParser.getKeywordIndices = function (string, keywords) {
 };
 
 queryParser.removeExtraIndices = function(indices) {
-    var indicesToRemove = [];
-    for(var i=1; i<indices.length; i++) {
+    let indicesToRemove = [];
+    for(let i = 1; i < indices.length; i++) {
         if(indices[i-1].index > indices[i].index) {
             indicesToRemove.push(i-1);
         }
     }
+
     if(indicesToRemove.length > 0) {
-        for(var i=0; i<indicesToRemove.length; i++) {
-        var indexToRemove = indicesToRemove[i];
+        for(let i=0; i<indicesToRemove.length; i++) {
+        let indexToRemove = indicesToRemove[i];
         indices.splice(indexToRemove, 1);
         }
     }
@@ -253,23 +255,23 @@ queryParser.removeExtraIndices = function(indices) {
 };
 
 queryParser.getKeyValuesFromIndices = function(string, indices, isSubQuery) {
-    var keyValues = {};
+    let keyValues = {};
     if(indices.length > 0 && indices[0].index !== 0) {
-        var extraText = string.slice(0, indices[0].index);
+        let extraText = string.slice(0, indices[0].index);
         keyValues["extraText"] = extraText.trim();
     }
     
-    for(var i=1; i<indices.length; i++) {
-        var indexObject = indices[i-1];
-        var indexObject1 = indices[i];
-        var startIndex = indexObject.index;
-        var endIndex = indexObject1.index;
+    for(let i=1; i<indices.length; i++) {
+        let indexObject = indices[i-1];
+        let indexObject1 = indices[i];
+        let startIndex = indexObject.index;
+        let endIndex = indexObject1.index;
         if(isSubQuery && indexObject.key === "!%&show&%!") {
             endIndex = indices[indices.length -1].index;
             i=indices.length;
         }
-        var value = string.slice(startIndex, endIndex);
-        var sepIndex = value.indexOf(" ");
+        let value = string.slice(startIndex, endIndex);
+        let sepIndex = value.indexOf(" ");
         if(sepIndex) {
             value = value.slice(sepIndex + 1).trim();
         }
@@ -280,18 +282,18 @@ queryParser.getKeyValuesFromIndices = function(string, indices, isSubQuery) {
 };
 
 queryParser.splitValuesByKeywords = function(keyValues, keywords, isSubQuery) {
-    var keys = Object.keys(keyValues);
+    let keys = Object.keys(keyValues);
 
-    var valuesSplitByKeywords = {};
+    let valuesSplitByKeywords = {};
     if(keys && keys.length > 0) {
-        var extraText;
-        var obj = {};
-        var regex = queryParser.prepareRegex(keywords);
-        for(var i=0; i<keys.length; i++) {
-            var key = keys[i];
-            var value = keyValues[key];
+        let extraText;
+        let obj = {};
+        let regex = queryParser.prepareRegex(keywords);
+        for(let i=0; i<keys.length; i++) {
+            let key = keys[i];
+            let value = keyValues[key];
             key = key.replace(/!|%|&/g,'');
-            var valueList;
+            let valueList = undefined;
             if(key === "having") {
                 // send the value for parsing
                 valueList = [queryParser.parseQuery(value, false, true)];
@@ -324,29 +326,29 @@ queryParser.splitValuesByKeywords = function(keyValues, keywords, isSubQuery) {
 };
 
 queryParser.splitValuesByOperators = function(keyValues, operators, mappings) {
-    var keys = Object.keys(keyValues);
+    let keys = Object.keys(keyValues);
 
-    var valuesSplitByOperators = {};
+    let valuesSplitByOperators = {};
     if(keys && keys.length > 0) {
-        var regex = queryParser.prepareRegex(operators);
-        for(var i=0; i<keys.length; i++) {
-            var key = keys[i];
-            var val = keyValues[key];
+        let regex = queryParser.prepareRegex(operators);
+        for(let i=0; i<keys.length; i++) {
+            let key = keys[i];
+            let val = keyValues[key];
             if(val instanceof Array && val.length > 0) {
-                for(var j=0; j<val.length; j++) {
-                    var value = val[j];
+                for(let j=0; j<val.length; j++) {
+                    let value = val[j];
                     if(typeof(value) === "string") {
-                        var operator = operators.find(char => value.indexOf(char) !== -1);
+                        let operator = operators.find(char => value.indexOf(char) !== -1);
                         if(operator) {
-                            var sepIndex = value.indexOf(operator);
-                            var attrName = value.slice(0,sepIndex).trim();
+                            let sepIndex = value.indexOf(operator);
+                            let attrName = value.slice(0,sepIndex).trim();
                             value = value.slice(sepIndex + 1).trim();
                             operator = mappings[operator];
-                            var valObj = {};
+                            let valObj = {};
                             valObj[attrName] = valObj[attrName] || {};
                             valObj[attrName][operator] = value;
                             valuesSplitByOperators[key] = valuesSplitByOperators[key] || [];
-                            var existingAttr = valuesSplitByOperators[key].find(obj => obj[attrName] !== undefined);
+                            let existingAttr = valuesSplitByOperators[key].find(obj => obj[attrName] !== undefined);
                             if(existingAttr) {
                                 existingAttr[attrName][operator] = value;
                             } else {
@@ -362,10 +364,8 @@ queryParser.splitValuesByOperators = function(keyValues, operators, mappings) {
                     }
                 }
             } else if(val instanceof Object) {
-                var valObj = queryParser.splitValuesByOperators(val, operators, mappings);
+                let valObj = queryParser.splitValuesByOperators(val, operators, mappings);
                 valuesSplitByOperators[key] =[valObj];
-            } else {
-
             }
         }
     }
@@ -375,14 +375,14 @@ queryParser.splitValuesByOperators = function(keyValues, operators, mappings) {
 
 queryParser.getFinalQuery = function(parsedQuery) {
     if(!queryParser.isEmptyObject(parsedQuery)) {
-        var finalQuery = {};
+        let finalQuery = {};
 
-        var entityTypes = parsedQuery.show;
-        var entityAttributes = parsedQuery.with && parsedQuery.with.length > 0 ? parsedQuery.with : undefined;
-        var relatioshipsSection = parsedQuery.having && parsedQuery.having[0] ? parsedQuery.having[0] : undefined;
-        var relationshipName;
-        var relationshipAttributes;
-        var relatedEntityQuery;
+        let entityTypes = parsedQuery.show;
+        let entityAttributes = parsedQuery.with && parsedQuery.with.length > 0 ? parsedQuery.with : undefined;
+        let relatioshipsSection = parsedQuery.having && parsedQuery.having[0] ? parsedQuery.having[0] : undefined;
+        let relationshipName;
+        let relationshipAttributes;
+        let relatedEntityQuery;
         if(relatioshipsSection) {
             if(typeof(relatioshipsSection) === "string") {
                 relationshipName = relatioshipsSection;
@@ -395,20 +395,20 @@ queryParser.getFinalQuery = function(parsedQuery) {
                 relatedEntityQuery = relData.show && relData.show.length > 0 ? queryParser.getFinalQuery(relData.show[0]) : undefined;
             }
         }
-        var workflowName = parsedQuery.pending && parsedQuery.pending.length > 0 ? parsedQuery.pending[0] : undefined;
-        var workflowActivityName = parsedQuery.pending && parsedQuery.pending.length > 0 ? parsedQuery.pending[1] : undefined;
+        let workflowName = parsedQuery.pending && parsedQuery.pending.length > 0 ? parsedQuery.pending[0] : undefined;
+        let workflowActivityName = parsedQuery.pending && parsedQuery.pending.length > 0 ? parsedQuery.pending[1] : undefined;
 
-        var searchQuery = parsedQuery._ANY && parsedQuery._ANY.length > 0 ? parsedQuery._ANY[0] : undefined;
+        let searchQuery = parsedQuery._ANY && parsedQuery._ANY.length > 0 ? parsedQuery._ANY[0] : undefined;
 
         if (entityTypes) {
-            var entityData = {
+            let entityData = {
                 "types": entityTypes,
                 "attributes": entityAttributes
             }
             finalQuery.entityData = entityData;
         }
         if (relationshipName) {
-            var entityRelationships = {
+            let entityRelationships = {
                 "relationshipName": relationshipName,
                 "attributes": relationshipAttributes
             }
@@ -418,7 +418,7 @@ queryParser.getFinalQuery = function(parsedQuery) {
             finalQuery.entityRelationships = entityRelationships;
         }
         if (workflowName && workflowActivityName) {
-            var workflowCriterion = {
+            let workflowCriterion = {
                 "workflowShortName": workflowName,
                 "workflowActivityName": workflowActivityName
             }
@@ -432,9 +432,9 @@ queryParser.getFinalQuery = function(parsedQuery) {
 };
 
 queryParser.prepareRegex = function(keywords) {
-    var strForRegex = "";
-    for(var i=0; i<keywords.length; i++) {
-        var keyword = keywords[i];
+    let strForRegex = "";
+    for(let i=0; i<keywords.length; i++) {
+        let keyword = keywords[i];
         if(i !== keywords.length - 1) {
             strForRegex = strForRegex + " " + keyword + " |";
         } else {
@@ -442,13 +442,13 @@ queryParser.prepareRegex = function(keywords) {
         }
     }
 
-    var regex = new RegExp(strForRegex, "ig");
+    let regex = new RegExp(strForRegex, "ig");
 
     return regex;
 };
 
 queryParser.isEmptyObject = function (obj) {
-    for (var key in obj) {
+    for (let key in obj) {
         if (obj.hasOwnProperty(key)) {
             return false;
         }
