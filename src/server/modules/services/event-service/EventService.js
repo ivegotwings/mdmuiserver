@@ -791,7 +791,7 @@ Eventservice.prototype = {
                             eventAttributes["recordCount"] = attributes["totalRecords"];
                             eventAttributes["profileName"] = attributes["profileName"];
                             eventAttributes["hasChildTasks"] = attributes["hasChildTasks"];
-                            eventAttributes["hasExtractionCompleted"] = attributes["hasExtractionCompleted"];
+                            eventAttributes["isExtractComplete"] = attributes["isExtractComplete"];
                             eventAttributes["createdOn"] = {"values": [
                                 {
                                     "locale": "en-US",
@@ -849,7 +849,7 @@ Eventservice.prototype = {
             let totalRecords = this._getAttributeValue(requestObject, "totalRecords");
             let message = this._getAttributeValue(requestObject, "errorMessage");
             let hasChildTasks = this._getAttributeValue(requestObject, "hasChildTasks");
-            let hasExtractionCompleted = this._getAttributeValue(requestObject, "hasExtractionCompleted");
+            let isExtractComplete = this._getAttributeValue(requestObject, "isExtractComplete");
             let startTime = requestObject.properties.createdDate;
 
             response.taskId = taskId;
@@ -870,7 +870,7 @@ Eventservice.prototype = {
             response.startTime = startTime ? startTime : "N/A";
             response.endTime = "N/A";
             response.hasChildTasks = typeof hasChildTasks === "boolean" ? hasChildTasks : "N/A";
-            response.hasExtractionCompleted = typeof hasExtractionCompleted === "boolean" ? hasExtractionCompleted : "N/A";
+            response.isExtractComplete = typeof isExtractComplete === "boolean" ? isExtractComplete : "N/A";
 
             let taskStats = response["taskStats"] = {};
             taskStats.error = "0%";
