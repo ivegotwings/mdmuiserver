@@ -108,589 +108,589 @@ attributes during the single entity creation.
                 RUFBehaviors.UIBehavior,
                 RUFBehaviors.ComponentContextBehavior
             ], Polymer.OptionalMutableData(Polymer.Element)) {
-            static get is() {
-                return 'rock-entity-create-single';
-            }
-            static get observers() {
-                return [
-                    '_contextChanged(attributeNames, contextData)'
-                ]
-            }
-
-            static get properties() {
-                return {
-                    contextData: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    },
-                    /**
-                     * Indicates the names of the attributes that are rendered while creating a single entity.
-                     */
-                    attributeNames: {
-                        type: Array,
-                        value: function () {
-                            return [];
-                        }
-                    },
-                    /**
-                     * Indicates the mode in which the attributes are rendered.
-                     */
-                    mode: {
-                        type: String,
-                        value: "edit",
-                        notify: true
-                    },
-                    /**
-                     * Specifies the request object for the attribute model request.
-                     */
-                    attributeModelRequest: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    },
-                    /**
-                     * Specifies the response object for the attribute models.
-                     */
-                    attributeModelResponse: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    },
-                    _attributeValues: {
-                        type: Array,
-                        value: function () {
-                            return [];
-                        }
-                    },
-                    enableRelationshipsMatchMerge: {
-                        type: Boolean,
-                        value: false
-                    },
-                    _attributeMessages: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    },
-                    _saveRequest: {
-                        type: Object,
-                        value: function () { return {}; }
-                    },
-                    _loading: {
-                        type: Boolean,
-                        value: false
-                    },
-                    /**
-                     * Specifies the length of the error message.
-                     */
-                    errorLength: {
-                        type: Number,
-                        notify: true,
-                        value: 0
-                    },
-                    _entityMatchRequest: {
-                        type: Object,
-                        value: function () { return {}; }
-                    },
-                    _matchedEntity: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    },
-                    compareEntitiesContext: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    },
-                    _syncValidationErrors: {
-                        type: Array,
-                        value: function () { return []; }
-                    },
-                    /**
-                      * <b><i>Content development is under progress... </b></i> 
-                      */
-                    messageCodeMapping: {
-                        type: Object,
-                        value: function () { return {}; }
-                    },
-                    skipNext: {
-                        type: Boolean,
-                        value: false
-                    },
-                    matchConfig: {
-                        type: Object,
-                        value: function () { return {}; }
-                    },
-                    enableMatchStep: {
-                        type: Boolean,
-                        value: false
-                    },
-                    matchType: {
-                        type: String,
-                        value: "deterministic"
-                    },
-                    defaultEntity: {
-                        type: Object,
-                        value: function () { return {}; }
-                    },
-                    dataIndex: {
-                        type: String,
-                        value: "entityData"
-                    },
-                    dataSubIndex: {
-                        type: String,
-                        value: "data"
-                    },
-                    entityDomain: {
-                        type: String,
-                        value: ""
-                    }
+                static get is() {
+                    return 'rock-entity-create-single';
                 }
-            }
-
-            _contextChanged(attributeNames, contextData) {
-                if (attributeNames && attributeNames.length > 0 && !_.isEmpty(contextData)) {
-                    let firstItemContext = this.getFirstItemContext();
-
-                    if (typeof (firstItemContext) != "undefined") {
-                        firstItemContext.attributeNames = attributeNames;
-                    }
-
-                    let t = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
-
-                    this.set("attributeModelRequest", t);
-
-                    let liquidModelGet = this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
-                    if (liquidModelGet) {
-                        liquidModelGet.generateRequest();
-                    }
-                }
-            }
-            async _onCompositeModelGetResponse(e) {
-                let values = [];
-                if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
-                    this._attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], this.contextData);
-                    values = await DataTransformHelper.transformAttributes({}, this._attributeModels, this.contextData, "array", true);
-                }
-                this._attributeValues = values;
-            }
-            _onSaveTap(e) {
-                //raise event with name given for onNextAction in configuration
-                let attributeList = this.shadowRoot.querySelector('rock-attribute-list');
-                let attributeModels = attributeList ? attributeList.attributeModels : {};
-                let changedAttributeElements = attributeList.getChangedAttributeElements();
-
-                if(!_.isEmpty(this.matchConfig)) {
-                    this.enableMatchStep = this.matchConfig["enable-match-step"];
-                    this.matchType = this.matchConfig["match-type"] || "deterministic";
+                static get observers() {
+                    return [
+                        '_contextChanged(attributeNames, contextData)'
+                    ]
                 }
 
-                if (attributeList.hasModelErrors()) {
-                    this.showWarningToast("Cannot save. Resolve the errors.");
-                    return;
-                }
-                if (changedAttributeElements == undefined || changedAttributeElements.length == 0) {
-                    this.showWarningToast("No changes to save.");
-                    return;
-                }
-
-                let attributesJSON = [];
-                for (let i = 0; i < changedAttributeElements.length; i++) {
-                    let attributeElement = changedAttributeElements[i];
-                    let attributeJSON = attributeElement.attributeObject;
-                    attributesJSON.push(attributeJSON);
-                }
-
-                let itemCtx = this.getFirstItemContext();
-                let entityType = itemCtx.type;
-                let entityId = "e" + ElementHelper.getRandomString();
-                let entityName = this._getNameForEntityModel(attributesJSON);
-                let modelDomain;
-                if (this.dataIndex == "entityModel") {
-                    if (this._isEmptyValue(entityName)) {
-                        entityId = entityId + "_" + entityType;
-                    } else {
-                        entityId = entityName + "_" + entityType;
-                    }
-
-                    if(this.entityDomain && this.entityDomain != "" && this.entityDomain != "undefined") {
-                        modelDomain = this.entityDomain;
-                    }
-                }
-                itemCtx.id = entityId;
-                let newEntity = DataTransformHelper.prepareEntityForCreate(entityId, entityType, attributesJSON, this.contextData, DataHelper.getUserName(), this.defaultEntity, attributeModels, modelDomain);
-                newEntity.name = entityName;
-                ComponentHelper.getParentElement(this).contextData = this.contextData;
-
-                this._saveRequest = {
-                    "entities": [newEntity]
-                };
-
-                //Add hotline flag if hotline is enabled
-                if (DataHelper.isHotlineModeEnabled()) {
-                    this._saveRequest["hotline"] = true;
-                }
-
-                //Set match request
-                this.set('_entityMatchRequest', {
-                    "entity": newEntity
-                });
-
-                let entityMatchService = this.shadowRoot.querySelector("#entityMatchService");
-
-                if(this.enableMatchStep && this.matchType === "MLBased") {
-                    entityMatchService.url = "/data/pass-through/matchservice/match";
-                }
-                if (entityMatchService) {
-                    entityMatchService.generateRequest();
-                }
-            }
-            _getNameForEntityModel(attributesJSON) {
-                let name = "";
-                if (!_.isEmpty(this._attributeModels) && !_.isEmpty(attributesJSON)) {
-                    let uniqueAttrModel = undefined;
-                    Object.keys(this._attributeModels).forEach(function (model) {
-                        if (this._attributeModels[model] && this._attributeModels[model].isEntityIdentifier) {
-                            uniqueAttrModel = this._attributeModels[model];
-                        }
-                    }, this);
-
-                    if (!_.isEmpty(uniqueAttrModel)) {
-                        let uniqueAttr = attributesJSON.filter(function (attr) {
-                            if (attr.name == uniqueAttrModel.name) {
-                                return attr;
+                static get properties() {
+                    return {
+                        contextData: {
+                            type: Object,
+                            value: function () {
+                                return {};
                             }
-                        });
-
-                        if (uniqueAttr && uniqueAttr.length == 1) {
-                            name = uniqueAttr[0].value;
+                        },
+                        /**
+                         * Indicates the names of the attributes that are rendered while creating a single entity.
+                         */
+                        attributeNames: {
+                            type: Array,
+                            value: function () {
+                                return [];
+                            }
+                        },
+                        /**
+                         * Indicates the mode in which the attributes are rendered.
+                         */
+                        mode: {
+                            type: String,
+                            value: "edit",
+                            notify: true
+                        },
+                        /**
+                         * Specifies the request object for the attribute model request.
+                         */
+                        attributeModelRequest: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        /**
+                         * Specifies the response object for the attribute models.
+                         */
+                        attributeModelResponse: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        _attributeValues: {
+                            type: Array,
+                            value: function () {
+                                return [];
+                            }
+                        },
+                        enableRelationshipsMatchMerge: {
+                            type: Boolean,
+                            value: false
+                        },
+                        _attributeMessages: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        _saveRequest: {
+                            type: Object,
+                            value: function () { return {}; }
+                        },
+                        _loading: {
+                            type: Boolean,
+                            value: false
+                        },
+                        /**
+                         * Specifies the length of the error message.
+                         */
+                        errorLength: {
+                            type: Number,
+                            notify: true,
+                            value: 0
+                        },
+                        _entityMatchRequest: {
+                            type: Object,
+                            value: function () { return {}; }
+                        },
+                        _matchedEntity: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        compareEntitiesContext: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        _syncValidationErrors: {
+                            type: Array,
+                            value: function () { return []; }
+                        },
+                        /**
+                         * <b><i>Content development is under progress... </b></i> 
+                         */
+                        messageCodeMapping: {
+                            type: Object,
+                            value: function () { return {}; }
+                        },
+                        skipNext: {
+                            type: Boolean,
+                            value: false
+                        },
+                        matchConfig: {
+                            type: Object,
+                            value: function () { return {}; }
+                        },
+                        enableMatchStep: {
+                            type: Boolean,
+                            value: false
+                        },
+                        matchType: {
+                            type: String,
+                            value: "deterministic"
+                        },
+                        defaultEntity: {
+                            type: Object,
+                            value: function () { return {}; }
+                        },
+                        dataIndex: {
+                            type: String,
+                            value: "entityData"
+                        },
+                        dataSubIndex: {
+                            type: String,
+                            value: "data"
+                        },
+                        entityDomain: {
+                            type: String,
+                            value: ""
                         }
                     }
                 }
 
-                return name;
-            }
+                _contextChanged(attributeNames, contextData) {
+                    if (attributeNames && attributeNames.length > 0 && !_.isEmpty(contextData)) {
+                        let firstItemContext = this.getFirstItemContext();
 
-            _isEmptyValue(value) {
-                if (typeof (value) === "string") {
-                    return value === "" || value.trim().length === 0;
-                } else {
-                    return _.isEmpty(value);
+                        if (typeof (firstItemContext) != "undefined") {
+                            firstItemContext.attributeNames = attributeNames;
+                        }
+
+                        let t = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
+
+                        this.set("attributeModelRequest", t);
+
+                        let liquidModelGet = this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
+                        if (liquidModelGet) {
+                            liquidModelGet.generateRequest();
+                        }
+                    }
                 }
-            }
+                async _onCompositeModelGetResponse(e) {
+                    let values = [];
+                    if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
+                        this._attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], this.contextData);
+                        values = await DataTransformHelper.transformAttributes({}, this._attributeModels, this.contextData, "array", true);
+                    }
+                    this._attributeValues = values;
+                }
+                _onSaveTap(e) {
+                    //raise event with name given for onNextAction in configuration
+                    let attributeList = this.shadowRoot.querySelector('rock-attribute-list');
+                    let attributeModels = attributeList ? attributeList.attributeModels : {};
+                    let changedAttributeElements = attributeList.getChangedAttributeElements();
 
-            _onMatchSuccess(e, detail) {
-                if (detail.response) {
-                    let response = detail.response.response;
-                    if ((response.dataObjectOperationResponse && response.dataObjectOperationResponse.status &&
-                        response.dataObjectOperationResponse.status.toLowerCase() == "error") ||
-                        (response.status && response.status.toLowerCase() == "error")) {
-                        this.logError("MatchServiceRequestFail", e.detail);
+                    if(!_.isEmpty(this.matchConfig)) {
+                        this.enableMatchStep = this.matchConfig["enable-match-step"];
+                        this.matchType = this.matchConfig["match-type"] || "deterministic";
+                    }
+
+                    if (attributeList.hasModelErrors()) {
+                        this.showWarningToast("Cannot save. Resolve the errors.");
+                        return;
+                    }
+                    if (changedAttributeElements == undefined || changedAttributeElements.length == 0) {
+                        this.showWarningToast("No changes to save.");
                         return;
                     }
 
-                    if(this.matchType === "MLBased") {
-                        response.status = "success";
+                    let attributesJSON = [];
+                    for (let i = 0; i < changedAttributeElements.length; i++) {
+                        let attributeElement = changedAttributeElements[i];
+                        let attributeJSON = attributeElement.attributeObject;
+                        attributesJSON.push(attributeJSON);
                     }
 
-                    if (response.status && response.status.toLowerCase() == "success") {
-                        if (!_.isEmpty(response.entities)) {
-                            if (!this.enableMatchStep) {
-                                if (response.entities.length == 1) {
-                                    this._matchedEntity = response.entities[0];
-                                    this.shadowRoot.querySelector('#updateConfirmDialog').open();
-                                } else if (response.entities.length > 1) {
-                                    this.showWarningToast("We found multiple entities matching in our system. Check entity details or contact your administrator.");
-                                }
-                                return;
+                    let itemCtx = this.getFirstItemContext();
+                    let entityType = itemCtx.type;
+                    let entityId = "e" + ElementHelper.getRandomString();
+                    let entityName = this._getNameForEntityModel(attributesJSON);
+                    let modelDomain;
+                    if (this.dataIndex == "entityModel") {
+                        if (this._isEmptyValue(entityName)) {
+                            entityId = entityId + "_" + entityType;
+                        } else {
+                            entityId = entityName + "_" + entityType;
+                        }
+
+                        if(this.entityDomain && this.entityDomain != "" && this.entityDomain != "undefined") {
+                            modelDomain = this.entityDomain;
+                        }
+                    }
+                    itemCtx.id = entityId;
+                    let newEntity = DataTransformHelper.prepareEntityForCreate(entityId, entityType, attributesJSON, this.contextData, DataHelper.getUserName(), this.defaultEntity, attributeModels, modelDomain);
+                    newEntity.name = entityName;
+                    ComponentHelper.getParentElement(this).contextData = this.contextData;
+
+                    this._saveRequest = {
+                        "entities": [newEntity]
+                    };
+
+                    //Add hotline flag if hotline is enabled
+                    if (DataHelper.isHotlineModeEnabled()) {
+                        this._saveRequest["hotline"] = true;
+                    }
+
+                    //Set match request
+                    this.set('_entityMatchRequest', {
+                        "entity": newEntity
+                    });
+
+                    let entityMatchService = this.shadowRoot.querySelector("#entityMatchService");
+
+                    if(this.enableMatchStep && this.matchType === "MLBased") {
+                        entityMatchService.url = "/data/pass-through/matchservice/match";
+                    }
+                    if (entityMatchService) {
+                        entityMatchService.generateRequest();
+                    }
+                }
+                _getNameForEntityModel(attributesJSON) {
+                    let name = "";
+                    if (!_.isEmpty(this._attributeModels) && !_.isEmpty(attributesJSON)) {
+                        let uniqueAttrModel = undefined;
+                        Object.keys(this._attributeModels).forEach(function (model) {
+                            if (this._attributeModels[model] && this._attributeModels[model].isEntityIdentifier) {
+                                uniqueAttrModel = this._attributeModels[model];
                             }
+                        }, this);
 
-                            if(this.matchType === "MLBased") {
-                                    let entity = response.entities[0];
-                                    let matchResult = EntityHelper.getAttribute(entity, "matchresult");
+                        if (!_.isEmpty(uniqueAttrModel)) {
+                            let uniqueAttr = attributesJSON.filter(function (attr) {
+                                if (attr.name == uniqueAttrModel.name) {
+                                    return attr;
+                                }
+                            });
 
-                                    if(matchResult && !_.isEmpty(matchResult.group)) {
-                                        let entities = [];
-                                        for(let idx = 0; idx<matchResult.group.length; idx++) {
-                                            let group = matchResult.group[idx];
-                                            let mEntity = {
-                                                "id": AttributeHelper.getFirstAttributeValue(group.identifier),
-                                                "score": AttributeHelper.getFirstAttributeValue(group.score)
+                            if (uniqueAttr && uniqueAttr.length == 1) {
+                                name = uniqueAttr[0].value;
+                            }
+                        }
+                    }
+
+                    return name;
+                }
+
+                _isEmptyValue(value) {
+                    if (typeof (value) === "string") {
+                        return value === "" || value.trim().length === 0;
+                    } else {
+                        return _.isEmpty(value);
+                    }
+                }
+
+                _onMatchSuccess(e, detail) {
+                    if (detail.response) {
+                        let response = detail.response.response;
+                        if ((response.dataObjectOperationResponse && response.dataObjectOperationResponse.status &&
+                            response.dataObjectOperationResponse.status.toLowerCase() == "error") ||
+                            (response.status && response.status.toLowerCase() == "error")) {
+                            this.logError("MatchServiceRequestFail", e.detail);
+                            return;
+                        }
+
+                        if(this.matchType === "MLBased") {
+                            response.status = "success";
+                        }
+
+                        if (response.status && response.status.toLowerCase() == "success") {
+                            if (!_.isEmpty(response.entities)) {
+                                if (!this.enableMatchStep) {
+                                    if (response.entities.length == 1) {
+                                        this._matchedEntity = response.entities[0];
+                                        this.shadowRoot.querySelector('#updateConfirmDialog').open();
+                                    } else if (response.entities.length > 1) {
+                                        this.showWarningToast("We found multiple entities matching in our system. Check entity details or contact your administrator.");
+                                    }
+                                    return;
+                                }
+
+                                if(this.matchType === "MLBased") {
+                                        let entity = response.entities[0];
+                                        let matchResult = EntityHelper.getAttribute(entity, "matchresult");
+
+                                        if(matchResult && !_.isEmpty(matchResult.group)) {
+                                            let entities = [];
+                                            for(let idx = 0; idx<matchResult.group.length; idx++) {
+                                                let group = matchResult.group[idx];
+                                                let mEntity = {
+                                                    "id": AttributeHelper.getFirstAttributeValue(group.identifier),
+                                                    "score": AttributeHelper.getFirstAttributeValue(group.score)
+                                                }
+
+                                                entities.push(mEntity);
                                             }
 
-                                            entities.push(mEntity);
+                                            response.entities = entities;
+                                        } else {
+                                            this._triggerGovernRequest();
+                                            return;
                                         }
-
-                                        response.entities = entities;
-                                    } else {
-                                        this._triggerGovernRequest();
-                                        return;
                                     }
+
+                                let matchedEntityIds = response.entities.map(entity => entity.id);
+                                let entityType = ContextHelper.getFirstItemContext(this.contextData).type;
+
+                                this.compareEntitiesContext = {
+                                    "newEntity": DataHelper.cloneObject(this._entityMatchRequest.entity),
+                                    "entityIds": matchedEntityIds,
+                                    "entityTypes": [entityType],
+                                    "contextData": DataHelper.cloneObject(this.contextData),
+                                    "matchConfig": this.matchConfig,
+                                    "entities-data": response.entities
                                 }
 
-                            let matchedEntityIds = response.entities.map(entity => entity.id);
-                            let entityType = ContextHelper.getFirstItemContext(this.contextData).type;
-
-                            this.compareEntitiesContext = {
-                                "newEntity": DataHelper.cloneObject(this._entityMatchRequest.entity),
-                                "entityIds": matchedEntityIds,
-                                "entityTypes": [entityType],
-                                "contextData": DataHelper.cloneObject(this.contextData),
-                                "matchConfig": this.matchConfig,
-                                "entities-data": response.entities
+                                this._hideView("entity-create");
+                                this._showView("entity-match");
+                            } else {
+                                this._triggerGovernRequest();
                             }
-
-                            this._hideView("entity-create");
-                            this._showView("entity-match");
-                        } else {
-                            this._triggerGovernRequest();
                         }
                     }
                 }
-            }
 
-            _triggerGovernRequest(operation) {
-                let governReq = DataHelper.cloneObject(this._entityMatchRequest);
+                _triggerGovernRequest(operation) {
+                    let governReq = DataHelper.cloneObject(this._entityMatchRequest);
 
-                let liquidSave = this.shadowRoot.querySelector("[name=entitySaveService]");
-                if (liquidSave) {
-                    liquidSave.operation = operation || "create";
-                }
-                if(this.dataIndex == "entityModel"){
-                    // let liquidModelGovernGet = this.$.modelGovernService;
-                    // if(liquidModelGovernGet){
-                    //     let reqObj = {};
-                    //     reqObj["entityModel"] = governReq["entity"];
-                    //     this.set("_modelGovernRequest", reqObj);
-                    //     liquidModelGovernGet.generateRequest();
-                    // }
-                    liquidSave.generateRequest();
-                }else{               
-                    let liquidGovernGet = this.$.entityGovernService;
-                    if (liquidGovernGet) {
-                        this.set("_entityGovernRequest", governReq);
-                        liquidGovernGet.generateRequest();
+                    let liquidSave = this.shadowRoot.querySelector("[name=entitySaveService]");
+                    if (liquidSave) {
+                        liquidSave.operation = operation || "create";
+                    }
+                    if(this.dataIndex == "entityModel"){
+                        // let liquidModelGovernGet = this.$.modelGovernService;
+                        // if(liquidModelGovernGet){
+                        //     let reqObj = {};
+                        //     reqObj["entityModel"] = governReq["entity"];
+                        //     this.set("_modelGovernRequest", reqObj);
+                        //     liquidModelGovernGet.generateRequest();
+                        // }
+                        liquidSave.generateRequest();
+                    }else{               
+                        let liquidGovernGet = this.$.entityGovernService;
+                        if (liquidGovernGet) {
+                            this.set("_entityGovernRequest", governReq);
+                            liquidGovernGet.generateRequest();
+                        }
                     }
                 }
-            }
 
-            _onMatchFailure(e, detail) {
-                this.logError("MatchServiceRequestFail", "response", JSON.stringify(detail));
-            }
+                _onMatchFailure(e, detail) {
+                    this.logError("MatchServiceRequestFail", "response", JSON.stringify(detail));
+                }
 
-            _updateEntity() {
-                if (!this.enableMatchStep) {
+                _updateEntity() {
+                    if (!this.enableMatchStep) {
+                        let updateConfirmDialog = this.$.updateConfirmDialog;
+                        if (updateConfirmDialog) {
+                            updateConfirmDialog.close();
+                        }
+                    }
+                    let clientState = {};
+                    clientState.notificationInfo = {};
+                    clientState.notificationInfo.showNotificationToUser = false;
+                    this._saveRequest["clientState"] = clientState;
+                    this._saveRequest.entities[0].id = this._matchedEntity.id;
+                    let itemCtx = this.getFirstItemContext();
+                    itemCtx.id = this._matchedEntity.id;
+                    let governReq = DataHelper.cloneObject(this._entityMatchRequest);
+
+                    this._triggerGovernRequest("update");
+                }
+                _cancelProcess() {
                     let updateConfirmDialog = this.$.updateConfirmDialog;
                     if (updateConfirmDialog) {
                         updateConfirmDialog.close();
                     }
                 }
-                let clientState = {};
-                clientState.notificationInfo = {};
-                clientState.notificationInfo.showNotificationToUser = false;
-                this._saveRequest["clientState"] = clientState;
-                this._saveRequest.entities[0].id = this._matchedEntity.id;
-                let itemCtx = this.getFirstItemContext();
-                itemCtx.id = this._matchedEntity.id;
-                let governReq = DataHelper.cloneObject(this._entityMatchRequest);
-
-                this._triggerGovernRequest("update");
-            }
-            _cancelProcess() {
-                let updateConfirmDialog = this.$.updateConfirmDialog;
-                if (updateConfirmDialog) {
-                    updateConfirmDialog.close();
-                }
-            }
-            _onSaveResponse(e) {
-                let eventName = "onSave";
-                let operation = e.detail.request.operation;
-                let eventDetail = {
-                    name: eventName,
-                    data: { "skipNext": operation == "update" ? true : this.skipNext }
-                }
-                this._loading = true;
-                let itemCtx = this.getFirstItemContext();
-                let msg = "";
-                if (operation == "create") {
-                    msg = "Entity created successfully.";
-                }
-                if (operation == "update") {
-                    msg = "Entity updated successfully.";
-                }
-                let data = {
-                    "messages": [
-                        {
-                            "message": msg
+                _onSaveResponse(e) {
+                    let eventName = "onSave";
+                    let operation = e.detail.request.operation;
+                    let eventDetail = {
+                        name: eventName,
+                        data: { "skipNext": operation == "update" ? true : this.skipNext }
+                    }
+                    this._loading = true;
+                    let itemCtx = this.getFirstItemContext();
+                    let msg = "";
+                    if (operation == "create") {
+                        msg = "Entity created successfully.";
+                    }
+                    if (operation == "update") {
+                        msg = "Entity updated successfully.";
+                    }
+                    let data = {
+                        "messages": [
+                            {
+                                "message": msg
+                            }
+                        ],
+                        "actions": [
+                            {
+                                "name": "closeFunction",
+                                "text": "Take Me back to Where I started"
+                            },
+                            {
+                                "name": "showEntity",
+                                "text": "Show me the entity",
+                                "dataRoute": "entity-manage",
+                                "queryParams": { "id": itemCtx.id, "type": itemCtx.type }
+                            },
+                            {
+                                "name": "createEntity",
+                                "text": "Create one more",
+                                "dataRoute": "entity-create",
+                                "queryParams": { "type": itemCtx.type }
+                            }
+                        ]
+                    };
+                    ComponentHelper.fireBedrockEvent("entity-created", { "id": itemCtx.id, "type": itemCtx.type }, { ignoreId: true });
+                    ComponentHelper.getParentElement(this).businessFunctionData = data;
+                    setTimeout(() => {
+                        this._loading = false;
+                        if (operation != "update") {
+                            this.showSuccessToast(msg);
                         }
-                    ],
-                    "actions": [
-                        {
-                            "name": "closeFunction",
-                            "text": "Take Me back to Where I started"
-                        },
-                        {
-                            "name": "showEntity",
-                            "text": "Show me the entity",
-                            "dataRoute": "entity-manage",
-                            "queryParams": { "id": itemCtx.id, "type": itemCtx.type }
-                        },
-                        {
-                            "name": "createEntity",
-                            "text": "Create one more",
-                            "dataRoute": "entity-create",
-                            "queryParams": { "type": itemCtx.type }
-                        }
-                    ]
-                };
-                ComponentHelper.fireBedrockEvent("entity-created", { "id": itemCtx.id, "type": itemCtx.type }, { ignoreId: true });
-                ComponentHelper.getParentElement(this).businessFunctionData = data;
-                setTimeout(() => {
-                    this._loading = false;
-                    if (operation != "update") {
-                        this.showSuccessToast(msg);
+                        this.fireBedrockEvent(eventName, eventDetail, {
+                            ignoreId: true
+                        });
+                    }, 100);
+                }
+                _onSaveError(e) {
+                    // To Remove
+                    this.logError("Failed to update entity", e.detail);
+                }
+                _onSkipTap(e) {
+                    //raise event with name given for onbackAction in configuration
+                    let data;
+                    let eventName = "onCancel";
+                    let eventDetail = {
+                        name: eventName,
+                        data: data
                     }
                     this.fireBedrockEvent(eventName, eventDetail, {
                         ignoreId: true
                     });
-                }, 100);
-            }
-            _onSaveError(e) {
-                // To Remove
-                this.logError("Failed to update entity", e.detail);
-            }
-            _onSkipTap(e) {
-                //raise event with name given for onbackAction in configuration
-                let data;
-                let eventName = "onCancel";
-                let eventDetail = {
-                    name: eventName,
-                    data: data
                 }
-                this.fireBedrockEvent(eventName, eventDetail, {
-                    ignoreId: true
-                });
-            }
-            _errorLengthChanged(e) {
-                this.errorLength = e.detail.data;
-            }
-            _onEntityGovernResponse(e) {
-                let response = e.detail.response;
-                if (response.response && response.response.status && response.response.status.toLowerCase() == "success") {
-                    let res = response.response;
-                    let itemContext = this.getFirstItemContext();
-                    let entityId;
-                    if (itemContext) {
-                        entityId = itemContext.id;
-                    }
-
-                    let entity;
-                    if (this.dataIndex == "entityModel") {
-                        entity = DataHelper.findEntityById(res.entityModels, entityId);
-                    }else{
-                        entity = DataHelper.findEntityById(res.entities, entityId);
-                    }
-                    let attrMessages = {};
-                    if (entity && entity.data && entity.data.attributes) {
-                        let attributes = entity.data.attributes;
-                        attrMessages = MessageHelper.getAttributeMessages(attributes, this._attributeModels, this.messageCodeMapping, this.localize());
-                    }
-                    if (!_.isEmpty(attrMessages)) {
-                        let errorMessages = MessageHelper.getErrorsFromAttrMessages(attrMessages, this._attributeModels);
-                        this.set("_syncValidationErrors", errorMessages);
-                        this.shadowRoot.querySelector('#errorsDialog').open();
-                        return;
-                    } else {
-                        let liquidSave = this.shadowRoot.querySelector("[name=entitySaveService]");
-                        if (liquidSave) {
-                            liquidSave.generateRequest();
+                _errorLengthChanged(e) {
+                    this.errorLength = e.detail.data;
+                }
+                _onEntityGovernResponse(e) {
+                    let response = e.detail.response;
+                    if (response.response && response.response.status && response.response.status.toLowerCase() == "success") {
+                        let res = response.response;
+                        let itemContext = this.getFirstItemContext();
+                        let entityId;
+                        if (itemContext) {
+                            entityId = itemContext.id;
                         }
+
+                        let entity;
+                        if (this.dataIndex == "entityModel") {
+                            entity = DataHelper.findEntityById(res.entityModels, entityId);
+                        }else{
+                            entity = DataHelper.findEntityById(res.entities, entityId);
+                        }
+                        let attrMessages = {};
+                        if (entity && entity.data && entity.data.attributes) {
+                            let attributes = entity.data.attributes;
+                            attrMessages = MessageHelper.getAttributeMessages(attributes, this._attributeModels, this.messageCodeMapping, this.localize());
+                        }
+                        if (!_.isEmpty(attrMessages)) {
+                            let errorMessages = MessageHelper.getErrorsFromAttrMessages(attrMessages, this._attributeModels);
+                            this.set("_syncValidationErrors", errorMessages);
+                            this.shadowRoot.querySelector('#errorsDialog').open();
+                            return;
+                        } else {
+                            let liquidSave = this.shadowRoot.querySelector("[name=entitySaveService]");
+                            if (liquidSave) {
+                                liquidSave.generateRequest();
+                            }
+                        }
+                    } else {
+                        this.logError("There is a problem in validation service.", e.detail);
                     }
-                } else {
+                }
+                _onEntityGovernFailed(e) {
                     this.logError("There is a problem in validation service.", e.detail);
                 }
-            }
-            _onEntityGovernFailed(e) {
-                this.logError("There is a problem in validation service.", e.detail);
-            }
-            _skipServerErrors() {
-                let errorDialog = this.$.errorsDialog;
-                if (errorDialog) {
-                    errorDialog.close();
+                _skipServerErrors() {
+                    let errorDialog = this.$.errorsDialog;
+                    if (errorDialog) {
+                        errorDialog.close();
+                    }
+                    let liquidSave = this.shadowRoot.querySelector("[name=entitySaveService]");
+                    if (liquidSave) {
+                        liquidSave.generateRequest();
+                    }
                 }
-                let liquidSave = this.shadowRoot.querySelector("[name=entitySaveService]");
-                if (liquidSave) {
-                    liquidSave.generateRequest();
-                }
-            }
-            _fixServerErrors() {
-                let errorDialog = this.$.errorsDialog;
-                if (errorDialog) {
-                    errorDialog.close();
-                }
-                let newAttributeMessages = {};
+                _fixServerErrors() {
+                    let errorDialog = this.$.errorsDialog;
+                    if (errorDialog) {
+                        errorDialog.close();
+                    }
+                    let newAttributeMessages = {};
 
-                if (this._syncValidationErrors) {
-                    for (let i = 0; i < this._syncValidationErrors.length; i++) {
-                        let attributeMessages = this._syncValidationErrors[i];
-                        let attributeName = attributeMessages.attributeName;
-                        let message = attributeMessages.message;
-                        if (attributeName && message) {
-                            newAttributeMessages[attributeName] = [message];
+                    if (this._syncValidationErrors) {
+                        for (let i = 0; i < this._syncValidationErrors.length; i++) {
+                            let attributeMessages = this._syncValidationErrors[i];
+                            let attributeName = attributeMessages.attributeName;
+                            let message = attributeMessages.message;
+                            if (attributeName && message) {
+                                newAttributeMessages[attributeName] = [message];
+                            }
+                        }
+                    }
+                    this.set('_attributeMessages', newAttributeMessages);
+                }
+                //   * <b><i>Content development is under progress... </b></i> 
+                //   */
+                getIsDirty() {
+                    let attributeList = this.shadowRoot.querySelector('rock-attribute-list');
+                    let changedAttributeElements = attributeList.getChangedAttributeElements();
+                    return changedAttributeElements && changedAttributeElements.length > 0;
+                }
+
+                _showView(viewName) {
+                    if (viewName) {
+                        let contentView = this.shadowRoot.querySelector("#content-" + viewName);
+                        if (contentView) {
+                            contentView.removeAttribute("hidden");
                         }
                     }
                 }
-                this.set('_attributeMessages', newAttributeMessages);
-            }
-            //   * <b><i>Content development is under progress... </b></i> 
-            //   */
-            getIsDirty() {
-                let attributeList = this.shadowRoot.querySelector('rock-attribute-list');
-                let changedAttributeElements = attributeList.getChangedAttributeElements();
-                return changedAttributeElements && changedAttributeElements.length > 0;
-            }
 
-            _showView(viewName) {
-                if (viewName) {
-                    let contentView = this.shadowRoot.querySelector("#content-" + viewName);
-                    if (contentView) {
-                        contentView.removeAttribute("hidden");
+                _hideView(viewName) {
+                    if (viewName) {
+                        let contentView = this.shadowRoot.querySelector("#content-" + viewName);
+                        if (contentView) {
+                            contentView.setAttribute("hidden", "");
+                        }
                     }
                 }
-            }
 
-            _hideView(viewName) {
-                if (viewName) {
-                    let contentView = this.shadowRoot.querySelector("#content-" + viewName);
-                    if (contentView) {
-                        contentView.setAttribute("hidden", "");
-                    }
+                _onCompareEntitiesBack(e, detail) {
+                    this._hideView("entity-match");
+                    this._showView("entity-create");
+                }
+
+                _onCompareEntitiesCreate(e, detail) {
+                    this._triggerGovernRequest();
+                }
+
+                _onCompareEntitiesMerge(e, detail) {
+                    this._matchedEntity = detail.matchedEntity;
+                    this._updateEntity();
                 }
             }
-
-            _onCompareEntitiesBack(e, detail) {
-                this._hideView("entity-match");
-                this._showView("entity-create");
-            }
-
-            _onCompareEntitiesCreate(e, detail) {
-                this._triggerGovernRequest();
-            }
-
-            _onCompareEntitiesMerge(e, detail) {
-                this._matchedEntity = detail.matchedEntity;
-                this._updateEntity();
-            }
-        }
-        /**
-         * <b><i>Content development is under progress... </b></i> 
-         */
-        customElements.define(RockEntityCreateSingle.is, RockEntityCreateSingle)
+            /**
+             * <b><i>Content development is under progress... </b></i> 
+             */
+            customElements.define(RockEntityCreateSingle.is, RockEntityCreateSingle)
     </script>
 </dom-module>
