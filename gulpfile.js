@@ -15,23 +15,18 @@ const path = require('path');
 const del = require('del');
 const gulp = require('gulp');
 const gulpif = require('gulp-if');
-const gulpnoop = require('gulp-noop');
-const debug = require('gulp-debug');
 const uglify = require('gulp-uglify-es').default;
 
 const nodemon = require('gulp-nodemon');
-var rename = require("gulp-rename");
 
-var tinylr = require('tiny-lr');
-var replace = require('gulp-replace');
+let tinylr = require('tiny-lr');
 
 const babel = require("gulp-babel");
 
-var argv = require('yargs').argv;
+let argv = require('yargs').argv;
 
 const mergeStream = require('merge-stream');
 const polymerBuild = require('polymer-build');
-const forkStream = require('polymer-build').forkStream;
 
 const polyBundler = require('polymer-bundler');
 const crisper = require('gulp-crisper');
@@ -41,7 +36,6 @@ const crisper = require('gulp-crisper');
 // const uglify = require('gulp-uglify');
 //const cssSlam = require('css-slam').gulp;
 const htmlMin = require('gulp-htmlmin');
-const swPrecacheConfig = require('./sw-precache-config.js');
 const polymerJson = require('./polymer.json');
 
 const buildDirectory = 'build/ui-platform';
@@ -87,7 +81,7 @@ function waitFor(stream) {
 }
 
 function deleteFolder(path) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     del([path])
       .then(() => {
         resolve();
@@ -96,9 +90,9 @@ function deleteFolder(path) {
 }
 
 function serverBuild(buildPath) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     console.log(`BuildPath : ${buildPath} ...`);
-    var serverSources = polymerJson.serverSources;
+    let serverSources = polymerJson.serverSources;
     gulp.src(serverSources, { base: '.' }).pipe(gulp.dest(buildPath));
     //console.log(`Completed : ${buildPath} !`);
     resolve();
@@ -106,13 +100,13 @@ function serverBuild(buildPath) {
 }
 
 function clientBuild(relativeBuildPath, bundle, isES5, isDev) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
 
     const polymerProject = new polymerBuild.PolymerProject(polymerJson);
 
     console.log(`BuildPath : ${relativeBuildPath} ...`);
     
-    var buildPath = path.join(buildDirectory, relativeBuildPath);
+    let buildPath = path.join(buildDirectory, relativeBuildPath);
     //var nginxPath = path.join(nginxDirectory, relativeBuildPath);
 
     del([buildPath])
@@ -158,7 +152,7 @@ function clientBuild(relativeBuildPath, bundle, isES5, isDev) {
         });
 
       if(bundle) {
-        var bundleExcludes = [];
+        let bundleExcludes = [];
 
         buildStream = buildStream
           .pipe(polymerProject.bundler({
@@ -250,16 +244,6 @@ function generateShellOnlyMergeStrategy(shell, maybeMinEntrypoints) {
   ]);
 }
 
-function getBundleEntrypoint(bundle) {
-  for (const entrypoint of bundle.entrypoints) {
-    if (bundle.files.has(entrypoint)) {
-      return entrypoint;
-    }
-  }
-
-  return null;
-}
-
 gulp.task('prod-delete', function () {
   return Promise.all([
     deleteFolder(buildDirectory)
@@ -297,17 +281,12 @@ gulp.task('prod-es5-bundled-build', function () {
 });
 
 gulp.task('prod-build-wrap-up', function() {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
       console.log('Build complete!!');
       resolve();
     });
   }
 );
-
-gulp.task('copy-node-modules', function () {
-  const nodeModulesPath = '/node_modules/**/*.*';
-  return gulp.src(nodeModulesPath, { base: '.' }).pipe(gulp.dest(unbundledPath));
-});
 
 gulp.task('prod-client-build', gulp.series('prod-es5-bundled-build', 'prod-es6-bundled-build', 'prod-es6-unbundled-build'));
 gulp.task('dev-build', gulp.series('prod-delete', 'prod-server-build', 'prod-es5-bundled-build', 'dev-es6-bundled-build', 'prod-es6-unbundled-build'));
@@ -315,15 +294,15 @@ gulp.task('default', gulp.series('prod-delete', 'prod-server-build', 'prod-es6-b
 
 //gulp.task('default', gulp.series('prod-delete', 'prod-server-build', 'prod-es5-bundled-build', 'prod-es6-bundled-build', 'prod-build-wrap-up'));
 
-var lr = null;
+let lr = null;
 
 //DEV build just runs nodemon right into source code and thats all...no compilation, no bundling, no babel..
 gulp.task('app-nodemon', function (cb) {
-  var started = false;
-  var appPath = "./app.js"; //default load app from build/unbundled path
+  let started = false;
+  let appPath = "./app.js"; //default load app from build/unbundled path
 
-  var runOffline = (argv.runOffline !== undefined) ? argv.runOffline : 'false';
-  var lrEnabled = true;
+  let runOffline = (argv.runOffline !== undefined) ? argv.runOffline : 'false';
+  let lrEnabled = true;
 
   console.log('appPath ', appPath);
 
@@ -332,7 +311,7 @@ gulp.task('app-nodemon', function (cb) {
     lr.listen(liveReloadPort);
   }
 
-  var stream = nodemon({
+  let stream = nodemon({
     script: appPath, // run ES5 code
     nodeArgs: ['--inspect'],
     env: {
@@ -345,7 +324,7 @@ gulp.task('app-nodemon', function (cb) {
     watch: polymerJson.serverSources, // watch ES2015 code
     ext: 'js html css json jpg jpeg png gif',
     tasks: function (changedFiles) { // compile synchronously onChange
-      var tasks = [];
+      let tasks = [];
       if (!changedFiles || !lrEnabled) {
         return tasks;
       }

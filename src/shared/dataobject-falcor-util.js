@@ -206,7 +206,6 @@ let datahelpers = (function () {
 (function () {
     try {
         if (window.RUFUtilities) { //only copy deepqueal, as client has a separate deepequal module
-            console.log('i m here');
             window.RUFUtilities.datahelpers = window.RUFUtilities.datahelpers || {};
             window.RUFUtilities.datahelpers['clone'] = datahelpers.clientClone;
             window.RUFUtilities.datahelpers['deepEqual'] = datahelpers.deepEqual;
