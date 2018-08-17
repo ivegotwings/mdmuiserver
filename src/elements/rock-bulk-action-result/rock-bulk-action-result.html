@@ -1,4 +1,6 @@
-<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/polymer/polymer-element.html">
+<link rel="import" href="../../../bower_components/polymer/lib/mixins/mutable-data.html">
+
 
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 
@@ -167,189 +169,188 @@
             on-error="_onEntityGetError"></liquid-entity-data-get>
     </template>
     <script>
-        (function () {
-            'use strict';
-
-            Polymer({
-                is: "rock-bulk-action-result",
-
-                properties: {
-                    /**
-                      * <b><i>Content development is under progress... </b></i>
-                      */
-                    businessFunctionData: {
-                        type: Object,
-                        value: function () { return {}; }
-                    },
-
-                    resultAttributes: {
-                        type: Array,
-                        value: function() {
-                            return [];
-                        }
-                    },
-
-                    _gridColumns: {
-                        type: Array,
-                        value: function () {
-                            return [];
-                        }
-                    },
-
-                    _gridData: {
-                        type: Array,
-                        value: function () {
-                            return [];
-                        }
-                    },
-
-                    _noGrid: {
-                        type: Boolean,
-                        value: false
-                    }
-                },
-
-                behaviors: [
-                    RUFBehaviors.UIBehavior,
-                    RUFBehaviors.ComponentContextBehavior
-                ],
-
-                observers: [
-                    'onBusinessFunctionChange(businessFunctionData)'
-                ],
-
-                _itemValue: function (item, column) {                    
-                    if(!_.isEmpty(item)) {
-                        if(!_.isEmpty(this.resultAttributes)) {
-                            //Column name is external name, so need name to fetch data 
-                            var resultAttr = this.resultAttributes.find(attr => attr.externalName == column.name);
-                            if(resultAttr) {
-                                return item[resultAttr.name];
+                        class RockBulkActionResult
+                            extends Polymer.mixinBehaviors([
+                                RUFBehaviors.UIBehavior,
+                                RUFBehaviors.ComponentContextBehavior
+                            ], Polymer.OptionalMutableData(Polymer.Element)) {
+                            static get is() {
+                                return 'rock-bulk-action-result';
                             }
-                        }
-                        return item[column.name];           
-                    }
-                },
-                /**
-                  * <b><i>Content development is under progress... </b></i>
-                  */
-                onBusinessFunctionChange: function () {
-                    if (!_.isEmpty(this.businessFunctionData)) {
-                        var contextData = this.businessFunctionData.contextData;
-                        var processedEntities = this.businessFunctionData.processedEntities;
-                        var messages = this.businessFunctionData.messages;
-
-                        if(!_.isEmpty(this.resultAttributes) && !_.isEmpty(contextData) 
-                           && !_.isEmpty(processedEntities) && !_.isEmpty(messages)) {
-                            //Prepare request
-                            var entityIds = [...new Set(processedEntities.map((obj) => obj.id))];
-                            var entityTypes = [...new Set(processedEntities.map((obj) => obj.type))];
-                            var entityAttributes = [...new Set(this.resultAttributes.map((obj) => obj.name))];
-
-                            contextData.ItemContexts = [{
-                                "attributeNames": entityAttributes
-                            }];
-
-                            this.entityRequest = DataRequestHelper.createEntityGetRequest(contextData);
-                            this.entityRequest.params.query.ids = entityIds;
-                            this.entityRequest.params.query.filters.typesCriterion = entityTypes;
-                            delete this.entityRequest.params.options;
-                            var liquidDataGet = this.$$("[name=entityGetService]");
-                            if (liquidDataGet) {
-                                liquidDataGet.generateRequest();
+                            static get observers() {
+                                return [
+                                    'onBusinessFunctionChange(businessFunctionData)'
+                                ]
                             }
-                        } else {
-                            this._setBulkResponse();
-                        }
-                    }
-                },
+                            static get properties() {
+                                return {
+                                    businessFunctionData: {
+                                        type: Object,
+                                        value: function () { return {}; }
+                                    },
 
-                _onEntityGetResponse: function (e) {
-                    if (DataHelper.isValidObjectPath(e, "detail.response.content.entities") && 
-                       !_.isEmpty(e.detail.response.content.entities)) {
-                           var entites = e.detail.response.content.entities;
-                           var messages = this.businessFunctionData.messages;
-                           var key = this.businessFunctionData.messageKey;
+                                    resultAttributes: {
+                                        type: Array,
+                                        value: function () {
+                                            return [];
+                                        }
+                                    },
 
-                           this._setColumnsForGrid(messages);
+                                    _gridColumns: {
+                                        type: Array,
+                                        value: function () {
+                                            return [];
+                                        }
+                                    },
 
-                           for (var i = 0; i < messages.length; i++) {
-                               var entity = entites.find(obj => obj.id == messages[i][key]);
-                               if (entity) {
-                                   for (var j = 0; j < this.resultAttributes.length; j++) {
-                                       messages[i][this.resultAttributes[j].name] = AttributeHelper.getFirstAttributeValue(entity.data.attributes[this.resultAttributes[j].name]);
-                                   }
-                               }
-                           }
-                    }
+                                    _gridData: {
+                                        type: Array,
+                                        value: function () {
+                                            return [];
+                                        }
+                                    },
 
-                    this._setBulkResponse();
-                },
-
-                _setColumnsForGrid: function (messages) {
-                    if(_.isEmpty(messages)) {
-                        return;
-                    }
-
-                    var columns = [];
-                    for (var key in messages[0]) {
-                        columns.push(key);
-                    }
-
-                    for(var i = 0; i < this.resultAttributes.length; i++) {
-                        var index = i + 1; // after first column
-                        columns.splice(index, 0, this.resultAttributes[i].externalName);
-                    }
-
-                    this._gridColumns = columns;
-                },
-
-                _onEntityGetError: function (e) {
-                    this.logError("Entity get failed");
-                    this._setBulkResponse();
-                },
-
-                _setBulkResponse: function () {
-                    if (this.businessFunctionData.noGrid) {
-                        this._noGrid = this.businessFunctionData.noGrid;
-                    }
-
-                    if (!this._noGrid) {
-                        var messages = this.businessFunctionData.messages;
-
-                        if(_.isEmpty(messages)) {
-                            return;
-                        }
-
-                        if(_.isEmpty(this._gridColumns)) {
-                            var columns = [];
-                            for (var key in messages[0]) {
-                                columns.push(key);
+                                    _noGrid: {
+                                        type: Boolean,
+                                        value: false
+                                    }
+                                }
                             }
 
-                            this._gridColumns = columns;
-                        }
 
-                        this._gridData = messages;
-                    }
-                    else {
-                        if (this.businessFunctionData.message) {
-                            this.message = this.businessFunctionData.message;
-                        }
-                    }
-                },
+                            _itemValue(item, column) {
+                                if (!_.isEmpty(item)) {
+                                    if (!_.isEmpty(this.resultAttributes)) {
+                                        //Column name is external name, so need name to fetch data 
+                                        let resultAttr = this.resultAttributes.find(attr => attr.externalName == column.name);
+                                        if (resultAttr) {
+                                            return item[resultAttr.name];
+                                        }
+                                    }
+                                    return item[column.name];
+                                }
+                            }
+                            /**
+                              * <b><i>Content development is under progress... </b></i>
+                              */
+                            onBusinessFunctionChange() {
+                                if (!_.isEmpty(this.businessFunctionData)) {
+                                    let contextData = this.businessFunctionData.contextData;
+                                    let processedEntities = this.businessFunctionData.processedEntities;
+                                    let messages = this.businessFunctionData.messages;
 
-                _onActionTap: function (e) {
-                    if (e && e.currentTarget && e.currentTarget.data) {
-                        var actionData = e.currentTarget.data;
-                        actionData.closeBusinessFunction = true;
-                        var eventName = "onNext";
-                        this.fireBedrockEvent(eventName, actionData, {
-                            ignoreId: true
-                        });
-                    }
-                }
-            });
-        })();
+                                    if (!_.isEmpty(this.resultAttributes) && !_.isEmpty(contextData)
+                                        && !_.isEmpty(processedEntities) && !_.isEmpty(messages)) {
+                                        //Prepare request
+                                        let entityIds = [...new Set(processedEntities.map((obj) => obj.id))];
+                                        let entityTypes = [...new Set(processedEntities.map((obj) => obj.type))];
+                                        let entityAttributes = [...new Set(this.resultAttributes.map((obj) => obj.name))];
+
+                                        contextData.ItemContexts = [{
+                                            "attributeNames": entityAttributes
+                                        }];
+
+                                        this.entityRequest = DataRequestHelper.createEntityGetRequest(contextData);
+                                        this.entityRequest.params.query.ids = entityIds;
+                                        this.entityRequest.params.query.filters.typesCriterion = entityTypes;
+                                        delete this.entityRequest.params.options;
+                                        let liquidDataGet = this.$$("[name=entityGetService]");
+                                        if (liquidDataGet) {
+                                            liquidDataGet.generateRequest();
+                                        }
+                                    } else {
+                                        this._setBulkResponse();
+                                    }
+                                }
+                            }
+
+                            _onEntityGetResponse(e) {
+                                if (DataHelper.isValidObjectPath(e, "detail.response.content.entities") &&
+                                    !_.isEmpty(e.detail.response.content.entities)) {
+                                    let entites = e.detail.response.content.entities;
+                                    let messages = this.businessFunctionData.messages;
+                                    let key = this.businessFunctionData.messageKey;
+
+                                    this._setColumnsForGrid(messages);
+
+                                    for (let i = 0; i < messages.length; i++) {
+                                        let entity = entites.find(obj => obj.id == messages[i][key]);
+                                        if (entity) {
+                                            for (let j = 0; j < this.resultAttributes.length; j++) {
+                                                messages[i][this.resultAttributes[j].name] = AttributeHelper.getFirstAttributeValue(entity.data.attributes[this.resultAttributes[j].name]);
+                                            }
+                                        }
+                                    }
+                                }
+
+                                this._setBulkResponse();
+                            }
+
+                            _setColumnsForGrid(messages) {
+                                if (_.isEmpty(messages)) {
+                                    return;
+                                }
+
+                                let columns = [];
+                                for (let key in messages[0]) {
+                                    columns.push(key);
+                                }
+
+                                for (let i = 0; i < this.resultAttributes.length; i++) {
+                                    let index = i + 1; // after first column
+                                    columns.splice(index, 0, this.resultAttributes[i].externalName);
+                                }
+
+                                this._gridColumns = columns;
+                            }
+
+                            _onEntityGetError(e) {
+                                this.logError("Entity get failed");
+                                this._setBulkResponse();
+                            }
+
+                            _setBulkResponse() {
+                                if (this.businessFunctionData.noGrid) {
+                                    this._noGrid = this.businessFunctionData.noGrid;
+                                }
+
+                                if (!this._noGrid) {
+                                    let messages = this.businessFunctionData.messages;
+
+                                    if (_.isEmpty(messages)) {
+                                        return;
+                                    }
+
+                                    if (_.isEmpty(this._gridColumns)) {
+                                        let columns = [];
+                                        for (let key in messages[0]) {
+                                            columns.push(key);
+                                        }
+
+                                        this._gridColumns = columns;
+                                    }
+
+                                    this._gridData = messages;
+                                }
+                                else {
+                                    if (this.businessFunctionData.message) {
+                                        this.message = this.businessFunctionData.message;
+                                    }
+                                }
+                            }
+
+                            _onActionTap(e) {
+                                if (e && e.currentTarget && e.currentTarget.data) {
+                                    let actionData = e.currentTarget.data;
+                                    actionData.closeBusinessFunction = true;
+                                    let eventName = "onNext";
+                                    this.fireBedrockEvent(eventName, actionData, {
+                                        ignoreId: true
+                                    });
+                                }
+                            }
+                        }
+            customElements.define(RockBulkActionResult.is, RockBulkActionResult);
+
     </script>
 </dom-module>
