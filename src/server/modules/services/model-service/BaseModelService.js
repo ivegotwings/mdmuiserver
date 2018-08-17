@@ -1166,8 +1166,14 @@ BaseModelService.prototype = {
                                 compositeModelData.relationships[relType] = [];
                                 let rel = attribuetModelData.relationships[relType][0];
 
+                                if(rel.properties) {
+                                    rel.properties.relationshipType = rel.properties.relationshipType || "association";
+                                    rel.properties.relationshipOwnership = rel.properties.relationshipOwnership || "owned";
+                                }
+
                                 compositeModelData.relationships[relType].push(
                                     {
+                                        "id": rel.id,
                                         "properties": rel.properties,
                                         "attributes": {}
                                     }
