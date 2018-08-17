@@ -1013,8 +1013,8 @@ Eventservice.prototype = {
         
         //Generate details get request...
         let totalRecords = (taskDetails.totalRecords == "N/A") ? 200 : taskDetails.totalRecords;
-        let isRequestByParent = taskDetails.hasChildTasks && taskDetails.hasChildTasks != "N/A";
-        let taskDetailsGetRequest = this._generateTaskDetailsGetReq(taskId, isBulkWorkflowTask, totalRecords, isRequestByParent);
+        let isParentTask = taskDetails.hasChildTasks && taskDetails.hasChildTasks != "N/A";
+        let taskDetailsGetRequest = this._generateTaskDetailsGetReq(taskId, isBulkWorkflowTask, totalRecords, isParentTask);
 
         //console.log('Task details get request to RDF', JSON.stringify(taskDetailsGetRequest));
         let taskDetailsGetUrl = 'requesttrackingservice/get';
@@ -1052,7 +1052,7 @@ Eventservice.prototype = {
     },
 
     //Task summarization processor temp changes...
-    _generateTaskDetailsGetReq: function (taskId, isBulkWorkflowTask, totalRecords, isRequestByParent) {
+    _generateTaskDetailsGetReq: function (taskId, isBulkWorkflowTask, totalRecords, isParentTask) {
         let types = ["requestobject"];
         let req = this._getRequestJson(types);
 
@@ -1067,7 +1067,7 @@ Eventservice.prototype = {
 
         //Add task id criterion...
         let taskIdCriterion = {};
-        taskIdCriterion[isRequestByParent ? "parentTaskId" : "taskId"] = {
+        taskIdCriterion[isParentTask ? "parentTaskId" : "taskId"] = {
             "exact": taskId
         };
         attributesCriteria.push(taskIdCriterion);
