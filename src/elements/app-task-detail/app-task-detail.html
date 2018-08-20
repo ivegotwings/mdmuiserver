@@ -49,12 +49,18 @@
             .app-task-content-height {
                 @apply --app-task-content-height;
             }
+
+            rock-titlebar {
+                --dimension-selector-wrap: {
+                    width: 50%;
+                }
+            }
         </style>
         <rock-layout>
             <liquid-rest id="taskDetailsGet" url="/data/eventservice/getTaskDetails" method="POST" on-liquid-response="_onTaskDetailsGetResponse"
                 on-liquid-error="_onTaskDetailsGetError"></liquid-rest>
             <pebble-spinner active="[[_loading]]"></pebble-spinner>
-            <rock-titlebar slot="rock-titlebar" icon="pebble-icon:integration" main-title="App Task Details" non-minimizable="[[appConfig.nonMinimizable]]"
+            <rock-titlebar slot="rock-titlebar" icon="pebble-icon:integration" main-title="[[_taskTitle]]" non-minimizable="[[appConfig.nonMinimizable]]"
                 non-closable="[[appConfig.nonClosable]]">
                 <div id="dimensionContainer" align="right" class="full-width">
                     <rock-dimension-selector id="dimensionSelector" context-data="[[contextData]]" app-name="app-task-detail" domain="[[domain]]"
@@ -95,7 +101,7 @@
                                 </template>
                                 <template is="dom-if" if="[[_loadErrorTasks(_showErroredTasks)]]">
                                     <div class="full-height">
-                                        <rock-task-error-grid id="jobEntityDetailGrid" task-id="[[taskId]]" context-data="[[contextData]]">
+                                        <rock-task-error-grid id="jobEntityDetailGrid" task-id="[[taskId]]" context-data="[[contextData]]" is-parent-task$="[[_isParentTask]]">
                                         </rock-task-error-grid>
                                     </div>
                                 </template>
@@ -204,6 +210,14 @@
                     _isContextUpdateCompleted: {
                         type: Boolean,
                         value: false
+                    },
+                    _isParentTask: {
+                        type: Boolean,
+                        value: false
+                    },
+                    _taskTitle: {
+                        type: String,
+                        value: null
                     }
                 }
             }
@@ -338,6 +352,8 @@
                     taskDetails.endTime = "N/A";
                     taskDetails.submittedBy = "N/A";
                     taskDetails.totalRecords = "N/A";
+                    taskDetails.hasChildTasks = "N/A";
+                    taskDetails.isExtractComplete = "N/A";
                     taskDetails.taskStats = {
                         "error": "0%", "processing": "100%", "success": "0%", "createRecords": "0%",
                         "updateRecords": "0%", "deleteRecords": "0%", "noChangeRecords": "100%"
@@ -348,17 +364,42 @@
                 }
 
                 this._taskDetails = taskDetails;
+                this._taskTitle = this._setTaskTitle();
+                if (this._showErroredTasks) {
+                    this._setRequestByParent();
+                }
+
                 //update the nav menu contents
-                let navBarTitle = "";
-                if (taskDetails.taskType != "N/A") {
-                    navBarTitle = taskDetails.taskType;
-                }
-                if (taskDetails.fileName != "N/A") {
-                    navBarTitle = navBarTitle + ": " + taskDetails.fileName;
-                } else if (taskDetails.taskName != "N/A") {
-                    navBarTitle = navBarTitle + ": " + taskDetails.taskName;
-                }
+                let navBarTitle = this._setTaskTitle(true) || "";
                 this.updateAppCurrentStatus(navBarTitle);
+            }
+
+            _setRequestByParent() {
+                if (this._taskDetails && this._taskDetails.hasChildTasks != "N/A") {
+                    this._isParentTask = this._taskDetails.hasChildTasks;
+                }
+            }
+
+            _setTaskTitle(isNavBarTitle = false) {
+                let title = isNavBarTitle ? [] : ["Task Details"];
+                if (this._taskDetails) {
+                    if (this._taskDetails.taskType && this._taskDetails.taskType != "N/A") {
+                        title.push(this._taskDetails.taskType);
+                    }
+
+                    if (this._taskDetails.fileName && this._taskDetails.fileName != "N/A") {
+                        title.push(this._taskDetails.fileName);
+                    } else if (this._taskDetails.totalRecords && this._taskDetails.totalRecords != "N/A") {
+                        let appendPlus = taskDetails.hasChildTasks && !taskDetails.isExtractComplete ? "+" : "";
+                        title.push(this._taskDetails.totalRecords + appendPlus + " records");
+                    }
+
+                    if (this._taskDetails.taskStatus && this._taskDetails.taskStatus != "N/A") {
+                        title.push(this._taskDetails.taskStatus);
+                    }
+
+                    return title.join(isNavBarTitle ? ": " : " - ");
+                }
             }
 
             _onTaskDetailsGetError() {
