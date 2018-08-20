@@ -1,7 +1,7 @@
 if (_) {
     _.isNullOrEmpty = function (val, fallbackVal) {
         if (val) {
-            for (var x in val) {
+            for (let x in val) {
                 return val;
             }
         }
@@ -9,8 +9,8 @@ if (_) {
     };
 
     _.obj2list = function (obj) {
-        var list = [];
-        for (var key in obj) {
+        let list = [];
+        for (let key in obj) {
             if (obj.hasOwnProperty(key)) {
                 list.push({
                     name: key,
@@ -26,7 +26,7 @@ if (_) {
             result.push(currentObj);
         } else {
             listToIterate[0].val.forEach(function (d) {
-                var newObj = _.clone(currentObj);
+                let newObj = _.clone(currentObj);
                 newObj[listToIterate[0].name] = d;
                 _.iterateAndPopulateComboForCartesian(newObj, listToIterate.slice(1), result);
             })
@@ -34,8 +34,8 @@ if (_) {
     };
 
     _.createCartesianObjects = function (obj) {
-        var list = _.obj2list(obj);
-        var result = [];
+        let list = _.obj2list(obj);
+        let result = [];
         _.iterateAndPopulateComboForCartesian({}, list, result);
         return result;
     };

@@ -92,7 +92,10 @@ module.exports = {
         "ArrayDataSource": true,
         "DataHelper": true,
         "Globals": true,
+        "globalFunctions": true,
+        "globalPubSubInstances": true,
         "RUFBehaviors": true,
+        "RUFEventHandlers": true,
         "AttributeHelper": true,
         "Base64": true,
         "ContextHelper": true,
@@ -104,11 +107,15 @@ module.exports = {
         "DataObjectFalcorUtil": true,
         "DataMergeHelper": true,
         "EntityHelper": true,
+        "falcor": true,
         "FormatHelper": true,
         "DataRequestHelper": true,
         "DataTransformHelper": true,
         "ValidationHelper": true,
         "MessageHelper": true,
+        "NavigationManager": true,
+        "io": true,
+        "IntlMessageFormat": true,
         "module": true,
         "moment": true,
         "LiquidDataObjectUtils": true,
@@ -130,6 +137,7 @@ module.exports = {
         "isEmpty": true,
         "Buffer": true,
         "exports": true,
-        "_": true
+        "_": true,
+        "log4javascript": true
     }
 };

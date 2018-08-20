@@ -13,9 +13,9 @@
   // global for (1) existence means `WebComponentsReady` will file,
   // (2) WebComponents.ready == true means event has fired.
   window.WebComponents = window.WebComponents || {};
-  var name = '/src/scripts/webcomponents-loader.js';
+  let name = '/src/scripts/webcomponents-loader.js';
   // Feature detect which polyfill needs to be imported.
-  var polyfills = [];
+  let polyfills = [];
   if (!('import' in document.createElement('link'))) {
     polyfills.push('hi');
   }
@@ -39,10 +39,10 @@
   // }
 
   if (polyfills.length) {
-    var script = document.querySelector('script[src*="' + name +'"]');
-    var newScript = document.createElement('script');
+    let script = document.querySelector('script[src*="' + name +'"]');
+    let newScript = document.createElement('script');
     // Load it from the right place.
-    var replacement = '/bower_components/webcomponentsjs/webcomponents-' + polyfills.join('-') + '.js';
+    let replacement = '/bower_components/webcomponentsjs/webcomponents-' + polyfills.join('-') + '.js';
     //var url = script.src.replace(name, replacement);
     newScript.type = 'application/javascript';
     newScript.src = replacement;
@@ -60,7 +60,7 @@
     // however, we have to wait for the document to be in 'interactive' state,
     // otherwise a rAF may fire before scripts in <body>
 
-    var fire = function() {
+    let fire = function() {
       requestAnimationFrame(function() {
         window.WebComponents.ready = true;
         document.dispatchEvent(new CustomEvent('WebComponentsReady', {bubbles: true}));
