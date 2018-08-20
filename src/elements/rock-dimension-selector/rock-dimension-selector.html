@@ -424,6 +424,12 @@ Custom property | Description | Default
                         value: function () {
                             return {};
                         }
+                    },
+                    navigationData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
                     }
                 }
             }
@@ -456,7 +462,7 @@ Custom property | Description | Default
                     });
                     this._contextToBeRendered = [];
                     this.set("_contextToBeRendered", _contextToBeRendered);
-                    this._updateSelectedDimensions();
+                    this._updateSelectedDimensions(true);
                 }
             }
 
@@ -783,7 +789,7 @@ Custom property | Description | Default
                     }
                 }
 
-                this._updateSelectedDimensions();
+                this._updateSelectedDimensions(true);
                 if (togglePopover) {
                     this._toggleLovPopover(this._currentDimensionSelector.popover);
                 }
@@ -1071,7 +1077,7 @@ Custom property | Description | Default
                 let contextTree = this.$$("#" + currentContextId);
                 if (contextTree) {
                     if (contextTree.selectedClassifications && contextTree.selectedClassifications.length > 0) {
-                        this._updateSelectedDimensions();
+                        this._updateSelectedDimensions(true);
                     }
                 }
                 this._onCancelClassificationSelection();
@@ -1081,7 +1087,7 @@ Custom property | Description | Default
                 let selectedClassifications = this.selectedDimensions["classification"];
                 this.clearClassificationSelection(); //Clear classification on taxonomy change
                 if(!_.isEmpty(selectedClassifications)) {
-                    this._updateSelectedDimensions();
+                    this._updateSelectedDimensions(true);
                 }
                 if (taxonomy) {
                     return taxonomy
@@ -1484,16 +1490,23 @@ Custom property | Description | Default
                 return false;
             }
 
-            _updateSelectedDimensions() {
+            _updateSelectedDimensions(isUpdated) {
                 this._debouncer = Polymer.Debouncer.debounce(this._debouncer, Polymer.Async.timeOut.after(100), () => {
-                    this._setSelectedDimensions();
+                    this._setSelectedDimensions(isUpdated);
                     if (this._isContextLoad) {
-                        this._updateCurrentContextState();
+                        this._updateCurrentContextState(isUpdated);
                     }
                 });
             }
 
-            _setSelectedDimensions() {
+            _setSelectedDimensions(isUpdated) {
+                //On page refresh set from navigationData
+                if(!isUpdated) { 
+                    var defaultDimensions = [];
+                    if(!_.isEmpty(this.navigationData)){
+                        defaultDimensions = this.navigationData;                       
+                    }                   
+                }
                 let selectedDimensions = {};
                 let configData = this._contextToBeRendered;
                 let _taxonomyTitle = "";
@@ -1534,6 +1547,13 @@ Custom property | Description | Default
                                         if (configDataItem.displayType != "dialog") {
                                             let ctxKey = !_.isEmpty(configDataItem.contextKeyName) ? configDataItem.contextKeyName : entityTypes[j];
                                             if (!rockLov.multiSelect) {
+                                                if(!_.isEmpty(defaultDimensions)){
+                                                    if(defaultDimensions[ctxKey].length > 1){
+                                                        rockLov.selectedItems = defaultDimensions[ctxKey][0];
+                                                    } else {
+                                                        rockLov.selectedItem = defaultDimensions[ctxKey][0];
+                                                    }
+                                                }
                                                 let selectedItem = !_.isEmpty(rockLov.selectedItem) ? rockLov.selectedItem : undefined;
                                                 let selectedItems = !_.isEmpty(rockLov.selectedItems) ? rockLov.selectedItems : undefined;
                                                 if (selectedItems) {
@@ -1557,6 +1577,10 @@ Custom property | Description | Default
                                                 selectedDimensions[ctxKey] = itemId ? [itemId] : [];
                                                 this.selectedDimensionsDetail[ctxKey] = !_.isEmpty(rockLov.selectedItem) ? [rockLov.selectedItem] : [];
                                             } else {
+                                                //Set from navigationData
+                                                if(!_.isEmpty(defaultDimensions) && defaultDimensions[ctxKey]){
+                                                    rockLov.selectedItems = defaultDimensions[ctxKey];
+                                                }
                                                 selectedDimensions[ctxKey] = this._getItemsIdsByType(
                                                     rockLov.selectedItems, entityTypes[j]);
                                                 this.selectedDimensionsDetail[ctxKey] = rockLov.selectedItems;
@@ -1564,7 +1588,7 @@ Custom property | Description | Default
                                         } else {
                                             let selectedItems = [];
                                             let ctxKey = !_.isEmpty(configDataItem.contextKeyName) ? configDataItem.contextKeyName : entityTypes[j];
-                                            if (rockClassification && rockClassification.selectedClassifications &&
+                                            if (rockClassification && rockClassification.selectedClassifications && 
                                                 rockClassification.selectedClassifications.length > 0) {
                                                 if (!rockClassification.multiSelect) {
                                                     if (rockClassification.selectedClassifications[0]) {
@@ -1575,7 +1599,7 @@ Custom property | Description | Default
                                                         this.selectedDimensionsDetail[ctxKey] = [{
                                                             "path": valuePath,
                                                             "classification": { "valuePath": rockClassification.selectedClassifications[0].valuePath }
-                                                        }];
+                                                        }];                                                        
                                                     }
                                                 } else {
                                                     this.selectedDimensionsDetail[ctxKey] = [];
@@ -1583,12 +1607,12 @@ Custom property | Description | Default
                                                         let valuePath = this._getClassificationValuePath(rockClassification.selectedClassifications[k]);
                                                         if (valuePath) {
                                                             selectedItems.push(valuePath);
-                                                        }
+                                                        }                                                       
                                                         let classificationObj = {
                                                             "path": valuePath,
                                                             "classification": { "valuePath": rockClassification.selectedClassifications[k].valuePath }
                                                         }
-                                                        this.selectedDimensionsDetail[ctxKey].push(classificationObj);
+                                                        this.selectedDimensionsDetail[ctxKey].push(classificationObj);                                                        
                                                     }
                                                 }
                                             }
@@ -1598,7 +1622,7 @@ Custom property | Description | Default
                                                 rockClassification.selectedClassifications = configDataItem.selectedItem.classifications;
                                                 selectedItems.push(configDataItem.selectedItem.path);
                                             }
-
+                                            
                                             selectedDimensions[entityTypes[j]] = selectedItems;
                                         }
                                     }
@@ -1626,13 +1650,13 @@ Custom property | Description | Default
 
                     eventDetail.isPrimaryContext = _isPrimaryContext
                     eventDetail.taxonomyTitle = _taxonomyTitle;
+                    eventDetail.selectedDimensionsDetail = this.selectedDimensionsDetail;
 
                     if (this.selectedDimensions && selectedDimensions) {
                         if (DataHelper.compareObjects(this.selectedDimensions, selectedDimensions)) {
                             return true;
                         }
                     }
-
                     this.set("selectedDimensions", selectedDimensions);
                     Polymer.Debouncer.debounce(this._debouncer, Polymer.Async.timeOut.after(500), () => {
                         this.fireBedrockEvent("dimension-selector-data-changed", eventDetail);
@@ -1640,7 +1664,7 @@ Custom property | Description | Default
                 }
             }
 
-            _updateCurrentContextState() {
+            _updateCurrentContextState(isUpdated) {
                 if (!_.isEmpty(this.selectedDimensions)) {
 
                     // Get context(s) based on selected dimension
@@ -1760,7 +1784,7 @@ Custom property | Description | Default
                             }
                         }
                     }
-                    this._setSelectedDimensions();
+                    this._setSelectedDimensions(isUpdated);
                 }
             }
 
