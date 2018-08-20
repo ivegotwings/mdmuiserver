@@ -19,13 +19,14 @@ if (!String.prototype.format) {
 //taken from: http://werxltd.com/wp/2010/05/13/javascript-implementation-of-javas-string-hashcode-method/
 if (!String.prototype.hashCode) {
     String.prototype.hashCode = function () {
-        var hash = 0;
+        let hash = 0;
         if (this.length == 0) return hash;
-        for (i = 0; i < this.length; i++) {
-            char = this.charCodeAt(i);
+        for (let i = 0; i < this.length; i++) {
+            let char = this.charCodeAt(i);
             hash = ((hash << 5) - hash) + char;
             hash = hash & hash; // Convert to 32bit integer
         }
+        
         return hash;
     }
 }
