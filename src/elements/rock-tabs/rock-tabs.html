@@ -331,6 +331,11 @@ It makes it easy to explore and switch between different views or functional asp
                             viewMode: {
                                 type: String,
                                 value: ""
+                            },
+
+                            viewModeSubMenu: {
+                                type: String,
+                                value: ""
                             }
                         }
                     }
@@ -352,7 +357,7 @@ It makes it easy to explore and switch between different views or functional asp
                     this._isReadyToRender = !this.deferredRender;
                     
                 }
-
+                
                 getTabByName (tabName) {
                     let pebbleTabGroup = this.shadowRoot.querySelector("#" + this.id);
                     if (pebbleTabGroup) {
@@ -538,15 +543,52 @@ It makes it easy to explore and switch between different views or functional asp
                     }
                 }
 
-                _onIronSelect (e) {
+                _onIronSelect (e, retryCount) {
                     this._currentTabErrorLength = 0; //reset errors
-
-                    if (this.viewMode) {
-                        let tab = this.getTabByName(this.viewMode);
-                        e.detail.item = tab;
-                        this.viewMode = "";
+                    if(isNaN(retryCount)){
+                        retryCount = 1;
                     }
 
+                    //NavigationContext needs to be set only when viewMode and viewModeSubMenu have been resolved
+                    let setnavConfig = true;
+
+                    if (this.viewMode) {
+                        setnavConfig = false;
+                        var tab = this.getTabByName(this.viewMode);
+                        if(!tab) {
+                            return;
+                        }
+                        e.detail.item = tab;
+                        //Handle scenario for opening submenu item from the rock-tab dropdown
+                        if(this.viewModeSubMenu) {
+                            var menuItems = e.detail.item.tabConfig.menuItems; 
+                            if(!_.isEmpty(menuItems)) {
+                                let menuItemConfig = menuItems.filter(item => item.title === this.viewModeSubMenu);
+                                e.detail.item.menuItemConfig = menuItemConfig[0];
+                                e.detail.item.tabConfig.subtitle = this.viewModeSubMenu;
+                                this.selectedTabIndex = e.detail.item.tabConfig.index;
+                                this.viewModeSubMenu = "";
+                                this.viewMode = "";
+                                setnavConfig = true;
+                            } else {
+                                //Handle the scenario where menuItems might not yet be loaded. For ex : User navigating from discovery page and loading a rock-tabs submenu directly
+                                const maxRetryCount = 50;
+                                Polymer.Async.timeOut.after(ConstantHelper.MILLISECONDS_100).run(() => {
+                                    if(!menuItems) {
+                                        if (retryCount < maxRetryCount) { 
+                                            this._onIronSelect(e,++retryCount);
+                                            return;
+                                        } else {
+                                            this.logError("rock-tabs - The menu-items did not load");
+                                        }
+                                    } 
+                                }); 
+                            }                                                  
+                        } else {
+                            this.viewMode = "";
+                            setnavConfig = true;
+                        }                        
+                    }
                     if (!e || !e.detail || !e.detail.item) return;
 
                     let tabGroup = this._getTabGroup();
@@ -561,6 +603,17 @@ It makes it easy to explore and switch between different views or functional asp
                         "menuItemConfig": menuItemConfig,
                         "subTitle": subTitle
                     };
+
+                    //update the navigationContext object to render accordingly after refresh
+                    if(!subTitle && menuItemConfig) {
+                        subTitle = menuItemConfig.title;
+                    }
+
+                    if(setnavConfig) {
+                        ComponentHelper.fireBedrockEvent("tab-nav-change", {"viewMode": tabConfig.name, "viewModeSubMenu":subTitle, "targetId": this.id}, { ignoreId: true });
+                    } else {
+                        return;
+                    }
 
                     if (tabConfig && menuItemConfig) {
                         subTitle = menuItemConfig.title;
@@ -803,6 +856,11 @@ It makes it easy to explore and switch between different views or functional asp
                     this.selectedTabIndex = null;
                 }
                 _onSelectionChange (e, detail, sender) {
+                    if(detail && (detail.defaultTab || detail.defaultSubMenu)){
+                        this.viewMode = detail.defaultTab;
+                        this.viewModeSubMenu = detail.defaultSubMenu;
+                        this._onIronSelect(e);
+                    }
                     let isDirty = this.getIsDirty();
                     if (isDirty) {
                         this._showWarning(e);
