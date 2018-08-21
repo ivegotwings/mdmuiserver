@@ -1,9 +1,9 @@
 'use strict';
 
-var request = require('request-promise-native');
-var rdfConnectionConfig = require('config').get('modules.dfService');
+let request = require('request-promise-native');
+let rdfConnectionConfig = require('config').get('modules.dfService');
 
-var DFConnection = function (options) {
+let DFConnection = function (options) {
 };
 
 DFConnection.prototype = {

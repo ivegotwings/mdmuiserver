@@ -1,7 +1,7 @@
 'use strict';
 const ApiHealthCheckService = require('./ApiHealthCheckService');
-var options = {};
-var runOffline = process.env.RUN_OFFLINE;
+let options = {};
+let runOffline = process.env.RUN_OFFLINE;
 
 if (runOffline) {
     options.runOffline = runOffline;
@@ -9,9 +9,9 @@ if (runOffline) {
 
 const apiHealthCheckService = new ApiHealthCheckService(options);
 
-var ApiHealthCheckServiceRouter = function (app) {
+let ApiHealthCheckServiceRouter = function (app) {
     app.use('*/data/healthcheck/*', async function (req, res) {
-        var response = await apiHealthCheckService.call(req.originalUrl);
+        let response = await apiHealthCheckService.call(req.originalUrl);
         res.status(200).send(response);
     });
 };

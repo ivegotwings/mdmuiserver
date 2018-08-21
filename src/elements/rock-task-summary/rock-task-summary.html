@@ -11,12 +11,9 @@
 <link rel="import" href="../pebble-graph-pie/pebble-graph-pie.html" />
 <link rel="import" href="../pebble-spinner/pebble-spinner.html">
 
-
 <dom-module id="rock-task-summary">
     <template>
-        <style include="bedrock-style-common bedrock-style-gridsystem"></style>
-        <style include="iron-flex"></style>
-        <style>
+        <style include="bedrock-style-common bedrock-style-gridsystem iron-flex">
             .attributes-container {
                 display: -webkit-box;
                 display: -webkit-flex;
@@ -57,8 +54,8 @@
 
             .trim {
                 text-overflow: ellipsis;
-                overflow: hidden;
                 white-space: nowrap;
+                overflow: hidden;
             }
 
             pebble-image-viewer {
@@ -140,6 +137,38 @@
             .text-bold {
                 font-weight: var(--font-bold, bold);
             }
+
+            .status {
+                border-radius: 5px;
+                padding: 0px 5px 0px 5px;
+                display: inline-block;
+                width: auto;
+                max-width: 75%;
+            }
+
+            .status-errored {
+                background-color: #ed204c;
+                color: #ffffff;
+            }
+
+            .status-completed {
+                background-color: #36b44a;
+                color: #ffffff;
+            }
+
+            .status-queued, .status-waitingtobequeued {
+                background-color: #75808b;
+                color: #ffffff;
+            }
+
+            .status-completedwitherrors {
+                background-color: #FFA500;
+                color: #ffffff;
+            }
+
+            .status-processing {
+                background-color: #f2e91d;
+            }
         </style>
 
         <div class="row-wrap p-b-10 p-t-10">
@@ -176,7 +205,7 @@
 
                 <div id="attribute" class="attribute trim">
                     <div class="attribute-label">Task Status</div>
-                    <div class="attribute-value trim" title="[[taskDetails.taskStatus]]">[[taskDetails.taskStatus]]</div>
+                    <div class$="attribute-value trim [[_getStatusClass(taskDetails.taskStatus)]]" title="[[taskDetails.taskStatus]]">[[taskDetails.taskStatus]]</div>
                 </div>
 
                 <div id="attribute" class="attribute trim">
@@ -196,7 +225,7 @@
 
                 <div id="attribute" class="attribute trim">
                     <div class="attribute-label">Total Records</div>
-                    <div class="attribute-value trim" title="[[taskDetails.totalRecords]]">[[taskDetails.totalRecords]]</div>
+                    <div class="attribute-value trim" title="[[_totalRecordsMessage]]">[[_totalRecordsMessage]]</div>
                 </div>
                 <pebble-spinner active="[[_downloadInProgress]]"></pebble-spinner>
             </div>
@@ -245,13 +274,12 @@
         </div>
     </template>
     <script>
-        (function () {
-            'use strict';
-
-            Polymer({
-                is: "rock-task-summary",
-
-                properties: {
+        class RockTaskSummary extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior], Polymer.Element) {
+            static get is() {
+                return "rock-task-summary";
+            }
+            static get properties() {
+                return {
                     taskDetails: {
                         type: Object,
                         value: function () {
@@ -276,180 +304,185 @@
                     _showTaskName: {
                         type: Boolean,
                         value: false
+                    },
+                    _totalRecordsMessage: {
+                        type: String,
+                        value: null
                     }
-                },
-
-                behaviors: [
-                    RUFBehaviors.UIBehavior,
-                ],
-
-                _onTaskDetailsChanged: function () {
-                    if (this.taskDetails && this.taskDetails.taskStats) {
-                        var taskStats = this.taskDetails.taskStats;
-                        var index = 0;
-                        var processingDetails = [];
-                        var subProcessingDetails = [];
-                        var self = this;
-
-                        var taskType = this.taskDetails.taskType.toLowerCase();
-                        if (taskType == "entity data imports" || taskType ==
-                            "system integrations - entity data imports" ||
-                            taskType == "bulk edit" || taskType == "createvariants") {
-                            this._showProcessingSubDetailsGraph = true;
-
-                            var attributeContainer = this.shadowRoot.querySelector(
-                                "#attributesContainer");
-                            if (attributeContainer && attributeContainer.classList.contains("col-7")) {
-
-                                attributeContainer.className = attributeContainer.className.replace(
-                                    "col-7", "col-5");
-                            }
-
-                            var sidebar = this.shadowRoot.querySelector("#sidebar");
-                            if (sidebar && sidebar.classList.contains("col-2")) {
-
-                                sidebar.className = sidebar.className.replace("col-2", "col-1");
-                            }
-                        }
-
-                        if (taskType.indexOf("bulk") > -1 || taskType.indexOf("createvariants") > -1) {
-                            this._showTaskName = true;
-                        }
-
-                        var self = this;
-                        Object.keys(taskStats).map(function (key) {
-                            var taskCompletedInPercentage = parseInt(taskStats[key].replace(
-                                /\%$/, ''));
-
-                            if (key == "processing" || key == "error" || key == "success") {
-                                if (taskCompletedInPercentage > 0) {
-                                    var taskStatusInLower = self.taskDetails.taskStatus.toLowerCase();
-
-                                    var taskStat = {
-                                        "id": ++index,
-                                        "key": key,
-                                        "value": taskCompletedInPercentage.toString(),
-                                        "unit": "%",
-                                        "clickable": true
-                                    }
-
-                                    if (key == "processing") {
-                                        taskStat.color = "#f2e91d";
-                                        taskStat.clickable = false;
-                                    } else if (key == "error") {
-                                        taskStat.color = "#d71921";
-                                        taskStat.selected = true;
-                                    } else {
-                                        taskStat.color = "#09c021"; //success
-                                        if (taskStatusInLower !== "completed with errors") {
-                                            taskStat.selected = true;
-                                        }
-                                    }
-
-                                    processingDetails.push(taskStat);
-                                }
-                            }
-
-                            if (key == "createRecords" || key == "updateRecords" || key ==
-                                "deleteRecords" || key == "noChangeRecords") {
-                                if (taskCompletedInPercentage > 0) {
-                                    var taskStat = {
-                                        "id": ++index,
-                                        "key": key,
-                                        "value": taskCompletedInPercentage.toString(),
-                                        "unit": "%",
-                                        "clickable": false
-                                    }
-
-                                    if (key == "createRecords") {
-                                        taskStat.color = "#0000FF";
-                                    } else if (key == "updateRecords") {
-                                        taskStat.color = "#FFA500";
-                                    } else if (key == "deleteRecords") {
-                                        taskStat.color = "#FA8072";
-                                    } else {
-                                        taskStat.color = "#808080"; //noChange
-                                    }
-
-                                    subProcessingDetails.push(taskStat);
-                                }
-                            }
-                        });
-
-                        this.set("processingDetails", processingDetails);
-                        this.set("subProcessingDetails", subProcessingDetails);
-                    }
-                },
-
-                _onSelectionChanged: function (e) {
-                    let eventName = '';
-
-                    switch (e.detail.data.key) {
-                        case 'processing':
-                            eventName = 'show-inprogress';
-                            break;
-                        case 'success':
-                            eventName = 'show-completed';
-                            break;
-                        case 'error':
-                            eventName = 'show-errors';
-                    }
-
-                    this.fireBedrockEvent(eventName);
-                },
-
-                _onDownloadClick: function () {
-                    this._downloadInProgress = true;
-
-                    const {
-                        fileId,
-                        fileName,
-                        fileType,
-                        fileExtension,
-                        taskType
-                    } = this.taskDetails;
-
-                    var req = {
-                        "params": {
-                            "query": {
-                                "id": fileId
-                            }
-                        },
-                        fileName,
-                        fileType,
-                        fileExtension,
-                        taskType
-                    }
-
-                    var _this = this;
-                    RUFUtilities.fileDownload("/data/binaryobjectservice/downloadBinaryObject", {
-                        httpMethod: 'POST',
-                        data: {
-                            data: JSON.stringify(req)
-                        },
-                        fileName: fileName,
-                        successCallback: function (url) {
-                            this._downloadInProgress = false;
-                        }.bind(_this),
-                        failCallback: function (responseHtml, url, error) {
-                            this._onFileDownloadFailure(error);
-                        }.bind(_this)
-                    });
-                },
-
-                _onFileDownloadFailure: function (e) {
-                    this.logError("Failed to download file.", e.detail);
-                    this._downloadInProgress = false;
-                },
-
-                _isFileIdAvailable: function () {
-                    return this.taskDetails.fileId !== "N/A";
-                },
-
-                _onRefreshClick: function () {
-                    this.fireBedrockEvent("refresh-task-details");
                 }
-            });
-        })();
+            }
+            _onTaskDetailsChanged() {
+                if (this.taskDetails && this.taskDetails.taskStats) {
+                    let taskStats = this.taskDetails.taskStats;
+                    let index = 0;
+                    let processingDetails = [];
+                    let subProcessingDetails = [];
+                    let self = this;
+
+                    let taskType = this.taskDetails.taskType.toLowerCase();
+                    if (taskType == "entity data imports" || taskType == "system integrations - entity data imports" || taskType == "bulk edit" || taskType == "createvariants") {
+                        this._showProcessingSubDetailsGraph = true;
+
+                        let attributeContainer = this.shadowRoot.querySelector("#attributesContainer");
+                        if (attributeContainer && attributeContainer.classList.contains("col-7")) {
+                            attributeContainer.className = attributeContainer.className.replace("col-7", "col-5");
+                        }
+
+                        let sidebar = this.shadowRoot.querySelector("#sidebar");
+                        if (sidebar && sidebar.classList.contains("col-2")) {
+                            sidebar.className = sidebar.className.replace("col-2", "col-1");
+                        }
+                    }
+
+                    if (taskType.indexOf("bulk") > -1 || taskType.indexOf("createvariants") > -1) {
+                        this._showTaskName = true;
+                    }
+
+                    Object.keys(taskStats).map(function (key) {
+                        let taskCompletedInPercentage = parseInt(taskStats[key].replace(/\%$/, ''));
+
+                        if (key == "processing" || key == "error" || key == "success") {
+                            if (taskCompletedInPercentage > 0) {
+                                let taskStatusInLower = self.taskDetails.taskStatus.toLowerCase();
+                                let taskStat = {
+                                    "id": ++index,
+                                    "key": key,
+                                    "value": taskCompletedInPercentage.toString(),
+                                    "unit": "%",
+                                    "clickable": true
+                                }
+
+                                if (key == "processing") {
+                                    taskStat.color = "#f2e91d";
+                                    taskStat.clickable = false;
+                                } else if (key == "error") {
+                                    taskStat.color = "#d71921";
+                                    taskStat.selected = true;
+                                } else {
+                                    taskStat.color = "#09c021"; //success
+                                    if (taskStatusInLower !== "completed with errors") {
+                                        taskStat.selected = true;
+                                    }
+                                }
+
+                                processingDetails.push(taskStat);
+                            }
+                        }
+
+                        if (key == "createRecords" || key == "updateRecords" || key == "deleteRecords" || key == "noChangeRecords") {
+                            if (taskCompletedInPercentage > 0) {
+                                let taskStat = {
+                                    "id": ++index,
+                                    "key": key,
+                                    "value": taskCompletedInPercentage.toString(),
+                                    "unit": "%",
+                                    "clickable": false
+                                }
+
+                                if (key == "createRecords") {
+                                    taskStat.color = "#0000FF";
+                                } else if (key == "updateRecords") {
+                                    taskStat.color = "#FFA500";
+                                } else if (key == "deleteRecords") {
+                                    taskStat.color = "#FA8072";
+                                } else {
+                                    taskStat.color = "#808080"; //noChange
+                                }
+
+                                subProcessingDetails.push(taskStat);
+                            }
+                        }
+                    });
+
+                    this.set("processingDetails", processingDetails);
+                    this.set("subProcessingDetails", subProcessingDetails);
+                }
+
+                //Set totalRecords message
+                if (this.taskDetails.totalRecords == "N/A") {
+                    this._totalRecordsMessage = this.taskDetails.totalRecords;
+                } else {
+                    let appendPlus = "";
+                    if (this.taskDetails.hasChildTasks != "N/A" && this.taskDetails.isExtractComplete != "N/A") {
+                        appendPlus = this.taskDetails.hasChildTasks && !this.taskDetails.isExtractComplete ? "+" : "";
+                    }
+                    this._totalRecordsMessage = this.taskDetails.totalRecords + appendPlus;
+                }
+            }
+
+            _onSelectionChanged(e) {
+                let eventName = '';
+
+                switch (e.detail.data.key) {
+                    case 'processing':
+                        eventName = 'show-inprogress';
+                        break;
+                    case 'success':
+                        eventName = 'show-completed';
+                        break;
+                    case 'error':
+                        eventName = 'show-errors';
+                }
+
+                this.fireBedrockEvent(eventName);
+            }
+
+            _onDownloadClick() {
+                this._downloadInProgress = true;
+
+                const {
+                    fileId,
+                    fileName,
+                    fileType,
+                    fileExtension,
+                    taskType
+                } = this.taskDetails;
+
+                let req = {
+                    "params": {
+                        "query": {
+                            "id": fileId
+                        }
+                    },
+                    fileName,
+                    fileType,
+                    fileExtension,
+                    taskType
+                }
+
+                let _this = this;
+                RUFUtilities.fileDownload("/data/binaryobjectservice/downloadBinaryObject", {
+                    httpMethod: 'POST',
+                    data: {
+                        data: JSON.stringify(req)
+                    },
+                    fileName: fileName,
+                    successCallback: function (url) {
+                        this._downloadInProgress = false;
+                    }.bind(_this),
+                    failCallback: function (responseHtml, url, error) {
+                        this._onFileDownloadFailure(error);
+                    }.bind(_this)
+                });
+            }
+
+            _onFileDownloadFailure(e) {
+                this.logError("Failed to download file.", e.detail);
+                this._downloadInProgress = false;
+            }
+
+            _isFileIdAvailable() {
+                return this.taskDetails.fileId !== "N/A";
+            }
+
+            _onRefreshClick() {
+                this.fireBedrockEvent("refresh-task-details");
+            }
+
+            _getStatusClass(status) {
+                return "status status-" + (status || "").replace(/ /g, "").toLowerCase();
+            }
+        }
+        customElements.define(RockTaskSummary.is, RockTaskSummary);
     </script>
 </dom-module>

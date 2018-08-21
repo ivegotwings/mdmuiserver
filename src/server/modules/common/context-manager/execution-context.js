@@ -1,37 +1,37 @@
 const getNamespace = require('cls-hooked').getNamespace;
-var urlModule = require('url');
-var config = require('config');
+let urlModule = require('url');
+let config = require('config');
 
-var clientId = config.get('modules.dfService.clientId');
-var clientAuthKey = config.get('modules.dfService.clientAuthKey');
+let clientId = config.get('modules.dfService.clientId');
+let clientAuthKey = config.get('modules.dfService.clientAuthKey');
 
 function createSecurityContext(req) {
-    var securityContext = readSecurityHeaders(req);
+    let securityContext = readSecurityHeaders(req);
 
     //console.log('create security context with data :', JSON.stringify(securityContext));
-    var session = getNamespace('User Session');
+    let session = getNamespace('User Session');
     session.set('securityContext', securityContext);
 }
 
 function getSecurityContext() {
-    var session = getNamespace('User Session');
+    let session = getNamespace('User Session');
     if (session) {
         return session.get('securityContext');
     }
 }
 
 function updateSecurityContext(securityContext) {
-    var session = getNamespace('User Session');
+    let session = getNamespace('User Session');
     session.set('securityContext', securityContext);
 }
 
 function createCallerContext(req) {
 
-    var hostName = "";
-    var protocol = "";
+    let hostName = "";
+    let protocol = "";
 
     if (req.headers && req.headers['referer']) {
-        var urlFragments = urlModule.parse(req.headers['referer']);
+        let urlFragments = urlModule.parse(req.headers['referer']);
 
         if (urlFragments) {
             hostName = urlFragments.hostname;
@@ -39,20 +39,20 @@ function createCallerContext(req) {
         }
     }
 
-    var callerContext = {
+    let callerContext = {
         "hostName": hostName,
         "protocol": protocol
     };
 
-    var session = getNamespace('User Session');
+    let session = getNamespace('User Session');
     session.set('callerContext', callerContext);
 }
 
 function readSecurityHeaders(req) {
-    var tid = req.headers["x-rdp-tenantid"];
-    var uid = req.headers["x-rdp-userid"];
-    var roles = req.headers["x-rdp-userroles"];
-    var defaultRole = req.headers["x-rdp-defaultrole"];
+    let tid = req.headers["x-rdp-tenantid"];
+    let uid = req.headers["x-rdp-userid"];
+    let roles = req.headers["x-rdp-userroles"];
+    let defaultRole = req.headers["x-rdp-defaultrole"];
 
     //console.log('roles', roles);
 
@@ -64,10 +64,10 @@ function readSecurityHeaders(req) {
         defaultRole = Array.isArray(roles) ? roles[0] : roles;
     }
 
-    var firstName = req.headers["x-rdp-firstname"];
-    var lastName = req.headers["x-rdp-lastname"];
+    let firstName = req.headers["x-rdp-firstname"];
+    let lastName = req.headers["x-rdp-lastname"];
 
-    var fullName = "";
+    let fullName = "";
     if (firstName) {
         fullName = firstName;
     }
@@ -80,7 +80,7 @@ function readSecurityHeaders(req) {
     }
 
     //console.log('ownership data header', JSON.stringify(req.headers));
-    var securityContext = {
+    let securityContext = {
         'user': uid,
         'tenantId': tid,
         'clientAuthKey': clientAuthKey ? clientAuthKey : "",
@@ -113,7 +113,7 @@ function readSecurityHeaders(req) {
 }
 
 function getCallerContext() {
-    var session = getNamespace('User Session');
+    let session = getNamespace('User Session');
     if (session) {
         return session.get('callerContext');
     }

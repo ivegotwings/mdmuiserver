@@ -1,15 +1,15 @@
-var DFRestService = require('../../common/df-rest-service/DFRestService'),
+let DFRestService = require('../../common/df-rest-service/DFRestService'),
     isEmpty = require('../../common/utils/isEmpty'),
     uuidV1 = require('uuid/v1'),
     arrayContains = require('../../common/utils/array-contains'),
     moment = require('moment');
 
-var config = require('config');
-var taskSummarizationProcessorEnabled = config.get('modules.webEngine.taskSummarizationProcessorEnabled');
+let config = require('config');
+let taskSummarizationProcessorEnabled = config.get('modules.webEngine.taskSummarizationProcessorEnabled');
 
-var _ = require('underscore');
+let _ = require('underscore');
 
-var Eventservice = function (options) {
+let Eventservice = function (options) {
     DFRestService.call(this, options);
 };
 
@@ -45,13 +45,13 @@ const eventSubTypesOrder = ["NONE",
 
 Eventservice.prototype = {
     get: async function (request) {
-        var response = {};
-        var getBasedOnTaskSummarizationProcessor = false;
+        let response = {};
+        let getBasedOnTaskSummarizationProcessor = false;
         
         //Task summarization processor temp changes...
         if(taskSummarizationProcessorEnabled) {
             if(request.params.fields) {
-                var attributeList = request.params.fields.attributes;
+                let attributeList = request.params.fields.attributes;
 
                 if(attributeList && arrayContains(attributeList, "isSummaryFromTaskProcessor")) {
                     getBasedOnTaskSummarizationProcessor = true;
@@ -71,7 +71,7 @@ Eventservice.prototype = {
                 if(request.params && request.params.query) {
                     delete request.params.query.valueContexts;
                 }
-                var eventServiceGetUrl = 'eventservice/get';
+                let eventServiceGetUrl = 'eventservice/get';
                 response = await this.post(eventServiceGetUrl, request);
             }
         }
@@ -80,11 +80,11 @@ Eventservice.prototype = {
     },
     getTaskList: async function (request) {
         //console.log('prepare download request: ', request);
-        var finalResponse = {};
+        let finalResponse = {};
 
         try {
-            var eventServiceGetUrl = 'eventservice/get';
-            var validationResult = this._validateRequest(request);
+            let eventServiceGetUrl = 'eventservice/get';
+            let validationResult = this._validateRequest(request);
 
             if (!validationResult) {
                 throw new Error("Incorrect request for event service get");
@@ -92,12 +92,12 @@ Eventservice.prototype = {
 
             //console.log('event get request', JSON.stringify(request));
 
-            var attributesCriteria = request.params.query.filters.attributesCriterion;
-            var reqExternalEventSubType = undefined;
+            let attributesCriteria = request.params.query.filters.attributesCriterion;
+            let reqExternalEventSubType = undefined;
 
-            for (var i in attributesCriteria) {
+            for (let i in attributesCriteria) {
                 if (attributesCriteria[i].eventSubType) {
-                    var criteriaEventSubType = attributesCriteria[i].eventSubType.eq;
+                    let criteriaEventSubType = attributesCriteria[i].eventSubType.eq;
                     if (criteriaEventSubType && criteriaEventSubType.toUpperCase() != "ALL") {
                         reqExternalEventSubType = attributesCriteria[i].eventSubType.eq;
                         attributesCriteria.splice(i, 1);
@@ -111,18 +111,18 @@ Eventservice.prototype = {
             //console.log('requested event sub type ', requestedEventSubType);
             //console.log('event get request to RDF', JSON.stringify(request));
 
-            var res = await this.post(eventServiceGetUrl, request);
+            let res = await this.post(eventServiceGetUrl, request);
 
-            var eventGroup = [];
+            let eventGroup = [];
 
             if (res && res.response && res.response.events && res.response.events.length > 0) {
-                var events = res.response.events;
-                var filteredEvents = [];
+                let events = res.response.events;
+                let filteredEvents = [];
                 //console.log('events ', JSON.stringify(events));
 
-                var me = this;
-                var groups = _.groupBy(events, function (event) {
-                    var groupKey = me._getAttributeValue(event, "taskId");
+                let me = this;
+                let groups = _.groupBy(events, function (event) {
+                    let groupKey = me._getAttributeValue(event, "taskId");
 
                     if (!groupKey) {
                         groupKey = me._getAttributeValue(event, "fileName");
@@ -137,17 +137,17 @@ Eventservice.prototype = {
 
                 //console.log('groups ', JSON.stringify(groups));
 
-                for (var groupKey in groups) {
-                    var group = groups[groupKey];
-                    var currentEventRecordIdx = 0;
-                    var highOrderEvent = undefined;
-                    var highOrderRecordCount = 0;
+                for (let groupKey in groups) {
+                    let group = groups[groupKey];
+                    let currentEventRecordIdx = 0;
+                    let highOrderEvent = undefined;
+                    let highOrderRecordCount = 0;
 
-                    for (var i = 0; i < group.length; i++) { // start with 2nd record as first one is alread picked up
-                        var event = group[i];
+                    for (let i = 0; i < group.length; i++) { // start with 2nd record as first one is alread picked up
+                        let event = group[i];
                         if (event && event.data && event.data.attributes && event.data.attributes.eventSubType && event.data.attributes.eventSubType.values) {
-                            var eventSubType = this._getAttributeValue(event, "eventSubType");
-                            var currentEventSubTypeIndex = eventSubTypesOrder.indexOf(eventSubType);
+                            let eventSubType = this._getAttributeValue(event, "eventSubType");
+                            let currentEventSubTypeIndex = eventSubTypesOrder.indexOf(eventSubType);
                             if (currentEventSubTypeIndex > currentEventRecordIdx) {
                                 highOrderEvent = event;
                                 highOrderEvent.eventSubType = eventSubType;
@@ -199,22 +199,19 @@ Eventservice.prototype = {
             };
         }
 
-        finally {
-        }
-
         return finalResponse;
     },
     getTaskDetails: async function (request) {
-        var response = {};
+        let response = {};
 
         try {
-            var validationResult = this._validateRequest(request);
+            let validationResult = this._validateRequest(request);
 
             if (!validationResult) {
                 throw new Error("Incorrect request for event service get");
             }
 
-            var taskId = request.body.taskId;
+            let taskId = request.body.taskId;
             //console.log('Get details for ', taskId);
 
             //Task summarization processor temp changes...
@@ -227,26 +224,26 @@ Eventservice.prototype = {
             }
 
             //Get Batch Events to get basic information of reuested tasks...
-            var attributeNames = ["fileId", "fileName", "fileType", "eventType", "eventSubType", "recordCount", "createdOn", "userId", "profileType", "taskName", "taskType", "message", "integrationType"];
-            var eventTypeFilterString = "BATCH_COLLECT_ENTITY_IMPORT BATCH_TRANSFORM_ENTITY_IMPORT EXTRACT BATCH_COLLECT_ENTITY_EXPORT BATCH_TRANSFORM_ENTITY_EXPORT BATCH_PUBLISH_ENTITY_EXPORT";
-            var eventSubTypeFilterString = "";
-            var eventsGetRequest = this._generateEventsGetReq(taskId, attributeNames, eventTypeFilterString, eventSubTypeFilterString, false);
+            let attributeNames = ["fileId", "fileName", "fileType", "eventType", "eventSubType", "recordCount", "createdOn", "userId", "profileType", "taskName", "taskType", "message", "integrationType"];
+            let eventTypeFilterString = "BATCH_COLLECT_ENTITY_IMPORT BATCH_TRANSFORM_ENTITY_IMPORT EXTRACT BATCH_COLLECT_ENTITY_EXPORT BATCH_TRANSFORM_ENTITY_EXPORT BATCH_PUBLISH_ENTITY_EXPORT";
+            let eventSubTypeFilterString = "";
+            let eventsGetRequest = this._generateEventsGetReq(taskId, attributeNames, eventTypeFilterString, eventSubTypeFilterString, false);
 
             //console.log('Batch events get request to RDF', JSON.stringify(eventsGetRequest));
-            var eventServiceGetUrl = 'eventservice/get';
-            var batchEventsGetRes = await this.post(eventServiceGetUrl, eventsGetRequest);
+            let eventServiceGetUrl = 'eventservice/get';
+            let batchEventsGetRes = await this.post(eventServiceGetUrl, eventsGetRequest);
 
             //console.log('Batch events get response from RDF', JSON.stringify(batchEventsGetRes, null, 2));
 
             if (batchEventsGetRes && batchEventsGetRes.response && batchEventsGetRes.response.events && batchEventsGetRes.response.events.length > 0) {
-                var events = batchEventsGetRes.response.events;
-                var highOrderEvent = undefined;
-                var processingStartedEvent = undefined;
-                var highOrderEventTypeIndex = 0;
+                let events = batchEventsGetRes.response.events;
+                let highOrderEvent = undefined;
+                let processingStartedEvent = undefined;
+                let highOrderEventTypeIndex = 0;
 
-                var me = this;
-                var eventGroups = _.groupBy(events, function (event) {
-                    var groupKey = me._getAttributeValue(event, "eventType");
+                let me = this;
+                let eventGroups = _.groupBy(events, function (event) {
+                    let groupKey = me._getAttributeValue(event, "eventType");
 
                     if (!groupKey) {
                         groupKey = "Unknown";
@@ -255,19 +252,19 @@ Eventservice.prototype = {
                     return groupKey;
                 });
 
-                for (var groupKey in eventGroups) {
-                    var eventType = groupKey;
-                    var currentEventTypeIndex =  eventTypesOrder.indexOf(eventType);
+                for (let groupKey in eventGroups) {
+                    let eventType = groupKey;
+                    let currentEventTypeIndex =  eventTypesOrder.indexOf(eventType);
 
                     if(currentEventTypeIndex > highOrderEventTypeIndex) {
-                        var eventGroup = eventGroups[groupKey];
-                        var highOrderEventSubTypeIndex = 0;
+                        let eventGroup = eventGroups[groupKey];
+                        let highOrderEventSubTypeIndex = 0;
 
-                        for (var i = 0; i < eventGroup.length; i++) {
-                            var event = eventGroup[i];
+                        for (let i = 0; i < eventGroup.length; i++) {
+                            let event = eventGroup[i];
                             if (event && event.data && event.data.attributes) {
-                                var eventSubType = this._getAttributeValue(event, "eventSubType");
-                                var currentEventSubTypeIndex = eventSubTypesOrder.indexOf(eventSubType);
+                                let eventSubType = this._getAttributeValue(event, "eventSubType");
+                                let currentEventSubTypeIndex = eventSubTypesOrder.indexOf(eventSubType);
                                 if (currentEventSubTypeIndex > highOrderEventSubTypeIndex) {
                                     highOrderEvent = event;
 
@@ -280,14 +277,14 @@ Eventservice.prototype = {
                     }
                 }
 
-                for (var i = 0; i < events.length; i++) {
-                    var event = events[i];
+                for (let i = 0; i < events.length; i++) {
+                    let event = events[i];
                     if (event && event.data && event.data.attributes) {
-                        var eventSubType = this._getAttributeValue(event, "eventSubType");
+                        let eventSubType = this._getAttributeValue(event, "eventSubType");
                         
                         if(highOrderEvent) {
                             if (!this._getAttributeValue(highOrderEvent, "recordCount")) {
-                                var currentEventRecordCount = this._getAttributeValue(event, "recordCount");
+                                let currentEventRecordCount = this._getAttributeValue(event, "recordCount");
                                 if(currentEventRecordCount) {
                                     this._setAttributeValue(highOrderEvent, "recordCount", currentEventRecordCount);
                                 }
@@ -302,17 +299,17 @@ Eventservice.prototype = {
 
                 if (highOrderEvent) {
                     //console.log('higher order event ', JSON.stringify(highOrderEvent, null, 2));
-                    var eventType = this._getAttributeValue(highOrderEvent, "eventType");
-                    var eventSubType = this._getAttributeValue(highOrderEvent, "eventSubType");
-                    var taskType = this._getTaskType(highOrderEvent);
+                    let eventType = this._getAttributeValue(highOrderEvent, "eventType");
+                    let eventSubType = this._getAttributeValue(highOrderEvent, "eventSubType");
+                    let taskType = this._getTaskType(highOrderEvent);
 
-                    var taskName = this._getAttributeValue(highOrderEvent, "taskName");
-                    var fileName = this._getAttributeValue(highOrderEvent, "fileName");
-                    var fileId = this._getAttributeValue(highOrderEvent, "fileId");
-                    var fileType = this._getAttributeValue(highOrderEvent, "fileType");
-                    var submittedBy = this._getAttributeValue(highOrderEvent, "userId");
-                    var totalRecords = this._getAttributeValue(highOrderEvent, "recordCount");
-                    var message = this._getAttributeValue(highOrderEvent, "message");
+                    let taskName = this._getAttributeValue(highOrderEvent, "taskName");
+                    let fileName = this._getAttributeValue(highOrderEvent, "fileName");
+                    let fileId = this._getAttributeValue(highOrderEvent, "fileId");
+                    let fileType = this._getAttributeValue(highOrderEvent, "fileType");
+                    let submittedBy = this._getAttributeValue(highOrderEvent, "userId");
+                    let totalRecords = this._getAttributeValue(highOrderEvent, "recordCount");
+                    let message = this._getAttributeValue(highOrderEvent, "message");
 
                     response.taskId = taskId;
                     response.taskName = taskName ? taskName : "N/A";
@@ -330,14 +327,14 @@ Eventservice.prototype = {
                     //Since events are sorted by DateTime in descending order, we can consider the last but one record (last record is with status Queued)...
                     if (processingStartedEvent) {
                         //console.log('processing started event', JSON.stringify(processingStartedEvent, null, 2));
-                        var startTime = this._getAttributeValue(processingStartedEvent, "createdOn");
+                        let startTime = this._getAttributeValue(processingStartedEvent, "createdOn");
 
                         if (startTime) {
                             response.startTime = startTime
                         }
                     }
 
-                    var taskStats = response["taskStats"] = {};
+                    let taskStats = response["taskStats"] = {};
                     taskStats.error = "N/A";
                     taskStats.processing = "N/A";
                     taskStats.success = "N/A";
@@ -377,15 +374,15 @@ Eventservice.prototype = {
                         }
                         else {
                             //Get errored record events within COP/RSConnect for a requested task 
-                            var preProcessErroredRecordsCount = 0;
-                            var lastErroredRecordEvent;
-                            var attributeNames = ["createdOn"]; //This attribute is needed to get endTime
-                            var eventTypeFilterString = "RECORD_TRANSFORM_ENTITY_IMPORT RECORD_PUBLISH_ENTITY_IMPORT RECORD_PUBLISH_ENTITY_EXPORT LOAD";
-                            var eventSubTypeFilterString = "PROCESSING_ERROR PROCESSING_COMPLETE_ERROR";
-                            var eventsGetRequest = this._generateEventsGetReq(taskId, attributeNames, eventTypeFilterString, eventSubTypeFilterString, true);
+                            let preProcessErroredRecordsCount = 0;
+                            let lastErroredRecordEvent;
+                            let attributeNames = ["createdOn"]; //This attribute is needed to get endTime
+                            let eventTypeFilterString = "RECORD_TRANSFORM_ENTITY_IMPORT RECORD_PUBLISH_ENTITY_IMPORT RECORD_PUBLISH_ENTITY_EXPORT LOAD";
+                            let eventSubTypeFilterString = "PROCESSING_ERROR PROCESSING_COMPLETE_ERROR";
+                            let eventsGetRequest = this._generateEventsGetReq(taskId, attributeNames, eventTypeFilterString, eventSubTypeFilterString, true);
 
                             //console.log('Record events get request to RDF', JSON.stringify(eventsGetRequest));
-                            var recordEventsGetRes = await this.post(eventServiceGetUrl, eventsGetRequest);
+                            let recordEventsGetRes = await this.post(eventServiceGetUrl, eventsGetRequest);
                             //console.log('Record events get response to RDF', JSON.stringify(recordEventsGetRes));
                             if (recordEventsGetRes && recordEventsGetRes.response) {
                                 preProcessErroredRecordsCount = recordEventsGetRes.response.totalRecords;
@@ -412,16 +409,16 @@ Eventservice.prototype = {
                             }
                             else if (!(eventType == "BATCH_COLLECT_ENTITY_EXPORT" || eventType == "BATCH_TRANSFORM_ENTITY_EXPORT" || eventType == "BATCH_PUBLISH_ENTITY_EXPORT")) {
                                 //Generate request tracking get request...
-                                var isBulkWorkflowTask = false;
+                                let isBulkWorkflowTask = false;
                                 if(taskType.toLowerCase().indexOf("workflow") >= 0) {
                                     isBulkWorkflowTask = true;
                                 }
 
-                                var requestTrackingGetRequest = this._generateRequestTrackingGetReqForTaskDetails(taskId, isBulkWorkflowTask, totalRecords);
+                                let requestTrackingGetRequest = this._generateRequestTrackingGetReqForTaskDetails(taskId, isBulkWorkflowTask, totalRecords);
 
                                 //console.log('Request tracking get request to RDF', JSON.stringify(requestTrackingGetRequest));
-                                var requestTrackingGetUrl = 'requesttrackingservice/get';
-                                var reqTrackingRes = await this.post(requestTrackingGetUrl, requestTrackingGetRequest);
+                                let requestTrackingGetUrl = 'requesttrackingservice/get';
+                                let reqTrackingRes = await this.post(requestTrackingGetUrl, requestTrackingGetRequest);
                                 //console.log('Request tracking get response from RDF', JSON.stringify(reqTrackingRes));
                                 //console.log('Response object so far', JSON.stringify(response, null, 2));
                                 if (reqTrackingRes && reqTrackingRes.response && reqTrackingRes.response.requestObjects && reqTrackingRes.response.requestObjects.length > 0) {
@@ -480,18 +477,15 @@ Eventservice.prototype = {
             };
         }
 
-        finally {
-        }
-
         return response;
     },
     //Task summarization processor temp changes...
     getImportTaskList: async function (request) {
-        var response = {};
+        let response = {};
         try {
-            var importTaskListGetRequest = this._generateImportTaskListGetRequest(request);
+            let importTaskListGetRequest = this._generateImportTaskListGetRequest(request);
             
-            var importTaskListGetUrl = 'requesttrackingservice/get';
+            let importTaskListGetUrl = 'requesttrackingservice/get';
             response = await this.post(importTaskListGetUrl, importTaskListGetRequest);
 
             if(response) {
@@ -512,14 +506,12 @@ Eventservice.prototype = {
                 }
             };
         }
-        finally {
-        }
-        
+
         return response;
     },
     _generateEventsGetReq: function (taskId, attributeNames, eventTypesFilterString, eventSubTypesFilterString, isRecordCountGet) {
-        var types = ["externalevent"];
-        var req = this._getRequestJson(types);
+        let types = ["externalevent"];
+        let req = this._getRequestJson(types);
 
         //Below value context for event request and all events are always stored with en-US locale..do not apply tenant-config based default locale here
         if (attributeNames && attributeNames.length > 0) {
@@ -530,8 +522,8 @@ Eventservice.prototype = {
             }];
         }
 
-        var attributesCriteria = [];
-        var taskIdCriterion = {
+        let attributesCriteria = [];
+        let taskIdCriterion = {
             "taskId": {
                 "exact": taskId
             }
@@ -539,7 +531,7 @@ Eventservice.prototype = {
         attributesCriteria.push(taskIdCriterion);
 
         if (eventTypesFilterString && eventTypesFilterString.length > 0) {
-            var eventTypeCriterion = {
+            let eventTypeCriterion = {
                 "eventType": {
                     "contains": eventTypesFilterString
                 }
@@ -547,7 +539,7 @@ Eventservice.prototype = {
             attributesCriteria.push(eventTypeCriterion);
         }
         if (eventSubTypesFilterString && eventSubTypesFilterString.length > 0) {
-            var eventSubTypeCriterion = {
+            let eventSubTypeCriterion = {
                 "eventSubType": {
                     "contains": eventSubTypesFilterString
                 }
@@ -572,20 +564,20 @@ Eventservice.prototype = {
         return req;
     },
     _generateRequestTrackingGetReqForTaskDetails: function (taskId, isBulkWorkflowTask, totalRecords) {
-        var types = ["requestobject"];
-        var req = this._getRequestJson(types);
+        let types = ["requestobject"];
+        let req = this._getRequestJson(types);
 
-        var attributeNames = ["entityId", "entityType", "entityAction", "requestStatus"];
+        let attributeNames = ["entityId", "entityType", "entityAction", "requestStatus"];
         req.params.fields.attributes = attributeNames;
         req.params.query.valueContexts = [{
             "source": "rdp",
             "locale": "en-US"
         }];
 
-        var attributesCriteria = [];
+        let attributesCriteria = [];
 
         //Add task id criterion...
-        var taskIdCriterion = {
+        let taskIdCriterion = {
             "taskId": {
                 "exact": taskId
             }
@@ -593,12 +585,12 @@ Eventservice.prototype = {
         attributesCriteria.push(taskIdCriterion);
 
         //Add service name criterion...
-        var serviceName = "entityManageService";
+        let serviceName = "entityManageService";
         if(isBulkWorkflowTask) {
             serviceName = "entityGovernService";
         }
 
-        var serviceNameCriterion = {
+        let serviceNameCriterion = {
             "serviceName": {
                 "eq": serviceName
             }
@@ -606,14 +598,14 @@ Eventservice.prototype = {
         attributesCriteria.push(serviceNameCriterion);
 
         if(!isBulkWorkflowTask) {
-            var entityActionCriterion = {
+            let entityActionCriterion = {
                 "entityAction": {
                     "contains": "create update delete"
                 }
             };
             attributesCriteria.push(entityActionCriterion);
 
-            var impactedEventCriterion = {
+            let impactedEventCriterion = {
                 "impacted": {
                     "exact": "false"
                 }
@@ -638,11 +630,11 @@ Eventservice.prototype = {
     },
     //Task summarization processor temp changes...
     _generateImportTaskListGetRequest: function (inputRequest) {
-        var types = ["tasksummaryobject"];
-        var req = this._getRequestJson(types);
+        let types = ["tasksummaryobject"];
+        let req = this._getRequestJson(types);
 
         if(!inputRequest.params.isTaskListGetRequest) {
-            var attributeNames = ["_ALL"];
+            let attributeNames = ["_ALL"];
             req.params.fields.attributes = attributeNames;
         }
         // req.params.query.valueContexts = [{
@@ -656,15 +648,16 @@ Eventservice.prototype = {
             req.params.query.id = inputRequest.params.query.id;
         }
 
-        var requestedAttributeCriteria = inputRequest.params.query.filters.attributesCriterion;
+        let requestedAttributeCriteria = inputRequest.params.query.filters.attributesCriterion;
         if(requestedAttributeCriteria) {
-            var status = undefined;
-            var taskType = "entity_import";
-            var taskTypeOperator = undefined;
-            var userId = undefined;
-            var integrationType = undefined;
+            let status = undefined;
+            let taskType = "entity_import";
+            let taskTypeOperator = undefined;
+            let userId = undefined;
+            let integrationType = undefined;
+            let parentTaskHasValue = undefined;
 
-            for (var i in requestedAttributeCriteria) {
+            for (let i in requestedAttributeCriteria) {
                 if(requestedAttributeCriteria[i].eventSubType) {
                     status = requestedAttributeCriteria[i].eventSubType.eq;
                 } else if(requestedAttributeCriteria[i].taskType) {
@@ -674,13 +667,15 @@ Eventservice.prototype = {
                     userId = requestedAttributeCriteria[i].userId.eq;
                 } else if(requestedAttributeCriteria[i].integrationType) {
                     integrationType = requestedAttributeCriteria[i].integrationType.eq;
+                } else if(requestedAttributeCriteria[i].parentTaskId) {
+                    parentTaskHasValue = requestedAttributeCriteria[i].parentTaskId.hasvalue;
                 }
             }
 
-            var attributesCriteria = [];
-            
+            let attributesCriteria = [];
+
             //Add task type criterion...
-            var taskTypeCriterion = {
+            let taskTypeCriterion = {
                 "taskType": {
                     "contains": taskType
                 }
@@ -694,7 +689,7 @@ Eventservice.prototype = {
 
             if (status) {
                 //Add task status criterion...
-                var taskStatusCriterion = {
+                let taskStatusCriterion = {
                     "status": {
                         "contains": status.toLowerCase()
                     }
@@ -708,7 +703,7 @@ Eventservice.prototype = {
                     userId = userId + "_user";
                 }
                 //Add user id criterion...
-                var userIdCriterion = {
+                let userIdCriterion = {
                     "submittedBy": {
                         "eq": userId
                     }
@@ -718,7 +713,7 @@ Eventservice.prototype = {
 
             if(integrationType) {
                 //Add integration type criterion...
-                var integrationTypeCriterion = {
+                let integrationTypeCriterion = {
                     "integrationType": {
                         "eq": integrationType
                     }
@@ -726,16 +721,26 @@ Eventservice.prototype = {
                 attributesCriteria.push(integrationTypeCriterion);
             }
 
+            if(typeof parentTaskHasValue === "boolean") {
+                //Add parentId criterion...
+                let parentIdCriterion = {
+                    "parentTaskId": {
+                        "hasvalue": parentTaskHasValue
+                    }
+                };
+                attributesCriteria.push(parentIdCriterion);
+            }
+
             req.params.query.filters.attributesCriterion = attributesCriteria;
         }
 
-        var requestedKeywordCriteria = inputRequest.params.query.filters.keywordsCriterion;
+        let requestedKeywordCriteria = inputRequest.params.query.filters.keywordsCriterion;
         if(requestedKeywordCriteria) {
             req.params.query.filters.keywordsCriterion = requestedKeywordCriteria;
         }
 
         //checking for propertiesCriterion
-        var propertiesCriterion = inputRequest.params.query.filters.propertiesCriterion;
+        let propertiesCriterion = inputRequest.params.query.filters.propertiesCriterion;
         if(propertiesCriterion) {
             if(propertiesCriterion.length>0) {
                 req.params.query.filters.propertiesCriterion = propertiesCriterion;
@@ -750,7 +755,7 @@ Eventservice.prototype = {
             }]
         };
 
-        var dataIndexInfo = pathKeys.dataIndexInfo["requestTracking"].dataSubIndexInfo["requestTracking"];
+        let dataIndexInfo = pathKeys.dataIndexInfo["requestTracking"].dataSubIndexInfo["requestTracking"];
         req.params.options = {
             "maxRecords": dataIndexInfo.maxRecordsToReturn
         }
@@ -758,24 +763,24 @@ Eventservice.prototype = {
     },
     //Task summarization processor temp changes...
     _convertTaskSummaryObjectInToEvents: function(taskSummaryObjectsResponse) {
-        var response = taskSummaryObjectsResponse.response;
+        let response = taskSummaryObjectsResponse.response;
 
         if(response) {
-            var taskSummaryObjects = response.requestObjects;
+            let taskSummaryObjects = response.requestObjects;
             if(taskSummaryObjects){
                 response.events = [];
                 for (let taskSummaryObject of taskSummaryObjects) {
-                    var externalEvent = {};
+                    let externalEvent = {};
                     externalEvent.id = taskSummaryObject.id;
                     externalEvent.name = taskSummaryObject.name;
                     externalEvent.type = "externalevent";
                     externalEvent.properties = taskSummaryObject.properties;
 
                     if(taskSummaryObject.data) {
-                        var attributes = taskSummaryObject.data.attributes;
+                        let attributes = taskSummaryObject.data.attributes;
 
                         if(attributes) {
-                            var eventAttributes = {};
+                            let eventAttributes = {};
 
                             eventAttributes["taskId"] = attributes["taskId"];
                             eventAttributes["taskName"] = attributes["taskName"];
@@ -785,6 +790,8 @@ Eventservice.prototype = {
                             eventAttributes["eventSubType"] = attributes["status"];
                             eventAttributes["recordCount"] = attributes["totalRecords"];
                             eventAttributes["profileName"] = attributes["profileName"];
+                            eventAttributes["hasChildTasks"] = attributes["hasChildTasks"];
+                            eventAttributes["isExtractComplete"] = attributes["isExtractComplete"];
                             eventAttributes["createdOn"] = {"values": [
                                 {
                                     "locale": "en-US",
@@ -806,7 +813,7 @@ Eventservice.prototype = {
                                     }
                                 ]};
                             }
-                            var data = externalEvent["data"] = {};
+                            let data = externalEvent["data"] = {};
                             data["attributes"] = eventAttributes;
                         }
                     }
@@ -820,38 +827,40 @@ Eventservice.prototype = {
     },
     //Task summarization processor temp changes...
     _getTaskDetailsFromSummarizationProcessor: async function(taskId) {
-        var response = {};
+        let response = {};
 
         //Generate summary get request...
-        var taskSummmaryGetRequest = this._generateTaskSummaryGetReq(taskId);
+        let taskSummmaryGetRequest = this._generateTaskSummaryGetReq(taskId);
 
-        var taskSummaryGetUrl = 'requesttrackingservice/get';
-        var taskSummaryGetRes = await this.post(taskSummaryGetUrl, taskSummmaryGetRequest);
+        let taskSummaryGetUrl = 'requesttrackingservice/get';
+        let taskSummaryGetRes = await this.post(taskSummaryGetUrl, taskSummmaryGetRequest);
 
         if (taskSummaryGetRes && taskSummaryGetRes.response && taskSummaryGetRes.response.requestObjects && taskSummaryGetRes.response.requestObjects.length > 0) {
-            var requestObject = taskSummaryGetRes.response.requestObjects[0];
+            let requestObject = taskSummaryGetRes.response.requestObjects[0];
 
-            var taskType = this._getTaskType(requestObject);
-            var taskName = this._getTaskName(requestObject);
-            var taskStatus = this._getAttributeValue(requestObject, "status");
-            var fileName = this._getAttributeValue(requestObject, "fileName");
-            var fileId = this._getAttributeValue(requestObject, "fileId");
-            var fileType = this._getAttributeValue(requestObject, "fileType");
-            var fileExtension = this._getAttributeValue(requestObject, "fileExtension");
-            var submittedBy = this._getAttributeValue(requestObject, "submittedBy");
-            var totalRecords = this._getAttributeValue(requestObject, "totalRecords");
-            var message = this._getAttributeValue(requestObject, "errorMessage");
-            var startTime = requestObject.properties.createdDate;
-            
+            let taskType = this._getTaskType(requestObject);
+            let taskName = this._getTaskName(requestObject);
+            let taskStatus = this._getAttributeValue(requestObject, "status");
+            let fileName = this._getAttributeValue(requestObject, "fileName");
+            let fileId = this._getAttributeValue(requestObject, "fileId");
+            let fileType = this._getAttributeValue(requestObject, "fileType");
+            let fileExtension = this._getAttributeValue(requestObject, "fileExtension");
+            let submittedBy = this._getAttributeValue(requestObject, "submittedBy");
+            let totalRecords = this._getAttributeValue(requestObject, "totalRecords");
+            let message = this._getAttributeValue(requestObject, "errorMessage");
+            let hasChildTasks = this._getAttributeValue(requestObject, "hasChildTasks");
+            let isExtractComplete = this._getAttributeValue(requestObject, "isExtractComplete");
+            let startTime = requestObject.properties.createdDate;
+
             response.taskId = taskId;
             response.taskName = taskName ? taskName : "N/A";
             response.taskType = taskType;
             response.taskStatus = taskStatus ? taskStatus : "N/A";
             response.fileId = fileId ? fileId : "N/A";
             if(taskName && taskName.search(/create variants/i) > -1){
-                response.fileName = "N/A";                   
+                response.fileName = "N/A";
             } else {
-                response.fileName = fileName ? fileName : response.fileId;    
+                response.fileName = fileName ? fileName : response.fileId;
             }
             response.fileType = fileType ? fileType : "N/A";
             response.fileExtension = fileExtension ? fileExtension : "N/A";
@@ -860,8 +869,10 @@ Eventservice.prototype = {
             response.message = message ? message : "N/A";
             response.startTime = startTime ? startTime : "N/A";
             response.endTime = "N/A";
+            response.hasChildTasks = typeof hasChildTasks === "boolean" ? hasChildTasks : "N/A";
+            response.isExtractComplete = typeof isExtractComplete === "boolean" ? isExtractComplete : "N/A";
 
-            var taskStats = response["taskStats"] = {};
+            let taskStats = response["taskStats"] = {};
             taskStats.error = "0%";
             taskStats.processing = "100%";
             taskStats.success = "0%";
@@ -880,8 +891,8 @@ Eventservice.prototype = {
     },
     //Task summarization processor temp changes...
     _generateTaskSummaryGetReq: function (taskId) {
-        var types = ["tasksummaryobject"];
-        var req = this._getRequestJson(types);
+        let types = ["tasksummaryobject"];
+        let req = this._getRequestJson(types);
 
         req.params.query.id = taskId;
         req.params.fields.attributes = ["_ALL"];
@@ -898,15 +909,15 @@ Eventservice.prototype = {
     },
     //Task summarization processor temp changes...
     _populateTaskStatsAndOtherProperties: function(requestObject, taskDetails) {
-        var successCount = this._convertToPositiveInteger(this._getAttributeValue(requestObject, "totalRecordsSuccess"));
-        var errorCount = this._convertToPositiveInteger(this._getAttributeValue(requestObject, "totalRDPErrors")) + this._convertToPositiveInteger(this._getAttributeValue(requestObject, "totalTransformError"));
-        var createCount = this._convertToPositiveInteger(this._getAttributeValue(requestObject, "totalRecordsCreate"));
-        var updateCount = this._convertToPositiveInteger(this._getAttributeValue(requestObject, "totalRecordsUpdate"));
-        var deleteCount = this._convertToPositiveInteger(this._getAttributeValue(requestObject, "totalRecordsDelete"));
+        let successCount = this._convertToPositiveInteger(this._getAttributeValue(requestObject, "totalRecordsSuccess"));
+        let errorCount = this._convertToPositiveInteger(this._getAttributeValue(requestObject, "totalRDPErrors")) + this._convertToPositiveInteger(this._getAttributeValue(requestObject, "totalTransformError"));
+        let createCount = this._convertToPositiveInteger(this._getAttributeValue(requestObject, "totalRecordsCreate"));
+        let updateCount = this._convertToPositiveInteger(this._getAttributeValue(requestObject, "totalRecordsUpdate"));
+        let deleteCount = this._convertToPositiveInteger(this._getAttributeValue(requestObject, "totalRecordsDelete"));
 
         //Calculate various stats
-        var totalRecordCount = this._convertToPositiveInteger(taskDetails.totalRecords);
-        var taskStatus = taskDetails.taskStatus.toLowerCase();
+        let totalRecordCount = this._convertToPositiveInteger(taskDetails.totalRecords);
+        let taskStatus = taskDetails.taskStatus.toLowerCase();
 
         if (taskStatus == "completed") {
             taskDetails.taskStatus = "Completed";
@@ -933,11 +944,11 @@ Eventservice.prototype = {
             // }
 
             if(totalRecordCount > 0) {
-                var inProgressCount = totalRecordCount - (successCount + errorCount);
+                let inProgressCount = totalRecordCount - (successCount + errorCount);
 
-                var successPercentage = (successCount * 100) / totalRecordCount;
-                var errorPercentage = ((errorCount) * 100) / totalRecordCount;
-                var inProgressPercentage = (inProgressCount * 100) / totalRecordCount;
+                let successPercentage = (successCount * 100) / totalRecordCount;
+                let errorPercentage = ((errorCount) * 100) / totalRecordCount;
+                let inProgressPercentage = (inProgressCount * 100) / totalRecordCount;
 
                 if(successPercentage > 100) {
                     successPercentage = 100;
@@ -958,10 +969,10 @@ Eventservice.prototype = {
         }
 
         if(totalRecordCount > 0) {
-            var createPercentage = (createCount * 100) / totalRecordCount;
-            var updatePercentage = (updateCount * 100) / totalRecordCount;
-            var deletePercentage = (deleteCount * 100) / totalRecordCount;
-            var noChangePercentage = ((totalRecordCount - successCount) * 100) / totalRecordCount;
+            let createPercentage = (createCount * 100) / totalRecordCount;
+            let updatePercentage = (updateCount * 100) / totalRecordCount;
+            let deletePercentage = (deleteCount * 100) / totalRecordCount;
+            let noChangePercentage = ((totalRecordCount - successCount) * 100) / totalRecordCount;
 
             if(createPercentage > 100) {
                 createPercentage = 100;
@@ -991,32 +1002,33 @@ Eventservice.prototype = {
     },
     //Task summarization processor temp changes...
     _populateSuccessRecords: async function(taskId, taskDetails){
-        var successObjIds = [];
-        var successObjTypes = [];
+        let successObjIds = [];
+        let successObjTypes = [];
 
         //Generate request tracking get request...
-        var isBulkWorkflowTask = false;
+        let isBulkWorkflowTask = false;
         if(taskDetails.taskType.toLowerCase().indexOf("workflow") >= 0) {
             isBulkWorkflowTask = true;
         }
         
         //Generate details get request...
-        var totalRecords = (taskDetails.totalRecords == "N/A") ? 200 : taskDetails.totalRecords;
-        var taskDetailsGetRequest = this._generateTaskDetailsGetReq(taskId, isBulkWorkflowTask, totalRecords);
-        
+        let totalRecords = (taskDetails.totalRecords == "N/A") ? 200 : taskDetails.totalRecords;
+        let isParentTask = taskDetails.hasChildTasks && taskDetails.hasChildTasks != "N/A";
+        let taskDetailsGetRequest = this._generateTaskDetailsGetReq(taskId, isBulkWorkflowTask, totalRecords, isParentTask);
+
         //console.log('Task details get request to RDF', JSON.stringify(taskDetailsGetRequest));
-        var taskDetailsGetUrl = 'requesttrackingservice/get';
-        var taskDetailsGetRes = await this.post(taskDetailsGetUrl, taskDetailsGetRequest);
+        let taskDetailsGetUrl = 'requesttrackingservice/get';
+        let taskDetailsGetRes = await this.post(taskDetailsGetUrl, taskDetailsGetRequest);
 
-        if (taskDetailsGetRes && taskDetailsGetRes.response)
-            var requestObjects = taskDetailsGetRes.response.requestObjects;
+        if (taskDetailsGetRes && taskDetailsGetRes.response) {
+            let requestObjects = taskDetailsGetRes.response.requestObjects;
             if(requestObjects && requestObjects.length > 0) {
-                for (var i = 0; i < requestObjects.length; i++) {
-                    var reqObj = requestObjects[i];
+                for (let i = 0; i < requestObjects.length; i++) {
+                    let reqObj = requestObjects[i];
 
-                    var objId = this._getAttributeValue(reqObj, "entityId");
-                    var objType = this._getAttributeValue(reqObj, "entityType");
-                    var action = this._getAttributeValue(reqObj, "entityAction");
+                    let objId = this._getAttributeValue(reqObj, "entityId");
+                    let objType = this._getAttributeValue(reqObj, "entityType");
+                    let action = this._getAttributeValue(reqObj, "entityAction");
 
                     if(action == "delete") {
                         objType = "delete" + objType;
@@ -1030,6 +1042,7 @@ Eventservice.prototype = {
                         }
                     }
                 }
+            }
         }
 
         taskDetails.successEntities = {
@@ -1037,49 +1050,49 @@ Eventservice.prototype = {
             "types": successObjTypes
         }
     },
-    //Task summarization processor temp changes...
-    _generateTaskDetailsGetReq: function (taskId, isBulkWorkflowTask, totalRecords) {
-        var types = ["requestobject"];
-        var req = this._getRequestJson(types);
 
-        var attributeNames = ["entityId", "entityType", "entityAction"];
+    //Task summarization processor temp changes...
+    _generateTaskDetailsGetReq: function (taskId, isBulkWorkflowTask, totalRecords, isParentTask) {
+        let types = ["requestobject"];
+        let req = this._getRequestJson(types);
+
+        let attributeNames = ["entityId", "entityType", "entityAction"];
         req.params.fields.attributes = attributeNames;
         req.params.query.valueContexts = [{
             "source": "rdp",
             "locale": "en-US"
         }];
 
-        var attributesCriteria = [];
-        
+        let attributesCriteria = [];
+
         //Add task id criterion...
-        var taskIdCriterion = {
-            "taskId": {
-                "exact": taskId
-            }
+        let taskIdCriterion = {};
+        taskIdCriterion[isParentTask ? "parentTaskId" : "taskId"] = {
+            "exact": taskId
         };
         attributesCriteria.push(taskIdCriterion);
 
         //Add service name criterion...
-        var serviceName = "entityManageService";
+        let serviceName = "entityManageService";
         if (isBulkWorkflowTask) {
             serviceName = "entityGovernService";
         }
 
-        var serviceNameCriterion = {
+        let serviceNameCriterion = {
             "serviceName": {
                 "eq": serviceName
             }
         };
         attributesCriteria.push(serviceNameCriterion);
 
-        var requestStatusCriterion = {
+        let requestStatusCriterion = {
             "requestStatus": {
                 "eq": "success"
             }
         };
         attributesCriteria.push(requestStatusCriterion);
 
-        var impactedEventCriterion = {
+        let impactedEventCriterion = {
             "impacted": {
                 "exact": "false"
             }
@@ -1102,7 +1115,7 @@ Eventservice.prototype = {
         return req;
     },
     _convertToPositiveInteger: function(strInteger) {
-        var integer = parseInt(strInteger);
+        let integer = parseInt(strInteger);
 
         if(!integer || integer < 0) {
             integer = 0;
@@ -1111,7 +1124,7 @@ Eventservice.prototype = {
         return integer;
     },
     _getRequestJson: function (types) {
-        var req = {
+        let req = {
             "params": {
                 "query": {
                     "filters": {
@@ -1126,20 +1139,20 @@ Eventservice.prototype = {
         return req;
     },
     _populateTaskDetailsBasedOnReqTrackingResponse: function (taskDetails, reqTrackingResponse, preProcessErroredRecordsCount, isBulkWorkflowTask) {
-        var requestObjects = reqTrackingResponse.response.requestObjects;
+        let requestObjects = reqTrackingResponse.response.requestObjects;
 
-        var successCount = 0;
-        var errorCount = 0;
-        var createCount = 0;
-        var updateCount = 0;
-        var deleteCount = 0;
-        var successObjIds = [];
-        var successObjTypes = [];
+        let successCount = 0;
+        let errorCount = 0;
+        let createCount = 0;
+        let updateCount = 0;
+        let deleteCount = 0;
+        let successObjIds = [];
+        let successObjTypes = [];
 
         if(isBulkWorkflowTask) {
-            var me = this;
-            var groups = _.groupBy(requestObjects, function (reqObj) {
-                var groupKey = me._getAttributeValue(reqObj, "entityId");
+            let me = this;
+            let groups = _.groupBy(requestObjects, function (reqObj) {
+                let groupKey = me._getAttributeValue(reqObj, "entityId");
 
                 if (!groupKey) {
                     groupKey = "Unknown";
@@ -1150,23 +1163,23 @@ Eventservice.prototype = {
 
             //console.log('Req Objects groups ', JSON.stringify(groups));
 
-            for (var groupKey in groups) {
-                var group = groups[groupKey];
+            for (let groupKey in groups) {
+                let group = groups[groupKey];
 
-                var objId = undefined;
-                var objType = undefined;
-                var errored = false;
-                var processing = false;
+                let objId = undefined;
+                let objType = undefined;
+                let errored = false;
+                let processing = false;
 
-                for (var i = 0; i < group.length; i++) {
-                    var reqObj = group[i];
+                for (let i = 0; i < group.length; i++) {
+                    let reqObj = group[i];
 
                     if(!objId) {
                         objId = this._getAttributeValue(reqObj, "entityId");
                         objType = this._getAttributeValue(reqObj, "entityType");
                     }
 
-                    var objStatus = this._getAttributeValue(reqObj, "requestStatus");
+                    let objStatus = this._getAttributeValue(reqObj, "requestStatus");
                     if(objStatus == "error") {
                         errorCount++;
                         errored = true;
@@ -1189,13 +1202,13 @@ Eventservice.prototype = {
             }
         }
         else {
-            for (var i = 0; i < requestObjects.length; i++) {
-                var reqObj = requestObjects[i];
+            for (let i = 0; i < requestObjects.length; i++) {
+                let reqObj = requestObjects[i];
 
-                var objId = this._getAttributeValue(reqObj, "entityId");
-                var objType = this._getAttributeValue(reqObj, "entityType");
-                var objStatus = this._getAttributeValue(reqObj, "requestStatus");
-                var objAction = this._getAttributeValue(reqObj, "entityAction");
+                let objId = this._getAttributeValue(reqObj, "entityId");
+                let objType = this._getAttributeValue(reqObj, "entityType");
+                let objStatus = this._getAttributeValue(reqObj, "requestStatus");
+                let objAction = this._getAttributeValue(reqObj, "entityAction");
 
                 if (objStatus == "success") {
                     successCount++;
@@ -1224,7 +1237,7 @@ Eventservice.prototype = {
         }
 
         //Calculate various stats
-        var totalRecordCount = parseInt(taskDetails.totalRecords);
+        let totalRecordCount = parseInt(taskDetails.totalRecords);
 
         if (totalRecordCount == successCount) {
             taskDetails.taskStatus = "Completed";
@@ -1246,11 +1259,11 @@ Eventservice.prototype = {
                 taskDetails.taskStatus = "Processing"
             }
 
-            var inProgressCount = totalRecordCount - (successCount + errorCount + preProcessErroredRecordsCount);
+            let inProgressCount = totalRecordCount - (successCount + errorCount + preProcessErroredRecordsCount);
 
-            var successPercentage = (successCount * 100) / totalRecordCount;
-            var errorPercentage = ((errorCount + preProcessErroredRecordsCount) * 100) / totalRecordCount;
-            var inProgressPercentage = (inProgressCount * 100) / totalRecordCount;
+            let successPercentage = (successCount * 100) / totalRecordCount;
+            let errorPercentage = ((errorCount + preProcessErroredRecordsCount) * 100) / totalRecordCount;
+            let inProgressPercentage = (inProgressCount * 100) / totalRecordCount;
 
             if(successPercentage > 100) {
                 successPercentage = 100;
@@ -1269,10 +1282,10 @@ Eventservice.prototype = {
             taskDetails.taskStats.processing = parseInt(inProgressPercentage) + "%";
         }
 
-        var createPercentage = (createCount * 100) / totalRecordCount;
-        var updatePercentage = (updateCount * 100) / totalRecordCount;
-        var deletePercentage = (deleteCount * 100) / totalRecordCount;
-        var noChangePercentage = ((totalRecordCount - successCount) * 100) / totalRecordCount;
+        let createPercentage = (createCount * 100) / totalRecordCount;
+        let updatePercentage = (updateCount * 100) / totalRecordCount;
+        let deletePercentage = (deleteCount * 100) / totalRecordCount;
+        let noChangePercentage = ((totalRecordCount - successCount) * 100) / totalRecordCount;
 
         if(createPercentage > 100) {
             createPercentage = 100;
@@ -1297,9 +1310,9 @@ Eventservice.prototype = {
 
         if(taskDetails.taskStatus != "Processing") {
             //Task has been completed... End time is the time of last request object creation...
-            var lastCreatedReqObj = requestObjects[requestObjects.length - 1];
+            let lastCreatedReqObj = requestObjects[requestObjects.length - 1];
             if (lastCreatedReqObj && lastCreatedReqObj.properties) {
-                var endTime = lastCreatedReqObj.properties.createdDate;
+                let endTime = lastCreatedReqObj.properties.createdDate;
 
                 if (endTime) {
                     taskDetails.endTime = endTime;
@@ -1313,10 +1326,10 @@ Eventservice.prototype = {
         }
     },
     _getExternalEventSubType: function (internalEventSubType) {
-        var eventSubFilterMap = eventSubTypeMap;
+        let eventSubFilterMap = eventSubTypeMap;
 
-        for (var key in eventSubFilterMap) {
-            var eventSubTypeFilters = eventSubFilterMap[key];
+        for (let key in eventSubFilterMap) {
+            let eventSubTypeFilters = eventSubFilterMap[key];
 
             //console.log('key ', key, 'event internal types ', JSON.stringify(eventSubTypeFilters), ' internal event sub types ', internalEventSubType);
 
@@ -1328,7 +1341,7 @@ Eventservice.prototype = {
         return "Unknown";
     },
     _compareEventSubType: function (currentInternalEventSubType, reqExternalEventSubType) {
-        var externalEventSubType = this._getExternalEventSubType(currentInternalEventSubType);
+        let externalEventSubType = this._getExternalEventSubType(currentInternalEventSubType);
         return externalEventSubType == reqExternalEventSubType;
     },
     _setAttributeValue: function (event, attrName, val) {
@@ -1347,7 +1360,7 @@ Eventservice.prototype = {
         }
     },
     _getAttributeValue: function (event, attrName) {
-        var val = undefined;
+        let val = undefined;
         if (event && event.data && event.data.attributes && event.data.attributes[attrName] && event.data.attributes[attrName].values && event.data.attributes[attrName].values.length > 0) {
             val = event.data.attributes[attrName].values[0].value;
         }
@@ -1355,9 +1368,9 @@ Eventservice.prototype = {
         return val;
     },
     _getEventCreatedDate: function (event) {
-        var createdDate = 'N/A';
+        let createdDate = 'N/A';
         if (event && event.properties) {
-            var endTime = event.properties.createdDate;
+            let endTime = event.properties.createdDate;
             if (endTime) {
                 createdDate = endTime;
             }
@@ -1366,8 +1379,8 @@ Eventservice.prototype = {
         return createdDate;
     },
     _getTaskName: function (requestObject) {
-        var taskType = this._getInternalTaskType(requestObject);
-        var taskName = "";
+        let taskType = this._getInternalTaskType(requestObject);
+        let taskName = "";
         if(taskType && taskType.toLowerCase() == "createvariants"){
             taskName = "Create Variants";
         } else {
@@ -1376,7 +1389,7 @@ Eventservice.prototype = {
         return taskName;
     },
     _getInternalTaskType: function (obj){
-        var taskType = this._getAttributeValue(obj, "profileType");
+        let taskType = this._getAttributeValue(obj, "profileType");
         if (!taskType) {
             taskType = this._getAttributeValue(obj, "taskType");
         }
@@ -1384,28 +1397,29 @@ Eventservice.prototype = {
         return taskType;
     },    
     _getTaskType: function (obj) {
-        var taskType = this._getInternalTaskType(obj);
+        let taskType = this._getInternalTaskType(obj);
         if (taskType) {
             switch (taskType.toLowerCase()) {
-                case "entity_import":
+                case "entity_import": {
                     taskType = "Entity Data Imports";
-
-                    var integrationType = this._getAttributeValue(obj, "integrationType");
+                    let integrationType = this._getAttributeValue(obj, "integrationType");
                     if (integrationType && integrationType.toLowerCase() == "system") {
                         taskType = "System Integrations - Entity Data Imports";
                     }
                     break;
+                }
                 case "system_integrations_entity_import":
                     taskType = "System Integrations - Entity Data Imports";
                     break;
-                case "entity_export":
+                case "entity_export": {
                     taskType = "Entity Data Exports";
 
-                    var integrationType = this._getAttributeValue(obj, "integrationType");
+                    let integrationType = this._getAttributeValue(obj, "integrationType");
                     if (integrationType && integrationType.toLowerCase() == "system") {
                         taskType = "System Integrations - Entity Data Exports";
                     }
                     break;
+                }
                 case "system_integrations_entity_export":
                     taskType = "System Integrations - Entity Data Exports";
                     break;

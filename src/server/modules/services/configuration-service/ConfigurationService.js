@@ -1,13 +1,13 @@
 'use strict';
 
-var DFRestService = require('../../common/df-rest-service/DFRestService');
+let DFRestService = require('../../common/df-rest-service/DFRestService');
 
-var logger = require('../../common/logger/logger-service');
+let logger = require('../../common/logger/logger-service');
 
-var falcorUtil = require('../../../../shared/dataobject-falcor-util');
-var mergeUtil = require('../../../../shared/dataobject-merge-util');
+let falcorUtil = require('../../../../shared/dataobject-falcor-util');
+let mergeUtil = require('../../../../shared/dataobject-merge-util');
 
-var RuntimeVersionManager = require('../version-service/RuntimeVersionManager');
+let RuntimeVersionManager = require('../version-service/RuntimeVersionManager');
 let localCacheManager = require('../../local-cache/LocalCacheManager');
 
 const arrayRemove = require('../../common/utils/array-remove'),
@@ -15,7 +15,7 @@ const arrayRemove = require('../../common/utils/array-remove'),
     isEmpty = require('../../common/utils/isEmpty'),
     BaseConfigService = require('./BaseConfigService'),
     TenantSystemConfigService = require('./TenantSystemConfigService')
-    var ConfigurationService = function (options) {
+    let ConfigurationService = function (options) {
     DFRestService.call(this, options);
     this.baseConfigService = new  BaseConfigService.BaseConfigService(options);
     this.tenantSystemConfigService = new TenantSystemConfigService(options);
@@ -38,12 +38,12 @@ ConfigurationService.prototype = {
         if (!this._validate(request)) {
             return;
         }
-        var tenantConfigResponse=null;
-        var responses = [];
-        var serviceUrl = RDF_SERVICE_NAME + "/" + serviceOperation;
+        let tenantConfigResponse=null;
+        let responses = [];
+        let serviceUrl = RDF_SERVICE_NAME + "/" + serviceOperation;
         //console.log('request to config service ', JSON.stringify(request, null, 2));
 
-        var requestedConfigId = request.params.query.id;
+        let requestedConfigId = request.params.query.id;
         //console.log('config service req ', serviceOperation);
 
         //TEMP:: Fallback logic for all existing app based configs till complete migration happens..
@@ -52,7 +52,7 @@ ConfigurationService.prototype = {
         }
 
         if (isEmpty(request.params.query.contexts)) {
-            var response = {
+            let response = {
                 'response': {
                     'status': 'success',
                     'configObjects': [
@@ -69,11 +69,11 @@ ConfigurationService.prototype = {
             return response;
         }
 
-        var requestContext = request.params.query.contexts[0];
+        let requestContext = request.params.query.contexts[0];
         requestContext.tenant = requestContext.tenant == undefined || requestContext.tenant == DEFAULT_CONTEXT_KEY ? this.getTenantId() : requestContext.tenant;
 
-        var baseConfigId = "sys_" + requestContext.component + "-base_uiConfig";
-        var baseConfigRequest = {
+        let baseConfigId = "sys_" + requestContext.component + "-base_uiConfig";
+        let baseConfigRequest = {
             "params": {
                 "query": {
                     "id": baseConfigId,
@@ -95,16 +95,16 @@ ConfigurationService.prototype = {
         
         //console.log('base config request', JSON.stringify(baseConfigRequest, null, 2));
 
-        var baseConfigResponse = await this.baseConfigService.get(RDF_SERVICE_NAME + "/get", baseConfigRequest);
+        let baseConfigResponse = await this.baseConfigService.get(RDF_SERVICE_NAME + "/get", baseConfigRequest);
         //console.log('base config get response ', JSON.stringify(baseConfigResponse));
 
         if (!falcorUtil.isValidObjectPath(baseConfigResponse, "response.configObjects.0")) {
-            var errorMsg = "".concat('Base config not found for the config Id:', baseConfigId);
+            let errorMsg = "".concat('Base config not found for the config Id:', baseConfigId);
             logger.error(errorMsg, null, logger.getCurrentModule());
             throw new Error(errorMsg);
         }
 
-        var finalConfigObject = baseConfigResponse.response.configObjects[0];
+        let finalConfigObject = baseConfigResponse.response.configObjects[0];
         //console.log('base config', JSON.stringify(finalConfigObject));
 
         finalConfigObject = await this._getAndMergeNearestConfig(requestContext, finalConfigObject, true);
@@ -125,13 +125,13 @@ ConfigurationService.prototype = {
                 finalConfigObject.data.contexts[0].jsonData.config.tenantSettings = tenantConfigResponse; 
             }
         }
-        var response = { "response": { "status": "success", "configObjects": [finalConfigObject] } };
+        let response = { "response": { "status": "success", "configObjects": [finalConfigObject] } };
 
         //console.log('response data ', JSON.stringify(response));
         return response;
     },
     _getTenantSystemConfig: async function(requestContext){
-        var tenantConfigRequest = {
+        let tenantConfigRequest = {
             "params": {
                 "query": {
                     "id": requestContext.tenant,
@@ -152,31 +152,31 @@ ConfigurationService.prototype = {
                 }
             };
             //console.log("calling tenantSystemConfigService");
-            var tenantConfigResponse = await this.tenantSystemConfigService.get(RDF_SERVICE_NAME + "/get", tenantConfigRequest);
+            let tenantConfigResponse = await this.tenantSystemConfigService.get(RDF_SERVICE_NAME + "/get", tenantConfigRequest);
             if (!tenantConfigResponse) {
-                var errorMsg = "".concat('Tenant config not found for :', requestContext.tenant);
+                let errorMsg = "".concat('Tenant config not found for :', requestContext.tenant);
                 logger.error(errorMsg, null, logger.getCurrentModule());
                 throw new Error(errorMsg);
             }
             return tenantConfigResponse;
     },
     _getAndMergeNearestConfig: async function (requestContext, mergedConfigObject, isBase) {
-        var tenant = requestContext.tenant;
+        let tenant = requestContext.tenant;
 
-        var configContextSettings = await this._getConfigContextSettings(tenant, isBase);
+        let configContextSettings = await this._getConfigContextSettings(tenant, isBase);
 
         if (isEmpty(configContextSettings)) {
             console.error('config context setting not found');
             return mergedConfigObject;
         }
 
-        var contextSchema = configContextSettings.contextSchema;
-        var coalescePath = configContextSettings.coalescePath;
+        let contextSchema = configContextSettings.contextSchema;
+        let coalescePath = configContextSettings.coalescePath;
 
-        var mergedRequestContext = falcorUtil.mergeObjects(contextSchema, requestContext, false);
+        let mergedRequestContext = falcorUtil.mergeObjects(contextSchema, requestContext, false);
         //console.log('merged request context ', JSON.stringify(mergedRequestContext, null, 2));
 
-        var req = {
+        let req = {
             "params": {
                 "query": {
                     "contexts": [mergedRequestContext],
@@ -198,25 +198,25 @@ ConfigurationService.prototype = {
         };
 
         //console.log('nearest get request ', JSON.stringify(req));
-        var res = await this._fetchConfigObject(RDF_SERVICE_NAME + "/getnearest", req);
+        let res = await this._fetchConfigObject(RDF_SERVICE_NAME + "/getnearest", req);
         //console.log('nearest get response ', JSON.stringify(res));
 
         if (res && res.response.configObjects && res.response.configObjects.length > 0) {
 
-            var configObjects = res.response.configObjects;
+            let configObjects = res.response.configObjects;
 
             if (isEmpty(mergedConfigObject)) {
                 mergedConfigObject = this._getEmptyConfigObject();
             }
 
-            var mergedConfigData = mergedConfigObject.data.contexts[0].jsonData.config;;
-            var mergedContext = mergedConfigObject.data.contexts[0].context;
+            let mergedConfigData = mergedConfigObject.data.contexts[0].jsonData.config;;
+            let mergedContext = mergedConfigObject.data.contexts[0].context;
 
-            for (var i = configObjects.length - 1; i >= 0; i--) {
-                var configContextData = configObjects[i].data.contexts[0];
+            for (let i = configObjects.length - 1; i >= 0; i--) {
+                let configContextData = configObjects[i].data.contexts[0];
 
-                var configContext = configContextData.context;
-                var configData = configContextData.jsonData.config;
+                let configContext = configContextData.context;
+                let configData = configContextData.jsonData.config;
 
                 mergedConfigData = falcorUtil.mergeObjects(mergedConfigData, configData, true, true);
                 mergedContext = this._mergeResponseContexts(mergedContext, configContext);
@@ -233,7 +233,7 @@ ConfigurationService.prototype = {
         return mergedConfigObject;
     },
     _getConfigContextSettings: async function (tenant, isBase) {
-        var req = {
+        let req = {
             "params": {
                 "query": {
                     "id": "",
@@ -253,7 +253,7 @@ ConfigurationService.prototype = {
             }
         };
 
-        var configId = '';
+        let configId = '';
         if (tenant && !isBase) {
             configId = req.params.query.id = "config-context-settings_" + tenant + "_uiConfig";
             req.params.query.contexts[0].tenant = tenant;
@@ -264,8 +264,8 @@ ConfigurationService.prototype = {
 
         //console.log('config context settings request ', JSON.stringify(req));
 
-        var configData = {};
-        var res = await this._fetchConfigObject(RDF_SERVICE_NAME + "/get", req);
+        let configData = {};
+        let res = await this._fetchConfigObject(RDF_SERVICE_NAME + "/get", req);
 
         if (falcorUtil.isValidObjectPath(res, "response.configObjects.0.data.contexts.0.jsonData.config")) {
             configData = res.response.configObjects[0].data.contexts[0].jsonData.config;
@@ -278,20 +278,20 @@ ConfigurationService.prototype = {
     _mergeResponseContexts: function (targetContext, sourceContext) {
         //console.log('merge context req', JSON.stringify(targetContext), JSON.stringify(sourceContext));
 
-        var mergedContext = falcorUtil.cloneObject(targetContext);
+        let mergedContext = falcorUtil.cloneObject(targetContext);
 
-        for (var targetKey in targetContext) {
-            var targetVal = targetContext[targetKey];
-            var sourceVal = sourceContext[targetKey];
+        for (let targetKey in targetContext) {
+            let targetVal = targetContext[targetKey];
+            let sourceVal = sourceContext[targetKey];
 
             if (sourceVal && sourceVal != DEFAULT_CONTEXT_KEY) {
                 mergedContext[targetKey] = sourceVal;
             }
         }
 
-        for (var sourceKey in sourceContext) {
-            var sourceVal = sourceContext[sourceKey];
-            var targetVal = targetContext[sourceKey];
+        for (let sourceKey in sourceContext) {
+            let sourceVal = sourceContext[sourceKey];
+            let targetVal = targetContext[sourceKey];
 
             if (!targetVal) {
                 mergedContext[sourceKey] = sourceVal;
@@ -303,9 +303,9 @@ ConfigurationService.prototype = {
         return mergedContext;
     },
     _createConfigId: function (configContext) {
-        var configId = '';
-        for (var contextKey in configContext) {
-            var contextVal = configContext[contextKey];
+        let configId = '';
+        for (let contextKey in configContext) {
+            let contextVal = configContext[contextKey];
             if (!isEmpty(contextVal)) {
                 if (configId == '') {
                     configId = configId + contextVal;
@@ -338,18 +338,18 @@ ConfigurationService.prototype = {
         }
     },
     _fetchConfigObject: async function (serviceUrl, request, getLatest = false) {
-        var res = {};
+        let res = {};
 
         if (getLatest) {
             res = await this.post(serviceUrl, request);
         }
         else {
-            var requestedConfigId = request.params.query.id ? request.params.query.id : "_BYCONTEXT";
-            var requestedContext = falcorUtil.isValidObjectPath(request, "params.query.contexts.0") ? request.params.query.contexts[0] : "_NOCONTEXT";
-            var generatedId = this._createConfigId(requestedContext);
-            var tenant = this.getTenantId();
-            var runtimeVersion = await RuntimeVersionManager.getVersion();
-            var cacheKey = "".concat("uiConfig|id:", requestedConfigId, "|contextKey:", generatedId, "|runtime-version:", runtimeVersion);
+            let requestedConfigId = request.params.query.id ? request.params.query.id : "_BYCONTEXT";
+            let requestedContext = falcorUtil.isValidObjectPath(request, "params.query.contexts.0") ? request.params.query.contexts[0] : "_NOCONTEXT";
+            let generatedId = this._createConfigId(requestedContext);
+            let tenant = this.getTenantId();
+            let runtimeVersion = await RuntimeVersionManager.getVersion();
+            let cacheKey = "".concat("uiConfig|id:", requestedConfigId, "|contextKey:", generatedId, "|runtime-version:", runtimeVersion);
 
             if (requestedConfigId != "_BYCONTEXT" && requestedContext != "_NOCONTEXT") {
                 res = await LocalCacheManager.get(cacheKey);

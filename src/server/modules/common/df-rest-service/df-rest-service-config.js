@@ -1,4 +1,4 @@
-var SERVICE_CONFIG = {
+let SERVICE_CONFIG = {
     "services": {
         "entityservice/get": {
             "url": "/entityappservice/get",

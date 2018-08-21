@@ -8,12 +8,12 @@ let LocalCacheManager = function () {
 
 LocalCacheManager.prototype = {
     get: async function (cacheKey) {
-        var runtimeVersion = await RuntimeVersionManager.getVersion();
+        let runtimeVersion = await RuntimeVersionManager.getVersion();
         return localCache[runtimeVersion] ? localCache[runtimeVersion][cacheKey] : "";
     },
 
     set: async function (cacheKey, value) {
-        var runtimeVersion = await RuntimeVersionManager.getVersion();
+        let runtimeVersion = await RuntimeVersionManager.getVersion();
         isEmpty(localCache[runtimeVersion]) && (localCache[runtimeVersion] = {});
         localCache[runtimeVersion][cacheKey] = value;
     },
@@ -24,7 +24,7 @@ LocalCacheManager.prototype = {
 
     delByCacheKeyAndId: async function (cacheKey, id) {
         if (!isEmpty(cacheKey) && !isEmpty(id)) {
-            var runtimeVersion = await RuntimeVersionManager.getVersion();
+            let runtimeVersion = await RuntimeVersionManager.getVersion();
             let LC = !isEmpty(localCache[runtimeVersion]) ? localCache[runtimeVersion] : "";
 
             if (!isEmpty(LC) && !isEmpty(LC[cacheKey])) {
@@ -35,7 +35,7 @@ LocalCacheManager.prototype = {
 
     delByCacheKey: async function (cacheKey) {
         if (!isEmpty(cacheKey)) {
-            var runtimeVersion = await RuntimeVersionManager.getVersion();
+            let runtimeVersion = await RuntimeVersionManager.getVersion();
             let LC = !isEmpty(localCache[runtimeVersion]) ? localCache[runtimeVersion] : "";
 
             if (!isEmpty(LC) && !isEmpty(LC[cacheKey])) {

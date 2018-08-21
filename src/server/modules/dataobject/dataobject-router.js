@@ -1,12 +1,12 @@
 'use strict';
 
-var falcorExpress = require('falcor-express'),
+let falcorExpress = require('falcor-express'),
     Router = require('falcor-router'),
     routerOptions = { 'maxPaths': 70000 }; // maxPaths defines max. allowed number of paths in one router request
 
-var resolver = require('./dataobject-route-resolver');
+let resolver = require('./dataobject-route-resolver');
 
-var DataObjectRouterBase = Router.createClass(
+let DataObjectRouterBase = Router.createClass(
     [
         {
             route: 'root[{keys:dataIndexes}][{keys:dataSubIndexes}].searchResults.create',
@@ -66,7 +66,7 @@ var DataObjectRouterBase = Router.createClass(
         },
     ]);
 
-var DataObjectRouter = function (options) {
+let DataObjectRouter = function (options) {
     DataObjectRouterBase.call(this, options);
     //Router create class method is not handing options passed on..this is bug in falcor
     //As workaround, we need to set related properties explicity to the router class..(for now only maxPaths)

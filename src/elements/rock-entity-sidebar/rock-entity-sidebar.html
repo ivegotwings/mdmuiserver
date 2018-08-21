@@ -1,4 +1,4 @@
-<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/polymer/polymer-element.html">
 <link rel="import" href="../../../bower_components/iron-flex-layout/iron-flex-layout.html">
 <link rel="import" href="../../../bower_components/iron-ajax/iron-ajax.html">
 
@@ -38,8 +38,7 @@
 
 <dom-module id="rock-entity-sidebar">
     <template>
-        <style include="bedrock-style-common"></style>
-        <style>
+        <style include="bedrock-style-common">
             :host {
                 width: 100%;
                 height:100%;
@@ -50,6 +49,7 @@
                 padding-right: 0;
                 padding-left: 0;
                 box-sizing: border-box;
+                @apply --rock-sidebar-contents;
             }
             rock-tabs{                
                 width:100%;
@@ -66,79 +66,130 @@
             </template>
             
             <template is="dom-if" if="{{!hasComponentErrored(isComponentErrored)}}">
-                <rock-tabs id="sidebarTabs" config="{{config}}" readonly="[[readonly]]"></rock-tabs>
+                <rock-tabs id="sidebarTabs" view-mode="{{viewMode}}" view-mode-sub-menu="{{viewModeSubMenu}}" config="{{config}}" readonly="[[readonly]]"></rock-tabs>
+                <bedrock-pubsub event-name="tab-nav-change" handler="_onNavigationChange"></bedrock-pubsub>
             </template>
         </template>
     <script>
-        Polymer({
-            is: "rock-entity-sidebar",
-            ready: function () {
-            },
-            behaviors: [
+            class RockEntitySidebar
+                extends Polymer.mixinBehaviors([
                 RUFBehaviors.ComponentContextBehavior,
                 RUFBehaviors.UIBehavior,
                 RUFBehaviors.ComponentConfigBehavior,
                 RUFBehaviors.LoggerBehavior
-            ],
-            properties: {
+                ], Polymer.Element) {
+                static get is() {
+                    return 'rock-entity-sidebar';
+                }
+
+            static get properties() {
+                    return {
+                        contextData: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            },
+                            observer: '_onContextDataChange'
+                        },
+                        /**
+                         * If set as true , it indicates the component is in read only mode
+                         */
+                        readonly: {
+                            type: Boolean,
+                            value: false
+                        },
+                        /**
+                         * Indicates the attributes that gets displayed in the header section.
+                         */
+                        config: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+
+                        collapse: {
+                            type: Boolean,
+                            value: false
+                        },
+
+                        viewMode:{
+                            type:String,
+                            value:""
+                        },
+
+                        viewModeSubMenu: {
+                            type: String,
+                            value: ""
+                        }
+                    }
+                }
                 /**
                  * <b><i>Content development is under progress... </b></i>
                  */
-                 contextData: {
-                    type: Object,
-                    value: function() {
-                        return {};
-                    },
-                    observer: '_onContextDataChange'
-                },
-                /**
-                 * If set as true , it indicates the component is in read only mode
-                 */
-                readonly: {
-                    type: Boolean,
-                    value: false
-                },
-                /**
-                 * Indicates the attributes that gets displayed in the header section.
-                 */
-                 config: {
-                    type: Object,
-                    value: function(){
-                        return {};
+                getTabConfig() {
+                    if (this.config && this.config.tabItems) {
+                        return this.config.tabItems;
                     }
-                },
-                getTabConfig:function(){
-                    if(this.config && this.config.tabItems){
-                        return tabItems;
+                }
+                
+                connectedCallback(){
+                    super.connectedCallback();    
+                    if (!_.isEmpty(this.contextData)) {
+                        let context = DataHelper.cloneObject(this.contextData);
+                        //Set the default navigation for rock-tabs
+                        let navContextObj = context.NavigationContexts;
+                        if(!_.isEmpty(navContextObj)){
+                            let navCtxObj = navContextObj[0][RockEntitySidebar.is];
+                            if(navCtxObj && navCtxObj["rock-tabs"]) {
+                                this.viewMode = navCtxObj["rock-tabs"].viewMode;
+                                this.viewModeSubMenu = navCtxObj["rock-tabs"].viewModeSubMenu;
+                            }
+                        }
                     }
-                }     
-            },
-            _onContextDataChange: function(){
-                if(!_.isEmpty(this.contextData)) {
-                    var context = DataHelper.cloneObject(this.contextData);
+                }
+
+                _onContextDataChange() {
+                    if (!_.isEmpty(this.contextData)) {
+                        let context = DataHelper.cloneObject(this.contextData);
                         //App specific
-                        var appName = ComponentHelper.getCurrentActiveAppName();
-                        if(appName) {
+                        let appName = ComponentHelper.getCurrentActiveAppName();
+                        if (appName) {
                             context[ContextHelper.CONTEXT_TYPE_APP] = [{
                                 "app": appName
                             }];
                         }
+
                         this.requestConfig("rock-entity-sidebar", context);
+                    }
                 }
-            },
-            onConfigLoaded: function (componentConfig) {
+            onConfigLoaded (componentConfig) {
                 if(componentConfig && componentConfig.config) {
                     componentConfig.config.tabItems = DataHelper.convertObjectToArray(componentConfig.config.tabItems);;
                     
                     this.config = componentConfig.config;
-                    
-                    if(componentConfig.config.collapse){
+                    //Read the navigationContext and give preference to that
+                    if(this.collapse){
+                        this.fireBedrockEvent("collapse-sidebar","",{ ignoreId: true });
+                    } else if(componentConfig.config.collapse){
                         this.fireBedrockEvent("collapse-sidebar","",{ ignoreId: true });
                     }
                 } else {
-                    this.logError(this.tagName + " Component configuration is missing", "", true)
+                    this.logError(this.tagName + " Component configuration is missing", "", true);
                 }
-            },
-        });
+            }
+
+            _onNavigationChange(e) {
+                if(e.detail && e.detail.targetId && e.detail.targetId == "sidebarTabs") {
+                    let eventDetail = {
+                        "parentElement" : RockEntitySidebar.is,
+                        "childElement" : "rock-tabs",
+                        "properties" : e.detail 
+                    }                   
+                    ComponentHelper.fireBedrockEvent("navigation-change", eventDetail , { ignoreId: true });
+                }
+            } 
+        }
+        customElements.define(RockEntitySidebar.is, RockEntitySidebar)
     </script>
 </dom-module>

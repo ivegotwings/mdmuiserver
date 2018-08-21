@@ -1,4 +1,4 @@
-var functionTypeof = "function";
+let functionTypeof = "function";
 
 module.exports = function isFunction(func) {
     return Boolean(func) && typeof func === functionTypeof;

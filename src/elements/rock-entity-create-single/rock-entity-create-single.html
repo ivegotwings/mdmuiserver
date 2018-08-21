@@ -1,5 +1,6 @@
-<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/polymer/polymer-element.html">
 
+<link rel="import" href="../../../bower_components/polymer/lib/mixins/mutable-data.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 <link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../bedrock-helpers/element-helper.html">
@@ -31,10 +32,10 @@ attributes during the single entity creation.
 <dom-module id="rock-entity-create-single">
     <template>
         <style include="bedrock-style-common">
-            :host {
+             :host {
                 display: block;
                 height: 100%;
-            } 
+            }
             #content-actions {
             }
 
@@ -47,6 +48,9 @@ attributes during the single entity creation.
             on-liquid-response="_onMatchSuccess" on-liquid-error="_onMatchFailure">
         </liquid-rest>
         <liquid-rest id="entityGovernService" url="/data/pass-through/entitygovernservice/validate" method="POST" request-data={{_entityGovernRequest}}
+            on-liquid-response="_onEntityGovernResponse" on-liquid-error="_onEntityGovernFailed">
+        </liquid-rest>
+        <liquid-rest id="modelGovernService" url="/data/pass-through/modelgovernservice/validate" method="POST" request-data={{_modelGovernRequest}}
             on-liquid-response="_onEntityGovernResponse" on-liquid-error="_onEntityGovernFailed">
         </liquid-rest>
         <pebble-dialog id="updateConfirmDialog" modal small vertical-offset=1 50 horizontal-align="auto" vertical-align="auto" no-cancel-on-outside-click
@@ -79,7 +83,7 @@ attributes during the single entity creation.
         <div id="content-entity-create" class="full-height">
             <div class="button-siblings">
                 <rock-attribute-list attribute-values="[[_attributeValues]]" attribute-models="[[_attributeModels]]" context-data="[[contextData]]"
-                    no-of-columns="3" mode="[[mode]]" attribute-messages="[[_attributeMessages]]" dependent-attribute-values="[[_attributeValues]]" dependent-attribute-models="[[_attributeModels]]"></rock-attribute-list>
+                    no-of-columns="3" mode="[[mode]]" attribute-messages="[[_attributeMessages]]" dependent-attribute-values="[[_attributeValues]]" dependent-attribute-models="[[_attributeModels]]" hide-revert-and-history></rock-attribute-list>
             </div>
             <div id="content-actions" class="buttonContainer-static" align="center">
                 <pebble-button class="action-button btn btn-secondary m-r-5" id="skip" button-text="Cancel" raised on-tap="_onSkipTap"></pebble-button>
@@ -88,186 +92,199 @@ attributes during the single entity creation.
         </div>
         <div id="content-entity-match" hidden class="full-height">
             <rock-compare-entities id="matchEntities" enable-relationships-match-merge="[[enableRelationshipsMatchMerge]]" compare-entities-context="[[compareEntitiesContext]]" attribute-names="[[attributeNames]]"
-                show-action-buttons enable-column-select></rock-compare-entities>
+            show-action-buttons enable-column-select></rock-compare-entities>
         </div>
         <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{attributeModelRequest}}" on-entity-model-composite-get-response="_onCompositeModelGetResponse">
-            <liquid-entity-data-save name="entitySaveService" operation="create" request-data="{{_saveRequest}}" last-response="{{_saveResponse}}"
-                on-response="_onSaveResponse" on-error="_onSaveError"></liquid-entity-data-save>
+            <liquid-entity-data-save name="entitySaveService" operation="create" data-index="[[dataIndex]]" data-sub-index="[[dataSubIndex]]"
+                request-data="{{_saveRequest}}" last-response="{{_saveResponse}}" on-response="_onSaveResponse" on-error="_onSaveError"></liquid-entity-data-save>
             <bedrock-pubsub event-name="error-length-changed" handler="_errorLengthChanged"></bedrock-pubsub>
             <bedrock-pubsub event-name="compare-entities-back" handler="_onCompareEntitiesBack" target-id="matchEntities"></bedrock-pubsub>
             <bedrock-pubsub event-name="compare-entities-create" handler="_onCompareEntitiesCreate" target-id="matchEntities"></bedrock-pubsub>
             <bedrock-pubsub event-name="compare-entities-merge" handler="_onCompareEntitiesMerge" target-id="matchEntities"></bedrock-pubsub>
     </template>
     <script>
-        (function () {
-            'use strict';
+        class RockEntityCreateSingle
+            extends Polymer.mixinBehaviors([
+                RUFBehaviors.UIBehavior,
+                RUFBehaviors.ComponentContextBehavior
+            ], Polymer.OptionalMutableData(Polymer.Element)) {
+                static get is() {
+                    return 'rock-entity-create-single';
+                }
+                static get observers() {
+                    return [
+                        '_contextChanged(attributeNames, contextData)'
+                    ]
+                }
 
-            Polymer({
-                is: "rock-entity-create-single",
-
-                properties: {
-                    /**
-                      * <b><i>Content development is under progress... </b></i> 
-                      */
-                    contextData: {
-                        type: Object,
-                        value: function () {
-                            return {};
+                static get properties() {
+                    return {
+                        contextData: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        /**
+                         * Indicates the names of the attributes that are rendered while creating a single entity.
+                         */
+                        attributeNames: {
+                            type: Array,
+                            value: function () {
+                                return [];
+                            }
+                        },
+                        /**
+                         * Indicates the mode in which the attributes are rendered.
+                         */
+                        mode: {
+                            type: String,
+                            value: "edit",
+                            notify: true
+                        },
+                        /**
+                         * Specifies the request object for the attribute model request.
+                         */
+                        attributeModelRequest: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        /**
+                         * Specifies the response object for the attribute models.
+                         */
+                        attributeModelResponse: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        _attributeValues: {
+                            type: Array,
+                            value: function () {
+                                return [];
+                            }
+                        },
+                        enableRelationshipsMatchMerge: {
+                            type: Boolean,
+                            value: false
+                        },
+                        _attributeMessages: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        _saveRequest: {
+                            type: Object,
+                            value: function () { return {}; }
+                        },
+                        _loading: {
+                            type: Boolean,
+                            value: false
+                        },
+                        /**
+                         * Specifies the length of the error message.
+                         */
+                        errorLength: {
+                            type: Number,
+                            notify: true,
+                            value: 0
+                        },
+                        _entityMatchRequest: {
+                            type: Object,
+                            value: function () { return {}; }
+                        },
+                        _matchedEntity: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        compareEntitiesContext: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        _syncValidationErrors: {
+                            type: Array,
+                            value: function () { return []; }
+                        },
+                        /**
+                         * <b><i>Content development is under progress... </b></i> 
+                         */
+                        messageCodeMapping: {
+                            type: Object,
+                            value: function () { return {}; }
+                        },
+                        skipNext: {
+                            type: Boolean,
+                            value: false
+                        },
+                        matchConfig: {
+                            type: Object,
+                            value: function () { return {}; }
+                        },
+                        enableMatchStep: {
+                            type: Boolean,
+                            value: false
+                        },
+                        matchType: {
+                            type: String,
+                            value: "deterministic"
+                        },
+                        defaultEntity: {
+                            type: Object,
+                            value: function () { return {}; }
+                        },
+                        dataIndex: {
+                            type: String,
+                            value: "entityData"
+                        },
+                        dataSubIndex: {
+                            type: String,
+                            value: "data"
+                        },
+                        entityDomain: {
+                            type: String,
+                            value: ""
                         }
-                    },
-                    /**
-                     * Indicates the names of the attributes that are rendered while creating a single entity.
-                     */
-                    attributeNames: {
-                        type: Array,
-                        value: function () {
-                            return [];
-                        }
-                    },
-                    /**
-                     * Indicates the mode in which the attributes are rendered.
-                     */
-                    mode: {
-                        type: String,
-                        value: "edit",
-                        notify: true
-                    },
-                    /**
-                     * Specifies the request object for the attribute model request.
-                     */
-                    attributeModelRequest: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    },
-                    /**
-                     * Specifies the response object for the attribute models.
-                     */
-                    attributeModelResponse: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    },
-                    _attributeValues: {
-                        type: Array,
-                        value: function () {
-                            return [];
-                        }
-                    },
-                    enableRelationshipsMatchMerge: {
-                        type: Boolean,
-                        value: false
-                    },
-                    _attributeMessages: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    },
-                    _saveRequest: {
-                        type: Object,
-                        value: function () { return {}; }
-                    },
-                    _loading: {
-                        type: Boolean,
-                        value: false
-                    },
-                    /**
-                     * Specifies the length of the error message.
-                     */
-                    errorLength: {
-                        type: Number,
-                        notify: true,
-                        value: 0
-                    },
-                    _entityMatchRequest: {
-                        type: Object,
-                        value: function () { return {}; }
-                    },
-                    _matchedEntity: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    },
-                    compareEntitiesContext: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    },
-                    _syncValidationErrors: {
-                        type: Array,
-                        value: function () { return []; }
-                    },
-                    /**
-                      * <b><i>Content development is under progress... </b></i> 
-                      */
-                    messageCodeMapping: {
-                        type: Object,
-                        value: function () { return {}; }
-                    },
-                    skipNext: {
-                        type: Boolean,
-                        value: false
-                    },
-                    matchConfig: {
-                        type: Object,
-                        value: function () { return {}; }
-                    },
-                    enableMatchStep: {
-                        type: Boolean,
-                        value: false
-                    },
-                    matchType: {
-                        type: String,
-                        value: "deterministic"
-                    },
-                    defaultEntity: {
-                        type: Object,
-                        value: function () { return {}; }
                     }
-                },
-                observers: [
-                    '_contextChanged(attributeNames, contextData)'
-                ],
-                behaviors: [
-                    RUFBehaviors.UIBehavior,
-                    RUFBehaviors.ComponentContextBehavior
-                ],
-                _contextChanged: function (attributeNames, contextData) {
+                }
+
+                _contextChanged(attributeNames, contextData) {
                     if (attributeNames && attributeNames.length > 0 && !_.isEmpty(contextData)) {
-                        var firstItemContext = this.getFirstItemContext();
+                        let firstItemContext = this.getFirstItemContext();
 
                         if (typeof (firstItemContext) != "undefined") {
                             firstItemContext.attributeNames = attributeNames;
                         }
 
-                        var t = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
+                        let t = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
 
                         this.set("attributeModelRequest", t);
 
-                        var liquidModelGet = this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
+                        let liquidModelGet = this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
                         if (liquidModelGet) {
                             liquidModelGet.generateRequest();
                         }
                     }
-                },
-                _onCompositeModelGetResponse: async function (e) {
-                    var values = [];
+                }
+                async _onCompositeModelGetResponse(e) {
+                    let values = [];
                     if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
                         this._attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], this.contextData);
                         values = await DataTransformHelper.transformAttributes({}, this._attributeModels, this.contextData, "array", true);
                     }
                     this._attributeValues = values;
-                },
-                _onSaveTap: function (e) {
+                }
+                _onSaveTap(e) {
                     //raise event with name given for onNextAction in configuration
-                    var attributeList = this.shadowRoot.querySelector('rock-attribute-list');
-                    var attributeModels = attributeList ? attributeList.attributeModels : {};
-                    var changedAttributeElements = attributeList.getChangedAttributeElements();
+                    let attributeList = this.shadowRoot.querySelector('rock-attribute-list');
+                    let attributeModels = attributeList ? attributeList.attributeModels : {};
+                    let changedAttributeElements = attributeList.getChangedAttributeElements();
 
                     if(!_.isEmpty(this.matchConfig)) {
                         this.enableMatchStep = this.matchConfig["enable-match-step"];
@@ -283,18 +300,32 @@ attributes during the single entity creation.
                         return;
                     }
 
-                    var attributesJSON = [];
-                    for (var i = 0; i < changedAttributeElements.length; i++) {
-                        var attributeElement = changedAttributeElements[i];
-                        var attributeJSON = attributeElement.attributeObject;
+                    let attributesJSON = [];
+                    for (let i = 0; i < changedAttributeElements.length; i++) {
+                        let attributeElement = changedAttributeElements[i];
+                        let attributeJSON = attributeElement.attributeObject;
                         attributesJSON.push(attributeJSON);
                     }
 
-                    var itemCtx = this.getFirstItemContext();
-                    var entityType = itemCtx.type;
-                    var entityId = "e" + ElementHelper.getRandomString();
+                    let itemCtx = this.getFirstItemContext();
+                    let entityType = itemCtx.type;
+                    let entityId = "e" + ElementHelper.getRandomString();
+                    let entityName = this._getNameForEntityModel(attributesJSON);
+                    let modelDomain;
+                    if (this.dataIndex == "entityModel") {
+                        if (this._isEmptyValue(entityName)) {
+                            entityId = entityId + "_" + entityType;
+                        } else {
+                            entityId = entityName + "_" + entityType;
+                        }
+
+                        if(this.entityDomain && this.entityDomain != "" && this.entityDomain != "undefined") {
+                            modelDomain = this.entityDomain;
+                        }
+                    }
                     itemCtx.id = entityId;
-                    var newEntity = DataTransformHelper.prepareEntityForCreate(entityId, entityType, attributesJSON, this.contextData, DataHelper.getUserName(), this.defaultEntity, attributeModels);
+                    let newEntity = DataTransformHelper.prepareEntityForCreate(entityId, entityType, attributesJSON, this.contextData, DataHelper.getUserName(), this.defaultEntity, attributeModels, modelDomain);
+                    newEntity.name = entityName;
                     ComponentHelper.getParentElement(this).contextData = this.contextData;
 
                     this._saveRequest = {
@@ -311,7 +342,7 @@ attributes during the single entity creation.
                         "entity": newEntity
                     });
 
-                    var entityMatchService = this.shadowRoot.querySelector("#entityMatchService");
+                    let entityMatchService = this.shadowRoot.querySelector("#entityMatchService");
 
                     if(this.enableMatchStep && this.matchType === "MLBased") {
                         entityMatchService.url = "/data/pass-through/matchservice/match";
@@ -319,10 +350,44 @@ attributes during the single entity creation.
                     if (entityMatchService) {
                         entityMatchService.generateRequest();
                     }
-                },
-                _onMatchSuccess: function (e, detail) {
+                }
+                _getNameForEntityModel(attributesJSON) {
+                    let name = "";
+                    if (!_.isEmpty(this._attributeModels) && !_.isEmpty(attributesJSON)) {
+                        let uniqueAttrModel = undefined;
+                        Object.keys(this._attributeModels).forEach(function (model) {
+                            if (this._attributeModels[model] && this._attributeModels[model].isEntityIdentifier) {
+                                uniqueAttrModel = this._attributeModels[model];
+                            }
+                        }, this);
+
+                        if (!_.isEmpty(uniqueAttrModel)) {
+                            let uniqueAttr = attributesJSON.filter(function (attr) {
+                                if (attr.name == uniqueAttrModel.name) {
+                                    return attr;
+                                }
+                            });
+
+                            if (uniqueAttr && uniqueAttr.length == 1) {
+                                name = uniqueAttr[0].value;
+                            }
+                        }
+                    }
+
+                    return name;
+                }
+
+                _isEmptyValue(value) {
+                    if (typeof (value) === "string") {
+                        return value === "" || value.trim().length === 0;
+                    } else {
+                        return _.isEmpty(value);
+                    }
+                }
+
+                _onMatchSuccess(e, detail) {
                     if (detail.response) {
-                        var response = detail.response.response;
+                        let response = detail.response.response;
                         if ((response.dataObjectOperationResponse && response.dataObjectOperationResponse.status &&
                             response.dataObjectOperationResponse.status.toLowerCase() == "error") ||
                             (response.status && response.status.toLowerCase() == "error")) {
@@ -346,33 +411,31 @@ attributes during the single entity creation.
                                     return;
                                 }
 
-                                var matchedEntityIds = [];
-
                                 if(this.matchType === "MLBased") {
-                                    var entity = response.entities[0];
-                                    var matchResult = EntityHelper.getAttribute(entity, "matchresult");
+                                        let entity = response.entities[0];
+                                        let matchResult = EntityHelper.getAttribute(entity, "matchresult");
 
-                                    if(matchResult && !_.isEmpty(matchResult.group)) {
-                                        var entities = [];
-                                        for(let idx = 0; idx<matchResult.group.length; idx++) {
-                                            var group = matchResult.group[idx];
-                                            var entity = {
-                                                "id": AttributeHelper.getFirstAttributeValue(group.identifier),
-                                                "score": AttributeHelper.getFirstAttributeValue(group.score)
+                                        if(matchResult && !_.isEmpty(matchResult.group)) {
+                                            let entities = [];
+                                            for(let idx = 0; idx<matchResult.group.length; idx++) {
+                                                let group = matchResult.group[idx];
+                                                let mEntity = {
+                                                    "id": AttributeHelper.getFirstAttributeValue(group.identifier),
+                                                    "score": AttributeHelper.getFirstAttributeValue(group.score)
+                                                }
+
+                                                entities.push(mEntity);
                                             }
 
-                                            entities.push(entity);
+                                            response.entities = entities;
+                                        } else {
+                                            this._triggerGovernRequest();
+                                            return;
                                         }
-
-                                        response.entities = entities;
-                                    } else {
-                                        this._triggerGovernRequest();
-                                        return;
                                     }
-                                }
 
-                                var matchedEntityIds = response.entities.map(entity => entity.id);
-                                var entityType = ContextHelper.getFirstItemContext(this.contextData).type;
+                                let matchedEntityIds = response.entities.map(entity => entity.id);
+                                let entityType = ContextHelper.getFirstItemContext(this.contextData).type;
 
                                 this.compareEntitiesContext = {
                                     "newEntity": DataHelper.cloneObject(this._entityMatchRequest.entity),
@@ -382,6 +445,7 @@ attributes during the single entity creation.
                                     "matchConfig": this.matchConfig,
                                     "entities-data": response.entities
                                 }
+
                                 this._hideView("entity-create");
                                 this._showView("entity-match");
                             } else {
@@ -389,75 +453,77 @@ attributes during the single entity creation.
                             }
                         }
                     }
-                },
+                }
 
-                _triggerGovernRequest: function () {
-                    var governReq = DataHelper.cloneObject(this._entityMatchRequest);
+                _triggerGovernRequest(operation) {
+                    let governReq = DataHelper.cloneObject(this._entityMatchRequest);
 
-                    this.set("_entityGovernRequest", governReq);
-                    var liquidSave = this.shadowRoot.querySelector("[name=entitySaveService]");
+                    let liquidSave = this.shadowRoot.querySelector("[name=entitySaveService]");
                     if (liquidSave) {
-                        liquidSave.operation = "create";
+                        liquidSave.operation = operation || "create";
                     }
-                    var liquidGovernGet = this.$.entityGovernService;
-                    if (liquidGovernGet) {
-                        liquidGovernGet.generateRequest();
+                    if(this.dataIndex == "entityModel"){
+                        // let liquidModelGovernGet = this.$.modelGovernService;
+                        // if(liquidModelGovernGet){
+                        //     let reqObj = {};
+                        //     reqObj["entityModel"] = governReq["entity"];
+                        //     this.set("_modelGovernRequest", reqObj);
+                        //     liquidModelGovernGet.generateRequest();
+                        // }
+                        liquidSave.generateRequest();
+                    }else{               
+                        let liquidGovernGet = this.$.entityGovernService;
+                        if (liquidGovernGet) {
+                            this.set("_entityGovernRequest", governReq);
+                            liquidGovernGet.generateRequest();
+                        }
                     }
-                },
+                }
 
-                _onMatchFailure: function (e, detail) {
+                _onMatchFailure(e, detail) {
                     this.logError("MatchServiceRequestFail", "response", JSON.stringify(detail));
-                },
+                }
 
-                _updateEntity: function () {
+                _updateEntity() {
                     if (!this.enableMatchStep) {
-                        var updateConfirmDialog = this.$.updateConfirmDialog;
+                        let updateConfirmDialog = this.$.updateConfirmDialog;
                         if (updateConfirmDialog) {
                             updateConfirmDialog.close();
                         }
                     }
-                    var clientState = {};
+                    let clientState = {};
                     clientState.notificationInfo = {};
                     clientState.notificationInfo.showNotificationToUser = false;
                     this._saveRequest["clientState"] = clientState;
                     this._saveRequest.entities[0].id = this._matchedEntity.id;
-                    var itemCtx = this.getFirstItemContext();
+                    let itemCtx = this.getFirstItemContext();
                     itemCtx.id = this._matchedEntity.id;
-                    var governReq = DataHelper.cloneObject(this._entityMatchRequest);
 
-                    this.set("_entityGovernRequest", governReq);
-                    var liquidSave = this.shadowRoot.querySelector("[name=entitySaveService]");
-                    if (liquidSave) {
-                        liquidSave.operation = "update";
-                    }
-                    var liquidGovernGet = this.$.entityGovernService;
-                    if (liquidGovernGet) {
-                        liquidGovernGet.generateRequest();
-                    }
-                },
-                _cancelProcess: function () {
-                    var updateConfirmDialog = this.$.updateConfirmDialog;
+                    this._triggerGovernRequest("update");
+                }
+                _cancelProcess() {
+                    let updateConfirmDialog = this.$.updateConfirmDialog;
                     if (updateConfirmDialog) {
                         updateConfirmDialog.close();
                     }
-                },
-                _onSaveResponse: function (e) {
-                    var eventName = "onSave";
-                    var operation = e.detail.request.operation;
-                    var eventDetail = {
+                }
+                _onSaveResponse(e) {
+                    let eventName = "onSave";
+                    let operation = e.detail.request.operation;
+                    let eventDetail = {
                         name: eventName,
                         data: { "skipNext": operation == "update" ? true : this.skipNext }
                     }
                     this._loading = true;
-                    var itemCtx = this.getFirstItemContext();
-                    var msg = "";
+                    let itemCtx = this.getFirstItemContext();
+                    let msg = "";
                     if (operation == "create") {
                         msg = "Entity created successfully.";
                     }
                     if (operation == "update") {
                         msg = "Entity updated successfully.";
                     }
-                    var data = {
+                    let data = {
                         "messages": [
                             {
                                 "message": msg
@@ -493,49 +559,54 @@ attributes during the single entity creation.
                             ignoreId: true
                         });
                     }, 100);
-                },
-                _onSaveError: function (e) {
+                }
+                _onSaveError(e) {
                     // To Remove
                     this.logError("Failed to update entity", e.detail);
-                },
-                _onSkipTap: function (e) {
+                }
+                _onSkipTap(e) {
                     //raise event with name given for onbackAction in configuration
-                    var data;
-                    var eventName = "onCancel";
-                    var eventDetail = {
+                    let data;
+                    let eventName = "onCancel";
+                    let eventDetail = {
                         name: eventName,
                         data: data
                     }
                     this.fireBedrockEvent(eventName, eventDetail, {
                         ignoreId: true
                     });
-                },
-                _errorLengthChanged: function (e) {
+                }
+                _errorLengthChanged(e) {
                     this.errorLength = e.detail.data;
-                },
-                _onEntityGovernResponse: function (e) {
-                    var response = e.detail.response;
+                }
+                _onEntityGovernResponse(e) {
+                    let response = e.detail.response;
                     if (response.response && response.response.status && response.response.status.toLowerCase() == "success") {
-                        var res = response.response;
-                        var itemContext = this.getFirstItemContext();
-                        var entityId;
+                        let res = response.response;
+                        let itemContext = this.getFirstItemContext();
+                        let entityId;
                         if (itemContext) {
                             entityId = itemContext.id;
                         }
 
-                        var entity = DataHelper.findEntityById(res.entities, entityId);
-                        var attrMessages = {};
+                        let entity;
+                        if (this.dataIndex == "entityModel") {
+                            entity = DataHelper.findEntityById(res.entityModels, entityId);
+                        }else{
+                            entity = DataHelper.findEntityById(res.entities, entityId);
+                        }
+                        let attrMessages = {};
                         if (entity && entity.data && entity.data.attributes) {
-                            var attributes = entity.data.attributes;
+                            let attributes = entity.data.attributes;
                             attrMessages = MessageHelper.getAttributeMessages(attributes, this._attributeModels, this.messageCodeMapping, this.localize());
                         }
                         if (!_.isEmpty(attrMessages)) {
-                            var errorMessages = MessageHelper.getErrorsFromAttrMessages(attrMessages, this._attributeModels);
+                            let errorMessages = MessageHelper.getErrorsFromAttrMessages(attrMessages, this._attributeModels);
                             this.set("_syncValidationErrors", errorMessages);
                             this.shadowRoot.querySelector('#errorsDialog').open();
                             return;
                         } else {
-                            var liquidSave = this.shadowRoot.querySelector("[name=entitySaveService]");
+                            let liquidSave = this.shadowRoot.querySelector("[name=entitySaveService]");
                             if (liquidSave) {
                                 liquidSave.generateRequest();
                             }
@@ -543,79 +614,82 @@ attributes during the single entity creation.
                     } else {
                         this.logError("There is a problem in validation service.", e.detail);
                     }
-                },
-                _onEntityGovernFailed: function (e) {
+                }
+                _onEntityGovernFailed(e) {
                     this.logError("There is a problem in validation service.", e.detail);
-                },
-                _skipServerErrors: function () {
-                    var errorDialog = this.$.errorsDialog;
+                }
+                _skipServerErrors() {
+                    let errorDialog = this.$.errorsDialog;
                     if (errorDialog) {
                         errorDialog.close();
                     }
-                    var liquidSave = this.shadowRoot.querySelector("[name=entitySaveService]");
+                    let liquidSave = this.shadowRoot.querySelector("[name=entitySaveService]");
                     if (liquidSave) {
                         liquidSave.generateRequest();
                     }
-                },
-                _fixServerErrors: function () {
-                    var errorDialog = this.$.errorsDialog;
+                }
+                _fixServerErrors() {
+                    let errorDialog = this.$.errorsDialog;
                     if (errorDialog) {
                         errorDialog.close();
                     }
+                    let newAttributeMessages = {};
+
                     if (this._syncValidationErrors) {
-                        var newAttributeMessages = {};
-                        for (var i = 0; i < this._syncValidationErrors.length; i++) {
-                            var attributeMessages = this._syncValidationErrors[i];
-                            var attributeName = attributeMessages.attributeName;
-                            var message = attributeMessages.message;
+                        for (let i = 0; i < this._syncValidationErrors.length; i++) {
+                            let attributeMessages = this._syncValidationErrors[i];
+                            let attributeName = attributeMessages.attributeName;
+                            let message = attributeMessages.message;
                             if (attributeName && message) {
                                 newAttributeMessages[attributeName] = [message];
                             }
                         }
                     }
                     this.set('_attributeMessages', newAttributeMessages);
-                },
-                /**
-                  * <b><i>Content development is under progress... </b></i> 
-                  */
-                getIsDirty: function () {
-                    var attributeList = this.shadowRoot.querySelector('rock-attribute-list');
-                    var changedAttributeElements = attributeList.getChangedAttributeElements();
+                }
+                //   * <b><i>Content development is under progress... </b></i> 
+                //   */
+                getIsDirty() {
+                    let attributeList = this.shadowRoot.querySelector('rock-attribute-list');
+                    let changedAttributeElements = attributeList.getChangedAttributeElements();
                     return changedAttributeElements && changedAttributeElements.length > 0;
-                },
+                }
 
-                _showView: function (viewName) {
+                _showView(viewName) {
                     if (viewName) {
-                        var contentView = this.shadowRoot.querySelector("#content-" + viewName);
+                        let contentView = this.shadowRoot.querySelector("#content-" + viewName);
                         if (contentView) {
                             contentView.removeAttribute("hidden");
                         }
                     }
-                },
+                }
 
-                _hideView: function (viewName) {
+                _hideView(viewName) {
                     if (viewName) {
-                        var contentView = this.shadowRoot.querySelector("#content-" + viewName);
+                        let contentView = this.shadowRoot.querySelector("#content-" + viewName);
                         if (contentView) {
                             contentView.setAttribute("hidden", "");
                         }
                     }
-                },
+                }
 
-                _onCompareEntitiesBack: function (e, detail) {
+                _onCompareEntitiesBack(e, detail) {
                     this._hideView("entity-match");
                     this._showView("entity-create");
-                },
+                }
 
-                _onCompareEntitiesCreate: function (e, detail) {
+                _onCompareEntitiesCreate(e, detail) {
                     this._triggerGovernRequest();
-                },
+                }
 
-                _onCompareEntitiesMerge: function (e, detail) {
+                _onCompareEntitiesMerge(e, detail) {
                     this._matchedEntity = detail.matchedEntity;
                     this._updateEntity();
                 }
-            });
-        })();
+            }
+            /**
+             * <b><i>Content development is under progress... </b></i> 
+             */
+            customElements.define(RockEntityCreateSingle.is, RockEntityCreateSingle)
     </script>
 </dom-module>

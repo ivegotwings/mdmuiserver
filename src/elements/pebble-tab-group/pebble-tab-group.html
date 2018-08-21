@@ -1,4 +1,4 @@
-<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/polymer/polymer-element.html">
 <link rel="import" href="../../../bower_components/iron-flex-layout/iron-flex-layout.html">
 <link rel="import" href="../../../bower_components/iron-menu-behavior/iron-menubar-behavior.html">
 <link rel="import" href="../../../bower_components/iron-resizable-behavior/iron-resizable-behavior.html">
@@ -159,12 +159,12 @@ See the docs for `Polymer.IronResizableBehavior`, `Polymer.IronMenubarBehavior` 
       
     </template>
     <script>
-        (function () {
-            'use strict';
-
-            Polymer({
-                is: 'pebble-tab-group',
-                properties: {
+        class PebbleTabGroup extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior,Polymer.IronResizableBehavior,Polymer.IronMenubarBehavior], Polymer.Element) {
+            static get is() {
+                return "pebble-tab-group";
+            }
+            static get properties() {
+                return {
                     /**
                      * Indicates the identification of an `element`.
                      */
@@ -304,478 +304,470 @@ See the docs for `Polymer.IronResizableBehavior`, `Polymer.IronMenubarBehavior` 
                         type: Boolean,
                         value: false
                     }
-                },
+                }
+            }
+            constructor() {
+                super();
+                this._holdJob = null;
+                this._pendingActivationItem = undefined;
+                this._pendingActivationTimeout = undefined;
+                this._bindDelayedActivationHandler = this._delayedActivationHandler.bind(this);
+                this.addEventListener('blur', this._onBlurCapture.bind(this), true);
+            }
+            ready() {
+                super.ready();
+                this.setScrollDirection('y', this.$.tabsContainer);
+                this._tabsContent = this.shadowRoot.querySelector("#tabsContent");
+            }
+            connectedCallback() {
+                super.connectedCallback();
+                this.addEventListener('iron-items-changed', this._onTabSizingChanged);
+                this.addEventListener('iron-select', this._onIronSelect);
+                this.addEventListener('iron-deselect', this._onIronDeselect);
+            }
+            disconnectedCallback() {
+                super.disconnectedCallback();
+                this._cancelPendingActivation();
+                this.removeEventListener('iron-items-changed', this._onTabSizingChanged);
+                this.removeEventListener('iron-select', this._onIronSelect);
+                this.removeEventListener('iron-deselect', this._onIronDeselect);
+            }
+            get keyBindings() {
+                return {
+                'left:keyup right:keyup': '_onArrowKeyup'
+                };
+            }
+            _noinkChanged(noink) {
+                let childTabs = Polymer.dom(this).querySelectorAll('pebble-tab');
+                childTabs.forEach(noink ? this._setNoinkAttribute : this._removeNoinkAttribute);
+            }
 
-                behaviors: [
-                    Polymer.IronResizableBehavior,
-                    Polymer.IronMenubarBehavior,
-                    RUFBehaviors.UIBehavior
-                ],
+            _setNoinkAttribute(element) {
+                element.setAttribute('noink', '');
+            }
 
-                listeners: {
-                    'iron-items-changed': '_onTabSizingChanged',
-                    'iron-select': '_onIronSelect',
-                    'iron-deselect': '_onIronDeselect'
-                },
+            _removeNoinkAttribute(element) {
+                element.removeAttribute('noink');
+            }
 
-                keyBindings: {
-                    'left:keyup right:keyup': '_onArrowKeyup'
-                },
-          /**
-            * Content is not appearing - Content development is under progress. 
-            */
-                created: function () {
-                    this._holdJob = null;
-                    this._pendingActivationItem = undefined;
-                    this._pendingActivationTimeout = undefined;
-                    this._bindDelayedActivationHandler = this._delayedActivationHandler.bind(this);
-                    this.addEventListener('blur', this._onBlurCapture.bind(this), true);
-                },
-          /**
-            * Content is not appearing - Content development is under progress. 
-            */
-                ready: function () {
-                    this.setScrollDirection('y', this.$.tabsContainer);
-                    this._tabsContent = this.shadowRoot.querySelector("#tabsContent");
-                },
-          /**
-            * Content is not appearing - Content development is under progress. 
-            */
-                detached: function () {
-                    this._cancelPendingActivation();
-                },
+            /**
+             * Function to compute 'transition end' and call the handler to handle it.
+             * Note : Edge browser does'nt listen to the "transition end" event all times by default
+             */   
+            _computeTransitionEnd(){
+                let transitions = {
+                    'transition':'transitionend',
+                    'OTransition':'oTransitionEnd',
+                    'MozTransition':'transitionend',
+                    'WebkitTransition':'webkitTransitionEnd'
+                }
 
-                _noinkChanged: function (noink) {
-                    var childTabs = Polymer.dom(this).querySelectorAll('pebble-tab');
-                    childTabs.forEach(noink ? this._setNoinkAttribute : this._removeNoinkAttribute);
-                },
-
-                _setNoinkAttribute: function (element) {
-                    element.setAttribute('noink', '');
-                },
-
-                _removeNoinkAttribute: function (element) {
-                    element.removeAttribute('noink');
-                },
-
-                /**
-                 * Function to compute 'transition end' and call the handler to handle it.
-                 * Note : Edge browser does'nt listen to the "transition end" event all times by default
-                 */   
-                _computeTransitionEnd: function (){
-                    var transitions = {
-                        'transition':'transitionend',
-                        'OTransition':'oTransitionEnd',
-                        'MozTransition':'transitionend',
-                        'WebkitTransition':'webkitTransitionEnd'
+                let transitionEnd = false;
+                for(let t in transitions){
+                    if( this.$.selectionBar.style[t] !== undefined ){
+                        transitionEnd = true;
+                        break;
                     }
+                }
+                
+                if(transitionEnd) {
+                    this._onBarTransitionEnd();
+                }
+            }
 
-                    var transitionEnd = false;
-                    for(var t in transitions){
-                        if( this.$.selectionBar.style[t] !== undefined ){
-                            transitionEnd = true;
-                            break;
-                        }
-                    }
-                   
-                    if(transitionEnd) {
-                        this._onBarTransitionEnd();
-                    }
-                },
+            _computeScrollButtonClass(hideThisButton, scrollable, hideScrollButtons) {
+                if (!scrollable || hideScrollButtons) {
+                    return 'hidden';
+                }
 
-                _computeScrollButtonClass: function (hideThisButton, scrollable, hideScrollButtons) {
-                    if (!scrollable || hideScrollButtons) {
-                        return 'hidden';
-                    }
+                if (hideThisButton) {
+                    // Note: Show both icons on a page 
+                    // return 'not-visible';
+                }
 
-                    if (hideThisButton) {
-                        // Note: Show both icons on a page 
-                        // return 'not-visible';
-                    }
+                return '';
+            }
 
-                    return '';
-                },
+            _computeTabsContentClass(scrollable, fitContainer) {
+                return scrollable ? 'scrollable' + (fitContainer ? ' fit-container' : '') :
+                    ' fit-container';
+            }
 
-                _computeTabsContentClass: function (scrollable, fitContainer) {
-                    return scrollable ? 'scrollable' + (fitContainer ? ' fit-container' : '') :
-                        ' fit-container';
-                },
+            _computeSelectionBarClass(noBar, alignBottom) {
+                if (noBar) {
+                    return 'hidden';
+                } else if (alignBottom) {
+                    return 'align-bottom';
+                }
 
-                _computeSelectionBarClass: function (noBar, alignBottom) {
-                    if (noBar) {
-                        return 'hidden';
-                    } else if (alignBottom) {
-                        return 'align-bottom';
-                    }
+                return '';
+            }
 
-                    return '';
-                },
+            _onTabSizingChanged() {
+                    this._debouncer = Polymer.Debouncer.debounce(this._debouncer, Polymer.Async.timeOut.after(10), () => {
+                    this._scroll();
+                    this._tabChanged(this.selectedItem);
 
-               _onTabSizingChanged: function () {
-                     this._debouncer = Polymer.Debouncer.debounce(this._debouncer, Polymer.Async.timeOut.after(10), () => {
-                        this._scroll();
-                        this._tabChanged(this.selectedItem);
-
-                        var tabGroupRect = this.getBoundingClientRect();
-                        var tabs = this.querySelectorAll("pebble-tab");
-                        if(tabs && tabs.length > 0) {
-                            var totalWidth = 0;
-                            for(var i = 0; i < tabs.length; i++) {
-                                var tab = tabs[i.toString()];
-                                if(tab) {
-                                    totalWidth += tab.getBoundingClientRect().width;
-                                }
-                            }
-                            if(totalWidth <= tabGroupRect.width) {
-                                this.hideScrollButtons = true;
+                    let tabGroupRect = this.getBoundingClientRect();
+                    let tabs = this.querySelectorAll("pebble-tab");
+                    if(tabs && tabs.length > 0) {
+                        let totalWidth = 0;
+                        for(let i = 0; i < tabs.length; i++) {
+                            let tab = tabs[i.toString()];
+                            if(tab) {
+                                totalWidth += tab.getBoundingClientRect().width;
                             }
                         }
-                    });
-                },
+                        if(totalWidth <= tabGroupRect.width) {
+                            this.hideScrollButtons = true;
+                        }
+                    }
+                });
+            }
 
-                _onIronSelect: function (event) {
-                    var tab;
+            _onIronSelect(event) {
+                let tab;
 
-                    // Note: More Info. available in Select method
-                    if (event) {
-                        if (event.target.nodeName === "PAPER-LISTBOX") {
-                            this._isMenuItemSelected = true;
-                            if (event.detail && event.detail.item) {
-                                var item = event.detail.item;
-                                if (item) {
-                                    tab = this.querySelector("#" + item.tabConfig.name);
-                                }
+                // Note: More Info. available in Select method
+                if (event) {
+                    if (event.target.nodeName === "PAPER-LISTBOX") {
+                        this._isMenuItemSelected = true;
+                        if (event.detail && event.detail.item) {
+                            let item = event.detail.item;
+                            if (item) {
+                                tab = this.querySelector("#" + item.tabConfig.name);
                             }
-                            tab.closeMenu();
-                        } else {
-                            tab = event.detail.item;
                         }
-                    }
-
-                    this._tabChanged(tab, this._previousTab);
-                    this._previousTab = tab;
-                    if(this._debouncer && this._debouncer.cancel) {
-                        this._debouncer.cancel();
-                    }
-                },
-
-                _onIronDeselect: function (event) {
-                    if(event.detail.item.nodeName !== "PAPER-ITEM") {
-                        this._debouncer = Polymer.Debouncer.debounce(this._debouncer, Polymer.Async.timeOut.after(1), () => {
-                            this._tabChanged(null, this._previousTab);
-                            this._previousTab = null;
-                            // See polymer/polymer#1305
-                        });
-                    }
-                },
-
-                _activateHandler: function () {
-                    // Cancel item activations scheduled by keyboard events when any other
-                    // action causes an item to be activated (e.g. clicks).
-                    this._cancelPendingActivation();
-                    Polymer.IronMenuBehaviorImpl._activateHandler.apply(this, arguments);
-                },
-
-                _scheduleActivation: function (item, delay) {
-                    this._pendingActivationItem = item;
-                    this._pendingActivationTimeout = setTimeout(() =>{
-                        this._bindDelayedActivationHandler, delay
-                    });
-                },
-
-                _delayedActivationHandler: function () {
-                    var item = this._pendingActivationItem;
-                    this._pendingActivationItem = undefined;
-                    this._pendingActivationTimeout = undefined;
-                    item.fire(this.activateEvent, null, {
-                        bubbles: true,
-                        cancelable: true
-                    });
-                },
-
-                _cancelPendingActivation: function () {
-                    if (this._pendingActivationTimeout !== undefined) {
-                        this.cancelAsync(this._pendingActivationTimeout);
-                        this._pendingActivationItem = undefined;
-                        this._pendingActivationTimeout = undefined;
-                    }
-                },
-
-                _onArrowKeyup: function (event) {
-                    if (this.autoselect) {
-                        this._scheduleActivation(this.focusedItem, this.autoselectDelay);
-                    }
-                },
-
-                _onBlurCapture: function (event) {
-                    // Cancel a scheduled item activation (if any) when that item is
-                    // blurred.
-                    if (event.target === this._pendingActivationItem) {
-                        this._cancelPendingActivation();
-                    }
-                },
-
-                get _tabContainerScrollSize() {
-                    return Math.max(0,
-                        this.$.tabsContainer.scrollWidth -
-                        this.$.tabsContainer.offsetWidth
-                    );
-                },
-
-                _scroll: function (e, detail) {
-                    if (!this.scrollable) {
-                        return;
-                    }
-
-                    var ddx = (detail && -detail.ddx) || 0;
-                    this._affectScroll(ddx);
-                },
-
-                _down: function (e) {
-                    // go one beat async to defeat IronMenuBehavior
-                    // autorefocus-on-no-selection timeout
-                    setTimeout(() =>{
-                        if (this._defaultFocusAsync) {
-                            this.cancelAsync(this._defaultFocusAsync);
-                            this._defaultFocusAsync = null;
-                        }
-                    }, 1);
-                },
-
-                _affectScroll: function (dx) {
-                    this.$.tabsContainer.scrollLeft += dx;
-
-                    var scrollLeft = this.$.tabsContainer.scrollLeft;
-
-                    this._leftHidden = scrollLeft === 0;
-                    this._rightHidden = scrollLeft === this._tabContainerScrollSize;
-                },
-
-                _onLeftScrollButtonDown: function () {
-                    this._clearHoldJobInterval();
-                    this._scrollToLeft();
-                    this._holdJob = setInterval(this._scrollToLeft.bind(this), this._holdDelay);
-                },
-
-                _onRightScrollButtonDown: function () {
-                    this._clearHoldJobInterval();
-                    this._scrollToRight();
-                    this._holdJob = setInterval(this._scrollToRight.bind(this), this._holdDelay);
-                },
-
-                _clearHoldJobInterval() {
-                    if(!this._holdJob) return;
-                    
-                    clearInterval(this._holdJob);
-                    this._holdJob = null;
-                },
-
-                _onScrollButtonUp: function () {
-                    this._clearHoldJobInterval();
-                },
-
-                _scrollToLeft: function () {
-                    this._affectScroll(-this._step);
-                },
-
-                _scrollToRight: function () {
-                    this._affectScroll(this._step);
-                },
-
-                _tabChanged: function (tab, old) {
-                    if (!tab) {
-                        // Remove the bar without animation.
-                        this.$.selectionBar.classList.remove('expand');
-                        this.$.selectionBar.classList.remove('contract');
-                        this._positionBar(0, 0);
-                        return;
-                    }
-
-                    var r = this.$.tabsContent.getBoundingClientRect();
-                    var w = r.width;
-                    var tabRect = tab.getBoundingClientRect();
-                    var tabOffsetLeft = tabRect.left - r.left;
-
-                    this._pos = {
-                        width: this._calcPercent(tabRect.width, w),
-                        left: this._calcPercent(tabOffsetLeft, w)
-                    };
-
-                    if (this.noSlide || old == null) {
-                        // Position the bar without animation.
-                        this.$.selectionBar.classList.remove('expand');
-                        this.$.selectionBar.classList.remove('contract');
-                        this._positionBar(this._pos.width, this._pos.left);
-                        return;
-                    }
-
-                    var oldRect = old.getBoundingClientRect();
-                    var oldIndex = this.items.indexOf(old);
-                    var index = this.items.indexOf(tab);
-                    var m = 5;
-
-                    // bar animation: expand
-                    this.$.selectionBar.classList.add('expand');
-
-                    var moveRight = oldIndex < index;
-                    var isRTL = this._isRTL;
-                    if (isRTL) {
-                        moveRight = !moveRight;
-                    }
-
-                    if (moveRight) {
-                        this._positionBar(this._calcPercent(tabRect.left + tabRect.width - oldRect.left,
-                                w) - m,
-                            this._left);
+                        tab.closeMenu();
                     } else {
-                        this._positionBar(this._calcPercent(oldRect.left + oldRect.width - tabRect.left,
-                                w) - m,
-                            this._calcPercent(tabOffsetLeft, w) + m);
-                    }                   
-
-                    if (this.scrollable) {
-                        this._scrollToSelectedIfNeeded(tabRect.width, tabOffsetLeft);
+                        tab = event.detail.item;
                     }
+                }
 
-                    //Compute transition end for Edge browser as the browser does'nt listen to the "transition end" event all times
-                    if(DataHelper.checkBrowser('edge')) {
-                        this._computeTransitionEnd();
-                    }                    
-                },
+                this._tabChanged(tab, this._previousTab);
+                this._previousTab = tab;
+                if(this._debouncer && this._debouncer.cancel) {
+                    this._debouncer.cancel();
+                }
+            }
 
-                _scrollToSelectedIfNeeded: function (tabWidth, tabOffsetLeft) {
-                    var l = tabOffsetLeft - this.$.tabsContainer.scrollLeft;
-                    if (l < 0) {
+            _onIronDeselect(event) {
+                if(event.detail.item.nodeName !== "PAPER-ITEM") {
+                    this._debouncer = Polymer.Debouncer.debounce(this._debouncer, Polymer.Async.timeOut.after(1), () => {
+                        this._tabChanged(null, this._previousTab);
+                        this._previousTab = null;
+                        // See polymer/polymer#1305
+                    });
+                }
+            }
+
+            _activateHandler() {
+                // Cancel item activations scheduled by keyboard events when any other
+                // action causes an item to be activated (e.g. clicks).
+                this._cancelPendingActivation();
+                Polymer.IronMenuBehaviorImpl._activateHandler.apply(this, arguments);
+            }
+
+            _scheduleActivation(item, delay) {
+                this._pendingActivationItem = item;
+                this._pendingActivationTimeout = setTimeout(() =>{
+                    this._bindDelayedActivationHandler, delay
+                });
+            }
+
+            _delayedActivationHandler() {
+                let item = this._pendingActivationItem;
+                this._pendingActivationItem = undefined;
+                this._pendingActivationTimeout = undefined;
+                item.fire(this.activateEvent, null, {
+                    bubbles: true,
+                    cancelable: true
+                });
+            }
+
+            _cancelPendingActivation() {
+                if (this._pendingActivationTimeout !== undefined) {
+                    this.cancelAsync(this._pendingActivationTimeout);
+                    this._pendingActivationItem = undefined;
+                    this._pendingActivationTimeout = undefined;
+                }
+            }
+
+            _onArrowKeyup(event) {
+                if (this.autoselect) {
+                    this._scheduleActivation(this.focusedItem, this.autoselectDelay);
+                }
+            }
+
+            _onBlurCapture(event) {
+                // Cancel a scheduled item activation (if any) when that item is
+                // blurred.
+                if (event.target === this._pendingActivationItem) {
+                    this._cancelPendingActivation();
+                }
+            }
+
+            get _tabContainerScrollSize() {
+                return Math.max(0,
+                    this.$.tabsContainer.scrollWidth -
+                    this.$.tabsContainer.offsetWidth
+                );
+            }
+
+            _scroll(e, detail) {
+                if (!this.scrollable) {
+                    return;
+                }
+
+                let ddx = (detail && -detail.ddx) || 0;
+                this._affectScroll(ddx);
+            }
+
+            _down(e) {
+                // go one beat async to defeat IronMenuBehavior
+                // autorefocus-on-no-selection timeout
+                setTimeout(() =>{
+                    if (this._defaultFocusAsync) {
+                        this.cancelAsync(this._defaultFocusAsync);
+                        this._defaultFocusAsync = null;
+                    }
+                }, 1);
+            }
+
+            _affectScroll(dx) {
+                this.$.tabsContainer.scrollLeft += dx;
+
+                let scrollLeft = this.$.tabsContainer.scrollLeft;
+
+                this._leftHidden = scrollLeft === 0;
+                this._rightHidden = scrollLeft === this._tabContainerScrollSize;
+            }
+
+            _onLeftScrollButtonDown() {
+                this._clearHoldJobInterval();
+                this._scrollToLeft();
+                this._holdJob = setInterval(this._scrollToLeft.bind(this), this._holdDelay);
+            }
+
+            _onRightScrollButtonDown() {
+                this._clearHoldJobInterval();
+                this._scrollToRight();
+                this._holdJob = setInterval(this._scrollToRight.bind(this), this._holdDelay);
+            }
+
+            _clearHoldJobInterval() {
+                if(!this._holdJob) return;
+                
+                clearInterval(this._holdJob);
+                this._holdJob = null;
+            }
+
+            _onScrollButtonUp() {
+                this._clearHoldJobInterval();
+            }
+
+            _scrollToLeft() {
+                this._affectScroll(-this._step);
+            }
+
+            _scrollToRight() {
+                this._affectScroll(this._step);
+            }
+
+            _tabChanged(tab, old) {
+                if (!tab) {
+                    // Remove the bar without animation.
+                    this.$.selectionBar.classList.remove('expand');
+                    this.$.selectionBar.classList.remove('contract');
+                    this._positionBar(0, 0);
+                    return;
+                }
+
+                let r = this.$.tabsContent.getBoundingClientRect();
+                let w = r.width;
+                let tabRect = tab.getBoundingClientRect();
+                let tabOffsetLeft = tabRect.left - r.left;
+
+                this._pos = {
+                    width: this._calcPercent(tabRect.width, w),
+                    left: this._calcPercent(tabOffsetLeft, w)
+                };
+
+                if (this.noSlide || old == null) {
+                    // Position the bar without animation.
+                    this.$.selectionBar.classList.remove('expand');
+                    this.$.selectionBar.classList.remove('contract');
+                    this._positionBar(this._pos.width, this._pos.left);
+                    return;
+                }
+
+                let oldRect = old.getBoundingClientRect();
+                let oldIndex = this.items.indexOf(old);
+                let index = this.items.indexOf(tab);
+                let m = 5;
+
+                // bar animation: expand
+                this.$.selectionBar.classList.add('expand');
+
+                let moveRight = oldIndex < index;
+                let isRTL = this._isRTL;
+                if (isRTL) {
+                    moveRight = !moveRight;
+                }
+
+                if (moveRight) {
+                    this._positionBar(this._calcPercent(tabRect.left + tabRect.width - oldRect.left,
+                            w) - m,
+                        this._left);
+                } else {
+                    this._positionBar(this._calcPercent(oldRect.left + oldRect.width - tabRect.left,
+                            w) - m,
+                        this._calcPercent(tabOffsetLeft, w) + m);
+                }                   
+
+                if (this.scrollable) {
+                    this._scrollToSelectedIfNeeded(tabRect.width, tabOffsetLeft);
+                }
+
+                //Compute transition end for Edge browser as the browser does'nt listen to the "transition end" event all times
+                if(DataHelper.checkBrowser('edge')) {
+                    this._computeTransitionEnd();
+                }                    
+            }
+
+            _scrollToSelectedIfNeeded(tabWidth, tabOffsetLeft) {
+                let l = tabOffsetLeft - this.$.tabsContainer.scrollLeft;
+                if (l < 0) {
+                    this.$.tabsContainer.scrollLeft += l;
+                } else {
+                    l += (tabWidth - this.$.tabsContainer.offsetWidth);
+                    if (l > 0) {
                         this.$.tabsContainer.scrollLeft += l;
-                    } else {
-                        l += (tabWidth - this.$.tabsContainer.offsetWidth);
-                        if (l > 0) {
-                            this.$.tabsContainer.scrollLeft += l;
-                        }
                     }
-                },
+                }
+            }
 
-                _calcPercent: function (w, w0) {
-                    return 100 * w / w0;
-                },
+            _calcPercent(w, w0) {
+                return 100 * w / w0;
+            }
 
-                _positionBar: function (width, left) {
-                    width = width || 0;
-                    left = left || 0;
+            _positionBar(width, left) {
+                width = width || 0;
+                left = left || 0;
 
-                    this._width = width;
-                    this._left = left;
-                    this.transform(
-                        'translateX(' + left + '%) scaleX(' + (width / 100) + ')',
-                        this.$.selectionBar);
-                },
+                this._width = width;
+                this._left = left;
+                this.transform(
+                    'translateX(' + left + '%) scaleX(' + (width / 100) + ')',
+                    this.$.selectionBar);
+            }
 
-                _onBarTransitionEnd: function (e) {
-                    var cl = this.$.selectionBar.classList;
-                    // bar animation: expand -> contract
-                    if (cl.contains('expand')) {
-                        cl.remove('expand');
-                        cl.add('contract');
-                        this._positionBar(this._pos.width, this._pos.left);
-                        // bar animation done
-                    } else if (cl.contains('contract')) {
-                        cl.remove('contract');
+            _onBarTransitionEnd(e) {
+                let cl = this.$.selectionBar.classList;
+                // bar animation: expand -> contract
+                if (cl.contains('expand')) {
+                    cl.remove('expand');
+                    cl.add('contract');
+                    this._positionBar(this._pos.width, this._pos.left);
+                    // bar animation done
+                } else if (cl.contains('contract')) {
+                    cl.remove('contract');
+                }
+            }
+            /**
+             * Can be used to override the method from Polymer.IronSelectionBehavior.
+             */
+            select(selectedTabIndex) {
+                /*
+                Hacky Work: Here we have overrided the method of IronSelection Behaviour
+                */
+                let eventName = "selection-changed";
+                let eventDetail = {
+                    name: eventName
+                };
+                let e = this.fireBedrockEvent(eventName, eventDetail, {
+                    ignoreId: true,
+                    cancelable: true
+                });
+                if (e.defaultPrevented == false) {
+                    this._selectTab(selectedTabIndex);
+                }
+            }
+            _selectTab(selectedTabIndex) {
+                /*
+                    Issue 1: If a user has loaded some content of a menuitem and
+                                if user wants to loaded the content of a tab, then
+                                it will not work because the tabitem selection has not been changed.
+
+                    Fix:     Added a flag "_isMenuItemSelected". If true then allow then control to load
+                                tab content else ignore
+                */
+                let selectedTab = this.querySelectorAll('pebble-tab')[selectedTabIndex];
+
+                this._closeDropdownMenus(selectedTab.id);
+
+                if (selectedTab) {
+                    let menu = selectedTab.querySelector("paper-listbox");
+                    if (menu && menu.selected >= 0) {
+                        menu.selected = -1;
                     }
-                },
-                /**
-                 * Can be used to override the method from Polymer.IronSelectionBehavior.
-                 */
-                select: function (selectedTabIndex) {
-                    /*
-                    Hacky Work: Here we have overrided the method of IronSelection Behaviour
-                    */
-                    var eventName = "selection-changed";
-                    var eventDetail = {
-                        name: eventName
-                    };
-                    var e = this.fireBedrockEvent(eventName, eventDetail, {
-                        ignoreId: true,
-                        cancelable: true
-                    });
-                    if (e.defaultPrevented == false) {
-                        this._selectTab(selectedTabIndex);
+                }
+
+                if (this._previousTab) {
+                    let menu = this._previousTab.querySelector("paper-listbox");
+                    if (menu && menu.selected >= 0) {
+                        menu.selected = -1;
                     }
-                },
-                _selectTab: function (selectedTabIndex) {
-                    /*
-                        Issue 1: If a user has loaded some content of a menuitem and
-                                 if user wants to loaded the content of a tab, then
-                                 it will not work because the tabitem selection has not been changed.
+                }
 
-                        Fix:     Added a flag "_isMenuItemSelected". If true then allow then control to load
-                                 tab content else ignore
-                    */
-                    var selectedTab = this.querySelectorAll('pebble-tab')[selectedTabIndex];
+                if (this._selection.multi) {
+                    this._selection.toggle(selectedTab);
+                } else if (this._selection.get() !== selectedTab || this._isMenuItemSelected) {
+                    this._isMenuItemSelected = false;
+                    this._selection.setItemSelected(this._selection.get(), false);
+                    this._selection.setItemSelected(selectedTab, true);
+                }
+            }
 
-                    this._closeDropdownMenus(selectedTab.id);
-
-                    if (selectedTab) {
-                        var menu = selectedTab.querySelector("paper-listbox");
-                        if (menu && menu.selected >= 0) {
-                            menu.selected = -1;
-                        }
-                    }
-
-                    if (this._previousTab) {
-                        menu = this._previousTab.querySelector("paper-listbox");
-                        if (menu && menu.selected >= 0) {
-                            menu.selected = -1;
-                        }
-                    }
-
-                    if (this._selection.multi) {
-                        this._selection.toggle(selectedTab);
-                    } else if (this._selection.get() !== selectedTab || this._isMenuItemSelected) {
-                        this._isMenuItemSelected = false;
-                        this._selection.setItemSelected(this._selection.get(), false);
-                        this._selection.setItemSelected(selectedTab, true);
-                    }
-                },
-
-                _closeDropdownMenus: function (tabId) {
-                    var tabs =  Polymer.FlattenedNodesObserver.getFlattenedNodes(this._tabsContent)
-                            .filter(n => n.nodeType === Node.ELEMENT_NODE);
-                    if (tabs) {
-                        for (var index in tabs) {
-                            var tab = tabs[index];
-                            if (tab && tab.shadowRoot) {
-                                var ironDropdown = tab.shadowRoot.querySelector("iron-dropdown"); // Shadow DOM
-                                if (tab.id !== tabId) {
-                                    if (ironDropdown && ironDropdown.opened) {
-                                        ironDropdown.close();
-                                    }
+            _closeDropdownMenus(tabId) {
+                let tabs =  Polymer.FlattenedNodesObserver.getFlattenedNodes(this._tabsContent)
+                        .filter(n => n.nodeType === Node.ELEMENT_NODE);
+                if (tabs) {
+                    for (let index in tabs) {
+                        let tab = tabs[index];
+                        if (tab && tab.shadowRoot) {
+                            let ironDropdown = tab.shadowRoot.querySelector("iron-dropdown"); // Shadow DOM
+                            if (tab.id !== tabId) {
+                                if (ironDropdown && ironDropdown.opened) {
+                                    ironDropdown.close();
                                 }
-                            }
-                        }
-                    }
-                },
-
-                /***
-                 * Function which can be used for adding specific CSS class to
-                 * element with 'index' (for instance: we want to make some tab header blinking).
-                 * this.selectedClass will be applied if no className value is provided.
-                 * @param index
-                 * @param className
-                 */
-                highlightTabWithoutSelection: function (index, className) {
-                    className = className || this.selectedClass;
-                    if (className) {
-                        var tabs = this.querySelectorAll("pebble-tab");
-                        for (var i = 0, length = tabs.length; i < length; i++) {
-                            if (i == index) {
-                                tabs[i].classList.add(className);
-                            } else {
-                                tabs[i].classList.remove(className);
                             }
                         }
                     }
                 }
-            });
-        })();
+            }
+
+            /***
+             * Function which can be used for adding specific CSS class to
+             * element with 'index' (for instance: we want to make some tab header blinking).
+             * this.selectedClass will be applied if no className value is provided.
+             * @param index
+             * @param className
+             */
+            highlightTabWithoutSelection(index, className) {
+                className = className || this.selectedClass;
+                if (className) {
+                    let tabs = this.querySelectorAll("pebble-tab");
+                    for (let i = 0, length = tabs.length; i < length; i++) {
+                        if (i == index) {
+                            tabs[i].classList.add(className);
+                        } else {
+                            tabs[i].classList.remove(className);
+                        }
+                    }
+                }
+            }
+        }
+        customElements.define(PebbleTabGroup.is, PebbleTabGroup);
     </script>
 </dom-module>

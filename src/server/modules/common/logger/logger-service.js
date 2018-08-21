@@ -1,16 +1,16 @@
 'use strict'
-var caller = require('caller');
-var log4js = require('log4js');
-var path = require("path");
-var executionContext = require('../context-manager/execution-context');
-var loggerConfigManager = require('./logger-config.js');
-var isEmpty = require('../utils/isEmpty');
+let caller = require('caller');
+let log4js = require('log4js');
+let path = require("path");
+let executionContext = require('../context-manager/execution-context');
+let loggerConfigManager = require('./logger-config.js');
+let isEmpty = require('../utils/isEmpty');
 
 const loggerLevels = ["fatal", "error", "warn", "info", "debug"];
 
-var uuidV1 = require('uuid/v1');
+let uuidV1 = require('uuid/v1');
 
-var LoggerService = function (options) {
+let LoggerService = function (options) {
   this._logger = null;
   this._isConfigured = false;
   this._config = {};
@@ -18,8 +18,8 @@ var LoggerService = function (options) {
 
 LoggerService.prototype = {
   _getPattern: function () {
-    var pattern = "%d{ISO8601_WITH_TZ_OFFSET} [%p]";
-    for (var i = 0; i < this._formatKeys.length; i++) {
+    let pattern = "%d{ISO8601_WITH_TZ_OFFSET} [%p]";
+    for (let i = 0; i < this._formatKeys.length; i++) {
       if ((i == 4) || (i == 12)) {
         pattern += "%n";
       }
@@ -32,9 +32,9 @@ LoggerService.prototype = {
     return pattern;
   },
   _getModuleLogConfig: async function (callerModuleName, calleeServiceName) {
-    var moduleLogConfig = await loggerConfigManager.getCurrentModulesObject();
+    let moduleLogConfig = await loggerConfigManager.getCurrentModulesObject();
 
-    var setting = {
+    let setting = {
       callerModuleName: callerModuleName ? callerModuleName : 'none',
       calleeServiceName: calleeServiceName ? calleeServiceName : 'none',
       config: moduleLogConfig.default
@@ -52,12 +52,12 @@ LoggerService.prototype = {
     return setting;
   },
   _getFormattedObject: function (msg, obj, moduleSetting) {
-    var formattedObj = {};
+    let formattedObj = {};
 
     formattedObj["className"] = "UI";
 
     //Tenent ID
-    var securityContext = executionContext.getSecurityContext();
+    let securityContext = executionContext.getSecurityContext();
     if (securityContext && securityContext.tenantId) {
       formattedObj["tenantId"] = securityContext.tenantId;
     }
@@ -88,14 +88,14 @@ LoggerService.prototype = {
     }
 
     //Format Log Message
-    var finalMessage = "[" + msg + "] ";
+    let finalMessage = "[" + msg + "] ";
     if (obj.request && obj.request.body) {
       finalMessage += "[Request - " + JSON.stringify(obj.request.body) + "] ";
     }
     if (obj.response) {
       finalMessage += "[Response - " + JSON.stringify(obj.response) + "]";
     }
-    var detail = obj.detail ? obj.detail : obj;
+    let detail = obj.detail ? obj.detail : obj;
 
     if (detail) {
       finalMessage += "[Detail - " + JSON.stringify(detail) + "] ";
@@ -111,7 +111,7 @@ LoggerService.prototype = {
       throw "Logger is not configured. Call logger.configure before using log method";
     }
 
-    var moduleSetting = await this._getModuleLogConfig(callerModuleName, calleeServiceName);
+    let moduleSetting = await this._getModuleLogConfig(callerModuleName, calleeServiceName);
 
     if(isEmpty(moduleSetting) || isEmpty(moduleSetting.config)) {
       console.error('Module setting not found...No logging would happen in system');
@@ -126,12 +126,12 @@ LoggerService.prototype = {
       obj = {};
     }
 
-    var formattedObject = this._getFormattedObject(msg, obj, moduleSetting);
+    let formattedObject = this._getFormattedObject(msg, obj, moduleSetting);
 
     this._logger.clearContext();
 
-    for (var i = 0; i < this._formatKeys.length; i++) {
-      var element = this._formatKeys[i];
+    for (let i = 0; i < this._formatKeys.length; i++) {
+      let element = this._formatKeys[i];
       if (formattedObject.hasOwnProperty(element)) {
         this._logger.addContext(element, formattedObject[element]);
       } else {
@@ -162,9 +162,9 @@ LoggerService.prototype = {
     this._isConfigured = true;
     this._formatKeys = loggerConfigManager.formatKeys;
 
-    var toolSettings = config.toolSettings;
-    var streamPath = "/logs/dataplatformLogs.log";
-    for (var stream of toolSettings.streams) {
+    let toolSettings = config.toolSettings;
+    let streamPath = "/logs/dataplatformLogs.log";
+    for (let stream of toolSettings.streams) {
       streamPath = stream.path;
     }
     streamPath = path.dirname(require.main.filename) + streamPath;
@@ -213,8 +213,8 @@ LoggerService.prototype = {
     return this._log(level, msg, obj, callerModuleName, calleeServiceName);
   },
   logRequest: function (serviceName, options) {
-    var internalRequestId = uuidV1();
-    var requestLog = {
+    let internalRequestId = uuidV1();
+    let requestLog = {
       "requestId": internalRequestId,
       "service": serviceName,
       "request": options
@@ -223,11 +223,11 @@ LoggerService.prototype = {
     return internalRequestId;
   },
   logError: function (internalRequestId, serviceName, options, result) {
-    var isErrorResponse = false;
+    let isErrorResponse = false;
 
     //check if response object has error status
     if (result && result.response && result.response.status) {
-      var resStatus = result.response.status;
+      let resStatus = result.response.status;
       if (resStatus && resStatus == "error") {
         isErrorResponse = true;
       }
@@ -235,14 +235,14 @@ LoggerService.prototype = {
 
     //check if generic failure happend in RDF layer
     if (!isErrorResponse && result && result.dataObjectOperationResponse && result.dataObjectOperationResponse.status) {
-      var resStatus = result.dataObjectOperationResponse.status;
+      let resStatus = result.dataObjectOperationResponse.status;
       if (resStatus && resStatus == "error") {
         isErrorResponse = true;
       }
     }
 
     if (isErrorResponse) {
-      var errorLog = {
+      let errorLog = {
         "service": serviceName,
         "requestId": internalRequestId,
         "request": options,
@@ -254,7 +254,7 @@ LoggerService.prototype = {
     return isErrorResponse;
   },
   logException: function (internalRequestId, serviceName, options, error) {
-    var exceptionJson = {
+    let exceptionJson = {
       "service": serviceName,
       "detail": error,
       "requestId": internalRequestId,
@@ -263,9 +263,9 @@ LoggerService.prototype = {
     this.fatal("RDF_CALL_EXCEPTION", exceptionJson, "df-rest-service", serviceName);
   },
   logResponseCompletedInfo: function (internalRequestId, serviceName, hrstart) {
-    var hrend = process.hrtime(hrstart);
-    var taken = hrend[1] / 1000000;
-    var responseLog = {
+    let hrend = process.hrtime(hrstart);
+    let taken = hrend[1] / 1000000;
+    let responseLog = {
       "requestId": internalRequestId,
       "service": serviceName,
       "taken": taken
@@ -278,7 +278,7 @@ LoggerService.prototype = {
     
   },
   logResponse: function (internalRequestId, serviceName, response) {
-    var responseLog = {
+    let responseLog = {
       "requestId": internalRequestId,
       "service": serviceName,
       "response": response
@@ -290,6 +290,6 @@ LoggerService.prototype = {
   }
 };
 
-var loggerServiceInstance = new LoggerService();
+let loggerServiceInstance = new LoggerService();
 
 module.exports = loggerServiceInstance;

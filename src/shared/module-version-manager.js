@@ -30,6 +30,7 @@ class ModuleVersionManager {
     }
 }
 
+// eslint-disable-next-line no-var
 var SharedUtils = SharedUtils || {};
 
 if (!SharedUtils) {

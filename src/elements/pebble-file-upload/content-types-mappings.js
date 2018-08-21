@@ -2,7 +2,7 @@
 
     ContentTypeUtils = {};
 
-    var mimedb = 
+    let mimedb = 
         {
             "application/1d-interleaved-parityfec": {
                 "source": "iana"
@@ -6757,18 +6757,18 @@
 
     ContentTypeUtils.PopulateMaps = function() {
         // source preference (least -> most)
-        var preference = ['nginx', 'apache', undefined, 'iana']
+        let preference = ['nginx', 'apache', undefined, 'iana']
 
-        var mappings = {
+        let mappings = {
             "extensions": {},
             "mimeTypes": {}
         };
-        var extensions = {};
-        var mimeTypes = {};
-        var extensionSources = {};
+        let extensions = {};
+        let mimeTypes = {};
+        let extensionSources = {};
         Object.keys(mimedb).forEach(function forEachMimeType (currentMimeType) {
-            var currentMime = mimedb[currentMimeType];
-            var exts = currentMime.extensions;
+            let currentMime = mimedb[currentMimeType];
+            let exts = currentMime.extensions;
 
             if (!exts || !exts.length) {
                 return;
@@ -6778,17 +6778,17 @@
             extensions[currentMimeType] = exts;
 
             // extension -> mime
-            for (var i = 0; i < exts.length; i++) {
-                var extension = exts[i];
+            for (let i = 0; i < exts.length; i++) {
+                let extension = exts[i];
                 
                 if (mimeTypes[extension]) {
-                    var existingMimeSourceIndex = extensionSources[extension] ? preference.indexOf(extensionSources[extension]) : -1;
-                    var currentMimeSourceIndex = currentMime ? preference.indexOf(currentMime.source) : -1;
+                    let existingMimeSourceIndex = extensionSources[extension] ? preference.indexOf(extensionSources[extension]) : -1;
+                    let currentMimeSourceIndex = currentMime ? preference.indexOf(currentMime.source) : -1;
 
                     if (mimeTypes[extension] !== 'application/octet-stream' && existingMimeSourceIndex >= currentMimeSourceIndex) {
                         if(existingMimeSourceIndex == currentMimeSourceIndex) {
                             // add the mimetype to extension
-                            var mimeType = mimeTypes[extension]; 
+                            let mimeType = mimeTypes[extension]; 
                             if(mimeType.indexOf(currentMimeType) == -1){
                                 mimeTypes[extension] = mimeType + ',' + currentMimeType;
                             }

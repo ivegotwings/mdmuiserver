@@ -1,4 +1,4 @@
-var version = 1;
+let version = 1;
 module.exports = function incrementVersion() {
     return version++;
 };

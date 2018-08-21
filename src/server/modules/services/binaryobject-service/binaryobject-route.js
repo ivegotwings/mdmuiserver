@@ -1,7 +1,7 @@
 'use strict';
 const BinaryObjectService = require('./BinaryObjectService');
-var options = {};
-var runOffline = process.env.RUN_OFFLINE;
+let options = {};
+let runOffline = process.env.RUN_OFFLINE;
 
 if (runOffline) {
     options.runOffline = runOffline;
@@ -9,7 +9,7 @@ if (runOffline) {
 
 const binaryObjectService = new BinaryObjectService(options);
 
-var BinaryObjectRouter = function (app) {
+let BinaryObjectRouter = function (app) {
     app.post('/data/binaryobjectservice/downloadBinaryObject', async function (req, res) {
         binaryObjectService.downloadBinaryObject(req, res);
     });

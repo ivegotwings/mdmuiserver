@@ -1,4 +1,4 @@
-var request = {
+let request = {
   "method": "POST",
   "headers": {
     "x-rdp-clientid": "rufClient",

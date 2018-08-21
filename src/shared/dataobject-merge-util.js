@@ -1,41 +1,41 @@
 'use strict';
 
-var falcorUtil = require('./dataobject-falcor-util');
+let falcorUtil = require('./dataobject-falcor-util');
 
-var DataObjectMergeUtil = function () { };
+let DataObjectMergeUtil = function () { };
 
 DataObjectMergeUtil.mergeDataObjects = function (target, source) {
 
-    var targetData = target.data;
+    let targetData = target.data;
 
     if (!targetData) {
         return target;
     }
 
-    var targetContexts = target.data.contexts;
+    let targetContexts = target.data.contexts;
 
-    var sourceData = source.data;
+    let sourceData = source.data;
 
     if (!sourceData) {
         return target;
     }
 
-    var targetProperties = { 'properties': target.properties };
-    var sourceProperties = { 'properties': source.properties };
+    let targetProperties = { 'properties': target.properties };
+    let sourceProperties = { 'properties': source.properties };
 
-    var sourceContexts = sourceData.contexts;
+    let sourceContexts = sourceData.contexts;
 
-    var targetSelfCtxItem = { 'attributes': targetData.attributes, 'relationships': targetData.relationships, 'properties': targetProperties };
-    var sourceSelfCtxItem = { 'attributes': sourceData.attributes, 'relationships': sourceData.relationships, 'properties': sourceProperties };
+    let targetSelfCtxItem = { 'attributes': targetData.attributes, 'relationships': targetData.relationships, 'properties': targetProperties };
+    let sourceSelfCtxItem = { 'attributes': sourceData.attributes, 'relationships': sourceData.relationships, 'properties': sourceProperties };
 
     targetSelfCtxItem = DataObjectMergeUtil.mergeCtxItems(targetSelfCtxItem, sourceSelfCtxItem, false);
 
     if(targetContexts) {
-        for (var i = 0; i < targetContexts.length; i++) {
-            var targetCtxItem = targetContexts[i];
-            var targetContext = targetCtxItem.context;
+        for (let i = 0; i < targetContexts.length; i++) {
+            let targetCtxItem = targetContexts[i];
+            let targetContext = targetCtxItem.context;
 
-            var sourceCtxItem = falcorUtil.getCtxItem(sourceContexts, targetContext);
+            let sourceCtxItem = falcorUtil.getCtxItem(sourceContexts, targetContext);
 
             if (sourceCtxItem) {
                 targetCtxItem = DataObjectMergeUtil.mergeCtxItems(targetCtxItem, sourceCtxItem, false);
@@ -60,9 +60,9 @@ DataObjectMergeUtil.mergeRelationships = function (target, source, addMissing = 
         return target;
     }
 
-    for (var targetObjKey in target) {
-        var targetObj = target[targetObjKey];
-        var sourceObj = source[targetObjKey];
+    for (let targetObjKey in target) {
+        let targetObj = target[targetObjKey];
+        let sourceObj = source[targetObjKey];
 
         if (sourceObj) {
             targetObj = falcorUtil.mergeArraysNoOverride(targetObj, sourceObj, "id", true);
@@ -70,9 +70,9 @@ DataObjectMergeUtil.mergeRelationships = function (target, source, addMissing = 
     }
 
     if (addMissing) {
-        for (var sourceObjKey in source) {
-            var sourceObj = source[sourceObjKey];
-            var targetObj = target[sourceObjKey];
+        for (let sourceObjKey in source) {
+            let sourceObj = source[sourceObjKey];
+            let targetObj = target[sourceObjKey];
 
             if (!targetObj) {
                 target[sourceObjKey] = sourceObj;

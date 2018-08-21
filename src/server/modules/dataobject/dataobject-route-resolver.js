@@ -10,7 +10,7 @@ const arrayRemove = require('../common/utils/array-remove'),
     isEmpty = require('../common/utils/isEmpty'),
     uuidV1 = require('uuid/v1');
 
-var falcorUtil = require('../../../shared/dataobject-falcor-util');
+let falcorUtil = require('../../../shared/dataobject-falcor-util');
 
 const CONST_ALL = falcorUtil.CONST_ALL,
     CONST_ANY = falcorUtil.CONST_ANY,
@@ -37,8 +37,8 @@ const createPath = responseBuilder.createPath,
     mergePathSets = responseBuilder.mergePathSets,
     pathKeys = responseBuilder.pathKeys;
 
-var options = {};
-var runOffline = process.env.RUN_OFFLINE;
+let options = {};
+let runOffline = process.env.RUN_OFFLINE;
 
 if (runOffline) {
     options.runOffline = runOffline;
@@ -57,21 +57,21 @@ const searchResultExpireTime = -30 * 60 * 1000;
 const logger = require('../common/logger/logger-service');
 
 async function initiateSearch(callPath, args) {
-    var response = [];
-    var isCombinedQuerySearch = false;
-    var isRelatedEntitySearch = false;
+    let response = [];
+    let isCombinedQuerySearch = false;
+    let isRelatedEntitySearch = false;
 
     try {
 
         //console.log(callPath, args);
 
-        var requestId = uuidV1(),
+        let requestId = uuidV1(),
             request = args[0],
             dataIndex = callPath[1],
             dataSubIndex = callPath[2],
             basePath = [pathKeys.root, dataIndex, dataSubIndex, pathKeys.searchResults, requestId];
 
-        var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
+        let dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
 
 
         if (!isEmpty(dataIndexInfo.dataSubIndexInfo)) {
@@ -80,9 +80,11 @@ async function initiateSearch(callPath, args) {
 
         request.dataIndex = dataIndex;
 
-        var operation = request.operation || "search";
+        let operation = request.operation || "search";
 
-        var maxRecordsSupported = dataIndexInfo.maxRecordsToReturn || 2000;
+        let maxRecordsSupported = dataIndexInfo.maxRecordsToReturn || 2000;
+
+        let options = {};
 
         if (request.params) {
             if (request.params.isCombinedQuerySearch) {
@@ -97,13 +99,13 @@ async function initiateSearch(callPath, args) {
 
                 //Identify the last executable query...
                 if (request.entity && request.entity.data && request.entity.data.jsonData) {
-                    var searchQueries = request.entity.data.jsonData.searchQueries;
+                    let searchQueries = request.entity.data.jsonData.searchQueries;
 
                     if (searchQueries) {
-                        var currentSearchQuerysequence = 0;
-                        var highestSeqSearchQuery = undefined;
-                        for (var i = 0; i < searchQueries.length; i++) {
-                            var searchQuery = searchQueries[i];
+                        let currentSearchQuerysequence = 0;
+                        let highestSeqSearchQuery = undefined;
+                        for (let i = 0; i < searchQueries.length; i++) {
+                            let searchQuery = searchQueries[i];
 
                             if (searchQuery.searchQuery && searchQuery.searchQuery.options) {
                                 delete searchQuery.searchQuery.options;
@@ -116,7 +118,7 @@ async function initiateSearch(callPath, args) {
                         }
 
                         if (highestSeqSearchQuery) {
-                            var options = falcorUtil.getOrCreate(highestSeqSearchQuery.searchQuery, 'options', {});
+                            options = falcorUtil.getOrCreate(highestSeqSearchQuery.searchQuery, 'options', {});
                             options.maxRecords = maxRecordsSupported;
                         }
                     }
@@ -127,7 +129,7 @@ async function initiateSearch(callPath, args) {
                     delete request.params.isRelatedEntitySearch;
                 }
 
-                var options = falcorUtil.getOrCreate(request.params, 'options', {});
+                options = falcorUtil.getOrCreate(request.params, 'options', {});
                 options.maxRecords = maxRecordsSupported;
             }
         }
@@ -136,14 +138,14 @@ async function initiateSearch(callPath, args) {
             options.maxRecords = 1; // Do not load entity ids and types if only count is requested..
         }
 
-        var dataObjectType = undefined;
+        let dataObjectType = undefined;
 
         if (request.params.query && request.params.query.filters &&
             request.params.query.filters.typesCriterion && request.params.query.filters.typesCriterion.length) {
             dataObjectType = request.params.query.filters.typesCriterion[0]; // pick first object type..
         }
 
-        var service = _getService(dataObjectType, true, dataIndex);
+        let service = _getService(dataObjectType, true, dataIndex);
 
         if (service != eventService) {
             //console.log('request str', JSON.stringify(request, null, 4));
@@ -152,9 +154,9 @@ async function initiateSearch(callPath, args) {
             //Remove value contexts if there are no filters defined other than typesCriterion
             //This is needed to improve the performance of search/get functionality
             if (request.params.query && request.params.query.filters && request.params.query.valueContexts) {
-                var removeValueContexts = true;
-                var filters = request.params.query.filters;
-                for (var criterionKey in filters) {
+                let removeValueContexts = true;
+                let filters = request.params.query.filters;
+                for (let criterionKey in filters) {
                     if (criterionKey != "typesCriterion" && !isEmpty(filters[criterionKey])) {
                         removeValueContexts = false;
                         break;
@@ -167,7 +169,7 @@ async function initiateSearch(callPath, args) {
             }
         }
 
-        var res = undefined;
+        let res = undefined;
         if (isCombinedQuerySearch) {
             res = await service.getCombined(request);
         } else if (isRelatedEntitySearch) {
@@ -179,29 +181,29 @@ async function initiateSearch(callPath, args) {
         }
 
         // console.log('response raw str', JSON.stringify(res, null, 4));
-        var totalRecords = 0;
+        let totalRecords = 0;
 
-        var resultRecordSize = 0;
+        let resultRecordSize = 0;
 
-        var collectionName = dataIndexInfo.collectionName;
+        let collectionName = dataIndexInfo.collectionName;
 
-        var dataObjectResponse = res ? res[dataIndexInfo.responseObjectName] : undefined;
+        let dataObjectResponse = res ? res[dataIndexInfo.responseObjectName] : undefined;
 
         if (dataObjectResponse && dataObjectResponse.status == "success") {
             //     console.log('collection name ', JSON.stringify(collectionName, null, 4));
-            var dataObjects = dataObjectResponse[collectionName];
-            var index = 0;
+            let dataObjects = dataObjectResponse[collectionName];
+            let index = 0;
 
             if (dataObjects !== undefined) {
                 totalRecords = dataObjectResponse.totalRecords;
 
-                var additionalIdsRequested = [];
+                let additionalIdsRequested = [];
                 if (!request.params.query || !request.params.query.filters || (!request.params.query.filters.attributesCriterion && !request.params.query.filters.keywordsCriterion)) {
                     if (dataObjectType && request.params.additionalIds && request.params.additionalIds.length > 0) {
                         additionalIdsRequested = request.params.additionalIds;
 
                         for (let additionalId of additionalIdsRequested) {
-                            var dataObjectsByIdPath = [pathKeys.root, dataIndex, dataSubIndex, dataObjectType, pathKeys.byIds];
+                            let dataObjectsByIdPath = [pathKeys.root, dataIndex, dataSubIndex, dataObjectType, pathKeys.byIds];
                             response.push(mergeAndCreatePath(basePath, [pathKeys.searchResultItems, index++], $ref(mergePathSets(dataObjectsByIdPath, [additionalId])), searchResultExpireTime));
                         }
                     }
@@ -215,8 +217,8 @@ async function initiateSearch(callPath, args) {
                     for (let dataObject of dataObjects) {
                         if (dataObject.id !== undefined) {
                             if (additionalIdsRequested.indexOf(dataObject.id) < 0) {
-                                var dataObjectType = dataObject.type;
-                                var dataObjectsByIdPath = [pathKeys.root, dataIndex, dataSubIndex, dataObjectType, pathKeys.byIds];
+                                let dataObjectType = dataObject.type;
+                                let dataObjectsByIdPath = [pathKeys.root, dataIndex, dataSubIndex, dataObjectType, pathKeys.byIds];
                                 response.push(mergeAndCreatePath(basePath, [pathKeys.searchResultItems, index++], $ref(mergePathSets(dataObjectsByIdPath, [dataObject.id])), searchResultExpireTime));
                                 resultRecordSize++;
                             }
@@ -228,7 +230,7 @@ async function initiateSearch(callPath, args) {
         else if (dataObjectResponse && dataObjectResponse.status == 'error') {
             if (dataObjectResponse.statusDetail) {
                 if (dataObjectResponse.statusDetail.messages) {
-                    var firstAvailableError = dataObjectResponse.statusDetail.messages[0];
+                    let firstAvailableError = dataObjectResponse.statusDetail.messages[0];
                     if (firstAvailableError) {
                         throw firstAvailableError;
                     }
@@ -248,8 +250,6 @@ async function initiateSearch(callPath, args) {
     catch (err) {
         response = buildErrorResponse(err, "Failed to get search results.");
     }
-    finally {
-    }
 
     //console.log(JSON.stringify(response));
     return response;
@@ -257,12 +257,12 @@ async function initiateSearch(callPath, args) {
 
 async function getSearchResultDetail(pathSet) {
 
-    var response = [];
+    let response = [];
     //console.log(pathSet.requestIds, pathSet.dataObjectRanges);
 
-    var requestId = pathSet.requestIds[0];
+    let requestId = pathSet.requestIds[0];
     //console.log(requestId);
-    var dataIndex = pathSet[1],
+    let dataIndex = pathSet[1],
         dataSubIndex = pathSet[2],
         basePath = [pathKeys.root, dataIndex, dataSubIndex];
 
@@ -273,18 +273,18 @@ async function getSearchResultDetail(pathSet) {
 
 function createGetRequest(reqData) {
 
-    var contexts = falcorUtil.createCtxItems(reqData.ctxKeys);
-    var valContexts = falcorUtil.createCtxItems(reqData.valCtxKeys);
+    let contexts = falcorUtil.createCtxItems(reqData.ctxKeys);
+    let valContexts = falcorUtil.createCtxItems(reqData.valCtxKeys);
 
-    var fields = {};
+    let fields = {};
 
     if (reqData.operation == "getMappings" && arrayContains(reqData.mapKeys, "attributeMap")) {
         fields.attributes = ['_ALL'];
     }
     else {
-        var attrNames = reqData.attrNames;
+        let attrNames = reqData.attrNames;
         if (attrNames !== undefined && attrNames.length > 0) {
-            var clonedAttrNames = falcorUtil.cloneObject(attrNames);
+            let clonedAttrNames = falcorUtil.cloneObject(attrNames);
             arrayRemove(clonedAttrNames, CONST_DATAOBJECT_METADATA_FIELDS);
             arrayRemove(clonedAttrNames, CONST_CTX_PROPERTIES);
             fields.attributes = clonedAttrNames;
@@ -295,13 +295,13 @@ function createGetRequest(reqData) {
         fields.relationships = ['_ALL'];
     }
     else {
-        var relTypes = reqData.relTypes;
+        let relTypes = reqData.relTypes;
         if (relTypes !== undefined && relTypes.length > 0) {
             fields.relationships = relTypes;
         }
     }
 
-    var relIds = reqData.relIds;
+    let relIds = reqData.relIds;
     if (relIds !== undefined && relIds.length > 0) {
         fields.relIds = relIds;
     }
@@ -310,13 +310,13 @@ function createGetRequest(reqData) {
         fields.relationshipAttributes = ['_ALL'];
     }
     else {
-        var relAttrNames = reqData.relAttrNames;
+        let relAttrNames = reqData.relAttrNames;
         if (relAttrNames !== undefined && relAttrNames.length > 0) {
             fields.relationshipAttributes = relAttrNames;
         }
     }
 
-    var options = {
+    let options = {
         maxRecords: 2000
     };
 
@@ -333,13 +333,13 @@ function createGetRequest(reqData) {
         fields.properties = ["_ALL"];
     }
 
-    var filters = {};
+    let filters = {};
 
     if (reqData.dataObjectType) {
         filters.typesCriterion = [reqData.dataObjectType];
     }
 
-    var query = {};
+    let query = {};
 
     if (!isEmpty(contexts)) {
         query.contexts = contexts;
@@ -360,7 +360,7 @@ function createGetRequest(reqData) {
         query.filters = filters;
     }
 
-    var params = {
+    let params = {
         query: query,
         fields: fields,
         options: options
@@ -374,7 +374,7 @@ function createGetRequest(reqData) {
         params.intent = reqData.intent;
     }
 
-    var request = {
+    let request = {
         dataIndex: reqData.dataIndex,
         dataSubIndex: reqData.dataSubIndex,
         params: params
@@ -405,16 +405,16 @@ function _getService(dataObjectType, isInitiateSearch, dataIndex) {
 }
 
 async function get(dataObjectIds, reqData) {
-    var response = {};
-    var operation = reqData.operation;
+    let response = {};
+    let operation = reqData.operation;
 
     try {
-        var res = undefined;
-        var isCoalesceGet = false;
-        var isNearestGet = false;
+        let res = undefined;
+        let isCoalesceGet = false;
+        let isNearestGet = false;
 
-        var service = _getService(reqData.dataObjectType, false, reqData.dataIndex);
-        var request = createGetRequest(reqData);
+        let service = _getService(reqData.dataObjectType, false, reqData.dataIndex);
+        let request = createGetRequest(reqData);
 
         if (reqData.dataObjectType == "classification") {
             if (!isEmpty(reqData.relAttrNames) && reqData.relAttrNames[0] == "lineagepath") {
@@ -429,7 +429,7 @@ async function get(dataObjectIds, reqData) {
         }
         else if (request.dataIndex == "config" && reqData.dataObjectType == 'uiConfig') {
             if (!isEmpty(request.params.query.contexts)) {
-                var contexts = request.params.query.contexts;
+                let contexts = request.params.query.contexts;
                 if (contexts && contexts.length > 0) {
                     isNearestGet = true;
                 }
@@ -438,7 +438,7 @@ async function get(dataObjectIds, reqData) {
 
         //set the ids into request object..
         if (dataObjectIds.length > 1) {
-            for (var idx in dataObjectIds) {
+            for (let idx in dataObjectIds) {
                 dataObjectIds[idx] = dataObjectIds[idx].toString();
             }
 
@@ -462,7 +462,7 @@ async function get(dataObjectIds, reqData) {
 
         //console.log('get res from api ', JSON.stringify(res, null, 4));
 
-        var dataIndexInfo = pathKeys.dataIndexInfo[request.dataIndex];
+        let dataIndexInfo = pathKeys.dataIndexInfo[request.dataIndex];
 
         if (!isEmpty(dataIndexInfo.dataSubIndexInfo)) {
             if (isEmpty(request.dataSubIndex)) {
@@ -474,17 +474,17 @@ async function get(dataObjectIds, reqData) {
 
         reqData.cacheExpiryDuration = dataIndexInfo && dataIndexInfo.cacheExpiryDurationInMins ? -(dataIndexInfo.cacheExpiryDurationInMins * 60 * 1000) : -(60 * 60 * 1000);
 
-        var dataObjectResponse = res && dataIndexInfo && dataIndexInfo.responseObjectName ? res[dataIndexInfo.responseObjectName] : undefined;
+        let dataObjectResponse = res && dataIndexInfo && dataIndexInfo.responseObjectName ? res[dataIndexInfo.responseObjectName] : undefined;
 
         if (dataObjectResponse && dataObjectResponse.status == "success") {
-            var dataObjects = dataIndexInfo && dataIndexInfo.collectionName ? dataObjectResponse[dataIndexInfo.collectionName] : undefined;
+            let dataObjects = dataIndexInfo && dataIndexInfo.collectionName ? dataObjectResponse[dataIndexInfo.collectionName] : undefined;
 
             if (dataObjects !== undefined) {
-                var byIdsJson = response[pathKeys.byIds] = {};
+                let byIdsJson = response[pathKeys.byIds] = {};
                 for (let dataObject of dataObjects) {
-                    var dataObjectType = dataObject.type;
+                    let dataObjectType = dataObject.type;
 
-                    var dataObjectResponseJson = buildResponse(dataObject, reqData);
+                    let dataObjectResponseJson = buildResponse(dataObject, reqData);
 
                     byIdsJson[dataObject.id] = dataObjectResponseJson;
                 }
@@ -495,8 +495,8 @@ async function get(dataObjectIds, reqData) {
 
                     //console.log('byIdJson so far before nearest get response ', JSON.stringify(byIdsJson, null, 2));
                     //Nearest get should always return first nearest object hence considering first requested Id and first dataObject in response...
-                    var requestedId = dataObjectIds[0];
-                    var dataObject = dataObjects[0];
+                    let requestedId = dataObjectIds[0];
+                    let dataObject = dataObjects[0];
 
                     if (!isEmpty(dataObject) && requestedId != dataObject.id) {
                         //populate as ref...
@@ -507,26 +507,25 @@ async function get(dataObjectIds, reqData) {
         }
     }
     catch (err) {
-        var errMsg = "".concat('Failed to get data.\nOperation:', operation, '\nError:', err.message, '\nStackTrace:', err.stack);
+        let errMsg = "".concat('Failed to get data.\nOperation:', operation, '\nError:', err.message, '\nStackTrace:', err.stack);
         logger.error(errMsg, null, logger.getCurrentModule());
         throw err;
     }
-    finally {
-    }
+
     //console.log('res', JSON.stringify(response, null, 4));
     return response;
 }
 
 async function getByIds(pathSet, operation) {
 
-    var response = {};
+    let response = {};
 
     try {
 
         /*
          */
         //console.log('---------------------' , operation, ' dataObjectsById call pathset requested:', pathSet, ' operation:', operation);
-        var reqDataObjectTypes = pathSet.dataObjectTypes;
+        let reqDataObjectTypes = pathSet.dataObjectTypes;
 
         const reqData = {
             'dataIndex': pathSet.dataIndexes[0],
@@ -546,24 +545,22 @@ async function getByIds(pathSet, operation) {
             'operation': operation
         }
 
-        var jsonGraphResponse = response['jsonGraph'] = {};
-        var rootJson = jsonGraphResponse[pathKeys.root] = {};
-        var indexJSON = rootJson[reqData.dataIndex] = {};
-        var dataJson = indexJSON[reqData.dataSubIndex] = {};
+        let jsonGraphResponse = response['jsonGraph'] = {};
+        let rootJson = jsonGraphResponse[pathKeys.root] = {};
+        let indexJSON = rootJson[reqData.dataIndex] = {};
+        let dataJson = indexJSON[reqData.dataSubIndex] = {};
 
         // system flow supports only 1 type at time for bulk get..this is needed to make sure we have specialized code flow for the given data object types
         for (let dataObjectType of reqDataObjectTypes) {
             reqData.dataObjectType = dataObjectType;
-            var dataByObjectTypeJson = await get(reqData.dataObjectIds, reqData);
+            let dataByObjectTypeJson = await get(reqData.dataObjectIds, reqData);
             dataJson[dataObjectType] = dataByObjectTypeJson;
         }
     }
     catch (err) {
-        var errMsg = "".concat('Failed to get data.\nOperation:', operation, '\nError:', err.message, '\nStackTrace:', err.stack);
+        let errMsg = "".concat('Failed to get data.\nOperation:', operation, '\nError:', err.message, '\nStackTrace:', err.stack);
         logger.error(errMsg, null, logger.getCurrentModule());
         throw err;
-    }
-    finally {
     }
 
     //console.log('getByIds response ', JSON.stringify(response, null, 4));
@@ -572,32 +569,32 @@ async function getByIds(pathSet, operation) {
 
 async function processData(dataIndex, dataSubIndex, dataObjects, dataObjectAction, operation, clientState) {
     //console.log(dataObjectAction, operation);
-    var response = {};
+    let response = {};
     try {
-        var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
+        let dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
 
         if (!isEmpty(dataIndexInfo.dataSubIndexInfo) && !isEmpty(dataSubIndex)) {
             dataIndexInfo = dataIndexInfo.dataSubIndexInfo[dataSubIndex];
         }
 
 
-        var jsonGraphResponse = response['jsonGraph'] = {};
-        var rootJson = jsonGraphResponse[pathKeys.root] = {};
+        let jsonGraphResponse = response['jsonGraph'] = {};
+        let rootJson = jsonGraphResponse[pathKeys.root] = {};
         rootJson[dataIndex] = {};
-        var dataJson = rootJson[dataIndex][dataSubIndex] = {};
+        let dataJson = rootJson[dataIndex][dataSubIndex] = {};
 
-        for (var dataObjectId in dataObjects) {
-            var responsePaths = [];
-            var dataObject = dataObjects[dataObjectId];
+        for (let dataObjectId in dataObjects) {
+            let responsePaths = [];
+            let dataObject = dataObjects[dataObjectId];
             formatDataObjectForSave(dataObject);
 
             //Extract original rel ids from request dataobject if relationships are requested for process.
-            var originalRelIds = _getOriginalRelIds(dataObject);
+            let originalRelIds = _getOriginalRelIds(dataObject);
 
             //console.log('dataObject data', JSON.stringify(dataObject, null, 4));
 
-            var dataObjectType = dataObject.type;
-            var apiRequestObj = { 'dataIndex': dataIndex, 'clientState': clientState };
+            let dataObjectType = dataObject.type;
+            let apiRequestObj = { 'dataIndex': dataIndex, 'clientState': clientState };
             apiRequestObj[dataIndexInfo.name] = falcorUtil.cloneObject(dataObject);
 
             let service = _getService(dataObjectType, false, dataIndex);
@@ -614,20 +611,22 @@ async function processData(dataIndex, dataSubIndex, dataObjects, dataObjectActio
                 _prependAdditionalParams(apiRequestObj, dataIndexInfo.name);
             }
             //console.log('api request data for process dataObjects', JSON.stringify(apiRequestObj));
-            var dataOperationResult = await service.process(apiRequestObj, dataObjectAction, dataObjectType);
+            let dataOperationResult = await service.process(apiRequestObj, dataObjectAction, dataObjectType);
+
+            let dataByObjectTypeJson = undefined;
 
             //console.log('dataObject api UPDATE raw response', JSON.stringify(dataOperationResult, null, 4));
             if (dataOperationResult && !isEmpty(dataOperationResult)) {
-                var responsePath = dataIndexInfo.responseObjectName;
-                var cacheExpiryDurationInMins = dataIndexInfo.cacheExpiryDurationInMins;
+                let responsePath = dataIndexInfo.responseObjectName;
+                let cacheExpiryDurationInMins = dataIndexInfo.cacheExpiryDurationInMins;
 
-                var dataOperationResponse = dataOperationResult[responsePath];
+                let dataOperationResponse = dataOperationResult[responsePath];
                 if (dataOperationResponse && dataOperationResponse.status == 'success') {
                     if (dataObject) {
 
-                        var basePath = [pathKeys.root, dataIndex, dataSubIndex, dataObjectType, pathKeys.byIds, dataObjectId];
+                        let basePath = [pathKeys.root, dataIndex, dataSubIndex, dataObjectType, pathKeys.byIds, dataObjectId];
 
-                        var reqData = {
+                        let reqData = {
                             'dataIndex': dataIndex,
                             'dataSubIndex': dataSubIndex,
                             'dataObjectType': CONST_ALL,
@@ -646,8 +645,8 @@ async function processData(dataIndex, dataSubIndex, dataObjects, dataObjectActio
                             'cacheExpiryDuration': cacheExpiryDurationInMins ? -(cacheExpiryDurationInMins * 60 * 1000) : -(60 * 60 * 1000)
                         };
 
-                        var dataByObjectTypeJson = dataJson[dataObjectType];
-                        var byIdsJson;
+                        dataByObjectTypeJson = dataJson[dataObjectType];
+                        let byIdsJson;
 
                         if (dataByObjectTypeJson == undefined || dataByObjectTypeJson == null) {
                             dataByObjectTypeJson = dataJson[dataObjectType] = {};
@@ -657,7 +656,7 @@ async function processData(dataIndex, dataSubIndex, dataObjects, dataObjectActio
                             byIdsJson = dataByObjectTypeJson[pathKeys.byIds];
                         }
 
-                        var dataObjectResponseJson = buildResponse(dataObject, reqData, responsePaths);
+                        let dataObjectResponseJson = buildResponse(dataObject, reqData, responsePaths);
                         byIdsJson[dataObjectId] = dataObjectResponseJson;
 
                         if (!response.paths) {
@@ -670,7 +669,7 @@ async function processData(dataIndex, dataSubIndex, dataObjects, dataObjectActio
                 else if (dataOperationResponse && dataOperationResponse.status == 'error') {
                     if (dataOperationResponse.statusDetail) {
                         if (dataOperationResponse.statusDetail.messages) {
-                            var firstAvailableError = dataOperationResponse.statusDetail.messages[0];
+                            let firstAvailableError = dataOperationResponse.statusDetail.messages[0];
                             if (firstAvailableError) {
                                 throw firstAvailableError;
                             }
@@ -682,12 +681,12 @@ async function processData(dataIndex, dataSubIndex, dataObjects, dataObjectActio
                 }
             }
 
-            if (operation == "update" && dataIndex == "entityData") {
-                var clonedDataByObjectTypeJson = falcorUtil.cloneObject(dataByObjectTypeJson);
-                var clonedPaths = falcorUtil.cloneObject(responsePaths);
+            if (operation == "update" && dataIndex == "entityData" && dataByObjectTypeJson) {
+                let clonedDataByObjectTypeJson = falcorUtil.cloneObject(dataByObjectTypeJson);
+                let clonedPaths = falcorUtil.cloneObject(responsePaths);
 
                 if (!(isEmpty(clonedDataByObjectTypeJson) && isEmpty(clonedPaths))) {
-                    var coalescedJsonData = rootJson['coalescedData'] = {};
+                    let coalescedJsonData = rootJson['coalescedData'] = {};
 
                     if (!isEmpty(dataSubIndex)) {
                         coalescedJsonData = rootJson[dataIndex]['coalescedData'] = {};
@@ -717,8 +716,6 @@ async function processData(dataIndex, dataSubIndex, dataObjects, dataObjectActio
     catch (err) {
         response = buildErrorResponse(err, "Failed to submit " + operation + " request.");
     }
-    finally {
-    }
 
     //console.log(JSON.stringify(response, null, 4));
     return response;
@@ -726,16 +723,16 @@ async function processData(dataIndex, dataSubIndex, dataObjects, dataObjectActio
 
 async function create(callPath, args, operation) {
 
-    var response;
+    let response;
 
     try {
-        var jsonEnvelope = args[0];
-        var dataIndex = callPath.dataIndexes[0];
-        var dataSubIndex = callPath.dataSubIndexes[0];
-        var dataObjectType = callPath.dataObjectTypes[0]; //TODO: need to support for bulk..
-        var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][dataSubIndex][dataObjectType][pathKeys.byIds];
-        var clientState = jsonEnvelope.json.clientState;
-        var dataObjectIds = Object.keys(dataObjects);
+        let jsonEnvelope = args[0];
+        let dataIndex = callPath.dataIndexes[0];
+        let dataSubIndex = callPath.dataSubIndexes[0];
+        let dataObjectType = callPath.dataObjectTypes[0]; //TODO: need to support for bulk..
+        let dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][dataSubIndex][dataObjectType][pathKeys.byIds];
+        let clientState = jsonEnvelope.json.clientState;
+        let dataObjectIds = Object.keys(dataObjects);
         //console.log(dataObjects);
 
         //TODO: made showNotificationToUser flag false for entity create till we decide how it has to be.
@@ -745,10 +742,10 @@ async function create(callPath, args, operation) {
 
         // create new guids for the dataObjects to be created..
         for (let dataObjectId of dataObjectIds) {
-            var dataObject = dataObjects[dataObjectId];
+            let dataObject = dataObjects[dataObjectId];
 
             if (dataObject.id == undefined || dataObject.id == "") {
-                var newDataObjectId = uuidV1();
+                let newDataObjectId = uuidV1();
                 //console.log('new dataObject id', newDataObjectId);
                 dataObject.id = newDataObjectId;
             }
@@ -759,30 +756,26 @@ async function create(callPath, args, operation) {
     catch (err) {
         response = buildErrorResponse(err, "Failed to submit create request.");
     }
-    finally {
-    }
 
     return response;
 }
 
 async function update(callPath, args, operation) {
 
-    var response;
+    let response;
 
     try {
-        var jsonEnvelope = args[0];
-        var dataIndex = callPath.dataIndexes[0];
-        var dataSubIndex = callPath.dataSubIndexes[0];
-        var dataObjectType = callPath.dataObjectTypes[0]; //TODO: need to support for bulk..
-        var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][dataSubIndex][dataObjectType][pathKeys.byIds];
-        var clientState = jsonEnvelope.json.clientState;
+        let jsonEnvelope = args[0];
+        let dataIndex = callPath.dataIndexes[0];
+        let dataSubIndex = callPath.dataSubIndexes[0];
+        let dataObjectType = callPath.dataObjectTypes[0]; //TODO: need to support for bulk..
+        let dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][dataSubIndex][dataObjectType][pathKeys.byIds];
+        let clientState = jsonEnvelope.json.clientState;
 
         response = processData(dataIndex, dataSubIndex, dataObjects, "update", operation, clientState);
     }
     catch (err) {
         response = buildErrorResponse(err, "Failed to submit update request.");
-    }
-    finally {
     }
 
     return response;
@@ -790,32 +783,30 @@ async function update(callPath, args, operation) {
 
 async function deleteDataObjects(callPath, args, operation) {
 
-    var response;
+    let response;
 
     try {
-        var jsonEnvelope = args[0];
-        var dataIndex = callPath.dataIndexes[0];
-        var dataSubIndex = callPath.dataSubIndexes[0];
-        var dataObjectType = callPath.dataObjectTypes[0]; //TODO: need to support for bulk..
-        var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][dataSubIndex][dataObjectType][pathKeys.byIds];
-        var clientState = jsonEnvelope.json.clientState;
+        let jsonEnvelope = args[0];
+        let dataIndex = callPath.dataIndexes[0];
+        let dataSubIndex = callPath.dataSubIndexes[0];
+        let dataObjectType = callPath.dataObjectTypes[0]; //TODO: need to support for bulk..
+        let dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][dataSubIndex][dataObjectType][pathKeys.byIds];
+        let clientState = jsonEnvelope.json.clientState;
 
         response = processData(dataIndex, dataSubIndex, dataObjects, "delete", operation, clientState);
     }
     catch (err) {
         response = buildErrorResponse(err, "Failed to submit delete request.");
     }
-    finally {
-    }
 
     return response;
 }
 
 function _getOriginalRelIds(dataObject) {
-    var originalRelIds;
+    let originalRelIds;
 
     if (dataObject.data && dataObject.data.relationships) {
-        var rels = dataObject.data.relationships;
+        let rels = dataObject.data.relationships;
 
         if (rels.originalRelIds) {
             originalRelIds = rels.originalRelIds;
@@ -841,7 +832,7 @@ function _prependAdditionalParams(reqObject, dataInfoKey) {
 
 function _removeUnnecessaryProperties(reqObject) {
     if (reqObject && reqObject.entity && reqObject.entity.data) {
-        var data = reqObject.entity.data;
+        let data = reqObject.entity.data;
 
         if (data.webProcessingOptions) {
             delete data.webProcessingOptions;
@@ -872,8 +863,8 @@ function _removeUnnecessaryProperties(reqObject) {
 
 function _removePropertiesFromAttributes(attributes) {
     if (attributes) {
-        for (var attrKey in attributes) {
-            var attr = attributes[attrKey];
+        for (let attrKey in attributes) {
+            let attr = attributes[attrKey];
             if (attr.properties) {
                 delete attr.properties;
             }
@@ -883,8 +874,8 @@ function _removePropertiesFromAttributes(attributes) {
 
 function _removePropertiesFromRelationships(relationships) {
     if (relationships) {
-        for (var relKey in relationships) {
-            var rels = relationships[relKey];
+        for (let relKey in relationships) {
+            let rels = relationships[relKey];
             if (rels) {
                 rels.forEach(function (rel) {
                     if (rel.properties) {

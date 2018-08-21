@@ -1,18 +1,18 @@
 'use strict';
 
-var DFConnection = require('./DFConnection');
-var executionContext = require('../context-manager/execution-context');
-var logger = require('../logger/logger-service');
+let DFConnection = require('./DFConnection');
+let executionContext = require('../context-manager/execution-context');
+let logger = require('../logger/logger-service');
 
-var cryptoJS = require("crypto-js");
-var moment = require('moment');
-var uuidV1 = require('uuid/v1');
+let cryptoJS = require("crypto-js");
+let moment = require('moment');
+let uuidV1 = require('uuid/v1');
 
 const HTTP_POST = "POST";
 const HTTP_GET = "GET";
 
-var DFServiceBase = function (options) {
-    var _dataConnection = new DFConnection();
+let DFServiceBase = function (options) {
+    let _dataConnection = new DFConnection();
     this._restRequest = _dataConnection.getRequest();
     this._serverUrl = _dataConnection.getServerUrl();
     
@@ -24,23 +24,23 @@ var DFServiceBase = function (options) {
     this._timeout = _dataConnection.getTimeout();
 
     this.requestJson = async function (serviceName, request, tenant) {
-        var timeout = request.timeout || this._timeout;
-        var tenantId = tenant;
+        let timeout = request.timeout || this._timeout;
+        let tenantId = tenant;
         if(!tenantId){
             tenantId = this.getTenantId();  
         }  
-        var timeStamp = moment().toISOString();
+        let timeStamp = moment().toISOString();
 
-        var url = this._serverUrl + '/' + tenantId + '/api' + serviceName + '?timeStamp=' + timeStamp;
+        let url = this._serverUrl + '/' + tenantId + '/api' + serviceName + '?timeStamp=' + timeStamp;
 
-        var headers = this._createRequestHeaders(url, request);
+        let headers = this._createRequestHeaders(url, request);
 
-        for(var key in this._baseHeaders) {
-            var val = this._baseHeaders[key];
+        for(let key in this._baseHeaders) {
+            let val = this._baseHeaders[key];
             headers[key] = val;
         }
        
-        var options = {
+        let options = {
             url: url,
             method: HTTP_POST,
             headers: headers,
@@ -51,11 +51,11 @@ var DFServiceBase = function (options) {
             gzip: true
         };
 
-        var hrstart = process.hrtime();
-        var internalRequestId = logger.logRequest(serviceName, options);
-        var _self = this;
+        let hrstart = process.hrtime();
+        let internalRequestId = logger.logRequest(serviceName, options);
+        let _self = this;
 
-        var reqPromise = this._restRequest(options)
+        let reqPromise = this._restRequest(options)
             .catch(function (error) {
                logger.logException(internalRequestId, serviceName, options, error);
             })
@@ -63,9 +63,9 @@ var DFServiceBase = function (options) {
                 console.error(err); // This will print any error that was thrown in the previous error handler.
             });
 
-        var result = await reqPromise;
+        let result = await reqPromise;
 
-        var isErrorResponse = logger.logError(internalRequestId, serviceName, options, result);
+        let isErrorResponse = logger.logError(internalRequestId, serviceName, options, result);
 
         // console.log("request: -- - - - ", JSON.stringify(options, null, 2));
         // console.log("response: -- - - - ", JSON.stringify(result, null, 2));
@@ -80,8 +80,8 @@ var DFServiceBase = function (options) {
     };
 
     this.getUserName = function () {
-        var userName = "admin";
-        var securityContext = executionContext.getSecurityContext();
+        let userName = "admin";
+        let securityContext = executionContext.getSecurityContext();
 
         if (securityContext && securityContext.headers && securityContext.headers.userName) {
             userName = securityContext.headers.userName;
@@ -91,8 +91,8 @@ var DFServiceBase = function (options) {
     };
 
     this.getUserRoles = function () {
-        var userRoles = ["vendor"];
-        var securityContext = executionContext.getSecurityContext();
+        let userRoles = ["vendor"];
+        let securityContext = executionContext.getSecurityContext();
 
         if (securityContext && securityContext.headers && securityContext.headers.userRoles) {
             userRoles = securityContext.headers.userRoles;
@@ -102,8 +102,8 @@ var DFServiceBase = function (options) {
     };
 
     this.getUserDefaultRole  = function () {
-        var defaultRole = "vendor";
-        var securityContext = executionContext.getSecurityContext();
+        let defaultRole = "vendor";
+        let securityContext = executionContext.getSecurityContext();
 
         if (securityContext && securityContext.headers && securityContext.headers.defaultRole) {
             defaultRole = securityContext.headers.defaultRole;
@@ -113,8 +113,8 @@ var DFServiceBase = function (options) {
     };
 
     this.getOwnershipData = function () {
-        var ownershipData = "";
-        var securityContext = executionContext.getSecurityContext();
+        let ownershipData = "";
+        let securityContext = executionContext.getSecurityContext();
 
         if (securityContext && securityContext.headers && securityContext.headers.ownershipData) {
             ownershipData = securityContext.headers.ownershipData;
@@ -124,8 +124,8 @@ var DFServiceBase = function (options) {
     };
 
     this.getOwnershipEditData = function () {
-        var ownershipEditData = "";
-        var securityContext = executionContext.getSecurityContext();
+        let ownershipEditData = "";
+        let securityContext = executionContext.getSecurityContext();
 
         if (securityContext && securityContext.headers && securityContext.headers.ownershipEditData) {
             ownershipEditData = securityContext.headers.ownershipEditData;
@@ -135,8 +135,8 @@ var DFServiceBase = function (options) {
     };
 
     this.getTenantId = function () {
-        var tenantId = "";
-        var securityContext = executionContext.getSecurityContext();
+        let tenantId = "";
+        let securityContext = executionContext.getSecurityContext();
 
         if (securityContext && securityContext.tenantId) {
             tenantId = securityContext.tenantId;
@@ -146,16 +146,16 @@ var DFServiceBase = function (options) {
     };
 
     this._createRequestHeaders = function (url, request) {
-        var rdpApiHeaders = {};
-        var tenantId = this.getTenantId();
-        var userId = 'admin';
-        var userRoles = ["vendor"];
+        let rdpApiHeaders = {};
+        let tenantId = this.getTenantId();
+        let userId = 'admin';
+        let userRoles = ["vendor"];
 
-        var securityContext = executionContext.getSecurityContext();
+        let securityContext = executionContext.getSecurityContext();
 
         if (securityContext && securityContext.headers && securityContext.headers.userId) {
 
-            var secHeaders = securityContext.headers;
+            let secHeaders = securityContext.headers;
             userId = secHeaders.userId;
 
             if(secHeaders.userRoles) {

@@ -8,15 +8,15 @@ User connection ids:
 }
 */
 
-var redis = require("async-redis");
-var config = require('config');
-var client = null;
-var isStateServerEnabled = config.get('modules.stateServer.enabled');
-var isEmpty = require('../../common/utils/isEmpty');
+let redis = require("async-redis");
+let config = require('config');
+let client = null;
+let isStateServerEnabled = config.get('modules.stateServer.enabled');
+let isEmpty = require('../../common/utils/isEmpty');
 
 if (isStateServerEnabled) {
-    var connectionConfig = config.get('modules.stateServer.connection');
-    var redisUrl = "redis://" + connectionConfig.host + ":" + connectionConfig.port;
+    let connectionConfig = config.get('modules.stateServer.connection');
+    let redisUrl = "redis://" + connectionConfig.host + ":" + connectionConfig.port;
 
     client = redis.createClient(redisUrl);
 
@@ -25,11 +25,11 @@ if (isStateServerEnabled) {
     });
 }
 
-var localStorage = {};
+let localStorage = {};
 
 async function addUserConnectionIds(userId, connectionId) {
     if (userId && connectionId) {
-        var connections = await getData(userId);
+        let connections = await getData(userId);
 
         if (isEmpty(connections)) {
             connections = [];
@@ -47,7 +47,7 @@ async function addUserConnectionIds(userId, connectionId) {
 async function removeConnectionIdByUser(userId, connectionId) {
     if (userId && connectionId) {
 
-        var connections = await getData(userId);
+        let connections = await getData(userId);
         //console.log("Remove connection id by user ---->", userId);
         if (connections) {
             //console.log("Remove connection id by user: connections ---->", JSON.stringify(connections));            
@@ -59,7 +59,8 @@ async function removeConnectionIdByUser(userId, connectionId) {
 
 async function removeUserConnectionIds(userId) {
     if (userId) {
-        var connections = await client.get(cacheKey);
+        let cacheKey = "socket_conn_usr_" + userId;
+        let connections = await client.get(cacheKey);
         //console.log("Remove user from list ---->", userId);
         if (connections) {
             //console.log("Remove user from list: connections ---->", JSON.stringify(connections));
@@ -75,7 +76,7 @@ async function getConnectionIdsOfUser(userId) {
 }
 
 function arrayRemove(arr, val) {
-    var index = -1;
+    let index = -1;
     index = arr.indexOf(val);
     while (index >= 0) {
         arr.splice(index, 1);
@@ -84,11 +85,11 @@ function arrayRemove(arr, val) {
 }
 
 async function getData(userId) {
-    var data = [];
+    let data = [];
 
     if (isStateServerEnabled && client) {
-        var cacheKey = "socket_conn_usr_" + userId;
-        var promise = client.get(cacheKey).then(function (dataString) {
+        let cacheKey = "socket_conn_usr_" + userId;
+        let promise = client.get(cacheKey).then(function (dataString) {
             if(!isEmpty(dataString)) {
                 data = dataString.split("#@#");
             }
@@ -105,8 +106,8 @@ async function getData(userId) {
 
 async function setData(userId, connections) {
     if (isStateServerEnabled && client) {
-        var cacheKey = "socket_conn_usr_" + userId;
-        var connectionIds = connections.join("#@#");
+        let cacheKey = "socket_conn_usr_" + userId;
+        let connectionIds = connections.join("#@#");
         return await client.set(cacheKey, connectionIds);
     }
     else {
@@ -116,7 +117,7 @@ async function setData(userId, connections) {
 
 async function deleteData(userId) {
     if (isStateServerEnabled && client) {
-        var cacheKey = "socket_conn_usr_" + userId;
+        let cacheKey = "socket_conn_usr_" + userId;
         await client.del(cacheKey);
     }
     else if (localStorage[userId]) {

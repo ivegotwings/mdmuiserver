@@ -1,14 +1,14 @@
 'use strict';
 
-var redis = require("async-redis");
-var config = require('config');
-var client = null;
-var isStateServerEnabled = config.get('modules.stateServer.enabled');
-var isEmpty = require('../utils/isEmpty');
+let redis = require("async-redis");
+let config = require('config');
+let client = null;
+let isStateServerEnabled = config.get('modules.stateServer.enabled');
+let isEmpty = require('../utils/isEmpty');
 
 if (isStateServerEnabled) {
-    var connectionConfig = config.get('modules.stateServer.connection');
-    var redisUrl = "redis://" + connectionConfig.host + ":" + connectionConfig.port;
+    let connectionConfig = config.get('modules.stateServer.connection');
+    let redisUrl = "redis://" + connectionConfig.host + ":" + connectionConfig.port;
 
     client = redis.createClient(redisUrl);
 
@@ -17,12 +17,12 @@ if (isStateServerEnabled) {
     });
 }
 
-var localStorage = {};
+let localStorage = {};
 
 async function get(key) {
-    var data = undefined;
-    var cacheKey = getCacheKey(key);
-    var redisError = false;
+    let data = undefined;
+    let cacheKey = getCacheKey(key);
+    let redisError = false;
     if (isStateServerEnabled && client) {
         try {
             data = await client.get(cacheKey);
@@ -46,7 +46,7 @@ async function get(key) {
 }
 
 async function set(key, value) {
-    var cacheKey = getCacheKey(key);
+    let cacheKey = getCacheKey(key);
 
     if (isStateServerEnabled && client) {
         return await client.set(cacheKey, JSON.stringify(value));
@@ -57,7 +57,7 @@ async function set(key, value) {
 }
 
 async function remove(key) {
-    var cacheKey = getCacheKey(key);
+    let cacheKey = getCacheKey(key);
     if (isStateServerEnabled && client) {
         await client.del(cacheKey);
     }

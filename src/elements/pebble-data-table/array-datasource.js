@@ -5,8 +5,8 @@ function ArrayDataSource(arr) {
     }
 
     return Array.prototype.filter.call(items, function(item, index) {
-      for (var i = 0; i < filter.length; i++) {
-        var value = Polymer.Base.get(filter[i].path, item);
+      for (let i = 0; i < filter.length; i++) {
+        let value = Polymer.Base.get(filter[i].path, item);
         if ([undefined, null, ''].indexOf(filter[i].filter) > -1) {
           continue;
         } else if ([undefined, null].indexOf(value) > -1 ||
@@ -27,7 +27,7 @@ function ArrayDataSource(arr) {
       return items;
     }
 
-    var multiSort = function() {
+    let multiSort = function() {
       return function(a, b) {
         return sortOrder.map(function(sort) {
           if (sort.direction === 'asc') {
@@ -47,13 +47,13 @@ function ArrayDataSource(arr) {
   }
 
   return function(opts, cb, err) {
-    var filteredItems = _filter(arr, opts.filter);
+    let filteredItems = _filter(arr, opts.filter);
 
-    var sortedItems = _sort(filteredItems, opts.sortOrder);
+    let sortedItems = _sort(filteredItems, opts.sortOrder);
 
-    var start = opts.page * opts.pageSize;
-    var end = start + opts.pageSize;
-    var slice = sortedItems.slice(start, end);
+    let start = opts.page * opts.pageSize;
+    let end = start + opts.pageSize;
+    let slice = sortedItems.slice(start, end);
 
     cb(slice, filteredItems.length);
   };
