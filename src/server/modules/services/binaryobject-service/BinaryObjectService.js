@@ -97,12 +97,17 @@ BinaryObjectService.prototype = {
                 let utfString = baseString.toString('utf8');
 
                 if (utfString) {
-                    let jsonParsedResponse = JSON.parse(utfString);
-                    if (jsonParsedResponse) {
-                        let object = jsonParsedResponse[objectType];
-                        if(object && object.data && object.data.blob) {
-                            blob = object.data.blob;
+                    try {
+                        let jsonParsedResponse = JSON.parse(utfString);
+                        if (jsonParsedResponse) {
+                            let object = jsonParsedResponse[objectType];
+                            if(object && object.data && object.data.blob) {
+                                blob = object.data.blob;
+                            }
                         }
+                    }
+                    catch (ex) {
+                        console.log('error while downloading file: ', ex);
                     }
                 }
 
