@@ -1,4 +1,6 @@
 'use strict';
+
+// eslint-disable-next-line no-var
 var RUFUtilities = RUFUtilities || {};
 
 let datahelpers = (function () {
@@ -105,16 +107,19 @@ let datahelpers = (function () {
     types['undefined'] = function (a, b) {
         return true;
     }
+
     // decorate `fn` to prevent it re-checking objects
     // (function) -> function
     function memoGaurd(fn) {
         return function (a, b, memos) {
-            if (!memos) return fn(a, b, [])
-            let i = memos.length,
-                memo
+            if (!memos) return fn(a, b, []);
+            let i = memos.length;
+            let memo;
+            // eslint-disable-next-line no-cond-assign
             while (memo = memos[--i]) {
                 if (memo[0] === a && memo[1] === b) return true
             }
+
             return fn(a, b, memos)
         }
     }
@@ -171,8 +176,9 @@ let datahelpers = (function () {
 
         return true
     }
-    types['array'] = memoGaurd(arrayEqual)
-    types['object'] = memoGaurd(objectEqual)
+
+    types['array'] = memoGaurd(arrayEqual);
+    types['object'] = memoGaurd(objectEqual);
 
     function type(x) {
         let type = typeof x
@@ -826,7 +832,7 @@ DataObjectFalcorUtil.getNestedObject = function (obj, keys) {
 
     if (obj !== undefined) {
 
-        var obj = obj[next];
+        obj = obj[next];
 
         if (obj !== undefined && keys.length) {
             obj = DataObjectFalcorUtil.getNestedObject(obj, keys);

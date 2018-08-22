@@ -1,13 +1,13 @@
 (function () {
     window.RUFUtilities = window.RUFUtilities || {};
     RUFUtilities.Logger = {};
-    var log4JSLogger;
-    var loglevel = getQueryStringValue("loglevel") || "0";
+    let log4JSLogger;
+    let loglevel = getQueryStringValue("loglevel") || "0";
 
     RUFUtilities.initializeLogger = function () {
         log4JSLogger = log4javascript.getLogger("RUFLogging");
-        var ajaxAppender = new log4javascript.AjaxAppender("/data/logger/sendlogs");
-        var loglevel = "3";
+        let ajaxAppender = new log4javascript.AjaxAppender("/data/logger/sendlogs");
+        let loglevel = "3";
         switch (loglevel) {
             case "0": ajaxAppender.setThreshold(log4javascript.Level.OFF);
                 break;
@@ -30,7 +30,7 @@
         ajaxAppender.setBatchSize(1);
         ajaxAppender.sendAllOnUnload = true;
         ajaxAppender.setSessionId();
-        var jsonLayout = new log4javascript.JsonLayout();
+        let jsonLayout = new log4javascript.JsonLayout();
         ajaxAppender.setLayout(jsonLayout);
         log4JSLogger.addAppender(ajaxAppender);
         log4javascript.logLog.setQuietMode(true);
@@ -71,7 +71,7 @@
             callerModuleName = "ui-" + callerModuleName;
         }
 
-        var logObj = {
+        let logObj = {
             level: level,
             msg: msg,
             obj: obj,

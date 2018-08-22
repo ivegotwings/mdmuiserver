@@ -328,11 +328,13 @@ BaseModelService.prototype = {
             transformedModel = await this._transformCompositeModelForSave(compositeEntityTypeModel, request.entityModel);
 
             if (transformedModel) {
+                console.log("transformedModel:", JSON.stringify(transformedModel));
                 model = this._prepareEntityTypeModel(transformedModel);
                 compositeModels = this._prepareCompositeModels(transformedModel, compositeAttributeModel, request.entityModel);
             }
 
             if (!isEmpty(model)) {
+                console.log("Entity type Model:", JSON.stringify(model));
                 request[request.dataIndex] = model;
                 let dataOperationResult = await dataObjectManageService.process(request, action);
                 dataOperationResults.push(dataOperationResult);
@@ -351,6 +353,7 @@ BaseModelService.prototype = {
             }
 
             if (!isEmpty(compositeModels)) {
+                console.log("composite models:", JSON.stringify(compositeModels));
                 for (let compositeModel of compositeModels) {
                     request[request.dataIndex] = compositeModel;
                     let dataOperationResult = await dataObjectManageService.process(request, action);
@@ -536,6 +539,7 @@ BaseModelService.prototype = {
                     selfAttrsAndRels = await this._transformModelsIntoAttributesAndRelationships(compositeModelData, modelData);
 
                     if (selfAttrsAndRels) {
+                        console.log("self attributes and relationships:", JSON.stringify(selfAttrsAndRels));
                         if (selfAttrsAndRels.attributes) {
                             transformedModel.data.attributes = selfAttrsAndRels.attributes;
                         }
@@ -944,11 +948,13 @@ BaseModelService.prototype = {
                     case "haschildattributes":
                     case "hasrelationshipattributes": {
                         let attributes = entityTypeModelData.relationships[relType];
+                        console.log("attributes:", JSON.stringify(attributes));
                         let entityIds = attributes.map(v => v.relTo.id);
-
+        
                         if (entityIds) {
                             let entities = await modelGetManager.getModels(entityIds, "attributeModel");
                             if (entities) {
+                                console.log("attributeModel entities:", JSON.stringify(entities));
                                 for (let attr of attributes) {
                                     if (attr.action || attr.attributes) {
                                         let entity = entities.find(v => v.id == attr.relTo.id);
@@ -978,6 +984,7 @@ BaseModelService.prototype = {
                     }
                     case "hasrelationships": {
                         let relationships = entityTypeModelData.relationships[relType];
+                        console.log("relationships:", JSON.stringify(relationships));
                         let relEntityIds = relationships.map(v => v.relTo.id);
 
                         if (relEntityIds) {
@@ -985,6 +992,7 @@ BaseModelService.prototype = {
                             let relEntities = await modelGetManager.getModels(relEntityIds, "relationshipModel");
 
                             if (relEntityModel && relEntities) {
+                                console.log("relationshipModel entities:", JSON.stringify(relEntities));
                                 for (let rel of relationships) {
                                     if (rel.action || rel.attributes) {
                                         let relEntity = relEntities.find(v => v.id == rel.relTo.id);

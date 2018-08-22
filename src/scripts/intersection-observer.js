@@ -33,7 +33,7 @@ if ('IntersectionObserver' in window &&
  * element. Without this registry, instances without another reference may be
  * garbage collected.
  */
-var registry = [];
+let registry = [];
 
 
 /**
@@ -51,10 +51,10 @@ function IntersectionObserverEntry(entry) {
   this.isIntersecting = !!entry.intersectionRect;
 
   // Calculates the intersection ratio.
-  var targetRect = this.boundingClientRect;
-  var targetArea = targetRect.width * targetRect.height;
-  var intersectionRect = this.intersectionRect;
-  var intersectionArea = intersectionRect.width * intersectionRect.height;
+  let targetRect = this.boundingClientRect;
+  let targetArea = targetRect.width * targetRect.height;
+  let intersectionRect = this.intersectionRect;
+  let intersectionArea = intersectionRect.width * intersectionRect.height;
 
   // Sets intersection ratio.
   if (targetArea) {
@@ -77,7 +77,7 @@ function IntersectionObserverEntry(entry) {
  */
 function IntersectionObserver(callback, opt_options) {
 
-  var options = opt_options || {};
+  let options = opt_options || {};
 
   if (typeof callback != 'function') {
     throw new Error('callback must be a function');
@@ -178,7 +178,7 @@ IntersectionObserver.prototype.disconnect = function() {
  * @return {Array} The currently queued entries.
  */
 IntersectionObserver.prototype.takeRecords = function() {
-  var records = this._queuedEntries.slice();
+  let records = this._queuedEntries.slice();
   this._queuedEntries = [];
   return records;
 };
@@ -194,7 +194,7 @@ IntersectionObserver.prototype.takeRecords = function() {
  * @return {Array} A sorted list of unique and valid threshold values.
  */
 IntersectionObserver.prototype._initThresholds = function(opt_threshold) {
-  var threshold = opt_threshold || [0];
+  let threshold = opt_threshold || [0];
   if (!Array.isArray(threshold)) threshold = [threshold];
 
   return threshold.sort().filter(function(t, i, a) {
@@ -218,9 +218,9 @@ IntersectionObserver.prototype._initThresholds = function(opt_threshold) {
  *     value and unit.
  */
 IntersectionObserver.prototype._parseRootMargin = function(opt_rootMargin) {
-  var marginString = opt_rootMargin || '0px';
-  var margins = marginString.split(/\s+/).map(function(margin) {
-    var parts = /^(-?\d*\.?\d+)(px|%)$/.exec(margin);
+  let marginString = opt_rootMargin || '0px';
+  let margins = marginString.split(/\s+/).map(function(margin) {
+    let parts = /^(-?\d*\.?\d+)(px|%)$/.exec(margin);
     if (!parts) {
       throw new Error('rootMargin must be specified in pixels or percent');
     }
@@ -300,18 +300,18 @@ IntersectionObserver.prototype._unmonitorIntersections = function() {
  * @private
  */
 IntersectionObserver.prototype._checkForIntersections = function() {
-  var rootIsInDom = this._rootIsInDom();
-  var rootRect = rootIsInDom ? this._getRootRect() : getEmptyRect();
+  let rootIsInDom = this._rootIsInDom();
+  let rootRect = rootIsInDom ? this._getRootRect() : getEmptyRect();
 
   this._observationTargets.forEach(function(item) {
-    var target = item.element;
-    var targetRect = getBoundingClientRect(target);
-    var rootContainsTarget = this._rootContainsTarget(target);
-    var oldEntry = item.entry;
-    var intersectionRect = rootIsInDom && rootContainsTarget &&
+    let target = item.element;
+    let targetRect = getBoundingClientRect(target);
+    let rootContainsTarget = this._rootContainsTarget(target);
+    let oldEntry = item.entry;
+    let intersectionRect = rootIsInDom && rootContainsTarget &&
         this._computeTargetAndRootIntersection(target, rootRect);
 
-    var newEntry = item.entry = new IntersectionObserverEntry({
+    let newEntry = item.entry = new IntersectionObserverEntry({
       time: now(),
       target: target,
       boundingClientRect: targetRect,
@@ -361,14 +361,14 @@ IntersectionObserver.prototype._computeTargetAndRootIntersection =
   // If the element isn't displayed, an intersection can't happen.
   if (window.getComputedStyle(target).display == 'none') return;
 
-  var targetRect = getBoundingClientRect(target);
-  var intersectionRect = targetRect;
-  var parent = target.parentNode;
-  var atRoot = false;
+  let targetRect = getBoundingClientRect(target);
+  let intersectionRect = targetRect;
+  let parent = target.parentNode;
+  let atRoot = false;
 
   while (!atRoot) {
-    var parentRect = null;
-    var parentComputedStyle = window.getComputedStyle(parent);
+    let parentRect = null;
+    let parentComputedStyle = window.getComputedStyle(parent);
 
     // If the parent isn't displayed, an intersection can't happen.
     if (parentComputedStyle.display == 'none') return;
@@ -409,13 +409,13 @@ IntersectionObserver.prototype._computeTargetAndRootIntersection =
  * @private
  */
 IntersectionObserver.prototype._getRootRect = function() {
-  var rootRect;
+  let rootRect;
   if (this.root) {
     rootRect = getBoundingClientRect(this.root);
   } else {
     // Use <html>/<body> instead of window since scroll bars affect size.
-    var html = document.documentElement;
-    var body = document.body;
+    let html = document.documentElement;
+    let body = document.body;
     rootRect = {
       top: 0,
       left: 0,
@@ -436,11 +436,11 @@ IntersectionObserver.prototype._getRootRect = function() {
  * @private
  */
 IntersectionObserver.prototype._expandRectByRootMargin = function(rect) {
-  var margins = this._rootMarginValues.map(function(margin, i) {
+  let margins = this._rootMarginValues.map(function(margin, i) {
     return margin.unit == 'px' ? margin.value :
         margin.value * (i % 2 ? rect.width : rect.height) / 100;
   });
-  var newRect = {
+  let newRect = {
     top: rect.top - margins[0],
     right: rect.right + margins[1],
     bottom: rect.bottom + margins[2],
@@ -468,16 +468,16 @@ IntersectionObserver.prototype._hasCrossedThreshold =
 
   // To make comparing easier, an entry that has a ratio of 0
   // but does not actually intersect is given a value of -1
-  var oldRatio = oldEntry && oldEntry.isIntersecting ?
+  let oldRatio = oldEntry && oldEntry.isIntersecting ?
       oldEntry.intersectionRatio || 0 : -1;
-  var newRatio = newEntry.isIntersecting ?
+  let newRatio = newEntry.isIntersecting ?
       newEntry.intersectionRatio || 0 : -1;
 
   // Ignore unchanged ratios
   if (oldRatio === newRatio) return;
 
-  for (var i = 0; i < this.thresholds.length; i++) {
-    var threshold = this.thresholds[i];
+  for (let i = 0; i < this.thresholds.length; i++) {
+    let threshold = this.thresholds[i];
 
     // Return true if an entry matches a threshold or if the new ratio
     // and the old ratio are on the opposite sides of a threshold.
@@ -527,7 +527,7 @@ IntersectionObserver.prototype._registerInstance = function() {
  * @private
  */
 IntersectionObserver.prototype._unregisterInstance = function() {
-  var index = registry.indexOf(this);
+  let index = registry.indexOf(this);
   if (index != -1) registry.splice(index, 1);
 };
 
@@ -551,7 +551,7 @@ function now() {
  * @return {Function} The throttled function.
  */
 function throttle(fn, timeout) {
-  var timer = null;
+  let timer = null;
   return function () {
     if (!timer) {
       timer = setTimeout(function() {
@@ -607,12 +607,12 @@ function removeEvent(node, event, fn, opt_useCapture) {
  *     is found.
  */
 function computeRectIntersection(rect1, rect2) {
-  var top = Math.max(rect1.top, rect2.top);
-  var bottom = Math.min(rect1.bottom, rect2.bottom);
-  var left = Math.max(rect1.left, rect2.left);
-  var right = Math.min(rect1.right, rect2.right);
-  var width = right - left;
-  var height = bottom - top;
+  let top = Math.max(rect1.top, rect2.top);
+  let bottom = Math.min(rect1.bottom, rect2.bottom);
+  let left = Math.max(rect1.left, rect2.left);
+  let right = Math.min(rect1.right, rect2.right);
+  let width = right - left;
+  let height = bottom - top;
 
   return (width >= 0 && height >= 0) && {
     top: top,
@@ -631,7 +631,7 @@ function computeRectIntersection(rect1, rect2) {
  * @return {Object} The (possibly shimmed) rect of the element.
  */
 function getBoundingClientRect(el) {
-  var rect;
+  let rect;
 
   try {
     rect = el.getBoundingClientRect();
@@ -681,7 +681,7 @@ function getEmptyRect() {
  * @return {boolean} True if the parent node contains the child node.
  */
 function containsDeep(parent, child) {
-  var node = child;
+  let node = child;
   while (node) {
     // Check if the node is a shadow root, if it is get the host.
     if (node.nodeType == 11 && node.host) {
