@@ -945,9 +945,19 @@ BaseModelService.prototype = {
                     case "hasrelationshipattributes": {
                         let attributes = entityTypeModelData.relationships[relType];
                         let entityIds = attributes.map(v => v.relTo.id);
-
+        
                         if (entityIds) {
-                            let entities = await modelGetManager.getModels(entityIds, "attributeModel");
+                            let retryCount = 1;
+                            let maxRetryCount = 5;
+                            let entities;
+                            while(retryCount <= maxRetryCount) {
+                                entities = await modelGetManager.getModels(entityIds, "attributeModel");
+                                if(isEmpty(entities)) {
+                                    retryCount++;
+                                } else {
+                                    break;
+                                }
+                            }
                             if (entities) {
                                 for (let attr of attributes) {
                                     if (attr.action || attr.attributes) {
@@ -982,7 +992,17 @@ BaseModelService.prototype = {
 
                         if (relEntityIds) {
                             let relEntityModel = await modelGetManager.getCompositeModel("relationshipModel");
-                            let relEntities = await modelGetManager.getModels(relEntityIds, "relationshipModel");
+                            let retryCount = 1;
+                            let maxRetryCount = 5;
+                            let relEntities;
+                            while(retryCount <= maxRetryCount) {
+                                relEntities = await modelGetManager.getModels(relEntityIds, "relationshipModel");
+                                if(isEmpty(relEntities)) {
+                                    retryCount++;
+                                } else {
+                                    break;
+                                }
+                            }
 
                             if (relEntityModel && relEntities) {
                                 for (let rel of relationships) {
