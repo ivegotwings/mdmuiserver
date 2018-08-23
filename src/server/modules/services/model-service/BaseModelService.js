@@ -952,7 +952,17 @@ BaseModelService.prototype = {
                         let entityIds = attributes.map(v => v.relTo.id);
         
                         if (entityIds) {
-                            let entities = await modelGetManager.getModels(entityIds, "attributeModel");
+                            let retryCount = 1;
+                            let maxRetryCount = 5;
+                            let entities;
+                            while(retryCount <= maxRetryCount) {
+                                entities = await modelGetManager.getModels(entityIds, "attributeModel");
+                                if(isEmpty(entities)) {
+                                    retryCount++;
+                                } else {
+                                    retryCount = maxRetryCount + 1;
+                                }
+                            }
                             if (entities) {
                                 console.log("attributeModel entities:", JSON.stringify(entities));
                                 for (let attr of attributes) {
@@ -989,7 +999,17 @@ BaseModelService.prototype = {
 
                         if (relEntityIds) {
                             let relEntityModel = await modelGetManager.getCompositeModel("relationshipModel");
-                            let relEntities = await modelGetManager.getModels(relEntityIds, "relationshipModel");
+                            let retryCount = 1;
+                            let maxRetryCount = 5;
+                            let relEntities;
+                            while(retryCount <= maxRetryCount) {
+                                relEntities = await modelGetManager.getModels(relEntityIds, "relationshipModel");
+                                if(isEmpty(relEntities)) {
+                                    retryCount++;
+                                } else {
+                                    retryCount = maxRetryCount + 1;
+                                }
+                            }
 
                             if (relEntityModel && relEntities) {
                                 console.log("relationshipModel entities:", JSON.stringify(relEntities));
