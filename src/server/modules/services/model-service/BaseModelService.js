@@ -1000,7 +1000,7 @@ BaseModelService.prototype = {
                                 if(isEmpty(relEntities)) {
                                     retryCount++;
                                 } else {
-                                    retryCount = maxRetryCount + 1;
+                                    break;
                                 }
                             }
 
