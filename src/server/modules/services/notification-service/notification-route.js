@@ -19,6 +19,14 @@ function prepareNotificationObject(data) {
                 notificationInfo = clientState.notificationInfo;
 
                 if (!isEmpty(notificationInfo)) {
+                    let entityId = _getAttributeValue(attributes, "entityId");
+
+                    //HACK: Skip the notification if entityId attribute and clientState.context.id is not matching..
+                    // This is happening because RDF is copying and not changing clientState as it continue to process all the additional updates to other linked entities(like graph linked)
+                    if(!isEmpty(entityId) && notificationInfo.context && notificationInfo.context.id && notificationInfo.context.id != entityId) {
+                        return;
+                    }
+
                     let serviceName = _getAttributeValue(attributes, "serviceName");
                     let desc = _getAttributeValue(attributes, "description");
 
