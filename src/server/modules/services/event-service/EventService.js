@@ -910,7 +910,7 @@ Eventservice.prototype = {
     //Task summarization processor temp changes...
     _populateTaskStatsAndOtherProperties: function(requestObject, taskDetails) {
         let successCount = this._convertToPositiveInteger(this._getAttributeValue(requestObject, "totalRecordsSuccess"));
-        let errorCount = this._convertToPositiveInteger(this._getAttributeValue(requestObject, "totalRDPErrors")) + this._convertToPositiveInteger(this._getAttributeValue(requestObject, "totalTransformError"));
+        let errorCount = this._convertToPositiveInteger(this._getAttributeValue(requestObject, "totalRDPErrors")) + this._convertToPositiveInteger(this._getAttributeValue(requestObject, "totalTransformError")) + this._convertToPositiveInteger(this._getAttributeValue(requestObject, "totalLoadError"));
         let createCount = this._convertToPositiveInteger(this._getAttributeValue(requestObject, "totalRecordsCreate"));
         let updateCount = this._convertToPositiveInteger(this._getAttributeValue(requestObject, "totalRecordsUpdate"));
         let deleteCount = this._convertToPositiveInteger(this._getAttributeValue(requestObject, "totalRecordsDelete"));
