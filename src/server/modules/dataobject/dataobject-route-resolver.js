@@ -736,7 +736,7 @@ async function create(callPath, args, operation) {
         //console.log(dataObjects);
 
         //TODO: made showNotificationToUser flag false for entity create till we decide how it has to be.
-        if (clientState && clientState.notificationInfo) {
+        if (clientState && clientState.notificationInfo && !clientState.notificationInfo.showNotificationToUser) {
             clientState.notificationInfo.showNotificationToUser = false;
         }
 
