@@ -430,6 +430,11 @@ Custom property | Description | Default
                         value: function () {
                             return {};
                         }
+                    },
+
+                    dimensionSelectorRefresh : {
+                        type: Boolean,
+                        value: false
                     }
                 }
             }
@@ -462,7 +467,7 @@ Custom property | Description | Default
                     });
                     this._contextToBeRendered = [];
                     this.set("_contextToBeRendered", _contextToBeRendered);
-                    this._updateSelectedDimensions(true);
+                    this._updateSelectedDimensions();
                 }
             }
 
@@ -584,6 +589,15 @@ Custom property | Description | Default
                         this._loadConfigBasedDimensions();
                     }
                 }
+            }
+            
+            disconnectedCallback() {
+                super.disconnectedCallback();
+                this.dimensionSelectorRefresh = false;
+            }
+            connectedCallback() {
+                super.connectedCallback();  
+                this.dimensionSelectorRefresh = true; 
             }
 
             _prepareContext() {
@@ -789,7 +803,7 @@ Custom property | Description | Default
                     }
                 }
 
-                this._updateSelectedDimensions(true);
+                this._updateSelectedDimensions();
                 if (togglePopover) {
                     this._toggleLovPopover(this._currentDimensionSelector.popover);
                 }
@@ -1077,7 +1091,7 @@ Custom property | Description | Default
                 let contextTree = this.$$("#" + currentContextId);
                 if (contextTree) {
                     if (contextTree.selectedClassifications && contextTree.selectedClassifications.length > 0) {
-                        this._updateSelectedDimensions(true);
+                        this._updateSelectedDimensions();
                     }
                 }
                 this._onCancelClassificationSelection();
@@ -1087,7 +1101,7 @@ Custom property | Description | Default
                 let selectedClassifications = this.selectedDimensions["classification"];
                 this.clearClassificationSelection(); //Clear classification on taxonomy change
                 if(!_.isEmpty(selectedClassifications)) {
-                    this._updateSelectedDimensions(true);
+                    this._updateSelectedDimensions();
                 }
                 if (taxonomy) {
                     return taxonomy
@@ -1490,19 +1504,20 @@ Custom property | Description | Default
                 return false;
             }
 
-            _updateSelectedDimensions(isUpdated) {
+            _updateSelectedDimensions() {
                 this._debouncer = Polymer.Debouncer.debounce(this._debouncer, Polymer.Async.timeOut.after(100), () => {
-                    this._setSelectedDimensions(isUpdated);
+                    this._setSelectedDimensions();
                     if (this._isContextLoad) {
-                        this._updateCurrentContextState(isUpdated);
+                        this._updateCurrentContextState();
                     }
+                    this.dimensionSelectorRefresh = false;
                 });
             }
 
-            _setSelectedDimensions(isUpdated) {
+            _setSelectedDimensions() {
                 //On page refresh set from navigationData
                 let defaultDimensions = [];
-                if(!isUpdated) {
+                if(this.dimensionSelectorRefresh) {
                     if(!_.isEmpty(this.navigationData)){
                         defaultDimensions = this.navigationData;                       
                     }                   
@@ -1580,7 +1595,7 @@ Custom property | Description | Default
                                             } else {
                                                 //Set from navigationData
                                                 if(!_.isEmpty(defaultDimensions) && defaultDimensions[ctxKey] && !_.isEmpty(defaultDimensions[ctxKey])){
-                                                    rockLov.selectedItems = defaultDimensions[ctxKey];
+                                                    rockLov.selectedItems = this._getDefaultSelectedItems(ctxKey,defaultDimensions,rockLov.selectedItems);
                                                 }
                                                 selectedDimensions[ctxKey] = this._getItemsIdsByType(
                                                     rockLov.selectedItems, entityTypes[j]);
@@ -1665,7 +1680,46 @@ Custom property | Description | Default
                 }
             }
 
-            _updateCurrentContextState(isUpdated) {
+            /**
+             * Function to set the default dimension-selector values
+             * - If the defaultDimensions are empty/not set, use the availableSelectedItems
+             * - If the defaultDimensions are set, and matches with the availableSelectedItems, make that availableSelectedItem as selectedItem
+            */ 
+            _getDefaultSelectedItems(ctxKey,defaultDimensions,availableSelectedItems) {
+                let selectedItems = [];
+                if(ctxKey && defaultDimensions[ctxKey]) {
+                    if(availableSelectedItems && availableSelectedItems.length > 0) {
+                        //If the availableSelectedItems and defaultDimensions are same, set them as selectedItems
+                        for(let availableSelectedItemIndex=0; availableSelectedItemIndex < availableSelectedItems.length; availableSelectedItemIndex++) {
+                            for(let defaultDimensionIndex=0; defaultDimensionIndex < defaultDimensions[ctxKey].length; defaultDimensionIndex++) {
+                                let availableSelectedItem = availableSelectedItems[availableSelectedItemIndex]; 
+                                let defaultDimensionItem = defaultDimensions[ctxKey][defaultDimensionIndex];
+                                if(ctxKey != "classification") {
+                                    if(availableSelectedItem.id && defaultDimensionItem.id && availableSelectedItem.id == defaultDimensionItem.id) {
+                                        selectedItems.push(availableSelectedItem);
+                                    }
+                                } else {
+                                    if((availableSelectedItem.id && defaultDimensionItem.path || defaultDimensionItem.id) && (availableSelectedItem.id == defaultDimensionItem.path) || (defaultDimensionItem.path=="" && availableSelectedItem.id!="") || (defaultDimensionItem.id==availableSelectedItem.id)) {
+                                        selectedItems.push(availableSelectedItem);
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        //If the availableSelectedItems are empty, set selectedItems as defaultDimensions
+                        let defaultClassification = defaultDimensions["classification"];
+                        if(ctxKey != "classification" || (ctxKey == "classification" && defaultClassification && defaultClassification[0] && defaultClassification[0].id)) {                     
+                            selectedItems = defaultDimensions[ctxKey];
+                        } else {
+                            selectedItems = [];
+                        }
+                    } 
+                }
+
+                return selectedItems;
+            }
+
+            _updateCurrentContextState() {
                 if (!_.isEmpty(this.selectedDimensions)) {
 
                     // Get context(s) based on selected dimension
@@ -1785,7 +1839,7 @@ Custom property | Description | Default
                             }
                         }
                     }
-                    this._setSelectedDimensions(isUpdated);
+                    this._setSelectedDimensions();
                 }
             }
 
