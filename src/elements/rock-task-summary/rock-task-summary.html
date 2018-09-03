@@ -11,6 +11,8 @@
 <link rel="import" href="../pebble-graph-pie/pebble-graph-pie.html" />
 <link rel="import" href="../pebble-spinner/pebble-spinner.html">
 
+<link rel="import" href="../liquid-rest/liquid-rest.html">
+
 <dom-module id="rock-task-summary">
     <template>
         <style include="bedrock-style-common bedrock-style-gridsystem iron-flex">
@@ -182,12 +184,12 @@
                 <template is="dom-if" if="[[!_showTaskName]]">
                     <div class="attribute trim">
                         <div class="attribute-label">File Name</div>
-                        <template is="dom-if" if="[[_isDownloadAvailable(taskDetails.fileId, isParentTask)]]">
+                        <template is="dom-if" if="[[_isDownloadAvailable(taskDetails.fileId)]]">
                             <div class="attribute-value trim" title="[[taskDetails.fileName]]">
                                 <a href="#" class="btn-link" on-tap="_onDownloadClick">[[taskDetails.fileName]]</a>
                             </div>
                         </template>
-                        <template is="dom-if" if="[[!_isDownloadAvailable(taskDetails.fileId, isParentTask)]]">
+                        <template is="dom-if" if="[[!_isDownloadAvailable(taskDetails.fileId)]]">
                             <div class="attribute-value trim" title="[[taskDetails.fileName]]">[[taskDetails.fileName]]</div>
                         </template>
                     </div>
@@ -272,6 +274,8 @@
                 </pebble-button>
             </div>
         </div>
+        <liquid-rest id="getDownloadUrl" url="/data/binarystreamobjectservice/prepareDownload" method="POST" on-liquid-response="_onGetDownloadUrlResponse" on-liquid-error="_onGetDownloadUrlFailure">
+        </liquid-rest>
     </template>
     <script>
         class RockTaskSummary extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior], Polymer.Element) {
@@ -442,41 +446,81 @@
                     taskType
                 } = this.taskDetails;
 
-                let req = {
-                    "params": {
-                        "query": {
-                            "id": fileId
-                        }
-                    },
-                    fileName,
-                    fileType,
-                    fileExtension,
-                    taskType
-                }
+                if (!this.isParentTask) {
+                    let req = {
+                        "params": {
+                            "query": {
+                                "id": fileId
+                            }
+                        },
+                        fileName,
+                        fileType,
+                        fileExtension,
+                        taskType
+                    }
 
-                let _this = this;
-                RUFUtilities.fileDownload("/data/binaryobjectservice/downloadBinaryObject", {
-                    httpMethod: 'POST',
-                    data: {
-                        data: JSON.stringify(req)
-                    },
-                    fileName: fileName,
-                    successCallback: function (url) {
-                        this._downloadInProgress = false;
-                    }.bind(_this),
-                    failCallback: function (responseHtml, url, error) {
-                        this._onFileDownloadFailure(error);
-                    }.bind(_this)
-                });
+                    let _this = this;
+                    RUFUtilities.fileDownload("/data/binaryobjectservice/downloadBinaryObject", {
+                        httpMethod: 'POST',
+                        data: {
+                            data: JSON.stringify(req)
+                        },
+                        fileName: fileName,
+                        successCallback: function (url) {
+                            this._downloadInProgress = false;
+                        }.bind(_this),
+                        failCallback: function (responseHtml, url, error) {
+                            this._onFileDownloadFailure(error);
+                        }.bind(_this)
+                    });
+                } else {
+                    this._downloadLargeFile(fileId);
+                }
             }
 
             _onFileDownloadFailure(e) {
-                this.logError("Failed to download file.", e.detail);
+                this._setDownloadFileError(e.detail);
+            }
+
+            _downloadLargeFile(fileId) {
+                let binaryStreamObjects = [];
+                if (fileId) {
+                    binaryStreamObjects.push({
+                        "binaryStreamObject": {
+                            "id": fileId,
+                            "type": "binarystreamobject",
+                            "data": {}
+                        }
+                    })
+                }
+
+                let downloadUrlLiquid = this.shadowRoot.querySelector("#getDownloadUrl");
+                if (downloadUrlLiquid && !_.isEmpty(binaryStreamObjects)) {
+                    downloadUrlLiquid.requestData = binaryStreamObjects;
+                    downloadUrlLiquid.generateRequest();
+                } else {
+                    this._setDownloadFileError();
+                }
+            }
+
+            _onGetDownloadUrlResponse(e) {
+                LiquidResponseHelper.downloadURLResponseMapper(e, downloadURL => {
+                    window.open(downloadURL, "_blank");
+                });
+                this._downloadInProgress = false;
+            }
+
+            _onGetDownloadUrlFailure(e) {
+                this._setDownloadFileError(e.detail);
+            }
+
+            _setDownloadFileError(detail) {
+                this.logError("Failed to download file.", detail || "");
                 this._downloadInProgress = false;
             }
 
             _isDownloadAvailable() {
-                return this.taskDetails.fileId !== "N/A" && !this.isParentTask;
+                return this.taskDetails.fileId !== "N/A";
             }
 
             _onRefreshClick() {
