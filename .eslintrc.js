@@ -41,7 +41,6 @@ module.exports = {
         "no-shadow": ["off", { "builtinGlobals": false, "hoist": "functions", "allow": ["resolve", "reject", "done", "cb"] }],
         "no-shadow-restricted-names": "off",
         "no-console": "off",
-        
         "no-unused-vars": "off",
         "semi": "off",
         "no-extra-semi": "off",
@@ -138,6 +137,10 @@ module.exports = {
         "Buffer": true,
         "exports": true,
         "_": true,
-        "log4javascript": true
+        "log4javascript": true,
+        "DataTableRow": true,
+        "PebbleToast": true,
+        "PebbleDialog": true,
+        "AppBusinessFunction": true
     }
 };
