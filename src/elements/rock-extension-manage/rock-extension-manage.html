@@ -45,9 +45,15 @@ It manages the current extensions and creates the new extensions.
             </div>
         </div>
         <div id="buttonContainer" align="center" class="buttonContainer-static">
-            <template is="dom-repeat" id="event-template" items="[[componentEvents]]">
-                <pebble-button id="[[item.id]]" class$="[[item.class]]" button-text="[[item.text]]" on-tap="_onTriggerEvent" data-args$="[[item.event]]" disabled$="[[!_allowEvent(allowSaveClassifications, item.id)]]" elevation=1 raised></pebble-button>
+            <template is="dom-if" if="[[!isPartOfBusinessFunction]]">
+                <template is="dom-if" if="[[!showSkip]]">
+                    <pebble-button elevation="1" raised="" on-tap="_onTriggerEvent" data-args="onCancel" class="btn btn-primary m-r-5" id="cancelEvent" button-text="Cancel"></pebble-button>
+                </template>
+                <template is="dom-if" if="[[showSkip]]">
+                    <pebble-button elevation="1" raised="" on-tap="_onTriggerEvent" data-args="onSkip" class="btn btn-secondary m-r-5" id="skipEvent" button-text="Skip"></pebble-button>
+                </template>
             </template>
+            <pebble-button elevation="1" raised="" on-tap="_onTriggerEvent" data-args="onSave" class="btn btn-success" id="nextEvent" button-text="Save" disabled$="[[!allowSaveClassifications]]"></pebble-button>
         </div>
         <liquid-entity-data-get id="taxonomyGetDataService" operation="getbyids" request-data="{{_taxonomyRequest}}" on-response="_onTaxonomyResponse"></liquid-entity-data-get>
         <liquid-entity-data-save id="attributeSaveDataService" operation="update" data-index$="[[dataIndex]]" data-sub-index$="[[dataSubIndex]]" request-data="{{_saveRequest}}" on-response="_onSaveResponse"></liquid-entity-data-save>
@@ -229,6 +235,11 @@ It manages the current extensions and creates the new extensions.
                     allowSaveClassifications: {
                         type: Boolean,
                         value: true
+                    },
+
+                    showSkip: {
+                        type: Boolean,
+                        value: false
                     }
                 };
             }
@@ -750,6 +761,7 @@ It manages the current extensions and creates the new extensions.
                     this.fireBedrockEvent(eventName, eventDetail, {
                         ignoreId: true
                     });
+                    this._setFinishDataForSingleProcess();
                     return;
                 }
 
@@ -792,8 +804,8 @@ It manages the current extensions and creates the new extensions.
                 this.isComponentDirty = false;
                 this.componentResult = {
                     "status": "completed",
-                    "id": isJob ? this._taskId : "",
-                    "type": isJob ? "task" : ""
+                    "id": isJob ? this._taskId : this.selectedEntities.join(", "),
+                    "type": isJob ? "task" : "entity"
                 }
                 this.finishStepData = data;
 
@@ -810,6 +822,44 @@ It manages the current extensions and creates the new extensions.
                 //Reset contextData, selectedEntities
                 this.contextData = {};
                 this.selectedEntities = [];
+            }
+
+            _setFinishDataForSingleProcess() {
+                let itemCtx = ContextHelper.getFirstItemContext(this.contextData) || {};
+                let data = {
+                    "messages": [
+                        {
+                            "message": "Entity updated with classification successfully."
+                        }
+                    ],
+                    "actions": [
+                        {
+                            "name": "closeFunction",
+                            "text": "Take Me back to Where I started"
+                        },
+                        {
+                            "name": "showEntity",
+                            "text": "Show me the entity",
+                            "dataRoute": "entity-manage",
+                            "queryParams": { "id": itemCtx.id, "type": itemCtx.type }
+                        },
+                        {
+                            "name": "createEntity",
+                            "text": "Create one more",
+                            "dataRoute": "entity-create",
+                            "queryParams": { "type": itemCtx.type }
+                        }
+                    ]
+                };
+
+                //Set BF component behavior props
+                this.isComponentDirty = false;
+                this.componentResult = {
+                    "status": "completed",
+                    "id": itemCtx.id,
+                    "type": "entity"
+                }
+                this.finishStepData = data;
             }
 
             _isNotificationDisabled() {
@@ -909,14 +959,6 @@ It manages the current extensions and creates the new extensions.
                 } else if (event == "nextEvent") {
                     this._save(e);
                 }
-            }
-
-            _allowEvent(allowSave, event) {
-                if (event == "nextEvent") {
-                    return allowSave;
-                }
-
-                return true;
             }
 
             _onSelectedItemsChange(n, o) {
