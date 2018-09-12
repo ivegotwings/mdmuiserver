@@ -1,0 +1,453 @@
+<link rel="import" href="../../../bower_components/polymer/polymer-element.html">
+<link rel="import" href="../../../bower_components/iron-ajax/iron-ajax.html">
+
+
+<link rel="import" href="../bedrock-helpers/component-helper.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-styles-scroll-bar.html" />
+
+<link rel="import" href="../pebble-spinner/pebble-spinner.html" />
+<link rel="import" href="../pebble-stepper/pebble-stepper.html">
+<link rel="import" href="../pebble-stepper/pebble-step.html">
+<link rel="import" href="../pebble-dialog/pebble-dialog.html">
+
+
+<!--
+`rock-wizard-manage` Represents an element that displays the steps in a sequence
+based on the given configuration.
+
+@demo demo/index.html
+-->
+<dom-module id="rock-wizard-manage">
+    <template>
+        <style include="bedrock-style-common bedrock-styles-scroll-bar">
+            :host {
+                display: block;
+                height: 100%;
+            }
+
+            #step-container {
+                border-radius: 5px;
+                height: calc(100% - 60px);
+                overflow-y: auto;
+                overflow-x: hidden;
+                padding: 0px 10px;
+                box-shadow: 0px 0px 5px 1px #888;
+                margin: 0px 150px;
+                margin-bottom: 20px;
+                padding: 20px;
+                @apply --step-container;
+            }
+
+            #content-actions {
+                margin: 0px 150px;
+            }
+
+            #stepper {
+                margin: 10px 0px;
+                @apply --stepper;
+            }
+
+            .stepper-wrapper {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .stepper-style {
+                --pebble-connected-badge-width: 40px;
+                --pebble-connected-badge-height: 40px;
+                --pebble-connected-badge-fontSize: 20px;
+                --pebble-horizontal-step-connector-line-width: 200px;
+                --pebble-horizontal-step-connector-line-height: 3px;
+            }
+        </style>
+        <div id="wizard-container" class="base-grid-structure">
+            <div class="base-grid-structure-child-1">
+                <div class="stepper-wrapper">
+                    <div id="stepper" hidden$="[[_computeStepper(hideStepper)]]">
+                        <!-- place stepper here -->
+                        <pebble-stepper id="pebbleStepper" horizontal horizontal-line-width="[[_stepperConnectorLineWidth]]" stepper-config="[[_stepperConfig]]">
+                            <template is="dom-repeat" id="steps-template" items="[[_stepperConfig.items]]" as="item">
+                                <pebble-step data="[[item]]" class="stepper-style">
+                                    <div class="step-badge-content" slot="step-badge-content">
+                                        <span>[[item.index]]</span>
+                                    </div>
+                                </pebble-step>
+                            </template>
+                        </pebble-stepper>
+                    </div>
+                </div>
+            </div>
+            <div class="base-grid-structure-child-2">
+                <div class="base-grid-structure">
+                    <div class="base-grid-structure-child-1">
+                        <div id="message-container" hidden$="[[!noSteps]]">
+                            <div class="default-message">[[noDataMessage]]</div>
+                        </div>
+                    </div>
+                    <div class="base-grid-structure-child-2">
+                        <div id="step-container" class="button-siblings">
+                            <!-- step component should be loaded here -->
+                        </div>
+                        <template is="dom-if" if="[[showNavigationButtons]]">
+                            <div id="content-actions" class="buttonContainer-static clearfix" align="center">
+                                <pebble-button class="action-button btn btn-secondary m-r-5" id="cancel" button-text="Cancel" raised on-tap="_onCancelTap"></pebble-button>
+                                <pebble-button class="action-button btn btn-secondary m-r-5 pull-left" id="back" hidden$="[[hideBack]]" button-text="Back" raised on-tap="_onBackTap"></pebble-button>
+                                <pebble-button class="action-button-focus dropdownText btn btn-success m-r-5 pull-right" id="next" hidden$="[[hideNext]]" button-text="Next" raised on-tap="_onNextTap"></pebble-button>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+            <pebble-spinner active="[[_loading]]"></pebble-spinner>
+            <pebble-dialog id="confirmationDialog" dialog-title="Confirmation" modal alert-box show-cancel show-ok no-cancel-on-outside-click no-cancel-on-esc-key>
+                <p>Do you want to skip?</p>
+            </pebble-dialog>
+            <bedrock-pubsub event-name="on-buttonok-clicked" handler="_onNextConfirm" target-id="confirmationDialog"></bedrock-pubsub>
+        </div>
+        <bedrock-pubsub event-name="onNext" handler="_onFinalStep"></bedrock-pubsub>
+        <bedrock-pubsub event-name="business-function-step-complete" handler="_onBusinessFunctionStepComplete"></bedrock-pubsub>
+    </template>
+
+    <script>
+        class RockWizardManage
+            extends Polymer.mixinBehaviors([
+                RUFBehaviors.UIBehavior
+            ], Polymer.Element) {
+            static get is() { return 'rock-wizard-manage' }
+            static get properties() {
+                return {
+                    config: {
+                        type: Object,
+                        observer: '_configChanged',
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    /**
+                     * If set as true , it indicates the component is in read only mode
+                     */
+                    readonly: {
+                        type: Boolean,
+                        value: false,
+                        observer: '_onReadonly'
+                    },
+                    _currentStepIndex: {
+                        type: Number,
+                        value: 0
+                    },
+
+                    _loading: {
+                        type: Boolean,
+                        value: true
+                    },
+                    /*
+                    * Indicates the properties of the object for the wizard.
+                    */
+                    properties: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    /*
+                    * Indicates the data that is shared between all the steps of the wizard.
+                    */
+                    hideStepper: {
+                        type: Boolean,
+                        value: false
+                    },
+                    sharedData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _stepperConfig: {
+                        type: Array,
+                        value: function () { return []; }
+                    },
+                    noSteps: {
+                        type: Boolean,
+                        value: false,
+                        observer: '_onNoSteps'
+                    },
+                    noDataMessage: {
+                        type: String,
+                        value: ""
+                    },
+                    _stepperConnectorLineWidth: {
+                        type: String,
+                        value: "200px"
+                    },
+                    parentComponent: {
+                        type: Element
+                    },
+                    hideBack: {
+                        type: Boolean,
+                        value: false
+                    },
+                    hideNext: {
+                        type: Boolean,
+                        value: false
+                    },
+                    showNavigationButtons: {
+                        type: Boolean,
+                        value: true
+                    }
+                }
+            }
+
+            /*
+            * Indicates the configuration information that the user provided.
+            */
+            connectedCallback() {
+                super.connectedCallback();
+                this._confirmationDialog = this.shadowRoot.querySelector("#confirmationDialog");
+
+            }
+            disconnectedCallback() {
+                super.disconnectedCallback();
+            }
+            _computeStepper() {
+                return this.hideStepper;
+            }
+            /**
+             * Can be used to move forward to the next step.
+             */
+
+
+            _loadSharedData() {
+                let contentElement = this.stepContainer;
+                let currentComponent = contentElement.firstElementChild;
+                let currentConfig = this.config.steps[this._currentStepIndex + 1];
+                if (this.config.sharedProperties) {
+                    let currentSharedProperties = currentConfig.sharedProperties;
+                    for (let i in currentSharedProperties) {
+                        this.sharedData[i] = this.config.sharedProperties[currentSharedProperties[i]];
+                    }
+                }
+                this.sharedData["context-data"] = currentComponent.contextData;
+            }
+            //This repaints the navigation buttons on certain scenarios
+            _rePaintnavigationButtons(stepConfig, stepIndex) {
+                //Last step
+                if (stepIndex == this.config.steps.length - 1) {
+                    this.set('showNavigationButtons', false);
+                }
+                if ((stepConfig.stepToBackOptionEnabled != undefined && !stepConfig.stepToBackOptionEnabled)
+                    || stepIndex == 0 || stepIndex == this.config.steps.length - 1) {
+                    this.set('hideBack', true);
+                }
+                else {
+                    this.set('hideBack', false);
+                }
+                //no next button if the step is mandatory
+                if (stepConfig.isMandatory) {
+                    this.set('hideNext', true);
+                }
+                else {
+                    this.set('hideNext', false);
+                }
+            }
+            _updateStepperSelectedStep(stepIndex) {
+                let stepper = this.shadowRoot.querySelector('#pebbleStepper');
+                let previousItem = undefined;
+                if (stepper.selectedItem) {
+                    previousItem = stepper.selectedItem;
+                    stepper.selectedItem.status = "completed";
+                }
+                stepper.selected = stepIndex;
+                let stepperChildren = Polymer.FlattenedNodesObserver.getFlattenedNodes(stepper).filter(n => n.nodeType === Node.ELEMENT_NODE);
+                let currentStepperChildren = stepperChildren[stepIndex];
+                if (currentStepperChildren && currentStepperChildren != previousItem) {
+                    currentStepperChildren.status = "inprogress";
+                };
+                // if(stepper.selectedItem && stepper.selectedItem != previousItem) {
+                //     stepper.selectedItem.status = "inprogress";
+                // }
+            }
+            _configChanged(config) {
+                if (config && config.steps && config.steps.length > 0) {
+                    let stepper = this.shadowRoot.querySelector('#pebbleStepper');
+                    stepper.selected = null;
+                    let stepperConfig = {};
+                    stepperConfig.items = []
+                    for (let i = 0; i < config.steps.length; i++) {
+                        let step = {
+                            "index": i + 1,
+                            "title": config.steps[i] && config.steps[i].stepperTitle ? config.steps[i].stepperTitle : "",
+                            "status": "pending"
+                        };
+                        stepperConfig.items.push(step);
+                    }
+                    /***
+                     * When there are more than 3 steps in BF, stepper isn't visible completely
+                     * because of static width(200px) of connector line. Calculating width of 
+                     * connectorline dynamically based on number of steps.
+                     * Has taken 1000px as available width in wizard as at this point
+                     * wizard and BF dialog aren't ready yet to get computed width value.
+                     * */
+                    let lineWidth = 1000 / (config.steps.length * 2);
+                    if (lineWidth < 200) {
+                        this._stepperConnectorLineWidth = lineWidth + "px";
+                    }
+                    this.set("_stepperConfig", stepperConfig);
+                    this.shadowRoot.querySelector("#steps-template").render();
+                    this.goToStep(0);
+                }
+            }
+
+            get stepContainer() {
+                this._stepContainer = this._stepContainer || this.shadowRoot.querySelector('#step-container');
+                return this._stepContainer;
+            }
+
+            _renderComponent(config) {
+                let contentElement = this.stepContainer;
+                if (config && config.component && contentElement) {
+                    //This is send to hide the cancel button for each step if its enabled
+                    this.sharedData["is-part-of-business-function"] = true;
+                    if (this.sharedData) {
+                        if (!config.component.properties) {
+                            config.component.properties = {};
+                        }
+                        for (let key in this.sharedData) {
+                            if (!this.sharedData.hasOwnProperty(key)) continue;
+                            config.component.properties[key] = this.sharedData[key];
+                        }
+                        if (this.readonly) {
+                            config.component.properties.mode = 'view';
+                            config.component.properties.readonly = this.readonly;
+                        }
+                    }
+                    ComponentHelper.loadContent(contentElement, config.component, this);
+                    this._loading = false;
+                }
+            }
+            //getter for current stepper element
+            get stepperElement() {
+                if (this.stepContainer) {
+                    this._stepperElement = this.stepContainer.firstElementChild;
+                }
+                return this._stepperElement;
+            }
+            //gets the current step data through bedrock-component-business-function-behaviour
+            getComponentBusinessFunctionData() {
+                let componentStatusData = {};
+                if (this.stepperElement) {
+                    componentStatusData =
+                        {
+                            businessFunctionData: this.stepperElement.businessFunctionData,
+                            componentResult: this.stepperElement.componentResult,
+                            finishStepData: this.stepperElement.finishStepData,
+                            isComponentDirty: this.stepperElement.getIsDirty(),
+                            isPartOfBusinessFunction: this.stepperElement.isPartOfBusinessFunction
+
+                        };
+                }
+                return componentStatusData;
+            }
+            //This function closes the business function from the last step and redirect to the new route
+            _onFinalStep(e, detail, sender) {
+                let data = detail.data;
+                if (this._currentStepIndex == this.config.steps.length - 1) {
+                    if (!detail) {
+                        detail = {};
+                    }
+                    detail.closeBusinessFunction = true;
+                    this.dispatchEvent(new CustomEvent('next-step', { detail: detail, bubbles: true, composed: true }));
+                }
+            }
+            //handler function for step complete
+            _onBusinessFunctionStepComplete(e, detail) {
+                let currentConfig = this.config.steps[this._currentStepIndex];
+                //if step is finished and it is a mandatory step, then goes to next step
+                if (currentConfig.isMandatory) {
+                    this.goToNext();
+                }
+            }
+            goToNext() {
+                this._loadSharedData();
+                if (this._currentStepIndex < this.config.steps.length - 1) {
+                    this.goToStep(this._currentStepIndex + 1);
+                } else {
+                    this.fire("cancel-event");
+                }
+            }
+            /**
+             * Can be used to move backward to the previous step.
+             */
+            goToPrevious() {
+                if (this._currentStepIndex > 0) {
+                    this.goToStep(this._currentStepIndex - 1);
+                }
+            }
+            /**
+             * Can be used to go to a particular step in the wizard.
+             */
+            goToStep(stepIndex) {
+                //load content based on current step config
+                if (stepIndex >= 0 && stepIndex < this.config.steps.length) {
+                    this._currentStepIndex = stepIndex;
+                    let stepConfig = this.config.steps[stepIndex];
+                    this._renderComponent(stepConfig);
+                    this._rePaintnavigationButtons(stepConfig, stepIndex);
+                    this._updateStepperSelectedStep(stepIndex);
+                }
+            }
+            //skip to next step if user edited the step and performed next click with confirmation
+            _onNextConfirm() {
+                this.goToNext();
+            }
+            _onNextTap() {
+                let componentStatusData = this.getComponentBusinessFunctionData();
+                let currentConfig = this.config.steps[this._currentStepIndex];
+                if (componentStatusData.componentResult.status != "completed") {
+                    if (currentConfig.isMandatory) {
+                        this.showErrorToast(
+                            "Please finish the mandatory step."
+                        );
+                    }
+                    else if (componentStatusData.isComponentDirty) {
+                        this._confirmationDialog.open();
+                    }
+                    else {
+                        //skipping the step
+                        this.goToNext();
+                    }
+                }
+                else {
+                    //step is completed
+                    this.goToNext();
+                }
+            }
+            _onBackTap() {
+                let currentConfig = this.config.steps[this._currentStepIndex];
+                if (this._currentStepIndex && this._currentStepIndex != 0) {
+                    this.goToPrevious();
+                }
+            }
+            _onCancelTap() {
+                this.fire("cancel-event");
+            }
+            _onReadonly() {
+                let content = this.stepContainer;
+                if (content && content.firstElementChild) {
+                    content.firstElementChild.readonly = this.readonly;
+                }
+            }
+
+            _onNoSteps() {
+                if (this.noSteps) {
+                    this._loading = false;
+                }
+            }
+        }
+        customElements.define(RockWizardManage.is, RockWizardManage);
+
+    </script>
+</dom-module>
