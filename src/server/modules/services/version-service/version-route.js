@@ -1,5 +1,7 @@
 'use strict';
 const VersionService = require('./VersionService');
+let RuntimeVersionManager = require('./RuntimeVersionManager');
+
 let options = {};
 let runOffline = process.env.RUN_OFFLINE;
 
@@ -13,6 +15,17 @@ let VersionRouter = function (app) {
     app.use('/data/version/updateRuntimeVersion', async function (req, res) {
         let response = await versionService.updateRuntimeVersion(req);
         res.status(200).send(response);
+    });
+
+    app.use('/servicestatus', async function (req, res) {
+        let version = await RuntimeVersionManager.getVersion();
+        let response = {
+            "status": "OK",
+            "version": version,
+            "tag": "Make Data Matter"
+        };
+
+        res.status(200).send(JSON.stringify(response));
     });
 };
 
