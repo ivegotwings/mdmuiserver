@@ -1,0 +1,655 @@
+<link rel="import" href="../../../bower_components/polymer/polymer-element.html">
+
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
+
+<link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
+<link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
+<link rel="import" href="../liquid-rest/liquid-rest.html">
+<link rel="import" href="../liquid-entity-data-save/liquid-entity-data-save.html">
+
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
+<link rel="import" href="../pebble-button/pebble-button.html">
+<link rel="import" href="../pebble-card/pebble-card.html">
+<link rel="import" href="../pebble-accordion/pebble-accordion.html">
+
+<link rel="import" href="../rock-scope-selector/rock-scope-selector.html">
+<link rel="import" href="../rock-attribute-split-list/rock-attribute-split-list.html">
+<link rel="import" href="../rock-component-config-behavior/rock-component-config-behavior.html">
+<link rel="import" href="../rock-dimension-selector/rock-dimension-selector.html">
+
+<!--
+<b><i>Content development is under progress... </b></i>
+
+@demo demo/index.html
+-->
+<dom-module id="rock-entity-paste">
+    <template>
+        <style include="bedrock-style-common bedrock-styles-scroll-bar">
+            :host {
+                display: block;
+                height: 100%;
+            }
+
+            .message {
+                text-align: center;
+            }
+
+            .buttonSection {
+                text-align: center;
+            }
+
+            #card {
+                height: auto;
+                padding-bottom: 20px;
+            }
+
+            .scope-manage-attribute-list-wrapper {
+                min-height: 320px;
+            }
+
+            pebble-card {
+                --pebble-card-widget-box: {
+                    height: 100%;
+                    padding-bottom: 10px;
+                    margin-top: 0px;
+                    margin-right: 0px;
+                    margin-bottom: 0px;
+                    margin-left: 0px;
+                    min-width: auto;
+                }
+            }
+
+            .card-content {
+                height: 100%;
+            }
+
+            #cancelButton {
+                margin-left: 15px;
+            }
+
+            pebble-checkbox {
+                margin-left: 5px;
+            }
+        </style>
+        <pebble-spinner active="[[_loading]]"></pebble-spinner>
+        <div class="base-grid-structure">
+            <div class="base-grid-structure-child-1">
+                <div class="message">[[_message]]</div>
+            </div>
+            <div class="base-grid-structure-child-2 relative">
+                <div class="button-siblings">
+                    <div class="base-grid-structure">
+                        <div class="base-grid-structure-child-1">
+                            <pebble-card id="card" no-header>
+                                <rock-scope-selector id="scopeSelector" selected-scope="[[selectedItems]]" context-data="[[contextData]]" show-title allow-manage-scope
+                                    show-settings slot="pebble-card-content">
+                                </rock-scope-selector>
+                                <bedrock-pubsub event-name="rock-scope-click" handler="_onScopeTagClicked"></bedrock-pubsub>
+                                <bedrock-pubsub event-name="rock-scope-edit" handler="_onScopeEditClicked"></bedrock-pubsub>
+                                <bedrock-pubsub event-name="rock-scope-loaded" handler="_onScopeLoad"></bedrock-pubsub>
+                            </pebble-card>
+                        </div>
+                        <div class="base-grid-structure-child-2">
+                            <pebble-card no-header class="full-height">
+                                <pebble-accordion id="accordion" is-collapsed="{{!_isOpened}}" header-text="[[_getHeaderText(_selectedScope)]]" slot="pebble-card-content">
+                                    <div slot="accordion-content" class="full-height overflow-auto-y">
+                                        <template is="dom-if" if="[[_isOpened]]">
+                                            <div class="scope-manage-attribute-list-wrapper full-height">
+                                                <rock-attribute-split-list id="splitList" context-data="[[contextData]]" retain-selected-items="[[retainSelectedItems]]"
+                                                    selected-items="{{selectedItems}}" config="[[splitListConfig]]"></rock-attribute-split-list>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </pebble-accordion>
+                            </pebble-card>
+                        </div>
+                    </div>
+                </div>
+                <div id="buttonContainer" class="buttonContainer-static">
+                    <pebble-button id="cancelButton" class="btn btn-secondary m-r-5" button-text="Cancel" on-tap="_onCancelTap" elevation=1 raised></pebble-button>
+                    <pebble-button id="Download" class="focus btn btn-success" button-text="Save" on-tap="_executePaste" elevation=1 raised></pebble-button>
+                </div>
+            </div>
+        </div>
+        <liquid-entity-data-get id="getEntity" operation="getbyids" data-index="entityData" data-sub-index="data" on-response="_onEntityGetResponse"
+        on-error="_onEntityGetFailed" last-response="{{_attributeResponse}}"></liquid-entity-data-get>
+
+    <!-- <liquid-rest id="modelGovernService" url="/data/pass-through/modelgovernservice/validate" method="POST"
+        on-liquid-response="_onGovernResponse" on-liquid-error="_onGovernFailed">
+    </liquid-rest> -->
+
+    <liquid-rest id="bulkEntityPaste" url="/data/pass-through/bulkentityservice/createtask" method="POST" request-data={{_bulkEntityPasteRequest}}
+    on-liquid-response="_onBulkEntityPasteSuccess" on-liquid-error="_onBulkEntityPasteFailure"></liquid-rest>
+
+    <liquid-entity-model-composite-get on-error="_onEntityModelCompositeGetFailed" name="compositeAttributeModelGet"
+    on-entity-model-composite-get-response="_onCompositeModelGetResponse"></liquid-entity-model-composite-get>
+    <liquid-entity-data-save name="attributeSaveDataService" operation="[[_entityDataOperation]]" data-index="[[dataIndex]]"
+    data-sub-index="[[dataSubIndex]]" request-data="{{_saveRequest}}" last-response="{{_saveResponse}}" on-response="_onSaveResponse"
+    on-error="_onSaveError"></liquid-entity-data-save>
+
+    </template>
+    <script>
+        class RockEntityPaste
+            extends Polymer.mixinBehaviors([
+                RUFBehaviors.ToastBehavior,
+                RUFBehaviors.LoggerBehavior,
+                RUFBehaviors.ComponentContextBehavior,
+                RUFBehaviors.ComponentConfigBehavior
+            ], Polymer.Element) {
+            static get is() { return 'rock-entity-paste' }
+
+            ready() {
+                super.ready();
+            }
+            static get properties() {
+                return {
+                    /**
+                     * <b><i>Content development is under progress... </b></i>
+                     */
+                    contextData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        },
+                        observer: '_onContextDataChange'
+                    },
+
+                    _saveRequest: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    dataIndex: {
+                        type: String,
+                        value: "entityData"
+                    },
+
+                    _loading: {
+                        type: Boolean,
+                        value: false
+                    },
+                    _isAdditionalContextPresent: {
+                        type: Boolean,
+                        value: false
+                    },
+                    _contextsObj: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+
+                    _entityDataOperation: {
+                        type: String,
+                        value: 'update'
+                    },
+                    _saveResponse: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _contextModel: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _bulkEntityPasteRequest: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    sharedcontextdata: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    selecteditemsforpaste: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    isentitydiscoveryscreen: {
+                        type: Boolean,
+                        value: false
+                    },
+                    _message: {
+                        type: String
+                    },
+                    _attributeModelResponse: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    splitListConfig: {
+                        type: Object
+                    },
+                    selectedItems: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    retainSelectedItems: {
+                        type: Boolean,
+                        value: false
+                    },
+                    _attributeResponse: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _selectedScope: {
+                        type: String,
+                        value: ""
+                    },
+                    _isOpened: {
+                        type: Boolean,
+                        value: true
+                    }
+                }
+            }
+
+
+            _onContextDataChange() {
+                if (!_.isEmpty(this.contextData)) {
+                    let context = DataHelper.cloneObject(this.contextData);
+                    //App specific
+                    let appName = ComponentHelper.getCurrentActiveAppName();
+                    if (appName) {
+                        context[ContextHelper.CONTEXT_TYPE_APP] = [{
+                            "app": appName
+                        }];
+                    }
+                    this.requestConfig('rock-scope-manage', context);
+                }
+            }
+            onConfigLoaded(componentConfig) {
+                if (DataHelper.isValidObjectPath(componentConfig, "config.splitListConfig.tabular.fields")) {
+                    let splitListConfig = componentConfig.config.splitListConfig;
+                    let fields = DataHelper.convertObjectToArray(splitListConfig.tabular.fields);
+                    splitListConfig.tabular.fields = fields;
+                    this.set("splitListConfig", splitListConfig);
+                } else {
+                    this.logError("rock-scope-manage - Split list config is not available/proper in config", componentConfig);
+                }
+
+                let clonedContextData = DataHelper.cloneObject(this.contextData);
+                let compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(clonedContextData);
+                let _compositeAttributeModelGet;
+                if (compositeModelGetRequest) {
+                    _compositeAttributeModelGet = this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
+                }
+                if (_compositeAttributeModelGet) {
+                    _compositeAttributeModelGet.requestData = compositeModelGetRequest;
+                    _compositeAttributeModelGet.generateRequest();
+                }
+            }
+            _onSaveResponse(e, detail) {
+                this._triggerFinishStep();
+            }
+
+            _onBulkEntityPasteSuccess(e, detail) {
+                this._triggerFinishStep();
+            }
+            _onBulkEntityPasteFailure(e, detail) {
+                this.logError('Bulk Paste Failed');
+            }
+
+            _triggerFinishStep() {
+                let message = "Entity paste process is started, you can review the progress of the task " + this._taskId + " in task details.";
+                let messages = [
+                    {
+                        "message": message
+                    }
+                ]
+                let actions = [
+                    {
+                        "name": "goBack",
+                        "text": "Take me back to where I started",
+                        "isNotApp": true
+                    },
+                    {
+                        "name": "gotoJobDetails",
+                        "text": "Show me the task details",
+                        "isNotApp": true,
+                        "dataRoute": "task-detail",
+                        "queryParams": {
+                            "id": this._taskId
+                        }
+                    }
+                ];
+
+                let data = {
+                    "messages": messages,
+                    "noGrid": true,
+                    "actions": actions,
+                };
+
+                this.businessFunctionData = data;
+                let eventName = "onComplete";
+                let eventDetail = {
+                    name: eventName
+                }
+
+                this.fireBedrockEvent(eventName, eventDetail, {
+                    ignoreId: true
+                });
+            }
+
+            showNoChangesToast() {
+                RUFUtilities.pebbleAppToast.fitInto = RUFUtilities.appCommon.$.toastArea;;
+                RUFUtilities.appCommon.toastText = "No changes to save";
+                let toastElement = RUFUtilities.pebbleAppToast;
+                toastElement.toastType = "information";
+                toastElement.heading = "Information";
+                toastElement.autoClose = true;
+                toastElement.show();
+            }
+                async _onCompositeModelGetResponse(e) {
+                    let itemContext = this.getFirstItemContext();
+                    let entityId = itemContext.id;
+
+                    if (DataHelper.isValidObjectPath(e, 'detail.response.content.entityModels')) {
+                        let writePermission = true;
+                        if (DataHelper.isValidObjectPath(itemContext, "permissionContext.writePermission")) {
+                            writePermission = itemContext.permissionContext.writePermission;
+                        }
+                        this._attributeModels = await DataTransformHelper.transformAttributeModelsAsync(
+                            e.detail.response.content.entityModels[0], this.contextData,
+                            writePermission);
+                    }
+
+                    else {
+                        this._onEntityModelCompositeGetFailed();
+                        this._loading = false;
+                    }
+                }
+            _onScopeTagClicked(e, detail) {
+                if (detail && detail.data) {
+                    this.selectedItems = [];
+                    this.selectedItems = detail.data.scope;
+                    this._executePaste();
+                }
+            }
+            _onScopeEditClicked(e, detail) {
+                if (detail && detail.data) {
+                    this.set("_selectedScope", detail.data);
+                    if (!this._isOpened) {
+                        this.$.accordion.showContainer();
+                        this.$.accordion._transitionEnd();
+                    }
+                    this.selectedItems = [];
+                    this.async(function () {
+                        this.selectedItems = detail.data.scope;
+                        if (!this.retainSelectedItems) {
+                            let splitlist = this.shadowRoot.querySelector("#splitList");
+                            if (splitlist) {
+                                splitlist.rerenderGrid();
+                            }
+                        }
+                    });
+                }
+            }
+            _onScopeLoad() {
+                this._selectedScope = undefined;
+                if (typeof this.$.accordion.hideContainer === 'function') {
+                    this.$.accordion.hideContainer();
+                }
+            }
+            _save() {
+                if (this._selectedScope) {
+                    let detail = {
+                        "name": this._selectedScope.name,
+                        "accesstype": this._selectedScope.accesstype,
+                        "selectedScope": this._selectedScope
+                    };
+                    this.$.scopeSelector.triggerSaveProcess(detail);
+                } else {
+                    this.$.scopeSelector.isManageScopes = true;
+                }
+            }
+            async _onEntityGetResponse(e, detail) {
+                //copied entities response data
+                let { entities } = detail.response.content;
+
+                //changing the locale to pasteEntity  in all self attributes
+                let attributes = entities[0].data.attributes;
+                let currentLocale = this.contextData.ValContexts[0].locale;
+                for (let attributeName in attributes) {
+                    attributes[attributeName].values.forEach(value => {
+                        value.locale = currentLocale;
+                    })
+                }
+
+                // //changing the locale to pasteEntity in all context attributes
+                if (DataHelper.isValidObjectPath(entities[0], 'data.contexts.0')) {
+
+                    let contextsInResponse = entities[0].data.contexts;
+                    contextsInResponse.forEach(context => {
+                        if (!_.isEmpty(context.attributes)) {
+                            let attributes = context.attributes;
+                            for (let attributeName in attributes) {
+                                attributes[attributeName].values.forEach(value => {
+                                    value.locale = currentLocale;
+                                })
+                            }
+                        }
+                    })
+                }
+
+                //getting primary and secondary context
+                this._contextsObj = await this._getPrimaryAndAdditionalContexts();
+                if (this._contextsObj) {
+                    if (!_.isEmpty(this._contextsObj.primaryContexts) && this._contextsObj.primaryContexts
+                        .indexOf('self') !== -1) {
+                        this._isAdditionalContextPresent = false;
+                    } else if (!_.isEmpty(this._contextsObj.additionalContexts)) {
+                        this._isAdditionalContextPresent = true;
+                    }
+                } else {
+                    this.logError('Failed to get primary and additional context check _getPrimaryAndAdditionalContexts');
+                }
+
+                let clonedAttributes;
+                if (DataHelper.isValidObjectPath(entities[0], 'data.attributes')) {
+                    clonedAttributes = DataHelper.cloneObject(entities[0].data.attributes);
+                }
+
+                if (this._contextsObj.primaryContexts.indexOf('self') < 0) {
+                    //add the logic to add attributes to context.data here and then send for save
+                    let dataContext = {
+                        "context": this._getContextForSave(),
+                        "attributes": clonedAttributes
+                    }
+                    entities[0].data.contexts.push(dataContext)
+
+                    entities[0].data.attributes = {};
+                }
+                //-------------------------------------------------------------------------------------//
+
+                if (!this.isentitydiscoveryscreen && !_.isEmpty(entities[0])) {
+                    // getting current Entity Id
+                    let firstItemContext = this.getFirstItemContext();
+                    let currentId = firstItemContext.id;
+                    let currentEntityType = firstItemContext.type;
+                    entities[0].id = currentId;
+                    entities[0].type = currentEntityType;
+
+                    this._saveRequest = {
+                        "entities": [entities[0]]
+                    };
+                    this._saveEntity();
+                } else {
+                    this._saveBulkEntities(entities[0]);
+                }
+
+            }
+
+            _getContextForSave() {
+                let contextForSave = {};
+                this._contextsObj.primaryContexts.forEach(ctx=> {
+                    contextForSave[ctx] = this.contextData.Contexts[0][ctx]
+                });
+                return contextForSave;
+
+            }
+            _saveBulkEntities(entityForClone) {
+                // this._bulkEntityPasteRequest = 
+                let ids;
+                let types;
+                if (!this.isentitydiscoveryscreen) {
+                    ids = [entityForClone.id];
+                    types = [entityForClone.type];
+                } else {
+                    ids = this.selecteditemsforpaste.map(elm => {
+                        return elm.id;
+                    });
+                    types = this.selecteditemsforpaste.map(elm => {
+                        return elm.type;
+                    });
+                }
+
+                let req = {
+                    "params": {
+                        "operationType": "inboundService",
+                        "data": entityForClone.data,
+                        "taskType": "process-query",
+                        "query": {
+                            "ids": ids,
+                            "filters": {
+                                "typesCriterion": types
+                            }
+                        }
+                    }
+                }
+                //Add hotline flag if hotline is enabled
+                if (DataHelper.isHotlineModeEnabled()) {
+                    req.hotline = true;
+                }
+
+                //Add clientAttributes
+                let valueContext = ContextHelper.getFirstValueContext(this.contextData);
+                let userContext = ContextHelper.getFirstUserContext(this.contextData);
+                let clientMessage = "Bulk attributes paste";
+
+                req.clientAttributes = {
+                    "taskName": {
+                        "values": [{
+                            "source": valueContext.source,
+                            "locale": valueContext.locale,
+                            "value": clientMessage
+                        }]
+                    }
+                };
+
+                this._bulkEntityPasteRequest = req;
+                let bulkPasteLiquid = this.shadowRoot.querySelector('#bulkEntityPaste');
+                bulkPasteLiquid.generateRequest();
+            }
+            _saveEntity() {
+                let liquidSave = this.shadowRoot.querySelector(
+                    "[name=attributeSaveDataService]");
+                if (liquidSave) {
+                    liquidSave.generateRequest();
+                } else {
+                    this.logError(
+                        "Save failed: Not able to access attributeSaveDataService liquid");
+                }
+            }
+
+            _onEntityGetFailed(e) {
+                this.logError("Copied entities data get failed", e.detail);
+            }
+            
+            _executePaste(e) {
+                let data = sessionStorage.getItem('copyEntityData');
+                let copiedItemContext, entityGetRequest;
+
+                if (!this.selectedItems || !this.selectedItems.length) {
+                    this.showWarningToast("Select at least 1 attribute for paste");
+                    return;
+                }
+
+                if(!_.isEmpty(data)) {
+
+                    //creating get request from copied entities contextData
+                    copiedItemContext = JSON.parse(data);
+                    entityGetRequest = DataRequestHelper.createEntityGetRequest(copiedItemContext);
+                    let liquidDataElement = this.shadowRoot.querySelector('#getEntity');
+
+                    // getting selected attributes and pushing into the request
+                    let attributes = this.selectedItems.map(elm => {
+                        return elm.name;
+                    });
+                    entityGetRequest.params.fields.attributes = attributes;
+                    liquidDataElement.requestData = entityGetRequest;
+                    liquidDataElement.generateRequest();
+
+                } else {
+                    this.showWarningToast('Copy an entity before pasting it');
+                }
+            }
+            _onCancelTap() {
+                let eventDetail = {
+                    name: "onCancel"
+                };
+                this.fireBedrockEvent("onCancel", eventDetail, { "ignoreId": true });
+            }
+
+            async _getPrimaryAndAdditionalContexts() {
+                let mergedContexts = undefined;
+
+                if (!_.isEmpty(this.contextData)) {
+                    let entityType = undefined;
+
+                    if (DataHelper.isValidObjectPath(this.contextData, 'ItemContexts.0')) {
+                        entityType = this.contextData.ItemContexts[0].type;
+                    }
+
+                    if(this.isentitydiscoveryscreen) {
+                        entityType = this.selecteditemsforpaste[0].type;
+                    }
+
+                    if (DataHelper.isValidObjectPath(this.contextData, 'Contexts.0') && entityType) {
+                        this._contextModel = await ContextModelManager.getContextModelByEntityTypeAndDataContext(entityType, this.contextData.Contexts[0]);
+                    }
+
+                    let additionalContexts = undefined;
+                    let primaryContexts = undefined;
+
+                    if (this._contextModel) {
+                        if (DataHelper.isValidObjectPath(this, '_contextModel.properties.additionalcontexts')) {
+                            additionalContexts = this._contextModel.properties.additionalcontexts;
+                        } else {
+                            additionalContexts = ["noclass"];
+                        }
+                        primaryContexts = DataTransformHelper.getPrimaryContextKeysFromContextModel(this._contextModel, additionalContexts);
+
+                    }
+
+                    mergedContexts = {
+                        "additionalContexts": additionalContexts,
+                        "primaryContexts": primaryContexts
+                    };
+                }
+
+                return mergedContexts;
+            }
+            _getHeaderText(_selectedScope) {
+                return this._selectedScope ? "Editing scope:  " + this._selectedScope.name : "Select attributes for paste";
+            }
+        }
+        customElements.define(RockEntityPaste.is, RockEntityPaste)
+    </script>
+</dom-module>
