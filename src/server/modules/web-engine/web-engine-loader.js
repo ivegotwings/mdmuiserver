@@ -42,7 +42,7 @@ logger.info('Web engine start - build path identified', {
 });
 
 let pjson = require(buildPath + '/package.json');
-const buildVersion = pjson.version;
+const buildVersion = pjson.mdmVersion;
 RuntimeVersionManager.initialize(buildVersion);
 ModuleVersionManager.initialize();
 
