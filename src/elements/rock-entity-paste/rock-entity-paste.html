@@ -176,7 +176,13 @@
                         type: Boolean,
                         value: false
                     },
-                    _contextsObj: {
+                    _contextsObjCopyEntity: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _contextsObjPasteEntity: {
                         type: Object,
                         value: function () {
                             return {};
@@ -448,14 +454,22 @@
                     })
                 }
 
-                //getting primary and secondary context
-                this._contextsObj = await this._getPrimaryAndAdditionalContexts();
-                if (this._contextsObj) {
-                    if (!_.isEmpty(this._contextsObj.primaryContexts) && this._contextsObj.primaryContexts
+                //getting primary and secondary context for copy and paste entity
+                this._contextsObjPasteEntity = await this._getPrimaryAndAdditionalContexts(this.contextData);
+                let data = sessionStorage.getItem('copyEntityData');
+                let parsedData = JSON.parse(data);
+                this._contextsObjCopyEntity = await this._getPrimaryAndAdditionalContexts(parsedData);
+
+                if (this._contextsObjPasteEntity) {
+                    if (!_.isEmpty(this._contextsObjPasteEntity.primaryContexts) && this._contextsObjPasteEntity.primaryContexts
                         .indexOf('self') !== -1) {
                         this._isAdditionalContextPresent = false;
-                    } else if (!_.isEmpty(this._contextsObj.additionalContexts)) {
-                        this._isAdditionalContextPresent = true;
+                    } else if (!_.isEmpty(this._contextsObjPasteEntity.additionalContexts)) {
+                        if(this._contextsObjPasteEntity.additionalContexts.length ==1 && this._contextsObjPasteEntity.additionalContexts[0] == 'noclass') {
+                        this._isAdditionalContextPresent = false;
+                        } else {
+                            this._isAdditionalContextPresent = false;
+                        }
                     }
                 } else {
                     this.logError('Failed to get primary and additional context check _getPrimaryAndAdditionalContexts');
@@ -466,8 +480,21 @@
                     clonedAttributes = DataHelper.cloneObject(entities[0].data.attributes);
                 }
 
-                if (this._contextsObj.primaryContexts.indexOf('self') < 0) {
+                if (this._contextsObjPasteEntity.primaryContexts.indexOf('self') < 0) {
                     //add the logic to add attributes to context.data here and then send for save
+
+                    if (this._contextsObjCopyEntity.primaryContexts.indexOf('self') < 0) {
+                        entities[0].data.contexts.forEach((dataContext, index)=> {
+                            if(JSON.stringify(Object.keys(dataContext.context)) == JSON.stringify(this._contextsObjCopyEntity.primaryContexts)) {
+                                clonedAttributes =  dataContext.attributes;
+                            }
+                        });
+                    }
+                    entities[0].data.contexts.forEach((dataContext, index)=> {
+                        if( JSON.stringify(dataContext.context) == JSON.stringify(this._getContextForSave())) {
+                            entities[0].data.contexts.splice(index);
+                        }
+                    })
                     let dataContext = {
                         "context": this._getContextForSave(),
                         "attributes": clonedAttributes
@@ -475,6 +502,17 @@
                     entities[0].data.contexts.push(dataContext)
 
                     entities[0].data.attributes = {};
+                } else {
+                    let contextCloneAttributes = {};
+                    if(DataHelper.isValidObjectPath(entities[0], 'data.contexts.0')) {
+                        entities[0].data.contexts.forEach(dataContext=> {
+                            if(!_.isEmpty(dataContext.attributes)) {
+                                Object.assign(contextCloneAttributes, dataContext.attributes);
+                            }
+                        })
+                        entities[0].data.attributes = contextCloneAttributes;
+                        entities[0].data.contexts = [];
+                    }
                 }
                 //-------------------------------------------------------------------------------------//
 
@@ -498,7 +536,7 @@
 
             _getContextForSave() {
                 let contextForSave = {};
-                this._contextsObj.primaryContexts.forEach(ctx=> {
+                this._contextsObjPasteEntity.primaryContexts.forEach(ctx=> {
                     contextForSave[ctx] = this.contextData.Contexts[0][ctx]
                 });
                 return contextForSave;
@@ -593,6 +631,9 @@
                         return elm.name;
                     });
                     entityGetRequest.params.fields.attributes = attributes;
+                    //setting non cloasce flag
+                    entityGetRequest.params.query.filters.nonContextual = "false";
+                                        
                     liquidDataElement.requestData = entityGetRequest;
                     liquidDataElement.generateRequest();
 
@@ -607,13 +648,13 @@
                 this.fireBedrockEvent("onCancel", eventDetail, { "ignoreId": true });
             }
 
-            async _getPrimaryAndAdditionalContexts() {
+            async _getPrimaryAndAdditionalContexts(contextData) {
                 let mergedContexts = undefined;
 
-                if (!_.isEmpty(this.contextData)) {
+                if (!_.isEmpty(contextData)) {
                     let entityType = undefined;
 
-                    if (DataHelper.isValidObjectPath(this.contextData, 'ItemContexts.0')) {
+                    if (DataHelper.isValidObjectPath(contextData, 'ItemContexts.0')) {
                         entityType = this.contextData.ItemContexts[0].type;
                     }
 
@@ -621,8 +662,8 @@
                         entityType = this.selecteditemsforpaste[0].type;
                     }
 
-                    if (DataHelper.isValidObjectPath(this.contextData, 'Contexts.0') && entityType) {
-                        this._contextModel = await ContextModelManager.getContextModelByEntityTypeAndDataContext(entityType, this.contextData.Contexts[0]);
+                    if (DataHelper.isValidObjectPath(contextData, 'Contexts.0') && entityType) {
+                        this._contextModel = await ContextModelManager.getContextModelByEntityTypeAndDataContext(entityType, contextData.Contexts[0]);
                     }
 
                     let additionalContexts = undefined;
