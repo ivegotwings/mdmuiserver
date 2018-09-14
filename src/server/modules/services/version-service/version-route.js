@@ -17,7 +17,7 @@ let VersionRouter = function (app) {
         res.status(200).send(response);
     });
 
-    app.use('/servicestatus', async function (req, res) {
+    app.use('/access_check/ui_server', async function (req, res) {
         let version = await RuntimeVersionManager.getVersion();
         let response = {
             "status": "OK",
