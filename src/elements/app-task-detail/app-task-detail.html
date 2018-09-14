@@ -91,8 +91,7 @@
                                 <template is="dom-if" if="[[_loadCompletedTasks(_showCompletedTasks)]]">
                                     <div class="full-height">
                                         <rock-entity-search-discovery id="entitySearchDiscoveryGrid" context-data="[[contextData]]" entity-id-list="[[entityIdList]]"
-                                            requested-entity-types="[[entityTypeList]]" allowed-entity-types=[[entityTypeList]]
-                                            domain="[[domain]]"></rock-entity-search-discovery>
+                                        domain="[[domain]]" requested-entity-types="[[entityTypeList]]" allowed-entity-types=[[entityTypeList]]></rock-entity-search-discovery>
                                     </div>
                                 </template>
                                 <template is="dom-if" if="[[_loadErrorTasks(_showErroredTasks)]]">
@@ -304,7 +303,7 @@
                 }
             }
 
-            _onTaskDetailsGetResponse(e, detail) {
+            async _onTaskDetailsGetResponse(e, detail) {
                 this._loading = false;
                 let taskDetails = detail.response;
 
@@ -313,33 +312,45 @@
                     //Convert task startTime and endTime
                     taskDetails.startTime = FormatHelper.convertFromISODateTimeToClientFormat(taskDetails.startTime, "datetime");
                     taskDetails.endTime = FormatHelper.convertFromISODateTimeToClientFormat(taskDetails.endTime, "datetime");
+                    let taskStatus = taskDetails.taskStatus.toLowerCase();
+
+                    //Set isExtractComplete based on hasChildTasks and taskStatus
+                    if (taskDetails.hasChildTasks != "N/A" && taskDetails.hasChildTasks) {
+                        if (taskStatus != "processing") {
+                            taskDetails.isExtractComplete = true;
+                        } else {
+                            taskDetails.isExtractComplete = false;
+                        }
+                    }
 
                     if (taskDetails.successEntities && taskDetails.successEntities.ids &&
                         taskDetails.successEntities.ids.length > 0) {
                         this.entityIdList = taskDetails.successEntities.ids;
                         this.entityTypeList = taskDetails.successEntities.types;
 
-                        //Set domain as per entity type
                         let entityTypeManager = EntityTypeManager.getInstance();
+                        //Set domain as per entity type
                         if (entityTypeManager && !_.isEmpty(this.entityTypeList)) {
                             let domainList = [];
-                            this.entityTypeList.forEach(function (entityType) {
-                                domainList.push(entityTypeManager.getDomainByEntityTypeName(entityType.replace("delete", "")) || this.domain);
-                            }, this);
-
+                            for(let i=0;i<this.entityTypeList.length;i++){
+                                if(this.entityTypeList[i]){
+                                    let domain = await entityTypeManager.getDomainByEntityTypeNameAsync(this.entityTypeList[i].replace("delete", ""));
+                                    domainList.push(domain || this.domain);
+                                }
+                            }
                             if (domainList && _.uniq(domainList).length == 1) {
                                 this.domain = domainList[0];
                             }
                         }
 
-                        if (taskDetails.taskStatus.toLowerCase() === "completed with errors") {
+                        if (taskStatus === "completed with errors") {
                             this._showErroredTasks = true;
                         } else if (!this._showCompletedTasks) {
                             this._showCompletedTasks = true;
                         } else {
                             this._reloadRockDiscovery();
                         }
-                    } else if (taskDetails.taskStatus.toLowerCase() == "errored" || taskDetails.taskStatus.toLowerCase() === "completed with errors") {
+                    } else if (taskStatus == "errored" || taskStatus === "completed with errors") {
                         if (taskDetails.preProcessFailure) {
                             this._message = taskDetails.message;
                             this._showMessage = true;
@@ -473,7 +484,7 @@
             _updateContextData() {
                 let newDimensions = {};
                 newDimensions["app"] = ["app-task-detail"];
-
+                
                 if (this.domain) {
                     newDimensions["domain"] = [this.domain];
                 }

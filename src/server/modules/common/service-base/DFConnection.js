@@ -13,6 +13,9 @@ DFConnection.prototype = {
     getCOPServerUrl: function () {
         return rdfConnectionConfig.copServerUrl;
     },
+    getInternalRdfUrl: function () {
+        return rdfConnectionConfig.internalRdfUrl;
+    },
     getHeaders: function () {
         return rdfConnectionConfig.headers;
     },
