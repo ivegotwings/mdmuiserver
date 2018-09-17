@@ -197,6 +197,12 @@ based on the given configuration.
                     showNavigationButtons: {
                         type: Boolean,
                         value: true
+                    },
+                    stateContainer: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
                     }
                 }
             }
@@ -223,13 +229,23 @@ based on the given configuration.
             _loadSharedData() {
                 let contentElement = this.stepContainer;
                 let currentComponent = contentElement.firstElementChild;
-                let currentConfig = this.config.steps[this._currentStepIndex + 1];
-                if (this.config.sharedProperties) {
-                    let currentSharedProperties = currentConfig.sharedProperties;
-                    for (let i in currentSharedProperties) {
-                        this.sharedData[i] = this.config.sharedProperties[currentSharedProperties[i]];
+                let currentConfig = this.config.steps[this._currentStepIndex];
+                let nextConfig = this.config.steps[this._currentStepIndex + 1];
+
+                //Capture current component state
+                this.stateContainer[currentConfig.name] = {
+                    "componentResult": currentComponent.componentResult,
+                    "finishStepData": currentComponent.finishStepData
+                }
+                //Pass shared properties to next component
+                let wizardSharedProperties = this.config.sharedProperties;
+                if (wizardSharedProperties) {
+                    let componentSharedProperties = nextConfig.sharedProperties;
+                    for (let i in componentSharedProperties) {
+                        this.sharedData[i] = wizardSharedProperties[componentSharedProperties[i]];
                     }
                 }
+                //Default context data
                 this.sharedData["context-data"] = currentComponent.contextData;
             }
             //This repaints the navigation buttons on certain scenarios
@@ -307,7 +323,7 @@ based on the given configuration.
                 return this._stepContainer;
             }
 
-            _renderComponent(config) {
+            _renderComponent(config, stepIndex) {
                 let contentElement = this.stepContainer;
                 if (config && config.component && contentElement) {
                     //This is send to hide the cancel button for each step if its enabled
@@ -323,6 +339,21 @@ based on the given configuration.
                         if (this.readonly) {
                             config.component.properties.mode = 'view';
                             config.component.properties.readonly = this.readonly;
+                        }
+                    }
+
+                    //Last step verification and add finish step data if needed 
+                    let configSteps = this.config.steps;
+                    let isFinishComponent = configSteps[stepIndex].component.path.indexOf("rock-business-function-finish") != -1 ||
+                        configSteps[stepIndex].component.path.indexOf("rock-bulk-action-result") != -1;
+                    if (stepIndex == configSteps.length - 1 && isFinishComponent &&
+                        _.isEmpty(config.component.properties["business-function-data"])) {
+                        for (let idx = stepIndex - 1; idx >= 0; idx--) {
+                            if (this.stateContainer && this.stateContainer[configSteps[idx].name] &&
+                                !_.isEmpty(this.stateContainer[configSteps[idx].name].finishStepData)) {
+                                config.component.properties["business-function-data"] = this.stateContainer[configSteps[idx].name].finishStepData;
+                                break;
+                            }
                         }
                     }
                     ComponentHelper.loadContent(contentElement, config.component, this);
@@ -395,7 +426,7 @@ based on the given configuration.
                 if (stepIndex >= 0 && stepIndex < this.config.steps.length) {
                     this._currentStepIndex = stepIndex;
                     let stepConfig = this.config.steps[stepIndex];
-                    this._renderComponent(stepConfig);
+                    this._renderComponent(stepConfig, stepIndex);
                     this._rePaintnavigationButtons(stepConfig, stepIndex);
                     this._updateStepperSelectedStep(stepIndex);
                 }
