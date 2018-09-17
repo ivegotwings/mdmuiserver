@@ -1114,8 +1114,8 @@ Eventservice.prototype = {
 
         return req;
     },
-    _convertToPositiveInteger: function(strInteger) {
-        let integer = parseInt(strInteger);
+    _convertToPositiveInteger: function(value) {
+        let integer = Math.round(value);
 
         if(!integer || integer < 0) {
             integer = 0;
