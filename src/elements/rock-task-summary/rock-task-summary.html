@@ -11,6 +11,8 @@
 <link rel="import" href="../pebble-graph-pie/pebble-graph-pie.html" />
 <link rel="import" href="../pebble-spinner/pebble-spinner.html">
 
+<link rel="import" href="../liquid-rest/liquid-rest.html">
+
 <dom-module id="rock-task-summary">
     <template>
         <style include="bedrock-style-common bedrock-style-gridsystem iron-flex">
@@ -184,12 +186,12 @@
                     <div class="attribute">
                         <div class="attribute-label">File Name</div>
                         <div class="tooltip-bottom" data-tooltip$="[[taskDetails.fileName]]">
-                            <template is="dom-if" if="[[_isDownloadAvailable(taskDetails.fileId, isParentTask)]]">
+                            <template is="dom-if" if="[[_isDownloadAvailable(taskDetails.fileId)]]">
                                 <div class="attribute-value trim">
                                     <a href="#" class="btn-link" on-tap="_onDownloadClick">[[taskDetails.fileName]]</a>
                                 </div>
                             </template>
-                            <template is="dom-if" if="[[!_isDownloadAvailable(taskDetails.fileId, isParentTask)]]">
+                            <template is="dom-if" if="[[!_isDownloadAvailable(taskDetails.fileId)]]">
                                 <div class="attribute-value trim">[[taskDetails.fileName]]</div>
                             </template>
                         </div>
@@ -219,14 +221,14 @@
 
                 <div id="attribute" class="attribute">
                     <div class="attribute-label">Start Time</div>
-                    <div class="tooltip-bottom" data-tooltip$="[[taskDetails.taskStatus]]">
+                    <div class="tooltip-bottom" data-tooltip$="[[taskDetails.startTime]]">
                         <div class="attribute-value trim" title="[[taskDetails.startTime]]">[[taskDetails.startTime]]</div>
                     </div>
                 </div>
 
                 <div id="attribute" class="attribute">
                     <div class="attribute-label">End Time</div>
-                    <div class="tooltip-bottom" data-tooltip$="[[taskDetails.taskStatus]]">
+                    <div class="tooltip-bottom" data-tooltip$="[[taskDetails.endTime]]">
                         <div class="attribute-value trim" title="[[taskDetails.endTime]]">[[taskDetails.endTime]]</div>
                     </div>
                 </div>
@@ -289,6 +291,8 @@
                 </pebble-button>
             </div>
         </div>
+        <liquid-rest id="getDownloadUrl" url="/data/binarystreamobjectservice/prepareDownload" method="POST" on-liquid-response="_onGetDownloadUrlResponse" on-liquid-error="_onGetDownloadUrlFailure">
+        </liquid-rest>
     </template>
     <script>
         class RockTaskSummary extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior], Polymer.Element) {
@@ -459,41 +463,86 @@
                     taskType
                 } = this.taskDetails;
 
-                let req = {
-                    "params": {
-                        "query": {
-                            "id": fileId
-                        }
-                    },
-                    fileName,
-                    fileType,
-                    fileExtension,
-                    taskType
-                }
+                if (!this.isParentTask) {
+                    let req = {
+                        "params": {
+                            "query": {
+                                "id": fileId
+                            }
+                        },
+                        fileName,
+                        fileType,
+                        fileExtension,
+                        taskType
+                    }
 
-                let _this = this;
-                RUFUtilities.fileDownload("/data/binaryobjectservice/downloadBinaryObject", {
-                    httpMethod: 'POST',
-                    data: {
-                        data: JSON.stringify(req)
-                    },
-                    fileName: fileName,
-                    successCallback: function (url) {
-                        this._downloadInProgress = false;
-                    }.bind(_this),
-                    failCallback: function (responseHtml, url, error) {
-                        this._onFileDownloadFailure(error);
-                    }.bind(_this)
-                });
+                    let _this = this;
+                    RUFUtilities.fileDownload("/data/binaryobjectservice/downloadBinaryObject", {
+                        httpMethod: 'POST',
+                        data: {
+                            data: JSON.stringify(req)
+                        },
+                        fileName: fileName,
+                        successCallback: function (url) {
+                            this._downloadInProgress = false;
+                        }.bind(_this),
+                        failCallback: function (responseHtml, url, error) {
+                            this._onFileDownloadFailure(error);
+                        }.bind(_this)
+                    });
+                } else {
+                    this._downloadLargeFile(fileId);
+                }
             }
 
             _onFileDownloadFailure(e) {
-                this.logError("Failed to download file.", e.detail);
+                this._setDownloadFileError(e.detail);
+            }
+
+            _downloadLargeFile(fileId) {
+                let binaryStreamObjects = [];
+                if (fileId) {
+                    binaryStreamObjects.push({
+                        "binaryStreamObject": {
+                            "id": fileId,
+                            "type": "importDataStream",
+                            "data": {}
+                        }
+                    })
+                }
+
+                let downloadUrlLiquid = this.shadowRoot.querySelector("#getDownloadUrl");
+                if (downloadUrlLiquid && !_.isEmpty(binaryStreamObjects)) {
+                    downloadUrlLiquid.requestData = binaryStreamObjects;
+                    downloadUrlLiquid.generateRequest();
+                } else {
+                    this._setDownloadFileError();
+                }
+            }
+
+            _onGetDownloadUrlResponse(e) {
+                if (DataHelper.isValidObjectPath(e, "detail.response.response")) {
+                    LiquidResponseHelper.downloadURLResponseMapper(e, downloadURL => {
+                        window.open(downloadURL, "_blank");
+                    });
+                    this._downloadInProgress = false;
+                } else {
+                    this._setDownloadFileError("Null response");
+                }
+            }
+
+            _onGetDownloadUrlFailure(e) {
+                this._setDownloadFileError(e.detail);
+            }
+
+            _setDownloadFileError(detail) {
+                this.showErrorToast("Failed to download file, contact administrator.");
+                this.logError("Failed to download file.", detail || "");
                 this._downloadInProgress = false;
             }
 
             _isDownloadAvailable() {
-                return this.taskDetails.fileId !== "N/A" && !this.isParentTask;
+                return this.taskDetails.fileId !== "N/A";
             }
 
             _onRefreshClick() {

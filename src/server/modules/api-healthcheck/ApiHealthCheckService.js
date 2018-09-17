@@ -8,6 +8,7 @@ let ApiHealthCheckService = function (options) {
     this._restRequest = _dataConnection.getRequest();
     this._serverUrl = _dataConnection.getServerUrl();
     this._copServerUrl = _dataConnection.getCOPServerUrl();
+    this._internalRdfUrl = _dataConnection.getInternalRdfUrl();
 }
 
 ApiHealthCheckService.prototype = {
@@ -28,7 +29,7 @@ ApiHealthCheckService.prototype = {
             isCOPService = true;
         }
         let dfUrl = (isCOPService ? copUrl : baseUrl) + apiUrl + '?timeStamp=' + timeStamp;
-        let apiConfigKey = apiUrl.replace('/', '-');
+        let apiConfigKey = apiUrl.replace(/\//g, '-');
 
         let healthcheckConfigs = await this.getHealthcheckConfig(baseUrl, apiConfigKey);
         //console.log('healthcheck configs ', JSON.stringify(healthcheckConfigs));
@@ -41,6 +42,11 @@ ApiHealthCheckService.prototype = {
 
         let apiConfig = this.getApiConfig(healthcheckConfigs, apiConfigKey);
         if (apiConfig) {
+
+            if(apiConfig.rdfInternal){
+                let serviceName = apiUrl.replace("internal/","");
+                dfUrl = this._internalRdfUrl+ '/' + tenantId + '/api/' + serviceName + '?timeStamp=' + timeStamp;
+            }
             let operation = apiConfig.operation;
 
             switch (operation) {
@@ -290,8 +296,12 @@ ApiHealthCheckService.prototype = {
         else {
             let newVal = moment().format("YYYY-MM-DDTHH:mm:ss.SSS-0500"); // just set new value as current timestamp..
             //console.log('new val', newVal);
-            getRequest.url = dfUrl.replace(apiUrl, getApiUrl);
-            deleteRequest.url = dfUrl.replace(apiUrl, deleteApiUrl);
+            let serverUrl = apiUrl;
+            if(apiConfig.rdfInternal){
+                serverUrl = apiUrl.replace('internal/','');
+            }
+            getRequest.url = dfUrl.replace(serverUrl, getApiUrl);
+            deleteRequest.url = dfUrl.replace(serverUrl, deleteApiUrl);
 
             let dataObject = createRequest.body[objectName];
             this.setAttrVal(dataObject.data.attributes, attrName, newVal);
