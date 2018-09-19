@@ -89,7 +89,8 @@ It manages the current extensions and creates the new extensions.
                         value: function () {
                             return [];
                         },
-                        notify: true
+                        notify: true,
+                        observer: "_onSelectedItemsChange"
                     },
                     
                     taxonomy: {
@@ -251,14 +252,20 @@ It manages the current extensions and creates the new extensions.
                     disableSave: {
                         type: Boolean,
                         value: false
+                    },
+
+                    _initialItems: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
                     }
                 };
             }
 
             static get observers() {
                 return [
-                    '_onContextOrTaxonomyChange(contextData, taxonomy)',
-                    '_onSelectedItemsChange(_selectedItems.*)'
+                    '_onContextOrTaxonomyChange(contextData, taxonomy)'
                 ];
             }
 
@@ -519,7 +526,7 @@ It manages the current extensions and creates the new extensions.
                     this._prepareBulkReclassificationSaveRequest();
                 } else {
                     // Input - selected items as path arrays
-                    this._selectedItems = items || [];
+                    this._selectedItems = this._initialItems = items || [];
 
                     if (!this.multiSelect && this._selectedItems.length > 1) {
                         this.logError("UI is configured for single context but there are " + this._selectedItems.length + " selected contexts for the entity");
@@ -981,12 +988,33 @@ It manages the current extensions and creates the new extensions.
                 }
             }
 
-            _onSelectedItemsChange(n, o) {
-                if((_.isEmpty(n) || _.isEmpty(n.value)) && _.isEmpty(o)) {
-                    return;
+            _onSelectedItemsChange() {
+                let selectionChanged = false;
+                if ((_.isEmpty(this._initialItems) || _.isEmpty(this._selectedItems)) &&
+                    (!_.isEmpty(this._initialItems) || !_.isEmpty(this._selectedItems))) {
+                    selectionChanged = true;
+                } else if(!_.isEmpty(this._initialItems) && !_.isEmpty(this._selectedItems)){
+                    if(this._initialItems.length != this._selectedItems.length) {
+                        selectionChanged = true;
+                    } else {
+                        for(let initialItem of  this._initialItems) {
+                            let initialValuePath = initialItem.join("#@#");
+                            let isFound = false;
+                            for(let selectedItem of this._selectedItems) {
+                                if(selectedItem.valuePath == initialValuePath) {
+                                    isFound = true;
+                                    break;
+                                }
+                            }
+                            if(!isFound) {
+                                selectionChanged = true;
+                                break;
+                            }
+                        }
+                    }
                 }
 
-                this.isComponentDirty = true;
+                this.isComponentDirty = selectionChanged;
             }
 
             _disableSave(allowSaveClassifications, disableSave) {
