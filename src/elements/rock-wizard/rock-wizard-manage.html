@@ -215,72 +215,28 @@ based on the given configuration.
                 this._confirmationDialog = this.shadowRoot.querySelector("#confirmationDialog");
 
             }
+
             disconnectedCallback() {
                 super.disconnectedCallback();
             }
+
             _computeStepper() {
                 return this.hideStepper;
             }
-            /**
-             * Can be used to move forward to the next step.
-             */
 
+            get stepContainer() {
+                this._stepContainer = this._stepContainer || this.shadowRoot.querySelector('#step-container');
+                return this._stepContainer;
+            }
 
-            _loadSharedDataAndManageState(nextStepIndex) {
-                let contentElement = this.stepContainer;
-                let currentComponent = contentElement.firstElementChild;
-                let currentConfig = this.config.steps[this._currentStepIndex];
-                let nextConfig = this.config.steps[nextStepIndex];
+            //getter for current stepper element
+            get stepperElement() {
+                if (this.stepContainer) {
+                    this._stepperElement = this.stepContainer.firstElementChild;
+                }
+                return this._stepperElement;
+            }
 
-                //Capture current component state
-                this.stateContainer[currentConfig.name] = {
-                    "componentResult": currentComponent.componentResult,
-                    "finishStepData": currentComponent.finishStepData
-                }
-                //Pass shared properties to next component
-                let wizardSharedProperties = this.config.sharedProperties;
-                if (wizardSharedProperties) {
-                    let componentSharedProperties = nextConfig.sharedProperties;
-                    for (let i in componentSharedProperties) {
-                        this.sharedData[i] = wizardSharedProperties[componentSharedProperties[i]];
-                    }
-                }
-                //Default context data
-                this.sharedData["context-data"] = currentComponent.contextData;
-            }
-            //This repaints the navigation buttons on certain scenarios
-            _rePaintNavigationButtons(stepConfig, stepIndex) {
-                //Last step
-                if (stepIndex == this.config.steps.length - 1) {
-                    this.set('showNavigationButtons', false);
-                }
-                if ((stepConfig.stepToBackOptionEnabled != undefined && !stepConfig.stepToBackOptionEnabled)
-                    || stepIndex == 0 || stepIndex == this.config.steps.length - 1) {
-                    this.set('hideBack', true);
-                }
-                else {
-                    this.set('hideBack', false);
-                }
-                //no next button if the step is mandatory
-                this.set('hideNext', !!stepConfig.isMandatory);
-            }
-            _updateStepperSelectedStep(stepIndex) {
-                let stepper = this.shadowRoot.querySelector('#pebbleStepper');
-                let previousItem = undefined;
-                if (stepper.selectedItem) {
-                    previousItem = stepper.selectedItem;
-                    stepper.selectedItem.status = "completed";
-                }
-                stepper.selected = stepIndex;
-                let stepperChildren = Polymer.FlattenedNodesObserver.getFlattenedNodes(stepper).filter(n => n.nodeType === Node.ELEMENT_NODE);
-                let currentStepperChildren = stepperChildren[stepIndex];
-                if (currentStepperChildren && currentStepperChildren != previousItem) {
-                    currentStepperChildren.status = "inprogress";
-                };
-                // if(stepper.selectedItem && stepper.selectedItem != previousItem) {
-                //     stepper.selectedItem.status = "inprogress";
-                // }
-            }
             _configChanged(config) {
                 if (config && config.steps && config.steps.length > 0) {
                     let stepper = this.shadowRoot.querySelector('#pebbleStepper');
@@ -313,15 +269,24 @@ based on the given configuration.
                 }
             }
 
-            get stepContainer() {
-                this._stepContainer = this._stepContainer || this.shadowRoot.querySelector('#step-container');
-                return this._stepContainer;
+            /**
+             * Can be used to go to a particular step in the wizard.
+             */
+            goToStep(stepIndex) {
+                //load content based on current step config
+                if (stepIndex >= 0 && stepIndex < this.config.steps.length) {
+                    this._currentStepIndex = stepIndex;
+                    let stepConfig = this.config.steps[stepIndex];
+                    this._renderComponent(stepConfig);
+                    this._rePaintNavigationButtons(stepConfig, stepIndex);
+                    this._updateStepperSelectedStep(stepIndex);
+                }
             }
 
-            _renderComponent(config, stepIndex) {
+            _renderComponent(config) {
                 let contentElement = this.stepContainer;
                 if (config && config.component && contentElement) {
-                    //This is send to hide the cancel button for each step if its enabled
+                    //This is to hide the cancel button for each step if its enabled
                     this.sharedData["is-part-of-business-function"] = true;
                     if (this.sharedData) {
                         if (!config.component.properties) {
@@ -337,31 +302,101 @@ based on the given configuration.
                         }
                     }
 
-                    //Last step verification and add finish step data if needed 
-                    let configSteps = this.config.steps;
-                    let isFinishComponent = configSteps[stepIndex].component.path.indexOf("rock-business-function-finish") != -1 ||
-                        configSteps[stepIndex].component.path.indexOf("rock-bulk-action-result") != -1;
-                    if (stepIndex == configSteps.length - 1 && isFinishComponent &&
-                        _.isEmpty(config.component.properties["business-function-data"])) {
-                        for (let idx = stepIndex - 1; idx >= 0; idx--) {
-                            if (this.stateContainer && this.stateContainer[configSteps[idx].name] &&
-                                !_.isEmpty(this.stateContainer[configSteps[idx].name].finishStepData)) {
-                                config.component.properties["business-function-data"] = this.stateContainer[configSteps[idx].name].finishStepData;
-                                break;
-                            }
-                        }
-                    }
                     ComponentHelper.loadContent(contentElement, config.component, this);
                     this._loading = false;
                 }
             }
-            //getter for current stepper element
-            get stepperElement() {
-                if (this.stepContainer) {
-                    this._stepperElement = this.stepContainer.firstElementChild;
+
+            //This repaints the navigation buttons on certain scenarios
+            _rePaintNavigationButtons(stepConfig, stepIndex) {
+                //Last step
+                if (stepIndex == this.config.steps.length - 1) {
+                    this.set('showNavigationButtons', false);
                 }
-                return this._stepperElement;
+                if ((stepConfig.stepToBackOptionEnabled != undefined && !stepConfig.stepToBackOptionEnabled)
+                    || stepIndex == 0 || stepIndex == this.config.steps.length - 1) {
+                    this.set('hideBack', true);
+                }
+                else {
+                    this.set('hideBack', false);
+                }
+                //no next button if the step is mandatory
+                this.set('hideNext', !!stepConfig.isMandatory);
             }
+
+            _updateStepperSelectedStep(stepIndex) {
+                let stepper = this.shadowRoot.querySelector('#pebbleStepper');
+                let previousItem = undefined;
+                if (stepper.selectedItem) {
+                    previousItem = stepper.selectedItem;
+                    stepper.selectedItem.status = "completed";
+                }
+                stepper.selected = stepIndex;
+                let stepperChildren = Polymer.FlattenedNodesObserver.getFlattenedNodes(stepper).filter(n => n.nodeType === Node.ELEMENT_NODE);
+                let currentStepperChildren = stepperChildren[stepIndex];
+                if (currentStepperChildren && currentStepperChildren != previousItem) {
+                    currentStepperChildren.status = "inprogress";
+                };
+            }
+
+            _loadComponentData(nextStepIndex) {
+                let currentComponent = this.stepperElement;
+                let currentConfig = this.config.steps[this._currentStepIndex];
+                let nextConfig = this.config.steps[nextStepIndex];
+
+                //Capture current component state
+                this._loadComponentState(currentConfig.name);
+
+                //Pass shared properties to next component
+                let wizardSharedProperties = this.config.sharedProperties;
+                if (wizardSharedProperties) {
+                    let componentSharedProperties = nextConfig.sharedProperties;
+                    for (let i in componentSharedProperties) {
+                        this.sharedData[i] = wizardSharedProperties[componentSharedProperties[i]];
+                    }
+                }
+
+                //Pass all properties to next component
+                for (let attribute in currentComponent.constructor.properties) {
+                    let property = DataHelper.convertHyphenatedStringFromCamelCase(attribute);
+                    if (currentComponent[attribute] && 
+                        !(currentComponent[attribute] instanceof Element)) {
+                        nextConfig.component.properties[property] = currentComponent[attribute];
+                    }
+                }
+
+                //Last step verification and add finish step data if needed
+                if (nextStepIndex == this.config.steps.length - 1) {
+                    this._loadFinishStepData(nextStepIndex, nextConfig);
+                }
+
+                //Default context data
+                this.sharedData["context-data"] = currentComponent.contextData;
+            }
+
+            _loadComponentState(configName) {
+                this.stateContainer[configName] = {
+                    "componentResult": this.stepperElement.componentResult,
+                    "finishStepData": this.stepperElement.finishStepData
+                }
+            }
+
+            _loadFinishStepData(nextStepIndex, nextConfig) {
+                let configSteps = this.config.steps;
+                let isFinishComponent = configSteps[nextStepIndex].component.path.indexOf("rock-business-function-finish") != -1 ||
+                    configSteps[nextStepIndex].component.path.indexOf("rock-bulk-action-result") != -1;
+                if (nextStepIndex == configSteps.length - 1 && isFinishComponent &&
+                    _.isEmpty(nextConfig.component.properties["business-function-data"])) {
+                    for (let idx = this._currentStepIndex; idx >= 0; idx--) {
+                        if (this.stateContainer && this.stateContainer[configSteps[idx].name] &&
+                            !_.isEmpty(this.stateContainer[configSteps[idx].name].finishStepData)) {
+                            this.sharedData["business-function-data"] = this.stateContainer[configSteps[idx].name].finishStepData;
+                            break;
+                        }
+                    }
+                }
+            }
+
             //gets the current step data through bedrock-component-business-function-behaviour
             getComponentBusinessFunctionData() {
                 let componentStatusData = {};
@@ -378,6 +413,7 @@ based on the given configuration.
                 }
                 return componentStatusData;
             }
+
             //This function closes the business function from the last step and redirect to the new route
             _onFinalStep(e, detail, sender) {
                 let data = detail.data;
@@ -389,6 +425,7 @@ based on the given configuration.
                     this.dispatchEvent(new CustomEvent('next-step', { detail: detail, bubbles: true, composed: true }));
                 }
             }
+
             //handler function for step complete
             _onBusinessFunctionStepComplete(e, detail) {
                 let currentConfig = this.config.steps[this._currentStepIndex];
@@ -430,13 +467,14 @@ based on the given configuration.
 
             goToNext() {
                 let nextStepIndex = this._getNextStepIndex();
-                this._loadSharedDataAndManageState(nextStepIndex);
+                this._loadComponentData(nextStepIndex);
                 if (nextStepIndex != this.config.steps.length) {
                     this.goToStep(nextStepIndex);
                 } else {
                     this.fire("cancel-event");
                 }
             }
+
             /**
              * Can be used to move backward to the previous step.
              */
@@ -445,23 +483,12 @@ based on the given configuration.
                     this.goToStep(this._currentStepIndex - 1);
                 }
             }
-            /**
-             * Can be used to go to a particular step in the wizard.
-             */
-            goToStep(stepIndex) {
-                //load content based on current step config
-                if (stepIndex >= 0 && stepIndex < this.config.steps.length) {
-                    this._currentStepIndex = stepIndex;
-                    let stepConfig = this.config.steps[stepIndex];
-                    this._renderComponent(stepConfig, stepIndex);
-                    this._rePaintNavigationButtons(stepConfig, stepIndex);
-                    this._updateStepperSelectedStep(stepIndex);
-                }
-            }
+
             //skip to next step if user edited the step and performed next click with confirmation
             _onNextConfirm() {
                 this.goToNext();
             }
+
             _onNextTap() {
                 let componentStatusData = this.getComponentBusinessFunctionData();
                 let currentConfig = this.config.steps[this._currentStepIndex];
@@ -484,15 +511,18 @@ based on the given configuration.
                     this.goToNext();
                 }
             }
+
             _onBackTap() {
                 let currentConfig = this.config.steps[this._currentStepIndex];
                 if (this._currentStepIndex && this._currentStepIndex != 0) {
                     this.goToPrevious();
                 }
             }
+
             _onCancelTap() {
                 this.fire("cancel-event");
             }
+
             _onReadonly() {
                 let content = this.stepContainer;
                 if (content && content.firstElementChild) {
