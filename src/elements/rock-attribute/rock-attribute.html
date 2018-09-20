@@ -579,7 +579,7 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                             title-pattern="[[_getMappedColumn('title', attributeModelObject)]]" sub-title-pattern="[[_getMappedColumn('subtitle', attributeModelObject)]]"
                             multi-select label="[[_getLabel(attributeModelObject.externalName)]]" is-readonly="[[!_isComponentEditable(mode, attributeModelObject)]]"
                             request-data="[[_prepareRequestObjectForLov(attributeModelObject, dependentAttributeObjects)]]" selected-ids="{{attributeObject.referenceDataId}}"
-                            selected-values="{{attributeObject.value}}" tabindex="[[tabindex]]" no-label-float="[[noLabelFloat]]"
+                            selected-values="{{attributeObject.value}}" no-label-float="[[noLabelFloat]]"
                             description-object="[[_getDescriptionObject()]]" context-data="[[contextData]]" on-tag-removed="_onTagItemRemoved"
                             mode="[[mode]]">
                         </rock-entity-combo-box>
@@ -592,7 +592,7 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                             title-pattern="[[_getMappedColumn('title', attributeModelObject)]]" sub-title-pattern="[[_getMappedColumn('subtitle', attributeModelObject)]]"
                             label="[[_getLabel(attributeModelObject.externalName)]]" is-readonly="[[!_isComponentEditable(mode, attributeModelObject)]]"
                             request-data="[[_prepareRequestObjectForLov(attributeModelObject, dependentAttributeObjects)]]" selected-id="{{attributeObject.referenceDataId}}"
-                            selected-value="{{attributeObject.value}}" tabindex="[[tabindex]]" context-data="[[contextData]]"
+                            selected-value="{{attributeObject.value}}" context-data="[[contextData]]"
                             no-label-float="[[noLabelFloat]]" description-object="[[_getDescriptionObject()]]" on-tag-removed="_onTagItemRemoved"
                             mode="[[mode]]">
                         </rock-entity-combo-box>
@@ -1121,6 +1121,27 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                     this.attributeObject.value = this._getValue(this.attributeObject.value, this.attributeModelObject
                         .trueText, this.attributeModelObject.falseText);
                 }
+                
+                //Checking for imported RTE values that might not be formatted as required by the editor
+                if (!this.changed && this.attributeModelObject && this._isRichTextEditor(this.attributeModelObject) && !_.isEmpty(this.originalAttributeObject.value)) {
+                    if(!_.isEqual(this.attributeObject.value, this.originalAttributeObject.value)) {
+                        let rteObj = this.shadowRoot.querySelector("pebble-richtexteditor");
+                        let formattedValue = rteObj.getFormattedValue(this.originalAttributeObject.value); 
+                        let attributeValue = this.attributeObject.value;
+                        if (DataHelper.checkBrowser('edge') || DataHelper.checkBrowser('firefox')) {
+                            let tempAttrVal = this.attributeObject.value.replace(/style-scope pebble-richtexteditor/gi, "");
+                            attributeValue = tempAttrVal.replace(/ class=""/gi, "");
+                        }                        
+                        //If the rte is formatting the originalAttributeObject value same as the current attributeObject, then there is no change required to be honoured               
+                        if(_.isEqual(attributeValue, formattedValue)){
+                            changeRecord.path = "attributeObject";                            
+                        }                        
+                    } else {
+                        //If this.originalAttributeObject.value and this.attributeObject.value are equal, then there is no change, hence return
+                        this._onAttributeObjectChangedEnd();                        
+                        return;
+                    }
+                }
 
                 if (this._isInitialized && changeRecord.path != "attributeObject" && changeRecord.path !=
                     "attributeObject.errors") {
@@ -1131,6 +1152,7 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                         composed: true
                     }));
                 }
+
                 if(this.attributeModelObject.displayType == "path"){
                     if(this.attributeModelObject.pathEntityInfo){
                         let pathEntityInfo = this.attributeModelObject.pathEntityInfo[0];
@@ -1148,6 +1170,12 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                        
                     }
                 }
+
+                this._onAttributeObjectChangedEnd(); 
+            }
+
+            _onAttributeObjectChangedEnd(){
+
                 this._fallbackList = this._getFallbackPath();
                 this._contextCoalescePathList = this.attributeObject.contextCoalescePaths;
                 this._updateMarkerClass();
