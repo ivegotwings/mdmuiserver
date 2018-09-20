@@ -651,7 +651,7 @@ Eventservice.prototype = {
         let requestedAttributeCriteria = inputRequest.params.query.filters.attributesCriterion;
         if(requestedAttributeCriteria) {
             let status = undefined;
-            let taskType = "entity_import";
+            let taskType = { "contains": "entity_import" };
             let taskTypeOperator = undefined;
             let userId = undefined;
             let integrationType = undefined;
@@ -661,7 +661,7 @@ Eventservice.prototype = {
                 if(requestedAttributeCriteria[i].eventSubType) {
                     status = requestedAttributeCriteria[i].eventSubType.eq;
                 } else if(requestedAttributeCriteria[i].taskType) {
-                    taskType = requestedAttributeCriteria[i].taskType.contains;
+                    taskType = requestedAttributeCriteria[i].taskType;
                     taskTypeOperator = requestedAttributeCriteria[i].taskType.operator;
                 } else if(requestedAttributeCriteria[i].userId) {
                     userId = requestedAttributeCriteria[i].userId.eq;
@@ -676,9 +676,7 @@ Eventservice.prototype = {
 
             //Add task type criterion...
             let taskTypeCriterion = {
-                "taskType": {
-                    "contains": taskType
-                }
+                "taskType": taskType
             };
 
             if(taskTypeOperator) {
