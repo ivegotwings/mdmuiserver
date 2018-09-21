@@ -156,7 +156,6 @@
                         },
                         observer: '_onContextDataChange'
                     },
-
                     _saveRequest: {
                         type: Object,
                         value: function () {
@@ -167,7 +166,6 @@
                         type: String,
                         value: "entityData"
                     },
-
                     _loading: {
                         type: Boolean,
                         value: false
@@ -188,7 +186,6 @@
                             return {};
                         }
                     },
-
                     _entityDataOperation: {
                         type: String,
                         value: 'update'
@@ -223,6 +220,12 @@
                             return [];
                         }
                     },
+                    _cloneEntitiesForBulkSave: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
                     isentitydiscoveryscreen: {
                         type: Boolean,
                         value: false
@@ -230,10 +233,24 @@
                     _message: {
                         type: String
                     },
+                    _bulkSaveTracker: {
+                        type: Number,
+                        value: 0
+                    },
+                    _saveRequestMode: {
+                        type: String,
+                        value: ""
+                    },
                     _attributeModelResponse: {
                         type: Object,
                         value: function () {
                             return {};
+                        }
+                    },
+                    _entitySaveResponseObject: {
+                        type: Array,
+                        value: function () {
+                            return [];
                         }
                     },
                     splitListConfig: {
@@ -302,7 +319,23 @@
                 }
             }
             _onSaveResponse(e, detail) {
-                this._triggerFinishStep();
+                this._bulkSaveTracker++;
+                if(this._saveRequestMode === "bulkSimulation") {
+                    const responseObj = {
+                        "Entity Id": e.detail.request.requestData.entities[0].id,
+                        "Message": e.detail.response.content.msg,
+                        "Status": e.detail.response.status
+                    }
+                    this._entitySaveResponseObject.push(responseObj);
+
+                    if(this._bulkSaveTracker === this.selecteditemsforpaste.length) {
+                        this._triggerBulkFinishStep();
+                    } else {
+                        return;
+                    }
+                } else {
+                    this._triggerFinishStep();
+                }
             }
 
             _onBulkEntityPasteSuccess(e, detail) {
@@ -311,14 +344,13 @@
             _onBulkEntityPasteFailure(e, detail) {
                 this.logError('Bulk Paste Failed');
             }
-
             _triggerFinishStep() {
-                let message = "Entity paste process is started, you can review the progress of the task " + this._taskId + " in task details.";
-                let messages = [
-                    {
-                        "message": message
-                    }
-                ]
+                let message = "Entity is submitted for Paste";
+                // let messages = [
+                //     {
+                //         "message": message
+                //     }
+                // ]
                 let actions = [
                     {
                         "name": "goBack",
@@ -328,7 +360,7 @@
                 ];
 
                 let data = {
-                    "messages": messages,
+                    "message": message,
                     "noGrid": true,
                     "actions": actions,
                 };
@@ -342,6 +374,73 @@
                 this.fireBedrockEvent(eventName, eventDetail, {
                     ignoreId: true
                 });
+            }
+            _triggerBulkFinishStep() {
+                // let isJob = false;
+                let noGrid = false;
+                let message = "";
+                let actions = [{
+                    "name": "goBack",
+                    "text": "Take me back to where I started",
+                    "isNotApp": true
+                }];
+
+                if (this._saveRequestMode === "single") {
+                    noGrid = true;
+                    message = this._responseMessages && this._responseMessages[0] ? this._responseMessages[0].Message :
+                        "";
+                    this._responseMessages = [];
+                }
+                //  else if (isJob) {
+                //     noGrid = true;
+                //     message = "Assignment process is started, you can review the progress of the task " + this._taskId +
+                //         " in task details.";
+                //     actions.push({
+                //         "name": "gotoJobDetails",
+                //         "text": "Show me the task details",
+                //         "isNotApp": true,
+                //         "dataRoute": "task-detail",
+                //         "queryParams": {
+                //             "id": this._taskId
+                //         }
+                //     });
+                // }
+                 else {
+                    message = "Entity Paste process is started, refresh data grid after some time.";
+                }
+
+                let data = {
+                    "messages": this._entitySaveResponseObject,
+                    "message": message,
+                    "noGrid": noGrid,
+                    "actions": actions,
+                    "contextData": this.contextData,
+                    "processedEntities": this._cloneEntitiesForBulkSave,
+                    "messageKey": "Entity Id",
+                    "isPasteScenario": true
+                };
+
+                this.businessFunctionData = data;
+                let eventName = "onComplete";
+                let eventDetail = {
+                    name: eventName
+                }
+
+                this.fireBedrockEvent(eventName, eventDetail, {
+                    ignoreId: true
+                });
+
+                this._message = "About to complete, please wait...";
+                this._loading = true;
+
+                //Reset
+                this.contextData = {};
+                this.selectedEntities = [];
+                this.workflowName = "";
+                this.workflowExternalName = "";
+                this.workflowActivityName = "";
+                this.workflowActivityExternalName = "";
+                this.assignmentAction = "";
             }
 
             showNoChangesToast() {
@@ -520,9 +619,30 @@
                     this._saveRequest = {
                         "entities": [entities[0]]
                     };
+                    this._saveRequestMode = "single";
                     this._saveEntity();
                 } else {
-                    this._saveBulkEntities(entities[0]);
+                    // this._saveBulkEntities(entities[0]);
+                    let ids = this.selecteditemsforpaste.map(elm => {
+                        return elm.id;
+                    });
+                    let types = this.selecteditemsforpaste.map(elm => {
+                        return elm.type;
+                    });
+                    // let cloneEntitiesForBulkSave = [];
+                    this.selecteditemsforpaste.forEach(item=>{
+                        let cloneEntity = DataHelper.cloneObject(entities[0]);
+                        cloneEntity.id = item.id;
+                        cloneEntity.type = item.type;
+                        this._saveRequest = {
+                        "entities": [cloneEntity]
+                    };
+
+                    this._saveRequestMode = "bulkSimulation";
+                    this._saveEntity();
+                        this._cloneEntitiesForBulkSave.push(cloneEntity);
+                    });
+                    
                 }
 
             }
