@@ -20,7 +20,7 @@
             if (compositeModel && "data" in compositeModel) {
                 mergedAttributeModels = DataTransformHelper._getAttributeModelsBasedOnContext(compositeModel, firstDataContext)
                 if (!_.isEmpty(mergedAttributeModels)) {
-                    this._fillModels(mergedAttributeModels, false, editPermission);
+                    this._fillModels(mergedAttributeModels, editPermission);
                 }
             }
 
@@ -42,7 +42,7 @@
                     mergedAttributeModels = await DataTransformHelper._populateModelContextCoalesceProperty(mergedAttributeModels, firstDataContext, itemContext)
                 }
                 if (!_.isEmpty(mergedAttributeModels)) {
-                    this._fillModels(mergedAttributeModels, false, editPermission);
+                    this._fillModels(mergedAttributeModels, editPermission);
                 }
             }
             return mergedAttributeModels;
@@ -130,7 +130,7 @@
             }
 
             if (!_.isEmpty(mergedAttributeModels)) {
-                this._fillModels(mergedAttributeModels, false, editPermission);
+                this._fillModels(mergedAttributeModels, editPermission);
             }
 
             return mergedAttributeModels;
@@ -403,7 +403,7 @@
             });
 
             if (entities && entities.length > 0) {
-
+                             
                 let entityManagerObj = EntityTypeManager.getInstance();
                 for (let i = 0; i < entities.length; i++) {
                     let entity = entities[i];
@@ -695,10 +695,16 @@
                                     attrJson["selectedLocales"] = group[attributeName].selectedLocales;
                                 }
                                 let childAttr = this.createAttributeInstance(attrJson, firstValueContext);
+                                if (!this._isLocalizable(childAttrModels[attributeName])) {
+                                    this._overrideLocale(childAttr, DataHelper.getDefaultLocale());
+                                }
                                 childAttributes[attributeName] = childAttr;
                             }
                         }
                         AttributeHelper.populateValueContext(childAttributes, firstValueContext);
+                        if (!this._isLocalizable(model)) {
+                            childAttributes.locale = DataHelper.getDefaultLocale();
+                        }
                         if (group.action === "delete") {
                             childAttributes["action"] = "delete";
                         }
@@ -999,6 +1005,7 @@
                 if (_.isEmpty(valueContext)) {
                     valueContext = defaultValCtx;
                 }
+                let clonedValCtx = DataHelper.cloneObject(valueContext);
 
                 let currentLocaleGroup = attribute && attribute.group && attribute.group.length > 0 ? attribute.group.filter(item => item.locale === valueContext.locale) : [];
 
@@ -1006,7 +1013,6 @@
                     let contextCoalescePaths = !_.isEmpty(dataContext) ? DataTransformHelper.getContextCoalescePaths(attribute.properties, dataContext) : [];
                     for (let i = 0; i < currentLocaleGroup.length; i++) {
                         let childAttributes = currentLocaleGroup[i];
-                        let localeCoalescePath = childAttributes.properties && childAttributes.properties.localeCoalescePath ? childAttributes.properties.localeCoalescePath : undefined;
                         delete childAttributes.id;
                         let childAttributeJson = {};
 
@@ -1025,45 +1031,60 @@
                             for (let attributeName in childAttributeModels) {
                                 let childAttrModel = childAttributeModels[attributeName];
                                 let childAttr = childAttributes[attributeName];
+                                let localeCoalescePath = childAttr.properties && childAttr.properties.localeCoalescePath ? childAttr.properties.localeCoalescePath : undefined;
                                 childAttributeJson[attributeName] = {};
 
                                 if (childAttr && childAttr.values) {
-                                    let attrVal = AttributeHelper.getCurrentValue(childAttr.values, valueContext, childAttrModel);
-                                    if (!attrVal) {
-                                        attrVal = AttributeHelper.getCurrentValue(childAttr.values, defaultValCtx, childAttrModel);
-                                    }
-                                    childAttributeJson[attributeName] = attrVal || {};
-                                    if (childAttrModel.displayType && childAttrModel.displayType.toLowerCase() === "referencelist") {
-                                        let referenceDataId = "";
-                                        let refEntityType = childAttrModel.referenceEntityTypes && childAttrModel.referenceEntityTypes.length > 0 ? childAttrModel.referenceEntityTypes[0] : "";
-                                        childAttributeJson[attributeName]["referenceEntityType"] = refEntityType;
-                                        if (!DataHelper.isEmptyObject(childAttr.values)) {
-                                            if (childAttrModel.isCollection) {
-                                                referenceDataId = [];
-                                                for (let valIdx = 0; valIdx < childAttr.values.length; valIdx++) {
-                                                    let childAttrVal = childAttr.values[valIdx];
-                                                    if (!DataHelper.isEmptyObject(childAttrVal.properties) && childAttrVal.properties.referenceData) {
-                                                        let refData = childAttrVal.properties.referenceData;
-                                                        let refDataId = refData.replace(refEntityType + "/", "");
-                                                        referenceDataId.push(refDataId);
-                                                    }
-                                                }
-                                            } else {
-                                                if (!DataHelper.isEmptyObject(childAttr.values[0].properties) && childAttr.values[0].properties.referenceData) {
-                                                    let referenceData = childAttr.values[0].properties.referenceData;
-                                                    referenceDataId = referenceData.replace(refEntityType + "/", "");
-                                                }
+                                    let currentLocale = childAttrModel.isLocalizable ? valueContext.locale : DataHelper.getDefaultLocale();
+
+                                    childAttr.values = childAttr.values.filter(value => value.locale === currentLocale);
+                                    clonedValCtx.locale = currentLocale;
+                                    childAttributeJson[attributeName] = AttributeHelper.getCurrentValue(childAttr.values, clonedValCtx, childAttrModel);
+
+                                    let attributeRefIds = [];
+                                    let selectedLocales = [];
+                                    let localeCoalescePath = undefined;
+
+                                    for (let valIdx = 0; valIdx < childAttr.values.length; valIdx++) {
+                                        let attributeValue = childAttr.values[valIdx];
+                                        if (!DataHelper.isEmptyObject(attributeValue.properties)) {
+                                            if (attributeValue.properties.referenceData) {
+                                                let refEntityType = childAttrModel.referenceEntityTypes && childAttrModel.referenceEntityTypes.length > 0 ? childAttrModel.referenceEntityTypes[0] : "";
+                                                let referenceData = attributeValue.properties.referenceData;
+                                                let referenceDataId = referenceData.replace(refEntityType + "/", "");
+                                                attributeRefIds.push(referenceDataId);
                                             }
-                                            childAttributeJson[attributeName]["referenceDataId"] = referenceDataId;
+
+                                            if (childAttrModel.isReferenceType) {
+                                                let selectedLocale = valueContext.locale;
+
+                                                let fallbackLocale = DataHelper.getFallbackLocaleFromCoalescePath(localeCoalescePath);
+
+                                                if (fallbackLocale) {
+                                                    selectedLocale = fallbackLocale;
+                                                }
+
+                                                selectedLocales.push(selectedLocale);
+                                            }
                                         }
                                     }
 
-                                    childAttributeJson[attributeName]["properties"] = {};
-                                    if (localeCoalescePath) {
-                                        childAttributeJson[attributeName]["properties"]["localeCoalescePath"] = localeCoalescePath;
-                                    }
-                                    if (!_.isEmpty(contextCoalescePaths)) {
-                                        childAttributeJson[attributeName]["contextCoalescePaths"] = contextCoalescePaths;
+                                    if (childAttributeJson[attributeName]) {
+                                        childAttributeJson[attributeName].referenceDataId = attributeRefIds;
+
+                                        if (!_.isEmpty(selectedLocales)) {
+                                            childAttributeJson[attributeName].selectedLocales = selectedLocales;
+                                        }
+                                        localeCoalescePath = childAttrModel.isLocalizable ? AttributeHelper.getLocaleCoalescePath(childAttr) : undefined;
+
+                                        if (!DataHelper.isEmptyObject(localeCoalescePath)) {
+                                            childAttributeJson[attributeName].properties = childAttributeJson[attributeName].properties || {};
+                                            childAttributeJson[attributeName].properties.localeCoalescePath = localeCoalescePath;
+                                        }
+
+                                        if (!_.isEmpty(contextCoalescePaths)) {
+                                            childAttributeJson[attributeName]["contextCoalescePaths"] = contextCoalescePaths;
+                                        }
                                     }
                                 } else {
                                     childAttributeJson[attributeName]["value"] = childAttrModel.isCollection ? [] : "";
@@ -1112,7 +1133,7 @@
             }
         };
 
-        DataTransformHelper._fillModels = function (attributeModelObjects, isNestedChild, editPermission) {
+        DataTransformHelper._fillModels = function (attributeModelObjects, editPermission, isNestedChild, isLocalizable) {
             for (let attributeName in attributeModelObjects) {
                 let model = attributeModelObjects[attributeName];
 
@@ -1122,7 +1143,11 @@
                     model.properties.hasWritePermission = false;
                 }
 
-                if (model.properties && (model.properties.isReferenceType || model.properties.dataType === "nested" || model.isNestedChild)) {
+                if (model.properties && model.properties.isReferenceType) {
+                    model.properties.isLocalizable = true;
+                }
+
+                if(model.isNestedChild && isLocalizable) {
                     model.properties.isLocalizable = true;
                 }
 
@@ -1133,7 +1158,7 @@
                 if (model.dataType === "nested" && model.group && model.group.length > 0) {
                     let childAttributeModels = model.group[0];
                     delete childAttributeModels.id;
-                    this._fillModels(childAttributeModels, true);
+                    this._fillModels(childAttributeModels, editPermission, true, model.isLocalizable);
                 }
 
                 if (!model.dataType) {
@@ -2256,7 +2281,11 @@
                     }
                 } else if (attribute.group && attribute.group.length > 0) {
                     let currentLocaleGroup = DataTransformHelper._updateValuesAndLocaleCoalesceInfo(attribute.group, valContext, clonedValCtx, fallbackLocales);
-                    if (currentLocaleGroup) {
+                    if (!_.isEmpty(currentLocaleGroup)) {
+                        for(let groupIdx = 0; groupIdx < currentLocaleGroup.length; groupIdx++) {
+                            let rowAttributes = currentLocaleGroup[groupIdx];
+                            DataTransformHelper._updateAttributesWithLocaleCoalesceInfo(rowAttributes, valContext, clonedValCtx, fallbackLocales);
+                        }
                         attribute.group = currentLocaleGroup;
                     }
                 }
