@@ -346,21 +346,28 @@ based on the given configuration.
                 };
             }
 
-            /*
-                Before loading to the next component
-                Capture current component state
-                Keep this in state - currentComponent.constructor.properties
+            _setCurrentComponentState() {
+                let currentComponent = this.stepperElement;
+                let currentConfig = this.config.steps[this._currentStepIndex];
 
-                loadProperties() - New method
-                Set wizardPropetires to current component
-                In component state we are capturing the properties of previous component,
-                    those should be assigned now
-                _loadFinishStepData
-            */
+                //Capture current component result
+                this.stateContainer[currentConfig.name] = {
+                    "componentResult": this.stepperElement.componentResult,
+                    "finishStepData": this.stepperElement.finishStepData
+                }
 
+                //Capture current component properties
+                this.stateContainer[currentConfig.name].properties = {};
+                for (let attribute in currentComponent.constructor.properties) {
+                    if (currentComponent[attribute] && 
+                        !(currentComponent[attribute] instanceof Element)) {
+                        this.stateContainer[currentConfig.name].properties[attribute] = currentComponent[attribute];
+                    }
+                }
+            }
+
+            //Once the current component props are loaded, then this function will be triggered from that component
             _loadBusinessFunctionStepProperties() {
-                //Load props to current component
-                // and call a resetComponent of component bf behavior
                 let currentComponent = this.stepperElement;
                 let currentConfig = this.config.steps[this._currentStepIndex];
                 let previousConfig = {};
@@ -394,42 +401,13 @@ based on the given configuration.
                 currentComponent.resetComponent();
             }
 
-            _loadComponentData(nextStepIndex) {
-                let currentComponent = this.stepperElement;
-                let currentConfig = this.config.steps[this._currentStepIndex];
-                let nextConfig = this.config.steps[nextStepIndex];
-
-                //Capture current component state
-                this._loadComponentState(currentConfig.name);
-
-                //Pass all properties to next component
-                this.stateContainer[currentConfig.name].properties = {};
-                for (let attribute in currentComponent.constructor.properties) {
-                    //let property = DataHelper.convertHyphenatedStringFromCamelCase(attribute);
-                    if (currentComponent[attribute] && 
-                        !(currentComponent[attribute] instanceof Element)) {
-                        this.stateContainer[currentConfig.name].properties[attribute] = currentComponent[attribute];
-                    }
-                }
-
-                //Default context data
-                this.sharedData["context-data"] = currentComponent.contextData;
-            }
-
-            _loadComponentState(configName) {
-                this.stateContainer[configName] = {
-                    "componentResult": this.stepperElement.componentResult,
-                    "finishStepData": this.stepperElement.finishStepData
-                }
-            }
-
-            _loadFinishStepData(nextStepIndex, nextConfig) {
+            _loadFinishStepData(stepIndex, stepConfig) {
                 let currentComponent = this.stepperElement;
                 let configSteps = this.config.steps;
-                let isFinishComponent = configSteps[nextStepIndex].component.path.indexOf("rock-business-function-finish") != -1 ||
-                    configSteps[nextStepIndex].component.path.indexOf("rock-bulk-action-result") != -1;
-                if (nextStepIndex == configSteps.length - 1 && isFinishComponent) {
-                    if (_.isEmpty(nextConfig.component.properties["business-function-data"])) {
+                let isFinishComponent = stepConfig.component.path.indexOf("rock-business-function-finish") != -1 || 
+                                        stepConfig.component.path.indexOf("rock-bulk-action-result") != -1;
+                if (stepIndex == configSteps.length - 1 && isFinishComponent) {
+                    if (_.isEmpty(stepConfig.component.properties["business-function-data"])) {
                         for (let idx = this._currentStepIndex; idx >= 0; idx--) {
                             if (this.stateContainer && this.stateContainer[configSteps[idx].name] &&
                                 !_.isEmpty(this.stateContainer[configSteps[idx].name].finishStepData)) {
@@ -438,7 +416,7 @@ based on the given configuration.
                             }
                         }
                     } else {
-                        let finishStepBusinessFunctionData = nextConfig.component.properties["business-function-data"];
+                        let finishStepBusinessFunctionData = stepConfig.component.properties["business-function-data"];
                         for (let idx = this._currentStepIndex; idx >= 0; idx--) {
                             if (this.stateContainer && this.stateContainer[configSteps[idx].name] &&
                                 !_.isEmpty(this.stateContainer[configSteps[idx].name].finishStepData)) {
@@ -527,7 +505,8 @@ based on the given configuration.
             goToNext() {
                 let nextStepIndex = this._getNextStepIndex();
                 if (nextStepIndex != this.config.steps.length) {
-                    this._loadComponentData(nextStepIndex);
+                    this._setCurrentComponentState();
+                    this.sharedData["context-data"] = this.stepperElement.contextData;
                     this.goToStep(nextStepIndex);
                 } else {
                     this.fire("cancel-event");
