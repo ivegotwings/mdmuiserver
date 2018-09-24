@@ -110,6 +110,7 @@ based on the given configuration.
         </div>
         <bedrock-pubsub event-name="onNext" handler="_onFinalStep"></bedrock-pubsub>
         <bedrock-pubsub event-name="business-function-step-complete" handler="_onBusinessFunctionStepComplete"></bedrock-pubsub>
+        <bedrock-pubsub event-name="load-business-function-properties" handler="_loadBusinessFunctionStepProperties"></bedrock-pubsub>
     </template>
 
     <script>
@@ -345,6 +346,54 @@ based on the given configuration.
                 };
             }
 
+            /*
+                Before loading to the next component
+                Capture current component state
+                Keep this in state - currentComponent.constructor.properties
+
+                loadProperties() - New method
+                Set wizardPropetires to current component
+                In component state we are capturing the properties of previous component,
+                    those should be assigned now
+                _loadFinishStepData
+            */
+
+            _loadBusinessFunctionStepProperties() {
+                //Load props to current component
+                // and call a resetComponent of component bf behavior
+                let currentComponent = this.stepperElement;
+                let currentConfig = this.config.steps[this._currentStepIndex];
+                let previousConfig = {};
+                if(this._currentStepIndex - 1 >= 0) {
+                    let previousConfig = this.config.steps[this._currentStepIndex - 1];
+                }
+
+                //Pass shared properties to next component
+                let wizardSharedProperties = this.config.sharedProperties;
+                if (wizardSharedProperties) {
+                    let componentSharedProperties = currentConfig.sharedProperties;
+                    for (let i in componentSharedProperties) {
+                        currentComponent[DataHelper.convertCamelCaseStringFromHyphenated(componentSharedProperties[i])] = wizardSharedProperties[componentSharedProperties[i]];
+                    }
+                }
+
+                //Set previous step props to current component
+                if (!_.isEmpty(previousConfig) && this.stateContainer[previousConfig.name]) {
+                    let properties = this.stateContainer[previousConfig.name].properties || {};
+                    for (let propertyKey in properties) {
+                        currentComponent[propertyKey] = properties[propertyKey];
+                    }
+                }
+
+                //Last step verification and add finish step data if needed
+                if (this._currentStepIndex == this.config.steps.length - 1) {
+                    this._loadFinishStepData(this._currentStepIndex, currentConfig);
+                }
+
+                //Call resetComponent
+                currentComponent.resetComponent();
+            }
+
             _loadComponentData(nextStepIndex) {
                 let currentComponent = this.stepperElement;
                 let currentConfig = this.config.steps[this._currentStepIndex];
@@ -353,27 +402,14 @@ based on the given configuration.
                 //Capture current component state
                 this._loadComponentState(currentConfig.name);
 
-                //Pass shared properties to next component
-                let wizardSharedProperties = this.config.sharedProperties;
-                if (wizardSharedProperties) {
-                    let componentSharedProperties = nextConfig.sharedProperties;
-                    for (let i in componentSharedProperties) {
-                        this.sharedData[i] = wizardSharedProperties[componentSharedProperties[i]];
-                    }
-                }
-
                 //Pass all properties to next component
+                this.stateContainer[currentConfig.name].properties = {};
                 for (let attribute in currentComponent.constructor.properties) {
-                    let property = DataHelper.convertHyphenatedStringFromCamelCase(attribute);
+                    //let property = DataHelper.convertHyphenatedStringFromCamelCase(attribute);
                     if (currentComponent[attribute] && 
                         !(currentComponent[attribute] instanceof Element)) {
-                        nextConfig.component.properties[property] = currentComponent[attribute];
+                        this.stateContainer[currentConfig.name].properties[attribute] = currentComponent[attribute];
                     }
-                }
-
-                //Last step verification and add finish step data if needed
-                if (nextStepIndex == this.config.steps.length - 1) {
-                    this._loadFinishStepData(nextStepIndex, nextConfig);
                 }
 
                 //Default context data
@@ -388,6 +424,7 @@ based on the given configuration.
             }
 
             _loadFinishStepData(nextStepIndex, nextConfig) {
+                let currentComponent = this.stepperElement;
                 let configSteps = this.config.steps;
                 let isFinishComponent = configSteps[nextStepIndex].component.path.indexOf("rock-business-function-finish") != -1 ||
                     configSteps[nextStepIndex].component.path.indexOf("rock-bulk-action-result") != -1;
@@ -396,7 +433,7 @@ based on the given configuration.
                         for (let idx = this._currentStepIndex; idx >= 0; idx--) {
                             if (this.stateContainer && this.stateContainer[configSteps[idx].name] &&
                                 !_.isEmpty(this.stateContainer[configSteps[idx].name].finishStepData)) {
-                                this.sharedData["business-function-data"] = this.stateContainer[configSteps[idx].name].finishStepData;
+                                currentComponent["businessFunctionData"] = this.stateContainer[configSteps[idx].name].finishStepData;
                                 break;
                             }
                         }
@@ -405,7 +442,7 @@ based on the given configuration.
                         for (let idx = this._currentStepIndex; idx >= 0; idx--) {
                             if (this.stateContainer && this.stateContainer[configSteps[idx].name] &&
                                 !_.isEmpty(this.stateContainer[configSteps[idx].name].finishStepData)) {
-                                this.sharedData["business-function-data"] = DataHelper.replaceSpecifiersInObjectValues(finishStepBusinessFunctionData, this.stateContainer[configSteps[idx].name].finishStepData);
+                                currentComponent["businessFunctionData"] = DataHelper.replaceSpecifiersInObjectValues(finishStepBusinessFunctionData, this.stateContainer[configSteps[idx].name].finishStepData);
                                 break;
                             }
                         }
