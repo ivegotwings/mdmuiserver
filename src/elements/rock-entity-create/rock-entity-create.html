@@ -75,12 +75,15 @@
                 <div id="content-create" hidden></div>
             </div>
         </div>
+        <liquid-rest id="contextModelGet" url="/data/pass-through/entitymodelservice/getcontext" method="POST" request-data="{{_contextModelGetReq}}"
+        on-liquid-response="_onContextModelGetResponse" on-liquid-error="_onContextModelGetFailed"></liquid-rest>
         <bedrock-pubsub event-name="pebble-actions-action-click" handler="_onActionItemTap" target-id=""></bedrock-pubsub>
     </template>
     <script>
         class RockEntityCreate
         extends Polymer.mixinBehaviors([
-            RUFBehaviors.UIBehavior
+            RUFBehaviors.UIBehavior,
+            RUFBehaviors.AppBehavior
         ], Polymer.Element) {
             static get is() {
                 return 'rock-entity-create'
@@ -172,6 +175,16 @@
                     entityDomain: {
                         type: String,
                         value: ""
+                    },
+                    _contextModelGetReq: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    showEnhancerAttributes:{
+                        type: Boolean,
+                        value:false
                     }
                 }
             }
@@ -181,8 +194,62 @@
              */
             ready() {
                 super.ready();
-                this._onManualTap();
+                if(this.showEnhancerAttributes){
+                    this._onGetContextModel();
+                }else{
+                    this._onManualTap();
+                }
             }
+            async _onGetContextModel(){
+                if (_.isEmpty(this.entityDomain)) {
+                    let itemContext = ContextHelper.getFirstItemContext(this.contextData);
+                    let entityType = itemContext.type;
+                    this.entityDomain = await EntityTypeManager.getInstance().getDomainByType(entityType);
+                }
+
+                this._contextModelGetReq = DataRequestHelper.createContextModelGetRequest(this.entityDomain);
+
+                let liquidElement = this.$$('#contextModelGet');
+                if (liquidElement) {
+                    liquidElement.generateRequest();
+                } else {
+                    this.logError(this.appName + "Liquid for context model get is not found");
+                }
+            }
+            _onContextModelGetResponse(e) {
+                let response = e.detail.response.response;
+
+                if (response) {
+                    let entityModels = response.entityModels;
+
+                    if (!_.isEmpty(entityModels)) {
+                        let entityModel = entityModels[0];
+
+                        if (entityModel && entityModel.properties && entityModel.properties.enhancerAttributes) {
+                            let enhancerAttributeNames = [];
+                            let enhancerAttributes = entityModel.properties.enhancerAttributes;
+                            enhancerAttributes.forEach((enhancerAttribute) => {
+                                if(enhancerAttribute.enhancerAttributeName){
+                                    enhancerAttributeNames.push(enhancerAttribute.enhancerAttributeName)
+                                }
+                            })
+                            if(enhancerAttributeNames.length > 0 && this.attributeNames && Array.isArray(this.attributeNames)){
+                                this.attributeNames = this.attributeNames.concat(enhancerAttributeNames)
+                                }
+                            this._onManualTap();
+                        } else {
+                            this.logError(this.appName + "-Entity Create - There are no context models available", e.detail);
+                        }
+                    } else {
+                        this.logError(this.appName + "-Entity Create -There is some problem with contextModel get response", e.detail);
+                    }
+                }
+            }
+
+            _onContextModelGetFailed(e) {
+                this.logError(this.appName + "-Entity Create - contextModel get exception", e.detail);
+            }
+                
 
             _onManualTap(e, detail) {
                 if (this.getIsDirty()) {

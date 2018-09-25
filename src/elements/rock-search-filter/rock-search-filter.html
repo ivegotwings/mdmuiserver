@@ -27,6 +27,8 @@
 <link rel="import" href="../rock-entity-lov/rock-entity-lov.html">
 <link rel="import" href="../rock-search-bar/rock-search-bar.html">
 <link rel="import" href="../rock-attribute-model-lov/rock-attribute-model-lov.html">
+<link rel="import" href="../rock-path-selector/rock-path-selector.html">
+
 <!--
 `rock-search-filter` Represents an element that contains the "search bar" and filter tags. 
 The users can switch between a search mode and a filter mode to get the query they want to search.
@@ -261,6 +263,8 @@ The users can switch between a search mode and a filter mode to get the query th
         <bedrock-pubsub event-name="tag-item-remove" handler="_onTagItemRemove"></bedrock-pubsub>
         <bedrock-pubsub event-name="entity-lov-confirm-button-tap" handler="_onLOVConfirmTap" target-id="rockEntityLov"></bedrock-pubsub>
         <bedrock-pubsub event-name="entity-lov-close-button-tap" handler="_onLOVCloseTap" target-id="rockEntityLov"></bedrock-pubsub>
+        <bedrock-pubsub event-name="on-classification-update" handler="_onClassificationUpdate"></bedrock-pubsub>
+        
         <!-- Refine popover starts here -->
         <pebble-popover id="filterPopover" for="pebble-tag" no-overlap vertical-align="auto" horizontal-align="right">
           <template is="dom-if" if="{{_isAttributeValuesExistsSearchEnabled}}">
@@ -329,6 +333,11 @@ The users can switch between a search mode and a filter mode to get the query th
           </template>
         </pebble-popover>
         <!-- Already overlay, so out of popover -->
+        <template is="dom-if" if="[[_isPathSelector]]">  
+            <rock-path-selector id="pathSelector" dialog-title ="[[dialogTitle]]" for="pebble-tag" is-search-filter="true" values="{{_classificationValues}}" root-node="[[_rootNode]]"  path-entity-type="[[_pathEntityType]]" path-relationship-name="[[_pathRelationshipName]]" multi-select="[[_isMultiSelect()]]" context-data="[[contextData]]" leaf-node-only="true">
+             attribute-external-name="[[attributeExternalName]]" path-seperator="[[_pathSeperator]]" </rock-path-selector>        
+        </template>
+      
         <template is="dom-if" if="[[_rangepicker]]">
           <pebble-datetime-picker-overlay id="rangepicker" for="pebble-tag" picker-type="daterange" heading-format="ddd, MMM DD YYYY" start-date-text="{{displaygte}}" end-date-text="{{displaylte}}" start-date-value="{{gte}}" end-date-value="{{lte}}" on-date-range-selected="_updateValue" has-value-checked="{{currentTag.options.hasValueChecked}}" attribute-values-exists-search-enabled=[[_isAttributeValuesExistsSearchEnabled]] show-ranges>
           </pebble-datetime-picker-overlay>
@@ -559,7 +568,41 @@ The users can switch between a search mode and a filter mode to get the query th
           showReferenceFilter: {
             type: Boolean,
             value: false
-          }
+          },
+          _isPathSelector:{
+              type:Boolean,
+              value: false
+          },
+          dialogTitle:{
+            type:String,
+            value: ""
+          },
+          _classificationValues:{
+                type: Array,
+                value: function () {
+                    return [];
+                },
+            },
+            _rootNode:{
+              type:Array,
+              value:""
+            },
+            _pathEntityType:{
+                        type:String,
+                        value:""
+            },
+            _pathRelationshipName:{
+                type:String,
+                value:""
+            },
+            _pathSeperator:{
+              type:String,
+              value:""
+            },
+            attributeExternalName:{
+              type:String,
+              value:""
+            }
         }
       }
 
@@ -775,7 +818,45 @@ The users can switch between a search mode and a filter mode to get the query th
         }
         const positionTarget = this.shadowRoot.querySelector('#filter-tags').shadowRoot.querySelector("#tag" + detail.index);
         let displayType = this.currentTag.options.displayType.toLowerCase();
-        if (this.currentTag && (displayType == "datetime" || displayType == "date")) {
+        if (displayType == "path") {
+              this._isPathSelector = true;
+              this._classificationValues = [];
+              this.attributeExternalName =  this.currentTag.options.externalName
+              if (this.currentTag.options.pathEntityInfo) {
+                let pathEntityInfo = this.currentTag.options.pathEntityInfo[0];
+                if (!_.isEmpty(pathEntityInfo)) {
+                    if (pathEntityInfo.rootNode) {
+                      this._rootNode = pathEntityInfo.rootNode;
+                    }
+                    if (pathEntityInfo.pathSeperator) {
+                      this._pathSeperator = pathEntityInfo.pathSeperator;
+                    }else{
+                      this._pathSeperator = this.appSetting('dataDefaults').categoryPathSeparator;
+                    }
+                    
+                    if (pathEntityInfo.pathEntityType) {
+                      this._pathEntityType = pathEntityInfo.pathEntityType;
+                    }
+                    if (pathEntityInfo.pathRelationshipName) {
+                      this._pathRelationshipName = pathEntityInfo.pathRelationshipName;
+                    }
+                  }
+              } 
+              if (this.currentTag.value.exacts && this.currentTag.value.exacts != 'All') {
+                this._classificationValues = DataHelper.cloneObject(this.currentTag.value.exacts);
+              } else if (this.currentTag.value.exact && this.currentTag.value.exact != 'All') {
+                this._classificationValues = [DataHelper.cloneObject(this.currentTag.value.exact)];
+              }
+
+              Polymer.Async.microTask.run(() => {
+                let pathSelector = this.shadowRoot.querySelector("#pathSelector");
+                if(pathSelector){
+                  this.dialogTitle = this._pathSeperator ? "Refine By "+ this._pathSeperator + " " + this.currentTag.options.externalName : "Refine By >> "+ this.currentTag.options.externalName;
+                  pathSelector.classificationDialogOpen();
+                }
+              })
+
+             }else if (this.currentTag && (displayType == "datetime" || displayType == "date")) {
           this._rangepicker = true;
           Polymer.dom.flush();
 
@@ -1034,6 +1115,36 @@ The users can switch between a search mode and a filter mode to get the query th
         //Fire event
         this._fireChangeEvent();
       }
+      _isMultiSelect(){
+        if(this.currentTag.options.isCollection){
+          return true
+        }
+        return false;
+      }
+
+      _onClassificationUpdate(e, detail) {
+        if (this._classificationValues) {
+
+          if(this._isAttributeValuesExistsSearchEnabled && !this.currentTag.options.hasValueChecked){
+              this.getUpdatedValue();
+          }else {
+            this.currentTag.value = {
+                "exacts": this._classificationValues
+            }
+            let isValueUpdated = false;
+            if(this._isAttributeValuesExistsSearchEnabled){
+              isValueUpdated = this.getUpdatedValue(this.currentTag.value);
+            }
+
+            if(!isValueUpdated){
+              this.set('tags.' + this.currentTag.index + '.displayValue', this.formatFilterCollectionDisplay(this._classificationValues));
+              this.set('tags.' + this.currentTag.index + '.value', this.currentTag.value);
+            }
+          }
+        //Fire event
+        this._fireChangeEvent();
+      }
+    }
 
       getUpdatedValue(currentValue) {
         let isValueAvailable = false;
