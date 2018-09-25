@@ -1,0 +1,1393 @@
+<link rel="import" href="../../../bower_components/polymer/polymer-element.html">
+
+<link rel="import" href="../../../bower_components/polymer/lib/mixins/mutable-data.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-helpers/element-helper.html">
+<link rel="import" href="../bedrock-helpers/data-transform-helper.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+<link rel="import" href="../rock-component-config-behavior/rock-component-config-behavior.html">
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
+
+<link rel="import" href="../rock-entity-lov/rock-entity-lov.html">
+
+<dom-module id="rock-context-selector">
+    <template>
+        <style include="bedrock-style-common iron-flex">
+            :host {
+                display:block;
+                width: 100%;
+                --item-length-overflow: {
+                    word-break: break-word;
+                }
+            }
+
+            #listPopover {
+                @apply --dimesion-selector-container-popover;
+            }
+
+            #sourcePopover {
+                @apply --dimesion-selector-source-popover;
+            }
+
+            #localePopover {
+                @apply --dimesion-selector-locale-popover;
+            }
+
+            pebble-popover {
+                --pebble-popover-width: 260px;
+            }
+
+            .btn.dropdownText {
+                display: flex;
+                align-items: center;
+                --pebble-button: {
+                    font-weight: var(--font-medium, 500);
+                    color: var(--palette-cerulean-two, #026bc3);
+                    padding-top: 0px;
+                    padding-right: 0px;
+                    padding-bottom: 0px;
+                    padding-left: 0px;
+                    width: 100%;
+                }
+                --pebble-button-right-icon: {
+                    margin-right: 5px;
+                }
+                --pebble-icon-color: {
+                    fill: var(--palette-cerulean-two, #026bc3);
+                }
+            }
+            .dimension-wrap{
+                display: flex;
+                justify-content: flex-end;
+                flex: 1;
+            }
+            .widget-item-wrap{
+                min-width: 100px;
+                max-width: 50%;
+            }
+            pebble-button{
+                width:100%;
+                --paper-button-text:{
+                    max-width:100%;
+                }
+            }
+            .buttonContainer-static pebble-button{
+                width:auto;
+            }
+        </style>
+        <div class="dimension-wrap">
+            <template is="dom-repeat" items="[[_contextToBeRendered]]" as="ctx">
+                <div id="[[ctx.id]]" hidden$="[[ctx.hidden]]" class="widget-item-wrap">
+                    <div>
+                        <pebble-button id="[[ctx.id]]-toggle-button" popover="[[ctx.id]]-popover" lov="[[ctx.id]]-lov" icon="[[ctx.icon]]" button-text="[[ctx.title]]"
+                            class="dropdownText dropdownIcon btn dropdown tooltip-bottom" noink raised no-overlap vertical-offset="-211"
+                            horizontal-offset="11" dropdown-icon on-tap="_onToggleButtonTap" disabled$="[[ctx.readonly]]">
+                        </pebble-button>
+                    </div>
+                    <!--<template is="dom-if" if="[[_compareRequestType(ctx.dataRequestType, 'entity')]]">-->
+                        <pebble-popover title="[[ctx.title]]" id="[[ctx.id]]-popover" for="[[ctx.id]]-toggle-button" no-overlap horizontal-align="[[horizontalAlign]]">
+                            <rock-entity-lov id="[[ctx.id]]-lov" r-data="[[ctx]]" readonly=[[readonly]] config-data-item-id="[[ctx.id]]" lazy-loading-disabled="[[_disableLazyLoad(ctx)]]" id-field="[[ctx.dataMappings.id]]"
+                                title-pattern="[[ctx.dataMappings.title]]" sub-title-pattern="[[ctx.dataMappings.subtitle]]" no-sub-title="[[_noSubtitle(ctx)]]" request-data="[[ctx.dataRequest]]" selected-items="[[_getSelectedItems(ctx.selectedItem, _contextToBeRendered)]]"
+                                selected-item="[[_getSelectedItem(ctx.selectedItem, _contextToBeRendered)]]" external-data-formatter="[[_entityExternalDataFormatter]]"
+                                type-field="[[ctx.dataMappings.type]]" sort-field="[[ctx.dataMappings.sort]]" multi-select="[[!allSingleSelect]]"
+                                show-action-buttons></rock-entity-lov>
+                        </pebble-popover>
+                        <bedrock-pubsub event-name="entity-lov-confirm-button-tap" handler="_onEntityLovConfirmButtonTapped" target-id="[[ctx.id]]-lov"></bedrock-pubsub>
+                        <bedrock-pubsub event-name="entity-lov-close-button-tap" handler="_onEntityLovCloseButtonTapped" target-id="[[ctx.id]]-lov"></bedrock-pubsub>
+                    <!--</template>-->
+                </div>
+            </template>
+        </div>
+        <liquid-rest id="contextModelGet" url="/data/pass-through/entitymodelservice/getcontext" method="POST" request-data="{{_contextModelGetReq}}"
+            on-liquid-response="_onContextModelGetResponse" on-liquid-error="_onContextModelGetFailed"></liquid-rest>
+        <liquid-rest id="entityModelGet" url="/data/pass-through/entitymodelservice/get" method="POST" request-data="{{_entityModelRequest}}"
+            on-liquid-response="_onEntityModelGetResponse" on-liquid-error="_onEntityModelGetError"></liquid-rest>
+        <liquid-rest id="entityContextGet" url="/data/pass-through/entityservice/getcontext" method="POST" request-data="{{_entityContextRequest}}"
+            on-liquid-response="_onEntityContextGetResponse" on-liquid-error="_onEntityContextGetError" exclude-in-progress>
+        <liquid-rest id="preselectedContextGet"  url="/data/pass-through/entityservice/get" method="POST" request-data="{{_preselectedContextRequest}}" 
+            on-liquid-response="_onPreselectedContextGetResponse" on-liquid-error="_onPreselectedContextGetGetError" exclude-in-progress></liquid-entity-data-get>
+        </liquid-rest>
+    </template>
+    <script>
+        class RockContextSelector
+            extends Polymer.mixinBehaviors([
+                RUFBehaviors.UIBehavior,
+                RUFBehaviors.ComponentContextBehavior,
+                RUFBehaviors.ComponentConfigBehavior
+            ], Polymer.OptionalMutableData(Polymer.Element)) {
+                static get is() {
+                    return 'rock-context-selector';
+                }
+                static get properties() {
+                    return {
+                        appName: {
+                            type: String,
+                            value: ""
+                        },
+
+                        domain: {
+                            type: String,
+                            value: ""
+                        },
+
+                        contextData: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        /**
+                        * Indicates the list of items which you must place in the dimension selector component.
+                        */
+                        configData: {
+                            type: Array,
+                            value: function () {
+                                return [];
+                            }
+                        },
+                        /**
+                        * If set as true , it indicates the component is in read only mode
+                        */
+                        readonly: {
+                            type: Boolean,
+                            value: false
+                        },
+
+                        /**
+                        * Indicates the selected values of all dimensions in the dimension selector.
+                        */
+                        selectedDimensions: {
+                            type: Object,
+                            notify: true,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        /**
+                        * <b><i>Content development is under progress... </b></i>
+                        */
+                        allMultiSelect: {
+                            type: Boolean,
+                            value: false
+                        },
+                        allSingleSelect: {
+                            type: Boolean,
+                            value: false
+                        },
+                        entityId: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        entityType: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        _default: {
+                            type: Array,
+                            value: [{
+                                "id": "default",
+                                "title": "default",
+                                "type": "default"
+                            }]
+                        },
+                        _preselectedContextRequest: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        _contextHierarchy: {
+                            type: Array,
+                            value: function () {
+                                return [];
+                            }
+                        },
+                        _entityContextRequest: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        _entityContexts: {
+                            type: Array,
+                            value: function () {
+                                return [];
+                            }
+                        },
+                        _currentContexts: {
+                            type: Array,
+                            value: function () {
+                                return [];
+                            }
+                        },
+                        _previousRootCtxValue: {
+                            type: Array,
+                            value: function () {
+                                return [];
+                            }
+                        },
+                        _isContextLoad: {
+                            type: Boolean,
+                            value: false
+                        },
+                        _currentContextSelector: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        selectedDimensionsDetail: {
+                            type: Object,
+                            notify: true,
+                            value: function () {
+                                return {};
+                            },
+                            observer: "selectedDimensionsDetailChanged"
+                        },
+                        navigationData: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        contextSelectorRefresh : {
+                            type: Boolean,
+                            value: false
+                        }
+                    }
+                }
+
+                static get observers() {
+                    return [
+                        '_prepareContext(appName, domain, entityType)',
+                        '_configChanged(configData, entityType, domain)'
+                    ]
+                }
+
+                selectedDimensionsDetailChanged(dimensionData) {
+                    let _contextToBeRendered = this._contextToBeRendered;
+                    if (!_.isEmpty(dimensionData)) {
+                        _contextToBeRendered.forEach(element => {
+                            if (!_.isEmpty(element)) {
+                                let itemId = this._getItemId(element);
+                                if (!_.isEmpty(dimensionData[itemId])) {
+                                    let selectedItem = {
+                                        "id": dimensionData[itemId][0].id,
+                                        "title": dimensionData[itemId][0].title,
+                                        "type": dimensionData[itemId][0].type
+                                    }
+                                    element.selectedItem = selectedItem;
+                                }
+                            }
+                        });
+                        this._contextToBeRendered = [];
+                        this.set("_contextToBeRendered", _contextToBeRendered);
+                        this._updateSelectedDimensions();
+                    }
+                }
+
+                disconnectedCallback() {
+                    super.disconnectedCallback();
+                    this.contextSelectorRefresh = false;
+                }
+                connectedCallback() {
+                    super.connectedCallback();  
+                    this.contextSelectorRefresh = true; 
+                }
+
+                _prepareContext() {
+
+                    let context = DataHelper.cloneObject(this.contextData);
+
+                    if (!_.isEmpty(this.entityType)) {
+                        context[ContextHelper.CONTEXT_TYPE_ITEM] = [{
+                            "type": this.entityType
+                        }];
+                    }
+
+                    if (!_.isEmpty(this.appName) && !_.isEmpty(this.domain)) {
+                        context[ContextHelper.CONTEXT_TYPE_APP] = [{
+                            "app": this.appName
+                        }];
+
+                        context[ContextHelper.CONTEXT_TYPE_DOMAIN] = [{
+                            "domain": this.domain
+                        }];
+
+                        if (!_.isEmpty(context)) {
+                            this.requestConfig('rock-context-selector', context);
+                        }
+                    }
+                }
+
+                async onConfigLoaded(componentConfig) {
+                    if (componentConfig && componentConfig.config) {
+                        let configData = DataHelper.convertObjectToArray(componentConfig.config);
+
+                        if (!_.isEmpty(this.dynamicDimensionsConfig)) {
+                            configData = this._prepareConfigForDynamicDimensions(configData);
+                        }
+                        let localeManager = ComponentHelper.getLocaleManager();
+                        let defaultLocale = DataHelper.getDefaultValContext();
+                        if (defaultLocale && defaultLocale.locale) {
+                            await localeManager.getByNameAsync(defaultLocale.locale);
+                        }
+                        this.configData = {};
+                        this.set('configData', configData);
+                    } else {
+                        this.logError(this.appName + "-Context Selector - config is not available for rock-dimension-selector", componentConfig, true);
+                    }
+                }
+
+                _configChanged(configData, entityType, domain) {
+                    this.entityType = entityType;
+                    if (configData && configData.length) {
+                        if (!this._isContextLoad) {
+                            configData.forEach(function (item) {
+                                if (item && item.useContextModel) {
+                                    this._isContextLoad = true;
+                                }
+                            }, this);
+                        }
+
+                        if (this._isContextLoad) { 
+                            if (domain) {
+                                this._domainChanged(domain);
+                            }
+
+                            if (!_.isEmpty(entityType)) {
+                                this._entityTypeChanged(entityType);
+                            }
+                        } else {
+                            this._loadConfigBasedDimensions();
+                        }
+                    }
+                }
+
+                _entityTypeChanged(entityType) {
+                    if (!_.isEmpty(entityType)) {
+                        this._createContextGetRequest(this.entityId, entityType);
+                    }
+                }
+
+                _domainChanged(domain) {
+                    if (!_.isEmpty(domain)) {
+
+                        this._contextModelGetReq = DataRequestHelper.createContextModelGetRequest(domain);
+
+                        let liquidElement = this.$$('#contextModelGet');
+                        if (liquidElement) {
+                            liquidElement.generateRequest();
+                        } else {
+                            this.logError(this.appName + "-Context Selector - Liquid for context model get is not found");
+                        }
+                    }
+                }
+
+                _loadConfigBasedDimensions() {
+                    let ctxIds = [];
+                    if (this.configData && this.configData.length) {
+                        this.configData.forEach(function (item) {
+                            if (item.dataMappings && item.dataMappings.type && item.dataMappings.type) {
+                                let type = item.dataMappings.type[0];
+
+                                if (type) {
+                                    ctxIds.push(type + "_entityManageModel");
+
+                                    if (this._contextHierarchy.indexOf(type) < 0) {
+                                        this._contextHierarchy.push(type);
+                                    }
+                                }
+                            }
+                        }, this);
+                    }
+
+                    if (ctxIds && ctxIds.length) {
+                        this._entityModelRequest = {
+                            "params": {
+                                "query": {
+                                    "ids": ctxIds,
+                                    "filters": {
+                                        "typesCriterion": [
+                                            "entityManageModel"
+                                        ]
+                                    }
+                                },
+                                "fields": {
+                                    "attributes": [
+                                        "_ALL"
+                                    ]
+                                }
+                            }
+                        };
+
+                        let entityModelGetComponent = this.$$("#entityModelGet");
+
+                        if (entityModelGetComponent) {
+                            entityModelGetComponent.generateRequest();
+                        }
+                    }
+                }
+
+                _onContextModelGetResponse(e) {
+                    let response = e.detail.response.response;
+
+                    if (response) {
+                        let entityModels = response.entityModels;
+
+                        if (!_.isEmpty(entityModels)) {
+                            let entityModel = entityModels[0];
+                            let contexts = "data" in entityModel ? entityModel.data.contexts : undefined;
+                            let _ctxKeys = [];
+
+                            this._contextHierarchyInfo = DataHelper.isValidObjectPath(entityModel, "properties.coalesceInfo") && entityModel.properties.coalesceInfo;
+
+                            if (!_.isEmpty(this._contextHierarchyInfo)) {
+                                this._contextHierarchyInfo.sort(function(a,b) {
+                                    if(a.sequence && b.sequence) {
+                                        return a.sequence - b.sequence;
+                                    }
+                                });
+                                this._contextHierarchyInfo.forEach(function(ctx) {
+                                    if(ctx.contextKey && this._contextHierarchy.indexOf(ctx.contextKey) < 0) {
+                                        this._contextHierarchy.push(ctx.contextKey);
+                                    }
+                                }, this);
+                            }
+
+                            if (contexts) {
+                                let _contexts = [];
+                                contexts.forEach(function (context) {
+                                    _contexts.push(context.context);
+
+                                    let ctxKeys = Object.keys(context.context);
+                                    if (ctxKeys && ctxKeys.length) {
+                                        ctxKeys.forEach(function (ctxKey) {
+                                            if (_ctxKeys.indexOf(ctxKey) < 0) {
+                                                _ctxKeys.push(ctxKey);
+                                            }
+                                        }, this);
+                                    }
+                                }, this);
+
+                                this._contexts = _contexts;
+                            }
+
+                            let _ctxIds = [];
+                            if (_ctxKeys && _ctxKeys.length) {
+                                _ctxKeys.forEach(function (item) {
+                                    if (item) {
+                                        _ctxIds.push(item);
+                                    }
+                                }, this);
+                            }
+
+                            let ctxIds = [];
+                            if (this.configData && this.configData.length) {
+                                let _self = this;
+                                this.configData.forEach(function (item) {
+                                    if (item.dataMappings && item.dataMappings.type) {
+                                        if (!item.useContextModel) {
+                                            let types = item.dataMappings.type;
+
+                                            if (!_.isEmpty(types)) {
+                                                types.forEach(function(type) {
+                                                    ctxIds.push(type + "_entityManageModel");
+
+                                                    if (_self._contextHierarchy.indexOf(type) < 0) {
+                                                        _self._contextHierarchy.push(type);
+                                                    }
+                                                });
+                                            }
+                                        } else if (item.useContextModel) {
+                                            let types = item.dataMappings.type;
+
+                                            if (!_.isEmpty(types)) {
+                                                types.forEach(function(type) {
+                                                    ctxIds.push(type + "_entityManageModel");
+
+                                                    if (_self._contextHierarchy.indexOf(type) < 0) {
+                                                        _self._contextHierarchy.push(type);
+                                                    }
+                                                });
+                                            }
+                                        }
+                                    }
+                                }, this);
+                            }
+
+                            if (ctxIds && ctxIds.length) {
+                                this._entityModelRequest = {
+                                    "params": {
+                                        "query": {
+                                            "ids": ctxIds,
+                                            "filters": {
+                                                "typesCriterion": [
+                                                    "entityManageModel"
+                                                ]
+                                            }
+                                        },
+                                        "fields": {
+                                            "attributes": [
+                                                "_ALL"
+                                            ],
+                                            "relationships": [
+                                                "_ALL"
+                                            ],
+                                            "relationshipAttributes": [
+                                                "_ALL"
+                                            ]
+                                        }
+                                    }
+                                };
+
+                                let entityModelGetComponent = this.$$("#entityModelGet");
+
+                                if (entityModelGetComponent) {
+                                    entityModelGetComponent.generateRequest();
+                                } else {
+                                    this.logError(this.appName + "-Context Selector - Entity model get liquid not found");
+                                }
+                            }
+                        } else {
+                            this.logError(this.appName + "-Context Selector - There are no context models available", e.detail);
+                        }
+                    } else {
+                        this.logError(this.appName + "-Context Selector - There is some problem with contextModel get response", e.detail);
+                    }
+                }
+
+                _onContextModelGetFailed(e) {
+                    this.logError(this.appName + "-Context Selector - contextModel get exception", e.detail);
+                }
+
+                _onEntityModelGetResponse(e) {
+                    let response = e.detail.response.response;
+                    if (response && !_.isEmpty(response.entityModels)) {
+                        this._prepareDynamicConfigBasedOnModelForContextsToBeRendered(response.entityModels);
+                    } else {
+                        this.logError(this.appName + "-Context Selector - Entity Model get response exception", e.detail, true);
+                    }
+                }
+
+                _onEntityModelGetError(e) {
+                    this.logError(this.appName + "-Context Selector - Entity Model get exception", e.detail, true);
+                }
+
+                _prepareDynamicConfigBasedOnModelForContextsToBeRendered(entityModels) {
+                    if (entityModels && entityModels.length) {
+                        let ctxs = {};
+                        this.configData.forEach(function (item) {
+                            let ctxKey = item.id;
+                            let ctxExtName = item.title;
+                            let types = item.dataMappings.type;
+                            let reqData = {
+                                "params": {
+                                    "query": {
+                                        "filters": {
+                                            "typesCriterion": item.dataMappings.type
+                                        },
+                                        "valueContexts": []
+                                    },
+                                    "fields": {
+                                        "attributes": ['_ALL']
+                                    }
+                                }
+                            };
+
+                            let modelId = types[0] + "_entityManageModel";
+                            let entityModel = entityModels.find(model => model.id == modelId);
+
+                            reqData.params.query.valueContexts.push(DataHelper.getDefaultValContext());
+
+                            let ctxToBeLoaded = this._contextDataToBeLoaded(types);
+                            let externalAttrName = undefined;
+                            let externalNameAndExternalNameAttr = AttributeHelper.getExternalNameAndExternalNameAttr(entityModel);
+
+                            if (externalNameAndExternalNameAttr) {
+                                externalAttrName = externalNameAndExternalNameAttr.externalNameAttr;
+                                ctxExtName = !_.isEmpty(externalNameAndExternalNameAttr.externalName) ? externalNameAndExternalNameAttr.externalName : ctxExtName;
+                            } else {
+                                this.logError(this.appName + "-Context Selector - None of the attributes in the model " + entityModel.id + " marked with 'isExternalName' flag", entityModel);
+                            }
+
+                            if (ctxToBeLoaded && ctxToBeLoaded.length && (ctxToBeLoaded.length == 1 && ctxToBeLoaded[0] != "_ALL")) {
+                                let attributesCriterion = [];
+                                if (externalAttrName) {
+                                    let attrCriterion = {};
+                                    attrCriterion[externalAttrName] = {
+                                        "exacts": ctxToBeLoaded
+                                    }
+                                    attributesCriterion.push(attrCriterion);
+                                    reqData.params.query.filters.attributesCriterion = attributesCriterion;
+                                }
+                            }
+
+                            let titlePattern = "{entity.attributes." + externalAttrName + "}";
+                            let subtitlePattern = "typeExternalName";
+                            let mappedValueContexts = this._getMappedValueContextsBasedOnCtxType(types[0]);
+
+                            if (mappedValueContexts) {
+                                let dependentRelationships = mappedValueContexts.map(v => v.valueContextRelationship);
+
+                                if (dependentRelationships) {
+                                    reqData.params.fields.relationships = dependentRelationships;
+                                    reqData.params.fields.relationshipAttributes = [this._getDefaultSelectedAttrName()];
+                                }
+                            }
+
+                            ctxs[ctxKey] = {
+                                "id": ctxKey,
+                                "title": ctxExtName,
+                                "ctxName": ctxKey,
+                                "externalAttrName": externalAttrName,
+                                "dataRequestType": "entity",
+                                "dataRequest": reqData,
+                                "mappedValueContexts": mappedValueContexts,
+                                "contextType": item.dimensionType,
+                                "dataMappings": {
+                                    "id": "name",
+                                    "title": titlePattern,
+                                    "subtitle": subtitlePattern,
+                                    "type": types
+                                }
+                            };
+
+                        }, this);
+
+                        this._mergeConfigAndDynamicConfigForContextRender(ctxs);
+                    }
+                }
+
+                _mergeConfigAndDynamicConfigForContextRender(ctxs) {
+                    this.configData.forEach(function (item) {
+                        if (item) {
+                            let ctx = ctxs[item.id];
+
+                            if (ctx) {
+                                let mergedCtx = undefined;
+
+                                ctx = { "config": ctx };
+
+                                // Deleting external dataMappings id and title coming from config
+                                // Because assumption is for any entity-lov iExternalName attribute will be title of it.
+                                if ("dataMappings" in item) {
+                                    delete item.dataMappings.title;
+                                    delete item.dataMappings.subtitle;
+                                }
+
+                                item = { "config": item };
+
+                                mergedCtx = SharedUtils.DataObjectFalcorUtil.mergeObjectsNoOverride(ctx, item, true);
+
+                                if (mergedCtx && mergedCtx.config) {
+                                    ctx = mergedCtx.config;
+                                }
+                            } else {
+                                if (item.dimensionType == "data" && item.dataRequestType == "entity-context") {
+                                    ctx = item;
+                                    ctx.dataMappings = {
+                                        "id": "name",
+                                        "title": "name",
+                                        "type": [
+                                            item.id
+                                        ]
+                                    }
+                                    ctxs[item.id] = ctx;
+                                } else if (!this._isContextLoad) {
+                                    ctxs[item.id] = item;
+                                }
+                            }
+                        }
+                    }, this);
+
+                    let parsedContexts = [];
+                    if(!_.isEmpty(ctxs)) {
+                        Object.keys(ctxs).forEach(function(ctxKey) {
+                            if(ctxs[ctxKey]) {
+                                parsedContexts.push(ctxs[ctxKey]);
+                            }
+                        }, this);
+                    }
+
+                    if(this._checkPreselectedContextOnLoad(parsedContexts)) {
+                        this._parsedContexts = parsedContexts;
+                    } else {
+                        this._contextToBeRendered = undefined;
+                        this._contextToBeRendered = parsedContexts;
+                        this._updateSelectedDimensions();
+                    }
+                }
+
+                _contextDataToBeLoaded(types) {
+                    let ctxValue = [];
+                    if (!_.isEmpty(types) && !_.isEmpty(this._contexts)) {
+                        types.forEach(function(contextKey) {
+                            for (let i = 0; i <= this._contexts.length; i++) {
+                                if (this._contexts[i] && this._contexts[i][contextKey]) {
+                                    let ctx = this._contexts[i][contextKey];
+                                    if (Array.isArray(ctx)) {
+                                        ctx.forEach(function (item) {
+                                            if (ctxValue.indexOf(item) < 0) {
+                                                ctxValue.push(item);
+                                            }
+                                        }, this);
+                                    } else {
+                                        if (ctx.toLowerCase() == "_all") {
+                                            ctxValue = ["_ALL"];
+                                            break;
+                                        } else {
+                                            if (ctxValue.indexOf(ctx) < 0) {
+                                                ctxValue.push(ctx);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }, this);
+                    }
+                    return ctxValue;
+                }
+
+                _checkPreselectedContextOnLoad(parsedContexts){
+                    if(parsedContexts && parsedContexts.length){
+                        let firstContext = parsedContexts[0];
+                        if(firstContext && firstContext.mappedValueContexts 
+                            && firstContext.selectedItem && firstContext.selectedItem.title){
+                            //generate request.
+                            let firstContextRequest = DataHelper.cloneObject(firstContext.dataRequest);
+                            firstContextRequest.params.query.name = firstContext.selectedItem.title;
+                            delete firstContextRequest.params.query.filters.attributesCriterion;
+                            firstContextRequest.params.query.filters.excludeNonContextual = true;
+                            this.set("_preselectedContextRequest", firstContextRequest);
+                            let preselectedContextGet = this.shadowRoot.querySelector("#preselectedContextGet")
+                            if(preselectedContextGet){
+                                preselectedContextGet.generateRequest();
+                                return true;
+                            }
+                        }
+                    }
+
+                    return false;
+                }
+
+                _getMappedValueContextsBasedOnCtxType(currentContextType) {
+                    if (currentContextType) {
+                        let globalCtxInfo = this._contextHierarchyInfo && this._contextHierarchyInfo.find(v => v.contextKey == currentContextType);
+                        if (globalCtxInfo && globalCtxInfo.mappedValueContexts) {
+                            return globalCtxInfo.mappedValueContexts
+                        }
+                    }
+                }
+
+                _getSelectedItems(selectedItem) {
+                    // Todo.. This is not a correct code lov must support selectedid
+
+                    if (!_.isEmpty(selectedItem)) {
+                        let formattedSelectedItems = [];
+                        let formattedSelectedItem = {};
+
+                        formattedSelectedItem["id"] = selectedItem.id ? selectedItem.id : this._default.id;
+                        formattedSelectedItem["title"] = selectedItem.title ? selectedItem.title : this._default.title;
+                        formattedSelectedItem["type"] = selectedItem.type ? selectedItem.type : this._default.type;
+                        if(selectedItem.relTo) {
+                            formattedSelectedItem["relTo"] = selectedItem.relTo;
+                        }
+
+                        if (selectedItem.type == "locale") {
+                            let _localeObj = ComponentHelper.getLocaleManager().getByName(selectedItem.id);
+                            if (!_.isEmpty(_localeObj) && _localeObj.externalName) {
+                                formattedSelectedItem["title"] = _localeObj.externalName;
+                            }
+                        }
+
+                        formattedSelectedItems.push(formattedSelectedItem);
+
+                        return formattedSelectedItems
+                    }
+                }
+
+                _getSelectedItem(selectedItem) {
+                    if (this.allSingleSelect) {
+                        let selectedItems = this._getSelectedItems(selectedItem);
+                        if (!_.isEmpty(selectedItems)) {
+                            return selectedItems[0];
+                        }
+                    }
+
+                    return {};
+                }
+
+                _disableLazyLoad(context) {
+                    if(context.contextType === "data") {
+                        return true;
+                    }
+
+                    return false;
+                }
+
+                _getDefaultSelectedAttrName() {
+                    return "isDefault";
+                }
+
+                _onToggleButtonTap(event) {
+                    if (typeof (event.currentTarget) !== "undefined") {
+                        if (event.currentTarget.disabled == true) {
+                            return;
+                        }
+                        this._currentContextSelector = event.currentTarget;
+                        
+                        this._toggleLovPopover(this._currentContextSelector.popover);
+                    }
+                }
+
+                _toggleLovPopover(popoverId) {
+                    let currentPopover = this.shadowRoot.querySelector("#" + popoverId);
+                    if (!_.isEmpty(currentPopover)) {
+                        if (!currentPopover.opened) {
+                            currentPopover.show();
+                        } else {
+                            currentPopover.hide();
+                        }
+                    }
+                }
+
+                _onEntityLovConfirmButtonTapped(event) {
+                    this._currentLovEvent = event;
+                    this._updateSelectedDimensions();
+                    this._toggleLovPopover(this._currentContextSelector.popover);
+                }
+
+                _onEntityLovCloseButtonTapped() {
+                    this._toggleLovPopover(this._currentContextSelector.popover);
+                }
+
+                _noSubtitle(context) {
+                    if(context.contextType === "value") {
+                        return true;
+                    }
+
+                    return false;
+                }
+
+                _updateSelectedDimensions() {
+                    Polymer.Debouncer.debounce(this._debouncer, Polymer.Async.timeOut.after(100), () => {
+                        this._setSelectedDimensions();
+                        if (this._isContextLoad) {
+                            this._updateCurrentContextState();
+                        }
+                        this.contextSelectorRefresh = false;
+                    });
+                }
+
+                _setSelectedDimensions() {
+                    //On page refresh set from navigationData
+                    let defaultDimensions = [];
+                    if(this.contextSelectorRefresh) {
+                        if(!_.isEmpty(this.navigationData)){
+                            defaultDimensions = this.navigationData;
+                        }
+                    }
+
+                    let selectedDimensions = {};
+                    let configData = this._contextToBeRendered;
+                    if (typeof (configData) !== "undefined") {
+                        for (let i = 0; i < configData.length; i++) {
+                            let configDataItem = configData[i];
+                            let rockLov = undefined;
+                            let rockContainer = this.shadowRoot.querySelector("#" + configDataItem.id);
+
+                            if (rockContainer) {
+                                rockLov = rockContainer.querySelector("rock-entity-lov");
+
+                                if (rockLov) {
+                                    const { dataMappings } = configDataItem;
+                                    let entityTypes = dataMappings && dataMappings.type;
+
+                                    if (entityTypes) {
+                                        for (let j = 0; j < entityTypes.length; j++) {
+                                            let ctxKey = entityTypes[j];
+                                            if (!rockLov.multiSelect) {
+                                                let selectedItem = !_.isEmpty(rockLov.selectedItem) ? rockLov.selectedItem : undefined;
+                                                let selectedItems = !_.isEmpty(rockLov.selectedItems) ? rockLov.selectedItems : undefined;
+                                                if (selectedItems) {
+                                                    rockLov.selectedItem = selectedItem ? selectedItem : selectedItems[0];
+                                                }
+
+                                                let itemId;
+                                                if(rockLov.selectedItem && rockLov.selectedItem.type === ctxKey) {
+                                                    itemId = this._getItemId(rockLov.selectedItem);
+                                                }
+                                                selectedDimensions[ctxKey] = itemId ? [itemId] : [];
+                                                this.selectedDimensionsDetail[ctxKey] = !_.isEmpty(rockLov.selectedItem) ? [rockLov.selectedItem] : [];
+                                            } else {
+                                                //Set from navigationData
+                                                if(!_.isEmpty(defaultDimensions) && defaultDimensions[ctxKey] && !_.isEmpty(defaultDimensions[ctxKey])){
+                                                    rockLov.selectedItems = this._getDefaultSelectedItems(ctxKey,defaultDimensions,rockLov.selectedItems);
+                                                }
+                                                let selectedItems = rockLov.selectedItems;
+                                                let selectedIds = this._getItemsIdsByType(selectedItems, entityTypes[j]);
+                                                selectedDimensions[ctxKey] = selectedIds;
+                                                this.selectedDimensionsDetail[ctxKey] = selectedItems;
+                                            }
+                                        }
+                                    }
+
+                                    this._setLovTitle(rockLov);
+                                }
+                            }
+                            // this._updateToggleButtonText(configDataItem, rockLov);
+                        }
+
+                        let eventDetail = {
+                            'dimensions': selectedDimensions
+                        };
+                        if (DataHelper.isValidObjectPath(this._currentLovEvent, "detail.data.id")) {
+                            eventDetail.currentLovId = this._currentLovEvent.detail.data.id;
+                        }
+                        eventDetail.selectedDimensionsDetail = this.selectedDimensionsDetail;
+
+                        if (this.selectedDimensions && selectedDimensions) {
+                            if (DataHelper.compareObjects(this.selectedDimensions, selectedDimensions)) {
+                                return true;
+                            }
+                        }
+                        this.set("selectedDimensions", selectedDimensions);
+                        Polymer.Debouncer.debounce(this._debouncer, Polymer.Async.timeOut.after(500), () => {
+                            this.fireBedrockEvent("context-selector-data-changed", eventDetail);
+                        });
+                    }
+                }
+
+                _getItemsIdsByType(items, type) {
+                    let itemsIds = [];
+                    items = items ? items.filter(item => item.type === type) : undefined;
+                    if (items) {
+                        for (let i = 0; i < items.length; i++) {
+                            if (items[i].type === type) {
+                                let itemId = this._getItemId(items[i]);
+                                if (!_.isEmpty(itemId)) {
+                                    itemsIds.push(itemId);
+                                }
+                            }
+                        }
+                    }
+                    return itemsIds;
+                }
+
+                _getItemId(item) {
+                    if (item) {
+                        let itemId = this.get("id", item);
+
+                        if (itemId === undefined || itemId === null) {
+                            itemId = ""; // Could be -1 or ""?
+                        }
+
+                        return itemId;
+                    }
+                }
+
+                _setLovTitle(currentRockLov) {
+                    if (!currentRockLov) {
+                        return;
+                    }
+
+                    let currentDimensionButtonId = currentRockLov.id.replace("-lov", "-toggle-button");
+
+                    if (currentDimensionButtonId) {
+                        let currentDimensionButton = this.shadowRoot.querySelector("#" + currentDimensionButtonId);
+                        let toolTip = "";
+                        if (currentDimensionButton) {
+                            if (currentRockLov.multiSelect) {
+                                if (!_.isEmpty(currentRockLov.selectedItems)) {
+                                    if (currentRockLov.selectedItems.length > 1) {
+                                        currentRockLov.selectedItems.forEach(function (item) {
+                                            if (_.isEmpty(toolTip)) {
+                                                toolTip = item.title;
+                                            } else {
+                                                toolTip = toolTip + ", " + item.title;
+                                            }
+                                        }, this);
+                                        toolTip = toolTip.trim(',');
+                                    } else {
+                                        toolTip = currentRockLov.selectedItems[0].title;
+                                    }
+                                } else {
+                                    toolTip = currentRockLov.parentElement.title;
+                                }
+                            } else {
+                                if (!_.isEmpty(currentRockLov.selectedItem)) {
+                                    toolTip = currentRockLov.selectedItem.title;
+                                } else {
+                                    toolTip = currentRockLov.parentElement.title;
+                                }
+                            }
+                        }
+
+                        currentDimensionButton.buttonText = toolTip;
+                        currentDimensionButton.setAttribute("data-tooltip", toolTip);
+                    }
+                }
+
+                _updateCurrentContextState() {
+                    if (!_.isEmpty(this.selectedDimensions)) {
+
+                        // Get context(s) based on selected dimension
+                        let isRootContextChanged = this._isRootContextChanged();
+                        let dependentLovRelationships = {};
+                        this.configData.forEach(function (item) {
+                            let ctxKey = item.id;
+                            let lovElement = this.$$('#' + ctxKey + '-lov');
+                            if(lovElement && lovElement.rData) {
+                                let ctxData = lovElement.rData;
+                                let ctxTypes = ctxData.dataMappings.type;
+                                for(let i=0; i<ctxTypes.length; i++) {
+                                    let ctxType = ctxTypes[i];
+                                    let itemIdx = this._contextHierarchy.indexOf(ctxType);
+                                        
+                                    let selectedItems = lovElement.selectedItems;
+                                    if(_.isEmpty(selectedItems) && !_.isEmpty(lovElement.selectedItem)) {
+                                        selectedItems = [lovElement.selectedItem];
+                                    }
+                                    let ctxHierarchy = this._contextHierarchyInfo.find(v => v.contextKey === ctxType);
+
+                                    //Prepare list of dependent lov's and it's relationships based on selected dimension.
+                                    // This list will be used when dependent lov will get reset with related entities which are mapped to current context as relationship.
+                                    this._setDependentValCtxLovRelationships(ctxType, selectedItems, dependentLovRelationships);
+
+                                    if(ctxData && ctxData.dimensionType == "value") {
+                                        let reqData = ctxData.dataRequest;
+                                        if(DataHelper.isValidObjectPath(reqData, "params.query")) {
+                                            if (!_.isEmpty(dependentLovRelationships[ctxType])) {
+                                                reqData.params.query.ids = dependentLovRelationships[ctxType];
+                                            } else {
+                                                delete reqData.params.query.ids;
+                                            }
+
+                                            lovElement.selectedItems = this.selectedDimensionsDetail[ctxType];;
+                                            lovElement.selectedItem = !_.isEmpty(selectedItems) ? selectedItems[0] : {};
+                                            lovElement.requestData = reqData;
+                                            lovElement.reset();
+                                        }
+                                    }
+                                }
+                            }
+                        }, this);
+
+                        this._setSelectedDimensions();
+                    }
+                }
+
+                _isRootContextChanged() {
+                    let isRootCtxhanged = false;
+                    let rootContext = this.configData.filter(item => item.dimensionType === "data");
+                    if(rootContext && rootContext.dataMapping && rootContext.dataMapping.type && !_.isEmpty(rootContext.dataMapping.type)) {
+                        let rootContextTypes = rootContext.dataMapping.type;
+                        for(let i=0; i<rootContextTypes.length; i++) {
+                            let rootCtxType = rootContextTypes[i];
+                            let _selectedDim = this.selectedDimensions[rootCtxType];
+                            this._previousRootCtxValue = this._previousRootCtxValue || {};
+                            if(_selectedDim) {
+                                if(this._previousRootCtxValue[rootCtxType] && _selectedDim.length == this._previousRootCtxValue[rootCtxType].length) {
+                                    _selectedDim.forEach(function (val) {
+                                        if (this._previousRootCtxValue[rootCtxType].indexOf(val) < 0) {
+                                            isRootCtxhanged = true;
+                                        }
+                                    }, this);
+                                } else {
+                                    isRootCtxhanged = true;
+                                }
+                                this._previousRootCtxValue[rootCtxType] = DataHelper.cloneObject(_selectedDim);
+                            }
+                        }
+                    }
+                    return isRootCtxhanged;
+                }
+
+                _setDependentValCtxLovRelationships(currentContextType, selectedItems, dependentLovRelationships) {
+                    if (!_.isEmpty(selectedItems)) {
+                        let mappedValueContexts = this._getMappedValueContextsBasedOnCtxType(currentContextType);
+
+                        if (mappedValueContexts) {
+                            let dependentCtxs = mappedValueContexts.map(a => a.valueContext);
+
+                            if (dependentCtxs) {
+                                for (let dctxs of dependentCtxs) {
+                                    if (!dependentLovRelationships[dctxs]) {
+                                        dependentLovRelationships[dctxs] = [];
+                                    }
+
+                                    for (let selectedItem of selectedItems) {
+                                        if (selectedItem.relTo) {
+                                            let relIds = selectedItem.relTo.map(function (rel) {
+                                                if (rel.relTo.type == dctxs) {
+                                                    return rel.relTo.id;
+                                                }
+                                            });
+
+                                            if (!_.isEmpty(relIds)) {
+                                                dependentLovRelationships[dctxs] = dependentLovRelationships[dctxs].concat(relIds);
+                                            } 
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                _entityExternalDataFormatter(formattedData, data, _rData) {
+                    if (formattedData && formattedData.length) {
+                        let elementInfo = _rData ? _rData : this.rData;
+
+                        if (elementInfo) {
+                            let ctxType = elementInfo.id;
+
+                            // Add relationship detail into formatted item if entity has dependent relationship
+                            // If entity has dependent relationship then check for "isDefault" relationship attribute to get preselected dependent value for current entity.
+                            let _domHost = _rData ? this : this.domHost;
+                            _domHost._setDepenedencyRelationshipAndPreSelectedItems(data, formattedData, elementInfo);
+
+                            if (elementInfo.dimensionType.toLowerCase() == "value" && DataHelper.isValidObjectPath(this.requestData, "params.query.ids")) {
+                                let selectedItemIds = this.selectedItems.map(v => v.id);
+                                let selectedItems = [];
+                                if (selectedItemIds) {
+                                    formattedData.forEach(function (item) {
+                                        if (selectedItemIds.indexOf(item.id) > -1) {
+                                            selectedItems.push(item);
+                                        }
+                                    }, this);
+
+                                    if (!_.isEmpty(selectedItems)) {
+                                        if (!DataHelper.areEqualArrays(this.selectedItems, selectedItems)) {
+                                            this.selectedItems = selectedItems;
+                                            _domHost._setSelectedDimensions();
+                                        }
+                                    } else {
+                                        let preSelectedItems = _domHost.selectedDimensionsDetail["PreSelectedItems"] && _domHost.selectedDimensionsDetail["PreSelectedItems"][ctxType];
+                                        if (!_.isEmpty(preSelectedItems)) {
+                                            //var preselctedItem = data.find(v => v.id == preSelectedItemId);
+                                            let preselctedItem = data.find(v => preSelectedItems.find(u => u === v.id));
+
+                                            if (preselctedItem) {
+                                                let name = preselctedItem.data.attributes[elementInfo.externalAttrName].values[0].value;
+                                                let item = formattedData.find(v => v.title == name);
+
+                                                if (item) {
+                                                    this.selectedItems = [item];
+                                                    _domHost._setSelectedDimensions();
+                                                }
+                                            }
+                                        } else {
+                                            this.selectedItems = [];
+                                            _domHost._setSelectedDimensions();
+                                        }
+                                    }
+                                }
+                            }
+
+                            if(!_.isEmpty(_domHost.entityId) && 
+                                !_.isEmpty(_domHost.entityType) && 
+                                elementInfo.dimensionType === "data") {
+                                    let entities = [];
+                                    if(!_.isEmpty(_domHost._entityContexts)) {
+                                        _domHost._entityContexts.forEach(function(ctx) {
+                                            let ctxKeys = Object.keys(ctx);
+                                            if(!_.isEmpty(ctxKeys)) {
+                                                ctxKeys.forEach(function(key) {
+                                                    let ctxVal = ctx[key];
+                                                    let formattedEntity = formattedData.find(function(entity) {
+                                                        if(entity.type === key && entity.title === ctxVal) {
+                                                            return true;
+                                                        }
+
+                                                        return false;
+                                                    });
+                                                    if(formattedEntity) {
+                                                        entities.push(formattedEntity);
+                                                    }
+                                                }, this);
+                                            }
+                                        }, this);
+                                    }
+
+                                    formattedData = entities;
+                            }
+                        }
+                    }
+
+                    return formattedData;
+                }
+
+                _setDepenedencyRelationshipAndPreSelectedItems(data, formattedData, elementInfo) {
+                    let mappedValueContexts = elementInfo && elementInfo.mappedValueContexts;
+
+                    if (mappedValueContexts && data && formattedData) {
+                        this.selectedDimensionsDetail["PreSelectedItems"] = {};
+                        for (let d of data) {
+                            if (d.data && d.data.relationships) {
+                                for (let rel in d.data.relationships) {
+                                    if (d.data.relationships[rel] && d.data.attributes[elementInfo.externalAttrName]) {
+                                        let name = d.data.attributes[elementInfo.externalAttrName].values[0].value;
+                                        let item = formattedData.find(v => v.id == name);
+
+                                        if (item && !item.relTo) {
+                                            item.relTo = [];
+                                        }
+
+                                        let mappedValueContext = mappedValueContexts.find(v => v.valueContextRelationship == rel);
+
+                                        for (let r of d.data.relationships[rel]) {
+                                            item.relTo.push(r);
+                                            if (r.attributes && mappedValueContext) {
+                                                let relAttr = r.attributes[this._getDefaultSelectedAttrName()];
+
+                                                if (DataHelper.isValidObjectPath(relAttr, "values.0.value") && relAttr.values[0].value.toString() == "true") {
+                                                    if (!this.selectedDimensionsDetail["PreSelectedItems"]) {
+                                                        this.selectedDimensionsDetail["PreSelectedItems"] = {};
+                                                    }
+
+                                                    if (_.isEmpty(this.selectedDimensionsDetail["PreSelectedItems"][mappedValueContext.valueContext])) {
+                                                        this.selectedDimensionsDetail["PreSelectedItems"][mappedValueContext.valueContext] = [];
+                                                    }
+
+                                                    if(this.selectedDimensionsDetail["PreSelectedItems"][mappedValueContext.valueContext].indexOf(r.relTo.id) === -1) {
+                                                        this.selectedDimensionsDetail["PreSelectedItems"][mappedValueContext.valueContext].push(r.relTo.id);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                _onPreselectedContextGetResponse(ev) {
+                    if(DataHelper.isValidObjectPath(ev, 'detail.response.response.entities.0')) {
+                        let entity = ev.detail.response.response.entities[0];
+                        if(entity && !_.isEmpty(this._parsedContexts) ) {
+                            for(let idx=0; idx<this._parsedContexts.length; idx++) {
+                                if(this._parsedContexts[idx].dataMappings &&
+                                    !_.isEmpty(this._parsedContexts[idx].dataMappings.type) &&
+                                    this._parsedContexts[idx].dataMappings.type.indexOf(entity.type) > -1) {
+                                        let _selectedItemData = this._entityExternalDataFormatter([this._parsedContexts[idx].selectedItem], [entity], this._parsedContexts[idx]);
+                                        if(!_.isEmpty(_selectedItemData)) {
+                                            this._parsedContexts[idx].selectedItem = _selectedItemData[0];
+                                        }
+                                        break;
+                                }
+                            }
+                        }
+                    } else {
+                        this.logError(this.appName + "-Dimension Selector - Entity Pre selected Context get exception", ev.detail);
+                    }
+
+                    this._contextToBeRendered = undefined;
+                    this._contextToBeRendered = this._parsedContexts;
+                    this._updateSelectedDimensions();
+                }
+
+                _onPreselectedContextGetGetError(ev) {
+                    this.logError(this.appName + "-Context Selector - Entity Pre selected Context get exception", ev.detail);
+                    this._contextToBeRendered = undefined;
+                    this._contextToBeRendered = this._parsedContexts;
+                    this._updateSelectedDimensions();
+                }
+
+                _createContextGetRequest(entityId, entityType) {
+                    if (!_.isEmpty(entityId)) {
+                        this._entityContextRequest = DataRequestHelper.createEntityContextGetRequest(entityId, entityType);
+                        let liquidElement = this.$$('#entityContextGet');
+                        if (liquidElement) {
+                            liquidElement.generateRequest();
+                        } else {
+                            this.logError(this.appName + "-Dimension Selector - Liquid for entity context get is not found");
+                        }
+                    }
+                }
+
+                _onEntityContextGetResponse(e) {
+                    let response = e.detail.response.response;
+
+                    if (response) {
+                        if (response.entities && response.entities.length) {
+                            let entity = response.entities[0];
+
+                            if (entity && entity.data && entity.data.contexts) {
+                                let _entityContexts = [];
+
+                                entity.data.contexts.forEach(function (ctx) {
+                                    _entityContexts.push(ctx.context)
+                                }, this);
+
+                                this._entityContexts = _entityContexts;
+                            }
+                        }
+                    } else {
+                        this.logError(this.appName + "-Dimension Selector - Entity Context get response exception", e.detail, true);
+                    }
+                }
+
+                refreshDimensionData() {
+                    if (typeof (this.configData) !== "undefined") {
+                        for (let i = 0; i < this.configData.length; i++) {
+                            let configDataItem = this.configData[i];
+                            let rockLov = undefined;
+                            let lovContainer = this.shadowRoot.querySelector("#" + configDataItem.id);
+
+                            if (lovContainer) {
+                                rockLov = lovContainer.querySelector("rock-entity-lov");
+
+                                if (rockLov) {
+                                    rockLov.reset();
+                                }
+                            }
+                        }
+                    }
+                }
+
+                getContextSelectorConfig() {
+                    return this.configData;
+                }
+
+                /**
+                 * Function to set the default dimension-selector values
+                 * - If the defaultDimensions are empty/not set, use the availableSelectedItems
+                 * - If the defaultDimensions are set, and matches with the availableSelectedItems, make that availableSelectedItem as selectedItem
+                */ 
+                _getDefaultSelectedItems(ctxKey,defaultDimensions,availableSelectedItems) {
+                    let selectedItems = [];
+                    if(ctxKey && defaultDimensions[ctxKey]) {
+                        if(availableSelectedItems && availableSelectedItems.length > 0) {
+                            //If the availableSelectedItems and defaultDimensions are same, set them as selectedItems
+                            for(let availableSelectedItemIndex=0; availableSelectedItemIndex < availableSelectedItems.length; availableSelectedItemIndex++) {
+                                for(let defaultDimensionIndex=0; defaultDimensionIndex < defaultDimensions[ctxKey].length; defaultDimensionIndex++) {
+                                    let availableSelectedItem = availableSelectedItems[availableSelectedItemIndex]; 
+                                    let defaultDimensionItem = defaultDimensions[ctxKey][defaultDimensionIndex];
+                                    
+                                    if(availableSelectedItem.id && defaultDimensionItem.id && defaultDimensionItem.id==availableSelectedItem.id) {
+                                        selectedItems.push(availableSelectedItem);
+                                    }
+                                }
+                            }
+                        } else {
+                            //If the availableSelectedItems are empty, set selectedItems as defaultDimensions
+                            selectedItems = defaultDimensions[ctxKey];
+                        } 
+                    }
+
+                    return selectedItems;
+                }
+            }
+
+            customElements.define(RockContextSelector.is, RockContextSelector);
+    </script>
+</dom-module>
