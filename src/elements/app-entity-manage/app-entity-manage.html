@@ -133,6 +133,8 @@
             <bedrock-pubsub event-name="refresh-entity-thumbnail" handler="_refreshEntityThumbnail"></bedrock-pubsub>
             <bedrock-pubsub event-name="on-context-manage-tap" handler="_onContextManageTap"></bedrock-pubsub>
             <bedrock-pubsub event-name="on-snapshot-view-tap" handler="_onSnapshotViewTap"></bedrock-pubsub>
+            <bedrock-pubsub event-name="on-copy-tap" handler="_onCopyActionTap"></bedrock-pubsub>            
+            <bedrock-pubsub event-name="on-paste-tap" handler="_onPasteActionTap"></bedrock-pubsub>            
             <bedrock-pubsub event-name="on-preview-template-tap" handler="_onPreviewTemplateTap"></bedrock-pubsub>
             <template is="dom-if" if="[[_loadComponents]]">
                 <rock-sidebar id="rockSideBar" position="right" context-data="[[contextData]]" slot="rock-sidebar" collapsable>
@@ -199,6 +201,12 @@
                      * Indicates the config for tab element
                      */
                     _tabConfig: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _entityResponseContent: {
                         type: Object,
                         value: function () {
                             return {};
@@ -408,6 +416,7 @@
             }
             _onEntityGetResponse(e, detail) {
                 let responseContent = DataHelper.validateAndGetResponseContent(detail.response);
+                this._entityResponseContent = responseContent
                 if (responseContent && responseContent.entities && responseContent.entities.length >
                     0) {
                     let entity = responseContent.entities[0];
@@ -637,6 +646,60 @@
                     title: this._entityName
                 });
             }
+
+            _onCopyActionTap() {
+                //saving entity details in session storage so we can use this later for paste
+                sessionStorage.setItem('copyEntityData', JSON.stringify(this.contextData));
+                this.showSuccessToast('Entity copied successfully');
+            }
+
+            _onPasteActionTap(e, detail) {
+                if (!detail || !detail.data) {
+                    return;
+                }
+
+                if(this.contextData && this.contextData.Contexts && this.contextData.Contexts.length>1) {
+                    this.showWarningToast("Entity paste functionality is not supported for multiple contexts");
+                    return;
+                }
+
+                //check to make sure user cannot copy and paste on same entity
+                let data = sessionStorage.getItem('copyEntityData');
+                let parsedData;
+                if (data) {
+                    parsedData = JSON.parse(data);
+                }
+                if (DataHelper.isValidObjectPath(parsedData, 'ItemContexts.0.id')) {
+                    let copyEntityId = parsedData.ItemContexts[0].id;
+                    let firstItemContext = this.getFirstItemContext();
+                    if(firstItemContext && !_.isEmpty(firstItemContext.id)) {
+                        let pasteEntityId = firstItemContext.id;
+                    }
+                    if ( (copyEntityId === pasteEntityId) && (JSON.stringify(parsedData.Contexts) === JSON.stringify(this.contextData.Contexts)) ) {
+                        this.showWarningToast("Cannot copy and paste on the same entity in same context");
+                        return;
+                    }
+                } else {
+                    this.showWarningToast("No Item Copied");
+                    return;
+                }
+                let clonedContextData = DataHelper.cloneObject(this.contextData);
+                clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = this.contextData.ItemContexts;
+                clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
+
+                const sharedData = {
+                    sharedContextData: this.contextData
+                };
+
+                const {
+                    componentName
+                } = detail.data;
+                this.openBusinessFunctionDialog({
+                    name: componentName,
+                    mergeTitle: true,
+                    title: this._entityName
+                }, sharedData);
+            }
             _onToolbarEvent(e, detail) {
                 let event = detail.name;
                 switch (event.toLowerCase()) {
@@ -848,9 +911,9 @@
                 let rockSideBar = this.$.rockSideBar;
                 if (rockSideBar) {
                     if (contexts && contexts.length > 1) {
-                        rockSideBar.style.display = "none";
+                        rockSideBar.setAttribute("show","false");
                     } else {
-                        rockSideBar.style.display = "block";
+                        rockSideBar.setAttribute("show","true");
                     }
                 }
             }
