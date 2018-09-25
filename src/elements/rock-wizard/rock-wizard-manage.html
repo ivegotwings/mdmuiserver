@@ -94,7 +94,6 @@ based on the given configuration.
                         </div>
                         <template is="dom-if" if="[[showNavigationButtons]]">
                             <div id="content-actions" class="buttonContainer-static clearfix" align="center">
-                                <pebble-button class="action-button btn btn-primary m-r-5" id="cancel" button-text="Cancel" raised on-tap="_onCancelTap"></pebble-button>
                                 <pebble-button class="action-button btn btn-secondary m-r-5 pull-left" id="back" hidden$="[[hideBack]]" button-text="Back" raised on-tap="_onBackTap"></pebble-button>
                                 <pebble-button class="action-button-focus dropdownText btn btn-success m-r-5 pull-right" id="next" hidden$="[[hideNext]]" button-text="Next" raised on-tap="_onNextTap"></pebble-button>
                             </div>
@@ -146,15 +145,6 @@ based on the given configuration.
                         value: true
                     },
                     /*
-                    * Indicates the properties of the object for the wizard.
-                    */
-                    properties: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    },
-                    /*
                     * Indicates the data that is shared between all the steps of the wizard.
                     */
                     hideStepper: {
@@ -183,9 +173,6 @@ based on the given configuration.
                     _stepperConnectorLineWidth: {
                         type: String,
                         value: "200px"
-                    },
-                    parentComponent: {
-                        type: Element
                     },
                     hideBack: {
                         type: Boolean,
@@ -273,6 +260,8 @@ based on the given configuration.
                     this.set("_stepperConfig", stepperConfig);
                     this.shadowRoot.querySelector("#steps-template").render();
                     this.sharedData["business-function-name"] = config.name || "";
+                    //This is to hide the cancel button for each step if its enabled
+                    this.sharedData["is-part-of-business-function"] = true;
                     this.goToStep(0);
                 }
             }
@@ -294,8 +283,6 @@ based on the given configuration.
             _renderComponent(config) {
                 let contentElement = this.stepContainer;
                 if (config && config.component && contentElement) {
-                    //This is to hide the cancel button for each step if its enabled
-                    this.sharedData["is-part-of-business-function"] = true;
                     if (this.sharedData) {
                         if (!config.component.properties) {
                             config.component.properties = {};
@@ -349,20 +336,20 @@ based on the given configuration.
 
             _setCurrentComponentState() {
                 let currentComponent = this.stepperElement;
-                let currentConfig = this.config.steps[this._currentStepIndex];
+                let currentStepConfig = this.config.steps[this._currentStepIndex];
 
                 //Capture current component result
-                this.stateContainer[currentConfig.name] = {
-                    "componentResult": this.stepperElement.componentResult,
-                    "finishStepData": this.stepperElement.finishStepData
+                this.stateContainer[currentStepConfig.name] = {
+                    "componentResult": currentComponent.componentResult,
+                    "finishStepData": currentComponent.finishStepData
                 }
 
                 //Capture current component properties
-                this.stateContainer[currentConfig.name].properties = {};
+                this.stateContainer[currentStepConfig.name].properties = {};
                 for (let attribute in currentComponent.constructor.properties) {
-                    if (currentComponent[attribute] && 
+                    if (currentComponent[attribute] &&
                         !(currentComponent[attribute] instanceof Element)) {
-                        this.stateContainer[currentConfig.name].properties[attribute] = currentComponent[attribute];
+                        this.stateContainer[currentStepConfig.name].properties[attribute] = currentComponent[attribute];
                     }
                 }
             }
@@ -370,29 +357,25 @@ based on the given configuration.
             //Once the current component props are loaded, then this function will be triggered from that component
             _loadBusinessFunctionStepProperties() {
                 let currentComponent = this.stepperElement;
-                let currentConfig = this.config.steps[this._currentStepIndex];
-                let previousConfig = {};
-                if(this._currentStepIndex - 1 >= 0) {
-                    previousConfig = this.config.steps[this._currentStepIndex - 1];
+                let currentStepConfig = this.config.steps[this._currentStepIndex];
+                let previousStepConfig = {};
+                if (this._currentStepIndex - 1 >= 0) {
+                    previousStepConfig = this.config.steps[this._currentStepIndex - 1];
                 }
 
                 //Pass shared properties to next component
-                let wizardSharedProperties = this.config.sharedProperties;
-                if (wizardSharedProperties) {
-                    let componentSharedProperties = currentConfig.sharedProperties;
-                    for (let propertyKey in componentSharedProperties) {
-                        let property = DataHelper.convertCamelCaseStringFromHyphenated(componentSharedProperties[propertyKey])
-                        if(currentComponent.constructor.properties[property]) {
-                            currentComponent[property] = wizardSharedProperties[componentSharedProperties[propertyKey]];
-                        }
+                let wizardSharedProperties = this.config.sharedProperties || {};
+                for (let propertyKey in wizardSharedProperties) {
+                    let property = DataHelper.convertCamelCaseStringFromHyphenated(propertyKey);
+                    if (currentComponent.constructor.properties[property]) {
+                        currentComponent[property] = wizardSharedProperties[propertyKey];
                     }
                 }
-
                 //Set previous step props to current component
-                if (!_.isEmpty(previousConfig) && this.stateContainer[previousConfig.name]) {
-                    let properties = this.stateContainer[previousConfig.name].properties || {};
+                if (!_.isEmpty(previousStepConfig) && this.stateContainer[previousStepConfig.name]) {
+                    let properties = this.stateContainer[previousStepConfig.name].properties || {};
                     for (let propertyKey in properties) {
-                        if(currentComponent.constructor.properties[propertyKey] && propertyKey != "contextData") {
+                        if (currentComponent.constructor.properties[propertyKey] && propertyKey != "contextData") {
                             currentComponent[propertyKey] = properties[propertyKey];
                         }
                     }
@@ -400,7 +383,7 @@ based on the given configuration.
 
                 //Last step verification and add finish step data if needed
                 if (this._currentStepIndex == this.config.steps.length - 1) {
-                    this._loadFinishStepData(this._currentStepIndex, currentConfig);
+                    this._loadFinishStepData(this._currentStepIndex, currentStepConfig);
                 }
 
                 //Call resetComponent
@@ -410,8 +393,9 @@ based on the given configuration.
             _loadFinishStepData(stepIndex, stepConfig) {
                 let currentComponent = this.stepperElement;
                 let configSteps = this.config.steps;
-                let isFinishComponent = stepConfig.component.path.indexOf("rock-business-function-finish") != -1 || 
-                                        stepConfig.component.path.indexOf("rock-bulk-action-result") != -1;
+                //Finish step component check is needed because in some BF flow there is no finish step
+                let isFinishComponent = stepConfig.component.path.indexOf("rock-business-function-finish") != -1 ||
+                    stepConfig.component.path.indexOf("rock-bulk-action-result") != -1;
                 if (stepIndex == configSteps.length - 1 && isFinishComponent) {
                     if (_.isEmpty(stepConfig.component.properties["finish-step-data"])) {
                         for (let idx = this._currentStepIndex - 1; idx >= 0; idx--) {
@@ -419,6 +403,7 @@ based on the given configuration.
                             if (stepState && !_.isEmpty(stepState.finishStepData)) {
                                 // BF V2 Cleanup - Change to finishStepData
                                 currentComponent["businessFunctionData"] = stepState.finishStepData;
+                                currentComponent["componentResult"] = stepState.componentResult;
                                 break;
                             }
                         }
@@ -467,9 +452,9 @@ based on the given configuration.
 
             //handler function for step complete
             _onBusinessFunctionStepComplete(e, detail) {
-                let currentConfig = this.config.steps[this._currentStepIndex];
+                let currentStepConfig = this.config.steps[this._currentStepIndex];
                 //if step is finished and it is a mandatory step, then goes to next step
-                if (currentConfig.isMandatory) {
+                if (currentStepConfig.isMandatory) {
                     this.goToNext();
                 }
             }
@@ -477,13 +462,13 @@ based on the given configuration.
             _getNextStepIndex() {
                 let contentElement = this.stepContainer;
                 let currentComponent = contentElement.firstElementChild;
-                let currentConfig = this.config.steps[this._currentStepIndex];
+                let currentStepConfig = this.config.steps[this._currentStepIndex];
                 let nextStepIndex = this._currentStepIndex + 1;
 
                 if (currentComponent &&
                     currentComponent.componentResult &&
                     currentComponent.componentResult.status != "completed") {
-                    this.skippedStepList.push(currentConfig.name);
+                    this.skippedStepList.push(currentStepConfig.name);
                 }
 
                 if (this.skippedStepList.length) {
@@ -537,12 +522,12 @@ based on the given configuration.
 
             _onNextTap() {
                 let componentStatusData = this.getComponentBusinessFunctionData();
-                let currentConfig = this.config.steps[this._currentStepIndex];
+                let currentStepConfig = this.config.steps[this._currentStepIndex];
                 if (componentStatusData && componentStatusData.componentResult &&
                     componentStatusData.componentResult.status != "completed") {
-                    if (currentConfig.isMandatory) {
+                    if (currentStepConfig.isMandatory) {
                         this.showErrorToast(
-                            "Please finish the mandatory step."
+                            "Finish the mandatory step to continue."
                         );
                     }
                     else if (componentStatusData.isComponentDirty) {
@@ -560,7 +545,6 @@ based on the given configuration.
             }
 
             _onBackTap() {
-                let currentConfig = this.config.steps[this._currentStepIndex];
                 if (this._currentStepIndex && this._currentStepIndex != 0) {
                     this.goToPrevious();
                 }
