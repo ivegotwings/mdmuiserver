@@ -274,6 +274,20 @@ async function renderAuthenticatedPage(req, res) {
                 'moduleVersions': ModuleVersionManager.getAll()
             }
 
+            let userContext = {
+                "roles": secHeaders.userRoles,
+                "user": userId,
+                "defaultRole": secHeaders.defaultRole,
+                "tenant": tenantId,
+                "userName": secHeaders.userName,
+                "userFullName": secHeaders.fullName,
+                "isAuthenticated": true
+            };
+
+            let baseContextData = {
+                "UserContexts": [userContext]
+            };
+
             //console.log('version info: ', JSON.stringify(versionInfo, null, 2));
 
             res.render('index', {
@@ -287,7 +301,8 @@ async function renderAuthenticatedPage(req, res) {
                 ownershipData: secHeaders.ownershipData,
                 ownershipeditdata: secHeaders.ownershipeditdata,
                 noPreload: noPreload,
-                versionInfo: JSON.stringify(versionInfo)
+                versionInfo: JSON.stringify(versionInfo),
+                baseContextData: JSON.stringify(baseContextData)
             });
 
             return true;
