@@ -1,0 +1,230 @@
+<link rel="import" href="../../../bower_components/polymer/polymer-element.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-helpers/component-helper.html">
+<link rel="import" href="../bedrock-helpers/context-helper.html">
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-gridsystem.html">
+<link rel="import" href="../bedrock-logger-behavior/bedrock-logger-behavior.html">
+<link rel="import" href="../bedrock-toast-behavior/bedrock-toast-behavior.html">
+<link rel="import" href="../rock-component-config-behavior/rock-component-config-behavior.html">
+<link rel="import" href="../pebble-dialog/pebble-dialog.html">
+
+
+<dom-module id="rock-multiple-file-download">
+    <template>
+        <style include="bedrock-style-common bedrock-style-gridsystem">
+            .attribute-value {
+                font-size: var(--font-size-sm, 12px);
+                font-weight: var(--font-medium, 500);
+                color: var(--buttontext-color, #616161);
+                width: 75%;
+            }
+            .multipleFileDownload-list-wrapper{
+                height:50vh;
+            }
+            .multipleFileDownload-list{
+                padding: 3px 0px;
+            }
+            li{
+                list-style-type: decimal;
+            }
+            .not-allowed {
+                cursor: not-allowed;
+            }
+        </style>
+        <div class="tooltip-bottom" data-tooltip$="[[_getMultipleFileDownloadLinkLabel()]]">
+            <div class="attribute-value text-ellipsis">
+                <a href="#" class="btn-link" on-tap="_onMultipleFileDownloadLinkClick">[[_getMultipleFileDownloadLinkLabel()]]</a>
+            </div>
+        </div>
+        <pebble-dialog id="multipleFileDownload" dialog-title="{{_getMultipleFileDownloadDialogTitle()}}" show-close-icon alert-box modal>             
+           <div class="multipleFileDownload-list-wrapper">
+            <ul class="button-siblings overflow-auto p-l-15">                                   
+                <template is="dom-repeat" items="[[taskDetails.fileName]]" as="item">
+                    <li class="tooltip-bottom multipleFileDownload-list" data-tooltip$="[[item]]">
+                        <div class="btn-link text-ellipsis" class="btn-link" file-name$="[[item]]" file-id$="[[_getFileId(index)]]" on-tap="_onSelectedFileDownloadClick">[[item]]</div>
+                    </li>
+                </template>                                    
+            </ul>
+            <div class="buttons">
+                <pebble-button id="close" class="close btn btn-secondary m-r-5" button-text="Close" on-tap="_onCloseMultipleFileDownloadDialog"></pebble-button>
+                <span class$="[[_getDownloadAllClass(maxFilesToDownload)]]" data-tooltip$="[[_getDownloadAllTooltip(maxFilesToDownload)]]">
+                    <pebble-button class="apply btn btn-success" disabled="[[_isMultipleDownloadAllFilesDisabled(maxFilesToDownload)]]" on-tap="_onDownloadAll" button-text="Download All"></pebble-button>
+                </span>
+            </div>
+            </div>
+        </pebble-dialog>
+    </template>
+
+    <script>
+    class RockMultipleFileDownload
+        extends Polymer.mixinBehaviors([
+            RUFBehaviors.ComponentConfigBehavior,
+            RUFBehaviors.LoggerBehavior
+        ], Polymer.Element) {
+        static get is() { return 'rock-multiple-file-download' }
+
+        static get properties() {
+            return {
+                contextData: {
+                    type: Object,
+                    value: function () {
+                    return {};
+                    }
+                },                
+                config: {
+                    type: Object,
+                    value: function () { return {}; }
+                },
+                taskDetails: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                },
+                maxFilesToDownload: {
+                    type: Number,
+                    value: 2 
+                }
+            }
+        }
+      
+        disconnectedCallback() {
+            super.disconnectedCallback();
+        }
+        connectedCallback() {
+            super.connectedCallback();
+            this.requestConfig('rock-multiple-file-download', this.contextData);
+        }
+               
+        /**
+         * Function to read the config info
+         */
+        onConfigLoaded(componentConfig) {
+            if (!componentConfig || !componentConfig.config) {
+                this.logError("Component configuration is missing, contact administrator.");          
+                return;
+            } else {
+                if(componentConfig.config.properties.maxFilesToDownload) {
+                    this.maxFilesToDownload = componentConfig.config.properties.maxFilesToDownload;
+                }
+            }       
+        }
+        
+        /**
+         * Function to get the no. of files are available for download
+         */
+        _getTotalDownloadableFiles(){
+            if(this.taskDetails && this.taskDetails.fileName && this.taskDetails.fileName.length > 0){
+                return this.taskDetails.fileName.length;
+            }
+            return 0;
+        }
+
+        /**
+         * Function to open the multiple-file-download dialog
+         */ 
+        _onMultipleFileDownloadLinkClick() {
+            this.multipleFileDownloadDialog = this.shadowRoot.querySelector("#multipleFileDownload");
+            if(this.multipleFileDownloadDialog) {
+                this.multipleFileDownloadDialog.open();
+            }
+        }
+      
+        /**
+         * Function to get the multiple-file-download link label
+         */
+        _getMultipleFileDownloadLinkLabel(){
+            return this._getTotalDownloadableFiles() + " files exported";
+        }
+
+        /**
+         * Function to get the multiple-file-download dialog title
+         */ 
+        _getMultipleFileDownloadDialogTitle(){
+            let profileName = "";
+            if(this.taskDetails && this.taskDetails.profileName && this.taskDetails.profileName!= "N/A"){
+                profileName = this.taskDetails.profileName + " >> ";
+            }
+            return "Exported files >> " + profileName  + this._getTotalDownloadableFiles() + " files";
+        }
+        
+        /**
+         * Function to close the multiple-file-download dialog
+         */ 
+        _onCloseMultipleFileDownloadDialog() {
+            this.multipleFileDownloadDialog = this.shadowRoot.querySelector("#multipleFileDownload");
+            if(this.multipleFileDownloadDialog) {
+                this.multipleFileDownloadDialog.close();
+            }
+        }
+        
+        /**
+         * Function to check if downloadAll button inside multiple-file-download dialog should be disabled or not
+         */
+        _isMultipleDownloadAllFilesDisabled(maxFilesToDownload) {
+            let totalFileToDownload = this._getTotalDownloadableFiles();
+            let downloadAllDisabled = false;
+            if(totalFileToDownload > maxFilesToDownload) {
+                downloadAllDisabled = true;
+            }
+            return downloadAllDisabled;
+        }
+        
+         /**
+         * Function to get the fileId of the given index to be displayed in the multiple-file-download dialog
+         */ 
+        _getFileId(index){
+            if(this.taskDetails && this.taskDetails.fileId && this.taskDetails.fileId instanceof Array) {
+                return this.taskDetails.fileId[index];
+            }
+        }
+
+        /**
+         * Function to get styles for downloadAll button inside multiple-file-download dialog
+         */
+        _getDownloadAllClass(maxFilesToDownload){
+            if(this._isMultipleDownloadAllFilesDisabled(maxFilesToDownload)){
+                return "tooltip-top not-allowed";
+            }
+            return "tooltip-top";
+        }
+
+        /**
+         * Function to get tooltip for downloadAll button inside multiple-file-download dialog
+         */
+        _getDownloadAllTooltip(maxFilesToDownload){
+            if(this._isMultipleDownloadAllFilesDisabled(maxFilesToDownload)){
+                return "Too many files to download at once, use individual links";
+            }
+            return "Download All";
+        }
+
+        /**
+         * Function to handle click on the specific file in the multiple-file-download dialog
+         */ 
+        _onSelectedFileDownloadClick(e){
+            let taskDetails = {};
+            if(e && e.currentTarget) {
+                taskDetails.fileId = e.currentTarget.getAttribute("file-id");
+                taskDetails.fileName = e.currentTarget.getAttribute("file-name");
+            }
+            if(this.taskDetails) {
+                taskDetails.fileType = this.taskDetails.fileType;
+                taskDetails.fileExtension = this.taskDetails.fileExtension;
+                taskDetails.taskType = this.taskDetails.taskType;
+            }
+            this.fireBedrockEvent("onDownloadFile", taskDetails);
+        }
+
+        /**
+         * Function to handle downloadAll button click on the multiple-file-download dialog
+         */ 
+        _onDownloadAll() { 
+            this.fireBedrockEvent("onDownloadFile", this.taskDetails);            
+        }
+        
+    }
+    customElements.define(RockMultipleFileDownload.is, RockMultipleFileDownload)
+  </script>
+</dom-module>

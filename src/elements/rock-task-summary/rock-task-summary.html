@@ -7,6 +7,7 @@
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-gridsystem.html">
 
+<link rel="import" href="../rock-multiple-file-download/rock-multiple-file-download.html" />
 <link rel="import" href="../pebble-button/pebble-button.html" />
 <link rel="import" href="../pebble-graph-pie/pebble-graph-pie.html" />
 <link rel="import" href="../pebble-spinner/pebble-spinner.html">
@@ -159,18 +160,7 @@
             .status-processing {
                 background-color: #f2e91d;
             }
-            .multipleFileDownload-list-wrapper{
-                height:50vh;
-            }
-            .multipleFileDownload-list{
-                padding: 3px 0px;
-            }
-            li{
-                list-style-type: decimal;
-            }
-            .not-allowed {
-                cursor: not-allowed;
-            }
+            
         </style>
 
         <div class="row-wrap p-b-10 p-t-10">
@@ -188,28 +178,7 @@
                         <div class="attribute-label">File Name</div>
                         <!-- Handling scenario where the no. of files to download are more than 1 -->
                         <template is="dom-if" if="[[_isMultipleDownloadFilesAvailable()]]">
-                            <div class="tooltip-bottom" data-tooltip$="[[_getMultipleFileDownloadLinkLabel()]]">
-                                <div class="attribute-value text-ellipsis">
-                                    <a href="#" class="btn-link" on-tap="_onMultipleFileDownloadLinkClick">[[_getMultipleFileDownloadLinkLabel()]]</a>
-                                </div>
-                            </div>
-                            <pebble-dialog id="multipleFileDownload" dialog-title="{{_getMultipleFileDownloadDialogTitle()}}" show-close-icon alert-box modal>             
-                               <div class="multipleFileDownload-list-wrapper">
-                                <ul class="button-siblings overflow-auto p-l-15">                                   
-                                    <template is="dom-repeat" items="[[taskDetails.fileName]]" as="item">
-                                        <li class="tooltip-bottom multipleFileDownload-list" data-tooltip$="[[item]]">
-                                            <div class="btn-link text-ellipsis" class="btn-link" file-name$="[[item]]" file-id$="[[_getFileId(index)]]" on-tap="_onSelectedFileDownloadClick">[[item]]</div>
-                                        </li>
-                                    </template>                                    
-                                </ul>
-                                <div class="buttons">
-                                    <pebble-button id="close" class="close btn btn-secondary m-r-5" button-text="Close" on-tap="_onCloseMultipleFileDownloadDialog"></pebble-button>
-                                    <span class$="[[_getDownloadAllClass()]]" data-tooltip$="[[_getDownloadAllTooltip()]]">
-                                        <pebble-button class="apply btn btn-success" disabled="[[_isMultipleDownloadAllFilesDisabled()]]" on-tap="_onDownloadAll" button-text="Download All"></pebble-button>
-                                    </span>
-                                </div>
-                                </div>
-                            </pebble-dialog>
+                            <rock-multiple-file-download id="multipleFileDownload" context-data="[[contextData]]" task-details="[[taskDetails]]"></rock-multiple-file-download>                            
                         </template>
                         
                         <template is="dom-if" if="[[!_isMultipleDownloadFilesAvailable()]]">
@@ -322,6 +291,7 @@
         </div>
         <liquid-rest id="getDownloadUrl" url="/data/binarystreamobjectservice/prepareDownload" method="POST" on-liquid-response="_onGetDownloadUrlResponse" on-liquid-error="_onGetDownloadUrlFailure">
         </liquid-rest>
+        <bedrock-pubsub event-name="onDownloadFile" handler="_handleDownload" target-id="multipleFileDownload"></bedrock-pubsub>
     </template>
     <script>
         class RockTaskSummary extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior], Polymer.Element) {
@@ -330,6 +300,12 @@
             }
             static get properties() {
                 return {
+                    contextData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
                     taskDetails: {
                         type: Object,
                         value: function () {
@@ -362,10 +338,6 @@
                     isParentTask: {
                         type: Boolean,
                         value: false
-                    },
-                    maxFilesToDownload: {
-                        type: Number,
-                        value: 10 
                     }
                 }
             }
@@ -484,118 +456,25 @@
 
                 this.fireBedrockEvent(eventName);
             }
-            
+             
             /**
-             * Function to open the multiple-file-download dialog
+             * Function to handle download of multiple files from the multiple-file-download dialog
              */ 
-            _onMultipleFileDownloadLinkClick() {
-                this.multipleFileDownloadDialog = this.shadowRoot.querySelector("#multipleFileDownload");
-                if(this.multipleFileDownloadDialog) {
-                    this.multipleFileDownloadDialog.open();
-                }
-            }
-           
-            /**
-             * Function to get the fileId of the given index to be displayed in the multiple-file-download dialog
-             */ 
-            _getFileId(index){
-                if(this.taskDetails && this.taskDetails.fileId && this.taskDetails.fileId instanceof Array) {
-                    return this.taskDetails.fileId[index];
-                }
-            }
-            
-            /**
-             * Function to get the multiple-file-download link label
-             */
-            _getMultipleFileDownloadLinkLabel(){
-                return this._getTotalDownloadableFiles() + " files exported";
-            }
-
-            /**
-             * Function to get the multiple-file-download dialog title
-             */ 
-             _getMultipleFileDownloadDialogTitle(){
-                let profileName = "";
-                if(this.taskDetails && this.taskDetails.profileName && this.taskDetails.profileName!= "N/A"){
-                    profileName = this.taskDetails.profileName + " >> ";
-                }
-                return "Exported files >> " + profileName  + this._getTotalDownloadableFiles() + " files";
-            }
-            
-            /**
-             * Function to close the multiple-file-download dialog
-             */ 
-            _onCloseMultipleFileDownloadDialog() {
-                this.multipleFileDownloadDialog = this.shadowRoot.querySelector("#multipleFileDownload");
-                if(this.multipleFileDownloadDialog) {
-                    this.multipleFileDownloadDialog.close();
-                }
-            }
-            
-            /**
-             * Function to check if downloadAll button inside multiple-file-download dialog should be disabled or not
-             */
-             _isMultipleDownloadAllFilesDisabled() {
-                let totalFileToDownload = this._getTotalDownloadableFiles();
-                let downloadAllDisabled = false;
-                if(totalFileToDownload > this.maxFilesToDownload) {
-                    downloadAllDisabled = true;
-                }
-                return downloadAllDisabled;
-            }    
-            
-            /**
-             * Function to get styles for downloadAll button inside multiple-file-download dialog
-             */
-            _getDownloadAllClass(){
-                if(this._isMultipleDownloadAllFilesDisabled()){
-                    return "tooltip-top not-allowed";
-                }
-                return "tooltip-top";
-            }
-
-            /**
-             * Function to get tooltip for downloadAll button inside multiple-file-download dialog
-             */
-            _getDownloadAllTooltip(){
-                if(this._isMultipleDownloadAllFilesDisabled()){
-                    return "Too many files to download at once, use individual links";
-                }
-                return "DownloadAll";
-            }
-            
-            /**
-             * Function to handle downloadAll button click on the multiple-file-download dialog
-             */ 
-            _onDownloadAll() { 
-                let taskDetails = {};
-                if(this.taskDetails) {
-                    taskDetails.fileType = this.taskDetails.fileType;
-                    taskDetails.fileExtension = this.taskDetails.fileExtension;
-                    taskDetails.taskType = this.taskDetails.taskType;
-                    for(let i=0;i<this.taskDetails.fileName.length;i++){
-                        taskDetails.fileId = this.taskDetails.fileId[i];
-                        taskDetails.fileName = this.taskDetails.fileName[i];
-                        this._onDownloadClick(taskDetails);
-                    }
-                }
-            }
-            
-            /**
-             * Function to handle click on the specific file in the multiple-file-download dialog
-             */ 
-            _onSelectedFileDownloadClick(e){
-                let taskDetails = {};
-                if(e && e.currentTarget) {
-                    taskDetails.fileId = e.currentTarget.getAttribute("file-id");
-                    taskDetails.fileName = e.currentTarget.getAttribute("file-name");
-                }
-                if(this.taskDetails) {
-                    taskDetails.fileType = this.taskDetails.fileType;
-                    taskDetails.fileExtension = this.taskDetails.fileExtension;
-                    taskDetails.taskType = this.taskDetails.taskType;
-                }
-                this._onDownloadClick(taskDetails);
+            _handleDownload(e) {
+                let taskDetails = e.detail;
+                let taskDetailItem = {};
+                if(taskDetails.fileName instanceof Array) {
+                    taskDetailItem.fileType = taskDetails.fileType;
+                    taskDetailItem.fileExtension = taskDetails.fileExtension;
+                    taskDetailItem.taskType = taskDetails.taskType;
+                    for(let i=0;i<taskDetails.fileName.length;i++){
+                        taskDetailItem.fileId = taskDetails.fileId[i];
+                        taskDetailItem.fileName = taskDetails.fileName[i];
+                        this._onDownloadClick(taskDetailItem);
+                    }                    
+                } else {
+                   this._onDownloadClick(taskDetails);
+                }               
             }
 
             _onDownloadClick(taskDetails) {
@@ -699,17 +578,7 @@
                 }
                 return false;             
             }
-            
-            /**
-             * Function to get the no. of files are available for download
-             */
-            _getTotalDownloadableFiles(){
-                if(this.taskDetails && this.taskDetails.fileName && this.taskDetails.fileName.length > 0){
-                    return this.taskDetails.fileName.length;
-                }
-                return 0;
-            }
-
+              
             _isDownloadAvailable() {
                 return this.taskDetails.fileId !== "N/A";
             }
