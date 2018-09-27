@@ -100,8 +100,6 @@
                 </div>
             </template>
         </div>
-        <liquid-rest id="contextModelGet" url="/data/pass-through/entitymodelservice/getcontext" method="POST" request-data="{{_contextModelGetReq}}"
-            on-liquid-response="_onContextModelGetResponse" on-liquid-error="_onContextModelGetFailed"></liquid-rest>
         <liquid-rest id="entityModelGet" url="/data/pass-through/entitymodelservice/get" method="POST" request-data="{{_entityModelRequest}}"
             on-liquid-response="_onEntityModelGetResponse" on-liquid-error="_onEntityModelGetError"></liquid-rest>
         <liquid-rest id="entityContextGet" url="/data/pass-through/entityservice/getcontext" method="POST" request-data="{{_entityContextRequest}}"
@@ -378,15 +376,7 @@
 
                 _domainChanged(domain) {
                     if (!_.isEmpty(domain)) {
-
-                        this._contextModelGetReq = DataRequestHelper.createContextModelGetRequest(domain);
-
-                        let liquidElement = this.$$('#contextModelGet');
-                        if (liquidElement) {
-                            liquidElement.generateRequest();
-                        } else {
-                            this.logError(this.appName + "-Context Selector - Liquid for context model get is not found");
-                        }
+                        this._processContextModel(domain);
                     }
                 }
 
@@ -435,136 +425,124 @@
                     }
                 }
 
-                _onContextModelGetResponse(e) {
-                    let response = e.detail.response.response;
+                async _processContextModel(domain) {
+                    let entityContextModel = await ContextModelManager.getByDomain(domain);
+                    if(entityContextModel) {
+                        let contexts = "data" in entityContextModel ? entityContextModel.data.contexts : undefined;
+                        let _ctxKeys = [];
 
-                    if (response) {
-                        let entityModels = response.entityModels;
+                        this._contextHierarchyInfo = DataHelper.isValidObjectPath(entityContextModel, "properties.coalesceInfo") && entityContextModel.properties.coalesceInfo;
 
-                        if (!_.isEmpty(entityModels)) {
-                            let entityModel = entityModels[0];
-                            let contexts = "data" in entityModel ? entityModel.data.contexts : undefined;
-                            let _ctxKeys = [];
+                        if (!_.isEmpty(this._contextHierarchyInfo)) {
+                            this._contextHierarchyInfo.sort(function(a,b) {
+                                if(a.sequence && b.sequence) {
+                                    return a.sequence - b.sequence;
+                                }
+                            });
+                            this._contextHierarchyInfo.forEach(function(ctx) {
+                                if(ctx.contextKey && this._contextHierarchy.indexOf(ctx.contextKey) < 0) {
+                                    this._contextHierarchy.push(ctx.contextKey);
+                                }
+                            }, this);
+                        }
 
-                            this._contextHierarchyInfo = DataHelper.isValidObjectPath(entityModel, "properties.coalesceInfo") && entityModel.properties.coalesceInfo;
+                        if (contexts) {
+                            let _contexts = [];
+                            contexts.forEach(function (context) {
+                                _contexts.push(context.context);
 
-                            if (!_.isEmpty(this._contextHierarchyInfo)) {
-                                this._contextHierarchyInfo.sort(function(a,b) {
-                                    if(a.sequence && b.sequence) {
-                                        return a.sequence - b.sequence;
-                                    }
-                                });
-                                this._contextHierarchyInfo.forEach(function(ctx) {
-                                    if(ctx.contextKey && this._contextHierarchy.indexOf(ctx.contextKey) < 0) {
-                                        this._contextHierarchy.push(ctx.contextKey);
-                                    }
-                                }, this);
-                            }
+                                let ctxKeys = Object.keys(context.context);
+                                if (ctxKeys && ctxKeys.length) {
+                                    ctxKeys.forEach(function (ctxKey) {
+                                        if (_ctxKeys.indexOf(ctxKey) < 0) {
+                                            _ctxKeys.push(ctxKey);
+                                        }
+                                    }, this);
+                                }
+                            }, this);
 
-                            if (contexts) {
-                                let _contexts = [];
-                                contexts.forEach(function (context) {
-                                    _contexts.push(context.context);
+                            this._contexts = _contexts;
+                        }
 
-                                    let ctxKeys = Object.keys(context.context);
-                                    if (ctxKeys && ctxKeys.length) {
-                                        ctxKeys.forEach(function (ctxKey) {
-                                            if (_ctxKeys.indexOf(ctxKey) < 0) {
-                                                _ctxKeys.push(ctxKey);
-                                            }
-                                        }, this);
-                                    }
-                                }, this);
+                        let _ctxIds = [];
+                        if (_ctxKeys && _ctxKeys.length) {
+                            _ctxKeys.forEach(function (item) {
+                                if (item) {
+                                    _ctxIds.push(item);
+                                }
+                            }, this);
+                        }
 
-                                this._contexts = _contexts;
-                            }
+                        let ctxIds = [];
+                        if (this.configData && this.configData.length) {
+                            let _self = this;
+                            this.configData.forEach(function (item) {
+                                if (item.dataMappings && item.dataMappings.type) {
+                                    if (!item.useContextModel) {
+                                        let types = item.dataMappings.type;
 
-                            let _ctxIds = [];
-                            if (_ctxKeys && _ctxKeys.length) {
-                                _ctxKeys.forEach(function (item) {
-                                    if (item) {
-                                        _ctxIds.push(item);
-                                    }
-                                }, this);
-                            }
+                                        if (!_.isEmpty(types)) {
+                                            types.forEach(function(type) {
+                                                ctxIds.push(type + "_entityManageModel");
 
-                            let ctxIds = [];
-                            if (this.configData && this.configData.length) {
-                                let _self = this;
-                                this.configData.forEach(function (item) {
-                                    if (item.dataMappings && item.dataMappings.type) {
-                                        if (!item.useContextModel) {
-                                            let types = item.dataMappings.type;
+                                                if (_self._contextHierarchy.indexOf(type) < 0) {
+                                                    _self._contextHierarchy.push(type);
+                                                }
+                                            });
+                                        }
+                                    } else if (item.useContextModel) {
+                                        let types = item.dataMappings.type;
 
-                                            if (!_.isEmpty(types)) {
-                                                types.forEach(function(type) {
-                                                    ctxIds.push(type + "_entityManageModel");
+                                        if (!_.isEmpty(types)) {
+                                            types.forEach(function(type) {
+                                                ctxIds.push(type + "_entityManageModel");
 
-                                                    if (_self._contextHierarchy.indexOf(type) < 0) {
-                                                        _self._contextHierarchy.push(type);
-                                                    }
-                                                });
-                                            }
-                                        } else if (item.useContextModel) {
-                                            let types = item.dataMappings.type;
-
-                                            if (!_.isEmpty(types)) {
-                                                types.forEach(function(type) {
-                                                    ctxIds.push(type + "_entityManageModel");
-
-                                                    if (_self._contextHierarchy.indexOf(type) < 0) {
-                                                        _self._contextHierarchy.push(type);
-                                                    }
-                                                });
-                                            }
+                                                if (_self._contextHierarchy.indexOf(type) < 0) {
+                                                    _self._contextHierarchy.push(type);
+                                                }
+                                            });
                                         }
                                     }
-                                }, this);
-                            }
+                                }
+                            }, this);
+                        }
 
-                            if (ctxIds && ctxIds.length) {
-                                this._entityModelRequest = {
-                                    "params": {
-                                        "query": {
-                                            "ids": ctxIds,
-                                            "filters": {
-                                                "typesCriterion": [
-                                                    "entityManageModel"
-                                                ]
-                                            }
-                                        },
-                                        "fields": {
-                                            "attributes": [
-                                                "_ALL"
-                                            ],
-                                            "relationships": [
-                                                "_ALL"
-                                            ],
-                                            "relationshipAttributes": [
-                                                "_ALL"
+                        if (ctxIds && ctxIds.length) {
+                            this._entityModelRequest = {
+                                "params": {
+                                    "query": {
+                                        "ids": ctxIds,
+                                        "filters": {
+                                            "typesCriterion": [
+                                                "entityManageModel"
                                             ]
                                         }
+                                    },
+                                    "fields": {
+                                        "attributes": [
+                                            "_ALL"
+                                        ],
+                                        "relationships": [
+                                            "_ALL"
+                                        ],
+                                        "relationshipAttributes": [
+                                            "_ALL"
+                                        ]
                                     }
-                                };
-
-                                let entityModelGetComponent = this.$$("#entityModelGet");
-
-                                if (entityModelGetComponent) {
-                                    entityModelGetComponent.generateRequest();
-                                } else {
-                                    this.logError(this.appName + "-Context Selector - Entity model get liquid not found");
                                 }
+                            };
+
+                            let entityModelGetComponent = this.$$("#entityModelGet");
+
+                            if (entityModelGetComponent) {
+                                entityModelGetComponent.generateRequest();
+                            } else {
+                                this.logError(this.appName + "-Context Selector - Entity model get liquid not found");
                             }
-                        } else {
-                            this.logError(this.appName + "-Context Selector - There are no context models available", e.detail);
                         }
                     } else {
-                        this.logError(this.appName + "-Context Selector - There is some problem with contextModel get response", e.detail);
+                        this.logError(this.appName + "-Context Selector - There are no context models available for domain " + domain, {}, true);
                     }
-                }
-
-                _onContextModelGetFailed(e) {
-                    this.logError(this.appName + "-Context Selector - contextModel get exception", e.detail);
                 }
 
                 _onEntityModelGetResponse(e) {

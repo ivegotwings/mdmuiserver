@@ -105,7 +105,7 @@
                 pointer-events: none;
             }
 
-            data-table-row[header] {
+            pebble-data-table data-table-row[header] {
                 font-weight: var(--font-bold, bold);
                 color: var(--palette-cerulean, #036bc3);
                 border-bottom: none;
@@ -113,23 +113,23 @@
                 font-size: var(--table-head-font-size, 11px);
             }
 
-            data-table-row:not([header]) {
+            pebble-data-table data-table-row:not([header]) {
                 color: var(--palette-dark, #1a2028);
                 font-size: var(--default-font-size, 12px);
                 height: 100%;
                 background-color: var(--palette-white, #ffffff);
             }
 
-            data-table-row:not([header]):hover,
+            pebble-data-table data-table-row:not([header]):hover,
             data-table-row[selected] {
                 background-color: var(--table-row-selected-color, #c1cad4) !important;
             }
 
-            data-table-row.value-updated {
+            pebble-data-table data-table-row.value-updated {
                 background-color: var(--edit-attribute-bgcolor, #EDF8FE) !important;
             }
 
-            data-table-row:not([header]):hover data-table-checkbox,
+            pebble-data-table data-table-row:not([header]):hover data-table-checkbox,
             data-table-row[selected] data-table-checkbox {
                 background-color: var(--palette-white, #ffffff) !important;
             }
@@ -202,11 +202,6 @@
                         }
                     },
 
-                    _isAdditionalContextPresent: {
-                        type: Boolean,
-                        value: false
-                    },
-
                     _contexts: {
                         type: Array,
                         value: function () {
@@ -247,63 +242,7 @@
                 return (this._gridConfig && !_.isEmpty(this._gridConfig));
             }
 
-            async _getPrimaryAndAdditionalContexts() {
-                let mergedContexts = undefined;
-
-                if (!_.isEmpty(this.contextData)) {
-                    let entityType = undefined;
-                    let contextModel = undefined;
-                    if (DataHelper.isValidObjectPath(this.contextData, 'ItemContexts.0')) {
-                        entityType = this.contextData.ItemContexts[0].type;
-                    }
-                    if (DataHelper.isValidObjectPath(this.contextData, 'Contexts.0') && entityType) {
-                        contextModel = await ContextModelManager.getContextModelByEntityTypeAndDataContext(entityType, this.contextData.Contexts[0]);
-                    }
-
-                    let additionalContexts = undefined;
-                    let primaryContexts = undefined;
-                    if (contextModel) {
-                        additionalContexts = contextModel.properties ? contextModel.properties.additionalcontexts :undefined;
-                        primaryContexts = DataTransformHelper.getPrimaryContextKeysFromContextModel(contextModel, additionalContexts);
-                    }
-
-                    mergedContexts = {
-                        "additionalContexts": additionalContexts,
-                        "primaryContexts": primaryContexts
-                    }
-                }
-                
-                return mergedContexts;
-            }
-
-            async _getPrimaryAndFullContexts() {
-                let dataContexts = [];
-                this._contextsObj = await this._getPrimaryAndAdditionalContexts();
-
-                if (this._contextsObj) {
-                    if (!_.isEmpty(this._contextsObj.primaryContexts) && this._contextsObj.primaryContexts
-                        .indexOf('self') !== -1) {
-                        this._isAdditionalContextPresent = false;
-                    } else if (!_.isEmpty(this._contextsObj.additionalContexts)) {
-                        this._isAdditionalContextPresent = true;
-                    }
-                }
-
-                let firstDataContext = ContextHelper.getFirstDataContext(this.contextData);
-                if (this._isAdditionalContextPresent && this._contextsObj && this._contextsObj.primaryContexts) {
-                    let primaryContext = _.pick(firstDataContext, this._contextsObj.primaryContexts);
-                    dataContexts.push(primaryContext);
-                }
-
-                if (!_.isEmpty(dataContexts)) {
-                    //In snapshot scenario we just want to push the primary context and not the full
-                    // dataContexts.push(firstDataContext);
-                    return dataContexts;
-                }
-                return "";
-            }
-
-            async _getEntitySnapshotCall() {
+            _getEntitySnapshotCall() {
                 let liquidRest = this.shadowRoot.querySelector("#getEntitySnapshots");
                 let contextData = DataHelper.cloneObject(this.contextData);
                 let req = DataRequestHelper.createEntityGetRequest(contextData)
@@ -313,15 +252,12 @@
                 req.params.options.maxRecords = 200;
                 req.params.options.snapshotGetMode = "all";
                 req.params.options.nonContextual = false;
-                this._contexts = await this._getPrimaryAndFullContexts();
+                let dataContexts = ContextHelper.getDataContexts(contextData);
 
-                if (!this._isAdditionalContextPresent) {
-                    this._contexts = this.contextData.Contexts;
-                    if (_.isEmpty(this._contextsObj.additionalContexts) && _.isEmpty(this._contextsObj.primaryContexts)) {
-                        req.params.options.nonContextual = true;
-                    }
+                if (_.isEmpty(dataContexts)) {
+                    req.params.options.nonContextual = true;
                 }
-                req.params.query.contexts = this._contexts;
+                req.params.query.contexts = dataContexts;
                 req.params.sort = {
                     "properties": [
                         {

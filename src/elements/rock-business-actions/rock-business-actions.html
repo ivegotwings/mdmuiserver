@@ -103,10 +103,6 @@
                             return {};
                         }
                     },
-                    _maxAllowedEntitiesForPaste: {
-                        type: Number,
-                        value: 5
-                    },
                     _currentWorkflowAction: {
                         type: String
                     },
@@ -129,22 +125,11 @@
                         },
                         observer: "_onWorkflowInfoChange"
                     },
-                    _primaryContexts: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    },
                     contextModelType: {
                         type: String,
                         value: ""
                     }
                 }
-            }
-            static get observers() {
-                return [
-                    "_preparePrimaryContexts(contextData.*)"
-                ]
             }
             /**
              *
@@ -203,10 +188,6 @@
                 this._disableActionsBasedOnContext(actionsToDisable);
             }
 
-            async _preparePrimaryContexts() {
-                this._primaryContexts = await ContextHelper.getPrimaryContexts(this.contextData, this.contextModelType);
-            }
-
             _getEntityName() {
                 if (!_.isEmpty(this.contextData)) {
                     let itemContext = ContextHelper.getFirstItemContext(this.contextData);
@@ -236,7 +217,6 @@
             triggerProcess(selectedDetails, workflowCriterion) {
                 if (!this._currentAction || !this._currentAction.data) return;
 
-                let shouldOpenBusinessDialog = true;
                 const {
                     eventName,
                     componentName,
@@ -258,8 +238,7 @@
 
                 const asyncAvailable = eventName == "action-takeTask" || eventName == "action-releaseTask" ||
                     eventName == "action-wfTransitions" || eventName == "action-add-context" || eventName ==
-                    "action-reassignTask" || eventName == "action-view-snapshot" || eventName == "action-copy" ||
-                    eventName == "action-paste";
+                    "action-reassignTask" || eventName == "action-view-snapshot";
 
                 if (!asyncAvailable || (asyncAvailable && selectionMode == "count")) {
                     if (DataHelper.isEmptyObject(selectedItems)) {
@@ -314,7 +293,7 @@
                         let title = DataHelper.concatValuesFromArray([
                             workflowName,
                             workflowActivityExternalName, 
-                            this._primaryContexts, 
+                            ContextHelper.getDataContexts(this.contextData), 
                             this._selectedItems.length + " entities"
                         ]);
 
@@ -347,23 +326,6 @@
                         sharedData = {
                             "selected-entities": this._selectedItems
                         };
-                        break;
-                    }
-                    case 'action-copy': {
-                        this._onCopyActionTap();  
-                        shouldOpenBusinessDialog = false;  
-                        break;
-                    }
-                    case 'action-paste': {
-                        detail = {
-                            name: componentName,
-                            subName: subComponentName,
-                            mergeTitle: true,
-                            title: this._selectedItems.length + " entities"
-                        };
-                        shouldOpenBusinessDialog = this._onPasteActionTap(detail);
-                        sharedData = {selectedItemsForPaste: this._selectedItems,
-                                      isEntityDiscoveryScreen: true};
                         break;
                     }
                     case 'action-re-publish': {
@@ -411,7 +373,7 @@
                         };
                         let title = DataHelper.concatValuesFromArray([
                             this._currentAction.data.title, 
-                            this._primaryContexts, 
+                            ContextHelper.getDataContexts(this.contextData), 
                             this._selectedItems.length + " entities"
                         ]);
                         sharedData = {
@@ -428,9 +390,8 @@
                         break;
                     }
                 }
-                if(shouldOpenBusinessDialog) {
-                    this.openBusinessFunctionDialog(detail, sharedData);
-                }
+
+                this.openBusinessFunctionDialog(detail, sharedData);
             }
 
             _isSelectedItemsAllowed(allowedEntityTypes) {
@@ -522,105 +483,6 @@
                 return dialogTitle;
             }
 
-            _transformItemContextData() {
-                let selectedItems;
-                let attributeNames;
-                if(DataHelper.isValidObjectPath(this, '_selectedItems.0.attributes')) {
-                    selectedItems = this._selectedItems[0];
-                    attributeNames = Object.keys(selectedItems.attributes)
-                }
-                let itemContextObject = {
-                    attributeNames: attributeNames,
-                    domain: selectedItems.domain,
-                    id: selectedItems.id,
-                    name: selectedItems.name,
-                    type: selectedItems.type
-                }
-                return itemContextObject;
-            }
-
-            _onCopyActionTap() {
-
-                // prohibiting copy of more than 1 entity
-                if(this._selectedItems.length!==1) {
-                    this.showWarningToast('Only one entity can be copied ');
-                    return;
-                }
-                let transFormedItemContextData = this._transformItemContextData();
-                let transformedContext = DataHelper.cloneObject(this.contextData);
-                transformedContext.ItemContexts = [transFormedItemContextData];
-                //saving entity details in session storage so we can use this later for paste
-                sessionStorage.setItem('copyEntityData', JSON.stringify(transformedContext));
-                this.showSuccessToast('Entity copied successfully');
-            }
-
-            _checkDuplicateCopyPaste(copyEntityId, pasteEntityIds) {
-                let stopPasteProcess = false;
-                // logic to compare context
-                let transFormedItemContextData = this._transformItemContextData();
-                let transformedContext = DataHelper.cloneObject(this.contextData);
-                transformedContext.ItemContexts = [transFormedItemContextData];
-                let data = sessionStorage.getItem('copyEntityData');
-                let parsedData;
-                if (data) {
-                    parsedData = JSON.parse(data);
-                } else {
-                    this.showWarningToast("No Item Copied");
-                    return
-                }
-
-                if (JSON.stringify(parsedData.Contexts) === JSON.stringify(transformedContext.Contexts)) {
-                    for (let index = 0; index < pasteEntityIds.length; index++) {
-                        if (pasteEntityIds[index] === copyEntityId) {
-                            stopPasteProcess = true;
-                            break;
-                        }
-                    }
-                }
-                return stopPasteProcess;
-            }
-
-            _onPasteActionTap(detail) {
-                if (!detail) {
-                    return false;
-                }
-
-                //check for max entity paste limit 
-                if(this._selectedItems.length>this._maxAllowedEntitiesForPaste) {
-                    this.showWarningToast("Cannot paste more than " + this._maxAllowedEntitiesForPaste + " entities at once");
-                    return false;
-                }
-
-                if(this._selectedItems.length<1) {
-                    this.showWarningToast("Select atleast one entity for paste");
-                    return false;
-                }
-
-                //check to make sure user cannot copy and paste on same entity
-                let data = sessionStorage.getItem('copyEntityData');
-                let parsedData;
-                if (data) {
-                    parsedData = JSON.parse(data);
-                }
-
-                let pasteEntityIds = this._selectedItems.map(elm => {
-                    return elm.id;
-                })
-
-                if (DataHelper.isValidObjectPath(parsedData, 'ItemContexts.0.id')) {
-                    let copyEntityId = parsedData.ItemContexts[0].id;
-                    let isSameEntityCopyAndPasted = this._checkDuplicateCopyPaste(copyEntityId, pasteEntityIds);
-                    if (isSameEntityCopyAndPasted) {
-                        this.showWarningToast("Cannot copy and paste on the same entity in same context");
-                        return false;
-                    }
-                } else {
-                    this.showWarningToast("No Item Copied");
-                    return false;
-                }
-
-                return true
-            }
             _toggleActionItems() {
                 let assignmentActions = this.shadowRoot.querySelector("#actionsButton");
                 if (assignmentActions) {
@@ -677,16 +539,15 @@
                 this._failedWorkflows = [];
                 this._doneWorkflows = [];
                 if (!detail) return;
-                let { eventName } = detail.data;
 
-                if (eventName == "action-preview-template") {
+                if (detail.data.eventName == "action-preview-template") {
                     this.fireBedrockEvent("on-preview-template-tap", detail, {
                         ignoreId: true
                     });
                     return;
                 }
 
-                if (eventName == "action-re-publish") {
+                if (detail.data.eventName == "action-re-publish") {
                     this._currentAction = detail;
                     let selectedDetails = {
                         "selectedItems": DataHelper.cloneObject(this.getItemContexts()),
@@ -695,29 +556,15 @@
                     this.triggerProcess(selectedDetails, this.workflowInfo);
                     return;
                 }
-                if (eventName.indexOf("context") != -1) {
+                if (detail.data.eventName.indexOf("context") != -1) {
                     this.fireBedrockEvent("on-context-manage-tap", detail, {
                         ignoreId: true
                     });
                     return;
                 }
 
-                if (eventName.indexOf("snapshot") != -1) {
+                if (detail.data.eventName.indexOf("snapshot") != -1) {
                     this.fireBedrockEvent("on-snapshot-view-tap", detail, {
-                        ignoreId: true
-                    });
-                    return;
-                }
-
-                if (eventName === "action-copy") {
-                    this.fireBedrockEvent("on-copy-tap", detail, {
-                        ignoreId: true
-                    });
-                    return;
-                }
-
-                if (eventName === "action-paste") {
-                    this.fireBedrockEvent("on-paste-tap", detail, {
                         ignoreId: true
                     });
                     return;
@@ -729,13 +576,13 @@
                 }
 
                 this._currentWorkflowAction = "";
-                if (eventName == "action-takeTask") {
+                if (detail.data.eventName == "action-takeTask") {
                     this._currentWorkflowAction = "take";
                 }
-                if (eventName == "action-releaseTask") {
+                if (detail.data.eventName == "action-releaseTask") {
                     this._currentWorkflowAction = "release";
                 }
-                if (eventName == "action-reassignTask") {
+                if (detail.data.eventName == "action-reassignTask") {
                     this._currentWorkflowAction = "reassign";
                 }
 

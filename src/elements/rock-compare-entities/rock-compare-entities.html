@@ -109,7 +109,7 @@
         </template>
 
         <pebble-dialog id="attributeDialog" dialog-title="Confirmation" modal medium vertical-offset=1 50 horizontal-align="auto" vertical-align="auto" no-cancel-on-outside-click no-cancel-on-esc-key show-ok show-cancel show-close-icon alert-box>
-            <div id="attrDialogContainer" class="overflow-auto"></div>
+            <div id="attrDialogContainer" style="overflow-y: auto;overflow-x: auto;"></div>
         </pebble-dialog>
 
         </template>
@@ -180,10 +180,6 @@
                         value: false
                     },
                     _isLiquidDataGetInitiated: {
-                        type: Boolean,
-                        value: false
-                    },
-                    _isAdditionalContextPresent: {
                         type: Boolean,
                         value: false
                     },
@@ -288,12 +284,6 @@
                         }
                     },
                     _contexts: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    },
-                    _contextsObj: {
                         type: Object,
                         value: function () {
                             return {};
@@ -727,38 +717,6 @@
                 return gridConfig;
             }
 
-            async _getPrimaryAndAdditionalContexts() {
-                let mergedContexts = undefined;
-
-                if (!_.isEmpty(this.contextData)) {
-                    let entityType = undefined;
-                    let contextModel = undefined;
-
-                    if (DataHelper.isValidObjectPath(this.contextData, 'ItemContexts.0')) {
-                        entityType = this.contextData.ItemContexts[0].type;
-                    }
-
-                    if (DataHelper.isValidObjectPath(this.contextData, 'Contexts.0') && entityType) {
-                        contextModel = await ContextModelManager.getContextModelByEntityTypeAndDataContext(entityType, this.contextData.Contexts[0]);
-                    }
-
-                    let additionalContexts = undefined;
-                    let primaryContexts = undefined;
-
-                    if (contextModel) {
-                        additionalContexts = contextModel.properties ? contextModel.properties.additionalcontexts : undefined;
-                        primaryContexts = DataTransformHelper.getPrimaryContextKeysFromContextModel(contextModel, additionalContexts);
-                    }
-
-                    mergedContexts = {
-                        "additionalContexts": additionalContexts,
-                        "primaryContexts": primaryContexts
-                    };
-                }
-
-                return mergedContexts;
-            }
-
             async snapshotTransformAttributes(entity, attributeModels, contextData, outputSchema, applySort) {
                 let firstDataContext = ContextHelper.getFirstDataContext(contextData);
                 let firstValueContext = ContextHelper.getFirstValueContext(contextData);
@@ -772,18 +730,11 @@
                 if (applySort) {
                     sortedAttributeModels = this.sortAttributeModels(attributeModels);
                 }
+                
+                mergedAttributes = entity.data.attributes;
 
                 if (firstDataContext) {
-                    let dataContexts = [];
-
-                    if (this._isAdditionalContextPresent && this._contextsObj && this._contextsObj.primaryContexts) {
-                        let primaryContext = _.pick(firstDataContext, this._contextsObj.primaryContexts);
-                        dataContexts.push(primaryContext);
-                    } else if (!_.isEmpty(this._contextsObj.primaryContexts) && this._contextsObj.primaryContexts[0] == "self") {
-                        mergedAttributes = entity.data.attributes;
-                    }
-
-                    dataContexts.push(firstDataContext);
+                    let dataContexts = ContextHelper.getDataContexts(contextData);
 
                     for (let dataContext of dataContexts) {
                         if (dataContext) {
@@ -796,9 +747,6 @@
                             }
                         }
                     }
-                } else {
-                    //taking self
-                    mergedAttributes = entity.data.attributes;
                 }
 
                 let transformedAttributes;
@@ -837,16 +785,7 @@
 
                 //second condition added to check for a normal entity.
                 if (firstDataContext) {
-                    let dataContexts = [];
-
-                    if (this._isAdditionalContextPresent && this._contextsObj && this._contextsObj.primaryContexts) {
-                        let primaryContext = _.pick(firstDataContext, this._contextsObj.primaryContexts);
-                        dataContexts.push(primaryContext);
-                    } else if (!_.isEmpty(this._contextsObj.primaryContexts) && this._contextsObj.primaryContexts[
-                            0] == "self") {
-                        mergedRelationships = entity.data.relationships;
-                    }
-                    dataContexts.push(firstDataContext);
+                    let dataContexts = ContextHelper.getDataContexts(contextData);
 
                     for (let dataContext of dataContexts) {
                         if (dataContext) {
@@ -912,15 +851,6 @@
                         if (this._entityModels && this._entityModels.length) {
                             compositeModel = DataHelper.cloneObject(this._entityModels[0]);
                         }
-                        this._contextsObj = await this._getPrimaryAndAdditionalContexts();
-                        if (this._contextsObj) {
-                            if (!_.isEmpty(this._contextsObj.primaryContexts) && this._contextsObj.primaryContexts
-                                .indexOf('self') !== -1) {
-                                this._isAdditionalContextPresent = false;
-                            } else if (!_.isEmpty(this._contextsObj.additionalContexts)) {
-                                this._isAdditionalContextPresent = true;
-                            }
-                        }
                     }
                     let transformedRelModels = DataTransformHelper.transformRelationshipModels(compositeModel,
                         this.contextData);
@@ -949,7 +879,7 @@
                                 nonSortedColumns.push(colDetails);
                             }
                             let relationships = await this.snapshotTransformRelationships(entity,
-                                transformedRelModels, this._contextData, this._contextsObj);
+                                transformedRelModels, this._contextData);
                             let rels = relationships;
                             // this._entities.forEach(function (currentModel) {
 
@@ -1077,19 +1007,8 @@
                     };
 
                     //getting primary and additional contexts to know which context related attributes should be displayed
-                    if (this.isSnapshot) {
-                        if (this._entityModels && this._entityModels.length) {
-                            compositeModel = DataHelper.cloneObject(this._entityModels[0]);
-                        }
-                        this._contextsObj = await this._getPrimaryAndAdditionalContexts();
-                        if (this._contextsObj) {
-                            if (!_.isEmpty(this._contextsObj.primaryContexts) && this._contextsObj.primaryContexts
-                                .indexOf('self') !== -1) {
-                                this._isAdditionalContextPresent = false;
-                            } else if (!_.isEmpty(this._contextsObj.additionalContexts)) {
-                                this._isAdditionalContextPresent = true;
-                            }
-                        }
+                    if (this.isSnapshot && this._entityModels && this._entityModels.length) {
+                        compositeModel = DataHelper.cloneObject(this._entityModels[0]);
                     }
                     let transformedAttrModels = undefined;
                     if (!_.isEmpty(this._entityModels)) {
@@ -1138,7 +1057,7 @@
                                 }
                                 nonSortedColumns.push(colDetails);
                             }
-                            let attributes = await this.snapshotTransformAttributes(entity, transformedAttrModels, this._contextData, this._contextsObj);
+                            let attributes = await this.snapshotTransformAttributes(entity, transformedAttrModels, this._contextData);
                             let _isAttributeMapped = false;
                             this._entityModels.forEach(function (currentModel) {
                                 let attrs = (DataHelper.isValidObjectPath(currentModel,'data.contexts.0.attributes')) ? currentModel.data.contexts[0].attributes : currentModel.data.attributes;
@@ -1373,33 +1292,7 @@
                 return req;
             }
 
-            async _getPrimaryAndFullContexts() {
-                let dataContexts = [];
-                this._contextsObj = await this._getPrimaryAndAdditionalContexts();
-
-                if (this._contextsObj) {
-                    if (!_.isEmpty(this._contextsObj.primaryContexts) && this._contextsObj.primaryContexts
-                        .indexOf('self') !== -1) {
-                        this._isAdditionalContextPresent = false;
-                    } else if (!_.isEmpty(this._contextsObj.additionalContexts)) {
-                        this._isAdditionalContextPresent = true;
-                    }
-                }
-
-                let firstDataContext = ContextHelper.getFirstDataContext(this.contextData);
-                if (this._isAdditionalContextPresent && this._contextsObj && this._contextsObj.primaryContexts) {
-                    let primaryContext = _.pick(firstDataContext, this._contextsObj.primaryContexts);
-                    dataContexts.push(primaryContext);
-                }
-
-                if (!_.isEmpty(dataContexts)) {
-                    dataContexts.push(firstDataContext);
-                    return dataContexts;
-                }
-                return null;
-            }
-
-            async _dataGet() {
+            _dataGet() {
                 if (this._contextData) {
                     let onlySnapshotsSelected = true;
                     let firstItemContext = this._contextData[ContextHelper.CONTEXT_TYPE_ITEM] &&
@@ -1413,11 +1306,8 @@
                     let req = DataRequestHelper.createEntityGetRequest(this._contextData);
 
                     //getting primary and fullContext
-                    this._contexts = await this._getPrimaryAndFullContexts();
+                    this._contexts = ContextHelper.getDataContexts(this.contextData);
 
-                    if (!this._isAdditionalContextPresent) {
-                        this._contexts = this.contextData.Contexts;
-                    }
                     //adding params to get relationship related data
                     req.params.fields.relationships = ["_ALL"];
 
