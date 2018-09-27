@@ -237,92 +237,52 @@ DataObjectFalcorUtil.getPathKeys = function () {
         "searchResultItems": "items",
         "dataIndexInfo": {
             "entityData": {
-                "dataSubIndexInfo": {
-                    "data": {
-                        "name": "entity",
-                        "collectionName": "entities",
-                        "responseObjectName": "response",
-                        "maxRecordsToReturn": 200,
-                        "combinedQueryPageSize": 30000,
-                        "cacheExpiryDurationInMins": 60
-                    },
-                    "coalescedData": {
-                        "name": "entity",
-                        "collectionName": "entities",
-                        "responseObjectName": "response",
-                        "maxRecordsToReturn": 200,
-                        "combinedQueryPageSize": 30000,
-                        "cacheExpiryDurationInMins": 60
-                    }
-                }
+                "name": "entity",
+                "collectionName": "entities",
+                "responseObjectName": "response",
+                "maxRecordsToReturn": 200,
+                "combinedQueryPageSize": 30000,
+                "cacheExpiryDurationInMins": 60
             },
             "entityGovernData": {
-                "dataSubIndexInfo": {
-                    "entityGovernData": {
-                        "name": "entityGovernData",
-                        "collectionName": "entities",
-                        "responseObjectName": "response",
-                        "maxRecordsToReturn": 5000,
-                        "combinedQueryPageSize": 30000,
-                        "cacheExpiryDurationInMins": 60
-                    }
-                }
+                "name": "entityGovernData",
+                "collectionName": "entities",
+                "responseObjectName": "response",
+                "maxRecordsToReturn": 5000,
+                "combinedQueryPageSize": 30000,
+                "cacheExpiryDurationInMins": 60
             },
             "entityModel": {
-                "dataSubIndexInfo": {
-                    "entityModel": {
-                        "name": "entityModel",
-                        "collectionName": "entityModels",
-                        "responseObjectName": "response",
-                        "maxRecordsToReturn": 2000,
-                        "combinedQueryPageSize": 30000,
-                        "cacheExpiryDurationInMins": 7200
-                    },
-                    "coalescedEntityModel": {
-                        "name": "entityModel",
-                        "collectionName": "entityModels",
-                        "responseObjectName": "response",
-                        "maxRecordsToReturn": 2000,
-                        "combinedQueryPageSize": 30000,
-                        "cacheExpiryDurationInMins": 7200
-                    }
-                }
+                "name": "entityModel",
+                "collectionName": "entityModels",
+                "responseObjectName": "response",
+                "maxRecordsToReturn": 2000,
+                "combinedQueryPageSize": 30000,
+                "cacheExpiryDurationInMins": 7200
             },
             "config": {
-                "dataSubIndexInfo": {
-                    "config": {
-                        "name": "configObject",
-                        "collectionName": "configObjects",
-                        "responseObjectName": "response",
-                        "maxRecordsToReturn": 100,
-                        "combinedQueryPageSize": 30000,
-                        "cacheExpiryDurationInMins": 7200
-                    }
-                }
+                "name": "configObject",
+                "collectionName": "configObjects",
+                "responseObjectName": "response",
+                "maxRecordsToReturn": 100,
+                "combinedQueryPageSize": 30000,
+                "cacheExpiryDurationInMins": 7200
             },
             "eventData": {
-                "dataSubIndexInfo": {
-                    "eventData": {
-                        "name": "event",
-                        "collectionName": "events",
-                        "responseObjectName": "response",
-                        "maxRecordsToReturn": 500,
-                        "combinedQueryPageSize": 30000,
-                        "cacheExpiryDurationInMins": 30
-                    }
-                }
+                "name": "event",
+                "collectionName": "events",
+                "responseObjectName": "response",
+                "maxRecordsToReturn": 500,
+                "combinedQueryPageSize": 30000,
+                "cacheExpiryDurationInMins": 30
             },
             "requestTracking": {
-                "dataSubIndexInfo": {
-                    "requestTracking": {
-                        "name": "requestobject",
-                        "collectionName": "requestObjects",
-                        "responseObjectName": "response",
-                        "maxRecordsToReturn": 200,
-                        "combinedQueryPageSize": 30000,
-                        "cacheExpiryDurationInMins": 30
-                    }
-                }
+                "name": "requestobject",
+                "collectionName": "requestObjects",
+                "responseObjectName": "response",
+                "maxRecordsToReturn": 200,
+                "combinedQueryPageSize": 30000,
+                "cacheExpiryDurationInMins": 30
             }
         }
     };

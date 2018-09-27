@@ -64,8 +64,6 @@ It manages the current extensions and creates the new extensions.
         </div>
         <liquid-rest id="snapshotRollback" url="/data/pass-through-snapshot/restoresnapshot" method="POST" request-data="{{_snapshotRollbackRequest}}"
             on-liquid-response="_onRollbackSuccess">
-            <liquid-rest id="snapshotRollbackPrimary" url="/data/pass-through-snapshot/restoresnapshot" method="POST" request-data="{{_snapshotRollbackRequestPrimary}}"
-                on-liquid-response="_onRollbackSuccess">
             </liquid-rest>
 
     </template>
@@ -108,17 +106,6 @@ It manages the current extensions and creates the new extensions.
                         value: function () {
                             return {};
                         }
-                    },
-
-                    _snapshotRollbackRequestPrimary: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    },
-
-                    _isAdditionalContextPresentSnap: {
-                        type: Boolean
                     },
 
                     _loading: {
@@ -222,26 +209,6 @@ It manages the current extensions and creates the new extensions.
 
             }
 
-            async _getPrimaryAndAdditionalContexts() {
-                let mergedContexts = undefined;
-
-                if (!_.isEmpty(this.contextData)) {
-
-                    let entityType = this.contextData.ItemContexts[0].type;
-                    let contextModel = await ContextModelManager.getContextModelByEntityTypeAndDataContext(entityType, this.contextData.Contexts[0]);
-                    if (contextModel) {
-                        let additionalContexts = contextModel.properties ? contextModel.properties.additionalcontexts :undefined;
-                        let primaryContexts = DataTransformHelper.getPrimaryContextKeysFromContextModel(contextModel, additionalContexts);
-                        
-                        mergedContexts = {
-                            "additionalContexts": additionalContexts,
-                            "primaryContexts": primaryContexts
-                        };
-                    }
-                }
-                return mergedContexts;
-            }
-
             _onCancelTap(e) {
                 let eventName = "onCancel";
                 let eventDetail = {
@@ -263,14 +230,14 @@ It manages the current extensions and creates the new extensions.
                     clientState.notificationInfo.context = {};
                     clientState.notificationInfo.context.appInstanceId = currentActiveApp.id;
                 }
-                let req = {};
-                let req1 = {
+                let dataContexts = ContextHelper.getDataContexts(this.contextData);
+                let req = {
                     "clientState": clientState,
                     "entity": {
                         "id": currentEntityId,
                         "type": currEntityType,
                         "data": {
-                            "contexts": []
+                            "contexts": dataContexts
                         }
                     },
                     "params": {
@@ -278,54 +245,6 @@ It manages the current extensions and creates the new extensions.
                         "allContextual": false
                     }
                 }
-                let req2 = {
-                    "clientState": clientState,
-                    "entity": {
-                        "id": currentEntityId,
-                        "type": currEntityType,
-                        "data": {
-                            "contexts": []
-                        }
-                    },
-                    "params": {
-                        "snapshotId": selectedEntityId,
-                        "allContextual": false
-                    }
-                }
-                req.fullContextRqst = req1;
-                let firstDataContext = ContextHelper.getFirstDataContext(this.contextData);
-                let primaryContext = {};
-                let dataContexts = {};
-                this._contextsObj = await this._getPrimaryAndAdditionalContexts();
-                if (firstDataContext) {
-                    if (this._contextsObj) {
-                        if (!_.isEmpty(this._contextsObj.primaryContexts) && this._contextsObj.primaryContexts
-                            .indexOf('self') !== -1) {
-                            this._isAdditionalContextPresentSnap = false;
-                        } else if (!_.isEmpty(this._contextsObj.additionalContexts)) {
-                            this._isAdditionalContextPresentSnap = true;
-                            primaryContext = _.pick(firstDataContext, this._contextsObj.primaryContexts);
-                        }
-                    }
-
-                    req1.entity.data.contexts.push(
-                        {
-                            "context": firstDataContext
-                        }
-                    )
-                    req.fullContextRqst = req1;
-
-                    if (this._isAdditionalContextPresentSnap) {
-                        if (this._isAdditionalContextPresentSnap && !_.isEmpty(primaryContext)) {
-                            req2.entity.data.contexts.push(
-                                {
-                                    "context": primaryContext
-                                });
-                        }
-                        req.primaryContextReq = req2;
-                    }
-                } else { return req; }
-
 
                 return req;
 
@@ -352,7 +271,6 @@ It manages the current extensions and creates the new extensions.
             }
 
             _onRollbackSuccess(e) {
-                this._rollbackRqstCounter++;
                 this._loading = false;
                 let messages = undefined;
                 if (DataHelper.isValidObjectPath(e, 'detail.response.response.statusDetail.messages')) {
@@ -366,20 +284,9 @@ It manages the current extensions and creates the new extensions.
                     name: eventName
                 }
 
-                if (this._isAdditionalContextPresentSnap) {
-                    if (this._rollbackRqstCounter == 2) {
-                        this._rollbackRqstCounter = 0;
-                        this.fireBedrockEvent(eventName, eventDetail, {
-                            ignoreId: true
-                        });
-
-                    }
-                } else {
-                    this._rollbackRqstCounter = 0;
-                    this.fireBedrockEvent(eventName, eventDetail, {
-                        ignoreId: true
-                    });
-                }
+                this.fireBedrockEvent(eventName, eventDetail, {
+                    ignoreId: true
+                });
             }
 
             async _onRollback(e) {
@@ -402,14 +309,8 @@ It manages the current extensions and creates the new extensions.
 
                 let req = await this._getEntityRollbackRequest(currentEntityId, currEntityType, selectedEntityId);
                 let liquidDataRollback = this.shadowRoot.querySelector("#snapshotRollback");
-                let liquidDataRollbackPrimary = this.shadowRoot.querySelector("#snapshotRollbackPrimary");
 
-                if (this._isAdditionalContextPresentSnap) {
-                    this.set("_snapshotRollbackRequestPrimary", req.primaryContextReq);
-                    liquidDataRollbackPrimary.generateRequest();
-                }
-
-                this.set("_snapshotRollbackRequest", req.fullContextRqst);
+                this.set("_snapshotRollbackRequest", req);
                 liquidDataRollback.generateRequest();
             }
         }

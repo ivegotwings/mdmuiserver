@@ -166,88 +166,6 @@
             }
         }
 
-        ContextHelper.isValidContext = function (entityType, dataContext, valueContext, successCB, errorCB) {
-            ContextHelper.validateContext(entityType, dataContext, valueContext).then((result) => {
-                if (!_.isEmpty(result)) {
-                    if (result.status == "valid") {
-                        successCB();
-                    } else {
-                        errorCB(result.statusCode);
-                    }
-                }
-            });
-        }
-
-        ContextHelper.validateContext = async function (entityType, dataContext, valueContext) {
-            let status = {};
-            let statusCode = [];
-            let isCombinationValid = true;
-            let localeManager = ComponentHelper.getLocaleManager();
-
-            if (!_.isEmpty(entityType)) {
-                if (!_.isEmpty(valueContext)) {
-                    let emptyValContext;
-                    for (let vcKey of ContextHelper.valContextKeys) {
-                        if (_.isEmpty(valueContext[vcKey])) {
-                            isCombinationValid = false;
-                            statusCode.push('Value context: ' + vcKey + ' is missing.'); // TODO:: Need to convert into ERROR CODE.
-                        }
-                    }
-                }
-
-                // dataContext = {"country": "Germany", "channel": "DE WEb"}
-                if (!_.isEmpty(dataContext)) {
-                    let matchedCtxModelInstance = await ContextModelManager.getContextModelByEntityTypeAndDataContext(entityType, dataContext);
-                    if (_.isEmpty(matchedCtxModelInstance)) {
-                        isCombinationValid = false;
-                        statusCode.push('Invalid data context:' + JSON.stringify(dataContext) + '.'); // TODO:: Need to convert into ERROR CODE.
-                    }
-
-                    for (let dcKey in dataContext) {
-                        let depsOfCurrentDataCtx = await ContextModelManager.getDependentRelationshipDetails(entityType, dcKey, dataContext[dcKey]); // deps = {"allowedLocales": [{relTo: {"id": "", "type": ""}}, {relTo: {"id": "", "type": ""}}]}
-                        let mappedValueContexts = await ContextModelManager.getMappedValueContextsBasedOnEntityTypeAndContextKey(entityType, dcKey); // mappedValueContexts = [{"valueContext": "locale", "valueContextRelationship": "allowedLocales"}]
-
-                        if (mappedValueContexts && depsOfCurrentDataCtx) {
-                            for (let mvc of mappedValueContexts) {
-                                // mvc = {"valueContext": "locale", "valueContextRelationship": "allowedLocales"}
-                                if (mvc.valueContext == "locale") {
-                                    let locale = valueContext[mvc.valueContext]; // locale = "th-TH"
-                                    let depRels = depsOfCurrentDataCtx[mvc.valueContextRelationship]; // depRels = [{relTo: {"id": "", "type": ""}}, {relTo: {"id": "", "type": ""}}]
-
-                                    if (!_.isEmpty(depRels)) {
-                                        let relIds = depRels.map(v => v.relTo.id); // relIds = rel ids of "allowedLocales" in Germany
-
-                                        if (relIds && locale) {
-                                            let localeObjects = localeManager && await localeManager.getByIdsAsync(relIds); // localeObjects = [{"en-US with name"}, {"de-DE with name"}, {"en-GB with name"}]
-                                            let matchedLocale;
-                                            
-                                            if (!_.isEmpty(localeObjects)) {
-                                                matchedLocale = localeObjects.find(v => v.name == locale); // matchedLocale = [];
-                                            }
-
-                                            if (_.isEmpty(matchedLocale)) {
-                                                isCombinationValid = false;
-                                                statusCode.push('Invalid combination of data and value context:' + JSON.stringify(dataContext) + ' - ' + JSON.stringify(valueContext) + '.'); // TODO:: Need to convert into ERROR CODE.
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (!isCombinationValid) {
-                status.status = "invalid";
-                status.statusCode = statusCode;
-            } else {
-                status.status = "valid";
-            }
-
-            return status;
-        };
-
         ContextHelper.createWorkflowContexts = function(wfDefinitionMappingModel, contextData) {
             let workflowContexts = [];
             let dataContexts = ContextHelper.getDataContexts(contextData);
@@ -307,30 +225,6 @@
             }
 
             return data;
-        }
-
-        ContextHelper.getPrimaryContexts = async function (contextData, type) {
-            let clonedContextData = DataHelper.cloneObject(contextData);
-            let dataContexts = ContextHelper.getDataContexts(clonedContextData);
-            let firstItemContext = ContextHelper.getFirstItemContext(clonedContextData) || {};
-            type = type || firstItemContext.type;
-            if (!_.isEmpty(dataContexts)) {
-                for (let i = 0; i < dataContexts.length; i++) {
-                    let context = dataContexts[i];
-                    let additionalContexts = [];
-                    let contextModel = await ContextModelManager.getContextModelByEntityTypeAndDataContext(type, context);
-                    if (contextModel) {
-                        additionalContexts = contextModel.properties ? contextModel.properties.additionalcontexts : undefined;
-                    }
-                    if (!_.isEmpty(additionalContexts)) {
-                        additionalContexts.forEach(function (ctxKey) {
-                            delete context[ctxKey];
-                        });
-                    }
-                }
-
-                return dataContexts.filter(ctx => !_.isEmpty(ctx));
-            }
         }
     })();
 
