@@ -37,6 +37,7 @@ based on the given configuration.
                 right: 0px;
                 display: flex;
                 justify-content: flex-end;
+                z-index: 1;
             }
 
             #step-container {
@@ -291,13 +292,13 @@ based on the given configuration.
                 //load content based on current step config
                 if (stepIndex >= 0 && stepIndex < this.config.steps.length) {
                     this._currentStepIndex = stepIndex;
-                    if(this.stepTraverse.indexOf(stepIndex) == -1) {
+                    if (this.stepTraverse.indexOf(stepIndex) == -1) {
                         this.stepTraverse.push(stepIndex);
                     }
                     let stepConfig = this.config.steps[stepIndex];
+                    this._updateStepperSelectedStep(stepIndex);
                     this._renderComponent(stepConfig);
                     this._rePaintNavigationButtons(stepConfig, stepIndex);
-                    this._updateStepperSelectedStep(stepIndex);
                 }
             }
 
@@ -346,9 +347,9 @@ based on the given configuration.
             _updateStepperSelectedStep(stepIndex) {
                 let stepper = this.shadowRoot.querySelector('#pebbleStepper');
                 let previousItem = undefined;
-                if (stepper.selectedItem) {
+                if (stepper.selectedItem && !this.isBackStepTriggered) {
                     previousItem = stepper.selectedItem;
-                    stepper.selectedItem.status = "completed";
+                    previousItem.status = "completed";
                 }
                 stepper.selected = stepIndex;
                 let stepperChildren = Polymer.FlattenedNodesObserver.getFlattenedNodes(stepper).filter(n => n.nodeType === Node.ELEMENT_NODE);
@@ -357,7 +358,14 @@ based on the given configuration.
                     currentStepperChildren.status = "inprogress";
                 };
             }
-
+            _disableStepper(stepIndex) {
+                let stepper = this.shadowRoot.querySelector('#pebbleStepper');
+                let stepperChildren = Polymer.FlattenedNodesObserver.getFlattenedNodes(stepper).filter(n => n.nodeType === Node.ELEMENT_NODE);
+                let currentStepperChildren = stepperChildren[stepIndex];
+                if (currentStepperChildren) {
+                    currentStepperChildren.status = "pending";
+                };
+            }
             _setCurrentComponentState(properties) {
                 let currentStepConfig = this.config.steps[this._currentStepIndex];
 
@@ -429,7 +437,7 @@ based on the given configuration.
             }
 
             _setPropertiesForBackStep(properties) {
-                if(!this.isBackStepTriggered) {
+                if (!this.isBackStepTriggered) {
                     return;
                 }
 
@@ -444,12 +452,12 @@ based on the given configuration.
             }
 
             _resetSkippedStepList() {
-                let removeStepList = _.map(_.rest(this.config.steps, this._currentStepIndex) || [], function(step) {
+                let removeStepList = _.map(_.rest(this.config.steps, this._currentStepIndex) || [], function (step) {
                     return step.name;
                 });
                 let skippedList = [];
-                for(let idx = 0; idx < this.skippedStepList.length; idx++) {
-                    if(removeStepList.indexOf(this.skippedStepList[idx]) == -1) {
+                for (let idx = 0; idx < this.skippedStepList.length; idx++) {
+                    if (removeStepList.indexOf(this.skippedStepList[idx]) == -1) {
                         skippedList.push(this.skippedStepList[idx]);
                     }
                 }
@@ -465,7 +473,7 @@ based on the given configuration.
                             businessFunctionData: this.stepperElement.businessFunctionData,
                             componentResult: this.stepperElement.componentResult,
                             finishStepData: this.stepperElement.finishStepData,
-                            isComponentDirty: this.stepperElement.getIsDirty(),
+                            isComponentDirty: this.stepperElement.getIsDirty instanceof Function ? this.stepperElement.getIsDirty() : false,
                             isPartOfBusinessFunction: this.stepperElement.isPartOfBusinessFunction
 
                         };
@@ -545,7 +553,7 @@ based on the given configuration.
              */
             goToPrevious() {
                 this.isBackStepTriggered = true;
-                if (this.stepperElement.getIsDirty()) {
+                if (this.stepperElement.getIsDirty  instanceof Function && this.stepperElement.getIsDirty()) {
                     this._confirmationDialog.open();
                 } else {
                     this._triggerPreviousStep();
@@ -554,6 +562,11 @@ based on the given configuration.
 
             _triggerPreviousStep() {
                 if (this._currentStepIndex > 0) {
+                    let lastStepIndex = this.stepTraverse[this.stepTraverse.length - 1];
+                    let previousStepIndex = this.stepTraverse[this.stepTraverse.length - 2];
+                    for (let i = lastStepIndex; i > previousStepIndex; i--) {
+                        this._disableStepper(i);
+                    }
                     this.stepTraverse.pop(); //remove current index
                     let backStepIndex = this.stepTraverse[this.stepTraverse.length - 1];
                     this.goToStep(backStepIndex);
@@ -562,7 +575,7 @@ based on the given configuration.
 
             //Redirect to next or previous step
             _onDiscardConfirm() {
-                if(this.isBackStepTriggered) {
+                if (this.isBackStepTriggered) {
                     this._triggerPreviousStep();
                 } else {
                     this.goToNext();
@@ -616,7 +629,7 @@ based on the given configuration.
 
             getIsDirty() {
                 let stepperElement = this.stepperElement
-                if (stepperElement) {
+                if (stepperElement && stepperElement.getIsDirty instanceof Function) {
                     return stepperElement.getIsDirty();
                 }
                 return false;
