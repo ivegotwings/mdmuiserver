@@ -10,6 +10,7 @@
 <link rel="import" href="../pebble-checkbox/pebble-checkbox.html">
 <link rel="import" href="../pebble-textbox/pebble-textbox.html">
 <link rel="import" href="../pebble-spinner/pebble-spinner.html">
+<link rel="import" href="../pebble-dialog/pebble-dialog.html">
 <link rel="import" href="../rock-search-bar/rock-search-bar.html" />
 <!--
 `pebble-tree-node` Represents an individual tree list that is combined to make the `rock-tree`.
@@ -276,7 +277,7 @@
                         </div>
                     </template>
                     <template is="dom-repeat" id="childList" items="[[_getChildren(searchKeyword,nodeData.children)]]">
-                        <pebble-tree-node disabled="[[disabled]]" node-data="{{item}}" search-keyword="[[searchKeyword]]" default-expand-depth="[[defaultExpandDepth]]" default-child-depth="[[defaultChildDepth]]" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" indeterminate-items="{{indeterminateItems}}" multi-select="[[multiSelect]]" parent-item="{{nodeData}}" parent-tree-node="[[_setParentTreeNode()]]" item-path$="[[_setItemPath(index)]]" value-path$="[[item.valuePath]]" selected-node="{{selectedNode}}" selected-nodes="{{selectedNodes}}" tree="[[tree]]" check-child-nodes="[[checkChildNodes]]" check-parent-nodes="[[checkParentNodes]]" addable-levels="[[addableLevels]]" leaf-node-only="[[leafNodeOnly]]" expand-collapse-icon-object="[[expandCollapseIconObject]]" disable-child-node="[[disableChildNode]]" hide-leaf-node-checkbox="[[hideLeafNodeCheckbox]]">
+                        <pebble-tree-node disabled="[[disabled]]" node-data="{{item}}" search-keyword="[[searchKeyword]]" select-parent-item="[[selectParentItem]]" default-expand-depth="[[defaultExpandDepth]]" default-child-depth="[[defaultChildDepth]]" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" indeterminate-items="{{indeterminateItems}}" multi-select="[[multiSelect]]" parent-item="{{nodeData}}" parent-tree-node="[[_setParentTreeNode()]]" item-path$="[[_setItemPath(index)]]" value-path$="[[item.valuePath]]" selected-node="{{selectedNode}}" selected-nodes="{{selectedNodes}}" tree="[[tree]]" check-child-nodes="[[checkChildNodes]]" check-parent-nodes="[[checkParentNodes]]" addable-levels="[[addableLevels]]" leaf-node-only="[[leafNodeOnly]]" expand-collapse-icon-object="[[expandCollapseIconObject]]" disable-child-node="[[disableChildNode]]" hide-leaf-node-checkbox="[[hideLeafNodeCheckbox]]">
                         </pebble-tree-node>
                     </template>
                     <template is="dom-if" if="{{paginationObj.nextTitle}}">
@@ -287,7 +288,14 @@
                 </ul>
             </template>
         </iron-collapse>
+        <pebble-dialog id="treeConfirmationDialog" dialog-title="Confirmation"  button-cancel-text="No, do not remove" modal alert-box show-cancel show-ok no-cancel-on-outside-click
+        no-cancel-on-esc-key>
+        <p>Remove [[selectedNodeName]] and all its child contexts?</p>
+    </pebble-dialog>
         <bedrock-pubsub on-bedrock-event-detailresponsereceived="_onDetailResponse" name="bedrock-event-detailresponsereceived"></bedrock-pubsub>
+        <bedrock-pubsub event-name="on-buttonok-clicked" handler="_deSelectItem" target-id="treeConfirmationDialog"></bedrock-pubsub>
+        <bedrock-pubsub event-name="on-buttoncancel-clicked" handler="selectItem" target-id="treeConfirmationDialog"></bedrock-pubsub>
+        
     </template>
     <script>
         class PebbleTreeNode extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior], Polymer.OptionalMutableData(Polymer.Element)) {
@@ -528,6 +536,18 @@
                     hideLeafNodeCheckbox: {
                         type: Boolean,
                         value: false
+                    },
+                    selectParentItem:{
+                        type:Boolean,
+                        value:false
+                    },
+                    isContextTree:{
+                        type:Boolean,
+                        value: false
+                    },
+                    selectedNodeName:{
+                        type:String,
+                        value:""
                     }
                 };
             }
@@ -677,8 +697,13 @@
                         if (this.selectedItems.indexOf(nodeData) == -1) {
                             this.push('selectedItems', nodeData);
                             this.selectedNodes.push(this);
-                            if (this.checkParentNodes) {
+                            if (this.checkParentNodes && !this.selectParentItem) {
                                 this._makeParentIndeterminate();
+                            }else if(this.selectParentItem){
+                                let parentNode = this.getParentNode();
+                                if (parentNode) {
+                                    parentNode.selectItem();
+                                }
                             }
                         }
                         if (this.checkChildNodes && !this.leafNodeOnly) { // If tree is enabled for multi-select and if it is leaf node only it should not select parent nodes. This is temp fix.
@@ -706,7 +731,11 @@
              *  Can be used de-select the current Item. If `checkChildNodes` is set to true, then make sure to 
              *  de-select the child nodes and make the parent node as determinate unless at least one sibling node is selected.
              */
-            deSelectItem() {
+            _deSelectItem(){
+                 this.deSelectItem()
+            }
+
+            deSelectItem(removeChildNode) {
                 if (!this.disabled) {
                     if (!this.multiSelect) {
                         this.selectedItem = {};
@@ -726,11 +755,13 @@
                         if (this.checkParentNodes) {
                             this._changeParentDeterminateState();
                         }
-                        if (!this.checkChildNodes) {
+                        if (!this.checkChildNodes && removeChildNode == undefined) {
                             if (this._hasChildren(this.nodeData)) {
                                 this.unCheckAllChildNodes(this.nodeData);
                             }
-                            this._changeParentDeterminateState();
+                            if(!this.selectParentItem){
+                                this._changeParentDeterminateState();
+                            }
                         }
                     }
                 }
@@ -854,7 +885,15 @@
                         this.selectItem();
                         this.dispatchEvent(new CustomEvent('item-selected', { detail: { data: this }, bubbles: true, composed: true }));
                     } else {
-                        this.deSelectItem();
+                        if(this.isContextTree && this._hasChildren(this.nodeData)){
+                            this.deSelectItem(false);
+                            if(this.nodeData.name){
+                                this.selectedNodeName = this.nodeData.name;
+                            }
+                            this.shadowRoot.querySelector("#treeConfirmationDialog").open();
+                        }else{
+                            this.deSelectItem()
+                        }
                     }
                 } else {
                     if (this.disableChildNode && this.selectedItems.length > 0) {

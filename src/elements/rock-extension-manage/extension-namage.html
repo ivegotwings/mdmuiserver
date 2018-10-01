@@ -1,0 +1,1860 @@
+<link rel="import" href="../../../bower_components/polymer/polymer-element.html">
+<link rel="import" href="../../../bower_components/polymer/lib/mixins/mutable-data.html">
+<link rel="import" href="../../../bower_components/iron-ajax/iron-ajax.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
+<link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
+<link rel="import" href="../liquid-entity-data-save/liquid-entity-data-save.html">
+<link rel="import" href="../liquid-rest/liquid-rest.html">
+<link rel="import" href="../pebble-accordion/pebble-accordion.html">
+<link rel="import" href="../pebble-vertical-divider/pebble-vertical-divider.html">
+<link rel="import" href="../pebble-tree/pebble-tree.html">
+<link rel="import" href="../pebble-button/pebble-button.html">
+<link rel="import" href="../rock-attribute-list/rock-attribute-list.html">
+<link rel="import" href="../rock-classification-tree/rock-classification-tree.html">
+<link rel="import" href="../pebble-tree/pebble-tree.html">
+<link rel="import" href="../../../src/elements/pebble-checkbox/pebble-checkbox.html">
+<!--<link rel="import" href="classification-get-data.html">-->
+<!--
+`rock-extension-manage` Represents a component that renders all the extensions of an entity.
+It manages the current extensions and creates the new extensions.
+
+@element rock-extension-manage
+@group rock-elements
+@demo demo/index.html
+-->
+<dom-module id="rock-extension-manage">
+    <template>
+        <style include="bedrock-style-common">
+            .tree-heading {
+                font-weight: var(--font-bold, bold);
+                font-size: var(--default-font-size, 14px);
+            }
+        </style>
+        <div class="button-siblings">
+            <div class="base-grid-structure" align="center">
+                <div class="tree-heading base-grid-structure-child-1">
+                    <p class="status-error status-text" hidden$="[[allowSaveClassifications]]">Do not have permissions to edit/save classifications, contact administrator.</p>
+                    Classification selection
+                </div>
+                <div class="base-grid-structure-child-2">
+                        <rock-context-tree id="contextTree" root-node="[[rootNode]]" path-entity-type=[[pathEntityType]] path-relationship-name=[[pathRelationshipName]]
+                        context-data="[[contextData]]" multi-select="[[multiSelect]]" check-child-nodes="[[checkChildNodes]]" disable-child-node="[[disableChildNode]]" check-parent-nodes="[[checkParentNodes]]" leaf-node-only="[[leafNodeOnly]]"></rock-context-tree>
+                </div>
+            </div>
+        </div>
+        <div id="buttonContainer" align="center" class="buttonContainer-static">
+            <template is="dom-repeat" id="event-template" items="[[componentEvents]]">
+                <pebble-button id="[[item.id]]" class$="[[item.class]]" button-text="[[item.text]]" on-tap="_onTriggerEvent" data-args$="[[item.event]]" disabled$="[[!_allowEvent(allowSaveClassifications, item.id)]]" elevation=1 raised></pebble-button>
+            </template>
+        </div>
+        <liquid-rest id="contextModelGet" url="/data/pass-through/entitymodelservice/getcontext" method="POST" request-data="{{_contextModelGetReq}}"
+        on-liquid-response="_onContextModelGetResponse" on-liquid-error="_onContextModelGetFailed"></liquid-rest>
+    <liquid-rest id="entityModelGet" url="/data/pass-through/entitymodelservice/get" method="POST" request-data="{{_entityModelRequest}}"
+        on-liquid-response="_onEntityModelGetResponse" on-liquid-error="_onEntityModelGetError"></liquid-rest>
+    <liquid-rest id="entityContextGet" url="/data/pass-through/entityservice/getcontext" method="POST" request-data="{{_entityContextRequest}}"
+        on-liquid-response="_onEntityContextGetResponse" on-liquid-error="_onEntityContextGetError" exclude-in-progress>
+    <liquid-rest id="preselectedContextGet"  url="/data/pass-through/entityservice/get" method="POST" request-data="{{_preselectedContextRequest}}" 
+        on-liquid-response="_onPreselectedContextGetResponse" on-liquid-error="_onPreselectedContextGetGetError" exclude-in-progress></liquid-entity-data-get>
+    </liquid-rest>
+
+    <liquid-entity-data-get id="initiateSearch" operation="initiatesearch" request-data="{{request}}" last-response="{{initiateSearchResponse}}"
+    on-error="_onGetSearchError" on-response="_onInitiateSearchResponse" exclude-in-progress></liquid-entity-data-get>
+<liquid-entity-data-get id="getSearchResultDetail" operation="getsearchresultdetail" request-data="{{request}}" request-id="[[initiateSearchResponse.content.requestId]]"
+    last-response="{{getEntitySearchResultsResponse}}" on-error="_onGetSearchError" on-response="_onGetSearchResultDetailResponse"
+    exclude-in-progress></liquid-entity-data-get>
+
+
+    </template>
+    <script>
+        class RockExtensionManage extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.ComponentContextBehavior,RUFBehaviors.ComponentConfigBehavior
+], Polymer.OptionalMutableData(Polymer.Element)) {
+            static get is() {
+                return "rock-extension-manage";
+            }
+
+            static get properties() {
+                return {
+                        appName: {
+                            type: String,
+                            value: "app-entity-discovery"
+                        },
+
+                        domain: {
+                            type: String,
+                            value: "thing"
+                        },
+
+                        contextData: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        /**
+                        * Indicates the list of items which you must place in the dimension selector component.
+                        */
+                        configData: {
+                            type: Array,
+                            value: function () {
+                                return [];
+                            }
+                        },
+                        /**
+                        * If set as true , it indicates the component is in read only mode
+                        */
+                        readonly: {
+                            type: Boolean,
+                            value: false
+                        },
+
+                        /**
+                        * Indicates the selected values of all dimensions in the dimension selector.
+                        */
+                        selectedDimensions: {
+                            type: Object,
+                            notify: true,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        /**
+                        * <b><i>Content development is under progress... </b></i>
+                        */
+                        allMultiSelect: {
+                            type: Boolean,
+                            value: false
+                        },
+                        allSingleSelect: {
+                            type: Boolean,
+                            value: false
+                        },
+                        entityId: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        entityType: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        _default: {
+                            type: Array,
+                            value: [{
+                                "id": "default",
+                                "title": "default",
+                                "type": "default"
+                            }]
+                        },
+                        _preselectedContextRequest: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        _contextHierarchy: {
+                            type: Array,
+                            value: function () {
+                                return [];
+                            }
+                        },
+                        _entityContextRequest: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        _entityContexts: {
+                            type: Array,
+                            value: function () {
+                                return [];
+                            }
+                        },
+                        _currentContexts: {
+                            type: Array,
+                            value: function () {
+                                return [];
+                            }
+                        },
+                        _previousRootCtxValue: {
+                            type: Array,
+                            value: function () {
+                                return [];
+                            }
+                        },
+                        _isContextLoad: {
+                            type: Boolean,
+                            value: false
+                        },
+                        _currentContextSelector: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        selectedDimensionsDetail: {
+                            type: Object,
+                            notify: true,
+                            value: function () {
+                                return {};
+                            },
+                            observer: "selectedDimensionsDetailChanged"
+                        },
+                        navigationData: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        contextSelectorRefresh : {
+                            type: Boolean,
+                            value: false
+                        },
+                        request: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                    
+
+
+
+
+                    contextData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    
+                    _selectedItems: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        },
+                        notify: true
+                    },
+                    
+                    taxonomy: {
+                        type: String,
+                        value: ""
+                    },
+
+                    businessFunctionData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+
+                    multiSelect: {
+                        type: Boolean,
+                        value: false
+                    },
+                    
+                    dataIndex: {
+                        type: String,
+                        value: "entityData"
+                    },
+                    
+                    dataSubIndex: {
+                        type: String,
+                        value: "data"
+                    },
+                    
+                    _entityCurrentClassifications: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    
+                    _entitiesCurrentClassifications: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    
+                    _liquidSaveElement: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    
+                    /**
+                    * Specifies whether or not only leaf-node selection is enabled.
+                    */
+                    leafNodeOnly: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    _taxonomyExtName: {
+                        type: String,
+                        value: ""
+                    },
+
+                    _taxonomyExtNameAttr: {
+                        type: String,
+                        value: ""
+                    },
+
+                    _taxonomyRequest: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+
+                    _taxonomyModelRequest: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+
+                    _getContextURL: {
+                        type: String,
+                        value: "/data/pass-through/entityservice/getcontext"
+                    },
+
+                    isBulkProcess: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    syncThreshold: {
+                        type: Number,
+                        value: 20
+                    },
+
+                    selectedEntities: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+
+                    selectionMode: {
+                        type: String,
+                        value: "count"
+                    },
+
+                    selectionQuery: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+
+                    _asyncReclassificationRequest: {
+                        type: Object,
+                        value: function () {
+                            return {
+                                "params": {
+                                    "reclassification": true,
+                                    "operationType": "inboundService",
+                                    "data": {
+                                        "contexts": []
+                                    }
+                                }
+                            }
+                        }
+                    },
+
+                    _bulkReclassificationErrorMessage: {
+                        type: String,
+                        value: "Failed to perform the Bulk reclassification. Contact administrator."
+                    },
+
+                    componentEvents: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+
+                    allowSaveClassifications: {
+                        type: Boolean,
+                        value: true
+                    },
+
+               
+                    request: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+
+                    lineagerequest: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+
+                    _dataFormatter: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+
+                    _isSearchMode: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    _loading: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    _showSearchBar: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    _classificationsFound: {
+                        type: Boolean,
+                        value: true
+                    },
+
+                    contextData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+
+                    rootClassificationId: {
+                        type: String,
+                        value: "_root"
+                    },
+
+                    _currentNode: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+
+                    rootNode: {
+                        type: String
+                    },
+
+                    selectedClassifications: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        },
+                        notify: true
+                    },
+
+                    _selectedItems: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        },
+                        notify: true
+                    },
+
+                    _selectedItem: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        },
+                        notify: true
+                    },
+
+                    multiSelect: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    classifications: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+
+                    _selectedClassificationPaths: {
+                        type: Array
+                    },
+
+                    /**
+                    * Specifies whether or not only leaf-node selection is enabled.
+                    */
+                    leafNodeOnly: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    hideLeafNodeCheckbox: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    _classificationModelRequest: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+
+                    disableChildNode: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    enableNodeClick: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    _rootNodeGetRequest: {
+                        type: Object
+                    },
+
+                    isModelTree: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    rootNodeData: {
+                        type: Object,
+                        value: function () {
+                            return {}
+                        }
+                    },
+                    pathEntityType:{
+                        type:String,
+                        value:""
+                    },
+                    pathRelationshipName:{
+                        type:String,
+                        value:""
+                    },
+                    checkChildNodes:{
+                        type:Boolean,
+                        value:true
+                    },
+                    checkParentNodes: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                
+                };
+            }
+
+            static get observers() {
+                return [
+                    '_onContextOrTaxonomyChange(contextData, taxonomy)'
+                ];
+            }
+
+            constructor() {
+                super();
+            }
+
+            connectedCallback() {
+                super.connectedCallback();
+                
+
+                if (!this.taxonomy || this.taxonomy == "undefined") {
+                    this.taxonomy = this.appSetting("dataDefaults").taxonomy;
+                }
+            }
+
+            disconnectedCallback() {
+                super.disconnectedCallback();
+            }
+
+            ready() {
+                super.ready();
+                this._prepareContext();
+                // this._liquidSaveElement = this.shadowRoot.querySelector("#attributeSaveDataService");
+               
+
+            }
+
+            _onContextOrTaxonomyChange() {
+                if (this.taxonomy && !_.isEmpty(this.contextData)) {
+                    this._getAuthManageModel();
+                }
+            }
+            _prepareContext() {
+
+                    let context = DataHelper.cloneObject(this.contextData);
+
+                    if (!_.isEmpty(this.entityType)) {
+                        context[ContextHelper.CONTEXT_TYPE_ITEM] = [{
+                            "type": this.entityType
+                        }];
+                    }
+
+                    if (!_.isEmpty(this.appName) && !_.isEmpty(this.domain)) {
+                        context[ContextHelper.CONTEXT_TYPE_APP] = [{
+                            "app": this.appName
+                        }];
+
+                        context[ContextHelper.CONTEXT_TYPE_DOMAIN] = [{
+                            "domain": this.domain
+                        }];
+
+                        if (!_.isEmpty(context)) {
+                            this.requestConfig('rock-context-selector', context);
+                        }
+                    }
+                }
+
+                async onConfigLoaded(componentConfig) {
+                    if (componentConfig && componentConfig.config) {
+                        let configData = DataHelper.convertObjectToArray(componentConfig.config);
+
+                        if (!_.isEmpty(this.dynamicDimensionsConfig)) {
+                            configData = this._prepareConfigForDynamicDimensions(configData);
+                        }
+                        let localeManager = ComponentHelper.getLocaleManager();
+                        let defaultLocale = DataHelper.getDefaultValContext();
+                        if (defaultLocale && defaultLocale.locale) {
+                            await localeManager.getByNameAsync(defaultLocale.locale);
+                        }
+                        this.configData = {};
+                        this.set('configData', configData);
+                this._domainChanged("thing");
+                        
+                    } else {
+                        this.logError(this.appName + "-Context Selector - config is not available for rock-dimension-selector", componentConfig, true);
+                    }
+                }
+
+            _domainChanged(domain) {
+                    if (!_.isEmpty(domain)) {
+
+                        this._contextModelGetReq = DataRequestHelper.createContextModelGetRequest(domain);
+
+                        let liquidElement = this.$$('#contextModelGet');
+                        if (liquidElement) {
+                            liquidElement.generateRequest();
+                        } else {
+                            this.logError(this.appName + "-Context Selector - Liquid for context model get is not found");
+                        }
+                    }
+                }
+            
+                _onContextModelGetResponse(e) {
+                    let response = e.detail.response.response;
+
+                    if (response) {
+                        let entityModels = response.entityModels;
+
+                        if (!_.isEmpty(entityModels)) {
+                            let entityModel = entityModels[0];
+                            let contexts = "data" in entityModel ? entityModel.data.contexts : undefined;
+                            let _ctxKeys = [];
+
+                            this._contextHierarchyInfo = DataHelper.isValidObjectPath(entityModel, "properties.coalesceInfo") && entityModel.properties.coalesceInfo;
+
+                            if (!_.isEmpty(this._contextHierarchyInfo)) {
+                                this._contextHierarchyInfo.sort(function(a,b) {
+                                    if(a.sequence && b.sequence) {
+                                        return a.sequence - b.sequence;
+                                    }
+                                });
+                                this._contextHierarchyInfo.forEach(function(ctx) {
+                                    if(ctx.contextKey && this._contextHierarchy.indexOf(ctx.contextKey) < 0) {
+                                        this._contextHierarchy.push(ctx.contextKey);
+                                    }
+                                }, this);
+                            }
+
+                            if (contexts) {
+                                let _contexts = [];
+                                contexts.forEach(function (context) {
+                                    _contexts.push(context.context);
+
+                                    let ctxKeys = Object.keys(context.context);
+                                    if (ctxKeys && ctxKeys.length) {
+                                        ctxKeys.forEach(function (ctxKey) {
+                                            if (_ctxKeys.indexOf(ctxKey) < 0) {
+                                                _ctxKeys.push(ctxKey);
+                                            }
+                                        }, this);
+                                    }
+                                }, this);
+
+                                this._contexts = _contexts;
+                            }
+
+                            let _ctxIds = [];
+                            if (_ctxKeys && _ctxKeys.length) {
+                                _ctxKeys.forEach(function (item) {
+                                    if (item) {
+                                        _ctxIds.push(item);
+                                    }
+                                }, this);
+                            }
+
+                            let ctxIds = [];
+                            if (this.configData && this.configData.length) {
+                                let _self = this;
+                                this.configData.forEach(function (item) {
+                                    if (item.dataMappings && item.dataMappings.type) {
+                                        if (!item.useContextModel) {
+                                            let types = item.dataMappings.type;
+
+                                            if (!_.isEmpty(types)) {
+                                                types.forEach(function(type) {
+                                                    ctxIds.push(type + "_entityManageModel");
+
+                                                    if (_self._contextHierarchy.indexOf(type) < 0) {
+                                                        _self._contextHierarchy.push(type);
+                                                    }
+                                                });
+                                            }
+                                        } else if (item.useContextModel) {
+                                            let types = item.dataMappings.type;
+
+                                            if (!_.isEmpty(types)) {
+                                                types.forEach(function(type) {
+                                                    ctxIds.push(type + "_entityManageModel");
+
+                                                    if (_self._contextHierarchy.indexOf(type) < 0) {
+                                                        _self._contextHierarchy.push(type);
+                                                    }
+                                                });
+                                            }
+                                        }
+                                    }
+                                }, this);
+                            }
+
+                            if (ctxIds && ctxIds.length) {
+                                this._entityModelRequest = {
+                                    "params": {
+                                        "query": {
+                                            "ids": ctxIds,
+                                            "filters": {
+                                                "typesCriterion": [
+                                                    "entityManageModel"
+                                                ]
+                                            }
+                                        },
+                                        "fields": {
+                                            "attributes": [
+                                                "_ALL"
+                                            ],
+                                            "relationships": [
+                                                "_ALL"
+                                            ],
+                                            "relationshipAttributes": [
+                                                "_ALL"
+                                            ]
+                                        }
+                                    }
+                                };
+
+                                let entityModelGetComponent = this.$$("#entityModelGet");
+
+                                if (entityModelGetComponent) {
+                                    entityModelGetComponent.generateRequest();
+                                } else {
+                                    this.logError(this.appName + "-Context Selector - Entity model get liquid not found");
+                                }
+                            }
+                        } else {
+                            this.logError(this.appName + "-Context Selector - There are no context models available", e.detail);
+                        }
+                    } else {
+                        this.logError(this.appName + "-Context Selector - There is some problem with contextModel get response", e.detail);
+                    }
+                }
+
+                _onContextModelGetFailed(e) {
+                    this.logError(this.appName + "-Context Selector - contextModel get exception", e.detail);
+                }
+
+
+                _onEntityModelGetResponse(e) {
+                    let response = e.detail.response.response;
+                    if (response && !_.isEmpty(response.entityModels)) {
+                        this._prepareDynamicConfigBasedOnModelForContextsToBeRendered(response.entityModels);
+                    } else {
+                        this.logError(this.appName + "-Context Selector - Entity Model get response exception", e.detail, true);
+                    }
+                }
+
+                _onEntityModelGetError(e) {
+                    this.logError(this.appName + "-Context Selector - Entity Model get exception", e.detail, true);
+                }
+
+                _prepareDynamicConfigBasedOnModelForContextsToBeRendered(entityModels) {
+                    if (entityModels && entityModels.length) {
+                        let ctxs = {};
+                        let item = this.configData[0]
+                        // this.configData.forEach(function (item) {
+                            let ctxKey = item.id;
+                            let ctxExtName = item.title;
+                            let types = item.dataMappings.type;
+                            let reqData = {
+                                "params": {
+                                    "query": {
+                                        "filters": {
+                                            "typesCriterion": ["country"]
+                                        },
+                                        "valueContexts": []
+                                    },
+                                    "fields": {
+                                        "attributes": ['_ALL']
+                                    }
+                                }
+                            };
+
+                            let modelId = types[0] + "_entityManageModel";
+                            let entityModel = entityModels.find(model => model.id == modelId);
+
+                            reqData.params.query.valueContexts.push(DataHelper.getDefaultValContext());
+
+                            let ctxToBeLoaded = this._contextDataToBeLoaded(types);
+                            let externalAttrName = undefined;
+                            let externalNameAndExternalNameAttr = AttributeHelper.getExternalNameAndExternalNameAttr(entityModel);
+
+                            if (externalNameAndExternalNameAttr) {
+                                externalAttrName = externalNameAndExternalNameAttr.externalNameAttr;
+                                ctxExtName = !_.isEmpty(externalNameAndExternalNameAttr.externalName) ? externalNameAndExternalNameAttr.externalName : ctxExtName;
+                            } else {
+                                this.logError(this.appName + "-Context Selector - None of the attributes in the model " + entityModel.id + " marked with 'isExternalName' flag", entityModel);
+                            }
+
+                            if (ctxToBeLoaded && ctxToBeLoaded.length && (ctxToBeLoaded.length == 1 && ctxToBeLoaded[0] != "_ALL")) {
+                                let attributesCriterion = [];
+                                if (externalAttrName) {
+                                    let attrCriterion = {};
+                                    attrCriterion[externalAttrName] = {
+                                        "exacts": ctxToBeLoaded
+                                    }
+                                    attributesCriterion.push(attrCriterion);
+                                    reqData.params.query.filters.attributesCriterion = attributesCriterion;
+                                }
+                            }
+
+                            let titlePattern = "{entity.attributes." + externalAttrName + "}";
+                            let subtitlePattern = "typeExternalName";
+                            let mappedValueContexts = this._getMappedValueContextsBasedOnCtxType(types[0]);
+
+                            if (mappedValueContexts) {
+                                let dependentRelationships = mappedValueContexts.map(v => v.valueContextRelationship);
+
+                                if (dependentRelationships) {
+                                    reqData.params.fields.relationships = dependentRelationships;
+                                    reqData.params.fields.relationshipAttributes = [this._getDefaultSelectedAttrName()];
+                                }
+                            }
+
+                            // ctxs[ctxKey] = {
+                            //     "id": ctxKey,
+                            //     "title": ctxExtName,
+                            //     "ctxName": ctxKey,
+                            //     "externalAttrName": externalAttrName,
+                            //     "dataRequestType": "entity",
+                            //     "dataRequest": reqData,
+                            //     "mappedValueContexts": mappedValueContexts,
+                            //     "contextType": item.dimensionType,
+                            //     "dataMappings": {
+                            //         "id": "name",
+                            //         "title": titlePattern,
+                            //         "subtitle": subtitlePattern,
+                            //         "type": types
+                            //     }
+                            // };
+
+                        // }, this);
+
+
+                        this.executeRequest(reqData)
+                        // this._mergeConfigAndDynamicConfigForContextRender(ctxs);
+                    }
+                }
+
+                _contextDataToBeLoaded(types) {
+                    let ctxValue = [];
+                    if (!_.isEmpty(types) && !_.isEmpty(this._contexts)) {
+                        types.forEach(function(contextKey) {
+                            for (let i = 0; i <= this._contexts.length; i++) {
+                                if (this._contexts[i] && this._contexts[i][contextKey]) {
+                                    let ctx = this._contexts[i][contextKey];
+                                    if (Array.isArray(ctx)) {
+                                        ctx.forEach(function (item) {
+                                            if (ctxValue.indexOf(item) < 0) {
+                                                ctxValue.push(item);
+                                            }
+                                        }, this);
+                                    } else {
+                                        if (ctx.toLowerCase() == "_all") {
+                                            ctxValue = ["_ALL"];
+                                            break;
+                                        } else {
+                                            if (ctxValue.indexOf(ctx) < 0) {
+                                                ctxValue.push(ctx);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }, this);
+                    }
+                    return ctxValue;
+                }
+                _getDefaultSelectedAttrName() {
+                    return "isDefault";
+                }
+                _getMappedValueContextsBasedOnCtxType(currentContextType) {
+                    if (currentContextType) {
+                        let globalCtxInfo = this._contextHierarchyInfo && this._contextHierarchyInfo.find(v => v.contextKey == currentContextType);
+                        if (globalCtxInfo && globalCtxInfo.mappedValueContexts) {
+                            return globalCtxInfo.mappedValueContexts
+                        }
+                    }
+                }
+
+
+
+                executeRequest(req,parentClassificationId, searchKeyword) {
+                let relEntityType = "classification";
+                // let relType = "belongsto";
+
+                // if (!parentClassificationId) {
+                //     this.classifications = [];
+                //     this._currentNode = {};
+                //     this._classificationIndex = 0;
+                //     this._currentIndex = 0;
+                //     parentClassificationId = this.rootNode;
+                //     relEntityType = this.pathEntityType;
+                //     relType = this.pathRelationshipName;
+                // }
+
+                // let contextData = DataHelper.cloneObject(this.contextData);
+                // let itemContext = { "attributeNames": [this._classificationExtNameAttr], "type": "classification" };
+
+                // let classificationCriteria = {};
+                // classificationCriteria[relType] = { "relTo": { "id": parentClassificationId, "type": relEntityType } };
+                // itemContext.relationshipsCriterion = [classificationCriteria];
+                // contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+                // contextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
+
+                // if (searchKeyword) {
+                //     delete itemContext.relationshipsCriterion;
+                // }
+
+                // let req = DataRequestHelper.createEntityGetRequest(contextData);
+                // if (searchKeyword) {
+                //     req.params.query.filters.keywordsCriterion = { "operator": "_AND", "keywords": searchKeyword };
+                // }
+                delete req.params.options;
+
+                this.set('request', req);
+                this.shadowRoot.querySelector("#initiateSearch").generateRequest();
+            }
+
+            _onInitiateSearchResponse(e) {
+                this._currentRecord = 0;
+                this._totalRecords = this.initiateSearchResponse.content.totalRecords;
+                this._classificationsList = [];
+                this._makeNextBatchSearchDetailCall();
+            }
+
+            _makeNextBatchSearchDetailCall() {
+                let start = this._currentRecord;
+                let end = this._currentRecord + 19;
+                if (start > this._totalRecords) {
+                    return;
+                }
+                if (end > this._totalRecords) {
+                    end = this._totalRecords;
+                }
+                let getDetailOptions = { 'from': start, 'to': end };
+                this.set('request.params.options', getDetailOptions);
+                let liqGetSearchResultDetail = this.shadowRoot.querySelector('#getSearchResultDetail');
+                liqGetSearchResultDetail.generateRequest();
+            }
+
+            _onGetSearchResultDetailResponse(e) {
+                this._showSearchBar = true;
+                let res = e.detail.response;
+                let classifications = res.content.entities;
+                this._classificationsFound = true;
+                if (this._searchClicked && _.isEmpty(classifications)) {
+                    this._classificationsFound = false;
+                }
+                for (let i in classifications) {
+                    let classification = classifications[i];
+                    let externalNameAttr = EntityHelper.getAttribute(classification, "externalName");
+                    let externamName = AttributeHelper.getFirstAttributeValue(externalNameAttr);
+                    classification.text = externamName || classification.name;
+                    classification.value = classification.name;
+                    classification.children = [];
+                }
+
+                this._classificationsList = this._classificationsList.concat(classifications);
+
+                this._currentRecord += 20;
+                if (this._currentRecord < this._totalRecords) {
+                    this._makeNextBatchSearchDetailCall();
+                } else {
+                    this._classificationsList.sort(function (a, b) { return (a.text > b.text) ? 1 : ((b.text > a.text) ? -1 : 0); });
+                    if (!this._currentNode || _.isEmpty(this._currentNode)) {
+                        if (this.isModelTree && this.rootNodeData && !_.isEmpty(this.rootNodeData)) {
+                            this.rootNodeData.children = this._classificationsList;
+                            this.classifications = [this.rootNodeData];
+                        } else {
+                            this.classifications = this._classificationsList;
+                        }
+                        this._checkForSelectedClassification();
+                    } else {
+                        if (!this._classificationsList.length) {
+                            this._currentNode.changeToLeafMode();
+                        }
+                        this._currentNode.set('nodeData.children', this._classificationsList);
+                        this._currentNode.refreshChildList();
+                    }
+                }
+                this._searchClicked = false;
+            }
+
+            _checkForSelectedClassification() {
+                if (this.classifications.length == 0 || !this._selectedClassificationPaths || !this._selectedClassificationPaths.length || this._classificationIndex == this._selectedClassificationPaths.length) {
+                    return;
+                }
+                if (!this._currentClassification) {
+                    this._classificationIndex = 0;
+                    this._currentIndex = 0;
+                }
+                this._currentClassification = this._selectedClassificationPaths[this._classificationIndex];
+                let name = this._currentClassification[this._currentIndex];
+                if (this._currentIndex == 0) {
+                    this._currentNode = this.shadowRoot.querySelector("#contextTree").getElementNodeByPath(name);
+                } else if (this._currentIndex == this._currentClassification.length) {
+                    this._currentNode.selectItem();
+                    this._classificationIndex++;
+                    this._currentIndex = 0;
+                    this._checkForSelectedClassification();
+                    return;
+                } else {
+                    let childNodes = this._currentNode.getChildNodes();
+                    let matchedChild;
+                    for (let i in childNodes) {
+                        if (childNodes[i].nodeData.value == name) {
+                            matchedChild = childNodes[i];
+                            break;
+                        }
+                    }
+                    if (matchedChild) {
+                        this._currentNode = matchedChild;
+                    } else {
+                        this._classificationIndex++;
+                        this._currentIndex = 0;
+                        this._checkForSelectedClassification();
+                        return;
+                    }
+                }
+                this._currentIndex++;
+                if (this._currentNode) {
+                    if (this._currentNode.expanded) {
+                        this._checkForSelectedClassification();
+                    } else {
+                        this._currentNode.expand();
+                    }
+                }
+            }
+
+            _treeNodeExpanded(e) {
+                this._currentNode = e.detail;
+                if (!this._currentNode.nodeData.children || this._currentNode.nodeData.children.length == 0) {
+                    this.executeRequest(this._currentNode.nodeData.id);
+                    this._currentNode.startLoading();
+                }
+            }
+
+            _treeNodeClicked(ev) {
+                if (this.enableNodeClick) {
+                    //fire event for node click
+                    if (ev.detail.data) {
+                        let _node = ev.detail.data;
+                        this.fireBedrockEvent("classification-item-clicked", _node, { targetId: true })
+                    }
+                }
+            }
+
+            _childListRefreshed() {
+                this._checkForSelectedClassification();
+            }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            _getAuthManageModel() {
+                let authModelId = "";
+
+                if (this.contextData && !_.isEmpty(this.contextData)) {
+                    let itemContext = ContextHelper.getFirstItemContext(this.contextData);
+                    let userContext = ContextHelper.getFirstUserContext(this.contextData);
+
+                    if (itemContext) {
+                        let type = EntityTypeManager.getInstance().getTypeByName(itemContext.type);
+                        if (type) {
+                            authModelId = type.domain + "_authorizationModel";
+                        }
+                    }
+
+                    if (userContext) {
+                        authModelId = authModelId + "_" + userContext.defaultRole;
+                    }
+                }
+
+                //Fetch auth model
+                let authModelEl = this.shadowRoot.querySelector("#getAuthModel");
+                if (authModelEl) {
+                    authModelEl.requestData = DataRequestHelper.createGetModelRequest("authorizationModel", [authModelId]);
+                    authModelEl.generateRequest();
+                }
+            }
+
+            _onAuthModelReceived(e, detail) {
+                if (detail && DataHelper.isValidObjectPath(detail, "response.content.entityModels.0.properties.contextsPermission.0")) {
+                    this.allowSaveClassifications = detail.response.content.entityModels[0].properties.contextsPermission[0].writePermission || false;
+                }
+                this._getTaxonomyManageModel();
+            }
+
+            _onAuthModelFailed(e, detail) {
+                this._getTaxonomyManageModel();
+            }
+
+            _getTaxonomyManageModel() {
+                this._taxonomyModelRequest = DataRequestHelper.createGetManageModelRequest(["taxonomy"]);
+
+                let taxonomyModelGetElement = this.$$("#taxonomyModelGet");
+
+                if (taxonomyModelGetElement) {
+                    taxonomyModelGetElement.generateRequest();
+                }
+            }
+
+            _onTaxonomyModelGetResponse(e) {
+                let modelErrorMsg = "Entity manage model not found for taxonomy.";
+                if (!e.detail || !e.detail.response || !e.detail.response.response) {
+                    this.logError(modelErrorMsg, e.detail);
+                    return;
+                }
+
+                let response = e.detail.response.response;
+                if (response && response.entityModels) {
+                    let entityModel = response.entityModels[0];
+                    let externalNameAndExternalNameAttr = AttributeHelper.getExternalNameAndExternalNameAttr(entityModel);
+
+                    if (externalNameAndExternalNameAttr && externalNameAndExternalNameAttr.externalNameAttr) {
+                        this._taxonomyExtNameAttr = externalNameAndExternalNameAttr.externalNameAttr;
+                        this._getTaxonomy();
+                    } else {
+                        this.logError("Attribute not found with isExternlName in taxonomy entity manage model", e.detail);
+                    }
+                } else {
+                    this.logError(modelErrorMsg, e.detail);
+                }
+            }
+
+            _getTaxonomy() {
+                let contextData = DataHelper.cloneObject(this.contextData);
+                let firstItemContext = ContextHelper.getFirstItemContext(contextData);
+                if (firstItemContext) {
+                    firstItemContext.type = "taxonomy";
+                    firstItemContext.attributeNames = [this._taxonomyExtNameAttr];
+                    firstItemContext.id = this.taxonomy;
+                    contextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
+                    let req = DataRequestHelper.createEntityGetRequest(contextData);
+                    delete req.params.options;
+                    this._taxonomyRequest = req;
+
+                    let taxonomyGetElement = this.$$("#taxonomyGetDataService");
+
+                    if (taxonomyGetElement) {
+                        taxonomyGetElement.generateRequest();
+                    }
+                }
+            }
+
+            _onTaxonomyResponse(e) {
+                if (e && e.detail && e.detail.response) {
+                    let res = e.detail.response;
+                    if (res && res.content && res.content.entities && res.content.entities.length) {
+                        let entity = res.content.entities[0];
+                        if (entity && entity.data) {
+                            let attributes = entity.data.attributes;
+
+                            if (attributes && attributes[this._taxonomyExtNameAttr]) {
+                                this._taxonomyExtName = attributes[this._taxonomyExtNameAttr].values && attributes[this._taxonomyExtNameAttr].values.length ? attributes[this._taxonomyExtNameAttr].values[0].value : undefined;
+                            }
+                        }
+                    }
+                }
+
+                if (this.isBulkProcess) {
+                    this._triggerClassificationTree();
+                } else {
+                    this._prepareGetContextRequest();
+                }
+            }
+
+            //Prepare request get the contexts for the selected entities
+            _prepareGetContextRequest() {
+                let contextData = DataHelper.cloneObject(this.contextData);
+                contextData[ContextHelper.CONTEXT_TYPE_VALUE] = [];
+                contextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
+                let triggerRequest = false;
+                let entities = [];
+                let types = [];
+
+                if (this.isBulkProcess) {
+                    if (this.selectedEntities && this.selectedEntities.length) {
+                        triggerRequest = true;
+                    }
+                    for (let entityIdx = 0; entityIdx < this.selectedEntities.length; entityIdx++) {
+                        entities.push(this.selectedEntities[entityIdx].id);
+                        if (types.indexOf(this.selectedEntities[entityIdx].type) == -1) {
+                            types.push(this.selectedEntities[entityIdx].type)
+                        }
+                    }
+                } else {
+                    let firstItemContext = ContextHelper.getFirstItemContext(contextData);
+                    if (firstItemContext && firstItemContext.type && firstItemContext.id) {
+                        firstItemContext.attributes = [];
+                        triggerRequest = true;
+                    }
+                }
+
+                if (triggerRequest) {
+                    let req = DataRequestHelper.createEntityGetRequest(contextData);
+                    req.params.fields.attributes = [];
+                    delete req.params.options;
+                    if (this.isBulkProcess) {
+                        req.params.query.ids = entities;
+                        req.params.query.filters.typesCriterion = types;
+                    }
+                    this.set('requestData', req);
+
+                    if (!_.isEmpty(this.dataIndex) && this.dataIndex.toLowerCase() == "entitymodel") {
+                        this._getContextURL = "/data/pass-through/entitymodelservice/getcontext"
+                    }
+
+                    this.shadowRoot.querySelector("#contextLiquid").generateRequest();
+                }
+            }
+
+            _onResponseReceived(e) {
+                let items = [];
+
+                if (e.detail && e.detail.response) {
+                    let res = e.detail.response.response;
+
+                    if (res && res.entities && res.entities.length) {
+                        //Collect bulk entities currect cassifications
+                        if (this.isBulkProcess) {
+                            this._entitiesCurrentClassifications = {};
+                            for (let entityIdx = 0; entityIdx < res.entities.length; entityIdx++) {
+                                let entity = res.entities[entityIdx];
+                                if (entity && entity.data) {
+                                    let contexts = entity.data.contexts;
+                                    let entityCurrentClassifications = [];
+                                    for (let ctxIdx = 0; ctxIdx < contexts.length; ctxIdx++) {
+                                        let context = contexts[ctxIdx].context;
+                                        if (context) {
+                                            let item = context["classification"];
+                                            if (item) {
+                                                if (context["taxonomy"] == this._taxonomyExtName) {
+                                                    entityCurrentClassifications.push(item);
+                                                }
+                                            }
+                                        }
+                                    }
+                                    this._entitiesCurrentClassifications[entity.id] = entityCurrentClassifications;
+                                }
+                            }
+                        } else { //Collect classification for single entity and make it selectable in tree
+
+                            let entity = res.entities[0];
+                            if (entity && entity.data) {
+                                let contexts = entity.data.contexts;
+                                let firstDataContext = this.getFirstDataContext(this.contextData);
+                                let primaryContext = this._getPrimaryContext(firstDataContext);
+
+                                for (let i = 0; i < contexts.length; i++) {
+                                    let context = contexts[i].context;
+                                    if (context) {
+                                        if (!_.isEmpty(primaryContext)) {
+                                            if (!_.isEqual(primaryContext, this._getPrimaryContext(context))) {
+                                                continue;
+                                            }
+                                        } else {
+                                            //No primaryContext, then select the context which is having classification and taxonomy only
+                                            let contextKeys = Object.keys(context) || [];
+                                            if (contextKeys.length != 2 ||
+                                                contextKeys.indexOf("classification") == -1 ||
+                                                contextKeys.indexOf("taxonomy") == -1) {
+                                                continue;
+                                            }
+                                        }
+                                        let item = context["classification"];
+                                        if (item) {
+                                            if (context["taxonomy"] == this._taxonomyExtName) {
+                                                this._entityCurrentClassifications.push(item);
+                                                let arr = item.split(">>");
+                                                items.push(arr);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (this.isBulkProcess) {
+                    this._prepareBulkReclassificationSaveRequest();
+                } else {
+                    // Input - selected items as path arrays
+                    this._selectedItems = items || [];
+
+                    if (!this.multiSelect && this._selectedItems.length > 1) {
+                        this.logError("UI is configured for single context but there are " + this._selectedItems.length + " selected contexts for the entity");
+                    }
+
+                    this._triggerClassificationTree();
+                }
+            }
+
+            _triggerClassificationTree() {
+                const contextTree = this.shadowRoot.querySelector("#contextTree");
+                if (contextTree) {
+                    contextTree.generateRequest();
+                }
+            }
+
+            _save() {
+                if (this._selectedItems && this._selectedItems.length > 0) {
+                    let selectedClassifications = [];
+                    for (let i = 0; i < this._selectedItems.length; i++) {
+                        if (this._selectedItems[i].valuePath) {
+                            selectedClassifications.push(this._selectedItems[i].valuePath.replace(/#@#/g, ">>"));
+                        }
+                    }
+                    if (!this.isBulkProcess && DataHelper.areEqualArrays(selectedClassifications, this._entityCurrentClassifications)) {
+                        this.showInformationToast("No changes to save");
+                        return;
+                    }
+                }
+                else {
+                    this.showWarningToast("No context data selected to save.");
+                    return;
+                }
+
+                this._triggerReclassification();
+            }
+
+            _triggerReclassification() {
+                if (this.isBulkProcess) {
+                    if ((!this.selectionMode || this.selectionMode == "count") &&
+                        (!this.selectedEntities || this.selectedEntities.length == 0)) {
+                        this.showWarningToast("Entities not available for the process");
+                        return;
+                    }
+
+                    if (this.selectionMode == "query" || (this.selectionMode == "count" && this.selectedEntities.length > this.syncThreshold)) {
+                        if (!this.selectionQuery || _.isEmpty(this.selectionQuery)) {
+                            this.showWarningToast("Selection query not available for the process");
+                            return;
+                        }
+
+                        this._triggerAsyncReclassification(); //Trigger async process for 20+ entities OR query selection
+                    } else {
+                        //this._prepareGetContextRequest(); //Trigger bulk process based on selected entities context
+                        //Triggering bulk process based on selected classification
+                        this._prepareBulkReclassificationSaveRequest();
+                    }
+                } else {
+                    let data = {};
+                    let entities = [];
+                    data.contexts = this._prepareContexts(this._selectedItems);
+                    let firstItemContext = this.getFirstItemContext();
+                    let entity = {
+                        "id": firstItemContext.id,
+                        "type": firstItemContext.type,
+                        "data": data
+                    };
+                    entities.push(entity);
+                    this._triggerSaveRequest(entities);
+                }
+            }
+
+            _getSelectedClassifications() {
+                let originalClassifications = [];
+                for (let ctxIdx = 0; ctxIdx < this.contextData.Contexts.length; ctxIdx++) {
+                    originalClassifications.push(this.contextData.Contexts[ctxIdx].classification);
+                }
+
+                return originalClassifications;
+            }
+
+            _prepareBulkReclassificationSaveRequest() {
+                let entities = [];
+                let originalClassifications = [];
+                for (let entityIdx = 0; entityIdx < this.selectedEntities.length; entityIdx++) {
+                    let data = {};
+                    data.contexts = this._prepareContexts(this._selectedItems, originalClassifications);
+                    let entity = {
+                        "id": this.selectedEntities[entityIdx].id,
+                        "type": this.selectedEntities[entityIdx].type,
+                        "data": data,
+                        "isReclassification": true
+                    };
+                    entities.push(entity);
+                }
+
+                this._triggerSaveRequest(entities);
+            }
+
+            _prepareContexts(selectedItems, entityClassifications) {
+                let contexts = [];
+                let deletedcontexts = [];
+                let entityCurrentClassifications = this.isBulkProcess ? entityClassifications : this._entityCurrentClassifications;
+                let categoryPathSeperator = this.appSetting('dataDefaults').categoryPathSeparator;
+                let firstDataContext = this.getFirstDataContext(this.contextData);
+                let primaryContext = this._getPrimaryContext(firstDataContext);
+
+                // Update - For selected items
+                for (let i in selectedItems) {
+                    let context = DataHelper.cloneObject(primaryContext);
+                    let valuePath = selectedItems[i].valuePath;
+                    if (valuePath) {
+                        valuePath = valuePath.replace(/#@#/g, categoryPathSeperator);
+                    }
+                    context.classification = valuePath;
+                    if (this._taxonomyExtName) {
+                        context["taxonomy"] = this._taxonomyExtName;
+                    }
+
+                    contexts.push({
+                        "context": context
+                    });
+                }
+
+                // Delete - For existing items 
+                for (let i in entityCurrentClassifications) {
+                    let context = DataHelper.cloneObject(primaryContext);
+                    let isSelected = false;
+
+                    for (let j in selectedItems) {
+                        let valuePath = selectedItems[j].valuePath;
+                        if (valuePath) {
+                            valuePath = valuePath.replace(/#@#/g, categoryPathSeperator);
+                        }
+
+                        if (valuePath == entityCurrentClassifications[i]) {
+                            isSelected = true;
+                            break;
+                        }
+                    }
+
+                    // Not in current selected list, then action to delete
+                    if (!isSelected) {
+                        context["classification"] = entityCurrentClassifications[i];
+                        if (this.isBulkProcess) {
+                            context["taxonomy"] = this.contextData.Contexts[0].taxonomy;
+                        } else {
+                            if (this._taxonomyExtName) {
+                                context["taxonomy"] = this._taxonomyExtName;
+                            }
+                        }
+
+                        deletedcontexts.push(context);
+                    }
+                }
+
+                //Fill deleted contexts in selected contexts as originalContexts
+                if (contexts && contexts.length &&
+                    deletedcontexts && deletedcontexts.length) {
+                    for (let i = 0; i < contexts.length; i++) {
+                        contexts[i].properties = {
+                            "originalcontext": deletedcontexts
+                        }
+                    }
+                }
+
+                return contexts;
+            }
+
+            _triggerSaveRequest(entities) {
+                //TODO:: This will be temporary fix needs to come up with good solution.
+                let clientState = {};
+                clientState.notificationInfo = {};
+                clientState.notificationInfo.actionType = "addContext";
+                if (this._isNotificationDisabled()) {
+                    clientState.notificationInfo.showNotificationToUser = false;
+                    this.set("_saveRequest", { "clientState": clientState, "entities": entities });
+                } else {
+                    clientState.notificationInfo.showNotificationToUser = true;
+                    this.set("_saveRequest", { "clientState": clientState, "entities": entities });
+                }
+                this._liquidSaveElement.generateRequest();
+            }
+
+            _skipOrCancelSelection(e) {
+                this._selectedItems = [];
+                let eventName = e.target.getAttribute("data-args") || "onCancel";
+                let eventDetail = {
+                    name: eventName
+                }
+                this.fireBedrockEvent(eventName, eventDetail, {
+                    ignoreId: true
+                });
+            }
+
+            _onSaveResponse(e, detail) {
+                if (this.isBulkProcess) {
+                    //Todo: Handle bulk messages here
+                    let request = detail.request;
+                    let response = detail.response;
+                    this._responseMessages = [];
+
+                    if (request && request.requestData && request.requestData.entities) {
+                        let entities = request.requestData.entities;
+                        let newClassifiactions = "";
+                        //New classifications
+                        if (entities[0] && entities[0].data &&
+                            entities[0].data.contexts && entities[0].data.contexts.length) {
+                            let contexts = entities[0].data.contexts;
+                            let classifications = [];
+                            for (let ctxIdx = 0; ctxIdx < contexts.length; ctxIdx++) {
+                                if (contexts[ctxIdx] && contexts[ctxIdx].context &&
+                                    contexts[ctxIdx].context.classification) {
+                                    classifications.push(contexts[ctxIdx].context.classification);
+                                }
+                            }
+
+                            newClassifiactions = classifications.join(", ");
+                        }
+
+                        for (let entityIdx = 0; entityIdx < entities.length; entityIdx++) {
+                            let message = {
+                                "Entity Id": entities[entityIdx].id
+                            };
+
+                            message["New Classification(s)"] = newClassifiactions;
+                            message["Status"] = response.status == "success" ? "Request submitted successfully" : "Request failed";
+
+                            this._responseMessages.push(message);
+                        }
+                    }
+                }
+                this._triggerFinishStep();
+            }
+
+            _triggerFinishStep(isJob) {
+                //Single entity reclassification
+                if (!this.isBulkProcess) {
+                    this.showSuccessToast("Context data saved successfully.");
+                    let eventName = "onSave";
+                    let eventDetail = {
+                        name: eventName,
+                        "action": {
+                            "name": "refresh-dimension-selector"
+                        }
+                    };
+                    if (eventName && this.functionalMode == "dataFunction") {
+                        eventName.action = "business-condition-save-request";
+                    };
+                    this.fireBedrockEvent(eventName, eventDetail, {
+                        ignoreId: true
+                    });
+                    return;
+                }
+
+                //Bulk reclassification final step starts from here
+                let noGrid = false;
+                let message = "";
+                let actions = [{
+                    "name": "goBack",
+                    "text": "Take me back to where I started",
+                    "isNotApp": true
+                }];
+
+                if (isJob) {
+                    noGrid = true;
+                    message = "Reclassification process has started, you can review the progress of the task " + this._taskId + " in task details.";
+                    actions.push({
+                        "name": "gotoJobDetails",
+                        "text": "Show me the task details",
+                        "isNotApp": true,
+                        "dataRoute": "task-detail",
+                        "queryParams": {
+                            "id": this._taskId
+                        }
+                    });
+                } else {
+                    message = "Reclassification process has started, refresh data grid after some time.";
+                }
+
+                let data = {
+                    "messages": this._responseMessages,
+                    "message": message,
+                    "noGrid": noGrid,
+                    "actions": actions,
+                    "contextData": this.contextData,
+                    "processedEntities": this.selectedEntities,
+                    "messageKey": "Entity Id"
+                };
+
+                this.businessFunctionData = data;
+                let eventName = "onSave";
+                let eventDetail = {
+                    name: eventName
+                }
+
+                this.fireBedrockEvent(eventName, eventDetail, {
+                    ignoreId: true
+                });
+
+                //Reset contextData, selectedEntities
+                this.contextData = {};
+                this.selectedEntities = [];
+            }
+
+            _isNotificationDisabled() {
+                let app = ComponentHelper.getCurrentActiveApp();
+                if (app && (typeof AppBusinessFunction !== "undefined") && app instanceof AppBusinessFunction) {
+                    return true;
+                }
+                return false;
+            }
+
+            _getPrimaryContext(dataContext) {
+                let primaryContext = {};
+                if (!_.isEmpty(dataContext)) {
+                    Object.keys(dataContext).forEach(function (item) {
+                        //TODO:: For now "taxonomy" and "classification" dimensions are considered as additional for extension manage. Need to correct it with proper design.
+                        if (item.toLowerCase() != "taxonomy" && item.toLowerCase() != "classification") {
+                            primaryContext[item] = dataContext[item];
+                        }
+                    }, this);
+                }
+                return primaryContext;
+            }
+
+            _triggerAsyncReclassification() {
+                let asyncLiqReclassification = this.shadowRoot.querySelector("#asyncReclassification");
+                let reclassificationRequest = DataHelper.cloneObject(this._asyncReclassificationRequest);
+
+                if (!asyncLiqReclassification) {
+                    this.logError("BulkReclassificationError:- Liquid component not available to trigger create task");
+                    return;
+                }
+
+                //Add hotline flag if hotline is enabled
+                if (DataHelper.isHotlineModeEnabled()) {
+                    reclassificationRequest.hotline = true;
+                }
+
+                if (this.selectionQuery.params && this.selectionQuery.params.isCombinedQuerySearch) {
+                    asyncLiqReclassification.url = "/data/pass-through-combined-query/bulkentityservice/createtask";
+                    reclassificationRequest.params.taskType = "process-multi-query";
+                    reclassificationRequest.entities = [this.selectionQuery.entity];
+                } else {
+                    reclassificationRequest.params.taskType = "process-query";
+                    reclassificationRequest.params.query = this.selectionQuery.params ? this.selectionQuery.params.query : this.selectionQuery;
+                }
+
+                let originalClassifications = [];
+                reclassificationRequest.params.data.contexts = this._prepareContexts(this._selectedItems, originalClassifications);
+
+                //Add clientAttributes
+                let valueContext = ContextHelper.getFirstValueContext(this.contextData);
+                let userContext = ContextHelper.getFirstUserContext(this.contextData);
+                let clientMessage = "Bulk reclassification";
+
+                reclassificationRequest.clientAttributes = {
+                    "taskName": {
+                        "values": [{
+                            "source": valueContext.source,
+                            "locale": valueContext.locale,
+                            "value": clientMessage
+                        }]
+                    }
+                };
+
+                asyncLiqReclassification.requestData = reclassificationRequest;
+                asyncLiqReclassification.generateRequest();
+            }
+
+            _onAsyncReclassificationSuccess(e, detail) {
+                let response = e.detail.response && e.detail.response.response ? e.detail.response.response : e.detail.response;
+                let request = e.detail.response ? e.detail.response.request : undefined;
+
+                if ((!response || _.isEmpty(response)) ||
+                    (DataHelper.isValidObjectPath(response, "dataObjectOperationResponse.status") && response.dataObjectOperationResponse.status.toLowerCase() == "error") ||
+                    (response.status && response.status.toLowerCase() == "error")) {
+                    this.logError("BulkReclassificationError", response);
+                    return;
+                } else {
+                    if (response.status && response.status.toLowerCase() == "success") {
+                        if (request && request.taskId) {
+                            this._taskId = request.taskId;
+                        }
+                    }
+
+                    this._triggerFinishStep(true);
+                }
+            }
+
+            _onAsyncReclassificationFailure(e, detail) {
+                this.logError("BulkReclassificationError", e.detail);
+            }
+
+            _onTriggerEvent(e, detail) {
+                let event = e.target.getAttribute("id");
+                if (event == "skipEvent" || event == "cancelEvent" || event == "backEvent") {
+                    this._skipOrCancelSelection(e);
+                } else if (event == "nextEvent") {
+                    this._save(e);
+                }
+            }
+
+            _allowEvent(allowSave, event) {
+                if (event == "nextEvent") {
+                    return allowSave;
+                }
+
+                return true;
+            }
+
+
+        }
+
+        customElements.define(RockExtensionManage.is, RockExtensionManage);
+   </script>
+</dom-module>
