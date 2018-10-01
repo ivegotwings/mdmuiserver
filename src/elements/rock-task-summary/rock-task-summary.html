@@ -7,9 +7,11 @@
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-gridsystem.html">
 
+<link rel="import" href="../rock-multiple-file-download/rock-multiple-file-download.html" />
 <link rel="import" href="../pebble-button/pebble-button.html" />
 <link rel="import" href="../pebble-graph-pie/pebble-graph-pie.html" />
 <link rel="import" href="../pebble-spinner/pebble-spinner.html">
+<link rel="import" href="../pebble-dialog/pebble-dialog.html">
 
 <link rel="import" href="../liquid-rest/liquid-rest.html">
 
@@ -158,6 +160,7 @@
             .status-processing {
                 background-color: #f2e91d;
             }
+            
         </style>
 
         <div class="row-wrap p-b-10 p-t-10">
@@ -173,16 +176,23 @@
                 <template is="dom-if" if="[[!_showTaskName]]">
                     <div class="attribute">
                         <div class="attribute-label">File Name</div>
-                        <div class="tooltip-bottom" data-tooltip$="[[taskDetails.fileName]]">
-                            <template is="dom-if" if="[[_isDownloadAvailable(taskDetails.fileId)]]">
-                                <div class="attribute-value text-ellipsis">
-                                    <a href="#" class="btn-link" on-tap="_onDownloadClick">[[taskDetails.fileName]]</a>
-                                </div>
-                            </template>
-                            <template is="dom-if" if="[[!_isDownloadAvailable(taskDetails.fileId)]]">
-                                <div class="attribute-value text-ellipsis">[[taskDetails.fileName]]</div>
-                            </template>
-                        </div>
+                        <!-- Handling scenario where the no. of files to download are more than 1 -->
+                        <template is="dom-if" if="[[_isMultipleDownloadFilesAvailable()]]">
+                            <rock-multiple-file-download id="multipleFileDownload" profile-name=[[taskDetails.profileName]] context-data="[[contextData]]" file-details="[[taskDetails]]"></rock-multiple-file-download>                            
+                        </template>
+                        
+                        <template is="dom-if" if="[[!_isMultipleDownloadFilesAvailable()]]">
+                            <div class="tooltip-bottom" data-tooltip$="[[taskDetails.fileName]]">
+                                <template is="dom-if" if="[[_isDownloadAvailable(taskDetails.fileId)]]">
+                                    <div class="attribute-value text-ellipsis">
+                                        <a href="#" class="btn-link" on-tap="_onDownloadClick">[[taskDetails.fileName]]</a>
+                                    </div>
+                                </template>
+                                <template is="dom-if" if="[[!_isDownloadAvailable(taskDetails.fileId)]]">
+                                    <div class="attribute-value text-ellipsis">[[taskDetails.fileName]]</div>
+                                </template>
+                            </div>
+                        </template>
                     </div>
                 </template>
 
@@ -281,6 +291,7 @@
         </div>
         <liquid-rest id="getDownloadUrl" url="/data/binarystreamobjectservice/prepareDownload" method="POST" on-liquid-response="_onGetDownloadUrlResponse" on-liquid-error="_onGetDownloadUrlFailure">
         </liquid-rest>
+        <bedrock-pubsub event-name="onDownloadFile" handler="_handleDownload" target-id="multipleFileDownload"></bedrock-pubsub>
     </template>
     <script>
         class RockTaskSummary extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior], Polymer.Element) {
@@ -289,6 +300,12 @@
             }
             static get properties() {
                 return {
+                    contextData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
                     taskDetails: {
                         type: Object,
                         value: function () {
@@ -439,17 +456,40 @@
 
                 this.fireBedrockEvent(eventName);
             }
+             
+            /**
+             * Function to handle download of multiple files from the multiple-file-download dialog
+             */ 
+            _handleDownload(e) {
+                let taskDetails = e.detail;
+                let taskDetailItem = {};
+                if(taskDetails.fileName instanceof Array) {
+                    taskDetailItem.fileType = taskDetails.fileType;
+                    taskDetailItem.fileExtension = taskDetails.fileExtension;
+                    taskDetailItem.taskType = taskDetails.taskType;
+                    for(let i=0;i<taskDetails.fileName.length;i++){
+                        taskDetailItem.fileId = taskDetails.fileId[i];
+                        taskDetailItem.fileName = taskDetails.fileName[i];
+                        this._onDownloadClick(taskDetailItem);
+                    }                    
+                } else {
+                   this._onDownloadClick(taskDetails);
+                }               
+            }
 
-            _onDownloadClick() {
+            _onDownloadClick(taskDetails) {
                 this._downloadInProgress = true;
-
+                
+                if(!taskDetails){
+                    taskDetails = this.taskDetails
+                }
                 const {
                     fileId,
                     fileName,
                     fileType,
                     fileExtension,
                     taskType
-                } = this.taskDetails;
+                } = taskDetails;
 
                 if (!this.isParentTask) {
                     let req = {
@@ -528,7 +568,17 @@
                 this.logError("Failed to download file.", detail || "");
                 this._downloadInProgress = false;
             }
-
+            
+            /**
+             * Function to check if multiple files are available for download
+             */ 
+            _isMultipleDownloadFilesAvailable(){
+                if(this.taskDetails && this.taskDetails.fileName){
+                    return this.taskDetails.fileName instanceof Array; 
+                }
+                return false;             
+            }
+              
             _isDownloadAvailable() {
                 return this.taskDetails.fileId !== "N/A";
             }
