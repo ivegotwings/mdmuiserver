@@ -4,6 +4,7 @@
 <link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+<link rel="import" href="../bedrock-business-function-behavior/bedrock-component-business-function-behavior.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
@@ -32,7 +33,19 @@ It manages the current extensions and creates the new extensions.
                 font-weight: var(--font-bold, bold);
                 font-size: var(--default-font-size, 14px);
             }
+            .buttonContainer-top-right{
+                text-align: right;
+                padding-top: 10px;
+                margin-bottom: 0px;
+                margin-top: 0px;
+            }
         </style>
+        <div id="buttonContainer" align="center" class="buttonContainer-top-right">
+            <template is="dom-if" if="[[!isPartOfBusinessFunction]]">
+                <pebble-button elevation="1" raised="" on-tap="_onTriggerEvent" data-args="onCancel" class="btn btn-primary m-r-5" id="cancelEvent" button-text="Cancel"></pebble-button>
+            </template>
+            <pebble-button elevation="1" raised="" on-tap="_onTriggerEvent" data-args="onSave" class="btn btn-success" id="nextEvent" button-text="Save" disabled$="[[!allowSaveClassifications]]"></pebble-button>
+        </div>
         <div class="button-siblings">
             <div class="base-grid-structure" align="center">
                 <div class="tree-heading base-grid-structure-child-1">
@@ -43,11 +56,6 @@ It manages the current extensions and creates the new extensions.
                         context-data="[[contextData]]"  multi-select="[[multiSelect]]" check-child-nodes="[[checkChildNodes]]" disable-child-node="[[disableChildNode]]" check-parent-nodes="[[checkParentNodes]]" leaf-node-only="[[leafNodeOnly]]"></rock-context-tree>
                 </div>
             </div>
-        </div>
-        <div id="buttonContainer" align="center" class="buttonContainer-static">
-            <template is="dom-repeat" id="event-template" items="[[componentEvents]]">
-                <pebble-button id="[[item.id]]" class$="[[item.class]]" button-text="[[item.text]]" on-tap="_onTriggerEvent" data-args$="[[item.event]]" disabled$="[[!_allowEvent(allowSaveClassifications, item.id)]]" elevation=1 raised></pebble-button>
-            </template>
         </div>
         <liquid-entity-data-get id="taxonomyGetDataService" operation="getbyids" request-data="{{_taxonomyRequest}}" on-response="_onTaxonomyResponse"></liquid-entity-data-get>
         <liquid-entity-data-save id="attributeSaveDataService" operation="update" data-index$="[[dataIndex]]" data-sub-index$="[[dataSubIndex]]" request-data="{{_saveRequest}}" on-response="_onSaveResponse"></liquid-entity-data-save>
@@ -66,7 +74,12 @@ It manages the current extensions and creates the new extensions.
       
 </template>
     <script>
-        class RockExtensionManage extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.ComponentContextBehavior], Polymer.OptionalMutableData(Polymer.Element)) {
+        class RockExtensionManage
+        extends Polymer.mixinBehaviors([
+            RUFBehaviors.UIBehavior,
+            RUFBehaviors.ComponentContextBehavior,
+            RUFBehaviors.ComponentConfigBehavior
+        ], Polymer.OptionalMutableData(Polymer.Element)) {
             static get is() {
                 return "rock-extension-manage";
             }
@@ -84,8 +97,7 @@ It manages the current extensions and creates the new extensions.
                         type: Array,
                         value: function () {
                             return [];
-                        },
-                        // notify: true
+                        }
                     },
                     
                     taxonomy: {
@@ -93,6 +105,7 @@ It manages the current extensions and creates the new extensions.
                         value: ""
                     },
 
+                    //To-do BF V2 Cleanup, use finishStepData
                     businessFunctionData: {
                         type: Object,
                         value: function () {
@@ -232,6 +245,18 @@ It manages the current extensions and creates the new extensions.
                     allowSaveClassifications: {
                         type: Boolean,
                         value: true
+                    },
+
+                    showSkip: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    _initialItems: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
                     }
                 };
             }
@@ -265,8 +290,23 @@ It manages the current extensions and creates the new extensions.
 
             _onContextOrTaxonomyChange() {
                 if (this.taxonomy && !_.isEmpty(this.contextData)) {
-                    this._getAuthManageModel();
+                    let context = DataHelper.cloneObject(this.contextData);
+                    //App specific
+                    let appName = "";
+                    appName = ComponentHelper.getCurrentActiveAppName(this);
+                    if (appName) {
+                        context[ContextHelper.CONTEXT_TYPE_APP] = [{
+                            "app": appName
+                        }];
+                    }
+
+                    this.requestConfig('rock-extension-manage', context);
                 }
+            }
+
+            //Config properties are already set in config behavior
+            onConfigLoaded(componentConfig) {
+                this._getAuthManageModel();
             }
 
             _getAuthManageModel() {
@@ -483,13 +523,13 @@ It manages the current extensions and creates the new extensions.
                         }
                     }
                 }
-                let contextTree = this.shadowRoot.querySelector("#contextTree");
-                if (contextTree) {
-                    contextTree.selectedContextsData = items;
-                }
                 if (this.isBulkProcess) {
                     this._prepareBulkUpdateContextsSaveRequest();
                 } else {
+                    let contextTree = this.shadowRoot.querySelector("#contextTree");
+                    if (contextTree) {
+                        contextTree.selectedContextsData = items;
+                    }
                     if (!this.multiSelect && this._selectedItems.length > 1) {
                         this.logError("UI is configured for single context but there are " + this._selectedItems.length + " selected contexts for the entity");
                     }
@@ -718,6 +758,18 @@ It manages the current extensions and creates the new extensions.
                 this._triggerFinishStep();
             }
 
+            _updateInitialItems() {
+                if(!_.isEmpty(this._selectedItems)) {
+                    let formattedSelectedItems = []
+                    for(let selectedItem of this._selectedItems) {
+                        formattedSelectedItems.push(selectedItem.valuePath.split("#@#"));
+                    }
+                    this._initialItems = formattedSelectedItems;
+                } else {
+                    this._initialItems = [];
+                }
+            }
+
             _triggerFinishStep(isJob) {
                 //Single entity reclassification
                 if (!this.isBulkProcess) {
@@ -735,6 +787,9 @@ It manages the current extensions and creates the new extensions.
                     this.fireBedrockEvent(eventName, eventDetail, {
                         ignoreId: true
                     });
+                    let itemCtx = ContextHelper.getFirstItemContext(this.contextData) || {};
+                    this.dataFunctionComplete({"id": itemCtx.id, "type": itemCtx.type});
+
                     return;
                 }
 
@@ -773,6 +828,10 @@ It manages the current extensions and creates the new extensions.
                     "messageKey": "Entity Id"
                 };
 
+                this.finishStepData = data;
+                this.dataFunctionComplete();
+
+                //To-do - BF V2 Cleanup, Once all the places extension manage got changed
                 this.businessFunctionData = data;
                 let eventName = "onSave";
                 let eventDetail = {
@@ -782,6 +841,7 @@ It manages the current extensions and creates the new extensions.
                 this.fireBedrockEvent(eventName, eventDetail, {
                     ignoreId: true
                 });
+                // End here - BF V2 Cleanup
 
                 //Reset contextData, selectedEntities
                 this.contextData = {};
@@ -892,15 +952,34 @@ It manages the current extensions and creates the new extensions.
                 }
             }
 
-            _allowEvent(allowSave, event) {
-                if (event == "nextEvent") {
-                    return allowSave;
+            _onSelectedItemsChange() {
+                let selectionChanged = false;
+                if ((_.isEmpty(this._initialItems) || _.isEmpty(this._selectedItems)) &&
+                    (!_.isEmpty(this._initialItems) || !_.isEmpty(this._selectedItems))) {
+                    selectionChanged = true;
+                } else if(!_.isEmpty(this._initialItems) && !_.isEmpty(this._selectedItems)){
+                    if(this._initialItems.length != this._selectedItems.length) {
+                        selectionChanged = true;
+                    } else {
+                        for(let initialItem of  this._initialItems) {
+                            let initialValuePath = initialItem.join("#@#");
+                            let isFound = false;
+                            for(let selectedItem of this._selectedItems) {
+                                if(selectedItem.valuePath == initialValuePath) {
+                                    isFound = true;
+                                    break;
+                                }
+                            }
+                            if(!isFound) {
+                                selectionChanged = true;
+                                break;
+                            }
+                        }
+                    }
                 }
 
-                return true;
+                this.isComponentDirty = selectionChanged;
             }
-
-
         }
 
         customElements.define(RockExtensionManage.is, RockExtensionManage);
