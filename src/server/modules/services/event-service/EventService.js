@@ -651,7 +651,7 @@ Eventservice.prototype = {
         let requestedAttributeCriteria = inputRequest.params.query.filters.attributesCriterion;
         if(requestedAttributeCriteria) {
             let status = undefined;
-            let taskType = "entity_import";
+            let taskType = { "contains": "entity_import" };
             let taskTypeOperator = undefined;
             let userId = undefined;
             let integrationType = undefined;
@@ -661,7 +661,7 @@ Eventservice.prototype = {
                 if(requestedAttributeCriteria[i].eventSubType) {
                     status = requestedAttributeCriteria[i].eventSubType.eq;
                 } else if(requestedAttributeCriteria[i].taskType) {
-                    taskType = requestedAttributeCriteria[i].taskType.contains;
+                    taskType = requestedAttributeCriteria[i].taskType;
                     taskTypeOperator = requestedAttributeCriteria[i].taskType.operator;
                 } else if(requestedAttributeCriteria[i].userId) {
                     userId = requestedAttributeCriteria[i].userId.eq;
@@ -676,9 +676,7 @@ Eventservice.prototype = {
 
             //Add task type criterion...
             let taskTypeCriterion = {
-                "taskType": {
-                    "contains": taskType
-                }
+                "taskType": taskType
             };
 
             if(taskTypeOperator) {
@@ -841,8 +839,9 @@ Eventservice.prototype = {
             let taskType = this._getTaskType(requestObject);
             let taskName = this._getTaskName(requestObject);
             let taskStatus = this._getAttributeValue(requestObject, "status");
-            let fileName = this._getAttributeValue(requestObject, "fileName");
-            let fileId = this._getAttributeValue(requestObject, "fileId");
+            let profileName = this._getAttributeValue(requestObject, "profileName");
+            let fileName = this._getAttributeValues(requestObject, "fileName");
+            let fileId = this._getAttributeValues(requestObject, "fileId");
             let fileType = this._getAttributeValue(requestObject, "fileType");
             let fileExtension = this._getAttributeValue(requestObject, "fileExtension");
             let submittedBy = this._getAttributeValue(requestObject, "submittedBy");
@@ -857,6 +856,7 @@ Eventservice.prototype = {
             response.taskType = taskType;
             response.taskStatus = taskStatus ? taskStatus : "N/A";
             response.fileId = fileId ? fileId : "N/A";
+            response.profileName = profileName ? profileName : "N/A";
             if(taskName && taskName.search(/create variants/i) > -1){
                 response.fileName = "N/A";
             } else {
@@ -1367,6 +1367,22 @@ Eventservice.prototype = {
 
         return val;
     },
+
+    _getAttributeValues: function (event, attrName) {
+        let val = undefined;
+        if (event && event.data && event.data.attributes && event.data.attributes[attrName] && event.data.attributes[attrName].values && event.data.attributes[attrName].values.length > 0) {
+            if(event.data.attributes[attrName].values.length <= 1) {
+                val = event.data.attributes[attrName].values[0].value;
+            } else {
+                let tempValues = event.data.attributes[attrName].values;
+                val = [];
+                val =_.pluck(tempValues, 'value'); 
+            }
+        }
+
+        return val;
+    },
+    
     _getEventCreatedDate: function (event) {
         let createdDate = 'N/A';
         if (event && event.properties) {

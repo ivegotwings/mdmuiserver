@@ -16,22 +16,18 @@
 <dom-module id="rock-disclaimer">
     <template>
         <style include="bedrock-style-common">
-            pebble-icon{
-                margin-right:5px;
-            }
-        </style>   
+        </style>
         <template is="dom-if" if="[[_isDisclaimerNeeded(messages)]]">
-            <pebble-dialog id="disclaimerDialog" modal alert-box vertical-offset="150" horizontal-align="auto" vertical-align="auto" 
-                no-cancel-on-outside-click no-cancel-on-esc-key>
+            <pebble-dialog id="disclaimerDialog" modal alert-box vertical-offset="150" horizontal-align="auto" vertical-align="auto" no-cancel-on-outside-click no-cancel-on-esc-key>
                 <div>
                     <span>
-                        <pebble-icon icon="{{_currentMessage.icon}}" class$="[[_currentMessage.iconColor]]"></pebble-icon>
+                        <pebble-icon icon="{{_currentMessage.icon}}" class$="[[_currentMessage.iconColor]] m-r-5"></pebble-icon>
                     </span>
                     <span>{{_currentMessage.message}}</span>
                 </div>
                 <div class="buttons-right m-t-5" align="center">
-                    <pebble-button id="deny" class="close btn btn-secondary m-r-5" button-text="{{_currentMessage.denyButtonLabel}}" on-tap="_denied" ></pebble-button>
-                    <pebble-button id="accept" class="apply btn btn-success" button-text="{{_currentMessage.acceptButtonLabel}}" on-tap="_accepted" ></pebble-button>
+                    <pebble-button id="deny" class="close btn btn-secondary m-r-5" button-text="{{_currentMessage.denyButtonLabel}}" on-tap="_denied"></pebble-button>
+                    <pebble-button id="accept" class="apply btn btn-success" button-text="{{_currentMessage.acceptButtonLabel}}" on-tap="_accepted"></pebble-button>
                 </div>
             </pebble-dialog>
         </template>
@@ -46,138 +42,118 @@
             static get properties() {
                 return {
                     /**
-                    * <b><i>Content development is under progress... </b></i> 
-                    */
-                    messages:{
-                        type:Array,
-                        value:function(){
+                     * <b><i>Content development is under progress... </b></i> 
+                     */
+                    messages: {
+                        type: Array,
+                        value: function () {
                             return [];
                         },
                         notify: true
                     },
-                    userDetails: {
+                    _currentMessageId: {
+                        type: Number,
+                        value: 0
+                    },
+                    _currentMessage: {
                         type: Object,
                         value: function () {
                             return {};
-                        },
-                        observer: '_onUserDetailsChange'
-                    },
-                    viewOpened:{
-                        type:Boolean,
-                        observer: '_appViewOpened'
-                    },
-                    _currentMessageId:{
-                        type:Number,
-                        value:0
-                    },
-                    _currentMessage:{
-                        type:Object,
-                        value:function(){
-                            return {};
                         }
                     },
-                    contextData:{
-                        type:Object,
-                        observer:"_onContextDataChange"
+                    contextData: {
+                        type: Object,
+                        observer: "_onContextDataChange"
                     }
                 }
             }
-            _onContextDataChange(){
-                    if(!_.isEmpty(this.contextData)){
-                        let context = DataHelper.cloneObject(this.contextData);
-                        let appName = ComponentHelper.getCurrentActiveAppName();
-                        if(appName) {
-                            context[ContextHelper.CONTEXT_TYPE_APP] = [{
-                                "app": appName
-                            }];
-                        }
-                        this.requestConfig("rock-disclaimer", context);
-                    }
-                }
+            _onContextDataChange() {
+                if (!_.isEmpty(this.contextData)) {
+                    if (this.contextData.UserContexts && this.contextData.UserContexts.length) {
 
-                onConfigLoaded(componentConfig) {
-                    if(componentConfig && componentConfig.config) {
-                        if(componentConfig.config.disclaimers && componentConfig.config.disclaimers.visible){
-                            delete componentConfig.config.disclaimers.visible;
-                            let disclaimers = DataHelper.convertObjectToArray(componentConfig.config.disclaimers);
-                            this.messages = disclaimers;
-                            this._appViewOpened();
-                        }
-                    }
-                }
+                        let userContext = this.contextData.UserContexts[0];
+                        let disclaimerObj = _.isEmpty(sessionStorage.getItem('disclaimer')) ? {} : JSON.parse(sessionStorage.getItem('disclaimer'));
 
-                _onUserDetailsChange(){                    
-                    let disclaimerObj = _.isEmpty(sessionStorage.getItem('disclaimer')) ? {} : JSON.parse(sessionStorage.getItem('disclaimer'));
-                    if(this.userDetails && this.userDetails.isAuthenticated)
-                    {
-                        if(typeof disclaimerObj === "string"){
+                        if (typeof disclaimerObj === "string") {
                             disclaimerObj = JSON.parse(disclaimerObj);
                         }
-                        if(disclaimerObj && (disclaimerObj.userName != this.userDetails.userName)){
-                            disclaimerObj = {userName:"", agreed:false}
+                        if (disclaimerObj && (disclaimerObj.userName != userContext.userName)) {
+                            disclaimerObj = {
+                                userName: "",
+                                agreed: false
+                            }
                         }
-                        disclaimerObj.userName = this.userDetails.userName;
+                        disclaimerObj.userName = userContext.userName;
                         sessionStorage.setItem("disclaimer", JSON.stringify(disclaimerObj));
                     }
-                }
 
-                _appViewOpened(){
-                    if(this.messages && this.messages.length > 0)
-                    {
-                        let disclaimerObj = JSON.parse(sessionStorage.getItem('disclaimer'));
-                        if(disclaimerObj && !disclaimerObj.agreed)
-                        {
-                            this._openDialog(0);
-                        }
+                    this.requestConfig("rock-disclaimer", this.contextData);
+                }
+            }
+
+            onConfigLoaded(componentConfig) {
+                if (componentConfig && componentConfig.config) {
+                    if (componentConfig.config.disclaimers && componentConfig.config.disclaimers.visible) {
+                        delete componentConfig.config.disclaimers.visible;
+                        let disclaimers = DataHelper.convertObjectToArray(componentConfig.config.disclaimers);
+                        this.messages = disclaimers;
+                        this._onDisclaimerConfigLoaded();
                     }
                 }
+            }
 
-                _openDialog(_messageId)
-                {
-                    this.set("_currentMessageId", _messageId);
-                    if(this.messages && this.messages.length > 0)
-                    {
-                        this._currentMessage = this.messages[_messageId];
-                    }
-                    setTimeout(() => {
-                        const disclaimerDialog = this.shadowRoot.querySelector("#disclaimerDialog");
-                        disclaimerDialog.set('dialogTitle', this._currentMessage.title);
-                        disclaimerDialog.open();
-                    }, 0);
-                }
-
-                _accepted(){
-                    let disclaimerObj =  JSON.parse(sessionStorage.getItem('disclaimer'));
-                    if(disclaimerObj){
-                        if(typeof disclaimerObj === "string"){
-                            disclaimerObj =  JSON.parse(disclaimerObj);
-                        }
-                        disclaimerObj.agreed = true;
-                        sessionStorage.setItem('disclaimer', JSON.stringify(disclaimerObj));
-                    }
-                    this.shadowRoot.querySelector("#disclaimerDialog").close();
-                }
-
-                _denied(){
-                    if(this._currentMessageId < this.messages.length-1)
-                    {   
-                        let nextMessageId = this._currentMessageId + 1;
-                        this._openDialog(nextMessageId);
-                    }else{
-                        SecurityContextHelper.logout();
+            _onDisclaimerConfigLoaded() {
+                if (this.messages && this.messages.length > 0) {
+                    let disclaimerObj = JSON.parse(sessionStorage.getItem('disclaimer'));
+                    if (disclaimerObj && !disclaimerObj.agreed) {
+                        this._openDialog(0);
                     }
                 }
+            }
 
-                _clearSession(){
-                    sessionStorage.clear();
+            _openDialog(_messageId) {
+                this.set("_currentMessageId", _messageId);
+                if (this.messages && this.messages.length > 0) {
+                    this._currentMessage = this.messages[_messageId];
                 }
+                setTimeout(() => {
+                    const disclaimerDialog = this.shadowRoot.querySelector("#disclaimerDialog");
+                    disclaimerDialog.set('dialogTitle', this._currentMessage.title);
+                    disclaimerDialog.open();
+                }, 0);
+            }
 
-                _isDisclaimerNeeded(){
-                    if(this.messages && this.messages.length > 0){
-                        return true;
+            _accepted() {
+                let disclaimerObj = JSON.parse(sessionStorage.getItem('disclaimer'));
+                if (disclaimerObj) {
+                    if (typeof disclaimerObj === "string") {
+                        disclaimerObj = JSON.parse(disclaimerObj);
                     }
-                    return false;
+                    disclaimerObj.agreed = true;
+                    sessionStorage.setItem('disclaimer', JSON.stringify(disclaimerObj));
                 }
+                this.shadowRoot.querySelector("#disclaimerDialog").close();
+            }
+
+            _denied() {
+                if (this._currentMessageId < this.messages.length - 1) {
+                    let nextMessageId = this._currentMessageId + 1;
+                    this._openDialog(nextMessageId);
+                } else {
+                    SecurityContextHelper.logout();
+                }
+            }
+
+            _clearSession() {
+                sessionStorage.clear();
+            }
+
+            _isDisclaimerNeeded() {
+                if (this.messages && this.messages.length > 0) {
+                    return true;
+                }
+                return false;
+            }
         }
         customElements.define(RockDisclaimer.is, RockDisclaimer);
     </script>

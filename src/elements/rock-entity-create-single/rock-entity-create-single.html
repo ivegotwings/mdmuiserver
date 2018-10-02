@@ -8,12 +8,14 @@
 <link rel="import" href="../bedrock-helpers/message-helper.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+<link rel="import" href="../bedrock-business-function-behavior/bedrock-component-business-function-behavior.html">
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
 
 <link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
 <link rel="import" href="../liquid-entity-data-save/liquid-entity-data-save.html">
 <link rel="import" href="../liquid-entity-govern-data-get/liquid-entity-govern-data-get.html">
 <link rel="import" href="../liquid-rest/liquid-rest.html">
+<link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 
 <link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../pebble-spinner/pebble-spinner.html">
@@ -37,10 +39,15 @@ attributes during the single entity creation.
                 height: 100%;
             }
 
-            #content-actions {}
-
             #errorsDialog {
                 --popup-header-color: var(--palette-pinkish-red, #ee204c);
+            }
+
+            .buttonContainer-top-right {
+                text-align: right;
+                padding-top: 10px;
+                margin-bottom: 0px;
+                margin-top: 0px;
             }
         </style>
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
@@ -75,20 +82,23 @@ attributes during the single entity creation.
                 <pebble-button id="ok" class="apply btn btn-success" button-text="Fix" on-tap="_fixServerErrors"></pebble-button>
             </div>
         </pebble-dialog>
-        <div id="content-entity-create" class="full-height">
-            <div class="button-siblings">
-                <rock-attribute-list attribute-values="[[_attributeValues]]" attribute-models="[[_attributeModels]]" context-data="[[contextData]]" no-of-columns="3" mode="[[mode]]" attribute-messages="[[_attributeMessages]]" dependent-attribute-values="[[_attributeValues]]" dependent-attribute-models="[[_attributeModels]]" hide-revert-and-history></rock-attribute-list>
+        <div id="content-entity-create" class="base-grid-structure">
+            <div id="content-actions" class="buttonContainer-top-right base-grid-structure-child-1" align="center">
+                <template is="dom-if" if="[[!isPartOfBusinessFunction]]">
+                    <pebble-button class="action-button btn btn-secondary m-r-5" id="cancel" button-text="Cancel" raised on-tap="_onCancelTap"></pebble-button>
+                </template>
+                <pebble-button class="action-button-focus dropdownText btn btn-success m-r-5" id="next" button-text="[[_saveButtonText]]" raised on-tap="_onSaveTap"></pebble-button>
             </div>
-            <div id="content-actions" class="buttonContainer-static" align="center">
-                <pebble-button class="action-button btn btn-secondary m-r-5" id="skip" button-text="Cancel" raised on-tap="_onSkipTap"></pebble-button>
-                <pebble-button class="action-button-focus dropdownText btn btn-success m-r-5" id="next" button-text="Save" raised on-tap="_onSaveTap"></pebble-button>
+            <div class="base-grid-structure-child-2">
+                <rock-attribute-list attribute-values="[[_attributeValues]]" attribute-models="[[_attributeModels]]" context-data="[[contextData]]" no-of-columns="3" mode="[[mode]]" attribute-messages="[[_attributeMessages]]" dependent-attribute-values="[[_attributeValues]]" dependent-attribute-models="[[_attributeModels]]" hide-revert-and-history></rock-attribute-list>
             </div>
         </div>
         <div id="content-entity-match" hidden class="full-height">
-            <rock-compare-entities id="matchEntities" enable-relationships-match-merge="[[enableRelationshipsMatchMerge]]" compare-entities-context="[[compareEntitiesContext]]" attribute-names="[[attributeNames]]" show-action-buttons enable-column-select></rock-compare-entities>
+            <rock-compare-entities id="matchEntities" enable-relationships-match-merge="[[enableRelationshipsMatchMerge]]" compare-entities-context="[[compareEntitiesContext]]" attribute-names="[[attributeNames]]" show-action-buttons enable-column-select is-part-of-business-function$="[[isPartOfBusinessFunction]]"></rock-compare-entities>
         </div>
         <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{attributeModelRequest}}" on-entity-model-composite-get-response="_onCompositeModelGetResponse">
             <liquid-entity-data-save name="entitySaveService" operation="create" data-index="[[dataIndex]]" data-sub-index="[[dataSubIndex]]" request-data="{{_saveRequest}}" last-response="{{_saveResponse}}" on-response="_onSaveResponse" on-error="_onSaveError"></liquid-entity-data-save>
+            <liquid-entity-data-get name="entityGetDataService" operation="getbyids" data-index="[[dataIndex]]" data-sub-index="[[dataSubIndex]]" request-data="{{entityGetRequest}}" on-response="_onEntityGetResponse" on-error="_onEntityGetError" include-type-external-name></liquid-entity-data-get>
             <bedrock-pubsub event-name="error-length-changed" handler="_errorLengthChanged"></bedrock-pubsub>
             <bedrock-pubsub event-name="compare-entities-back" handler="_onCompareEntitiesBack" target-id="matchEntities"></bedrock-pubsub>
             <bedrock-pubsub event-name="compare-entities-create" handler="_onCompareEntitiesCreate" target-id="matchEntities"></bedrock-pubsub>
@@ -99,7 +109,8 @@ attributes during the single entity creation.
         class RockEntityCreateSingle
             extends Polymer.mixinBehaviors([
                 RUFBehaviors.UIBehavior,
-                RUFBehaviors.ComponentContextBehavior
+                RUFBehaviors.ComponentContextBehavior,
+                RUFBehaviors.ComponentBusinessFunctionBehavior
             ], Polymer.OptionalMutableData(Polymer.Element)) {
             static get is() {
                 return 'rock-entity-create-single';
@@ -249,6 +260,16 @@ attributes during the single entity creation.
                         value: function () {
                             return "";
                         }
+                    },
+                    savedEntity: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _saveButtonText: {
+                        type: String,
+                        value: "Create"
                     }
                 }
             }
@@ -261,24 +282,53 @@ attributes during the single entity creation.
                         firstItemContext.attributeNames = attributeNames;
                     }
 
-                    let t = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
-
-                    this.set("attributeModelRequest", t);
-
-                    let liquidModelGet = this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
-                    if (liquidModelGet) {
-                        liquidModelGet.generateRequest();
+                    if(firstItemContext.id) {
+                        this._saveButtonText = "Update";
+                        this._triggerEntityGet();
+                    } else {
+                        this._triggerAttributeModelGet();
                     }
                 }
             }
+
+            _triggerEntityGet() {
+                let req = DataRequestHelper.createEntityGetRequest(this.contextData);
+                this.set("entityGetRequest", req);
+                let liquidModelGet = this.shadowRoot.querySelector("[name=entityGetDataService]");
+                if (liquidModelGet) {
+                    liquidModelGet.generateRequest();
+                }
+            }
+
+            _triggerAttributeModelGet() {
+                let req = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
+                this.set("attributeModelRequest", req);
+                let liquidModelGet = this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
+                if (liquidModelGet) {
+                    liquidModelGet.generateRequest();
+                }
+            }
+
+            _onEntityGetResponse(e, detail) {
+                if (DataHelper.isValidObjectPath(detail, "response.content.entities.0") && detail.response.status == "success") {
+                    this.savedEntity = detail.response.content.entities[0];
+                }
+                this._triggerAttributeModelGet();
+            }
+
+            _onEntityGetError(e) {
+                this.logError("Entity get failed", e.detail);
+            }
+
             async _onCompositeModelGetResponse(e) {
                 let values = [];
                 if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
                     this._attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], this.contextData);
-                    values = await DataTransformHelper.transformAttributes({}, this._attributeModels, this.contextData, "array", true);
+                    values = await DataTransformHelper.transformAttributes(this.savedEntity, this._attributeModels, this.contextData, "array", true);
                 }
                 this._attributeValues = values;
             }
+
             _onSaveTap(e) {
                 //raise event with name given for onNextAction in configuration
                 let attributeList = this.shadowRoot.querySelector('rock-attribute-list');
@@ -326,6 +376,13 @@ attributes during the single entity creation.
                     entityName = DataHelper.getNameForNewEntityFromAttributes(attributesJSON, this._attributeModels, "isExternalName");
                 }
 
+                //When it is not a new entity
+                if(!_.isEmpty(this.savedEntity)) {
+                    entityId = this.savedEntity.id;
+                    entityType = this.savedEntity.type;
+                    this._matchedEntity = DataHelper.cloneObject(this.savedEntity);
+                }
+
                 let domain;
                 if (this.entityDomain && this.entityDomain != "" && this.entityDomain != "undefined") {
                     domain = this.entityDomain;
@@ -335,6 +392,8 @@ attributes during the single entity creation.
                 if (entityName) {
                     newEntity.name = entityName;
                 }
+
+                ComponentHelper.getParentElement(this).onSaveContextChange = true;
                 ComponentHelper.getParentElement(this).contextData = this.contextData;
 
                 this._saveRequest = {
@@ -357,6 +416,12 @@ attributes during the single entity creation.
                 this.set('_entityMatchRequest', {
                     "entity": newEntity
                 });
+
+                //Trigger entity updated instead of match
+                if(!_.isEmpty(this.savedEntity)) {
+                    this._updateEntity();
+                    return;
+                }
 
                 let entityMatchService = this.shadowRoot.querySelector("#entityMatchService");
 
@@ -527,67 +592,30 @@ attributes during the single entity creation.
             }
 
             _setBusinessFunctionData(operation, msg, isEntityCreated) {
-                let eventName = "onSave";
-                let eventDetail = {
-                    name: eventName,
-                    data: { "skipNext": operation == "update" ? true : this.skipNext }
-                }
                 let itemCtx = this.getFirstItemContext();
-                let data = {
-                    "messages": [
-                        {
-                            "message": msg
-                        }
-                    ],
-                    "actions": [
-                        {
-                            "name": "closeFunction",
-                            "text": "Take Me back to Where I started"
-                        },
-                        {
-                            "name": "showEntity",
-                            "text": "Show me the entity",
-                            "dataRoute": "entity-manage",
-                            "queryParams": { "id": itemCtx.id, "type": itemCtx.type }
-                        },
-                        {
-                            "name": "createEntity",
-                            "text": "Create one more",
-                            "dataRoute": "entity-create",
-                            "queryParams": { "type": itemCtx.type }
-                        }
-                    ]
-                };
-
-                let businessFunctionData = ComponentHelper.getParentElement(this).businessFunctionData;
-                if (_.isEmpty(businessFunctionData)) {
-                    businessFunctionData = data;
-                } else {
-                    _.isEmpty(businessFunctionData.actions) && (businessFunctionData.actions = data.actions);
-                    _.isEmpty(businessFunctionData.messages) && (businessFunctionData.messages = data.messages);
-                }
+                let entityCreateElement = ComponentHelper.getParentElement(this); //rock-entity-create
+                this.savedEntity = {"id": itemCtx.id, "type": itemCtx.type};
+                entityCreateElement.dataFunctionComplete(this.savedEntity);
+                this._saveButtonText = "Update";
+                this._hideView("entity-match");
+                this._showView("entity-create");
+                this.resetChanged();
 
                 if (isEntityCreated) {
                     ComponentHelper.fireBedrockEvent("entity-created", { "id": itemCtx.id, "type": itemCtx.type }, { ignoreId: true });
                 }
 
-                ComponentHelper.getParentElement(this).businessFunctionData = businessFunctionData;
                 setTimeout(() => {
                     this._loading = false;
-                    if (operation != "update") {
-                        this.showSuccessToast(msg);
-                    }
-                    this.fireBedrockEvent(eventName, eventDetail, {
-                        ignoreId: true
-                    });
+                    this.showSuccessToast(msg);
                 }, 100);
             }
             _onSaveError(e) {
                 // To Remove
                 this.logError("Failed to update entity", e.detail);
             }
-            _onSkipTap(e) {
-                //raise event with name given for onbackAction in configuration
+            _onCancelTap(e) {
+                //raise event with name given for onbackAction in configuration	
                 let data;
                 let eventName = "onCancel";
                 let eventDetail = {
@@ -675,6 +703,13 @@ attributes during the single entity creation.
                 let attributeList = this.shadowRoot.querySelector('rock-attribute-list');
                 let changedAttributeElements = attributeList.getChangedAttributeElements();
                 return changedAttributeElements && changedAttributeElements.length > 0;
+            }
+
+            resetChanged() {
+                let attributeList = this.shadowRoot.querySelector('rock-attribute-list');
+                if(attributeList) {
+                    attributeList.resetChanged();
+                }
             }
 
             _showView(viewName) {
