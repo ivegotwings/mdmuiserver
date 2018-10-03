@@ -75,13 +75,6 @@
                 }
             }
         </style>
-        <liquid-entity-data-get id="rootNodeGet" operation="getbyids" request-data="{{_rootNodeGetRequest}}" on-error="_onLineagePathError"
-            on-response="_onRootNodeGetResponse" exclude-in-progress></liquid-entity-data-get>
-        <liquid-entity-data-get id="initiateSearch" operation="initiatesearch" request-data="{{request}}" last-response="{{initiateSearchResponse}}"
-            on-error="_onGetSearchError" on-response="_onInitiateSearchResponse" exclude-in-progress></liquid-entity-data-get>
-        <liquid-entity-data-get id="getSearchResultDetail" operation="getsearchresultdetail" request-data="{{request}}" request-id="[[initiateSearchResponse.content.requestId]]"
-            last-response="{{getEntitySearchResultsResponse}}" on-error="_onGetSearchError" on-response="_onGetSearchResultDetailResponse"
-            exclude-in-progress></liquid-entity-data-get>
         <div class="base-grid-structure">
             <div class="base-grid-structure-child-1">
                     <p class="status-text" hidden$=[[!showContextText]]>[[selectedContextText]]</p>
@@ -105,12 +98,9 @@
         </div>
         <bedrock-pubsub event-name="tree-node-child-list-refreshed" handler="_childListRefreshed"></bedrock-pubsub>
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
-
-        <liquid-rest id="contextModelGet" url="/data/pass-through/entitymodelservice/getcontext" method="POST" request-data="{{_contextModelGetReq}}"
-        on-liquid-response="_onContextModelGetResponse" on-liquid-error="_onContextModelGetFailed"></liquid-rest>
     <liquid-rest id="entityModelGet" url="/data/pass-through/entitymodelservice/get" method="POST" request-data="{{_entityModelRequest}}"
         on-liquid-response="_onEntityModelGetResponse" on-liquid-error="_onEntityModelGetError"></liquid-rest>
-    </liquid-rest>
+    </liquid-rest> 
 
     <liquid-entity-data-get id="initiateSearch" operation="initiatesearch" request-data="{{request}}" last-response="{{initiateSearchResponse}}"
     on-error="_onGetSearchError" on-response="_onInitiateSearchResponse" exclude-in-progress></liquid-entity-data-get>
@@ -266,20 +256,10 @@
                         type: String,
                         value: ""
                     },
-                    domain: {
-                        type: String,
-                        value: "thing"
-                    },
                     contextData: {
                         type: Object,
                         value: function () {
                             return {};
-                        }
-                    },
-                    configData: {
-                        type: Array,
-                        value: function () {
-                            return [];
                         }
                     },
                     readonly: {
@@ -293,18 +273,6 @@
                     allSingleSelect: {
                         type: Boolean,
                         value: false
-                    },
-                    entityId: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    },
-                    entityType: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
                     },
                     _contextHierarchy: {
                         type: Array,
@@ -327,7 +295,7 @@
                         type:String,
                         value:""
                     },
-                    currentEntityClassification:{
+                    currentEntityContexts:{
                         type:Array,
                         value:[]
                     },
@@ -343,10 +311,15 @@
                         type:Boolean,
                         value:false
                     },
-                    channelContextRelationship:{
-                        type:String,
-                        value:""
+                    contextTypes:{
+                        type:Array,
+                        value:[]
+                    },
+                    elementInfo:{
+                        type:Array,
+                        value:[]
                     }
+
                 }
             }
 
@@ -380,15 +353,12 @@
 
             _onSearch(e) {
                 this._searchClicked = true;
-                // this.showContextText = false;
                 this._isSearchMode = !_.isEmpty(e.detail.query);
                 this.executeRequest(e.detail.query);
-                // this._clearSelectedItems();
             }
 
             resetSearch() {
                 this._isSearchMode = false;
-                // this._clearSelectedItems();
                 this.executeRequest("");
                 this._searchBarElement = this.shadowRoot.querySelector("#searchBar");
                 this._searchBarElement.clear();
@@ -409,7 +379,7 @@
 
                     let itemExistCount = 0;
                     let selectedItems = this.selectedItems;
-                    let preSelectedItems = this.currentEntityClassification;
+                    let preSelectedItems = this.currentEntityContexts;
                     for(let i = 0;i<selectedItems.length;i++){
                         let valuePath = selectedItems[i].valuePath;
                         if(preSelectedItems.indexOf(valuePath) == -1){
@@ -434,91 +404,113 @@
                 this.selectedItems = [];
             }
 
-            prepareContext() {
-                    let context = DataHelper.cloneObject(this.contextData);
-
-                    if (!_.isEmpty(this.entityType)) {
-                        context[ContextHelper.CONTEXT_TYPE_ITEM] = [{
-                            "type": this.entityType
-                        }];
-                    }
-                    if(!_.isEmpty(this.appName)){
+            _domainChanged(domain) {
+                if (!_.isEmpty(domain)) {
+                    if(_.isEmpty(this.appName)){
                         this.appName = ComponentHelper.getCurrentActiveAppName();
                     }
-                    if (!_.isEmpty(this.domain)) {
-                        context[ContextHelper.CONTEXT_TYPE_APP] = [{
-                            "app": this.appName
-                        }];
-
-                        context[ContextHelper.CONTEXT_TYPE_DOMAIN] = [{
-                            "domain": this.domain
-                        }];
-
-                        if (!_.isEmpty(context)) {
-                            this.requestConfig('rock-context-tree', context);
-                        }
-                    }
+                    this._processContextModel(domain)
                 }
+            }
 
-                async onConfigLoaded(componentConfig) {
-                    if (componentConfig && componentConfig.config) {
-                        let configData = DataHelper.convertObjectToArray(componentConfig.config);
+            async _processContextModel(domain) {
+                let entityContextModel = await ContextModelManager.getByDomain(domain);
+                if(entityContextModel) {
+                    let contexts = "data" in entityContextModel ? entityContextModel.data.contexts : undefined;
+                    let _ctxKeys = [];
 
-                        if (!_.isEmpty(this.dynamicDimensionsConfig)) {
-                            configData = this._prepareConfigForDynamicDimensions(configData);
-                        }
-                        let localeManager = ComponentHelper.getLocaleManager();
-                        let defaultLocale = DataHelper.getDefaultValContext();
-                        if (defaultLocale && defaultLocale.locale) {
-                            await localeManager.getByNameAsync(defaultLocale.locale);
-                        }
-                        this.configData = {};
-                        this.set('configData', configData);
-                        this._domainChanged(this.domain);
-                        
-                    } else {
-                        this.logError(this.appName + "-Context Selector - config is not available for rock-dimension-selector", componentConfig, true);
-                    }
-                }
+                    this._contextHierarchyInfo = DataHelper.isValidObjectPath(entityContextModel, "properties.coalesceInfo") && entityContextModel.properties.coalesceInfo;
 
-                _domainChanged(domain) {
-                    if (!_.isEmpty(domain)) {
-                        this._processContextModel(domain)
-                    }
-                }
-
-                async _processContextModel(domain) {
-                    let entityContextModel = await ContextModelManager.getByDomain(domain);
-                    if(entityContextModel) {
-                        let contexts = "data" in entityContextModel ? entityContextModel.data.contexts : undefined;
-                        let _ctxKeys = [];
-
-                        this._contextHierarchyInfo = DataHelper.isValidObjectPath(entityContextModel, "properties.coalesceInfo") && entityContextModel.properties.coalesceInfo;
-
-                        if (!_.isEmpty(this._contextHierarchyInfo)) {
-                            this._contextHierarchyInfo.forEach(function(ctx) {
-                                if(ctx.contextKey){
-                                    if(ctx.contextKey == "channel"){
-                                        this.channelContextRelationship = ctx.contextRelationship
-                                    }
+                    if (!_.isEmpty(this._contextHierarchyInfo)) {
+                        this._contextHierarchyInfo.sort(function(a,b) {
+                            if(a.sequence && b.sequence) {
+                                return a.sequence - b.sequence;
+                            }
+                        });
+                        this.elementInfo["nonRootContextKey"] = [];
+                        this._contextHierarchyInfo.forEach(function(ctx) {
+                            if(ctx.contextKey){
+                                this.contextTypes.push(ctx.contextKey)
+                                if(ctx.parentContextKey){
+                                    this.elementInfo["dependencyRelationship"] =  ctx.contextRelationship
+                                    this.elementInfo["nonRootContextKey"].push(ctx.contextKey);
+                                }else{
+                                    this.elementInfo["rootContextKey"] = ctx.contextKey
                                 }
-                            }, this);
-                            this._prepareDynamicConfigBasedOnModelForContextsTreeToBeRendered();
-                        }
-
-                 
-                    } else {
-                        this.logError(this.appName + "-Context Selector - There are no context models available for domain " + domain, {}, true);
+                            }
+                        }, this);
                     }
+                    let ctxIds = [];
+                    if(!_.isEmpty(this.contextTypes)){
+                        this.contextTypes.forEach(function(type) {
+                            ctxIds.push(type + "_entityManageModel");
+                        });
+                    }
+                    if (ctxIds && ctxIds.length) {
+                        this._entityModelRequest = {
+                            "params": {
+                                "query": {
+                                    "ids": ctxIds,
+                                    "filters": {
+                                        "typesCriterion": [
+                                            "entityManageModel"
+                                        ]
+                                    }
+                                },
+                                "fields": {
+                                    "attributes": [
+                                        "_ALL"
+                                    ],
+                                    "relationships": [
+                                        "_ALL"
+                                    ],
+                                    "relationshipAttributes": [
+                                        "_ALL"
+                                    ]
+                                }
+                            }
+                        };
+
+                        let entityModelGetComponent = this.$$("#entityModelGet");
+
+                        if (entityModelGetComponent) {
+                            entityModelGetComponent.generateRequest();
+                        } else {
+                            this.logError(this.appName + "-Context Selector - Entity model get liquid not found");
+                        }
+                    }
+                } else {
+                    this.logError(this.appName + "-Context Selector - There are no context models available for domain " + domain, {}, true);
                 }
+            }
+
+            _onEntityModelGetResponse(e) {
+                let response = e.detail.response.response;
+                if (response && !_.isEmpty(response.entityModels)) {
+                    this._prepareDynamicConfigBasedOnModelForContextsTreeToBeRendered(response.entityModels);
+                } else {
+                    this.logError(this.appName + "-Context Selector - Entity Model get response exception", e.detail, true);
+                }
+            }
             
-            _prepareDynamicConfigBasedOnModelForContextsTreeToBeRendered() {
-                let ctxs = {};
-                let item = this.configData[0]
-                this.configData.forEach((item) => {
-                    let ctxKey = item.id;
-                    let ctxExtName = item.title;
-                    let types = item.dataMappings.type;
+            _prepareDynamicConfigBasedOnModelForContextsTreeToBeRendered(entityModels) {
+                if (entityModels && entityModels.length) {
+                    let types = this.contextTypes;
+                    let requireAttribute = [];
+                    entityModels.forEach((entityModel) => {
+                        let externalAttrName = undefined;
+                        let externalNameAndExternalNameAttr = AttributeHelper.getExternalNameAndExternalNameAttr(entityModel);
+                        if (externalNameAndExternalNameAttr) {
+                            externalAttrName = externalNameAndExternalNameAttr.externalNameAttr;
+                            this.elementInfo.push({
+                                "name":entityModel.name,
+                                "externalAttrName":externalAttrName
+                            })
+                            if(requireAttribute.indexOf(externalAttrName) == -1){
+                                requireAttribute.push(externalAttrName);
+                            }
+                        }
+                    })
                     let reqData = {
                         "params": {
                             "query": {
@@ -528,17 +520,17 @@
                                 "valueContexts": []
                             },
                             "fields": {
-                                "attributes": ['_ALL']
+                                "attributes": requireAttribute
                             }
                         }
                     };
                     reqData.params.query.valueContexts.push(DataHelper.getDefaultValContext());
-                    reqData.params.fields.relationships = [this.channelContextRelationship];
+                    reqData.params.fields.relationships = [this.elementInfo["dependencyRelationship"]];
                     this._selectedContextsDataPath = this.selectedContextsData;
                     this.selectedContextsData = [];
                     this._reqData = reqData;
                     this.executeRequest()
-                })
+                }
             }
 
             executeRequest(searchKeyword) {
@@ -583,61 +575,73 @@
                 if (this._searchClicked && _.isEmpty(contextsData)) {
                     this._contextsDataFound = false;
                 }
+                let rootContextKey = this.elementInfo["rootContextKey"];
+                let nonRootContextKey = this.elementInfo["nonRootContextKey"];
+                let rootContextExternalAttrName = this.elementInfo.filter(elem =>{
+                    if(elem.name == rootContextKey){
+                        return elem.externalAttrName;
+                    }
+                })
+                let nonRootContextExternalAttrName = this.elementInfo.filter(elem =>{
+                    if(elem.name == nonRootContextKey){
+                        return elem.externalAttrName;
+                    }
+                })
 
-                let countryLists = contextsData.filter((country) =>{
-                    if(country.type == "country"){
-                        let externalNameAttr = EntityHelper.getAttribute(country, "Value");
+                let rootContextLists = contextsData.filter((rootContext) =>{
+                    if(rootContext.type == rootContextKey){
+                        let externalNameAttr = EntityHelper.getAttribute(rootContext, rootContextExternalAttrName);
                         let externamName = AttributeHelper.getFirstAttributeValue(externalNameAttr);
-                        country.text = (externamName || country.name) + " (" + country.type + ")"
-                        country.value = country.name;
-                        return country;
+                        rootContext.text = (externamName || rootContext.name) + " (" + rootContext.type + ")"
+                        rootContext.value = rootContext.name;
+                        return rootContext;
                     }
                 })
-                let channelLists = contextsData.filter((channel) =>{
-                    if(channel.type == "channel"){
-                        let externalNameAttr = EntityHelper.getAttribute(channel, "Value");
+                let nonRootContextLists = contextsData.filter((nonRootContext) =>{
+                    if(nonRootContextKey.indexOf(nonRootContext.type) > -1){
+                        let externalNameAttr = EntityHelper.getAttribute(nonRootContext, nonRootContextExternalAttrName);
                         let externamName = AttributeHelper.getFirstAttributeValue(externalNameAttr);
-                        channel.text = (externamName || channel.name) + " (" + channel.type + ")"
-                        channel.value = channel.name;
-                        return channel;
+                        nonRootContext.text = (externamName || nonRootContext.name) + " (" + nonRootContext.type + ")"
+                        nonRootContext.value = nonRootContext.name;
+                        return nonRootContext;
                     }
                 })
-                for (let countryIndex in countryLists) {
-                    let currentCountry = countryLists[countryIndex];
-                    let currentCountryId = currentCountry.id;
-                    let currentCountryName = currentCountry.name;
-                    let filteredChannel = channelLists.filter((channel) => {
-                        let currentChannelName = channel.name
-                        if(DataHelper.isValidObjectPath(channel, "data.relationships")){
-                            let channelRelationships = channel.data.relationships[this.channelContextRelationship];
-                                if(channelRelationships.length > 0){
-                                    for (let relIndex in channelRelationships) {
-                                        let currentRelationshipId = channelRelationships[relIndex].id;
-                                        if(currentRelationshipId == currentCountryId){
-                                            this._selectedContextsDataPath.forEach((selectedClassification) => {
-                                                if(selectedClassification[0].indexOf(currentChannelName) > -1){
-                                                    selectedClassification.unshift(currentCountryName)
+                for (let rootIndex in rootContextLists) {
+                    let currentRootContext = rootContextLists[rootIndex];
+                    let currentRootContextId = currentRootContext.id;
+                    let currentRootContextName = currentRootContext.name;
+                    let filteredNonRootContext = nonRootContextLists.filter((nonRootContext) => {
+                        let currentNonRootContextName = nonRootContext.name
+                        if(DataHelper.isValidObjectPath(nonRootContext, "data.relationships")){
+                            let NonRootContextRelationships = nonRootContext.data.relationships[this.elementInfo["dependencyRelationship"]];
+                                if(NonRootContextRelationships.length > 0){
+                                    for (let relIndex in NonRootContextRelationships) {
+                                        let currentRelationshipId = NonRootContextRelationships[relIndex].id;
+                                        if(currentRelationshipId == currentRootContextId){
+                                            this._selectedContextsDataPath.forEach((selectedContext) => {
+                                                if(selectedContext[0].indexOf(currentNonRootContextName) > -1){
+                                                    selectedContext.unshift(currentRootContextName)
                                                 }
                                             })
-                                            return channel;
+                                            return nonRootContext;
                                         };
                                     }
                                 }
                         }
                     });
                     
-                    if(filteredChannel.length > 0){
-                        currentCountry.children = filteredChannel;
+                    if(filteredNonRootContext.length > 0){
+                        currentRootContext.children = filteredNonRootContext;
                     }
                 }
-                let _currentEntityClassification = [];
+                let _currentEntityContexts = [];
                 this._selectedContextsDataPath.forEach((path) =>{
-                    _currentEntityClassification.push(path.join("#@#"))
+                    _currentEntityContexts.push(path.join("#@#"))
                 })
-                this.currentEntityClassification = undefined;
-                this.currentEntityClassification = _currentEntityClassification;
+                this.currentEntityContexts = undefined;
+                this.currentEntityContexts = _currentEntityContexts;
 
-                this._contextsDataList = this._contextsDataList.concat(countryLists);
+                this._contextsDataList = this._contextsDataList.concat(rootContextLists);
 
                 this._currentRecord += 200;
                 if (this._currentRecord < this._totalRecords) {
@@ -651,7 +655,7 @@
                         } else {
                             this.contextsData = this._contextsDataList;
                         }
-                        this._checkForSelectedClassification();
+                        this._checkForSelectedContext();
                     }
                 }
                 this._searchClicked = false;
@@ -660,23 +664,23 @@
             }
 
             //If _selectedCOntextsPaths available, then only pre selection process triggers
-            _checkForSelectedClassification() {
+            _checkForSelectedContext() {
                 if (this.contextsData.length == 0 || !this._selectedContextsDataPath || !this._selectedContextsDataPath.length || this._contextsDataIndex == this._selectedContextsDataPath.length) {
                     return;
                 }
-                if (!this._currentClassification) {
+                if (!this._currentContext) {
                     this._contextsDataIndex = 0;
                     this._currentIndex = 0;
                 }
-                this._currentClassification = this._selectedContextsDataPath[this._contextsDataIndex];
-                let name = this._currentClassification[this._currentIndex];
+                this._currentContext = this._selectedContextsDataPath[this._contextsDataIndex];
+                let name = this._currentContext[this._currentIndex];
                 if (this._currentIndex == 0) {
                     this._currentNode = this.shadowRoot.querySelector("#contextTree").getElementNodeByPath(name);
-                } else if (this._currentIndex == this._currentClassification.length) {
+                } else if (this._currentIndex == this._currentContext.length) {
                     this._currentNode.selectItem();
                     this._contextsDataIndex++;
                     this._currentIndex = 0;
-                    this._checkForSelectedClassification();
+                    this._checkForSelectedContext();
                     return;
                 } else {
                     let childNodes = this._currentNode.getChildNodes();
@@ -692,14 +696,14 @@
                     } else {
                         this._contextsDataIndex++;
                         this._currentIndex = 0;
-                        this._checkForSelectedClassification();
+                        this._checkForSelectedContext();
                         return;
                     }
                 }
                 this._currentIndex++;
                 if (this._currentNode) {
                     if (this._currentNode.expanded) {
-                        this._checkForSelectedClassification();
+                        this._checkForSelectedContext();
                     } else {
                         this._currentNode.expand();
                     }
@@ -719,7 +723,7 @@
             }
 
             _childListRefreshed() {
-                this._checkForSelectedClassification();
+                this._checkForSelectedContext();
             }
         }
 
