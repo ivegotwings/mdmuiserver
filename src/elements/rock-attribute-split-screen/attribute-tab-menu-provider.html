@@ -12,10 +12,6 @@
 @demo demo/index.html
 -->
 <dom-module id="attribute-tab-menu-provider">
-    <template>
-        <liquid-entity-model-get id="liquidModeleGet" operation="getbyids" request-data={{_request}} on-response="_onModelReceived"
-            on-error="_onModelGetFailed"></liquid-entity-model-get>
-    </template>
     <script>
             class AttributeTabMenuProvider
                 extends Polymer.mixinBehaviors([
@@ -56,24 +52,17 @@
           /**
             * <b><i>Content development is under progress... </b></i> 
             */
-            getMenu (tabItem, callback) {
+            async getMenu (tabItem, callback) {
                 this._callback = callback;
                 this._tabItem = tabItem;
                 this._setRequestObject();
-                let liquid = this.$.liquidModeleGet;
-                if (liquid && !_.isEmpty(this._request)) {
-                    liquid.generateRequest();
-                }
-            }
-            _onModelReceived (e) {
-                if (e && e.detail && e.detail.response && e.detail.response.content && e.detail.response.content.entityModels) {
-                    let attributeGroups = this._getAttributeGroups(e.detail.response.content.entityModels);
+                let entityCompositeModelManager = EntityCompositeModelManager.getInstance();
+                if(entityCompositeModelManager) {
+                    let compositeModel = await entityCompositeModelManager.get(this._request);
+                    let attributeGroups = this._getAttributeGroups(compositeModel);
                     let menuItems = this._buildMenuItems(attributeGroups);
                     this._callback(menuItems);
                 }
-            }
-            _onModelGetFailed (e) {
-                this.logError("TabMenuError",e);
             }
             _setRequestObject () {
                 let firstDataContext = this.getFirstDataContext();
@@ -105,6 +94,8 @@
                 } else if (!_.isEmpty(firstDataContext)) {
                     req.params.query.contexts = [firstDataContext];
                 }
+
+                req.applyEnhancerCoalesce = true;
 
                 this._request = req;
             }
@@ -141,20 +132,17 @@
 
                 return menuItem;
             }
-            _getAttributeGroups (entityModels) {
+            _getAttributeGroups (entityModel) {
                 let attributeGroups = [];
-                for (let i = 0; i < entityModels.length; i++) {
-                    let entityModel = entityModels[i];
-                    if (entityModel.data) {
-                        if (entityModel.data.attributes) {
-                            this._fillAttributesInGroups(entityModel.data.attributes, attributeGroups);
-                        }
-                        if (entityModel.data.contexts) {
-                            for (let j = 0; j < entityModel.data.contexts.length; j++) {
-                                let context = entityModel.data.contexts[j];
-                                if (context.attributes) {
-                                    this._fillAttributesInGroups(context.attributes, attributeGroups);
-                                }
+                if (entityModel && entityModel.data) {
+                    if (entityModel.data.attributes) {
+                        this._fillAttributesInGroups(entityModel.data.attributes, attributeGroups);
+                    }
+                    if (entityModel.data.contexts) {
+                        for (let j = 0; j < entityModel.data.contexts.length; j++) {
+                            let context = entityModel.data.contexts[j];
+                            if (context.attributes) {
+                                this._fillAttributesInGroups(context.attributes, attributeGroups);
                             }
                         }
                     }

@@ -1,5 +1,6 @@
 'use strict';
 const PassThroughService = require('./PassThroughService');
+const EntityCompositeModelService = require('../model-service/EntityCompositeModelGetService');
 let options = {};
 let runOffline = process.env.RUN_OFFLINE;
 
@@ -8,6 +9,7 @@ if(runOffline) {
 }
 
 const passThroughService = new PassThroughService(options);
+const entityCompositeModelService = new EntityCompositeModelService(options);
 
 let PassThroughRouter = function (app) {
     app.post('/data/pass-through/*', async function (req, res) {
@@ -48,6 +50,10 @@ let PassThroughRouter = function (app) {
     });
     app.post('/data/pass-through-snapshot/*', async function (req, res) {
         let response = await passThroughService.snapshotCall(req);
+        res.status(200).send(response);
+    });
+    app.post('/data/pass-through-model/compositemodelget', async function(req, res) {
+        let response = await entityCompositeModelService.get(req.body);
         res.status(200).send(response);
     });
 };
