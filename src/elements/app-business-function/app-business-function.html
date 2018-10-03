@@ -15,12 +15,13 @@
 <link rel="import" href="../rock-layout/rock-layout.html">
 <link rel="import" href="../rock-layout/rock-titlebar/rock-titlebar.html">
 <link rel="import" href="../rock-wizard/rock-wizard.html">
+<link rel="import" href="../rock-wizard/rock-wizard-manage.html">
 <link rel="import" href="../rock-component-config-behavior/rock-component-config-behavior.html">
 
 <dom-module id="app-business-function">
     <template>
         <style include="bedrock-style-common">
-            rock-wizard {
+            rock-wizard, rock-wizard-manage {
                 display: block;
                 overflow-x: hidden;
                 overflow-y: auto;
@@ -37,8 +38,12 @@
             <div id="stepProviders"></div>
             <rock-titlebar slot="rock-titlebar" icon="pebble-icon:dashboard-user" main-title="[[config.label]]" non-closable="[[config.nonClosable]]"
                 non-minimizable="[[config.nonMinimizable]]"></rock-titlebar>
-            <rock-wizard config="{{wizardConfig}}" shared-data="[[sharedData]]" on-first-step-cancelled="_onFirstStepCancelled" on-next-step="_onNextStep"
-                on-cancel-event="_onCancel" hide-stepper="[[hideStepper]]"></rock-wizard>
+            <template is="dom-if" if="[[!isBFV2Flow]]">
+                <rock-wizard config="{{wizardConfig}}" shared-data="[[sharedData]]" on-first-step-cancelled="_onFirstStepCancelled" on-next-step="_onNextStep" on-cancel-event="_onCancel" hide-stepper="[[hideStepper]]"></rock-wizard>
+            </template>
+            <template is="dom-if" if="[[isBFV2Flow]]">
+                <rock-wizard-manage id="wizardManage" config="{{wizardConfig}}" shared-data="[[sharedData]]" on-first-step-cancelled="_onFirstStepCancelled" on-next-step="_onNextStep" on-cancel-event="_onCancel" hide-stepper="[[hideStepper]]"></rock-wizard-manage>
+            </template>
         </rock-layout>
     </template>
     <script>
@@ -76,13 +81,20 @@
                     hideStepper: {
                         type: Boolean,
                         value: false
+                    },
+                    isBFV2Flow: {
+                        type: Boolean,
+                        value: false
                     }
                 }
             }
 
             constructor() {
                 super();
-                this.entityType = DataHelper.getParamValue("type");
+                let queryParams = DataHelper.getStateFromQueryParams(true);
+                this.entityType = queryParams.type;
+                let sharedData = queryParams.sharedData || {};
+                sharedData["query-params"] = DataHelper.cloneObject(queryParams); //This is for initiate component from finish step
 
                 if (this.entityType) {
                     let itemContext = {
@@ -104,17 +116,15 @@
                 if (valueContext) {
                     this.contextData[ContextHelper.CONTEXT_TYPE_VALUE] = [valueContext];
                 }
+                sharedData["context-data"] = this.contextData;
+                //Setting shared information to load component
+                this.sharedData = sharedData;
             }
             disconnectedCallback() {
                 super.disconnectedCallback();
             }
             connectedCallback() {
                 super.connectedCallback();
-                //Setting context information to loading component
-                if (_.isEmpty(this.sharedData) || _.isEmpty(this.sharedData["context-data"])) {
-                    this.sharedData = { "context-data": this.contextData };
-                }
-
                 this._searchTimeStamp = new Date().toLocaleString();
                 this.requestConfig(this.name, this.contextData);
             }
@@ -129,10 +139,16 @@
                 }
 
                 let config = componentConfig.config;
-                if (config.hideStepper) {
-                    this.hideStepper = config.hideStepper;
-                }
                 config.steps = DataHelper.convertObjectToArray(config.steps);
+
+                if (config.hideStepper || config.steps.length == 1) {
+                    this.hideStepper = true;
+                }
+
+                if(config && config.isBFV2Flow) {
+                    this.isBFV2Flow = true;
+                }
+
                 this.set("config", config); //set the configuration
             }
 
@@ -178,6 +194,14 @@
                         }
                     }
                 }
+            }
+
+            getIsDirty() {
+                let wizard = this.shadowRoot.querySelector("#wizardManage");
+                if (wizard && wizard.getIsDirty) {
+                    return wizard.getIsDirty();
+                }
+                return false;
             }
         }
         customElements.define(AppBusinessFunction.is, AppBusinessFunction)
