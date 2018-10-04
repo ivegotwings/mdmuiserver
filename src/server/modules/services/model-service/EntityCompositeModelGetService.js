@@ -6,6 +6,7 @@ let logger = require('../../common/logger/logger-service');
 
 let falcorUtil = require('../../../../shared/dataobject-falcor-util');
 let mergeUtil = require('../../../../shared/dataobject-merge-util');
+let isEmpty = require('../../common/utils/isEmpty')
 
 let EntityCompositeModelGetService = function (options) {
     DFRestService.call(this, options);
@@ -133,7 +134,7 @@ EntityCompositeModelGetService.prototype = {
                 }
 
                 if(modelObj.properties["readPermission"] === true) {
-                    if(modelObj.properties["writePermission"] === true) {
+                    if(modelObj.properties["writePermission"] === true && isEmpty(modelObj.properties.contextCoalesce)) {
                         modelObj.properties['hasWritePermission'] = true;
                     } else {
                         modelObj.properties['hasWritePermission'] = false;
