@@ -91,7 +91,7 @@ based on the given configuration.
                     <template is="dom-if" if="[[showNavigationButtons]]">
                         <div id="content-actions" class="navigation-buttons" align="center">
                             <pebble-button class="action-button btn btn-outline-primary m-r-5" id="back" hidden$="[[hideBack]]" button-text="Back" raised on-tap="_onBackTap"></pebble-button>
-                            <pebble-button class="action-button-focus dropdownText btn btn-outline-primary" id="next" hidden$="[[hideNext]]" button-text="Next" raised on-tap="_onNextTap"></pebble-button>
+                            <pebble-button class="action-button-focus dropdownText btn btn-outline-primary" id="next" hidden$="[[hideNext]]" disabled$="[[disableNext]]" button-text="Next" raised on-tap="_onNextTap"></pebble-button>
                         </div>
                     </template>
                 </div>
@@ -188,6 +188,10 @@ based on the given configuration.
                         value: false
                     },
                     hideNext: {
+                        type: Boolean,
+                        value: false
+                    },
+                    disableNext: {
                         type: Boolean,
                         value: false
                     },
@@ -299,6 +303,7 @@ based on the given configuration.
                     this._updateStepperSelectedStep(stepIndex);
                     this._renderComponent(stepConfig);
                     this._rePaintNavigationButtons(stepConfig, stepIndex);
+                    this.isBackStepTriggered = false; //reset
                 }
             }
 
@@ -329,38 +334,45 @@ based on the given configuration.
 
             //This repaints the navigation buttons on certain scenarios
             _rePaintNavigationButtons(stepConfig, stepIndex) {
-                //Last step
+                //Last step next button
                 if (stepIndex == this.config.steps.length - 1) {
-                    this.set('showNavigationButtons', false);
+                    this.set('hideNext', true);
+                } else {
+                    this.set('hideNext', false);
                 }
+
+                //First step back button
                 if ((stepConfig.stepToBackOptionEnabled != undefined && !stepConfig.stepToBackOptionEnabled)
-                    || stepIndex == 0 || stepIndex == this.config.steps.length - 1) {
+                    || stepIndex == 0) {
                     this.set('hideBack', true);
                 }
                 else {
                     this.set('hideBack', false);
                 }
-                //no next button if the step is mandatory
-                this.set('hideNext', !!stepConfig.isMandatory);
+
+                //Next button should be disabled if the step is mandatory
+                if(!this.isBackStepTriggered) {
+                    this.set('disableNext', !!stepConfig.isMandatory);
+                }
             }
 
             _updateStepperSelectedStep(stepIndex) {
                 let stepper = this.shadowRoot.querySelector('#pebbleStepper');
+                let previousStepName;
+                if(stepIndex > 0){
+                    previousStepName = this.config.steps[stepIndex-1].name;
+                }
                 let previousItem = undefined;
-                if (stepper.selectedItem && !this.isBackStepTriggered) {
+                //Make the previous step as completed only if its not skipped and if its not a back option
+                if (stepper.selectedItem && !this.isBackStepTriggered && this.skippedStepList.indexOf(previousStepName) == -1) {
                     previousItem = stepper.selectedItem;
                     previousItem.status = "completed";
                 }
                 stepper.selected = stepIndex;
                 let stepperChildren = Polymer.FlattenedNodesObserver.getFlattenedNodes(stepper).filter(n => n.nodeType === Node.ELEMENT_NODE);
                 let currentStepperChildren = stepperChildren[stepIndex];
-                if (currentStepperChildren) {
-                    if (currentStepperChildren != previousItem && stepIndex < this.config.steps.length - 1) {
-                        currentStepperChildren.status = "inprogress";
-                    }
-                    else {
-                        currentStepperChildren.status = "completed";
-                    }
+                if (currentStepperChildren && currentStepperChildren != previousItem) {
+                    currentStepperChildren.status = "inprogress";
                 }
             }
             _disableStepper(stepIndex) {
@@ -392,7 +404,7 @@ based on the given configuration.
 
             _loadCurrentStepPropertiesToNextStep(properties) {
                 let currentComponent = this.stepperElement;
-                if (this._currentStepIndex != 0) {
+                if (currentComponent) {
                     for (let property in currentComponent.constructor.properties) {
                         //Not considering the property which starts with "_", as per standards it is private member
                         if (currentComponent[property] && !(currentComponent[property] instanceof Element) && !property.startsWith("_")) {
@@ -453,7 +465,6 @@ based on the given configuration.
                     properties["component-result"] = stepState.componentResult;
                 }
                 this._resetSkippedStepList(); //skipped list should be reset on coming back
-                this.isBackStepTriggered = false;
             }
 
             _resetSkippedStepList() {
@@ -503,7 +514,8 @@ based on the given configuration.
                 let currentStepConfig = this.config.steps[this._currentStepIndex];
                 //if step is finished and it is a mandatory step, then goes to next step
                 if (currentStepConfig.isMandatory) {
-                    this.goToNext();
+                    //Once operation is completed, then enable next button for mandatory step
+                    this.set('disableNext', false);
                 }
             }
 
@@ -516,6 +528,7 @@ based on the given configuration.
                 if (currentComponent &&
                     currentComponent.componentResult &&
                     currentComponent.componentResult.status != "completed") {
+                    this._disableStepper(this._currentStepIndex); //Show skipped step as disabled
                     this.skippedStepList.push(currentStepConfig.name);
                 }
 
@@ -525,7 +538,7 @@ based on the given configuration.
                         if (this.config.steps[i].dependentOn &&
                             this.skippedStepList.indexOf(this.config.steps[i].dependentOn) != -1) {
                             this.skippedStepList.push(this.config.steps[i].name);
-                            this._updateStepperSelectedStep(i); //Show skipped step as complete
+                            this._disableStepper(i); //Show skipped step as disabled
                             continue;
                         } else {
                             foundNextStepIndex = i;

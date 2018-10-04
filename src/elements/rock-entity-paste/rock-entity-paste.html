@@ -105,7 +105,7 @@
                 </div>
                 <div id="buttonContainer" class="buttonContainer-static">
                     <pebble-button id="cancelButton" class="btn btn-secondary m-r-5" button-text="Cancel" on-tap="_onCancelTap" elevation=1 raised></pebble-button>
-                    <pebble-button id="Paste" class="focus btn btn-success" button-text="Save" on-tap="_executePaste" elevation=1 raised></pebble-button>
+                    <pebble-button id="Paste" class="focus btn btn-success" button-text="Paste" on-tap="_executePaste" elevation=1 raised></pebble-button>
                 </div>
             </div>
         </div>
@@ -172,6 +172,12 @@
                         value: 'update'
                     },
                     _saveResponse: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _sourceEntityData: {
                         type: Object,
                         value: function () {
                             return {};
@@ -295,10 +301,50 @@
             }
             _onSaveResponse(e, detail) {
                 this._bulkSaveTracker++;
+                //getting copy entity primary context
+                let primaryContextCopyEntity = [];
+                if (this._contextsObjCopyEntity.primaryContexts) {
+                    if (this._contextsObjCopyEntity.primaryContexts.toString() !== "self") {
+                        this._contextsObjCopyEntity.primaryContexts.forEach(primaryContext => {
+                            this._sourceEntityData.Contexts.forEach(context => {
+                                primaryContextCopyEntity.push(context[primaryContext])
+                            })
+                        })
+                    } else {
+                        primaryContextCopyEntity.push(...this._contextsObjCopyEntity.primaryContexts);
+                    }
+                } 
+
+                //getting paste entity primary context
+                let primaryContextPasteEntity = [];
+                if (this._contextsObjPasteEntity.primaryContexts) {
+                    if (this._contextsObjPasteEntity.primaryContexts.toString() !== "self") {
+                        this._contextsObjPasteEntity.primaryContexts.forEach(primaryContext => {
+                            this.contextData.Contexts.forEach(context => {
+                                primaryContextPasteEntity.push(context[primaryContext])
+                            })
+                        })
+                    } else {
+                        primaryContextPasteEntity.push(...this._contextsObjPasteEntity.primaryContexts);
+                    }
+                }
+                let message;
+                let parsedData = this._sourceEntityData;
+                let toEntityName = e.detail.request.requestData.entities[0].name ? e.detail.request.requestData.entities[0].name : e.detail.request.requestData.entities[0].id;
+                let fromEntityName = parsedData.ItemContexts[0].name ? parsedData.ItemContexts[0].name : parsedData.ItemContexts[0].id;
+                if (e.detail.response.status === 'success') {
+                    message = "Copy paste request submitted for copying data from " + fromEntityName + " (" +
+                        primaryContextCopyEntity.toString() + ", " + parsedData.ValContexts[0].locale + ") to " +
+                        toEntityName + " (" + primaryContextPasteEntity.toString() +
+                        ", " + this.contextData.ValContexts[0].locale + ") ";
+                } else {
+                    message = e.detail.response.content.msg;
+                }
+
                 if(this._saveRequestMode === "bulkSimulation") {
                     const responseObj = {
-                        "Entity Id": e.detail.request.requestData.entities[0].id,
-                        "Message": e.detail.response.content.msg,
+                        "Entity Name": toEntityName,
+                        "Message": message,
                         "Status": e.detail.response.status
                     }
                     this._entitySaveResponseObject.push(responseObj);
@@ -309,12 +355,11 @@
                         return;
                     }
                 } else {
-                    this._triggerFinishStep();
+                    this._triggerFinishStep(message);
                 }
             }
             
-            _triggerFinishStep() {
-                let message = "Entity is submitted for Paste";
+            _triggerFinishStep(message) {
                 let actions = [
                     {
                         "name": "goBack",
@@ -500,9 +545,18 @@
                         if (!_.isEmpty(context.attributes)) {
                             let attributes = context.attributes;
                             for (let attributeName in attributes) {
-                                attributes[attributeName].values.forEach(value => {
-                                    value.locale = currentLocale;
-                                })
+                                // nested attributes
+                                if (attributes[attributeName].hasOwnProperty('group')) {
+                                    attributes[attributeName].group.forEach(group => {
+                                        group.values.forEach(value => {
+                                            value.locale = currentLocale;
+                                        })
+                                    });
+                                } else {
+                                    attributes[attributeName].values.forEach(value => {
+                                        value.locale = currentLocale;
+                                    })
+                                }
                             }
                         }
                     })
@@ -511,6 +565,7 @@
                 //getting primary and secondary context for copy and paste entity
                 let data = sessionStorage.getItem('copyEntityData');
                 let parsedData = JSON.parse(data);
+                this._sourceEntityData = parsedData;
 
                 let clonedAttributes;
                 if (DataHelper.isValidObjectPath(entities[0], 'data.attributes')) {
@@ -577,6 +632,7 @@
                         let cloneEntity = DataHelper.cloneObject(entities[0]);
                         cloneEntity.id = item.id;
                         cloneEntity.type = item.type;
+                        cloneEntity.name = item.name;
                         this._saveRequest = {
                         "entities": [cloneEntity]
                     };
