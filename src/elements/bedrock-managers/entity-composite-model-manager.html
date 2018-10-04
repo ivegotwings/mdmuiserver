@@ -20,11 +20,6 @@
 
         constructor() {
             super();
-            this.compositeModel;
-            this.requestData;
-            this.enhancerAttributes;
-            this.contextData = {};
-            this.coalesceOptions = {};
             if (!RUFUtilities.entityCompositeModelManager) {
                 RUFUtilities.entityCompositeModelManager = this;
             }
@@ -38,25 +33,23 @@
             return RUFUtilities.entityCompositeModelManager;
         }
 
-        _triggerRequest() {
+        _triggerRequest(requestData, coalesceOptions) {
             return new Promise((resolve, reject) => {
-                if(_.isEmpty(this.coalesceOptions)) {
-                    this._generateModelGetRequest(resolve);
+                if(_.isEmpty(coalesceOptions)) {
+                    this._generateModelGetRequest(resolve, requestData);
                 } else {
-                    this._generateModelRestRequest(resolve);
+                    this._generateModelRestRequest(resolve, requestData);
                 }
-            })
+            }, this)
         }
 
-        _generateModelGetRequest(resolve) {
+        _generateModelGetRequest(resolve, requestData) {
             let liquidEntityCustomElement = customElements.get("liquid-entity-model-get");
             let liquidEntityModelGet = new liquidEntityCustomElement();
 
             let _onResponse = (ev) => {
                 if (DataHelper.isValidObjectPath(ev, "detail.response.content.entityModels.0")) {
                     this.compositeModel = ev.detail.response.content.entityModels[0];
-                    this.dispatchEvent(new CustomEvent("entity-model-composite-get-response", { detail:ev.detail, bubbles: this.bubbles, composed:true }));
-                    this.dispatchEvent(new CustomEvent("liquid-entity-model-composite-get-response", { detail:ev.detail, bubbles: this.bubbles, composed:true }));
                 }
 
                 if (resolve) {
@@ -67,12 +60,12 @@
             liquidEntityModelGet.addEventListener("response", _onResponse.bind(this));
             liquidEntityModelGet.addEventListener("error", this._onError.bind(this));
             liquidEntityModelGet.operation = "getbyids";
-            liquidEntityModelGet.requestData = this.requestData;
-            liquidEntityModelGet.useModelCoalesce = this.requestData.useModelCoalesce;
+            liquidEntityModelGet.requestData = requestData;
+            liquidEntityModelGet.useModelCoalesce = requestData.useModelCoalesce;
             liquidEntityModelGet.generateRequest();
         }
 
-        _generateModelRestRequest(resolve) {
+        _generateModelRestRequest(resolve, requestData) {
             let liquidEntityCustomElement = customElements.get("liquid-rest");
             let liquidEntityModelGet = new liquidEntityCustomElement();
 
@@ -89,11 +82,11 @@
             liquidEntityModelGet.addEventListener("liquid-response", _onResponse.bind(this));
             liquidEntityModelGet.addEventListener("liquid-error", this._onError.bind(this));
             liquidEntityModelGet.url = "/data/pass-through-model/compositemodelget";
-            if(DataHelper.isValidObjectPath(this.requestData, "params.query.name")) {
-                this.requestData.params.query.id = this.requestData.params.query.name + "_entityCompositeModel";
-                delete this.requestData.params.query.name;
+            if(DataHelper.isValidObjectPath(requestData, "params.query.name")) {
+                requestData.params.query.id = requestData.params.query.name + "_entityCompositeModel";
+                delete requestData.params.query.name;
             }
-            liquidEntityModelGet.requestData = this.requestData;
+            liquidEntityModelGet.requestData = requestData;
             liquidEntityModelGet.generateRequest();
         }
 
@@ -105,14 +98,18 @@
 
         async get(requestData) {
             if(!_.isEmpty(requestData)) {
+                this.compositeModel;
+                this.enhancerAttributes;
                 let currentActiveApp = ComponentHelper.getCurrentActiveApp();
+                let contextData = {};
                 if(currentActiveApp) {
-                    this.contextData = currentActiveApp.contextData;
+                    contextData = currentActiveApp.contextData;
                 }
                 let query = requestData.params.query;
                 let options = requestData.params.options;
+                let coalesceOptions;
                 if(requestData.applyEnhancerCoalesce) {
-                    this.coalesceOptions = await this._getCoalesceOptions();
+                    coalesceOptions = await this._getCoalesceOptions(contextData);
                 }
                 if (!query.contexts) {
                     query.contexts = [];
@@ -121,30 +118,29 @@
                     query.filters = {};
                 }
 
-                if(!_.isEmpty(this.coalesceOptions)) {
+                if(!_.isEmpty(coalesceOptions)) {
                     options = options || {};
-                    options["coalesceOptions"] = this.coalesceOptions;
+                    options["coalesceOptions"] = coalesceOptions;
                     requestData.params.options = options;
                 }
 
                 query.filters.typesCriterion = ["entityCompositeModel"];
-                this.requestData = requestData;
-                let callLiquid = await this._triggerRequest();
+                let callLiquid = await this._triggerRequest(requestData, coalesceOptions);
                 return this.compositeModel;
             }
         }
 
-        async _getCoalesceOptions() {
+        async _getCoalesceOptions(contextData) {
             let coalesceOptions = {};
-            let itemContext = ContextHelper.getFirstItemContext(this.contextData);
-            let domainContext = ContextHelper.getFirstDomainContext(this.contextData);
-            let dataContext = ContextHelper.getFirstDataContext(this.contextData);
+            let itemContext = ContextHelper.getFirstItemContext(contextData);
+            let domainContext = ContextHelper.getFirstDomainContext(contextData);
+            let dataContext = ContextHelper.getFirstDataContext(contextData);
             if(itemContext && itemContext.id &&
                 domainContext && domainContext.domain) {
                     let enhancerAttributeNames = await ContextModelManager.getEnhancerAttributeNamesBasedOnDomainAndContext(domainContext.domain, dataContext);
                     if(!_.isEmpty(enhancerAttributeNames)) {
                         itemContext.attributeNames = enhancerAttributeNames;
-                        let callLiquid = await this._getEntityAsync();
+                        let callLiquid = await this._getEntityAsync(contextData);
 
                         if(!_.isEmpty(this.enhancerAttributes)) {
                             coalesceOptions = this._prepareCoalesceOptions(dataContext);
@@ -155,20 +151,20 @@
             return coalesceOptions;
         }
 
-        async _getEntityAsync() {
+        async _getEntityAsync(contextData, enhancerAttributes) {
             return new Promise((resolve, reject) => {
-                this._getEntity(resolve);
-            });
+                this._getEntity(resolve, contextData, enhancerAttributes);
+            }, this);
         }
 
-        _getEntity(resolve) {
+        _getEntity(resolve, contextData, enhancerAttributes) {
             let liquidEntityCustomElement = customElements.get("liquid-entity-data-get");
             let liquidEntityDataGet = new liquidEntityCustomElement();
 
             let _onResponse = (ev) => {
                 if (DataHelper.isValidObjectPath(ev, "detail.response.content.entities.0")) {
                     let entity = ev.detail.response.content.entities[0];
-                    let firstDataContext = ContextHelper.getFirstDataContext(this.contextData);
+                    let firstDataContext = ContextHelper.getFirstDataContext(contextData);
                     let mergedAttributes = {};
                     if (entity && entity.data && entity.data.attributes) {
                         mergedAttributes = DataMergeHelper.mergeAttributes(mergedAttributes, entity.data.attributes, true);
@@ -186,7 +182,7 @@
                 }
             };
 
-            let request = DataRequestHelper.createEntityGetRequest(this.contextData,true);
+            let request = DataRequestHelper.createEntityGetRequest(contextData,true);
             liquidEntityDataGet.addEventListener("response", _onResponse.bind(this));
             liquidEntityDataGet.addEventListener("error", this._onError.bind(this));
             liquidEntityDataGet.operation = "getbyids";
