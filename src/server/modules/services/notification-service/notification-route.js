@@ -180,7 +180,7 @@ function sendNotificationToUI(notificationObject, tenantId) {
             // On model import complete notification, module version has to be updated to maintain local storage in sync.
             if (notificationInfo.action == enums.actions.ModelImportComplete) {
                 (async () => {
-                    await versionService.updateModuleVersion('config');
+                    await versionService.updateModuleVersion('entityModel');
                 })();
             }
 
