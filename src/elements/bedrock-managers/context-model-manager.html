@@ -3,12 +3,14 @@
 <link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
 <link rel="import" href="../bedrock-helpers/context-helper.html">
 <link rel="import" href="../bedrock-helpers/data-request-helper.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
 
 <script>
     'use strict';
     let ContextModelManager = (function() {
         let _contextModels;
         let _promiseResolve;
+        let _enhancerAttributesPerDomainAndContext = {};
 
         async function _init() {
             _getContextModelBasedOnDomains();
@@ -31,7 +33,7 @@
             liquidEntityModelGet.url = "/data/pass-through/entitymodelservice/getcontext";
             liquidEntityModelGet.method = "POST";
 
-            liquidEntityModelGet.addEventListener("liquid-response", _onContextModelGetReponse);
+            liquidEntityModelGet.addEventListener("liquid-response", _onContextModelGetResponse);
             liquidEntityModelGet.addEventListener("liquid-error", _onContextModelGetFailed);
 
             let contextData = {};
@@ -50,7 +52,7 @@
             liquidEntityModelGet.generateRequest();
         }
 
-        function _onContextModelGetReponse(ev) {
+        function _onContextModelGetResponse(ev) {
             if (ev && ev.detail && ev.detail.response && ev.detail.response.response && ev.detail.response.response.entityModels) {
                 let entityModels = ev.detail.response.response.entityModels;
                 if (!_.isEmpty(entityModels)) {
@@ -58,6 +60,7 @@
                     entityModels.forEach(element => {
                         if (element && !_.isEmpty(element)) {
                             _contextModels[element.name] = element;
+                            _prepareEnhancerAttributeNamesPerDomainAndContext(element.name, element);
                         }
                     });
                 }
@@ -83,13 +86,54 @@
             RUFUtilities.Logger.error('Context Model Fetch Error', ev.detail, "context-model-manager");
         }
 
+        function _prepareEnhancerAttributeNamesPerDomainAndContext(domain, domainContextModel) {
+            _enhancerAttributesPerDomainAndContext[domain] = {};
+
+            if(domainContextModel && domainContextModel.properties) {
+                if(domainContextModel.properties.enhancerAttributes) {
+                    let enhancerAttributes = domainContextModel.properties.enhancerAttributes;
+                    let enhancerAttributeNames = _getEnhancerAttributeNames(enhancerAttributes);
+
+                    if(enhancerAttributeNames) {
+                        _enhancerAttributesPerDomainAndContext[domain]["self"] = enhancerAttributeNames;
+                    }
+                }
+
+                if(!_.isEmpty(domainContextModel.properties.coalesceInfo)) {
+                    domainContextModel.properties.coalesceInfo.forEach(function(coalesceObj) {
+                        if(coalesceObj.contextKey && coalesceObj.enhancerAttributes) {
+                            let enhancerAttributes = coalesceObj.enhancerAttributes;
+                            let enhancerAttributeNames = _getEnhancerAttributeNames(enhancerAttributes);
+
+                            if(enhancerAttributeNames) {
+                                _enhancerAttributesPerDomainAndContext[domain][coalesceObj.contextKey] = enhancerAttributeNames;
+                            }
+                        }
+                    });
+                }
+            }
+        }
+
+        function _getEnhancerAttributeNames(enhancerAttributes) {
+            if(!_.isEmpty(enhancerAttributes)) {
+                let enhancerAttributeNames = [];
+                enhancerAttributes.forEach(function(attrObj) {
+                    if(enhancerAttributeNames.indexOf(attrObj.enhancerAttributeName) < 0) {
+                        enhancerAttributeNames.push(attrObj.enhancerAttributeName);
+                    }
+                });
+
+                return enhancerAttributeNames;
+            }
+        }
+
         function getContextModelBasedOnCurrentDataContext(entityContextModel, firstDataContext) {
             let contextModel;
 
             if (entityContextModel) {
                 let contextHierarchy = [];
 
-                let contextHierarchyInfo = DataHelper.isValidObjectPath(entityContextModel, "properties.coalesceInfo") && entityModel.properties.coalesceInfo;
+                let contextHierarchyInfo = DataHelper.isValidObjectPath(entityContextModel, "properties.coalesceInfo") && entityContextModel.properties.coalesceInfo;
 
                 if (!_.isEmpty(contextHierarchyInfo)) {
                     contextHierarchyInfo.sort(function(a,b) {
@@ -157,30 +201,30 @@
             }
 
             async getEnhancerAttributeNamesBasedOnDomainAndContext(domain, dataContext) {
-                let enhancerAttributeNames = [];
-                let enhancerAttributes = [];
-                let domainContextModel = await this.getByDomain(domain);
-
-                if(domainContextModel && domainContextModel.properties) {
-                    if(!_.isEmpty(dataContext)) {
-                        Object.keys(dataContext).forEach(function(ctxKey) {
-                            let coalesceInfo = domainContextModel.properties.coalesceInfo ? domainContextModel.properties.coalesceInfo.find(obj => obj.contextKey === ctxKey) : undefined;
-                            if(coalesceInfo && !_.isEmpty(coalesceInfo.enhancerAttributes)) {
-                                enhancerAttributes = enhancerAttributes.concat(coalesceInfo.enhancerAttributes);
-                            }
-                        }, this);
-                    } else if(!_.isEmpty(domainContextModel.properties.enhancerAttributes)) {
-                        enhancerAttributes = domainContextModel.properties.enhancerAttributes;
-                    }
-                }
-
-                if(!_.isEmpty(enhancerAttributes)) {
-                    enhancerAttributes.forEach(function(attrObj) {
-                        if(enhancerAttributeNames.indexOf(attrObj.enhancerAttributeName) < 0) {
-                            enhancerAttributeNames.push(attrObj.enhancerAttributeName);
+                if(!_.isEmpty(domain)) {
+                    if(_.isEmpty(_enhancerAttributesPerDomainAndContext) && !_contextModels) {
+                        if(await _preInit()) {
+                            return this._getEnhancerAttributeNamesBasedOnDomainAndContext(domain, dataContext);
                         }
-                    }, this);
+                    }
+
+                    return this._getEnhancerAttributeNamesBasedOnDomainAndContext(domain, dataContext);
                 }
+            }
+
+            _getEnhancerAttributeNamesBasedOnDomainAndContext(domain, dataContext) {
+                let enhancerAttributeNames = [];
+                let contextKey = "self";
+
+                if(!_.isEmpty(dataContext)) {
+                    contextKey = Object.keys(dataContext)[0];
+                }
+
+                let path = domain + "." + contextKey;
+                if(DataHelper.isValidObjectPath(_enhancerAttributesPerDomainAndContext, path)) {
+                    enhancerAttributeNames = _enhancerAttributesPerDomainAndContext[domain][contextKey];
+                }
+
                 return enhancerAttributeNames;
             }
         }
