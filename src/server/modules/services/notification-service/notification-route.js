@@ -191,6 +191,8 @@ function sendNotificationToUI(notificationObject, tenantId) {
             notificationInfo.tenantId = tenantId;
             if (notificationInfo.userId) {
                 notificationManager.sendMessageToSpecificUser(notificationInfo, notificationInfo.userId);
+            } else {
+                notificationManager.sendMessageToAllUser(notificationInfo);
             }
         }
     }
