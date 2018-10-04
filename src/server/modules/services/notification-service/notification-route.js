@@ -5,6 +5,9 @@ let isEmpty = require('../../common/utils/isEmpty');
 let enums = require('../../../../shared/enums-util');
 let logger = require('../../common/logger/logger-service');
 let executionContext = require('../../common/context-manager/execution-context');
+let VersionService = require('../version-service/VersionService');
+
+const versionService = new VersionService({});
 
 function prepareNotificationObject(data) {
     let notificationInfo = {};
@@ -12,19 +15,32 @@ function prepareNotificationObject(data) {
     if (!isEmpty(data)) {
         let attributes = data.attributes;
         let jsonData = data.jsonData;
-        if (!isEmpty(attributes) && !isEmpty(jsonData)) {
+
+        if (!isEmpty(attributes)) {
             let clientState = jsonData['clientState'];
+            let entityId = _getAttributeValue(attributes, "entityId");
+            let entityType = _getAttributeValue(attributes, "entityType");
+
+            if (isEmpty(clientState)) {
+                clientState = {
+                    "notificationInfo": {
+                        "showNotificationToUser":  false,
+                        "context": {
+                            "id": entityId,
+                            "type": entityType
+                        }
+                    }
+                }
+            }
 
             if (!isEmpty(clientState)) {
                 notificationInfo = clientState.notificationInfo;
 
                 if (!isEmpty(notificationInfo)) {
-                    let entityId = _getAttributeValue(attributes, "entityId");
-
-                    //HACK: Skip the notification if entityId attribute and clientState.context.id is not matching..
-                    // This is happening because RDF is copying and not changing clientState as it continue to process all the additional updates to other linked entities(like graph linked)
-                    if(!isEmpty(entityId) && notificationInfo.context && notificationInfo.context.id && notificationInfo.context.id != entityId) {
-                        return;
+                    if (!isEmpty(entityId) && notificationInfo.context && notificationInfo.context.id && notificationInfo.context.id != entityId) {
+                        notificationInfo.showNotificationToUser = false;
+                        notificationInfo.context.id = entityId;
+                        notificationInfo.context.type = entityType;
                     }
 
                     let serviceName = _getAttributeValue(attributes, "serviceName");
@@ -160,6 +176,14 @@ function sendNotificationToUI(notificationObject, tenantId) {
         logger.debug("NOTIFICATION_INFO_OBJECT_PREPARED", { detail: notificationInfo }, "notification-service");
 
         if (!isEmpty(notificationInfo)) {
+
+            // On model import complete notification, module version has to be updated to maintain local storage in sync.
+            if (notificationInfo.action == enums.actions.ModelImportComplete) {
+                (async () => {
+                    await versionService.updateModuleVersion('entityModel');
+                })();
+            }
+
             if (isEmpty(notificationInfo.taskId) && notificationObject.properties) {
                 notificationInfo.taskId = notificationObject.properties.workAutomationId;
             }
