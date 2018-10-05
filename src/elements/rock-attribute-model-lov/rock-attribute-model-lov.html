@@ -22,7 +22,7 @@
         <attribute-model-datasource id="attributeModelDataSource" mode="[[mode]]" request="[[requestData]]" r-data-source="{{rDataSource}}"
             r-data-formatter="{{_dataFormatter}}" keywords-criterion-builder="{{_keywordsCriterionBuilder}}" schema="lov">
         </attribute-model-datasource>
-        <pebble-lov id="attributeModelLov" page-size="[[pageSize]]" multi-select="[[multiSelect]]" show-image="[[showImage]]" show-color="[[showColor]]"
+        <pebble-lov id="attributeModelLov" page-size=[[pageSize]] multi-select="[[multiSelect]]" show-image="[[showImage]]" show-color="[[showColor]]"
             no-sub-title="[[noSubTitle]]" show-action-buttons="[[showActionButtons]]" r-data-source="{{rDataSource}}" items="[[items]]"
             selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" on-selection-changed="_onLovSelectionChanged"
             deleted-items-count="[[_getDeletedItemsCount(deletedItems)]]">
@@ -206,6 +206,43 @@
                         type: Boolean,
                         value: false,
                         notify: true
+                    },
+                    modelGetRequest:{
+                        type:Object,
+                        value: {
+                            "params": {
+                                "query": {
+                                    "filters": {
+                                        "typesCriterion": [
+                                            "attributeModel"
+                                        ]
+                                    }
+                                },
+                                "fields": {
+                                    "ctxTypes": [
+                                        "properties"
+                                    ],
+                                    "attributes": [""]
+                                }
+                            }
+                        
+                        }
+                    },
+                    domains:{
+                        type:Array,
+                        value:[]
+                    },
+                    _domainIndex:{
+                        type:Number,
+                        value:0
+                    },
+                    _combineEntityModels:{
+                        type:Array,
+                        value:[]
+                    },
+                    pageSize:{
+                        type:Number,
+                        value:0
                     }
                 };
             }
@@ -226,15 +263,15 @@
                 this._attributesCriterionBuilder = this._prepareAttributesCriteria.bind(this);
                 this._keywordsCriterionBuilder = this._prepareKeywordsCriteria.bind(this);
                 this._prepareAttributeMaps();
-
+            
                 //this.logInfo("AttributeModelReady","id",this.idField,"requestData",JSON.stringify(this.requestData));
 
                 if (!_.isEmpty(this.mode)) {
-                    if (this.mode === "all") {
+                    if (this.mode === "all" || this.mode === "domainMapped") {
                         this._dataFormatter = this._getAttributeFormattedData.bind(this);
                     } else {
                         this._dataFormatter = this._getAttributeFormattedDataForCompositeModel.bind(this);
-                    }
+                    }                
                 }
 
             }
@@ -261,78 +298,48 @@
             }
 
             _getAttributeModels(contextDataIn) {
-                if (!_.isEmpty(this.contextData)) {
-                    if (this.mode === "all") {
-                        let modelGetRequest = {
-                            "params": {
-                                "query": {
-                                    "filters": {
-                                        "typesCriterion": [
-                                            "attributeModel"
-                                        ]
-                                    }
-                                },
-                                "fields": {
-                                    "ctxTypes": [
-                                        "properties"
-                                    ],
-                                    "attributes": [""]
-                                }
-                            }
-                        };
-                        this.requestData = undefined;
-                        this.requestData = modelGetRequest;
-                        this.isModelGetInitiated = true;
-                    } else {
-                        let contextData = DataHelper.cloneObject(this.contextData);
-
-                        if (this.contextData.ItemContexts) {
-                            let index = 0;
-                            for (let i = 0; i < contextData.ItemContexts.length; i++) {
-                                if (contextData.ItemContexts[i].type) {
-                                    index++;
-                                }
-                            }
-                            this._currentIndex = index;
-                            this._currentItems = [];
-                            this._notFoundEntityTypes = [];
-                        }
-
-                        if (contextData && contextData.ItemContexts) {
-                            for (let i = 0; i < this.contextData.ItemContexts.length; i++) {
-
-                                contextData.ItemContexts = [this.contextData.ItemContexts[i]];
-                                let compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(
-                                    contextData);
-                                if (compositeModelGetRequest && compositeModelGetRequest.params) {
-                                    compositeModelGetRequest.params.fields.attributes = ["_ALL"];
-                                }
-                                this.set('requestData', compositeModelGetRequest);
-                                this.reTriggerRequest();
-                            }
-                            this.isModelGetInitiated = true;
-                        } else {
-                            //ItemContext not available to fetch the attribute models
-                            this.isModelGetInitiated = false;
-                        }
+                if(_.isEmpty(this.domains)){
+                    let domainContexts = ContextHelper.getDomainContexts(this.contextData);
+                    let domain = domainContexts[0]["domain"];
+                    this.domains.push(domain,"taxonomyModel");
+                }
+                if(this.mode == "domainMapped"){
+                    this.pageSize = 101;
+                    if(DataHelper.isValidObjectPath(this.modelGetRequest,"params.query")){
+                        this.modelGetRequest.params.query["domain"] = this.domains[this._domainIndex]
+                    }
+                    this._domainIndex++;
+                    if(DataHelper.isValidObjectPath(this.modelGetRequest,"params.fields.attributes")){
+                        this.modelGetRequest.params.fields.attributes = ["_ALL"];
                     }
                 }
+                this.requestData = undefined;
+                this.requestData = this.modelGetRequest;
+                this.reTriggerRequest();
+                this.isModelGetInitiated = true;
             }
 
             _getAttributeFormattedData(data) {
                 if (data && data.content && !_.isEmpty(data.content.entityModels)) {
                     let items = [];
-                    let attributeModels = this.excludeNestedAttributes ? this._excludeNestedAttributeModels(data.content.entityModels) : data.content.entityModels;
-                    for (let i = 0; i < attributeModels.length; i++) {
-                        let attributeModel = attributeModels[i];
-                        let item = {
-                            "id": attributeModel.name,
-                            "value": attributeModel.name,
-                            "title": attributeModel.properties.externalName
-                        };
-                        items.push(item);
+                    this._combineEntityModels = this._combineEntityModels.concat(data.content.entityModels);
+                    if(this._domainIndex < this.domains.length && this.mode == "domainMapped"){
+                        this._getAttributeModels();
+                        return false;
+                    }else{
+                        let attributeModels = this.excludeNestedAttributes ? this._excludeNestedAttributeModels(this._combineEntityModels) : this._combineEntityModels;
+                        for (let i = 0; i < attributeModels.length; i++) {
+                            let attributeModel = attributeModels[i];
+                            let item = {
+                                "id": attributeModel.name,
+                                "value": attributeModel.name,
+                                "title": attributeModel.properties.externalName
+                            };
+                            items.push(item);
+                        }
+                        this._combineEntityModels = [];
+                        return items;
                     }
-                    return items;
                 }
             }
 

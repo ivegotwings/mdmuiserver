@@ -78,8 +78,11 @@ async function initiateSearch(callPath, args) {
         request.dataIndex = dataIndex;
 
         let operation = request.operation || "search";
-
-        let maxRecordsSupported = dataIndexInfo.maxRecordsToReturn || 2000;
+        let _maxRecords = "";
+        if(request.params.options && request.params.options.maxRecords){
+            _maxRecords = request.params.options.maxRecords
+        }
+        let maxRecordsSupported = _maxRecords || dataIndexInfo.maxRecordsToReturn || 2000;
 
         let options = {};
 
