@@ -328,7 +328,7 @@ function _buildRelationshipsResponse(rels, reqData, currentDataContextJson, path
 function _buildRelationshipDetailsResponse(enRel, reqData, relTypeKey, relsJson, paths, basePath) {
 
     let relJson = relsJson[enRel.id] = {};
-    let dataObjectsByIdBasePath = [pathKeys.root, reqData.dataIndex, reqData.dataSubIndex];
+    let dataObjectsByIdBasePath = [pathKeys.root, reqData.dataIndex];
     let relBasePath;
 
     if (reqData.buildPaths) {
@@ -662,7 +662,7 @@ function buildRefResponse(dataObject, reqData) {
 
     let dataJson = dataObjectResponseJson['data'] = {};
     let dataContextsJson = dataJson['contexts'] = {};
-    let pathToContexts = [pathKeys.root, reqData.dataIndex, reqData.dataSubIndex, reqData.dataObjectType, pathKeys.byIds, dataObject.id, 'data', 'contexts'];
+    let pathToContexts = [pathKeys.root, reqData.dataIndex, reqData.dataObjectType, pathKeys.byIds, dataObject.id, 'data', 'contexts'];
 
     let data = dataObject.data;
     if (data && data.contexts) {

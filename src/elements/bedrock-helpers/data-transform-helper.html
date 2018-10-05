@@ -72,18 +72,11 @@
 
         DataTransformHelper._populateModelContextCoalesceProperty = async function (attributeModels, dataContext, itemContext) {
             let transformedAttributesModel = {};
-            let additionalContexts = [];
-            let primaryContexts = [];
             let _attributeModels = DataHelper.cloneObject(attributeModels);
             let contextCoalesceKeys;
 
             if (!_.isEmpty(dataContext)) {
                 let dataContextKeys = Object.keys(dataContext);
-                let contextModel = await ContextModelManager.getContextModelByEntityTypeAndDataContext(itemContext.type, dataContext);
-                if (contextModel) {
-                    additionalContexts = contextModel.properties ? contextModel.properties.additionalcontexts : undefined;
-                    primaryContexts = DataTransformHelper.getPrimaryContextKeysFromContextModel(contextModel, additionalContexts);
-                }
                 for (let attributeModelName in _attributeModels) {
                     let attributeModel = _attributeModels[attributeModelName];
                     if (attributeModel) {
@@ -93,20 +86,11 @@
                                 attributeModel.properties["isCollection"] = true;
                             }
                         }
-                        if (!_.isEmpty(additionalContexts)) {
-                            if (attributeModel && attributeModel.properties && attributeModel.properties.contextCoalesce) {
-                                if (DataTransformHelper._isPartialPrimaryContexts(primaryContexts, attributeModel.properties.contextCoalesce)) {
-                                    attributeModel.modelContextCoalesce = true;
-                                }
+                        if (DataHelper.isValidObjectPath(attributeModel, "properties.contextCoalesce.0")) {
+                            contextCoalesceKeys = Object.keys(attributeModel.properties.contextCoalesce[0])
+                            if (_.difference(dataContextKeys, contextCoalesceKeys).length > 0) {
+                                attributeModel.modelContextCoalesce = true;
                             }
-                        } else {
-                            if (DataHelper.isValidObjectPath(attributeModel, "properties.contextCoalesce.0")) {
-                                contextCoalesceKeys = Object.keys(attributeModel.properties.contextCoalesce[0])
-                                if (_.difference(dataContextKeys, contextCoalesceKeys).length > 0) {
-                                    attributeModel.modelContextCoalesce = true;
-                                }
-                            }
-
                         }
                     }
                     transformedAttributesModel[attributeModelName] = attributeModel;
@@ -170,7 +154,7 @@
             return mergedRelationshipModels;
         };
 
-        DataTransformHelper.transformAttributes = async function (entity, attributeModels, contextData, outputSchema, applySort) {
+        DataTransformHelper.transformAttributes = function (entity, attributeModels, contextData, outputSchema, applySort) {
             let firstDataContext = ContextHelper.getFirstDataContext(contextData);
             let firstValueContext = ContextHelper.getFirstValueContext(contextData);
             let firstItemContext = ContextHelper.getFirstItemContext(contextData);
@@ -233,7 +217,7 @@
 
             let transformedAttributes;
             if (!_.isEmpty(attributeModels)) {
-                transformedAttributes = await this._transformAttributes(mergedAttributes, sortedAttributeModels, firstValueContext, firstDataContext, firstItemContext);
+                transformedAttributes = this._transformAttributes(mergedAttributes, sortedAttributeModels, firstValueContext, firstDataContext, firstItemContext);
             }
             else {
                 transformedAttributes = this._transformAttributesWithoutModels(mergedAttributes, firstValueContext);
@@ -826,18 +810,9 @@
             return transformedAttributes;
         };
 
-        DataTransformHelper._transformAttributes = async function (attributes, attributeModels, valueContext, dataContext, itemContext) {
+        DataTransformHelper._transformAttributes = function (attributes, attributeModels, valueContext, dataContext, itemContext) {
             let transformedAttributes = {};
-            let additionalContexts = [];
-            let primaryContexts = [];
 
-            if (!_.isEmpty(dataContext)) {
-                let contextModel = await ContextModelManager.getContextModelByEntityTypeAndDataContext(itemContext.type, dataContext);
-                if (contextModel) {
-                    additionalContexts = contextModel.properties ? contextModel.properties.additionalcontexts : undefined;
-                    primaryContexts = DataTransformHelper.getPrimaryContextKeysFromContextModel(contextModel, additionalContexts);
-                }
-            }
             let defaultValCtx = DataHelper.getDefaultValContext();
             valueContext = _.isEmpty(valueContext) ? defaultValCtx : valueContext;
             let clonedValCtx = DataHelper.cloneObject(valueContext);
@@ -850,17 +825,7 @@
                     let attribute = attributes[attributeModel.name];
 
                     if (attribute) {
-                        let removeParentEntityDetails = false;
-                        if (!_.isEmpty(additionalContexts)) {
-                            if (attribute.properties && attribute.properties.contextCoalesce) {
-                                if (!DataTransformHelper._isPartialPrimaryContexts(primaryContexts, attribute.properties.contextCoalesce)) {
-                                    delete attribute.properties.contextCoalesce;
-                                }
-                            }
-                            removeParentEntityDetails = (primaryContexts.indexOf("self") == -1);
-                        } else {
-                            removeParentEntityDetails = (!_.isEmpty(dataContext) && primaryContexts.indexOf("self") > -1);
-                        }
+                        let removeParentEntityDetails = !_.isEmpty(dataContext);
 
                         if (removeParentEntityDetails) {
                             if (attribute.group) {
@@ -1484,6 +1449,8 @@
                                 formattedEntity[columnName] = entities[i].id;
                             } else if (lovColumnNameValueCollection[columnName] == "name") {
                                 formattedEntity[columnName] = entities[i].name;
+                            } else if (lovColumnNameValueCollection[columnName] == "typeExternalName") {
+                                formattedEntity[columnName] = entities[i].typeExternalName;
                             } else if (columnName == "type") {
                                 let entityTypes = lovColumnNameValueCollection[columnName];
                                 if (typeof (entityTypes) !== "undefined" && entityTypes instanceof Array) {
@@ -1880,229 +1847,41 @@
         DataTransformHelper.prepareEntityForContextSave = async function (data, attributeModels, relationshipModels, contextData) {
             let firstDataContext = ContextHelper.getFirstDataContext(contextData);
             let firstItemContext = ContextHelper.getFirstItemContext(contextData);
-            let contextModel = await ContextModelManager.getContextModelByEntityTypeAndDataContext(firstItemContext.type, firstDataContext);
 
-            if (contextModel) {
-                let additionalContexts = contextModel.properties && contextModel.properties.additionalcontexts;
-                let primaryContext = undefined;
-
-                if (additionalContexts) {
-                    // If context model has additional context then need to check that current selected contexts is fully additional contexts or it has primary context as well.
-                    // primary context = current selected contexts - additional contexts.(Relative complement of additional contexts in current selected contexts).
-                    primaryContext = DataTransformHelper.getPrimaryContextFromAdditionalContext(additionalContexts, firstDataContext);
-
-                    if (!_.isEmpty(primaryContext)) {
-                        let primaryContextData = {
-                            "context": primaryContext,
-                            "attributes": {},
-                            "relationships": {}
-                        }
-                        if (data) {
-                            if (data.attributes) {
-                                primaryContextData.attributes = data.attributes;
-                                delete data.attributes;
-                            }
-
-                            if (data.relationships) {
-                                primaryContextData.relationships = data.relationships;
-                                delete data.relationships;
-                            }
-
-                            if (data.contexts) {
-                                let context = data.contexts[0];
-
-                                if (context && context.attributes) {
-                                    let attributes = context.attributes;
-                                    DataTransformHelper._addRemoveAttributesBasedOnAdditionalContext(attributes, attributeModels, additionalContexts, primaryContextData);
-                                }
-
-                                if (context && context.relationships) {
-                                    let relationships = context.relationships;
-                                    DataTransformHelper._addRemoveRelationshipsBasedOnAdditionalContext(relationships, relationshipModels, additionalContexts, primaryContextData);
-                                }
-                            }
-
-                            if (primaryContextData && (!_.isEmpty(primaryContextData.attributes) || !_.isEmpty(primaryContextData.relationships))) {
-                                if (_.isEmpty(data.contexts)) {
-                                    data.contexts = [];
-                                }
-                                data.contexts.push(primaryContextData);
-                            }
-                        }
-                    } else {
-                        // If context model has additional context for current selected contexts and it doesn't have primary context it means all contexts defined in context model are part of additional contexts.
-                        // In this case relationship has to be added based on relationship model.
-                        // If relationship is mapped only at self level it has to saved at self level or if relationship is mapped at additional context level it has to saved at context level.
-                        if (data.contexts && data.contexts.length) {
-                            if (_.isEmpty(data.relationships)) {
-                                data.relationships = {};
-                            }
-
-                            let relationships = data.contexts[0].relationships;
-                            DataTransformHelper._addRemoveRelationshipsBasedOnAdditionalContext(relationships, relationshipModels, additionalContexts, data);
+            if (data.contexts && data.contexts.length) {
+                if (!_.isEmpty(data.contexts[0].attributes)) {
+                    for (let attrKey in data.attributes) {
+                        if (!data.contexts[0].attributes[attrKey]) {
+                            data.contexts[0].attributes[attrKey] = data.attributes[attrKey];
                         }
                     }
                 } else {
-                    if (data.contexts && data.contexts.length) {
-                        if (!_.isEmpty(data.contexts[0].attributes)) {
-                            for (let attrKey in data.attributes) {
-                                if (!data.contexts[0].attributes[attrKey]) {
-                                    data.contexts[0].attributes[attrKey] = data.attributes[attrKey];
-                                }
-                            }
-                        } else {
-                            data.contexts[0].attributes = data.attributes;
-                        }
-
-                        if (!_.isEmpty(data.contexts[0].relationships)) {
-                            for (let relKey in data.relationships) {
-                                if (!data.contexts[0].relationships[relKey]) {
-                                    data.contexts[0].relationships[relKey] = data.relationships[relKey];
-                                }
-                            }
-                        } else {
-                            data.contexts[0].relationships = data.relationships;
-                        }
-                    } else {
-                        let newCtxItem = {};
-                        newCtxItem.context = firstDataContext;
-                        newCtxItem.attributes = data.attributes;
-                        newCtxItem.relationships = data.relationships;
-
-                        if (_.isEmpty(data.contexts)) {
-                            data.contexts = [];
-                        }
-
-                        data.contexts.push(newCtxItem);
-                    }
-                    delete data.attributes;
-                    delete data.relationships;
-                }
-            }
-        };
-
-        DataTransformHelper._addRemoveAttributesBasedOnAdditionalContext = function (attributes, attributeModels, additionalContexts, primaryContextData) {
-            if (attributes && attributeModels && additionalContexts) {
-                Object.keys(attributeModels).filter(function (attrKey) {
-                    let attrModel = attributeModels[attrKey];
-                    if (attrModel && attrModel.properties && attributes[attrModel.name]) {
-                        let properties = attrModel.properties;
-
-                        if (properties.instanceCoalesce) {
-
-                            if (!DataTransformHelper.isAdditionalContexts(additionalContexts, properties.instanceCoalesce, "instance")) {
-                                primaryContextData.attributes[attrModel.name] = attributes[attrModel.name];
-                                delete attributes[attrModel.name];
-                            }
-                        }
-
-                        if (properties.contextCoalesce) {
-                            if (!DataTransformHelper.isAdditionalContexts(additionalContexts, properties.contextCoalesce, "context")) {
-                                primaryContextData.attributes[attrModel.name] = attributes[attrModel.name];
-                                delete attributes[attrModel.name];
-                            }
-                        }
-                    }
-                }, this);
-            }
-        };
-
-        DataTransformHelper._addRemoveRelationshipsBasedOnAdditionalContext = function (relationships, relationshipModels, additionalContexts, primaryContextData) {
-            if (relationships && relationshipModels && additionalContexts) {
-                Object.keys(relationshipModels).filter(function (relKey) {
-                    let relModel = relationshipModels[relKey][0];
-                    if (relModel && relModel.properties && relationships[relKey]) {
-                        let properties = relModel.properties;
-                        let isPrimaryContext = false;
-
-                        if (properties.instanceCoalesce) {
-                            if (!DataTransformHelper.isAdditionalContexts(additionalContexts, properties.instanceCoalesce, "instance")) {
-                                isPrimaryContext = true;
-                            }
-                        }
-
-                        if (properties.contextCoalesce) {
-                            if (!DataTransformHelper.isAdditionalContexts(additionalContexts, properties.contextCoalesce, "context")) {
-                                isPrimaryContext = true;
-                            }
-                        }
-
-                        if (isPrimaryContext) {
-                            primaryContextData.relationships[relKey] = relationships[relKey];
-                            delete relationships[relKey];
-                        }
-                    }
-                }, this);
-            }
-        };
-
-
-
-        DataTransformHelper.removeCoalescePropertiesFromRelationshipBasedOnAdditionalContext = function (relationships, relModel, additionalContexts, primaryContexts) {
-            if (relationships && relModel && additionalContexts) {
-                if (relModel.properties) {
-                    let properties = relModel.properties;
-                    let isAdditionalContextRelationship = true;
-
-                    if (properties.instanceCoalesce) {
-                        isAdditionalContextRelationship = DataTransformHelper.isAdditionalContexts(additionalContexts, properties.instanceCoalesce, "instance");
-                    }
-
-                    if (properties.contextCoalesce) {
-                        isAdditionalContextRelationship = DataTransformHelper.isAdditionalContexts(additionalContexts, properties.contextCoalesce, "context");
-                    }
-
-                    if (!isAdditionalContextRelationship) {
-                        relationships.forEach(function (rel) {
-                            if (rel.properties && rel.properties.contextCoalesce) {
-                                if (!DataTransformHelper._isPartialPrimaryContexts(primaryContexts, rel.properties.contextCoalesce)) {
-                                    delete rel.properties.contextCoalesce;
-                                }
-                            }
-                        });
-                    }
-                }
-            }
-        };
-
-        DataTransformHelper.isAdditionalContexts = function (additionalContexts, coalesceProperties, coalesceType) {
-            let isAdditionalContext = false;
-            if (additionalContexts && coalesceProperties) {
-                if (coalesceType == "instance") {
-                    if (additionalContexts.indexOf(coalesceProperties[0].coalesceSourceType) > -1) {
-                        isAdditionalContext = true;
-                    }
+                    data.contexts[0].attributes = data.attributes;
                 }
 
-                if (coalesceType == "context") {
-                    Object.keys(coalesceProperties[0]).forEach(function (ctx) {
-                        if (additionalContexts.indexOf(ctx) > -1) {
-                            isAdditionalContext = true;
+                if (!_.isEmpty(data.contexts[0].relationships)) {
+                    for (let relKey in data.relationships) {
+                        if (!data.contexts[0].relationships[relKey]) {
+                            data.contexts[0].relationships[relKey] = data.relationships[relKey];
                         }
-                    }, this);
-                }
-            }
-            return isAdditionalContext;
-        };
-
-        DataTransformHelper._isPartialPrimaryContexts = function (primaryContexts, coalesceProperties) {
-            let isPartialPrimaryContext = false;
-            if (primaryContexts && coalesceProperties) {
-                let contextKeys = Object.keys(coalesceProperties[0]);
-                if (!_.isEmpty(contextKeys)) {
-                    if (primaryContexts.length > contextKeys.length) {
-                        isPartialPrimaryContext = true;
-                    } else {
-                        primaryContexts.forEach(function (ctx) {
-                            let filteredCtxs = contextKeys.filter(v => v.toLowerCase() == ctx.toLowerCase());
-                            if (_.isEmpty(filteredCtxs)) {
-                                isPartialPrimaryContext = true;
-                            }
-                        }, this);
                     }
+                } else {
+                    data.contexts[0].relationships = data.relationships;
                 }
+            } else {
+                let newCtxItem = {};
+                newCtxItem.context = firstDataContext;
+                newCtxItem.attributes = data.attributes;
+                newCtxItem.relationships = data.relationships;
+
+                if (_.isEmpty(data.contexts)) {
+                    data.contexts = [];
+                }
+
+                data.contexts.push(newCtxItem);
             }
-            return isPartialPrimaryContext;
+            delete data.attributes;
+            delete data.relationships;
         };
 
         DataTransformHelper.getContextCoalescePaths = function (properties, dataContext) {
@@ -2136,37 +1915,6 @@
             }
 
             return contextCoalescePaths;
-        };
-
-        DataTransformHelper.getPrimaryContextFromAdditionalContext = function (additionalContexts, firstDataContext) {
-            let primaryContext = {};
-            if (additionalContexts) {
-                Object.keys(firstDataContext).forEach(function (ctxItem) {
-                    if (additionalContexts.indexOf(ctxItem) < 0) {
-                        primaryContext[ctxItem] = firstDataContext[ctxItem];
-                    }
-                }, this);
-            }
-            return primaryContext;
-        };
-
-        DataTransformHelper.getPrimaryContextKeysFromContextModel = function (contextModel, additionalContexts) {
-            let primaryContexts = [];
-            if (!_.isEmpty(additionalContexts) && !_.isEmpty(contextModel)) {
-                Object.keys(contextModel.context).filter(function (item) {
-                    if (additionalContexts.indexOf(item) < 0) {
-                        primaryContexts.push(item);
-                    }
-                }, this);
-            }
-
-            if (primaryContexts.length == 0) {
-                // "Self" is not a part of dimension selector and context models.
-                // Till the time it will become part of a context model and dimension selector "Self" (context) has to be passed hard coded if primary contetxs is empty.
-                primaryContexts.push("self")
-            }
-
-            return primaryContexts;
         };
 
         DataTransformHelper.transformLocaleEntitiesToLocalesJson = function (entities, localeColumnMapCollection, relationshipType, relationshipAttribute, threshold) {
