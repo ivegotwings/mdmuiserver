@@ -86,17 +86,15 @@
                             horizontal-offset="11" dropdown-icon on-tap="_onToggleButtonTap" disabled$="[[ctx.readonly]]">
                         </pebble-button>
                     </div>
-                    <!--<template is="dom-if" if="[[_compareRequestType(ctx.dataRequestType, 'entity')]]">-->
-                        <pebble-popover title="[[ctx.title]]" id="[[ctx.id]]-popover" for="[[ctx.id]]-toggle-button" no-overlap horizontal-align="[[horizontalAlign]]">
-                            <rock-entity-lov id="[[ctx.id]]-lov" r-data="[[ctx]]" readonly=[[readonly]] config-data-item-id="[[ctx.id]]" lazy-loading-disabled="[[_disableLazyLoad(ctx)]]" id-field="[[ctx.dataMappings.id]]"
-                                title-pattern="[[ctx.dataMappings.title]]" sub-title-pattern="[[ctx.dataMappings.subtitle]]" no-sub-title="[[_noSubtitle(ctx)]]" request-data="[[ctx.dataRequest]]" selected-items="[[_getSelectedItems(ctx.selectedItem, _contextToBeRendered)]]"
-                                selected-item="[[_getSelectedItem(ctx.selectedItem, _contextToBeRendered)]]" external-data-formatter="[[_entityExternalDataFormatter]]"
-                                type-field="[[ctx.dataMappings.type]]" sort-field="[[ctx.dataMappings.sort]]" multi-select="[[!allSingleSelect]]"
-                                show-action-buttons></rock-entity-lov>
-                        </pebble-popover>
-                        <bedrock-pubsub event-name="entity-lov-confirm-button-tap" handler="_onEntityLovConfirmButtonTapped" target-id="[[ctx.id]]-lov"></bedrock-pubsub>
-                        <bedrock-pubsub event-name="entity-lov-close-button-tap" handler="_onEntityLovCloseButtonTapped" target-id="[[ctx.id]]-lov"></bedrock-pubsub>
-                    <!--</template>-->
+                    <pebble-popover title="[[ctx.title]]" id="[[ctx.id]]-popover" for="[[ctx.id]]-toggle-button" no-overlap horizontal-align="[[horizontalAlign]]">
+                        <rock-entity-lov id="[[ctx.id]]-lov" r-data="[[ctx]]" readonly=[[readonly]] config-data-item-id="[[ctx.id]]" lazy-loading-disabled="[[_disableLazyLoad(ctx)]]" id-field="[[ctx.dataMappings.id]]"
+                            title-pattern="[[ctx.dataMappings.title]]" sub-title-pattern="[[ctx.dataMappings.subtitle]]" no-sub-title="[[_noSubtitle(ctx)]]" request-data="[[ctx.dataRequest]]" selected-items="[[_getSelectedItems(ctx.selectedItem, _contextToBeRendered)]]"
+                            selected-item="[[_getSelectedItem(ctx.selectedItem, _contextToBeRendered)]]" external-data-formatter="[[_entityExternalDataFormatter]]"
+                            type-field="[[ctx.dataMappings.type]]" sort-field="[[ctx.dataMappings.sort]]" multi-select="[[!allSingleSelect]]"
+                            show-action-buttons></rock-entity-lov>
+                    </pebble-popover>
+                    <bedrock-pubsub event-name="entity-lov-confirm-button-tap" handler="_onEntityLovConfirmButtonTapped" target-id="[[ctx.id]]-lov"></bedrock-pubsub>
+                    <bedrock-pubsub event-name="entity-lov-close-button-tap" handler="_onEntityLovCloseButtonTapped" target-id="[[ctx.id]]-lov"></bedrock-pubsub>
                 </div>
             </template>
         </div>
@@ -607,7 +605,7 @@
                                 }
                             }
 
-                            let titlePattern = "{entity.attributes." + externalAttrName + "}";
+                            let titlePattern = externalAttrName ? "{entity.attributes." + externalAttrName + "}" : "{entity.name}";
                             let subtitlePattern = "typeExternalName";
                             let mappedValueContexts = this._getMappedValueContextsBasedOnCtxType(types[0]);
 
@@ -899,20 +897,24 @@
                                                 }
 
                                                 let itemId;
+                                                let item;
                                                 if(rockLov.selectedItem && rockLov.selectedItem.type === ctxKey) {
+                                                    item = rockLov.selectedItem;
                                                     itemId = this._getItemId(rockLov.selectedItem);
                                                 }
                                                 selectedDimensions[ctxKey] = itemId ? [itemId] : [];
-                                                this.selectedDimensionsDetail[ctxKey] = !_.isEmpty(rockLov.selectedItem) ? [rockLov.selectedItem] : [];
+                                                this.selectedDimensionsDetail[ctxKey] = item ? [item]: [];
                                             } else {
                                                 //Set from navigationData
                                                 if(!_.isEmpty(defaultDimensions) && defaultDimensions[ctxKey] && !_.isEmpty(defaultDimensions[ctxKey])){
                                                     rockLov.selectedItems = this._getDefaultSelectedItems(ctxKey,defaultDimensions,rockLov.selectedItems);
                                                 }
                                                 let selectedItems = rockLov.selectedItems;
-                                                let selectedIds = this._getItemsIdsByType(selectedItems, entityTypes[j]);
+                                                let type = entityTypes[j];
+                                                let items = selectedItems ? selectedItems.filter(item => item.type === type) : undefined;
+                                                let selectedIds = this._getItemsIdsByType(items, type);
                                                 selectedDimensions[ctxKey] = selectedIds;
-                                                this.selectedDimensionsDetail[ctxKey] = selectedItems;
+                                                this.selectedDimensionsDetail[ctxKey] = items;
                                             }
                                         }
                                     }
@@ -945,7 +947,6 @@
 
                 _getItemsIdsByType(items, type) {
                     let itemsIds = [];
-                    items = items ? items.filter(item => item.type === type) : undefined;
                     if (items) {
                         for (let i = 0; i < items.length; i++) {
                             if (items[i].type === type) {
@@ -1154,7 +1155,13 @@
                                             let preselctedItem = data.find(v => preSelectedItems.find(u => u === v.id));
 
                                             if (preselctedItem) {
-                                                let name = preselctedItem.data.attributes[elementInfo.externalAttrName].values[0].value;
+                                                let name;
+                                                let path = "data.attributes." + elementInfo.externalAttrName + ".values.0.value";
+                                                if(DataHelper.isValidObjectPath(preselctedItem, path)) {
+                                                    name = preselctedItem.data.attributes[elementInfo.externalAttrName].values[0].value;
+                                                } else {
+                                                    name = preselctedItem.name;
+                                                }
                                                 let item = formattedData.find(v => v.title == name);
 
                                                 if (item) {
@@ -1211,8 +1218,14 @@
                         for (let d of data) {
                             if (d.data && d.data.relationships) {
                                 for (let rel in d.data.relationships) {
-                                    if (d.data.relationships[rel] && d.data.attributes[elementInfo.externalAttrName]) {
-                                        let name = d.data.attributes[elementInfo.externalAttrName].values[0].value;
+                                    if (d.data.relationships[rel]) {
+                                        let name;
+                                        let path = "data.attributes." + elementInfo.externalAttrName + ".values.0.value";
+                                        if(DataHelper.isValidObjectPath(d, path)) {
+                                            name = d.data.attributes[elementInfo.externalAttrName].values[0].value;
+                                        } else {
+                                            name = d.name;
+                                        }
                                         let item = formattedData.find(v => v.id == name);
 
                                         if (item && !item.relTo) {
