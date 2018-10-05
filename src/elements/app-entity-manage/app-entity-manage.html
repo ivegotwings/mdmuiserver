@@ -221,6 +221,12 @@
                             return {};
                         }
                     },
+                    _attributeModels: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
                     _entityType: {
                         type: Object,
                         value: function () {
@@ -630,7 +636,7 @@
             _onCopyActionTap() {
                 //saving entity details in session storage so we can use this later for paste
 
-                if(this.contextData && this.contextData.Contexts && this.contextData.Contexts.length>1) {
+                if(this.contextData && !_.isEmpty(this.contextData.Contexts) && Object.keys(this.contextData.Contexts[0]).length>1) {
                     this.showWarningToast("Entity paste functionality is not supported for multiple contexts");
                     return;
                 }
@@ -638,13 +644,43 @@
                 this.showSuccessToast('Entity copied successfully');
             }
 
+            _areAttributesEditable() {
+                let hasWritePermissionValues = [];
+                if(_.isEmpty(this.contextData.Contexts)) {
+                    // check for self attributes permissions
+                    if(DataHelper.isValidObjectPath(this._attributeModels, 'data.attributes')) {
+                    let attributes= this._attributeModels.data.attributes;
+                        if(!_.isEmpty(attributes)) {
+                            for (let attrName in attributes) {
+                                hasWritePermissionValues.push(attributes[attrName].properties.hasWritePermission);
+                            }
+                        }
+                    }
+                } else {
+                    // check for context attributes permissions
+                    if(DataHelper.isValidObjectPath(this._attributeModels, 'data.contexts.0.attributes')) {
+                        let attributes= this._attributeModels.data.contexts[0].attributes;
+                        if(!_.isEmpty(attributes)) {
+                            for (let attrName in attributes) {
+                                hasWritePermissionValues.push(attributes[attrName].properties.hasWritePermission);
+                            }
+                        }
+                    }
+                }
+                return !hasWritePermissionValues.every(val => val === false);
+            }
             _onPasteActionTap(e, detail) {
                 if (!detail || !detail.data) {
                     return;
                 }
 
-                if(this.contextData && this.contextData.Contexts && this.contextData.Contexts.length>1) {
+                if(this.contextData && !_.isEmpty(this.contextData.Contexts) && Object.keys(this.contextData.Contexts[0]).length>1) {
                     this.showWarningToast("Entity paste functionality is not supported for multiple contexts");
+                    return;
+                }
+
+                if(!this._areAttributesEditable()) {
+                    this.showWarningToast("You do not have permissions to edit this entity");
                     return;
                 }
 
@@ -737,7 +773,10 @@
                 let contextData = DataHelper.cloneObject(this.contextData);
                 this.contextData = {};
                 this.contextData = contextData;
-
+                
+                if(this.contextData.Contexts && !_.isEmpty(this.contextData.ValContexts)) {
+                    this._triggerManageAttributes();
+                }
                 this._reRenderOnDimensionChange(false);
             }
             _onComponentCreating(e, detail) {
@@ -998,8 +1037,9 @@
                     this.logError("Link Assets - Composite model get response error", detail);
                 }
             }
+
             _triggerManageAttributes() {
-                if (!this.compositeAttrModelGetLiq) {
+                if (!this.compositeAttrModelGetLiq) {   
                     return;
                 }
 
@@ -1007,7 +1047,6 @@
                 delete request.params.fields.relationships;
                 delete request.params.fields.relationshipAttributes;
                 request.params.fields.attributes = ["_ALL"];
-
                 this.compositeAttrModelGetLiq.requestData = request;
                 this.compositeAttrModelGetLiq.generateRequest();
             }
@@ -1015,27 +1054,27 @@
                 let groupAttributes = [];
                 if (detail && DataHelper.validateGetModelsResponse(detail.response)) {
                     if (DataHelper.isValidObjectPath(detail, "response.content.entityModels.0")) {
+                        this._attributeModels = detail.response.content.entityModels[0];
                         let attributes = DataTransformHelper.transformAttributeModels(detail.response.content.entityModels[0], this.contextData);
-                        for (let key in attributes) {
-                            if (!_.isEmpty(this.manageAttributeByProperty)) {
-                                if (attributes[key].properties[this.manageAttributeByProperty
-                                    .propertyName] ==
-                                    this.manageAttributeByProperty.propertyValue) {
-                                    groupAttributes.push(key);
+                        if(this.manageAttrGroups && this.manageAttributeByProperty) {
+                                for (let key in attributes) {
+                                    if (!_.isEmpty(this.manageAttributeByProperty)) {
+                                        if (attributes[key].properties[this.manageAttributeByProperty
+                                            .propertyName] ==
+                                            this.manageAttributeByProperty.propertyValue) {
+                                            groupAttributes.push(key);
+                                        }
+                                    }
+                                    if (this.manageAttrGroups && this.manageAttrGroups.length > 0) {
+                                        if (this.manageAttrGroups.indexOf(attributes[key].properties
+                                            .groupName) !=
+                                            -1) {
+                                            groupAttributes.push(key);
+                                        }
+                                    }
                                 }
-                            }
-                            if (this.manageAttrGroups.length > 0) {
-                                if (this.manageAttrGroups.indexOf(attributes[key].properties
-                                    .groupName) !=
-                                    -1) {
-                                    groupAttributes.push(key);
-                                }
-                            }
-                        }
-                    }
-                }
 
-                // Merge config attributes and group attributes
+                                                // Merge config attributes and group attributes
                 let allAttrNames;
                 if (!_.isEmpty(this.manageAttributeByProperty)) {
                     allAttrNames = groupAttributes;
@@ -1047,6 +1086,9 @@
                     this._openManageAttributesDialog(this.manageAttrLabel, allAttrNames);
                 } else {
                     this.logError("Manage Attributes - Composite model get response error", detail);
+                }
+                        }
+                    }
                 }
             }
             _triggerManageRelationships(relationshipTypeName) {
