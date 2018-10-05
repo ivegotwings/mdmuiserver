@@ -137,74 +137,21 @@
 
             if (!itemContext) return ctxData;
 
-            let dataContexts = DataHelper.cloneObject(this.getDataContexts());
-            let valContexts = DataHelper.cloneObject(this.getValueContexts());
+            let dataContexts = ContextHelper.getDataContexts(context);
+            let valContexts = ContextHelper.getValueContexts(context);
             let domainContexts = DataHelper.cloneObject(this.getDomainContexts());
             let userContexts = DataHelper.cloneObject(this.getUserContexts());
 
             itemContext.attributeNames = this.configContext.attributeNames;
             ctxData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
-            ctxData[ContextHelper.CONTEXT_TYPE_VALUE] = [];
-            ctxData[ContextHelper.CONTEXT_TYPE_DATA] = [];
+            ctxData[ContextHelper.CONTEXT_TYPE_VALUE] = valContexts;
+            ctxData[ContextHelper.CONTEXT_TYPE_DATA] = dataContexts;
             ctxData[ContextHelper.CONTEXT_TYPE_DOMAIN] = [];
 
             ctxData[ContextHelper.CONTEXT_TYPE_USER] = userContexts;
             ctxData[ContextHelper.CONTEXT_TYPE_DOMAIN] = domainContexts;
 
-            if (!context || (context.type !== 'value' && context.type !== 'data')) {
-                ctxData[ContextHelper.CONTEXT_TYPE_DATA] = dataContexts;
-                ctxData[ContextHelper.CONTEXT_TYPE_VALUE] = valContexts;
-
-                return ctxData;
-            }
-
-            if (context.type == "value") {
-                ctxData[ContextHelper.CONTEXT_TYPE_DATA] = dataContexts;
-
-                if (valContexts && valContexts.length) {
-                    valContexts.forEach(function (valCtx) {
-                        if (valCtx[context.name] == context.value) {
-                            ctxData[ContextHelper.CONTEXT_TYPE_VALUE].push(valCtx);
-                        }
-                    });
-                }
-            } else if (context.type == "data") {
-                ctxData[ContextHelper.CONTEXT_TYPE_VALUE] = valContexts;
-
-                if (dataContexts && dataContexts.length) {
-                    dataContexts.forEach(function (dataCtx) {
-                        if (dataCtx[context.name] == context.value) {
-                            ctxData[ContextHelper.CONTEXT_TYPE_DATA].push(dataCtx);
-                        }
-                    });
-                }
-            }
-
             return ctxData;
-        },
-
-        _prepareFlatContext: function (contexts, formattedContext, contextType) {
-            if (!contexts || !contexts.length || !formattedContext) return;
-
-            contexts.forEach(dataCtx => Object.keys(dataCtx).forEach(item => {
-                const contextValue = dataCtx[item];
-
-                let formattedContextItem = formattedContext[item];
-
-                if (!formattedContextItem) {
-                    formattedContextItem = formattedContext[item] = [];
-                }
-
-                const _isContextExist = this._isContextExist(formattedContextItem, contextValue);
-
-                if (!contextValue || _isContextExist) return;
-
-                formattedContextItem.push({
-                    "type": contextType,
-                    "name": item,
-                    "value": contextValue
-                });
-            }));
         },
 
         _computeScreens: function (contextData, configContext) {
@@ -213,34 +160,26 @@
             let valContexts = this.getValueContexts();
             let dataContexts = this.getDataContexts();
 
-            let allContexts = {};
-            this._prepareFlatContext(valContexts, allContexts, "value");
-            this._prepareFlatContext(dataContexts, allContexts, "data");
-
             let localeManager = ComponentHelper.getLocaleManager();
 
-            const _contexts = Object.keys(allContexts).reduce((res, key, i) => {
-                const ctx = allContexts[key];
+            let _contexts = [];
 
-                if (ctx.length > 1) {
-                    for (let i = 0; i < ctx.length; i++) {
-                        const ctxElement = ctx[i];
-                        ctxElement["header"] = ctxElement.value;
-                        if (ctxElement.name && (ctxElement.name == "locale")) {
-                            let _localeObj = localeManager.getByName(ctxElement.value);
-                            if (!_.isEmpty(_localeObj) && _localeObj.externalName) {
-                                ctxElement["header"] = _localeObj.externalName;
-                            }
-                        }
-                    }
+            dataContexts.forEach(dataCtx => valContexts.forEach(valCtx => {
+                let ctxData = {};
+                ctxData[ContextHelper.CONTEXT_TYPE_DATA] = [dataCtx];
+                ctxData[ContextHelper.CONTEXT_TYPE_VALUE] = [valCtx];
 
-                    res.push(...ctx);
-                }
-
-                return res;
-            }, []);
-
-            this._contexts = _contexts.length ? _contexts : allContexts[Object.keys(allContexts)[0]];
+                _contexts.push(ctxData);
+            }, this), this);
+            /**
+             * right now if we have no of screens more than 4, the width allocated to
+             * each screen is 50%. Untill 4 screens it is total available width/noOfScreens.
+             * As we are allocating 50% width for each when noOfScreens > 4, because of attributes
+             * lazy loading feature in attribute-manage, only screens which are active in view(i.e., first 2 screens)
+             * rendering. Remaining all loading blank. Hence restricting max noOfScreens to 4 for now.
+             * We have a bug logged for this: 287749
+             * */
+            this._contexts = _contexts.length ? _contexts.slice(0,4) : undefined;
             if (!this._contexts) return;
             this.noOfScreens = this._contexts.length;
         },
@@ -261,7 +200,7 @@
 
         _getTitle: function (context) {
             let titleItem = [];
-            let contextData = this._getContextData(context);
+            let contextData = context;
             let dataContexts = ContextHelper.getFirstDataContext(contextData);
             let valueContexts = ContextHelper.getFirstValueContext(contextData);
 
