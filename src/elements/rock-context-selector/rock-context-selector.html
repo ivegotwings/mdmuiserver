@@ -229,10 +229,6 @@
                                 return [];
                             }
                         },
-                        _isContextLoad: {
-                            type: Boolean,
-                            value: false
-                        },
                         _currentContextSelector: {
                             type: Object,
                             value: function () {
@@ -346,27 +342,63 @@
                     }
                 }
 
+                _prepareConfigForDynamicDimensions(configData) {
+                    if (this.dynamicDimensionsConfig) {
+                        let selectedDimensions = this.dynamicDimensionsConfig.selectedDimensions;
+                        let readonlyDimensions = this.dynamicDimensionsConfig.readonlyDimensions;
+                        let contextDimensions = this.dynamicDimensionsConfig.contextDimensions;
+
+                        for (let i = 0; i < configData.length; i++) {
+                            //Attribute mappings selected dimensions
+                            if (selectedDimensions) {
+                                let selectedDimension = selectedDimensions[configData[i].id];
+                                if (!_.isEmpty(selectedDimension)) {
+                                    configData[i].selectedItem = {
+                                        "id": selectedDimension[0],
+                                        "title": selectedDimension[0],
+                                        "type": configData[i].id
+                                    }
+                                }
+                            }
+
+                            //Readonly dimensions
+                            if (readonlyDimensions.indexOf(configData[i].id) != -1) {
+                                configData[i].readonly = true;
+                            }
+                        }
+
+                        //Additional dimensions
+                        if (contextDimensions) {
+                            for (let i = 0; i < contextDimensions.length; i++) {
+                                configData.push(this._prepareContextTemplate(contextDimensions[i]));
+                            }
+                        }
+                    }
+
+                    return configData
+                }
+
+                _prepareContextTemplate(context) {
+                    return {
+                        "id": context,
+                        "title": context,
+                        "icon": "pebble-icon:hierarchy",
+                        "visible": true,
+                        "hidden": false,
+                        "contextType": "data",
+                        "default": ""
+                    }
+                }
+
                 _configChanged(configData, entityType, domain) {
                     this.entityType = entityType;
                     if (configData && configData.length) {
-                        if (!this._isContextLoad) {
-                            configData.forEach(function (item) {
-                                if (item && item.useContextModel) {
-                                    this._isContextLoad = true;
-                                }
-                            }, this);
+                        if (domain) {
+                            this._domainChanged(domain);
                         }
 
-                        if (this._isContextLoad) { 
-                            if (domain) {
-                                this._domainChanged(domain);
-                            }
-
-                            if (!_.isEmpty(entityType)) {
-                                this._entityTypeChanged(entityType);
-                            }
-                        } else {
-                            this._loadConfigBasedDimensions();
+                        if (!_.isEmpty(entityType)) {
+                            this._entityTypeChanged(entityType);
                         }
                     }
                 }
@@ -383,65 +415,15 @@
                     }
                 }
 
-                _loadConfigBasedDimensions() {
-                    let ctxIds = [];
-                    if (this.configData && this.configData.length) {
-                        this.configData.forEach(function (item) {
-                            if (item.dataMappings && item.dataMappings.type && item.dataMappings.type) {
-                                let type = item.dataMappings.type[0];
-
-                                if (type) {
-                                    ctxIds.push(type + "_entityManageModel");
-
-                                    if (this._contextHierarchy.indexOf(type) < 0) {
-                                        this._contextHierarchy.push(type);
-                                    }
-                                }
-                            }
-                        }, this);
-                    }
-
-                    if (ctxIds && ctxIds.length) {
-                        this._entityModelRequest = {
-                            "params": {
-                                "query": {
-                                    "ids": ctxIds,
-                                    "filters": {
-                                        "typesCriterion": [
-                                            "entityManageModel"
-                                        ]
-                                    }
-                                },
-                                "fields": {
-                                    "attributes": [
-                                        "_ALL"
-                                    ]
-                                }
-                            }
-                        };
-
-                        let entityModelGetComponent = this.$$("#entityModelGet");
-
-                        if (entityModelGetComponent) {
-                            entityModelGetComponent.generateRequest();
-                        }
-                    }
-                }
-
                 async _processContextModel(domain) {
                     let entityContextModel = await ContextModelManager.getByDomain(domain);
                     if(entityContextModel) {
                         let contexts = "data" in entityContextModel ? entityContextModel.data.contexts : undefined;
                         let _ctxKeys = [];
 
-                        this._contextHierarchyInfo = DataHelper.isValidObjectPath(entityContextModel, "properties.coalesceInfo") && entityContextModel.properties.coalesceInfo;
+                        this._contextHierarchyInfo = await ContextModelManager.getContextHeirarchyInfoBasedOnDomain(domain);
 
                         if (!_.isEmpty(this._contextHierarchyInfo)) {
-                            this._contextHierarchyInfo.sort(function(a,b) {
-                                if(a.sequence && b.sequence) {
-                                    return a.sequence - b.sequence;
-                                }
-                            });
                             this._contextHierarchyInfo.forEach(function(ctx) {
                                 if(ctx.contextKey && this._contextHierarchy.indexOf(ctx.contextKey) < 0) {
                                     this._contextHierarchy.push(ctx.contextKey);
@@ -479,35 +461,28 @@
                         let ctxIds = [];
                         if (this.configData && this.configData.length) {
                             let _self = this;
-                            this.configData.forEach(function (item) {
-                                if (item.dataMappings && item.dataMappings.type) {
-                                    if (!item.useContextModel) {
-                                        let types = item.dataMappings.type;
-
-                                        if (!_.isEmpty(types)) {
-                                            types.forEach(function(type) {
-                                                ctxIds.push(type + "_entityManageModel");
-
-                                                if (_self._contextHierarchy.indexOf(type) < 0) {
-                                                    _self._contextHierarchy.push(type);
-                                                }
-                                            });
-                                        }
-                                    } else if (item.useContextModel) {
-                                        let types = item.dataMappings.type;
-
-                                        if (!_.isEmpty(types)) {
-                                            types.forEach(function(type) {
-                                                ctxIds.push(type + "_entityManageModel");
-
-                                                if (_self._contextHierarchy.indexOf(type) < 0) {
-                                                    _self._contextHierarchy.push(type);
-                                                }
-                                            });
-                                        }
-                                    }
+                            for(let idx = 0; idx < this.configData.length; idx++) {
+                                let item = this.configData[idx];
+                                let types;
+                                if(item.id === "context") {
+                                    types = await ContextModelManager.getContextTypesBasedOnDomain(domain);
+                                } else {
+                                    types = [item.id];
                                 }
-                            }, this);
+                                
+                                item.dataMappings = { type: types };
+                                if (!_.isEmpty(types)) {
+                                    types.forEach(function(type) {
+                                        ctxIds.push(type + "_entityManageModel");
+
+                                        if (_self._contextHierarchy.indexOf(type) < 0) {
+                                            _self._contextHierarchy.push(type);
+                                        }
+                                    }, this);
+                                } else {
+                                    this.logError(this.appName + "-Context Selector - types not defined for " + item.id + " in context model");
+                                }
+                            }
                         }
 
                         if (ctxIds && ctxIds.length) {
@@ -593,7 +568,6 @@
 
                             if (externalNameAndExternalNameAttr) {
                                 externalAttrName = externalNameAndExternalNameAttr.externalNameAttr;
-                                ctxExtName = !_.isEmpty(externalNameAndExternalNameAttr.externalName) ? externalNameAndExternalNameAttr.externalName : ctxExtName;
                             } else {
                                 this.logError(this.appName + "-Context Selector - None of the attributes in the model " + entityModel.id + " marked with 'isExternalName' flag", entityModel);
                             }
@@ -628,66 +602,28 @@
                                 "title": ctxExtName,
                                 "ctxName": ctxKey,
                                 "externalAttrName": externalAttrName,
-                                "dataRequestType": "entity",
                                 "dataRequest": reqData,
                                 "mappedValueContexts": mappedValueContexts,
-                                "contextType": item.dimensionType,
+                                "icon": item.icon,
+                                "hidden": item.hidden,
+                                "contextType": item.contextType,
                                 "dataMappings": {
                                     "id": "name",
                                     "title": titlePattern,
                                     "subtitle": subtitlePattern,
-                                    "type": types
-                                }
+                                    "type": types,
+                                    "sort": titlePattern
+                                },
+                                "selectedItem": item.selectedItem
                             };
 
                         }, this);
 
-                        this._mergeConfigAndDynamicConfigForContextRender(ctxs);
+                        this._renderContextSelector(ctxs);
                     }
                 }
 
-                _mergeConfigAndDynamicConfigForContextRender(ctxs) {
-                    this.configData.forEach(function (item) {
-                        if (item) {
-                            let ctx = ctxs[item.id];
-
-                            if (ctx) {
-                                let mergedCtx = undefined;
-
-                                ctx = { "config": ctx };
-
-                                // Deleting external dataMappings id and title coming from config
-                                // Because assumption is for any entity-lov iExternalName attribute will be title of it.
-                                if ("dataMappings" in item) {
-                                    delete item.dataMappings.title;
-                                    delete item.dataMappings.subtitle;
-                                }
-
-                                item = { "config": item };
-
-                                mergedCtx = SharedUtils.DataObjectFalcorUtil.mergeObjectsNoOverride(ctx, item, true);
-
-                                if (mergedCtx && mergedCtx.config) {
-                                    ctx = mergedCtx.config;
-                                }
-                            } else {
-                                if (item.dimensionType == "data" && item.dataRequestType == "entity-context") {
-                                    ctx = item;
-                                    ctx.dataMappings = {
-                                        "id": "name",
-                                        "title": "name",
-                                        "type": [
-                                            item.id
-                                        ]
-                                    }
-                                    ctxs[item.id] = ctx;
-                                } else if (!this._isContextLoad) {
-                                    ctxs[item.id] = item;
-                                }
-                            }
-                        }
-                    }, this);
-
+                _renderContextSelector(ctxs) {
                     let parsedContexts = [];
                     if(!_.isEmpty(ctxs)) {
                         Object.keys(ctxs).forEach(function(ctxKey) {
@@ -860,9 +796,7 @@
                 _updateSelectedDimensions() {
                     Polymer.Debouncer.debounce(this._debouncer, Polymer.Async.timeOut.after(100), () => {
                         this._setSelectedDimensions();
-                        if (this._isContextLoad) {
-                            this._updateCurrentContextState();
-                        }
+                        this._updateCurrentContextState();
                         this.contextSelectorRefresh = false;
                     });
                 }
@@ -1045,7 +979,7 @@
                                     // This list will be used when dependent lov will get reset with related entities which are mapped to current context as relationship.
                                     this._setDependentValCtxLovRelationships(ctxType, selectedItems, dependentLovRelationships);
 
-                                    if(ctxData && ctxData.dimensionType == "value") {
+                                    if(ctxData && ctxData.contextType == "value") {
                                         let reqData = ctxData.dataRequest;
                                         if(DataHelper.isValidObjectPath(reqData, "params.query")) {
                                             if (!_.isEmpty(dependentLovRelationships[ctxType])) {
@@ -1070,7 +1004,7 @@
 
                 _isRootContextChanged() {
                     let isRootCtxhanged = false;
-                    let rootContext = this.configData.filter(item => item.dimensionType === "data");
+                    let rootContext = this.configData.filter(item => item.contextType === "data");
                     if(rootContext && rootContext.dataMapping && rootContext.dataMapping.type && !_.isEmpty(rootContext.dataMapping.type)) {
                         let rootContextTypes = rootContext.dataMapping.type;
                         for(let i=0; i<rootContextTypes.length; i++) {
@@ -1138,7 +1072,7 @@
                             let _domHost = _rData ? this : this.domHost;
                             _domHost._setDepenedencyRelationshipAndPreSelectedItems(data, formattedData, elementInfo);
 
-                            if (elementInfo.dimensionType.toLowerCase() == "value" && DataHelper.isValidObjectPath(this.requestData, "params.query.ids")) {
+                            if (elementInfo.contextType.toLowerCase() == "value" && DataHelper.isValidObjectPath(this.requestData, "params.query.ids")) {
                                 let selectedItemIds = this.selectedItems.map(v => v.id);
                                 let selectedItems = [];
                                 if (selectedItemIds) {
@@ -1184,7 +1118,7 @@
 
                             if(!_.isEmpty(_domHost.entityId) && 
                                 !_.isEmpty(_domHost.entityType) && 
-                                elementInfo.dimensionType === "data") {
+                                elementInfo.contextType === "data") {
                                     let entities = [];
                                     if(!_.isEmpty(_domHost._entityContexts)) {
                                         _domHost._entityContexts.forEach(function(ctx) {
