@@ -9,8 +9,7 @@
 
 <link rel="import" href="../liquid-dataobject-utils/liquid-dataobject-utils.html">
 <link rel="import" href="../liquid-base-behavior/liquid-base-behavior.html">
-<script src="../app-main/globals.js"></script>
-
+<script src="../app-main/ProgressTracker.js"></script>
 <script>
     /*
      * <i><b>Content development is under progress... </b></i>
@@ -121,7 +120,6 @@
             }
     
             this._addRequestCount();
-            this._handleProgress();
             this.push("activeRequests", request);
             this._setLastRequest(request);
 
@@ -131,10 +129,11 @@
 
             request.originalRequest = DataHelper.cloneObject(request);
             request.applyLocaleCoalesce = this.applyLocaleCoalesce;
-            request.dataSubIndex = this.dataSubIndex;
+            request.useDataCoalesce = this.useDataCoalesce;
             if (this.applyLocaleCoalesce) {
                 await this._updateValueContextsWithFallbackLocales(request.requestData);
             }
+
             this._setLoading(true);
             let model = RUFBehaviors.DataChannel.getModel(this.dataIndex);
 
@@ -147,6 +146,7 @@
 
             return request;
         },
+
         _updateValueContextsWithFallbackLocales: async function (reqData) {
             if (reqData.params && reqData.params.query && reqData.params.query.valueContexts) {
                 let valContexts = DataHelper.cloneObject(reqData.params.query.valueContexts);
@@ -167,6 +167,7 @@
                 }
             }
         },
+        
         _updateDataIndexBasedOnType: async function (requestData) {
             if (requestData) {
                 let entityType, domain;
@@ -188,33 +189,27 @@
 
                             if (!_.isEmpty(dataIndex)) {
                                 this.dataIndex = dataIndex;
-    
-                                // TODO:: Need to come up with some good solution for dataSubIndex.
-                                let pathKeys = SharedUtils.DataObjectFalcorUtil.getPathKeys();
-                                if(DataHelper.isValidObjectPath(pathKeys, "dataIndexInfo." + dataIndex + ".dataSubIndexInfo")) {
-                                    let dataSubIndexs = Object.keys(pathKeys.dataIndexInfo[dataIndex].dataSubIndexInfo);
-
-                                    if(dataSubIndexs) {
-                                        this.dataSubIndex = this.dataSubIndex.indexOf("coalesced") > -1 ? dataSubIndexs.find(v => v.indexOf("coalesced") > -1) : dataSubIndexs.find(v => v.indexOf("coalesced") == -1);
-                                    }
-                                }
                             }
                         }
                     }
                 }
             }
         },
+
         _executeRequest: function (model, request) { // eslint-disable-line no-unused-vars
             //abstract method....do nothing...all elements implementing this behavior must implement this method
         },
+
         _formatResponse: function (request, rawResponsePkg) {
             return rawResponsePkg;
             //abstract method....do nothing...all elements implementing this behavior must implement this method
         },
+        
         _validateAutoTriggerChanges: function (requestData, operation, requestId) { // eslint-disable-line no-unused-vars
             return true;
             //abstract method....do nothing...all elements implementing this behavior must implement this method
         },
+        
         _createRequest: function () {
             if (this.includeTypeExternalName) {
                 this.requestData.includeTypeExternalName = true;
@@ -225,6 +220,7 @@
                 "requestData": this.requestData
             };
         },
+        
         _getLogDetail: function (request) {
             return {
                 "operation": request.operation,
@@ -232,6 +228,7 @@
                 "requestId": this.requestId === undefined ? "" : this.requestId
             };
         },
+        
         _logOnError: function (request, res) {
             if (_.isEmpty(res) || _.isEmpty(res.json) || _.isEmpty(res.json.root)) {
                 let message = "RUF_UI_LIQUID_EMPTY_RESPONSE";
@@ -239,6 +236,7 @@
                 RUFUtilities.Logger.error(message, logDetail, "liquid-manager");
             }
         },
+        
         _handleModelResponse: function (request, modelResponse) {
             let self = this;
             if (modelResponse && modelResponse.then) {
@@ -267,24 +265,31 @@
                 return false;
             }
         },
+        
         _handleResponse: async function (request, responsePkg) {
             if (this.verbose) {
                 console.log("_handleResponse called with :", request, responsePkg);
             }
+
             let formattedResponse = await this._formatResponse(request, responsePkg);
+
             if (request.applyLocaleCoalesce) {
                 formattedResponse = await DataTransformHelper.transformDataToLocaleCoalescedData(formattedResponse, request.originalRequest.requestData);
             }
-            if (request.dataSubIndex === "coalescedData") {
+
+            if (request.useDataCoalesce) {
                 formattedResponse = DataTransformHelper.transformDataToContextCoalescedData(formattedResponse, request.originalRequest.requestData);
             }
+
             let response = this._createSuccessResponse(request, formattedResponse);
             let utils = SharedUtils.DataObjectFalcorUtil;
+
             if (utils.compareObjects(request, this.lastRequest)) {
                 this._setLastResponse(response);
                 this._setLastError(null);
                 this._setLoading(false);
             }
+
             let eventDetail = {
                 detail: {
                     "request": request,
@@ -293,6 +298,7 @@
                 bubbles: this.bubbles,
                 composed: true
             };
+
             if (this.verbose) {
                 //console.log('firing liquid-response event with event detail ', JSON.stringify(eventDetail, null, 4));
                 console.log("firing liquid-response event with event detail ", eventDetail);
@@ -307,11 +313,11 @@
                 bubbles: this.bubbles,
                 composed: true
             }));
-            this._discardRequest(request);
 
+            this._discardRequest(request);
             this._addResponseCount();
-            this._handleProgress();
         },
+        
         _handleError: function (request, errorPkg) {
             let errResponse = this._createErrorResponse(request, errorPkg);
             if (this.verbose) {
@@ -344,8 +350,8 @@
             this._discardRequest(request);
 
             this._addResponseCount();
-            this._handleProgress();
         },
+        
         /**
           * Content is not appearing - Content development is under progress.
           */
@@ -358,96 +364,26 @@
                 }
             }
         },
+        
         _addResponseCount: function () {
             if (!this.excludeInProgress) {
-                Globals.responseCount++;
-
-                if (this.verbose) {
-                    console.log("Response #{0} ------ for liquid name / host: {1} / {2}".format(Globals.responseCount, this.localName, this.domHost.localName));
-                }
+                ProgressTracker.markWorkUnitDone();
             }
         },
-
-        _retry: function () {
-            Polymer.Async.timeOut.after(300).run(() => {
-                if (!Globals.progressBar) {
-                    this._retry();
-                } else {
-                    Polymer.Async.timeOut.after(12000).run(() => {
-                        if (!Globals.progressBar) {
-                            return;
-                        }
-
-                        Globals.progressBar.value = 1000;
-                        Polymer.Async.timeOut.after(1000).run(() => {
-                            Globals.progressBar.value = 0;
-                            Globals.progressBar.secondaryProgress = 0;
-                            Globals.progressOver = true;
-                        });
-                    });
-                    return;
-                }
-            });
-        },
+        
         _addRequestCount: function () {
             if (!this.excludeInProgress) {
-                if (Globals.requestCount == 0) {
-                    if (!Globals.progressBar) {
-                        this._retry();
-                    } else {
-                        Polymer.Async.timeOut.after(12000).run(() => {
-                            Globals.progressBar.value = 1000;
-                            Polymer.Async.timeOut.after(1000).run(() => {
-                                Globals.progressBar.value = 0;
-                                Globals.progressBar.secondaryProgress = 0;
-                                Globals.progressOver = true;
-                            });
-                        });
-                    }
-                }
-                Globals.requestCount++;
-                if (this.verbose) {
-                    console.log("Request #{0} ------ for liquid name / host: {1} / {2}".format(Globals.requestCount, this.localName, this.domHost.localName));
-                }
+                ProgressTracker.addNewWorkUnit();
             }
         },
-        _handleProgress: function () {
-            let updateProgress = this._updateProgressBar;
-            let resetProgress = this._resetProgressBar;
-
-            let debounceProgressBar = _.debounce(function () {
-                updateProgress(resetProgress);
-            }, 200);
-
-            debounceProgressBar();
-        },
-        _updateProgressBar: function (resetProgress) {
-            if (!Globals.progressBar || Globals.progressOver) {
-                return;
-            }
-
-            if (Globals.requestCount > 0) {
-                let step = (Globals.progressBar.max / 10) / (Globals.requestCount);
-                Globals.progressBar.value = 200 + Globals.currentProgress + (step * Globals.progressUpdater * Globals.responseCount / Globals.requestCount);
-                Globals.progressBar.secondaryProgress = Globals.progressBar.max;//Globals.progressBar.value * 10 * Math.random();
-                let debounceProgressBar = _.debounce(function () {
-                    resetProgress();
-                }, 1000);
-                debounceProgressBar();
-            }
-        },
-        _resetProgressBar: function () {
-            if (Globals.requestCount == Globals.responseCount) {
-                Globals.progressUpdater = Globals.progressUpdater + 0.2;
-                Globals.currentProgress = Globals.progressBar.value;
-            }
-        },
+        
         _createSuccessResponse: function (request, data) {
             return {
                 "status": "success",
                 "content": DataHelper.cloneObject(data)
             };
         },
+        
         _createErrorResponse: function (request, reason) {
 
             let errorMessage = "Failed to submit request. Retry after sometime.";
@@ -473,12 +409,14 @@
             }
             return result;
         },
+        
         _discardRequest: function (request) {
             let requestIndex = this.activeRequests.indexOf(request);
             if (requestIndex > -1) {
                 this.splice("activeRequests", requestIndex, 1);
             }
         },
+        
         _requestOptionsChanged: function (reqData, operation, requestId) {
             if (!(reqData === undefined || operation === undefined || requestId === undefined)) {
                 this._debouncer = Polymer.Debouncer.debounce(this._debouncer, Polymer.Async.timeOut.after(this.debounceDuration), () => {
@@ -493,6 +431,7 @@
                 });
             }
         },
+        
         _isDataIndexUpdateRequired: function (reqData) {
             let isDataIndexUpdateRequired = false;
             if (reqData.params && this.dataIndex != "config") {

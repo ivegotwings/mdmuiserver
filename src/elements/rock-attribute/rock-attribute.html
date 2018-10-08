@@ -28,6 +28,7 @@
 <link rel="import" href="../pebble-info-icon/pebble-info-icon.html">
 <link rel="import" href="../rock-entity-combo-box/rock-entity-combo-box.html">
 <link rel="import" href="../rock-nested-attribute-grid/rock-nested-attribute-grid.html">
+<link rel="import" href="../rock-path-selector/rock-path-selector.html">
 
 <link rel="import" href="pebble-error-list.html">
 <!--
@@ -514,7 +515,7 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                         </template>
                         <!-- TEXTBOX-COLLECTION -->
                         <template is="dom-if" if="[[_isTextboxCollection(attributeModelObject)]]">
-                            <div class="text-collection-container">
+                        <div class="text-collection-container">
                                 <pebble-textbox-collection label="{{_getLabel(attributeModelObject.externalName)}}" id="txtCollection" no-label-float="[[noLabelFloat]]"
                                     description-object="[[_getDescriptionObject()]]" values="{{attributeObject.value}}" tabindex="[[tabindex]]"
                                     selected-values-color="[[_fallbackColor]]" selected-values-font-style="[[_coalescedFontStyle]]">
@@ -527,6 +528,11 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                             <pebble-textbox id="input" label="{{_getLabel(attributeModelObject.externalName)}}" value="{{attributeObject.value}}" maxlength="[[attributeModelObject.maxLength]]"
                                 invalid="{{invalid}}" no-label-float="[[noLabelFloat]]" description-object="[[_getDescriptionObject()]]"
                                 tabindex="[[tabindex]]"></pebble-textbox>
+                        </template>
+
+                        <template is="dom-if" if="[[_isPathSelector(attributeModelObject)]]">
+                               <rock-path-selector values="{{attributeObject.value}}" path-entity-type=[[pathEntityType]] path-relationship-name=[[pathRelationshipName]]  root-node="[[_rootNode]]" multi-select="[[_isMultiSelect(attributeModelObject)]]" context-data="[[contextData]]" is-readonly="[[isReadonly]]" label="{{_getLabel(attributeModelObject.externalName)}}" no-label-float="[[noLabelFloat]]" dialog-title="[[_dialogTitle]]" leaf-node-only="[[_isLeafNodeOnly(attributeModelObject)]]" attribute-external-name="{{_getLabel(attributeModelObject.externalName)}}" path-seperator="[[_pathSeperator]]">
+                             </rock-path-selector>
                         </template>
                     </div>
                 </template>
@@ -555,6 +561,11 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                             </pebble-textbox-collection>
                         </div>
                     </template>
+
+                <template is="dom-if" if="[[_isPathSelector(attributeModelObject)]]">
+                    <rock-path-selector values="{{attributeObject.value}}" context-data="[[contextData]]" is-readonly label="{{_getLabel(attributeModelObject.externalName)}}" no-label-float="[[noLabelFloat]]">
+                    </rock-path-selector>
+                </template>
 
                 </template>
 
@@ -904,7 +915,28 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                     hideRevertAndHistory: {
                         type: Boolean,
                         value: false
+                    },
+                    _rootNode:{
+                        type: String,
+                        value: ""
+                    },
+                    pathEntityType:{
+                        type:String,
+                        value:""
+                    },
+                    pathRelationshipName:{
+                        type:String,
+                        value:""
+                    },
+                    _dialogTitle:{
+                        type:String,
+                        value:""
+                    },
+                    _pathSeperator:{
+                        type:String,
+                        value:""
                     }
+
                 }
             }
             ready() {
@@ -1001,7 +1033,7 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                     (!this._isTextArea(model) && !this._isDropDown(model) &&
                         !this._isBoolean(model) && !this._isDate(model) &&
                         !this._isDateTime(model) && !this._isTextboxCollection(model) &&
-                        !this._isLOV(model) && !this._isRichTextEditor(model)) && !this._isNested(model);
+                        !this._isLOV(model) && !this._isRichTextEditor(model)) && !this._isNested(model) && !this._isPathSelector(model);
             }
             _isTextArea(model) {
                 return model.displayType && model.displayType.toLowerCase() === "textarea";
@@ -1035,10 +1067,16 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
             }
             _useDefaultReadMode(model) {
                 let displayType = model.displayType ? model.displayType.toLowerCase() : "";
-                return !(model.isCollection || displayType === "referencelist" || displayType ===
+                return !(model.isCollection || displayType === "referencelist" || displayType === "path" || displayType ===
                     "richtexteditor" || displayType === "nestedgrid");
             }
             _isCollection(model) {
+                return model.isCollection;
+            }
+            _isMultiSelect(model) {
+                return model.isCollection;
+            }
+            _isLeafNodeOnly(model) {
                 return model.isCollection;
             }
             _isGridOrNested(model) {
@@ -1046,6 +1084,9 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
             }
             _isNested(model) {
                 return model.displayType && model.displayType.toLowerCase() === "nestedgrid";
+            }
+            _isPathSelector(model){
+                return model.displayType && model.displayType.toLowerCase() === "path";
             }
             _onEditClick(e) {
                 if (e.currentTarget.disabled) {
@@ -1118,6 +1159,36 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                         composed: true
                     }));
                 }
+
+                if(this.attributeModelObject.displayType == "path"){
+                    if(!_.isEmpty(this.attributeModelObject)){
+                        let attrModelObj = this.attributeModelObject;
+                    
+                        if(attrModelObj.pathEntityInfo){
+                            let pathEntityInfo = attrModelObj.pathEntityInfo[0];
+                            if(!_.isEmpty(pathEntityInfo)){
+                                if(pathEntityInfo.pathSeperator){
+                                    this._pathSeperator = pathEntityInfo.pathSeperator
+                                }else{
+                                    this._pathSeperator = this.appSetting('dataDefaults').categoryPathSeparator;
+                                }
+                                if(pathEntityInfo.rootNode){
+                                this._rootNode =  pathEntityInfo.rootNode;
+                                }
+                                if(pathEntityInfo.pathEntityType){
+                                    this.pathEntityType = pathEntityInfo.pathEntityType;
+                                }
+                                if(pathEntityInfo.pathRelationshipName){
+                                    this.pathRelationshipName = pathEntityInfo.pathRelationshipName;
+                                }
+                            } 
+                        }
+                        if(attrModelObj.externalName){
+                                this._dialogTitle =  "Edit "+ this._pathSeperator + " " + attrModelObj.externalName;
+                        }
+                    }
+                }
+
                 this._onAttributeObjectChangedEnd(); 
             }
 

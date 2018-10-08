@@ -90,7 +90,6 @@ module.exports = {
         "JSCompiler_renameProperty": true,
         "ArrayDataSource": true,
         "DataHelper": true,
-        "Globals": true,
         "globalFunctions": true,
         "globalPubSubInstances": true,
         "RUFBehaviors": true,
@@ -125,6 +124,7 @@ module.exports = {
         "RuntimeVersionManager": true,
         "LocaleManager": true,
         "EntityTypeManager": true,
+        "EntityCompositeModelManager": true,
         "SharedUtils": true,
         "SharedEnumsUtil": true,
         "SecurityContextHelper": true,
@@ -141,6 +141,7 @@ module.exports = {
         "DataTableRow": true,
         "PebbleToast": true,
         "PebbleDialog": true,
-        "AppBusinessFunction": true
+        "AppBusinessFunction": true,
+        "ProgressTracker": true
     }
 };

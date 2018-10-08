@@ -1,5 +1,6 @@
 let DFRestService = require('../../common/df-rest-service/DFRestService'),
-    RuntimeVersionManager = require('./RuntimeVersionManager');
+    RuntimeVersionManager = require('./RuntimeVersionManager'),
+    ModuleVersionManager = require('./ModuleVersionManager');
 
 const logger = require('../../common/logger/logger-service');
 
@@ -25,6 +26,15 @@ VersionService.prototype = {
         let newVersion =  "".concat(buildVersion, "-", revision);
         let response = { "newVersion": newVersion };
         logger.info('UI runtime version has been updated to ' + newVersion);
+        return response;
+    },
+
+    updateModuleVersion: async function(module) {
+        let moduleVersion = await ModuleVersionManager.getVersion(module);
+        await ModuleVersionManager.setVersion(module, ++moduleVersion);
+        
+        let response = { "newVersion": moduleVersion };
+        logger.info(module + ' version has been updated to ' + moduleVersion);
         return response;
     }
 };
