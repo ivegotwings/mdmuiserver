@@ -90,11 +90,12 @@
                         <rock-entity-lov id="[[ctx.id]]-lov" r-data="[[ctx]]" readonly=[[readonly]] config-data-item-id="[[ctx.id]]" lazy-loading-disabled="[[_disableLazyLoad(ctx)]]" id-field="[[ctx.dataMappings.id]]"
                             title-pattern="[[ctx.dataMappings.title]]" sub-title-pattern="[[ctx.dataMappings.subtitle]]" no-sub-title="[[_noSubtitle(ctx)]]" request-data="[[ctx.dataRequest]]" selected-items="[[_getSelectedItems(ctx.selectedItem, _contextToBeRendered)]]"
                             selected-item="[[_getSelectedItem(ctx.selectedItem, _contextToBeRendered)]]" external-data-formatter="[[_entityExternalDataFormatter]]"
-                            type-field="[[ctx.dataMappings.type]]" sort-field="[[ctx.dataMappings.sort]]" multi-select="[[!allSingleSelect]]"
-                            show-action-buttons></rock-entity-lov>
+                            type-field="[[ctx.dataMappings.type]]" sort-field="[[ctx.dataMappings.sort]]" enable-select-all="[[enableSelectAll]]" multi-select="[[!allSingleSelect]]"
+                            show-action-buttons allow-favourites="[[_allowFavourites(ctx)]]"></rock-entity-lov>
                     </pebble-popover>
                     <bedrock-pubsub event-name="entity-lov-confirm-button-tap" handler="_onEntityLovConfirmButtonTapped" target-id="[[ctx.id]]-lov"></bedrock-pubsub>
                     <bedrock-pubsub event-name="entity-lov-close-button-tap" handler="_onEntityLovCloseButtonTapped" target-id="[[ctx.id]]-lov"></bedrock-pubsub>
+                    <bedrock-pubsub event-name="entity-lov-favourite-icon-tapped" handler="_onEntityLovFavouriteIconTapped" target-id="[[ctx.id]]-lov"></bedrock-pubsub>
                 </div>
             </template>
         </div>
@@ -106,6 +107,11 @@
         <liquid-rest id="preselectedContextGet"  url="/data/pass-through/entityservice/get" method="POST" request-data="{{_preselectedContextRequest}}" 
             on-liquid-response="_onPreselectedContextGetResponse" on-liquid-error="_onPreselectedContextGetGetError" exclude-in-progress></liquid-entity-data-get>
         </liquid-rest>
+        <liquid-config-get id="liqInitFavouriteContextsSearch" operation="initiatesearch" request-data="{{favouriteContextsGetRequest}}" last-response="{{favouriteContextsInitSearchResponse}}"
+                on-response="_onFavouriteContextsInitSearchResponse"></liquid-config-get>
+        <liquid-config-get id="liqFavouriteContextsGetSearchResultDetail" operation="getsearchresultdetail" on-response="_onFavouriteContextsGetSearchResultDetailResponse"></liquid-config-get>
+        <liquid-config-save id="favouriteContextsSave" request-data="[[favouriteContextsSaveRequest]]" on-response="_onFavouriteContextsSaveResponse" 
+            on-error="_onFavouriteContextsSaveError"></liquid-config-save>
     </template>
     <script>
         class RockContextSelector
@@ -252,6 +258,44 @@
                         contextSelectorRefresh : {
                             type: Boolean,
                             value: false
+                        },
+                        favouriteContexts: {
+                            type: Array,
+                            value: function () {
+                                return [];
+                            }
+                        },
+                        favouriteContextsGetRequest: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        favouriteContextsSaveRequest: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        favouriteContextsExist: {
+                            type: Boolean,
+                            value: false
+                        },
+                        favouriteContextsConfig: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        favouriteContextsInitSearchResponse: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        enableSelectAll: {
+                            type: Boolean,
+                            value: false
                         }
                     }
                 }
@@ -393,6 +437,8 @@
                 _configChanged(configData, entityType, domain) {
                     this.entityType = entityType;
                     if (configData && configData.length) {
+                        // prepare for config get to get favourite contexts for this user.
+                        this._getFavouriteContexts();
                         if (domain) {
                             this._domainChanged(domain);
                         }
@@ -828,6 +874,13 @@
                                     if (entityTypes) {
                                         for (let j = 0; j < entityTypes.length; j++) {
                                             let ctxKey = entityTypes[j];
+                                            /**
+                                             * when there is only one locale selected and if user unselects that too
+                                             * value context will be without any locale. Hence setting default selecteditem
+                                             * coming from config. Setting only when contextType is "value" because 
+                                             * dataContext is optional but valueContext is mandatory
+                                             * */
+                                            this._setDefaultSelectedItem(configDataItem, rockLov);
                                             if (!rockLov.multiSelect) {
                                                 let selectedItem = !_.isEmpty(rockLov.selectedItem) ? rockLov.selectedItem : undefined;
                                                 let selectedItems = !_.isEmpty(rockLov.selectedItems) ? rockLov.selectedItems : undefined;
@@ -881,6 +934,18 @@
                         Polymer.Debouncer.debounce(this._debouncer, Polymer.Async.timeOut.after(500), () => {
                             this.fireBedrockEvent("context-selector-data-changed", eventDetail);
                         });
+                    }
+                }
+
+                _setDefaultSelectedItem(configDataItem, rockLov) {
+                    if(configDataItem.contextType === "value") {
+                        let defaultSelectedItem = this._getSelectedItem(configDataItem.selectedItem);
+                        if(rockLov.multiSelect && _.isEmpty(rockLov.selectedItems)) {
+                            rockLov.selectedItems = [defaultSelectedItem];
+                        }
+                        if(!rockLov.multiSelect && _.isEmpty(rockLov.selectedItem)) {
+                            rockLov.selectedItem = defaultSelectedItem;
+                        }
                     }
                 }
 
@@ -989,7 +1054,7 @@
                                             }
 
                                             lovElement.selectedItems = this.selectedDimensionsDetail[ctxType];;
-                                            lovElement.selectedItem = !_.isEmpty(selectedItems) ? selectedItems[0] : {};
+                                            lovElement.selectedItem = !_.isEmpty(lovElement.selectedItems) ? lovElement.selectedItems[0] : {};
                                             lovElement.requestData = reqData;
                                             lovElement.reset();
                                         }
@@ -1140,8 +1205,16 @@
                                             }
                                         }, this);
                                     }
-
+                                    DataHelper.sort(entities, "title");
                                     formattedData = entities;
+                            }
+
+                            if(!_.isEmpty(_domHost.favouriteContexts) && elementInfo.contextType.toLowerCase() == "data") {
+                                formattedData.forEach(function(item) {
+                                    if(_domHost.favouriteContexts.find(ctx => ctx[item.type] === item.title)) {
+                                        item.isFavourite = true;
+                                    }
+                                }, this);
                             }
                         }
                     }
@@ -1316,6 +1389,200 @@
                     }
 
                     return selectedItems;
+                }
+
+                _allowFavourites(context) {
+                    if(context.contextType === "data") {
+                        return true;
+                    }
+
+                    return false;
+                }
+
+                _getFavouriteContexts() {
+                    let favouriteContextsGetRequest;
+                    let clonedContextData = DataHelper.cloneObject(this.contextData);
+                    let configIdAndContext = this._getConfigIdAndContext();
+                    let context = configIdAndContext.context;
+                    let configId = configIdAndContext.configId;
+
+                    clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = [context];
+                    clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = ["favoriteContextMappings"];
+
+                    favouriteContextsGetRequest = DataRequestHelper.createConfigInitialRequest(clonedContextData);
+                    favouriteContextsGetRequest.params.query.id = configId;
+
+                    this.set("favouriteContextsGetRequest", favouriteContextsGetRequest);
+
+                    let liqInitFavouriteContextsSearch = this.shadowRoot.querySelector("#liqInitFavouriteContextsSearch");
+                    if(liqInitFavouriteContextsSearch) {
+                        liqInitFavouriteContextsSearch.generateRequest();
+                    }
+                }
+
+                _onFavouriteContextsInitSearchResponse() {
+                    if(DataHelper.isValidObjectPath(this.favouriteContextsInitSearchResponse, "content.totalRecords")) {
+                        let totalRecords = this.favouriteContextsInitSearchResponse.content.totalRecords;
+                        let getDetailOptions = { 'from': 0, 'to': totalRecords };
+                        this._makeGetSearchResultDetailCall(getDetailOptions);
+                    }
+                }
+
+                _makeGetSearchResultDetailCall(options) {
+                    let liqGetSearchResultDetail = this.shadowRoot.querySelector('#liqFavouriteContextsGetSearchResultDetail');
+
+                    let searchResultId = this.favouriteContextsInitSearchResponse.content.requestId;
+
+                    let reqData = this.favouriteContextsGetRequest;
+                    reqData.params.options = options;
+                    liqGetSearchResultDetail.requestId = searchResultId;
+                    liqGetSearchResultDetail.requestData = reqData;
+
+                    liqGetSearchResultDetail.generateRequest();
+                }
+
+                _onFavouriteContextsGetSearchResultDetailResponse(e) {
+                    let response = e.detail.response;
+                    this.favouriteContextsExist = false;
+                    this.favouriteContexts = [];
+                    if(response && response.status && response.status.toLowerCase() === "success") {
+                        let configId = this._getConfigIdAndContext()["configId"];
+                        let responseContent = response.content;
+                        if(responseContent && !_.isEmpty(responseContent.configObjects)) {
+                            let config = responseContent.configObjects.find(obj => obj.id === configId);
+                            if(!_.isEmpty(config)) {
+                                if(DataHelper.isValidObjectPath(config, "data.contexts.0.jsonData.config.favoriteContexts")) {
+                                    this.set("favouriteContextsConfig", config);
+                                    this.set("favouriteContexts", config.data.contexts[0].jsonData.config.favoriteContexts);
+                                    this._resetCurrentContextLov();
+                                }
+                            }
+                        }
+                    }
+                }
+
+                _onEntityLovFavouriteIconTapped(e) {
+                    const {
+                        type,
+                        title
+                    } = e.detail.data;
+
+                    this.currentFavouriteSelectorLovId = e.detail.id;
+                    let favContext = {}; 
+                    favContext[type] = title;
+                    let operation = "update";
+                    let toastMessage;
+                    if(_.isEmpty(this.favouriteContextsConfig)) {
+                        operation = "create";
+                        this.favouriteContextsConfig = this._createFavouriteContextsConfig();
+                    }
+                    this.favouriteContexts = this.favouriteContexts || [];
+                    let index = -1;
+                    if(!_.isEmpty(this.favouriteContexts)) {
+                        this.favouriteContexts.forEach(function(ctx, idx) {
+                            if(ctx[type] === title) {
+                                index = idx;
+                            }
+                        }, this);
+                    }
+
+                    if(index > -1) {
+                        this.favouriteContexts.splice(index,1);
+                        toastMessage = "Removed " + JSON.stringify(favContext) + " from favourites successfully."
+                    } else {
+                        this.favouriteContexts.push(favContext);
+                        toastMessage = "Added " + JSON.stringify(favContext) + " to favourites successfully."
+                    }
+
+                    this.favouriteContextsConfig.data.contexts[0].jsonData.config.favoriteContexts = this.favouriteContexts;
+                    let reqData = { "configObjects": [this.favouriteContextsConfig] };
+
+                    this.set("favouriteContextsSaveRequest", reqData);
+                    this.set("_toastMessage", toastMessage);
+
+                    let favouriteContextsSaveLiquid = this.shadowRoot.querySelector("#favouriteContextsSave");
+                    if(favouriteContextsSaveLiquid) {
+                        favouriteContextsSaveLiquid.operation = operation;
+                        favouriteContextsSaveLiquid.generateRequest();
+                    }
+                }
+
+                _createFavouriteContextsConfig() {
+                    let configIdAndContext = this._getConfigIdAndContext();
+                    let context = configIdAndContext.context;
+                    let configId = configIdAndContext.configId;
+
+                    let config = {
+                        "id": configId,
+                        "name": configId,
+                        "type": "favoriteContextMappings",
+                        "version": {},
+                        "properties": {},
+                        "data": {
+                            "contexts": [
+                                {
+                                    "context": context,
+                                    "jsonData": {
+                                        "config": {
+                                            favoriteContexts: []
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+
+                    return config;
+                }
+
+                _onFavouriteContextsSaveResponse(e) {
+                    let response = e.detail.response;
+                    if(response && response.status && response.status.toLowerCase() === "success") {
+                        this.showSuccessToast(this._toastMessage);
+                        setTimeout(() => {
+                            this._getFavouriteContexts();
+                        }, 100);
+                    }
+                }
+
+                _getConfigIdAndContext() {
+                    let configIdAndContext = {};
+                    let userContext = ContextHelper.getFirstUserContext(this.contextData);
+                    configIdAndContext["configId"] = "favoriteContextMappings_" + userContext.user + "_" + userContext.defaultRole;
+                    configIdAndContext["context"] = {
+                        "user": userContext.user,
+                        "role": userContext.defaultRole
+                    };
+
+                    return configIdAndContext;
+                }
+
+                _resetCurrentContextLov() {
+                    if(this.currentFavouriteSelectorLovId) {
+                        let currentLov = this.shadowRoot.querySelector("#" + this.currentFavouriteSelectorLovId);
+                        if(currentLov) {
+                            let items = currentLov.items;
+                            this._updateFavouriteItems(items);
+                            currentLov.items = [];
+                            currentLov.items = items;
+                        }
+                    }
+                    this.currentFavouriteSelectorLovId = undefined;
+                }
+
+                _updateFavouriteItems(items) {
+                    if(!_.isEmpty(items)) {
+                        this.favouriteContexts = this.favouriteContexts || [];
+                        items.forEach(function(item) {
+                            if(this.favouriteContexts.find(ctx => ctx[item.type] === item.title)) {
+                                item.isFavourite = true;
+                            } else {
+                                delete item.isFavourite;
+                            }
+                        }, this);
+
+                        DataHelper.sort(items, "title");
+                    }
                 }
             }
 
