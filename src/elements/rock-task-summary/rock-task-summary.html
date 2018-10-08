@@ -13,8 +13,6 @@
 <link rel="import" href="../pebble-spinner/pebble-spinner.html">
 <link rel="import" href="../pebble-dialog/pebble-dialog.html">
 
-<link rel="import" href="../liquid-rest/liquid-rest.html">
-
 <dom-module id="rock-task-summary">
     <template>
         <style include="bedrock-style-common bedrock-style-gridsystem iron-flex">
@@ -178,7 +176,7 @@
                         <div class="attribute-label">File Name</div>
                         <!-- Handling scenario where the no. of files to download are more than 1 -->
                         <template is="dom-if" if="[[_isMultipleDownloadFilesAvailable()]]">
-                            <rock-multiple-file-download id="multipleFileDownload" profile-name=[[taskDetails.profileName]] context-data="[[contextData]]" file-details="[[taskDetails]]"></rock-multiple-file-download>                            
+                            <rock-multiple-file-download id="multipleFileDownload" profile-name=[[taskDetails.profileName]] context-data="[[contextData]]" file-details="[[taskDetails]]" is-large-file="[[isParentTask]]"></rock-multiple-file-download>                            
                         </template>
                         
                         <template is="dom-if" if="[[!_isMultipleDownloadFilesAvailable()]]">
@@ -288,10 +286,7 @@
                 <pebble-button id="refreshButton" button-text="Refresh" on-tap="_onRefreshClick" noink class="btn btn-primary">
                 </pebble-button>
             </div>
-        </div>
-        <liquid-rest id="getDownloadUrl" url="/data/binarystreamobjectservice/prepareDownload" method="POST" on-liquid-response="_onGetDownloadUrlResponse" on-liquid-error="_onGetDownloadUrlFailure">
-        </liquid-rest>
-        <bedrock-pubsub event-name="onDownloadFile" handler="_handleDownload" target-id="multipleFileDownload"></bedrock-pubsub>
+        </div>                
     </template>
     <script>
         class RockTaskSummary extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior], Polymer.Element) {
@@ -456,116 +451,26 @@
 
                 this.fireBedrockEvent(eventName);
             }
-             
-            /**
-             * Function to handle download of multiple files from the multiple-file-download dialog
-             */ 
-            _handleDownload(e) {
-                let taskDetails = e.detail;
-                let taskDetailItem = {};
-                if(taskDetails.fileName instanceof Array) {
-                    taskDetailItem.fileType = taskDetails.fileType;
-                    taskDetailItem.fileExtension = taskDetails.fileExtension;
-                    taskDetailItem.taskType = taskDetails.taskType;
-                    for(let i=0;i<taskDetails.fileName.length;i++){
-                        taskDetailItem.fileId = taskDetails.fileId[i];
-                        taskDetailItem.fileName = taskDetails.fileName[i];
-                        this._onDownloadClick(taskDetailItem);
-                    }                    
-                } else {
-                   this._onDownloadClick(taskDetails);
-                }               
-            }
-
+            
             _onDownloadClick(taskDetails) {
                 this._downloadInProgress = true;
-                
-                if(!taskDetails){
-                    taskDetails = this.taskDetails
-                }
-                const {
-                    fileId,
-                    fileName,
-                    fileType,
-                    fileExtension,
-                    taskType
-                } = taskDetails;
-
-                if (!this.isParentTask) {
-                    let req = {
-                        "params": {
-                            "query": {
-                                "id": fileId
-                            }
-                        },
-                        fileName,
-                        fileType,
-                        fileExtension,
-                        taskType
-                    }
-
-                    let _this = this;
-                    RUFUtilities.fileDownload("/data/binaryobjectservice/downloadBinaryObject", {
-                        httpMethod: 'POST',
-                        data: {
-                            data: JSON.stringify(req)
-                        },
-                        fileName: fileName,
-                        successCallback: function (url) {
-                            this._downloadInProgress = false;
-                        }.bind(_this),
-                        failCallback: function (responseHtml, url, error) {
-                            this._onFileDownloadFailure(error);
-                        }.bind(_this)
-                    });
-                } else {
-                    this._downloadLargeFile(fileId);
-                }
+                let fileDownloadManager = FileDownloadManager.getInstance();
+                fileDownloadManager.downloadFile(this.taskDetails,this.isParentTask,this);               
             }
-
-            _onFileDownloadFailure(e) {
-                this._setDownloadFileError(e.detail);
+            
+            /**
+             * Function to handle the file download success 
+             **/ 
+            onFileDownloadSuccess(){
+                this._downloadInProgress = false;
             }
-
-            _downloadLargeFile(fileId) {
-                let binaryStreamObjects = [];
-                if (fileId) {
-                    binaryStreamObjects.push({
-                        "binaryStreamObject": {
-                            "id": fileId,
-                            "type": "importDataStream",
-                            "data": {}
-                        }
-                    })
-                }
-
-                let downloadUrlLiquid = this.shadowRoot.querySelector("#getDownloadUrl");
-                if (downloadUrlLiquid && !_.isEmpty(binaryStreamObjects)) {
-                    downloadUrlLiquid.requestData = binaryStreamObjects;
-                    downloadUrlLiquid.generateRequest();
-                } else {
-                    this._setDownloadFileError();
-                }
-            }
-
-            _onGetDownloadUrlResponse(e) {
-                if (DataHelper.isValidObjectPath(e, "detail.response.response")) {
-                    LiquidResponseHelper.downloadURLResponseMapper(e, downloadURL => {
-                        window.open(downloadURL, "_blank");
-                    });
-                    this._downloadInProgress = false;
-                } else {
-                    this._setDownloadFileError("Null response");
-                }
-            }
-
-            _onGetDownloadUrlFailure(e) {
-                this._setDownloadFileError(e.detail);
-            }
-
-            _setDownloadFileError(detail) {
+            
+             /**
+             * Function to handle the file download failure 
+             **/
+            onFileDownloadFailure(e){
                 this.showErrorToast("Failed to download file, contact administrator.");
-                this.logError("Failed to download file.", detail || "");
+                this.logError("Failed to download file.", e.detail || "");
                 this._downloadInProgress = false;
             }
             
