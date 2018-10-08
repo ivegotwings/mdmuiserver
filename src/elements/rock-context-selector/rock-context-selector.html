@@ -462,110 +462,88 @@
                 }
 
                 async _processContextModel(domain) {
-                    let entityContextModel = await ContextModelManager.getByDomain(domain);
-                    if(entityContextModel) {
-                        let contexts = "data" in entityContextModel ? entityContextModel.data.contexts : undefined;
-                        let _ctxKeys = [];
+                    this._contextHierarchyInfo = await ContextModelManager.getContextHeirarchyInfoBasedOnDomain(domain);
 
-                        this._contextHierarchyInfo = await ContextModelManager.getContextHeirarchyInfoBasedOnDomain(domain);
+                    if (!_.isEmpty(this._contextHierarchyInfo)) {
+                        this._contextHierarchyInfo.forEach(function(ctx) {
+                            if(ctx.contextKey && this._contextHierarchy.indexOf(ctx.contextKey) < 0) {
+                                this._contextHierarchy.push(ctx.contextKey);
+                            }
+                        }, this);
+                    }
 
-                        if (!_.isEmpty(this._contextHierarchyInfo)) {
-                            this._contextHierarchyInfo.forEach(function(ctx) {
-                                if(ctx.contextKey && this._contextHierarchy.indexOf(ctx.contextKey) < 0) {
-                                    this._contextHierarchy.push(ctx.contextKey);
-                                }
-                            }, this);
-                        }
+                    let ctxIds = [];
+                    if (this.configData && this.configData.length) {
+                        let _self = this;
+                        let itemsToBeRemoved = [];
+                        for(let idx = 0; idx < this.configData.length; idx++) {
+                            let item = this.configData[idx];
+                            let types;
+                            if(item.id === "context") {
+                                types = await ContextModelManager.getContextTypesBasedOnDomain(domain);
+                            } else {
+                                types = [item.id];
+                            }
+                            
+                            item.dataMappings = { type: types };
+                            if (!_.isEmpty(types)) {
+                                types.forEach(function(type) {
+                                    ctxIds.push(type + "_entityManageModel");
 
-                        if (contexts) {
-                            let _contexts = [];
-                            contexts.forEach(function (context) {
-                                _contexts.push(context.context);
-
-                                let ctxKeys = Object.keys(context.context);
-                                if (ctxKeys && ctxKeys.length) {
-                                    ctxKeys.forEach(function (ctxKey) {
-                                        if (_ctxKeys.indexOf(ctxKey) < 0) {
-                                            _ctxKeys.push(ctxKey);
-                                        }
-                                    }, this);
-                                }
-                            }, this);
-
-                            this._contexts = _contexts;
-                        }
-
-                        let _ctxIds = [];
-                        if (_ctxKeys && _ctxKeys.length) {
-                            _ctxKeys.forEach(function (item) {
-                                if (item) {
-                                    _ctxIds.push(item);
-                                }
-                            }, this);
-                        }
-
-                        let ctxIds = [];
-                        if (this.configData && this.configData.length) {
-                            let _self = this;
-                            for(let idx = 0; idx < this.configData.length; idx++) {
-                                let item = this.configData[idx];
-                                let types;
-                                if(item.id === "context") {
-                                    types = await ContextModelManager.getContextTypesBasedOnDomain(domain);
-                                } else {
-                                    types = [item.id];
-                                }
-                                
-                                item.dataMappings = { type: types };
-                                if (!_.isEmpty(types)) {
-                                    types.forEach(function(type) {
-                                        ctxIds.push(type + "_entityManageModel");
-
-                                        if (_self._contextHierarchy.indexOf(type) < 0) {
-                                            _self._contextHierarchy.push(type);
-                                        }
-                                    }, this);
-                                } else {
-                                    this.logError(this.appName + "-Context Selector - types not defined for " + item.id + " in context model");
-                                }
+                                    if (_self._contextHierarchy.indexOf(type) < 0) {
+                                        _self._contextHierarchy.push(type);
+                                    }
+                                }, this);
+                            } else {
+                                itemsToBeRemoved.push(idx);
+                                this.logError(this.appName + "-Context Selector - types not defined for " + item.id + " in context model");
                             }
                         }
+                        /**
+                         * any dimension is defined in config but the types of the dimension
+                         * is not defined, deleting from the config data inorder not to render that
+                         * dimension and render remaining dimensions in context-selector
+                         * */
+                        if(!_.isEmpty(itemsToBeRemoved)) {
+                            for(let idx=0; idx < itemsToBeRemoved.length; idx++) {
+                                let index = itemsToBeRemoved[idx];
+                                this.configData.splice(index, 1);
+                            }
+                        }
+                    }
 
-                        if (ctxIds && ctxIds.length) {
-                            this._entityModelRequest = {
-                                "params": {
-                                    "query": {
-                                        "ids": ctxIds,
-                                        "filters": {
-                                            "typesCriterion": [
-                                                "entityManageModel"
-                                            ]
-                                        }
-                                    },
-                                    "fields": {
-                                        "attributes": [
-                                            "_ALL"
-                                        ],
-                                        "relationships": [
-                                            "_ALL"
-                                        ],
-                                        "relationshipAttributes": [
-                                            "_ALL"
+                    if (ctxIds && ctxIds.length) {
+                        this._entityModelRequest = {
+                            "params": {
+                                "query": {
+                                    "ids": ctxIds,
+                                    "filters": {
+                                        "typesCriterion": [
+                                            "entityManageModel"
                                         ]
                                     }
+                                },
+                                "fields": {
+                                    "attributes": [
+                                        "_ALL"
+                                    ],
+                                    "relationships": [
+                                        "_ALL"
+                                    ],
+                                    "relationshipAttributes": [
+                                        "_ALL"
+                                    ]
                                 }
-                            };
-
-                            let entityModelGetComponent = this.$$("#entityModelGet");
-
-                            if (entityModelGetComponent) {
-                                entityModelGetComponent.generateRequest();
-                            } else {
-                                this.logError(this.appName + "-Context Selector - Entity model get liquid not found");
                             }
+                        };
+
+                        let entityModelGetComponent = this.$$("#entityModelGet");
+
+                        if (entityModelGetComponent) {
+                            entityModelGetComponent.generateRequest();
+                        } else {
+                            this.logError(this.appName + "-Context Selector - Entity model get liquid not found");
                         }
-                    } else {
-                        this.logError(this.appName + "-Context Selector - There are no context models available for domain " + domain, {}, true);
                     }
                 }
 
@@ -1038,7 +1016,6 @@
                                     if(_.isEmpty(selectedItems) && !_.isEmpty(lovElement.selectedItem)) {
                                         selectedItems = [lovElement.selectedItem];
                                     }
-                                    let ctxHierarchy = this._contextHierarchyInfo.find(v => v.contextKey === ctxType);
 
                                     //Prepare list of dependent lov's and it's relationships based on selected dimension.
                                     // This list will be used when dependent lov will get reset with related entities which are mapped to current context as relationship.
