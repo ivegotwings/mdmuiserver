@@ -1,4 +1,5 @@
 let RuntimeVersionManager = require('../services/version-service/RuntimeVersionManager');
+let falcorUtil = require('../../../shared/dataobject-falcor-util');
 let isEmpty = require('../common/utils/isEmpty');
 let localCache = {};
 
@@ -9,13 +10,17 @@ let LocalCacheManager = function () {
 LocalCacheManager.prototype = {
     get: async function (cacheKey) {
         let runtimeVersion = await RuntimeVersionManager.getVersion();
-        return localCache[runtimeVersion] ? localCache[runtimeVersion][cacheKey] : "";
+
+        if (localCache[runtimeVersion] && localCache[runtimeVersion][cacheKey]) {
+            return falcorUtil.cloneObject(localCache[runtimeVersion][cacheKey]);
+        }
+        return "";
     },
 
     set: async function (cacheKey, value) {
         let runtimeVersion = await RuntimeVersionManager.getVersion();
         isEmpty(localCache[runtimeVersion]) && (localCache[runtimeVersion] = {});
-        localCache[runtimeVersion][cacheKey] = value;
+        localCache[runtimeVersion][cacheKey] = falcorUtil.cloneObject(value);
     },
 
     del: function (version) {
