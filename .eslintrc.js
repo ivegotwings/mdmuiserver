@@ -142,6 +142,7 @@ module.exports = {
         "PebbleToast": true,
         "PebbleDialog": true,
         "AppBusinessFunction": true,
-        "ProgressTracker": true
+        "ProgressTracker": true,
+        "FileDownloadManager": true
     }
 };
