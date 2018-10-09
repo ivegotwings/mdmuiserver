@@ -357,7 +357,7 @@ ConfigurationService.prototype = {
 
             if (isEmpty(res)) {
                 res = await this.post(serviceUrl, request);
-                await LocalCacheManager.set(cacheKey, falcorUtil.cloneObject(res));
+                await LocalCacheManager.set(cacheKey, res);
             } else {
                 //console.log("\n Cached");
             }

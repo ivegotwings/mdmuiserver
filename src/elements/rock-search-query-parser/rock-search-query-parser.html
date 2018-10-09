@@ -21,6 +21,8 @@
   <template>
     <liquid-entity-model-composite-get name="compositeAttributeModelGet" on-entity-model-composite-get-response="_onCompositeModelGetResponse">
     </liquid-entity-model-composite-get>
+    <liquid-entity-model-get id="liquidModelGet" name="attributeModelGet" operation="getbyids" on-error="_onError" on-response="_onAttributeModelsResponse"
+        exclude-in-progress></liquid-entity-model-get>
   </template>
   <script>
     class RockSearchQueryParser extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.ComponentContextBehavior],
@@ -85,6 +87,18 @@
           relationshipName: {
             type: String,
             value: ""
+          },
+          _attributeModels: {
+            type: Array,
+            value: function () {
+              return [];
+            }
+          },
+          _attributeNames: {
+            type: Array,
+            value: function () {
+              return [];
+            }
           }
         }
       }
@@ -92,6 +106,11 @@
         this._compositeAttributeModelGetLiq = this._compositeAttributeModelGetLiq || this.shadowRoot.querySelector(
           "[name=compositeAttributeModelGet]");
         return this._compositeAttributeModelGetLiq;
+      }
+
+      get modelGetLiquid() {
+        this._modelGetLiquid = this._modelGetLiquid || this.shadowRoot.querySelector("[name=attributeModelGet]");
+        return this._modelGetLiquid;
       }
 
       parseQueryToFilters(query) {
@@ -120,7 +139,7 @@
         this.searchFilters["workflowCriterion"] = workflowCriterion;
 
         let attributeNames = queryObject.entityData && queryObject.entityData.attributes ? this._getAttributeNames(
-          queryObject.entityData.attributes) : ["_ALL"];
+          queryObject.entityData.attributes) : undefined;
         itemContext.attributeNames = attributeNames;
         this._entityAttributes = queryObject.entityData && queryObject.entityData.attributes ? queryObject.entityData
           .attributes : undefined;
@@ -156,6 +175,8 @@
           }
         }
 
+        this.set("_attributeNames", itemContext.attributeNames);
+
         if (entityTypes && entityTypes.length > 0) {
           this._currentIndex = entityTypes.length;
           this._currentItems = [];
@@ -178,10 +199,7 @@
       }
 
       _onCompositeModelGetResponse(e) {
-        if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
-          let attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[
-            0], this.contextData);
-
+        if (DataHelper.isValidObjectPath(e, "detail.response.content.entityModels.0")) {
           let entityType = e.detail.response.content.entityModels[0] ? e.detail.response.content.entityModels[0].name :
             undefined;
 
@@ -195,33 +213,9 @@
             this._currentItems = [];
           }
 
-          this.push('_currentItems', attributeModels);
+          this.push('_currentItems', e.detail.response.content.entityModels[0]);
 
           if (this._currentItems.length == this._currentIndex) {
-            let compositeModelsWithNestedAttrs = [];
-            for (let i = 0; i < this._currentItems.length; i++) {
-              let currentItem = this._currentItems[i];
-              if (currentItem) {
-                let keys = Object.keys(currentItem);
-                if (keys && keys.length > 0) {
-                  for (let j = 0; j < keys.length; j++) {
-                    let key = keys[j];
-                    if (!(compositeModelsWithNestedAttrs.find(obj => obj.name === key))) {
-                      if (currentItem[key].dataType == "nested") {
-                        let nestedAttributeItems = [];
-                        nestedAttributeItems = DataHelper.getNestedAttributeItems(currentItem[key], true, true);
-                        if (nestedAttributeItems.length > 0) {
-                          compositeModelsWithNestedAttrs = compositeModelsWithNestedAttrs.concat(
-                            nestedAttributeItems)
-                        }
-                      } else {
-                        compositeModelsWithNestedAttrs.push(currentItem[key]);
-                      }
-                    }
-                  }
-                }
-              }
-            }
             //Delete the model only if source and destination type is not equal. Done for supporting
             //relationship from and to the same entity type.
             let relationshipName = this.searchFilters.relationshipName;
@@ -241,18 +235,71 @@
                 }
               }
             }
-            let attrsCriterion = this._prepareAttrsCriterion(compositeModelsWithNestedAttrs, this._entityAttributes);
-            let relationshipsCriterion = this._prepareRelationshipsCriterion(this._relationshipModels, this._relationshipAttributes,
-              this._relatedEntityAttributes, this._relToEntityTypes, compositeModelsWithNestedAttrs);
-            this.searchFilters[this.filterCriterionKey] = !_.isEmpty(attrsCriterion) ? attrsCriterion : undefined;
-            this.searchFilters["relationshipsCriterion"] = !_.isEmpty(relationshipsCriterion) ? [
-              relationshipsCriterion
-            ] : undefined;
-            this.searchFilters["compositeModels"] = compositeModelsWithNestedAttrs;
-            this.searchFilters["relationshipModels"] = this._mergeRelationships(this._relationshipModels);
-            this.fireBedrockEvent('on-search-filters', this.searchFilters);
+
+            if(!_.isEmpty(this._attributeNames)) {
+              let modelGetRequest = this._getModelGetRequest(this._attributeNames);
+              if(this.modelGetLiquid) {
+                this.modelGetLiquid.requestData = modelGetRequest;
+                this.modelGetLiquid.generateRequest();
+              }
+            } else {
+              this._prepareSearchFilters();
+            }
           }
         }
+      }
+
+      _getModelGetRequest(attributeNames) {
+        if(!_.isEmpty(attributeNames)) {
+          let contextData = {};
+          let itemContext = {
+            "attributeNames" : attributeNames,
+            "type": "attributeModel"
+          };
+          contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+          let req = DataRequestHelper.createModelGetRequest(contextData);
+          return req;
+        }
+      }
+
+      _onAttributeModelsResponse(e) {
+        if(DataHelper.isValidObjectPath(e, "detail.response.content.entityModels")) {
+          let entityModels = e.detail.response.content.entityModels;
+          if(!_.isEmpty(entityModels)) {
+            let attributeModels = [];
+            entityModels.forEach(function(model) {
+              if(!_.isEmpty(model.properties)) {
+                for (let prop in model.properties) {
+                    model[prop] = model.properties[prop];
+                }
+                if(model.dataType && model.dataType.toLowerCase === "nested") {
+                  let nestedAttributeItems = DataHelper.getNestedAttributeItems(model, true, true);
+                  if(!_.isEmpty(nestedAttributeItems)) {
+                    attributeModels.concat(nestedAttributeItems);
+                  }
+                } else {
+                  attributeModels.push(model);
+                }
+              }
+            }, this);
+
+            this.set("_attributeModels", attributeModels);
+            this._prepareSearchFilters();
+          }
+        }
+      }
+
+      _prepareSearchFilters() {
+        let attrsCriterion = this._prepareAttrsCriterion(this._attributeModels, this._entityAttributes);
+        let relationshipsCriterion = this._prepareRelationshipsCriterion(this._relationshipModels, this._relationshipAttributes,
+          this._relatedEntityAttributes, this._relToEntityTypes, this._attributeModels);
+        this.searchFilters[this.filterCriterionKey] = !_.isEmpty(attrsCriterion) ? attrsCriterion : undefined;
+        this.searchFilters["relationshipsCriterion"] = !_.isEmpty(relationshipsCriterion) ? [
+          relationshipsCriterion
+        ] : undefined;
+        this.searchFilters["attributeModels"] = this._attributeModels;
+        this.searchFilters["relationshipModels"] = this._mergeRelationships(this._relationshipModels);
+        this.fireBedrockEvent('on-search-filters', this.searchFilters);
       }
 
       _prepareAttrsCriterion(attributeModels, attributes) {
@@ -310,7 +357,13 @@
                       if (val.indexOf("!%&") > -1) {
                         attrVal["hasvalue"] = val == "!%&has value!%&" ? true : false;
                         delete attrVal[key];
-                      } else if (displayType === "referencelist" || displayType === "textbox") {
+                      }else if (displayType === "path") {
+                        if (key === "equals") {
+                            attrVal["eq"] = '\"' + containsStr + '\"*';
+                          }
+                          delete attrVal[key];
+                        }
+                       else if (displayType === "referencelist" || displayType === "textbox" || displayType === "path") {
                         if (key === "equals") {
                           let valSplitByOr = val.split(' or ');
                           let valSplitByAnd = val.split(' and ');

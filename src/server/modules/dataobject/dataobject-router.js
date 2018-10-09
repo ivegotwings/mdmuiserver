@@ -9,59 +9,59 @@ let resolver = require('./dataobject-route-resolver');
 let DataObjectRouterBase = Router.createClass(
     [
         {
-            route: 'root[{keys:dataIndexes}][{keys:dataSubIndexes}].searchResults.create',
+            route: 'root[{keys:dataIndexes}].searchResults.create',
             call: async (callPath, args) => await resolver.initiateSearch(callPath, args)
         },
         {
-            route: 'root[{keys:dataIndexes}][{keys:dataSubIndexes}].searchResults[{keys:requestIds}].items[{ranges:dataObjectRanges}]',
+            route: 'root[{keys:dataIndexes}].searchResults[{keys:requestIds}].items[{ranges:dataObjectRanges}]',
             get: async (pathSet) => await resolver.getSearchResultDetail(pathSet)
         },
         {
-            route: "root[{keys:dataIndexes}][{keys:dataSubIndexes}][{keys:dataObjectTypes}].byIds[{keys:dataObjectIds}][{keys:dataObjectFields}]",
+            route: "root[{keys:dataIndexes}][{keys:dataObjectTypes}].byIds[{keys:dataObjectIds}][{keys:dataObjectFields}]",
             get: async (pathSet) => await resolver.getByIds(pathSet, "getFields")
         },
         {
-            route: "root[{keys:dataIndexes}][{keys:dataSubIndexes}][{keys:dataObjectTypes}].byIds[{keys:dataObjectIds}].data.contexts[{keys:ctxKeys}].mappings[{keys:mapKeys}]",
+            route: "root[{keys:dataIndexes}][{keys:dataObjectTypes}].byIds[{keys:dataObjectIds}].data.contexts[{keys:ctxKeys}].mappings[{keys:mapKeys}]",
             get: async (pathSet) => await resolver.getByIds(pathSet, "getMappings")
         },
         {
-            route: "root[{keys:dataIndexes}][{keys:dataSubIndexes}][{keys:dataObjectTypes}].byIds[{keys:dataObjectIds}].data.mappings[{keys:mapKeys}]",
+            route: "root[{keys:dataIndexes}][{keys:dataObjectTypes}].byIds[{keys:dataObjectIds}].data.mappings[{keys:mapKeys}]",
             get: async (pathSet) => await resolver.getByIds(pathSet, "getMappings")
         },
         {
-            route: "root[{keys:dataIndexes}][{keys:dataSubIndexes}][{keys:dataObjectTypes}].byIds[{keys:dataObjectIds}].data.contexts[{keys:ctxKeys}].attributes[{keys:attrNames}].valContexts[{keys:valCtxKeys}][{keys:valFields}]",
+            route: "root[{keys:dataIndexes}][{keys:dataObjectTypes}].byIds[{keys:dataObjectIds}].data.contexts[{keys:ctxKeys}].attributes[{keys:attrNames}].valContexts[{keys:valCtxKeys}][{keys:valFields}]",
             get: async (pathSet) => await resolver.getByIds(pathSet, "getAttrs")
         },
         {
-            route: "root[{keys:dataIndexes}][{keys:dataSubIndexes}][{keys:dataObjectTypes}].byIds[{keys:dataObjectIds}].data.contexts[{keys:ctxKeys}].relationships[{keys:relTypes}].relIds",
+            route: "root[{keys:dataIndexes}][{keys:dataObjectTypes}].byIds[{keys:dataObjectIds}].data.contexts[{keys:ctxKeys}].relationships[{keys:relTypes}].relIds",
             get: async (pathSet) => await resolver.getByIds(pathSet, "getRelIdOnly")
         },
         {
-            route: "root[{keys:dataIndexes}][{keys:dataSubIndexes}][{keys:dataObjectTypes}].byIds[{keys:dataObjectIds}].data.contexts[{keys:ctxKeys}].relationships[{keys:relTypes}].rels[{keys:relIds}][{keys:relFields}]",
+            route: "root[{keys:dataIndexes}][{keys:dataObjectTypes}].byIds[{keys:dataObjectIds}].data.contexts[{keys:ctxKeys}].relationships[{keys:relTypes}].rels[{keys:relIds}][{keys:relFields}]",
             get: async (pathSet) => await resolver.getByIds(pathSet, "getRelFieldsByActual")
         },
         {
-            route: "root[{keys:dataIndexes}][{keys:dataSubIndexes}][{keys:dataObjectTypes}].byIds[{keys:dataObjectIds}].data.contexts[{keys:ctxKeys}].relationships[{keys:relTypes}].rels[{keys:relIds}].attributes[{keys:relAttrNames}].valContexts[{keys:valCtxKeys}][{keys:valFields}]",
+            route: "root[{keys:dataIndexes}][{keys:dataObjectTypes}].byIds[{keys:dataObjectIds}].data.contexts[{keys:ctxKeys}].relationships[{keys:relTypes}].rels[{keys:relIds}].attributes[{keys:relAttrNames}].valContexts[{keys:valCtxKeys}][{keys:valFields}]",
             get: async (pathSet) => await resolver.getByIds(pathSet, "getRelAttrsByActual")
         },
         {
-            route: "root[{keys:dataIndexes}][{keys:dataSubIndexes}][{keys:dataObjectTypes}].byIds[{keys:dataObjectIds}].data.getContexts",
+            route: "root[{keys:dataIndexes}][{keys:dataObjectTypes}].byIds[{keys:dataObjectIds}].data.getContexts",
             call: async (pathSet) => await resolver.getByIds(pathSet, "getContexts")
         },
         {
-            route: "root[{keys:dataIndexes}][{keys:dataSubIndexes}][{keys:dataObjectTypes}].byIds[{keys:dataObjectIds}].data.contexts[{keys:ctxKeys}]['jsonData']",
+            route: "root[{keys:dataIndexes}][{keys:dataObjectTypes}].byIds[{keys:dataObjectIds}].data.contexts[{keys:ctxKeys}]['jsonData']",
             get: async (pathSet) => await resolver.getByIds(pathSet, "getJsonData")
         },
         {
-            route: "root[{keys:dataIndexes}][{keys:dataSubIndexes}][{keys:dataObjectTypes}].create",
+            route: "root[{keys:dataIndexes}][{keys:dataObjectTypes}].create",
             call: async (callPath, args) => await resolver.create(callPath, args, "create")
         },
         {
-            route: "root[{keys:dataIndexes}][{keys:dataSubIndexes}][{keys:dataObjectTypes}].byIds[{keys:dataObjectIds}].update",
+            route: "root[{keys:dataIndexes}][{keys:dataObjectTypes}].byIds[{keys:dataObjectIds}].update",
             call: async (callPath, args) => await resolver.update(callPath, args, "update")
         },
         {
-            route: "root[{keys:dataIndexes}][{keys:dataSubIndexes}][{keys:dataObjectTypes}].byIds[{keys:dataObjectIds}].delete",
+            route: "root[{keys:dataIndexes}][{keys:dataObjectTypes}].byIds[{keys:dataObjectIds}].delete",
             call: async (callPath, args) => await resolver.deleteDataObjects(callPath, args, "delete")
         },
     ]);

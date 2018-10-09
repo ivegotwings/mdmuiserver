@@ -23,7 +23,6 @@
 <link rel="import" href="../pebble-vertical-divider/pebble-vertical-divider.html">
 <link rel="import" href="../pebble-spinner/pebble-spinner.html">
 
-<link rel="import" href="../rock-dimension-selector/rock-dimension-selector.html">
 <link rel="import" href="../rock-layout/rock-layout.html">
 <link rel="import" href="../rock-entity-titlebar/rock-entity-titlebar.html">
 <link rel="import" href="../rock-layout/rock-header/rock-header.html">
@@ -124,7 +123,7 @@
                 app-name="app-entity-manage" domain="[[domain]]">
             </rock-entity-titlebar>
             <bedrock-pubsub event-name="on-set-titlebar" handler="_onSetTitlebar" target-id="entityTitlebar"></bedrock-pubsub>
-            <bedrock-pubsub event-name="dimension-selector-data-changed" handler="_onDimensionsChanged" target-id="entityTitlebar"></bedrock-pubsub>
+            <bedrock-pubsub event-name="context-selector-data-changed" handler="_onContextsChanged" target-id="entityTitlebar"></bedrock-pubsub>
             <rock-header frozen slot="rock-header">
                 <div slot="fixed-content" class="fixed-content">
                     <rock-entity-header id="entityManageHeader" context-data="[[contextData]]" workflow-info=[[_workflowInfo]] collapsable></rock-entity-header>
@@ -134,8 +133,8 @@
             <bedrock-pubsub event-name="refresh-entity-thumbnail" handler="_refreshEntityThumbnail"></bedrock-pubsub>
             <bedrock-pubsub event-name="on-context-manage-tap" handler="_onContextManageTap"></bedrock-pubsub>
             <bedrock-pubsub event-name="on-snapshot-view-tap" handler="_onSnapshotViewTap"></bedrock-pubsub>
-            <bedrock-pubsub event-name="on-copy-tap" handler="_onCopyActionTap"></bedrock-pubsub>            
-            <bedrock-pubsub event-name="on-paste-tap" handler="_onPasteActionTap"></bedrock-pubsub>            
+            <bedrock-pubsub event-name="on-copy-tap" handler="_onCopyActionTap"></bedrock-pubsub>
+            <bedrock-pubsub event-name="on-paste-tap" handler="_onPasteActionTap"></bedrock-pubsub>
             <bedrock-pubsub event-name="on-preview-template-tap" handler="_onPreviewTemplateTap"></bedrock-pubsub>
             <template is="dom-if" if="[[_loadComponents]]">
                 <rock-sidebar id="rockSideBar" position="right" context-data="[[contextData]]" slot="rock-sidebar" collapsable>
@@ -166,7 +165,7 @@
         <bedrock-pubsub event-name="govern-complete" handler="_onGovernComplete"></bedrock-pubsub>
         <bedrock-pubsub event-name="quick-manage-save-complete" handler="_onQuickManageSaveComplete"></bedrock-pubsub>
         <bedrock-pubsub event-name="navigation-change" handler="_onNavigationChange"></bedrock-pubsub>
-
+        
         <liquid-rest id="entityDeleteLiquidRest" url="/data/pass-through/[[appService]]/delete" method="POST" on-liquid-response="_deleteSuccess"
             on-liquid-error="_deleteFailure"></liquid-rest>
         <liquid-entity-model-composite-get id="compositeRelModelGet" on-entity-model-composite-get-response="_onRelationshipCompositeModelGetResponse"
@@ -217,6 +216,12 @@
                      * Indicates the items for stepper element
                      */
                     _stepItems: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _compositeModel: {
                         type: Object,
                         value: function () {
                             return {};
@@ -285,10 +290,6 @@
                         type: String,
                         value: "entityData"
                     },
-                    dataSubIndex: {
-                        type: String,
-                        value: "data"
-                    },
                     _entityReceived: {
                         type: Boolean,
                         value: false
@@ -313,6 +314,12 @@
             }
             connectedCallback() {
                 super.connectedCallback();           
+
+               // let dimensionSelectorNavigationData = this.getNavigationData("rock-dimension-selector", null,"","search-thing");
+               // this.setChildNavigationData("rock-entity-titlebar","rock-dimension-selector",dimensionSelectorNavigationData);
+                //Update NavigationContexts into contextData
+               // this.refreshNavigationContexts();
+
                 this._searchTimeStamp = new Date().toLocaleString();
                 // Do not load any componets for delted entities.
                 if (this._entityType && this._entityType.indexOf("delete") !== 0) {
@@ -321,16 +328,13 @@
                     this._initializeComponent();
                 } else {
                     this.showInformationToast("This entity has been deleted and hence cannot be viewed/edited.");
-                }               
+                }
+
             }
             _initializeComponent() {
                 this._entityTitlebar = this.shadowRoot.querySelector("#entityTitlebar");
                 this._confirmationDialog = this.shadowRoot.querySelector("#confirmationDialog");
                 this._entityHeader = this.shadowRoot.querySelector("rock-entity-header");
-            }
-
-            async _preparePrimaryContexts() {
-                this._primaryContexts = await ContextHelper.getPrimaryContexts(this.contextData);
             }
 
             /**
@@ -409,14 +413,13 @@
                     let entityGet = this.shadowRoot.querySelector("#getEntity");
                     if (entityGet && config) {
                         entityGet.dataIndex = config.dataIndex;
-                        entityGet.dataSubIndex = config.dataSubIndex;
                     }
                     this.getEntity();
                 }
             }
             _onEntityGetResponse(e, detail) {
                 let responseContent = DataHelper.validateAndGetResponseContent(detail.response);
-                this._entityResponseContent = responseContent
+                this._entityResponseContent = responseContent;
                 if (responseContent && responseContent.entities && responseContent.entities.length >
                     0) {
                     let entity = responseContent.entities[0];
@@ -467,9 +470,9 @@
                 this.logError("app-entity-manage - Domain get response exception", e.detail, true, contentDiv);
             }
 
-            get dimensionSelector() {
-                this._dimensionSelector = this._dimensionSelector || this.shadowRoot.querySelector("rock-dimension-selector");
-                return this._dimensionSelector;
+            get contextSelector() {
+                this._contextSelector = this._contextSelector || this.shadowRoot.querySelector("rock-context-selector");
+                return this._contextSelector;
             }
 
             get detailTabs() {
@@ -527,7 +530,7 @@
                 let isDirty = this.getIsDirty();
 
                 const _refresh = () => {
-                    this.dimensionSelector && this.dimensionSelector.refresh();
+                    this.contextSelector && this.contextSelector.refresh();
                     this._reRenderOnDimensionChange();
                 };
 
@@ -609,27 +612,10 @@
                     properties
                 } = detail.data;
 
-                let taxonomy = "";
-                if (DataHelper.isValidObjectPath(detail.data, "properties.context.taxonomy")) {
-                    taxonomy = properties.context.taxonomy;
-                }
-
-                if (!taxonomy) {
-                    this.logError("Taxonomy is not available for the process.", e.detail);
-                    this.showWarningToast("Taxonomy is not available for the process. Contact administrator");
-                    return;
-                }
-
                 this.openBusinessFunctionDialog({
                     name: componentName,
-                    title: DataHelper.concatValuesFromArray([
-                        detail.data.title,
-                        this._primaryContexts,
-                        this._entityName
-                    ])
-                }, {
-                        taxonomy
-                    });
+                    title: detail.data.title,
+                });
             }
 
             _onSnapshotViewTap(e, detail) {
@@ -649,8 +635,8 @@
 
             _onCopyActionTap() {
                 //saving entity details in session storage so we can use this later for paste
-
-                if(this.contextData && this.contextData.Contexts && this.contextData.Contexts.length>1) {
+                let contexts = this.getDataContexts();
+                if(contexts && contexts.length>1) {
                     this.showWarningToast("Entity paste functionality is not supported for multiple contexts");
                     return;
                 }
@@ -658,13 +644,42 @@
                 this.showSuccessToast('Entity copied successfully');
             }
 
+            _areAttributesEditable() {
+                let hasWritePermissionValues = [];
+                let firstDataContext = ContextHelper.getFirstDataContext(this.contextData);
+
+                if(_.isEmpty(firstDataContext)) {
+                    // check for self attributes permissions
+                    let attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(this._compositeModel);
+                        if(!_.isEmpty(attributes)) {
+                            for (let attrName in attributes) {
+                                hasWritePermissionValues.push(attributes[attrName].properties.hasWritePermission);
+                            }
+                        }
+                } else {
+                    // check for context attributes permissions
+                        let attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(
+                            this._compositeModel, firstDataContext);
+                        if(!_.isEmpty(attributes)) {
+                            for (let attrName in attributes) {
+                                hasWritePermissionValues.push(attributes[attrName].properties.hasWritePermission);
+                            }
+                        }
+                }
+                return !hasWritePermissionValues.every(val => val === false);
+            }
             _onPasteActionTap(e, detail) {
                 if (!detail || !detail.data) {
                     return;
                 }
-
-                if(this.contextData && this.contextData.Contexts && this.contextData.Contexts.length>1) {
+                let contexts = this.getDataContexts();
+                if(contexts && contexts.length>1) {
                     this.showWarningToast("Entity paste functionality is not supported for multiple contexts");
+                    return;
+                }
+
+                if(!this._areAttributesEditable()) {
+                    this.showWarningToast("You do not have permissions to edit this entity");
                     return;
                 }
 
@@ -678,11 +693,13 @@
                     let copyEntityId = parsedData.ItemContexts[0].id;
                     let pasteEntityId;
                     let firstItemContext = this.getFirstItemContext();
+                    let valContexts = ContextHelper.getValueContexts(this.contextData);
+                    let firstDataContext = ContextHelper.getFirstDataContext(this.contextData);
                     if(firstItemContext && !_.isEmpty(firstItemContext.id)) {
                         pasteEntityId = firstItemContext.id;
                     }
-                    if ( (copyEntityId === pasteEntityId) && (DataHelper.compareObjects(parsedData.Contexts, this.contextData.Contexts))  && 
-                         (DataHelper.compareObjects(parsedData.ValContexts, this.contextData.ValContexts))) {
+                    if ( (copyEntityId === pasteEntityId) && (DataHelper.compareObjects(parsedData.Contexts, firstDataContext))  && 
+                         (DataHelper.compareObjects(parsedData.ValContexts, valContexts))) {
                         this.showWarningToast("Cannot copy and paste on the same entity in same context");
                         return;
                     }
@@ -752,14 +769,18 @@
                 }
             }
 
-            _onContextChanged() {
+            _onContextDataChanged() {
                 //reset to notify contextData change to other components
                 let contextData = DataHelper.cloneObject(this.contextData);
                 this.contextData = {};
                 this.contextData = contextData;
+                let valContexts = ContextHelper.getValueContexts(this.contextData);
+                let firstDataContext = ContextHelper.getFirstDataContext(this.contextData);
 
-                this._preparePrimaryContexts();
-                this._reRenderOnDimensionChange(false); //false - Not to refresh entity header
+                if(firstDataContext && !_.isEmpty(valContexts)) {
+                    this._triggerManageAttributes();
+                }
+                this._reRenderOnDimensionChange(false);
             }
             _onComponentCreating(e, detail) {
                 let component = detail.data;
@@ -801,9 +822,8 @@
                 console.log("event triggered: " + detail.name);
             }
             _deleteEvent(e, detail) {
-                if (detail.dataIndex && detail.dataSubIndex) {
+                if (detail.dataIndex) {
                     this.dataIndex = detail.dataIndex;
-                    this.dataSubIndex = detail.dataSubIndex;
                 }
                 this._confirmationDialog.open();
             }
@@ -896,7 +916,7 @@
                     name: "rock-wizard-entity-download",
                     mergeTitle: true,
                     title: DataHelper.concatValuesFromArray([
-                        this._primaryContexts,
+                        ContextHelper.getDataContexts(this.contextData),
                         this._entityName
                     ])
                 }, sharedData);
@@ -1020,8 +1040,9 @@
                     this.logError("Link Assets - Composite model get response error", detail);
                 }
             }
+
             _triggerManageAttributes() {
-                if (!this.compositeAttrModelGetLiq) {
+                if (!this.compositeAttrModelGetLiq) {   
                     return;
                 }
 
@@ -1029,7 +1050,6 @@
                 delete request.params.fields.relationships;
                 delete request.params.fields.relationshipAttributes;
                 request.params.fields.attributes = ["_ALL"];
-
                 this.compositeAttrModelGetLiq.requestData = request;
                 this.compositeAttrModelGetLiq.generateRequest();
             }
@@ -1037,38 +1057,40 @@
                 let groupAttributes = [];
                 if (detail && DataHelper.validateGetModelsResponse(detail.response)) {
                     if (DataHelper.isValidObjectPath(detail, "response.content.entityModels.0")) {
-                        let attributes = DataTransformHelper.transformAttributeModels(detail.response.content.entityModels[0], this.contextData);
-                        for (let key in attributes) {
-                            if (!_.isEmpty(this.manageAttributeByProperty)) {
-                                if (attributes[key].properties[this.manageAttributeByProperty
-                                    .propertyName] ==
-                                    this.manageAttributeByProperty.propertyValue) {
-                                    groupAttributes.push(key);
+                        this._compositeModel = detail.response.content.entityModels[0];
+                        let attributeModel = DataTransformHelper.transformAttributeModels(detail.response.content.entityModels[0], this.contextData);
+                        // Merge config attributes and group attributes
+                        let allAttrNames;
+                        if(!_.isEmpty(this.manageAttributeByProperty)) {
+                                for (let key in attributeModel) {
+                                        if (attributeModel[key].properties[this.manageAttributeByProperty
+                                            .propertyName] ==
+                                            this.manageAttributeByProperty.propertyValue) {
+                                            groupAttributes.push(key);
+                                        }
+                                    if (!_.isEmpty(this.manageAttrGroups)) {
+                                        if(DataHelper.isValidObjectPath(attributeModel[key], 'properties.groupName')) {
+
+                                            if (this.manageAttrGroups.indexOf(attributeModel[key].properties.groupName) != -1) {
+                                                groupAttributes.push(key);
+                                            }
+    
+                                        }
+                                    }
                                 }
-                            }
-                            if (this.manageAttrGroups.length > 0) {
-                                if (this.manageAttrGroups.indexOf(attributes[key].properties
-                                    .groupName) !=
-                                    -1) {
-                                    groupAttributes.push(key);
+                                
+                            allAttrNames = groupAttributes;
+                        } else {
+                            if(this.manageAttrNames) {
+                                allAttrNames = this.manageAttrNames.concat(groupAttributes);
+                                if (allAttrNames.length > 0) {
+                                    this._openManageAttributesDialog(this.manageAttrLabel, allAttrNames);
+                                } else {
+                                    this.logError("Manage Attributes - Composite model get response error", detail);
                                 }
                             }
                         }
                     }
-                }
-
-                // Merge config attributes and group attributes
-                let allAttrNames;
-                if (!_.isEmpty(this.manageAttributeByProperty)) {
-                    allAttrNames = groupAttributes;
-                } else {
-                    allAttrNames = this.manageAttrNames.concat(groupAttributes);
-                }
-
-                if (allAttrNames.length > 0) {
-                    this._openManageAttributesDialog(this.manageAttrLabel, allAttrNames);
-                } else {
-                    this.logError("Manage Attributes - Composite model get response error", detail);
                 }
             }
             _triggerManageRelationships(relationshipTypeName) {
@@ -1158,7 +1180,7 @@
                     name: "rock-wizard-attribute-manage",
                     title: DataHelper.concatValuesFromArray([
                         this.todoActionDialogTitle,
-                        this._primaryContexts,
+                        ContextHelper.getDataContexts(this.contextData),
                         this._entityName
                     ])
                 }, sharedData);
@@ -1403,7 +1425,7 @@
 
                 //refresh dimension selector
                 if (data && data.actionType && data.actionType == "addContext") {
-                    ComponentHelper.fireBedrockEvent("refresh-dimension-selector", e.detail, {
+                    ComponentHelper.fireBedrockEvent("refresh-context-selector", e.detail, {
                         ignoreId: true
                     });
                     return true;
@@ -1427,15 +1449,8 @@
                 } else if (dataIsDirty || controlIsDirty) {
                     notificationObj.showToast(data);
                 } else {
-                    //Resetting Progress Bar
-                    Globals.progressOver = false;
-                    Globals.currentProgress = 0;
-                    Globals.requestCount = Globals.responseCount = 0;
-                    Globals.progressUpdater = 0.1;
-                    if (Globals.progressBar) {
-                        Globals.progressBar.value = 0;
-                        Globals.progressBar.secondaryProgress = 0;
-                    }
+                    ProgressTracker.resetProgress(true);
+
                     //Refresh the current tab
                     if (this.detailTabs) {
                         this.detailTabs.refresh();
@@ -1446,12 +1461,12 @@
                 }
             }
 
-            _onDimensionsChanged(e) {
+            _onContextsChanged(e) {
                 let newDimensions = e.detail.dimensions;
                 ContextHelper.updateContextData(this.contextData, newDimensions);
                 let selectedDimensionsDetail = e.detail.selectedDimensionsDetail;
-                this.setNavigationData("rock-dimension-selector", selectedDimensionsDetail);
-                this._onContextChanged();
+                this.setNavigationData("rock-context-selector", selectedDimensionsDetail);
+                this._onContextDataChanged();
             }
 
             _onWorkflowAvailable(e) {
