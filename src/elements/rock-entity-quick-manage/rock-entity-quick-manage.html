@@ -204,7 +204,7 @@
                         <template is="dom-if" if="[[!noHeader]]">
                             <div class="header-content">
                                 <span id="attrName">[[selectedEntityType]]</span>
-                                <span id="attrVal">[[_getEntityDetailsForHeader(selectedEntity, tabConfig)]]</span>
+                                <span id="attrVal">[[_getEntityDetailsForHeader(selectedEntity, attributeModels)]]</span>
                             </div>
                         </template>
                         <div class="layout flex right-section">
@@ -230,6 +230,9 @@
                         </div>
                     </div>
                 </div>
+            </div>
+            <div class="default-message" hidden$="[[_showComponent(selectedEntity,_entityId)]]">
+                <span>[[_errorMessage]]</span>
             </div>
             <div class="base-grid-structure-child-2">
                 <div class="base-grid-structure">
@@ -275,9 +278,7 @@
                 </div>
             </div>
 
-            <div class="default-message" hidden$="[[_showComponent(selectedEntity,_entityId)]]">
-                <span>[[_errorMessage]]</span>
-            </div>
+           
     </template>
     <script>
         class RockEntityQuickManage extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior,
@@ -424,6 +425,20 @@
                     selectedEntityType: {
                         type: String,
                         value: ""
+                    },
+                    _compositeModelRequest: {
+                        type: Object,
+                        value: function(){
+                            return {};
+                        }
+                    },
+                    _entityIdentifierFound: {
+                        type: Boolean,
+                        value: false
+                    },
+                    _externalNameFound: {
+                        type: Boolean,
+                        value: false
                     }
                 };
             }
@@ -711,21 +726,20 @@
                 return false;
             }
 
-            _getEntityDetailsForHeader() {
-                if (this.selectedEntity && this.selectedEntity.attributes && !_.isEmpty(this.attributeModels)) {
+            _getEntityDetailsForHeader(selectedEntity, attributeModels) {
+                if (selectedEntity && !_.isEmpty(attributeModels)) {
                     let atrrName;
-                    for (let modelName in this.attributeModels) {
-                        if (this.attributeModels.hasOwnProperty(modelName)) {
-                            if (this.attributeModels[modelName].isExternalName) {
+                    let attrValue = ""
+                    for (let modelName in attributeModels) {
+                        if (attributeModels.hasOwnProperty(modelName)) {
+                            if (attributeModels[modelName].isExternalName) {
                                 atrrName = modelName;
                                 break;
                             }
                         }
                     }
-                    if (this.selectedEntity.attributes[atrrName]) {
-                        return this.selectedEntity.attributes[atrrName].value;
-                    }
-                    return "";
+                    attrValue = selectedEntity.attributes ? selectedEntity.attributes[atrrName].value : selectedEntity[atrrName];
+                    return attrValue;
                 }
             }
 
@@ -744,26 +758,88 @@
             _isRelMode() {
                 return this.dataObjectType == "relationship";
             }
-            _onSelectedEntityChange(entity) {
-                if (entity && entity.attributes && !_.isEmpty(this.attributeModels)) {
+            _setRequestObject () {
+                let firstDataContext = this.getFirstDataContext();
+                let firstItemContext = this.getFirstItemContext();
+                if(!firstItemContext){
+                    return;
+                }
+                let entityType = firstItemContext.type;
+
+                let req = {
+                    "params": {
+                        "query": {
+                            "name": entityType,
+                            "filters": {
+                                "typesCriterion": ["entityCompositeModel"]
+                            }
+                        },
+                        "fields": {
+                            "attributes": ["_ALL"]
+                        }
+                    }
+                };
+
+                if(this.contextData) {
+                    DataRequestHelper.addContextsToModelRequest(req, this.contextData);
+                } else if (!_.isEmpty(firstDataContext)) {
+                    req.params.query.contexts = [firstDataContext];
+                }
+
+                this._compositeModelRequest = DataHelper.cloneObject(req);
+            }
+            async _getCompositeModel(){
+                this._setRequestObject();
+                let compositeModel = {};
+                let entityCompositeModelManager = new EntityCompositeModelManager();
+                if(entityCompositeModelManager) {
+                    compositeModel = await entityCompositeModelManager.get(this._compositeModelRequest);
+                    entityCompositeModelManager = null;
+                }
+                return compositeModel;
+            }
+            async _onSelectedEntityChange(entity) {
+                if (!_.isEmpty(entity)) {
+                    let compositeModel = await this._getCompositeModel();
+                    if(compositeModel){
+                        this.attributeModels = await DataTransformHelper.transformAttributeModels(compositeModel, this.contextData);
+                    }
+                    this.showThumbnailAndHeader = true;
                     this.selectedEntityType = entity.typeExternalName;
-                    if (entity.properties.thumbnailid) {
+                    if (entity.thumbnailid) {
+                        this.itemThumbnail = entity.thumbnailid;
+                    }
+                    else if (entity.properties && entity.properties.thumbnailid){
                         this.itemThumbnail = entity.properties.thumbnailid;
                     }
                     let itemDescription = [];
-                    for (let modelName in this.attributeModels) {
-                        if (this.attributeModels.hasOwnProperty(modelName)) {
-                            if (this.attributeModels[modelName].isEntityIdentifier || this.attributeModels[
-                                    modelName].isExternalName) {
-                                itemDescription.push({
-                                    name: this.attributeModels[modelName].externalName,
-                                    value: entity.attributes[modelName].value,
-                                    description: this.attributeModels[modelName].description
-                                });
+                    if(!_.isEmpty(this.attributeModels)){
+                        for (let modelName in this.attributeModels) {
+                            if (this.attributeModels.hasOwnProperty(modelName)) {
+                                if (this.attributeModels[modelName].isEntityIdentifier || this.attributeModels[ modelName].isExternalName) {
+                                    this._entityIdentifierFound = this._entityIdentifierFound || this.attributeModels[modelName].isEntityIdentifier;
+                                    this._externalNameFound = this._externalNameFound || this.attributeModels[modelName].isExternalName;
+                                    let itemValue = entity.attributes ? entity.attributes[modelName].value : entity[modelName];
+                                    itemDescription.push({
+                                        name: this.attributeModels[modelName].externalName,
+                                        value: itemValue,
+                                        description: this.attributeModels[modelName].description
+                                    });
+
+                                    if(this._entityIdentifierFound && this._externalNameFound){
+                                        this._entityIdentifierFound = false;
+                                        this._externalNameFound = false;
+                                        break;
+                                    }
+                                }
                             }
                         }
                     }
+                    
                     this.set("itemDescription", itemDescription);
+                }
+                else{
+                    this.showThumbnailAndHeader = false;
                 }
             }
             _getDescriptionInfo(item){
