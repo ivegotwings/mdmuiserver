@@ -48,7 +48,8 @@ let DFServiceBase = function (options) {
             json: true,
             simple: false,
             timeout: timeout,
-            gzip: true
+            gzip: true,
+            resolveWithFullResponse : true
         };
 
         let hrstart = process.hrtime();
@@ -64,7 +65,15 @@ let DFServiceBase = function (options) {
             });
 
         let result = await reqPromise;
-
+        
+        if (result.statusCode && result.statusCode === 503) {
+            result.body = result.body || {response: {}};
+            result.body.response = result.body.response || {};
+            result.body.response.status = 'error';
+            result.body.response.msg = 'Server is busy, please try after some time.'
+        }
+        result = result.body;  
+        
         let isErrorResponse = logger.logError(internalRequestId, serviceName, options, result);
 
         // console.log("request: -- - - - ", JSON.stringify(options, null, 2));
