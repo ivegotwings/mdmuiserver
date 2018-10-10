@@ -197,7 +197,7 @@ class NotificationService {
             (async () => {
                 let moduleLogConfig = await loggerConfigManager.getCurrentModulesObject();
 
-                if (moduleLogConfig && moduleLogConfig["notification-service"] && moduleLogConfig["notification-service"].level == "info") {
+                if (moduleLogConfig && moduleLogConfig["notification-service"] && moduleLogConfig["notification-service"].level == "debug") {
                     await notificationManager.setNotificationCountByService(serviceName);
                 }
             })();
