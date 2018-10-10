@@ -51,7 +51,7 @@ module.exports = function (app) {
     });
 
     app.use('/data/notification/count', async function (req, res) {
-        let response = await versionService.updateRuntimeVersion(req);
+        let response = await NotificationService.getAllNotificationCount(req);
         res.status(200).send(response);
     });
 };

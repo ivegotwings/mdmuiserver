@@ -3,13 +3,14 @@
 let notificationManager = require('../../notification-engine/api/notification-manager');
 let enums = require('../../../../shared/enums-util');
 let logger = require('../../common/logger/logger-service');
+let loggerConfigManager = require('../../common/logger/logger-config.js');
 let isEmpty = require('../../common/utils/isEmpty');
 let VersionService = require('../version-service/VersionService');
 
 const versionService = new VersionService({});
 
 class NotificationService {
-    
+
     static get dataIndexMapping() {
         return {
             "entityManageService": "entityData",
@@ -18,6 +19,15 @@ class NotificationService {
         };
     };
 
+    static get serivceNames() {
+        return [
+            "entitymanageservice",
+            "entitymanagemodelservice",
+            "entitygovernservice",
+            "rsconnectservice"
+        ]
+    }
+
     static sendNotificationToUI(notificationObject, tenantId) {
         if (notificationObject) {
             let notificationInfo = this.prepareNotificationObject(notificationObject.data);
@@ -25,8 +35,8 @@ class NotificationService {
 
             if (!isEmpty(notificationInfo)) {
 
-                // On model import complete notification, module version has to be updated to maintain local storage in sync.
-                if (notificationInfo.action == enums.actions.ModelImportComplete) {
+                // On model import complete Or any model change notification, module version has to be updated to maintain local storage in sync.
+                if (notificationInfo.action == enums.actions.ModelImportComplete || notificationInfo.action == enums.actions.ModelSaveComplete) {
                     (async () => {
                         await versionService.updateModuleVersion('entityModel');
                     })();
@@ -180,12 +190,16 @@ class NotificationService {
                 }
             }
 
-            if(NotificationService.dataIndexMapping[serviceName]) {
+            if (NotificationService.dataIndexMapping[serviceName]) {
                 dataIndex = NotificationService.dataIndexMapping[serviceName];
             }
 
             (async () => {
-                
+                let moduleLogConfig = await loggerConfigManager.getCurrentModulesObject();
+
+                if (moduleLogConfig && moduleLogConfig["notification-service"] && moduleLogConfig["notification-service"].level == "info") {
+                    await notificationManager.setNotificationCountByService(serviceName);
+                }
             })();
         }
         notificationInfo.action = action;
@@ -203,7 +217,7 @@ class NotificationService {
         if (this.isValidObjectPath(data, "notificationObject.data.jsonData.clientState.notificationInfo.userId")) {
             userId = data.notificationObject.data.jsonData.clientState.notificationInfo.userId;
         }
-    
+
         return userId;
     };
 
@@ -219,6 +233,18 @@ class NotificationService {
         return true;
     };
 
+    static async getNotificationCountByService(serviceName) {
+        return await notificationManager.getNotificationCountByService(serviceName);
+    }
+
+    static async getAllNotificationCount() {
+        let allNotificationCountCacheKeys = [];
+        this.serivceNames.forEach(serviceName => {
+            allNotificationCountCacheKeys.push(notificationManager.getNotificationCountCacheKey(serviceName));
+        });
+
+        return await notificationManager.getAllNotificationCount(allNotificationCountCacheKeys);
+    }
 }
 
 module.exports = NotificationService;

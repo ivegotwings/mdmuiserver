@@ -26,22 +26,37 @@ function sendMessageToSpecificUser(data, userId) {
 }
 
 async function setNotificationCountByService(serviceName) {
+        let key = this.getNotificationCountCacheKey(serviceName);
         let currentCount = await this.getNotificationCountByService(serviceName);
 
-        if (currentCount) {
-                currentCount = 0;
+        if (currentCount && currentCount[serviceName] != undefined) {
+                currentCount[serviceName]++;
+                return await stateManager.set(key, currentCount);
+        } else {
+                let value = {};
+                value[serviceName] = 1;
+                return await stateManager.set(key, value);
         }
-
-        await stateManager.set('notification-' + serviceName + '-count', currentCount++);
 }
 
 async function getNotificationCountByService(serviceName) {
-        return await stateManager.get('notification-' + serviceName + '-count');
+        let key = this.getNotificationCountCacheKey(serviceName);
+        return await stateManager.get(key);
+}
+
+async function getAllNotificationCount(keys) {
+        return await stateManager.mget(keys);
+}
+
+function getNotificationCountCacheKey(serviceName) {
+        return "notification-" + serviceName + "-count";
 }
 
 module.exports = {
         sendMessageToAllUser: sendMessageToAllUser,
         sendMessageToSpecificUser: sendMessageToSpecificUser,
         setNotificationCountByService: setNotificationCountByService,
-        getNotificationCountByService: getNotificationCountByService
+        getNotificationCountByService: getNotificationCountByService,
+        getAllNotificationCount: getAllNotificationCount,
+        getNotificationCountCacheKey: getNotificationCountCacheKey
 };
