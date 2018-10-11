@@ -175,9 +175,6 @@
                             return [];
                         }
                     },
-                    taxonomy: {
-                        type: String
-                    },
                     _copRequest: {
                         type: Object,
                         value: function () {
@@ -340,9 +337,6 @@
              */
             ready() {
                 super.ready();
-                if (!this.taxonomy || this.taxonomy == "undefined") {
-                    this.taxonomy = this.appSetting("dataDefaults").taxonomy;
-                }
             }
 
             _contextChanged(contextData) {
@@ -350,7 +344,6 @@
                     this._showView("entity-import");
                     let itemContext = this.getFirstItemContext();
                     this.entityType = itemContext.type;
-                    //this._getTaxonomyManageModel();
 
                     //Get domain for entity type
                     this._prepareClassificationRootPaths();
@@ -740,19 +733,32 @@
                     exportDialog.close();
                 }
             }
+            _getDownloadRequest(entityTypes, fileName, contexts) {
+                let req = DataRequestHelper.createGetManageModelRequest(entityTypes);
+                req.fileName = fileName;
+                req.params.options = {
+                    "coalesceOptions": {
+                        "enhancerAttributes": contexts
+                    }
+                }
+                return req;
+            }
             _exportSelectedCategory(e) {
                 this._downloadInProgress = true;
-                if (this._selectedCategories && this._selectedCategories.length) {
+                if (this._selectedCategories && this._selectedCategories.length && !_.isEmpty(this.selectedPath)) {
                     let contexts = [];
                     let firstItemContext = this.getFirstItemContext();
                     let fileName = "CategoryTemplate";
                     let categoryPathSeperator = this.appSetting('dataDefaults').categoryPathSeparator;
+                    if(DataHelper.isValidObjectPath(this.selectedPath, "properties.pathEntityInfo.0.pathSeperator")) {
+                        categoryPathSeperator = this.selectedPath.properties.pathEntityInfo[0].pathSeperator;
+                    }
                     this._selectedCategories.forEach(function (category) {
                         let formattedClassification = category.valuePath.replace(/#@#/g,
                             categoryPathSeperator);
-                        contexts.push({
-                            "classification": formattedClassification
-                        });
+                        let context = {};
+                        context[this.selectedPath.name] = formattedClassification;
+                        contexts.push(context);
                     }, this);
 
                     if (this._selectedCategories.length == 1) {
@@ -760,24 +766,7 @@
                     }
 
                     if (firstItemContext && firstItemContext.type && contexts.length) {
-                        let req = {
-                            "params": {
-                                "query": {
-                                    "contexts": contexts,
-                                    "filters": {
-                                        "typesCriterion": [
-                                            "entityManageModel"
-                                        ]
-                                    },
-                                    "id": firstItemContext.type + "_entityManageModel"
-                                },
-                                "fields": {
-                                    "attributes": ["_ALL"],
-                                    "relationships": ["_ALL"]
-                                }
-                            },
-                            "fileName": fileName
-                        };
+                        let req = this._getDownloadRequest([firstItemContext.type], fileName, contexts);
 
                         let _this = this;
                         RUFUtilities.fileDownload("/data/cop/downloadModelExcel", {
