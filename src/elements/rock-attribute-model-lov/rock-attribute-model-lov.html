@@ -259,15 +259,17 @@
                 this._attributesCriterionBuilder = this._prepareAttributesCriteria.bind(this);
                 this._keywordsCriterionBuilder = this._prepareKeywordsCriteria.bind(this);
                 this._prepareAttributeMaps();
-            
+
                 //this.logInfo("AttributeModelReady","id",this.idField,"requestData",JSON.stringify(this.requestData));
 
                 if (!_.isEmpty(this.mode)) {
-                    if (this.mode === "all" || this.mode === "domainMapped") {
+                    if (this.mode === "all") {
                         this._dataFormatter = this._getAttributeFormattedData.bind(this);
+                    } else if(this.mode === "domainMapped") {
+                        this._dataFormatter = this._getAttributeFormattedDataForDomainMapped.bind(this);
                     } else {
                         this._dataFormatter = this._getAttributeFormattedDataForCompositeModel.bind(this);
-                    }                
+                    }
                 }
 
             }
@@ -294,21 +296,58 @@
             }
 
             _getAttributeModels(contextDataIn) {
-                if(_.isEmpty(this.domains)){
-                    let domainContexts = ContextHelper.getDomainContexts(this.contextData);
-                    let domain = domainContexts[0]["domain"];
-                    // to get classification attribute we need taxonomy model domain
-                    this.domains.push(domain,"taxonomyModel");
+                if (!_.isEmpty(this.contextData)) {
+                    let firstDomainContext = ContextHelper.getFirstDomainContext(this.contextData);
+                    this.domain = firstDomainContext && firstDomainContext.domain ? firstDomainContext.domain : undefined;
+                    if (this.mode === "all") {
+                        this.requestData = undefined;
+                        this.requestData = this.modelGetRequest;
+                        this.isModelGetInitiated = true;
+                    } else if(this.mode === "domainMapped") {
+                        this._initiateDomainMappedRequest(this.domain);
+                    } else {
+                        let contextData = DataHelper.cloneObject(this.contextData);
+
+                        if (this.contextData.ItemContexts) {
+                            let index = 0;
+                            for (let i = 0; i < contextData.ItemContexts.length; i++) {
+                                if (contextData.ItemContexts[i].type) {
+                                    index++;
+                                }
+                            }
+                            this._currentIndex = index;
+                            this._currentItems = [];
+                            this._notFoundEntityTypes = [];
+                        }
+
+                        if (contextData && contextData.ItemContexts) {
+                            for (let i = 0; i < this.contextData.ItemContexts.length; i++) {
+
+                                contextData.ItemContexts = [this.contextData.ItemContexts[i]];
+                                let compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(
+                                    contextData);
+                                if (compositeModelGetRequest && compositeModelGetRequest.params) {
+                                    compositeModelGetRequest.params.fields.attributes = ["_ALL"];
+                                }
+                                this.set('requestData', compositeModelGetRequest);
+                                this.reTriggerRequest();
+                            }
+                            this.isModelGetInitiated = true;
+                        } else {
+                            //ItemContext not available to fetch the attribute models
+                            this.isModelGetInitiated = false;
+                        }
+                    }
                 }
-                if(this.mode == "domainMapped"){
-                    this.pageSize = 101;
-                    if(DataHelper.isValidObjectPath(this.modelGetRequest,"params.query")){
-                        this.modelGetRequest.params.query["domain"] = this.domains[this._domainIndex]
-                    }
-                    this._domainIndex++;
-                    if(DataHelper.isValidObjectPath(this.modelGetRequest,"params.fields.attributes")){
-                        this.modelGetRequest.params.fields.attributes = ["_ALL"];
-                    }
+            }
+
+            _initiateDomainMappedRequest(domain) {
+                this.pageSize = 101;
+                if(DataHelper.isValidObjectPath(this.modelGetRequest,"params.query") && domain){
+                    this.modelGetRequest.params.query["domain"] = domain;
+                }
+                if(DataHelper.isValidObjectPath(this.modelGetRequest,"params.fields.attributes")){
+                    this.modelGetRequest.params.fields.attributes = ["_ALL"];
                 }
                 this.requestData = undefined;
                 this.requestData = this.modelGetRequest;
@@ -319,24 +358,17 @@
             _getAttributeFormattedData(data) {
                 if (data && data.content && !_.isEmpty(data.content.entityModels)) {
                     let items = [];
-                    this._combineEntityModels = this._combineEntityModels.concat(data.content.entityModels);
-                    if(this.mode == "domainMapped" && this._domainIndex < this.domains.length){
-                        this._getAttributeModels();
-                        return false;
-                    }else{
-                        let attributeModels = this.excludeNestedAttributes ? this._excludeNestedAttributeModels(this._combineEntityModels) : this._combineEntityModels;
-                        for (let i = 0; i < attributeModels.length; i++) {
-                            let attributeModel = attributeModels[i];
-                            let item = {
-                                "id": attributeModel.name,
-                                "value": attributeModel.name,
-                                "title": attributeModel.properties.externalName
-                            };
-                            items.push(item);
-                        }
-                        this._combineEntityModels = [];
-                        return items;
+                    let attributeModels = this.excludeNestedAttributes ? this._excludeNestedAttributeModels(data.content.entityModels) : data.content.entityModels;
+                    for (let i = 0; i < attributeModels.length; i++) {
+                        let attributeModel = attributeModels[i];
+                        let item = {
+                            "id": attributeModel.name,
+                            "value": attributeModel.name,
+                            "title": attributeModel.properties.externalName
+                        };
+                        items.push(item);
                     }
+                    return items;
                 }
             }
 
@@ -410,6 +442,38 @@
                 }
             }
 
+            _getAttributeFormattedDataForDomainMapped(data) {
+                if (data && data.content) {
+                    let items = [];
+                    let entityModels = !_.isEmpty(data.content.entityModels) ? data.content.entityModels : [];
+                    this._combineEntityModels = this._combineEntityModels.concat(entityModels);
+                    if(this.mode == "domainMapped" && DataHelper.isValidObjectPath(this.modelGetRequest, "params.query.domain")){
+                        let requestedDomain = this.modelGetRequest.params.query.domain;
+                        if(requestedDomain === this.domain) {
+                            this._initiateDomainMappedRequest("taxonomyModel");
+                            return false;
+                        } else{
+                            if(_.isEmpty(this._combineEntityModels)) {
+                                this.set("items",[]);
+                            } else {
+                                let attrModelObj = {};
+                                this._combineEntityModels = this.excludeNestedAttributes ? this._excludeNestedAttributeModels(this._combineEntityModels) : this._combineEntityModels;
+                                this._combineEntityModels.forEach((elem) => {
+                                    attrModelObj[elem.name] = elem;
+                                });
+                                let attributeDataModels = {"data": {"attributes":attrModelObj}};
+                                let attributeModels = DataTransformHelper.transformAttributeModels(attributeDataModels, {});
+                                if (!_.isEmpty(attributeModels)) {
+                                    let items = DataTransformHelper.transformAtributeModelsToLovSchema(attributeModels, this._lovColumnNameValueCollection);
+                                    this.set("items", items);
+                                }
+                                this._combineEntityModels = [];
+                            }
+                        }
+                    }
+                }
+            }
+
             _excludeNestedAttributeModels(attributeModels) {
                 let models = [];
                 attributeModels.forEach(function (attributeModel) {
@@ -437,6 +501,9 @@
 
                     keywordsCriterion.keywords = "*" + searchText + "*";
                     keywordsCriterion.operator = "_OR";
+                    if(this.mode == "domainMapped") {
+                        this.modelGetRequest.params.query["domain"] = this.domain;
+                    }
 
                     return keywordsCriterion;
                 }
@@ -452,6 +519,10 @@
                     // Todo.. When Pattern comes into picture this one is effected
                     searchKey[this.titlePattern] = searchValue;
                     attributesCriterion.push(searchKey);
+
+                    if(this.mode == "domainMapped") {
+                        this.modelGetRequest.params.query["domain"] = this.domain;
+                    }
                     return attributesCriterion;
                 }
             }

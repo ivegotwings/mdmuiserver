@@ -122,6 +122,7 @@ module.exports = {
         "queryParser": true,
         "RUFUtilities": true,
         "RuntimeVersionManager": true,
+        "ModuleVersionManager": true,
         "LocaleManager": true,
         "EntityTypeManager": true,
         "EntityCompositeModelManager": true,
@@ -142,6 +143,7 @@ module.exports = {
         "PebbleToast": true,
         "PebbleDialog": true,
         "AppBusinessFunction": true,
-        "ProgressTracker": true
+        "ProgressTracker": true,
+        "FileDownloadManager": true
     }
 };

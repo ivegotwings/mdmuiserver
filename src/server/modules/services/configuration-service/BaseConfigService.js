@@ -32,7 +32,7 @@ BaseConfigService.prototype = {
         
         let baseConfigResponse = await LocalCacheManager.get(cacheKey);
         if (baseConfigResponse) {
-            return falcorUtil.cloneObject(baseConfigResponse);
+            return baseConfigResponse;
         }
 
         if (mode == "offline") {
@@ -41,7 +41,7 @@ BaseConfigService.prototype = {
             baseConfigResponse = await this.post(url, baseConfigRequest);
         }
 
-        await LocalCacheManager.set(cacheKey, falcorUtil.cloneObject(baseConfigResponse));
+        await LocalCacheManager.set(cacheKey, baseConfigResponse);
 
         return baseConfigResponse;
     },

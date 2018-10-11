@@ -52,8 +52,8 @@ It manages the current extensions and creates the new extensions.
                     <p class="status-error status-text" hidden$="[[allowSaveClassifications]]">Do not have permissions to edit/save Contexts, contact administrator.</p>
                 </div>
                 <div class="base-grid-structure-child-2">
-                        <rock-context-tree id="contextTree" selected-items="{{_selectedItems}}" root-node="[[rootNode]]" path-entity-type=[[pathEntityType]] path-relationship-name=[[pathRelationshipName]]
-                        context-data="[[contextData]]"  multi-select="[[multiSelect]]" check-child-nodes="[[checkChildNodes]]" disable-child-node="[[disableChildNode]]" check-parent-nodes="[[checkParentNodes]]" leaf-node-only="[[leafNodeOnly]]"></rock-context-tree>
+                        <rock-context-tree id="contextTree" selected-items="{{_selectedItems}}" context-data="[[contextData]]" multi-select="[[multiSelect]]" check-child-nodes="[[checkChildNodes]]"
+                         disable-child-node="[[disableChildNode]]" check-parent-nodes="[[checkParentNodes]]" leaf-node-only="[[leafNodeOnly]]" loading=[[showLoading]]></rock-context-tree>
                 </div>
             </div>
         </div>
@@ -68,9 +68,19 @@ It manages the current extensions and creates the new extensions.
         no-cancel-on-esc-key>
         <p>Unsaved changes identified, do you want to save your changes?</p>
     </pebble-dialog>
+
+    <pebble-dialog id="contextAddedDialog" dialog-title="Confirmation" button-ok-text="Yes" button-cancel-text="No, thanks" modal alert-box show-cancel show-ok no-cancel-on-outside-click
+        no-cancel-on-esc-key>
+        <p>[[noOfNewConetxts]] contexts are added, do you want to start managing data in them?</p>
+    </pebble-dialog>
     <bedrock-pubsub event-name="on-buttonok-clicked" handler="_save" target-id="confirmationDialog"></bedrock-pubsub>
     <bedrock-pubsub event-name="on-buttoncancel-clicked" handler="_skipOrCancelSelection" target-id="confirmationDialog"></bedrock-pubsub>
-    
+
+    <bedrock-pubsub event-name="on-buttonok-clicked" handler="_selectNewlyAddedContext" target-id="contextAddedDialog"></bedrock-pubsub>
+    <bedrock-pubsub event-name="on-buttoncancel-clicked" handler="_skipOrCancelSelection" target-id="contextAddedDialog"></bedrock-pubsub>
+
+    <bedrock-pubsub event-name="contexts-added" handler="_onNewlyContextAddedNotification"></bedrock-pubsub>
+
       
 </template>
     <script>
@@ -251,6 +261,22 @@ It manages the current extensions and creates the new extensions.
                         value: function () {
                             return [];
                         }
+                    },
+                    noOfNewConetxts:{
+                        type:Number,
+                        value:0
+                    },
+                    newlyAddedContexts:{
+                        type:Array,
+                        value:[]
+                    },
+                    _isNotificationReceived:{
+                        type:Boolean,
+                        value:false
+                    },
+                    showLoading:{
+                        type:Boolean,
+                        value:false
                     }
                 };
             }
@@ -264,6 +290,15 @@ It manages the current extensions and creates the new extensions.
             constructor() {
                 super();
             }
+            _onNewlyContextAddedNotification(e){
+                this._isNotificationReceived = true;
+                if(this.newlyAddedContexts.length > 0){
+                    this.shadowRoot.querySelector("#contextAddedDialog").open();
+                }else{
+                    this._triggerFinishStep();
+                }
+            }
+
 
             connectedCallback() {
                 super.connectedCallback();
@@ -490,7 +525,7 @@ It manages the current extensions and creates the new extensions.
                                             }
                                         }
                                     }
-                                    this._entitiesCurrentClassifications[entity.id] = entityCurrentClassifications;
+                                    this._entitiesCurrentClassifications[entity.id] = entityCurrentContexts;
                                 }
                             }
                         } else { //Collect classification for single entity and make it selectable in tree
@@ -673,6 +708,34 @@ It manages the current extensions and creates the new extensions.
                 let clientState = {};
                 clientState.notificationInfo = {};
                 clientState.notificationInfo.actionType = "addContext";
+                this.newlyAddedContexts = [];
+                if(this._selectedItems.length > 0){
+                    let _selectedItems = this._selectedItems;
+                    let entityCurrentContext = this._entityCurrentContexts;
+                    let entityCurrentContextValues = [];
+                    entityCurrentContext.forEach(item =>{
+                        entityCurrentContextValues.push(Object.values(item)[0]);
+                    })
+
+                    let _newlySelectedItems = _selectedItems.filter(selectedItem =>{
+                        if(entityCurrentContextValues.indexOf(selectedItem.name) == -1){
+                            return selectedItem;
+                        }
+                    });
+                    if(_newlySelectedItems.length > 0){
+                        this.noOfNewConetxts = _newlySelectedItems.length;
+                        let formattedSelectedItems = [];
+                        for (let itemIndex in _newlySelectedItems) {
+                            let formattedSelectedItem = {};
+                            let _currentItem = _newlySelectedItems[itemIndex];
+                            formattedSelectedItem["id"] = _currentItem.name;
+                            formattedSelectedItem["title"] = _currentItem.name;
+                            formattedSelectedItem["type"] = _currentItem.type;
+                            formattedSelectedItems.push(formattedSelectedItem);
+                        }
+                        this.newlyAddedContexts = formattedSelectedItems;
+                    }
+                }
                 if (this._isNotificationDisabled()) {
                     clientState.notificationInfo.showNotificationToUser = false;
                     this.set("_saveRequest", { "clientState": clientState, "entities": entities });
@@ -681,6 +744,21 @@ It manages the current extensions and creates the new extensions.
                     this.set("_saveRequest", { "clientState": clientState, "entities": entities });
                 }
                 this._liquidSaveElement.generateRequest();
+                this.showLoading = true;
+                this._isNotificationReceived = false;
+                let count = 0;
+                let notificationWaitTimer = setInterval(function () {
+                    count++
+                    if (this._isNotificationReceived) {
+                        this.showLoading = false;
+                        clearInterval(notificationWaitTimer);
+                    } else if (count >= 10) {
+                        let toastMessage = "It's taking longer than expected, we will let you know when done";
+                        this.showLoading = false;
+                        clearInterval(notificationWaitTimer);
+                        this._triggerFinishStep(null,null,toastMessage);
+                    }
+                }.bind(this), 1000);
             }
 
             _skipOrCancelSelection(e) {
@@ -692,6 +770,10 @@ It manages the current extensions and creates the new extensions.
                     this.fireBedrockEvent(eventName, eventDetail, {
                         ignoreId: true
                     });
+            }
+
+            _selectNewlyAddedContext(){
+                this._triggerFinishStep(null,this.newlyAddedContexts);
             }
 
             _onSaveResponse(e, detail) {
@@ -730,8 +812,8 @@ It manages the current extensions and creates the new extensions.
                             this._responseMessages.push(message);
                         }
                     }
+                    this._triggerFinishStep();
                 }
-                this._triggerFinishStep();
             }
 
             _updateInitialItems() {
@@ -746,17 +828,26 @@ It manages the current extensions and creates the new extensions.
                 }
             }
 
-            _triggerFinishStep(isJob) {
+            _triggerFinishStep(isJob,newlyAddedContexts,ErrorToastMessage) {
                 //Single entity reclassification
                 if (!this.isBulkProcess) {
-                    this.showSuccessToast("Context add request is submitted successfully.");
+                  
                     let eventName = "onSave";
                     let eventDetail = {
                         name: eventName,
                         "action": {
                             "name": "refresh-context-selector"
-                        }
+                        },
                     };
+                    if(newlyAddedContexts && newlyAddedContexts.length > 0){
+                        eventDetail.action["newlyAddedContexts"] = newlyAddedContexts;
+                    }else{
+                        let toastMessage = "Context update request is submitted successfully.";
+                        if(ErrorToastMessage){
+                            toastMessage = ErrorToastMessage;
+                        }
+                        this.showSuccessToast(toastMessage);
+                    }
                     if (eventName && this.functionalMode == "dataFunction") {
                         eventName.action = "business-condition-save-request";
                     };

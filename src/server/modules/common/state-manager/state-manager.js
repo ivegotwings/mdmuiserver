@@ -45,6 +45,35 @@ async function get(key) {
     return data;
 }
 
+async function mget(keys) {
+    let data = undefined;
+    let cacheKeys = [];
+
+    if(keys) {
+        keys.forEach(key => {
+            cacheKeys.push(getCacheKey(key));
+        });
+    }
+
+    let redisError = false;
+    if (isStateServerEnabled && client) {
+        try {
+            data = await client.mget(cacheKeys);
+            if (!isEmpty(data)) {
+                //console.log('data: ', 'cache key:', cacheKey, 'value:', data);
+                data = JSON.parse(data);
+                //console.log('data parsed: ', 'cache key:', cacheKey, 'value:', data);
+            }
+        }
+        catch (err) {
+            console.log('redis fetch failed', err);
+            redisError = true;
+        }
+    }
+
+    return data;
+}
+
 async function set(key, value) {
     let cacheKey = getCacheKey(key);
 
@@ -73,5 +102,6 @@ function getCacheKey(key) {
 module.exports = {
     get: get,
     set: set,
+    mget: mget,
     remove: remove
 }
