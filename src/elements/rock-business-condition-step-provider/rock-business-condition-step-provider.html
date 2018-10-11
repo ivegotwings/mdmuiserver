@@ -16,6 +16,8 @@
         <liquid-entity-model-get id="businessConditionsGet" operation="getbyids" request-id="businessConditionsGet" on-response="_onBusinessConditionsGetResponse"
             on-error="_onBusinessConditionsGetError"></liquid-entity-model-get>
         <liquid-entity-model-get id="getRelDomains" operation="getbyids" on-response="_onRelModelsReceived" on-error="_onModelGetFailed"></liquid-entity-model-get>
+        <liquid-entity-model-get id="getEntityModel" operation="getbyids" on-response="_onEntityModelReceived" on-error="_onEntityModelGetFailed"></liquid-entity-model-get>
+
     </template>
     <script>
         class RockBusinessConditionStepProvider extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior], Polymer.OptionalMutableData(Polymer.Element)) {
@@ -72,6 +74,13 @@
                     _relationshipDomain: {
                         type: String,
                         value: ""
+                    },
+
+                    entityModel: {
+                        type: Object,
+                        value: function () {
+                            return {}
+                        }
                     }
                 };
             }
@@ -87,7 +96,7 @@
             }
 
             connectedCallback() {
-                super.connectedCallback();
+                super.connectedCallback();                
             }
 
             disconnectedCallback() {
@@ -95,7 +104,7 @@
             }
 
             _initialConditionsLoaded(businessConditionId, contextData) {
-                if (businessConditionId && contextData && !_.isEmpty(contextData)) {
+                if (businessConditionId && contextData && !_.isEmpty(contextData)) {    
                     this._requestBusinessConditions();
                 }
             }
@@ -117,7 +126,7 @@
                     businessConditionsGet.generateRequest();
                 }
             }
-
+            
             _onBusinessConditionsGetResponse(e) {
                 let responseContent = DataHelper.validateAndGetResponseContent(e.detail.response);
                 if (responseContent) {
@@ -182,12 +191,36 @@
                         this._relationshipDomain = models[0].domain;
                     }
                 }
-                this._prepareSteps();
+                this._requestEntityModel();                
+            }
+
+            _requestEntityModel(){
+                let clonedContextData = DataHelper.cloneObject(this.contextData);
+                let itemContext = ContextHelper.getFirstItemContext(clonedContextData);
+                let entityModelLiquid = this.shadowRoot.querySelector("#getEntityModel");
+                if (entityModelLiquid) {
+                    let req = DataRequestHelper.createGetManageModelRequest([itemContext.type]);
+                    req.params.fields.attributes = [];
+                    req.params.fields.relationships = [this._impactRelationships[0]];
+                    entityModelLiquid.requestData = req;
+                    entityModelLiquid.generateRequest();
+                }
+            }
+            
+            _onEntityModelReceived(e) {
+                if(e && e.detail && DataHelper.isValidObjectPath(e.detail, "response.content.entityModels.0.data")) {
+                    this.entityModel = e.detail.response.content.entityModels[0];
+                }
+                this._prepareSteps();                
+            }
+
+            _onEntityModelGetFailed(e) {
+                this.logError("Entity model get response error", e.detail);
             }
 
             _prepareSteps() {
                 let steps = [];
-                let itemContext = ContextHelper.getFirstItemContext(this.contextData);
+                let itemContext = ContextHelper.getFirstItemContext(this.contextData);                
                 if (!_.isEmpty(this._impactTaxonomies)) {
                     let stepConfig = {
                         "name": "step-1-rock-extension-manage",
@@ -198,6 +231,7 @@
                             "properties": {
                                 "taxonomy": this._impactTaxonomies[0],
                                 "functional-mode": "dataFunction",
+                                "show-skip": true
                             }
                         },
                         "nextEvent": "onSave",
@@ -231,6 +265,17 @@
                 }
                 if (!_.isEmpty(this._impactRelationships)) {
                     itemContext.relationships = this._impactRelationships;
+                    //Handle whereused scenario
+                    let direction = "";
+                    let fromEntityType = "";
+                    if(!_.isEmpty(this.entityModel) && this.entityModel.data && this.entityModel.data.relationships){
+                        let relObj = this.entityModel.data.relationships[this._impactRelationships[0]][0];
+                        if(relObj.properties.relationshipOwnership.toLowerCase() == "whereused"){
+                            direction = "up";
+                            fromEntityType = relObj.properties.relatedEntityInfo[0].relEntityType;
+                        }
+                    }
+
                     let stepConfig =
                         {
                             "name": "fix-relationships-errors",
@@ -242,7 +287,9 @@
                                     "mode": "edit",
                                     "no-of-columns": 2,
                                     "config-context": {
-                                        "relationshipTypeName": this._impactRelationships[0]
+                                        "relationshipTypeName": this._impactRelationships[0],
+                                        "direction": direction,
+                                        "fromEntityType": fromEntityType                                      
                                     },
                                     "functional-mode": "dataFunction",
                                     "context-data": this.contextData

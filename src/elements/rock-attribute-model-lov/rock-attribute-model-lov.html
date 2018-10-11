@@ -206,6 +206,39 @@
                         type: Boolean,
                         value: false,
                         notify: true
+                    },
+                    modelGetRequest:{
+                        type:Object,
+                        value: {
+                            "params": {
+                                "query": {
+                                    "filters": {
+                                        "typesCriterion": [
+                                            "attributeModel"
+                                        ]
+                                    }
+                                },
+                                "fields": {
+                                    "ctxTypes": [
+                                        "properties"
+                                    ],
+                                    "attributes": [""]
+                                }
+                            }
+                        
+                        }
+                    },
+                    domains:{
+                        type:Array,
+                        value:[]
+                    },
+                    _domainIndex:{
+                        type:Number,
+                        value:0
+                    },
+                    _combineEntityModels:{
+                        type:Array,
+                        value:[]
                     }
                 };
             }
@@ -232,6 +265,8 @@
                 if (!_.isEmpty(this.mode)) {
                     if (this.mode === "all") {
                         this._dataFormatter = this._getAttributeFormattedData.bind(this);
+                    } else if(this.mode === "domainMapped") {
+                        this._dataFormatter = this._getAttributeFormattedDataForDomainMapped.bind(this);
                     } else {
                         this._dataFormatter = this._getAttributeFormattedDataForCompositeModel.bind(this);
                     }
@@ -262,27 +297,14 @@
 
             _getAttributeModels(contextDataIn) {
                 if (!_.isEmpty(this.contextData)) {
+                    let firstDomainContext = ContextHelper.getFirstDomainContext(this.contextData);
+                    this.domain = firstDomainContext && firstDomainContext.domain ? firstDomainContext.domain : undefined;
                     if (this.mode === "all") {
-                        let modelGetRequest = {
-                            "params": {
-                                "query": {
-                                    "filters": {
-                                        "typesCriterion": [
-                                            "attributeModel"
-                                        ]
-                                    }
-                                },
-                                "fields": {
-                                    "ctxTypes": [
-                                        "properties"
-                                    ],
-                                    "attributes": [""]
-                                }
-                            }
-                        };
                         this.requestData = undefined;
-                        this.requestData = modelGetRequest;
+                        this.requestData = this.modelGetRequest;
                         this.isModelGetInitiated = true;
+                    } else if(this.mode === "domainMapped") {
+                        this._initiateDomainMappedRequest(this.domain);
                     } else {
                         let contextData = DataHelper.cloneObject(this.contextData);
 
@@ -317,6 +339,20 @@
                         }
                     }
                 }
+            }
+
+            _initiateDomainMappedRequest(domain) {
+                this.pageSize = 101;
+                if(DataHelper.isValidObjectPath(this.modelGetRequest,"params.query") && domain){
+                    this.modelGetRequest.params.query["domain"] = domain;
+                }
+                if(DataHelper.isValidObjectPath(this.modelGetRequest,"params.fields.attributes")){
+                    this.modelGetRequest.params.fields.attributes = ["_ALL"];
+                }
+                this.requestData = undefined;
+                this.requestData = this.modelGetRequest;
+                this.reTriggerRequest();
+                this.isModelGetInitiated = true;
             }
 
             _getAttributeFormattedData(data) {
@@ -406,6 +442,38 @@
                 }
             }
 
+            _getAttributeFormattedDataForDomainMapped(data) {
+                if (data && data.content) {
+                    let items = [];
+                    let entityModels = !_.isEmpty(data.content.entityModels) ? data.content.entityModels : [];
+                    this._combineEntityModels = this._combineEntityModels.concat(entityModels);
+                    if(this.mode == "domainMapped" && DataHelper.isValidObjectPath(this.modelGetRequest, "params.query.domain")){
+                        let requestedDomain = this.modelGetRequest.params.query.domain;
+                        if(requestedDomain === this.domain) {
+                            this._initiateDomainMappedRequest("taxonomyModel");
+                            return false;
+                        } else{
+                            if(_.isEmpty(this._combineEntityModels)) {
+                                this.set("items",[]);
+                            } else {
+                                let attrModelObj = {};
+                                this._combineEntityModels = this.excludeNestedAttributes ? this._excludeNestedAttributeModels(this._combineEntityModels) : this._combineEntityModels;
+                                this._combineEntityModels.forEach((elem) => {
+                                    attrModelObj[elem.name] = elem;
+                                });
+                                let attributeDataModels = {"data": {"attributes":attrModelObj}};
+                                let attributeModels = DataTransformHelper.transformAttributeModels(attributeDataModels, {});
+                                if (!_.isEmpty(attributeModels)) {
+                                    let items = DataTransformHelper.transformAtributeModelsToLovSchema(attributeModels, this._lovColumnNameValueCollection);
+                                    this.set("items", items);
+                                }
+                                this._combineEntityModels = [];
+                            }
+                        }
+                    }
+                }
+            }
+
             _excludeNestedAttributeModels(attributeModels) {
                 let models = [];
                 attributeModels.forEach(function (attributeModel) {
@@ -433,6 +501,9 @@
 
                     keywordsCriterion.keywords = "*" + searchText + "*";
                     keywordsCriterion.operator = "_OR";
+                    if(this.mode == "domainMapped") {
+                        this.modelGetRequest.params.query["domain"] = this.domain;
+                    }
 
                     return keywordsCriterion;
                 }
@@ -448,6 +519,10 @@
                     // Todo.. When Pattern comes into picture this one is effected
                     searchKey[this.titlePattern] = searchValue;
                     attributesCriterion.push(searchKey);
+
+                    if(this.mode == "domainMapped") {
+                        this.modelGetRequest.params.query["domain"] = this.domain;
+                    }
                     return attributesCriterion;
                 }
             }

@@ -5,6 +5,8 @@
 <link rel="import" href="../liquid-base-falcor-behavior/liquid-base-falcor-behavior.html">
 <link rel="import" href="../liquid-dataobject-utils/liquid-dataobject-utils.html">
 
+<link rel="import" href="../bedrock-managers/entity-type-manager.html">
+
 <script>
     /*
      * <b><i>Content development is under progress... </b></i>
@@ -359,11 +361,36 @@
         
         _callInitiateSearch: function (model, reqData) {
             let pathKeys = this._pathKeys;
+            let utils = SharedUtils.DataObjectFalcorUtil;
             let functionPath = [pathKeys.root, this.dataIndex, pathKeys.searchResults, "create"];
+            let checkCachedQuery = false;
 
-            return model.call(functionPath, [reqData], [], []);
+            let self = this;
+            
+            if (checkCachedQuery) {
+                let cachedQueryResponse = this._callCachedSearchQuery(model, reqData);
+                cachedQueryResponse.then(function (rawResponsePkg) {
+                    if (utils.isValidObjectPath(rawResponsePkg, "json." + pathKeys.root + "." + this.dataIndex + "." + pathKeys.searchResults + ".0")) {
+                        return self._handleModelResponse(cachedQueryResponse);
+                    }
+                    else {
+                        let getResponsePromise = model.call(functionPath, [reqData], [], []);
+                        return self._handleModelResponse(getResponsePromise);
+                    }
+                });
+            }
+            else {
+                return model.call(functionPath, [reqData], [], []);
+            }
         },
         
+        _callCachedSearchQuery: function (model, reqData) {
+            let pathKeys = this._pathKeys;
+            let queryAsJsonString = JSON.stringify(reqData);
+            let paths = [pathKeys.root, this.dataIndex, "cachedSearchResults", queryAsJsonString];
+            return this._makeFalcorGetCall(model, [paths]);
+        },
+
         _callInitiateSearchAndGetCount: function (model, reqData) {
             if (reqData) {
                 reqData.operation = "initiatesearchandgetcount";
@@ -572,7 +599,7 @@
             let entityTypeManager = undefined;
 
             if (includeTypeExternalName) {
-                entityTypeManager = EntityTypeManager.getInstance();
+                entityTypeManager = EntityTypeManager ? EntityTypeManager.getInstance() : undefined;
             }
 
             for (let dataObjectId in dataObjects) {

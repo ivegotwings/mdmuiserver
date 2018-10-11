@@ -67,16 +67,22 @@ async function initiateSearch(callPath, args) {
 
         let requestId = uuidV1(),
             request = args[0],
+            
             dataIndex = callPath[1],
             basePath = [pathKeys.root, dataIndex, pathKeys.searchResults, requestId];
+
+        let origRequest = falcorUtil.cloneObject(request);
 
         let dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
 
         request.dataIndex = dataIndex;
 
         let operation = request.operation || "search";
-
-        let maxRecordsSupported = dataIndexInfo.maxRecordsToReturn || 2000;
+        let _maxRecords = undefined;
+        if(request.params.options && request.params.options.maxRecords){
+            _maxRecords = request.params.options.maxRecords;
+        }
+        let maxRecordsSupported = _maxRecords || dataIndexInfo.maxRecordsToReturn || 2000;
 
         let options = {};
 
@@ -239,7 +245,12 @@ async function initiateSearch(callPath, args) {
         response.push(mergeAndCreatePath(basePath, ["totalRecords"], $atom(totalRecords), searchResultExpireTime));
         response.push(mergeAndCreatePath(basePath, ["resultRecordSize"], $atom(resultRecordSize), searchResultExpireTime));
         response.push(mergeAndCreatePath(basePath, ["requestId"], $atom(requestId), searchResultExpireTime));
-        //response.push(mergeAndCreatePath(basePath, ["request"], $atom(request)));
+
+        // cache the query to request id map for further initiate search call save
+        let cachedQueriesBasePath = [pathKeys.root, dataIndex, "cachedSearchResults"];
+        let queryAsJsonString = JSON.stringify(origRequest);
+
+        response.push(mergeAndCreatePath(cachedQueriesBasePath, [queryAsJsonString], $ref(basePath), searchResultExpireTime));
     }
     catch (err) {
         response = buildErrorResponse(err, "Failed to get search results.");

@@ -99,9 +99,6 @@ It is responsible to "get" and "save" the attributes.
             request-data="{{_saveRequest}}" last-response="{{_saveResponse}}" on-response="_onSaveResponse"
             on-error="_onSaveError"></liquid-entity-data-save>
 
-        <liquid-entity-model-composite-get on-error="_onEntityModelCompositeGetFailed" name="compositeAttributeModelGet" request-data="{{_attributeModelRequest}}"
-            on-entity-model-composite-get-response="_onCompositeModelGetResponse"></liquid-entity-model-composite-get>
-
         <liquid-rest id="entityGovernService" url="/data/pass-through/entitygovernservice/validate" method="POST" request-data={{_entityGovernRequest}}
             on-liquid-response="_onGovernResponse" on-liquid-error="_onGovernFailed">
         </liquid-rest>
@@ -377,7 +374,7 @@ It is responsible to "get" and "save" the attributes.
                     hideRevertAndHistory: {
                         type: Boolean,
                         value: false
-                    },
+                    }
                 }
             }
             connectedCallback() {
@@ -423,7 +420,7 @@ It is responsible to "get" and "save" the attributes.
                     this.attributeList.mode = mode;
                 }
             }
-            _contextChanged(valueContexts) {
+            async _contextChanged(valueContexts) {
                 if (valueContexts != undefined) {
                     this.logInfo("AttributeManageContextChange", "contextData", this.contextData);
 
@@ -442,22 +439,48 @@ It is responsible to "get" and "save" the attributes.
                         this.groupName;
                     let compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(
                         this.contextData);
+                    let compositeModel = await this._getCompositeModel(compositeModelGetRequest);
+                    let writePermission = true;
+                    let itemContext = this.getFirstItemContext();
+                    if (DataHelper.isValidObjectPath(itemContext, "permissionContext.writePermission")) {
+                        writePermission = itemContext.permissionContext.writePermission;
+                    }
 
-                    if (compositeModelGetRequest) {
-                        this._isDependentModelsResponse = false;
-                        this._compositeAttributeModelGet = this._compositeAttributeModelGet ||
-                            this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
+                    this._attributeModels = await DataTransformHelper.transformAttributeModels(compositeModel, this.contextData, writePermission);
+                    let dependentAttributeNames = this._getDependentAttributeNames();
 
-                        if (this._compositeAttributeModelGet) {
-                            this._loading = true;
-                            this._compositeAttributeModelGet.useModelCoalesce = !!this.applyContextCoalesce;
-                            this._compositeAttributeModelGet.requestData =
-                                compositeModelGetRequest;
-                            this._compositeAttributeModelGet.generateRequest();
+                    if (dependentAttributeNames.length > 0) {
+                        let clonedContextData = DataHelper.cloneObject(this.contextData);
+                        let itemContext = ContextHelper.getFirstItemContext(clonedContextData);
+                        itemContext.attributeNames = dependentAttributeNames;
+                        let compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(clonedContextData);
+
+                        let compositeModel = await this._getCompositeModel(compositeModelGetRequest);
+                        let transformedModels = await DataTransformHelper.transformAttributeModels(
+                            compositeModel, this.contextData,writePermission);
+                        this._dependentAttributeModels = this._dependentAttributeModels || {};
+                        for (let modelName in transformedModels) {
+                            this._dependentAttributeModels[modelName] = transformedModels[
+                                modelName];
                         }
                     }
+
+                    this._getEntityData();
                 }
             }
+
+            async _getCompositeModel(compositeModelGetRequest) {
+                let compositeModel = {};
+                let entityCompositeModelManager = new EntityCompositeModelManager();
+                if(entityCompositeModelManager && compositeModelGetRequest) {
+                    compositeModelGetRequest.useModelCoalesce = !!this.applyContextCoalesce;
+                    compositeModelGetRequest.applyEnhancerCoalesce = true;
+                    compositeModel = await entityCompositeModelManager.get(compositeModelGetRequest, this.contextData);
+                }
+                entityCompositeModelManager = null;
+                return compositeModel;
+            }
+
             _getContextDataWithDefaultLocale() {
                 const defaultLocale = DataHelper.getDefaultLocale();
                 let clonedContextData = DataHelper.cloneObject(this.contextData);
@@ -478,111 +501,59 @@ It is responsible to "get" and "save" the attributes.
 
                 return clonedContextData;
             }
-            async _onCompositeModelGetResponse(e) {
-                let _attributeModelResponse = this._attributeModelResponse || {};
+            async _getEntityData() {
                 let itemContext = this.getFirstItemContext();
                 let entityId = itemContext.id;
 
-                this.logInfo("AttributeManageCompositeModelResponse", "response", _attributeModelResponse, "id", entityId);
+                let attributeNames = Object.keys(this._attributeModels);
 
-                if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
+                if (!_.isEmpty(this._dependentAttributeModels)) {
+                    let dependentAttributeNames = Object.keys(this._dependentAttributeModels);
+                    attributeNames = attributeNames.concat(dependentAttributeNames);
+                }
 
-                    let writePermission = true;
-                    if (DataHelper.isValidObjectPath(itemContext, "permissionContext.writePermission")) {
-                        writePermission = itemContext.permissionContext.writePermission;
-                    }
-                    if (!this._isDependentModelsResponse) {
-                        this._attributeModels = await DataTransformHelper.transformAttributeModelsAsync(
-                            e.detail.response.content.entityModels[0], this.contextData,
-                            writePermission);
-                        let dependentAttributeNames = this._getDependentAttributeNames();
+                if (attributeNames.length > 0) {
 
-                        if (dependentAttributeNames.length > 0) {
-                            let clonedContextData = DataHelper.cloneObject(this.contextData);
-                            let itemContext = ContextHelper.getFirstItemContext(clonedContextData);
-                            itemContext.attributeNames = dependentAttributeNames;
-                            let compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(clonedContextData);
+                    if (entityId && entityId != "-1") {
+                        //add attribute names in item context
+                        itemContext.attributeNames = attributeNames;
 
-                            if (compositeModelGetRequest) {
-                                this._isDependentModelsResponse = true;
-                                this._compositeAttributeModelGet = this._compositeAttributeModelGet ||
-                                    this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
+                        let contextData = this._getContextDataWithDefaultLocale();
+                        let req = DataRequestHelper.createEntityGetRequest(contextData,
+                            true);
 
-                                if (this._compositeAttributeModelGet) {
-                                    this._compositeAttributeModelGet.useModelCoalesce = !!this.applyContextCoalesce;
-                                    this._compositeAttributeModelGet.requestData = compositeModelGetRequest;
-                                    this._compositeAttributeModelGet.generateRequest();
-                                    return;
-                                }
-                            }
-                        }
-                    } else {
-                        let transformedModels = await DataTransformHelper.transformAttributeModelsAsync(
-                            e.detail.response.content.entityModels[0], this.contextData,
-                            writePermission);
-                        this._dependentAttributeModels = this._dependentAttributeModels || {};
-                        for (let modelName in transformedModels) {
-                            this._dependentAttributeModels[modelName] = transformedModels[
-                                modelName];
-                        }
-                    }
+                        let entityGovernDataGetReq = DataHelper.cloneObject(req);
 
-                    entityId = itemContext.id;
+                        delete entityGovernDataGetReq.params.query.valueContexts;
 
-                    let attributeNames = Object.keys(this._attributeModels);
+                        let governAttributeNames = Object.keys(this._attributeModels);
+                        entityGovernDataGetReq.params.fields.attributes =
+                            governAttributeNames;
 
-                    if (!_.isEmpty(this._dependentAttributeModels)) {
-                        let dependentAttributeNames = Object.keys(this._dependentAttributeModels);
-                        attributeNames = attributeNames.concat(dependentAttributeNames);
-                    }
+                        let liquidDataGet = this.shadowRoot.querySelector("[name=attributeGetDataService]");
+                        liquidDataGet.useDataCoalesce = !!this.applyContextCoalesce;
+                        liquidDataGet.requestData = req;
 
-                    if (attributeNames.length > 0) {
-
-                        if (entityId && entityId != "-1") {
-                            //add attribute names in item context
-                            itemContext.attributeNames = attributeNames;
-
-                            let contextData = this._getContextDataWithDefaultLocale();
-                            let req = DataRequestHelper.createEntityGetRequest(contextData,
-                                true);
-
-                            let entityGovernDataGetReq = DataHelper.cloneObject(req);
-
-                            delete entityGovernDataGetReq.params.query.valueContexts;
-
-                            let governAttributeNames = Object.keys(this._attributeModels);
-                            entityGovernDataGetReq.params.fields.attributes =
-                                governAttributeNames;
-
-                            let liquidDataGet = this.shadowRoot.querySelector("[name=attributeGetDataService]");
-                            liquidDataGet.useDataCoalesce = !!this.applyContextCoalesce;
-                            liquidDataGet.requestData = req;
-
-                            this.set("_entityGovernDataGetRequest", entityGovernDataGetReq);
-                            let liquidGovernGet = this.$.entityGovernDataGet;
-                            if (liquidGovernGet && this.loadGovernData && (this.dataIndex != "entityModel")) {
-                                liquidGovernGet.generateRequest();
-                            } else {
-                                liquidDataGet.generateRequest();
-                            }
-                            this._showNoAttributeMessage = false;
+                        this.set("_entityGovernDataGetRequest", entityGovernDataGetReq);
+                        let liquidGovernGet = this.$.entityGovernDataGet;
+                        if (liquidGovernGet && this.loadGovernData && (this.dataIndex != "entityModel")) {
+                            liquidGovernGet.generateRequest();
                         } else {
-                            let values = await DataTransformHelper.transformAttributes({}, this._attributeModels, this.contextData, "array", true);
-                            this.set("_attributeValues", values);
-                            this.mode = 'edit';
-                            this._loadAttributeList();
+                            liquidDataGet.generateRequest();
                         }
+                        this._showNoAttributeMessage = false;
                     } else {
-                        if (this.functionalMode == "dataFunction" || this.functionalMode ==
-                            "quickManage") {
-                            this._showNoAttributeMessage = true;
-                        }
-                        this._loading = false;
+                        let values = DataTransformHelper.transformAttributes({}, this._attributeModels, this.contextData, "array", true);
+                        this.set("_attributeValues", values);
+                        this.mode = 'edit';
+                        this._loadAttributeList();
                     }
                 } else {
-                    this._onEntityModelCompositeGetFailed();
+                    if (this.functionalMode == "dataFunction" || this.functionalMode ==
+                        "quickManage") {
+                        this._showNoAttributeMessage = true;
+                    }
                     this._loading = false;
-
                 }
             }
 
@@ -656,10 +627,10 @@ It is responsible to "get" and "save" the attributes.
                     let entity = _attributeResponse.content.entities[0];
 
                     if (entity) {
-                        attributes = await DataTransformHelper.transformAttributes(entity, this
+                        attributes = DataTransformHelper.transformAttributes(entity, this
                             ._attributeModels, this.contextData, "array", true);
                         if (!_.isEmpty(this._dependentAttributeModels)) {
-                            dependentAttributes = await DataTransformHelper.transformAttributes(
+                            dependentAttributes = DataTransformHelper.transformAttributes(
                                 entity, this._dependentAttributeModels, this.contextData,
                                 "array", true);
                         }
@@ -1171,18 +1142,11 @@ It is responsible to "get" and "save" the attributes.
 
                 let mergedAttributes = {};
 
-                if (entity && entity.data && entity.data.attributes) {
-                    mergedAttributes = DataMergeHelper.mergeAttributes(mergedAttributes, entity
-                        .data.attributes, true);
-                }
-
-                if (firstDataContext) {
-                    let ctxAttributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(
+                if(!_.isEmpty(firstDataContext)) {
+                    mergedAttributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(
                         entity, firstDataContext);
-                    if (!_.isEmpty(ctxAttributes)) {
-                        mergedAttributes = DataMergeHelper.mergeAttributes(mergedAttributes,
-                            ctxAttributes, true);
-                    }
+                } else if (entity && entity.data && entity.data.attributes){
+                    mergedAttributes = entity.data.attributes;
                 }
 
                 attrMessages = MessageHelper.getAttributeMessages(mergedAttributes, this._attributeModels,

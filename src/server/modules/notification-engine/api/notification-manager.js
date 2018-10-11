@@ -1,6 +1,7 @@
 let config = require('config');
 let socketManager = require('../socket.js');
 let logger = require('../../common/logger/logger-service');
+let stateManager = require('../../common/state-manager/state-manager');
 
 function sendMessageToAllUser(data) {
         if (socketManager.sendMessage) {
@@ -24,7 +25,38 @@ function sendMessageToSpecificUser(data, userId) {
         }
 }
 
+async function setNotificationCountByService(serviceName) {
+        let key = this.getNotificationCountCacheKey(serviceName);
+        let currentCount = await this.getNotificationCountByService(serviceName);
+
+        if (currentCount && currentCount[serviceName] != undefined) {
+                currentCount[serviceName]++;
+                return await stateManager.set(key, currentCount);
+        } else {
+                let value = {};
+                value[serviceName] = 1;
+                return await stateManager.set(key, value);
+        }
+}
+
+async function getNotificationCountByService(serviceName) {
+        let key = this.getNotificationCountCacheKey(serviceName);
+        return await stateManager.get(key);
+}
+
+async function getAllNotificationCount(keys) {
+        return await stateManager.mget(keys);
+}
+
+function getNotificationCountCacheKey(serviceName) {
+        return "notification-" + serviceName + "-count";
+}
+
 module.exports = {
         sendMessageToAllUser: sendMessageToAllUser,
-        sendMessageToSpecificUser: sendMessageToSpecificUser
+        sendMessageToSpecificUser: sendMessageToSpecificUser,
+        setNotificationCountByService: setNotificationCountByService,
+        getNotificationCountByService: getNotificationCountByService,
+        getAllNotificationCount: getAllNotificationCount,
+        getNotificationCountCacheKey: getNotificationCountCacheKey
 };

@@ -7,6 +7,7 @@
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-styles-scroll-bar.html" />
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
+<link rel="import" href="../bedrock-business-function-behavior/bedrock-component-business-function-behavior.html">
 
 <link rel="import" href="../pebble-actions/pebble-actions.html">
 <link rel="import" href="../pebble-button/pebble-button.html">
@@ -43,7 +44,6 @@
 
             #content-create {
                 height: 100%;
-                padding: 0 10px;
             }
         </style>
         <div class="base-grid-structure">
@@ -75,15 +75,14 @@
                 <div id="content-create" hidden></div>
             </div>
         </div>
-        <liquid-rest id="contextModelGet" url="/data/pass-through/entitymodelservice/getcontext" method="POST" request-data="{{_contextModelGetReq}}"
-        on-liquid-response="_onContextModelGetResponse" on-liquid-error="_onContextModelGetFailed"></liquid-rest>
         <bedrock-pubsub event-name="pebble-actions-action-click" handler="_onActionItemTap" target-id=""></bedrock-pubsub>
     </template>
     <script>
         class RockEntityCreate
         extends Polymer.mixinBehaviors([
             RUFBehaviors.UIBehavior,
-            RUFBehaviors.AppBehavior
+            RUFBehaviors.AppBehavior,
+            RUFBehaviors.ComponentConfigBehavior
         ], Polymer.Element) {
             static get is() {
                 return 'rock-entity-create'
@@ -94,7 +93,8 @@
                         type: Object,
                         value: function () {
                             return {};
-                        }
+                        },
+                        observer: "_onContextDataChange"
                     },
                     /**
                      * Indicates the names of the attributes that are rendered while creating a single entity.
@@ -109,15 +109,6 @@
                      * <b><i>Content development is under progress... </b></i> 
                      */
                     messageCodeMapping: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    },
-                    /**
-                     * <b><i>Content development is under progress... </b></i> 
-                     */
-                    businessFunctionData: {
                         type: Object,
                         value: function () {
                             return {};
@@ -172,15 +163,9 @@
                         type: String,
                         value: ""
                     },
-                    _contextModelGetReq: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    },
-                    showEnhancerAttributes:{
+                    onSaveContextChange: {
                         type: Boolean,
-                        value:false
+                        value: false
                     }
                 }
             }
@@ -190,62 +175,32 @@
              */
             ready() {
                 super.ready();
-                if(this.showEnhancerAttributes){
-                    this._onGetContextModel();
-                }else{
-                    this._onManualTap();
-                }
             }
-            async _onGetContextModel(){
-                if (_.isEmpty(this.entityDomain)) {
-                    let itemContext = ContextHelper.getFirstItemContext(this.contextData);
-                    let entityType = itemContext.type;
-                    this.entityDomain = await EntityTypeManager.getInstance().getDomainByType(entityType);
+            _onContextDataChange() {
+                if(this.onSaveContextChange) {
+                    this.onSaveContextChange = false;
+                    return;
                 }
 
-                this._contextModelGetReq = DataRequestHelper.createContextModelGetRequest(this.entityDomain);
-
-                let liquidElement = this.$$('#contextModelGet');
-                if (liquidElement) {
-                    liquidElement.generateRequest();
-                } else {
-                    this.logError(this.appName + "Liquid for context model get is not found");
-                }
-            }
-            _onContextModelGetResponse(e) {
-                let response = e.detail.response.response;
-
-                if (response) {
-                    let entityModels = response.entityModels;
-
-                    if (!_.isEmpty(entityModels)) {
-                        let entityModel = entityModels[0];
-
-                        if (entityModel && entityModel.properties && entityModel.properties.enhancerAttributes) {
-                            let enhancerAttributeNames = [];
-                            let enhancerAttributes = entityModel.properties.enhancerAttributes;
-                            enhancerAttributes.forEach((enhancerAttribute) => {
-                                if(enhancerAttribute.enhancerAttributeName){
-                                    enhancerAttributeNames.push(enhancerAttribute.enhancerAttributeName)
-                                }
-                            })
-                            if(enhancerAttributeNames.length > 0 && this.attributeNames && Array.isArray(this.attributeNames)){
-                                this.attributeNames = this.attributeNames.concat(enhancerAttributeNames)
-                                }
-                            this._onManualTap();
-                        } else {
-                            this.logError(this.appName + "-Entity Create - There are no context models available", e.detail);
-                        }
-                    } else {
-                        this.logError(this.appName + "-Entity Create -There is some problem with contextModel get response", e.detail);
+                if (!_.isEmpty(this.contextData)) {
+                    let context = DataHelper.cloneObject(this.contextData);
+                    //App specific
+                    let appName = "";
+                    appName = ComponentHelper.getCurrentActiveAppName(this);
+                    if (appName) {
+                        context[ContextHelper.CONTEXT_TYPE_APP] = [{
+                            "app": appName
+                        }];
                     }
+
+                    this.requestConfig('rock-entity-create', context);
                 }
             }
 
-            _onContextModelGetFailed(e) {
-                this.logError(this.appName + "-Entity Create - contextModel get exception", e.detail);
+            //Config properties are already set in config behavior
+            onConfigLoaded(componentConfig) {
+                    this._onManualTap();
             }
-                
 
             _onManualTap(e, detail) {
                 if (this.getIsDirty()) {
@@ -276,7 +231,8 @@
                         "skip-next": this.skipNext,
                         "default-entity": this.defaultEntity,
                         "data-index": this.dataIndex,
-                        "entity-domain": this.entityDomain
+                        "entity-domain": this.entityDomain,
+                        "is-part-of-business-function": this.isPartOfBusinessFunction
                     }
                 };
                 let contentEl = this.shadowRoot.querySelector("#content-create");

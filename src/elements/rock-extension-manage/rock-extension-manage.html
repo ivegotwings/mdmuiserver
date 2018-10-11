@@ -4,6 +4,7 @@
 <link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+<link rel="import" href="../bedrock-business-function-behavior/bedrock-component-business-function-behavior.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
@@ -13,8 +14,9 @@
 <link rel="import" href="../pebble-vertical-divider/pebble-vertical-divider.html">
 <link rel="import" href="../pebble-tree/pebble-tree.html">
 <link rel="import" href="../pebble-button/pebble-button.html">
+<link rel="import" href="../pebble-dialog/pebble-dialog.html">
 <link rel="import" href="../rock-attribute-list/rock-attribute-list.html">
-<link rel="import" href="../rock-classification-tree/rock-classification-tree.html">
+<link rel="import" href="../rock-context-tree/rock-context-tree.html">
 <!--<link rel="import" href="classification-get-data.html">-->
 <!--
 `rock-extension-manage` Represents a component that renders all the extensions of an entity.
@@ -31,23 +33,29 @@ It manages the current extensions and creates the new extensions.
                 font-weight: var(--font-bold, bold);
                 font-size: var(--default-font-size, 14px);
             }
+            .buttonContainer-top-right{
+                text-align: right;
+                padding-top: 10px;
+                margin-bottom: 0px;
+                margin-top: 0px;
+            }
         </style>
+        <div id="buttonContainer" align="center" class="buttonContainer-top-right">
+            <template is="dom-if" if="[[!isPartOfBusinessFunction]]">
+                <pebble-button elevation="1" raised="" on-tap="_onTriggerEvent" data-args="onCancel" class="btn btn-primary m-r-5" id="cancelEvent" button-text="Cancel"></pebble-button>
+            </template>
+            <pebble-button elevation="1" raised="" on-tap="_onTriggerEvent" data-args="onSave" class="btn btn-success" id="nextEvent" button-text="Save" disabled$="[[!allowSaveClassifications]]"></pebble-button>
+        </div>
         <div class="button-siblings">
             <div class="base-grid-structure" align="center">
                 <div class="tree-heading base-grid-structure-child-1">
-                    <p class="status-error status-text" hidden$="[[allowSaveClassifications]]">Do not have permissions to edit/save classifications, contact administrator.</p>
-                    Classification selection
+                    <p class="status-error status-text" hidden$="[[allowSaveClassifications]]">Do not have permissions to edit/save Contexts, contact administrator.</p>
                 </div>
                 <div class="base-grid-structure-child-2">
-                    <rock-classification-tree id="contextTree" multi-select="[[multiSelect]]" selected-classifications="{{_selectedItems}}" taxonomy="[[taxonomy]]" context-data="[[contextData]]" leaf-node-only="[[leafNodeOnly]]">
-                    </rock-classification-tree>
+                        <rock-context-tree id="contextTree" selected-items="{{_selectedItems}}" context-data="[[contextData]]" multi-select="[[multiSelect]]" check-child-nodes="[[checkChildNodes]]"
+                         disable-child-node="[[disableChildNode]]" check-parent-nodes="[[checkParentNodes]]" leaf-node-only="[[leafNodeOnly]]" loading=[[showLoading]]></rock-context-tree>
                 </div>
             </div>
-        </div>
-        <div id="buttonContainer" align="center" class="buttonContainer-static">
-            <template is="dom-repeat" id="event-template" items="[[componentEvents]]">
-                <pebble-button id="[[item.id]]" class$="[[item.class]]" button-text="[[item.text]]" on-tap="_onTriggerEvent" data-args$="[[item.event]]" disabled$="[[!_allowEvent(allowSaveClassifications, item.id)]]" elevation=1 raised></pebble-button>
-            </template>
         </div>
         <liquid-entity-data-get id="taxonomyGetDataService" operation="getbyids" request-data="{{_taxonomyRequest}}" on-response="_onTaxonomyResponse"></liquid-entity-data-get>
         <liquid-entity-data-save id="attributeSaveDataService" operation="update" data-index$="[[dataIndex]]" request-data="{{_saveRequest}}" on-response="_onSaveResponse"></liquid-entity-data-save>
@@ -56,9 +64,32 @@ It manages the current extensions and creates the new extensions.
         </liquid-rest>
         <liquid-rest id="taxonomyModelGet" url="/data/pass-through/entitymodelservice/get" method="POST" request-data="{{_taxonomyModelRequest}}" on-liquid-response="_onTaxonomyModelGetResponse"></liquid-rest>
         <liquid-rest id="asyncReclassification" url="/data/pass-through/bulkentityservice/createtask" method="POST" on-liquid-response="_onAsyncReclassificationSuccess" on-liquid-error="_onAsyncReclassificationFailure"></liquid-rest>
-    </template>
+        <pebble-dialog id="confirmationDialog" dialog-title="Confirmation" button-ok-text="Save" button-cancel-text="Discard" modal alert-box show-cancel show-ok no-cancel-on-outside-click
+        no-cancel-on-esc-key>
+        <p>Unsaved changes identified, do you want to save your changes?</p>
+    </pebble-dialog>
+
+    <pebble-dialog id="contextAddedDialog" dialog-title="Confirmation" button-ok-text="Yes" button-cancel-text="No, thanks" modal alert-box show-cancel show-ok no-cancel-on-outside-click
+        no-cancel-on-esc-key>
+        <p>[[noOfNewConetxts]] contexts are added, do you want to start managing data in them?</p>
+    </pebble-dialog>
+    <bedrock-pubsub event-name="on-buttonok-clicked" handler="_save" target-id="confirmationDialog"></bedrock-pubsub>
+    <bedrock-pubsub event-name="on-buttoncancel-clicked" handler="_skipOrCancelSelection" target-id="confirmationDialog"></bedrock-pubsub>
+
+    <bedrock-pubsub event-name="on-buttonok-clicked" handler="_selectNewlyAddedContext" target-id="contextAddedDialog"></bedrock-pubsub>
+    <bedrock-pubsub event-name="on-buttoncancel-clicked" handler="_skipOrCancelSelection" target-id="contextAddedDialog"></bedrock-pubsub>
+
+    <bedrock-pubsub event-name="contexts-added" handler="_onNewlyContextAddedNotification"></bedrock-pubsub>
+
+      
+</template>
     <script>
-        class RockExtensionManage extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.ComponentContextBehavior], Polymer.OptionalMutableData(Polymer.Element)) {
+        class RockExtensionManage
+        extends Polymer.mixinBehaviors([
+            RUFBehaviors.UIBehavior,
+            RUFBehaviors.ComponentContextBehavior,
+            RUFBehaviors.ComponentConfigBehavior
+        ], Polymer.OptionalMutableData(Polymer.Element)) {
             static get is() {
                 return "rock-extension-manage";
             }
@@ -71,13 +102,11 @@ It manages the current extensions and creates the new extensions.
                             return {};
                         }
                     },
-                    
                     _selectedItems: {
                         type: Array,
                         value: function () {
                             return [];
-                        },
-                        notify: true
+                        }
                     },
                     
                     taxonomy: {
@@ -85,6 +114,7 @@ It manages the current extensions and creates the new extensions.
                         value: ""
                     },
 
+                    //To-do BF V2 Cleanup, use finishStepData
                     businessFunctionData: {
                         type: Object,
                         value: function () {
@@ -102,7 +132,7 @@ It manages the current extensions and creates the new extensions.
                         value: "entityData"
                     },
                     
-                    _entityCurrentClassifications: {
+                    _entityCurrentContexts: {
                         type: Array,
                         value: function () {
                             return [];
@@ -219,6 +249,34 @@ It manages the current extensions and creates the new extensions.
                     allowSaveClassifications: {
                         type: Boolean,
                         value: true
+                    },
+
+                    showSkip: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    _initialItems: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    noOfNewConetxts:{
+                        type:Number,
+                        value:0
+                    },
+                    newlyAddedContexts:{
+                        type:Array,
+                        value:[]
+                    },
+                    _isNotificationReceived:{
+                        type:Boolean,
+                        value:false
+                    },
+                    showLoading:{
+                        type:Boolean,
+                        value:false
                     }
                 };
             }
@@ -232,6 +290,15 @@ It manages the current extensions and creates the new extensions.
             constructor() {
                 super();
             }
+            _onNewlyContextAddedNotification(e){
+                this._isNotificationReceived = true;
+                if(this.newlyAddedContexts.length > 0){
+                    this.shadowRoot.querySelector("#contextAddedDialog").open();
+                }else{
+                    this._triggerFinishStep();
+                }
+            }
+
 
             connectedCallback() {
                 super.connectedCallback();
@@ -252,8 +319,26 @@ It manages the current extensions and creates the new extensions.
 
             _onContextOrTaxonomyChange() {
                 if (this.taxonomy && !_.isEmpty(this.contextData)) {
-                    this._getAuthManageModel();
+                    if (this.isPartOfBusinessFunction) {
+                        let context = DataHelper.cloneObject(this.contextData);
+                        //App specific
+                        let appName = "";
+                        appName = ComponentHelper.getCurrentActiveAppName(this);
+                        if (appName) {
+                            context[ContextHelper.CONTEXT_TYPE_APP] = [{
+                                "app": appName
+                            }];
+                        }
+                        this.requestConfig('rock-extension-manage', context);
+                    } else {
+                        this._getAuthManageModel();
+                    }
                 }
+            }
+
+            //Config properties are already set in config behavior
+            onConfigLoaded(componentConfig) {
+                this._getAuthManageModel();
             }
 
             _getAuthManageModel() {
@@ -363,7 +448,7 @@ It manages the current extensions and creates the new extensions.
                 }
 
                 if (this.isBulkProcess) {
-                    this._triggerClassificationTree();
+                    this._triggerContextsTree();
                 } else {
                     this._prepareGetContextRequest();
                 }
@@ -428,19 +513,19 @@ It manages the current extensions and creates the new extensions.
                                 let entity = res.entities[entityIdx];
                                 if (entity && entity.data) {
                                     let contexts = entity.data.contexts;
-                                    let entityCurrentClassifications = [];
+                                    let entityCurrentContexts = [];
                                     for (let ctxIdx = 0; ctxIdx < contexts.length; ctxIdx++) {
                                         let context = contexts[ctxIdx].context;
                                         if (context) {
                                             let item = context["classification"];
                                             if (item) {
                                                 if (context["taxonomy"] == this._taxonomyExtName) {
-                                                    entityCurrentClassifications.push(item);
+                                                    entityCurrentContexts.push(item);
                                                 }
                                             }
                                         }
                                     }
-                                    this._entitiesCurrentClassifications[entity.id] = entityCurrentClassifications;
+                                    this._entitiesCurrentClassifications[entity.id] = entityCurrentContexts;
                                 }
                             }
                         } else { //Collect classification for single entity and make it selectable in tree
@@ -454,77 +539,63 @@ It manages the current extensions and creates the new extensions.
                                 for (let i = 0; i < contexts.length; i++) {
                                     let context = contexts[i].context;
                                     if (context) {
-                                        if (!_.isEmpty(primaryContext)) {
-                                            if (!_.isEqual(primaryContext, this._getPrimaryContext(context))) {
-                                                continue;
-                                            }
-                                        } else {
-                                            //No primaryContext, then select the context which is having classification and taxonomy only
-                                            let contextKeys = Object.keys(context) || [];
-                                            if (contextKeys.length != 2 ||
-                                                contextKeys.indexOf("classification") == -1 ||
-                                                contextKeys.indexOf("taxonomy") == -1) {
-                                                continue;
-                                            }
-                                        }
-                                        let item = context["classification"];
-                                        if (item) {
-                                            if (context["taxonomy"] == this._taxonomyExtName) {
-                                                this._entityCurrentClassifications.push(item);
-                                                let arr = item.split(">>");
-                                                items.push(arr);
-                                            }
-                                        }
+                                        items.push(Object.values(context));
+                                        this._entityCurrentContexts.push(context)
                                     }
                                 }
                             }
                         }
                     }
                 }
-
                 if (this.isBulkProcess) {
-                    this._prepareBulkReclassificationSaveRequest();
+                    this._prepareBulkUpdateContextsSaveRequest();
                 } else {
-                    // Input - selected items as path arrays
-                    this._selectedItems = items || [];
-
+                    let contextTree = this.shadowRoot.querySelector("#contextTree");
+                    if (contextTree) {
+                        contextTree.selectedContextsData = items;
+                    }
                     if (!this.multiSelect && this._selectedItems.length > 1) {
                         this.logError("UI is configured for single context but there are " + this._selectedItems.length + " selected contexts for the entity");
                     }
 
-                    this._triggerClassificationTree();
+                    this._triggerContextsTree();
                 }
             }
 
-            _triggerClassificationTree() {
+            _triggerContextsTree() {
                 const contextTree = this.shadowRoot.querySelector("#contextTree");
                 if (contextTree) {
-                    contextTree.generateRequest();
+                    contextTree.reloadTree();
                 }
+            }
+
+            _isSelectedItemsChanged(selectedItems){
+                let selectedContextsData = [];
+                if(selectedItems && selectedItems.length == 0 && this._entityCurrentContexts.length != 0){
+                    return true;
+                }
+                for (let i = 0; i < selectedItems.length; i++) {
+                    let contextType = selectedItems[i].type;
+                    let contextName = selectedItems[i].name;
+                    let context = {};
+                    if (contextName) {
+                        context[contextType] = contextName;
+                        selectedContextsData.push(context)
+                    }
+                }
+                return !DataHelper.areEqualArrays(selectedContextsData, this._entityCurrentContexts)
             }
 
             _save() {
-                if (this._selectedItems && this._selectedItems.length > 0) {
-                    let selectedClassifications = [];
-                    for (let i = 0; i < this._selectedItems.length; i++) {
-                        if (this._selectedItems[i].valuePath) {
-                            selectedClassifications.push(this._selectedItems[i].valuePath.replace(/#@#/g, ">>"));
-                        }
-                    }
-                    if (!this.isBulkProcess && DataHelper.areEqualArrays(selectedClassifications, this._entityCurrentClassifications)) {
-                        this.showInformationToast("No changes to save");
-                        return;
-                    }
-                }
-                else {
-                    this.showWarningToast("No context data selected to save.");
+                let _isSelectedItemsChanged = this._isSelectedItemsChanged(this._selectedItems)
+                if (!this.isBulkProcess && !_isSelectedItemsChanged) {
+                    this.showInformationToast("No changes to save");
                     return;
                 }
-
-                this._triggerReclassification();
+                this._triggerUpdateContexts();
             }
 
-            _triggerReclassification() {
+            _triggerUpdateContexts() {
                 if (this.isBulkProcess) {
                     if ((!this.selectionMode || this.selectionMode == "count") &&
                         (!this.selectedEntities || this.selectedEntities.length == 0)) {
@@ -533,16 +604,17 @@ It manages the current extensions and creates the new extensions.
                     }
 
                     if (this.selectionMode == "query" || (this.selectionMode == "count" && this.selectedEntities.length > this.syncThreshold)) {
-                        if (!this.selectionQuery || _.isEmpty(this.selectionQuery)) {
-                            this.showWarningToast("Selection query not available for the process");
-                            return;
-                        }
+                         // if (!this.selectionQuery || _.isEmpty(this.selectionQuery)) {
+                        //     this.showWarningToast("Selection query not available for the process");
+                        //     return;
+                        // }
+                        this.showWarningToast("Add Conetxt not allowed for more than 20 entities");
 
-                        this._triggerAsyncReclassification(); //Trigger async process for 20+ entities OR query selection
+                        // this._triggerAsyncUpdateContexts(); //Trigger async process for 20+ entities OR query selection//Trigger async process for 20+ entities OR query selection
                     } else {
                         //this._prepareGetContextRequest(); //Trigger bulk process based on selected entities context
                         //Triggering bulk process based on selected classification
-                        this._prepareBulkReclassificationSaveRequest();
+                        this._prepareBulkUpdateContextsSaveRequest();
                     }
                 } else {
                     let data = {};
@@ -568,7 +640,7 @@ It manages the current extensions and creates the new extensions.
                 return originalClassifications;
             }
 
-            _prepareBulkReclassificationSaveRequest() {
+            _prepareBulkUpdateContextsSaveRequest() {
                 let entities = [];
                 let originalClassifications = [];
                 for (let entityIdx = 0; entityIdx < this.selectedEntities.length; entityIdx++) {
@@ -586,74 +658,49 @@ It manages the current extensions and creates the new extensions.
                 this._triggerSaveRequest(entities);
             }
 
-            _prepareContexts(selectedItems, entityClassifications) {
-                let contexts = [];
+            _prepareContexts(selectedItems, entityContexts) {
+                let contextsToAdd = [];
                 let deletedcontexts = [];
-                let entityCurrentClassifications = this.isBulkProcess ? entityClassifications : this._entityCurrentClassifications;
-                let categoryPathSeperator = this.appSetting('dataDefaults').categoryPathSeparator;
+                let entityCurrentContexts = this.isBulkProcess ? entityContexts : this._entityCurrentContexts;
                 let firstDataContext = this.getFirstDataContext(this.contextData);
                 let primaryContext = this._getPrimaryContext(firstDataContext);
-
+                let contextType = "";
                 // Update - For selected items
                 for (let i in selectedItems) {
-                    let context = DataHelper.cloneObject(primaryContext);
-                    let valuePath = selectedItems[i].valuePath;
-                    if (valuePath) {
-                        valuePath = valuePath.replace(/#@#/g, categoryPathSeperator);
-                    }
-                    context.classification = valuePath;
-                    if (this._taxonomyExtName) {
-                        context["taxonomy"] = this._taxonomyExtName;
-                    }
-
-                    contexts.push({
+                    let context = {}
+                    let contextName = selectedItems[i].name;
+                    contextType = selectedItems[i].type
+                    context[contextType] = contextName;
+                    contextsToAdd.push({
                         "context": context
                     });
                 }
 
                 // Delete - For existing items 
-                for (let i in entityCurrentClassifications) {
-                    let context = DataHelper.cloneObject(primaryContext);
+                for (let i in entityCurrentContexts) {
+                    let context = {}
                     let isSelected = false;
+                    let currentContextType = Object.keys(entityCurrentContexts[i])[0];
 
                     for (let j in selectedItems) {
-                        let valuePath = selectedItems[j].valuePath;
-                        if (valuePath) {
-                            valuePath = valuePath.replace(/#@#/g, categoryPathSeperator);
-                        }
-
-                        if (valuePath == entityCurrentClassifications[i]) {
+                        let contextName = selectedItems[j].name;
+                        let selectedItemContextType = selectedItems[j].type
+                     
+                        if (contextName == entityCurrentContexts[i][currentContextType]) {
                             isSelected = true;
                             break;
                         }
                     }
-
                     // Not in current selected list, then action to delete
                     if (!isSelected) {
-                        context["classification"] = entityCurrentClassifications[i];
-                        if (this.isBulkProcess) {
-                            context["taxonomy"] = this.contextData.Contexts[0].taxonomy;
-                        } else {
-                            if (this._taxonomyExtName) {
-                                context["taxonomy"] = this._taxonomyExtName;
-                            }
-                        }
-
-                        deletedcontexts.push(context);
+                        context[currentContextType] = entityCurrentContexts[i][currentContextType];
+                        contextsToAdd.push({
+                            "context": context,
+                            "action":"delete"
+                        });
                     }
                 }
-
-                //Fill deleted contexts in selected contexts as originalContexts
-                if (contexts && contexts.length &&
-                    deletedcontexts && deletedcontexts.length) {
-                    for (let i = 0; i < contexts.length; i++) {
-                        contexts[i].properties = {
-                            "originalcontext": deletedcontexts
-                        }
-                    }
-                }
-
-                return contexts;
+                return contextsToAdd;
             }
 
             _triggerSaveRequest(entities) {
@@ -661,6 +708,34 @@ It manages the current extensions and creates the new extensions.
                 let clientState = {};
                 clientState.notificationInfo = {};
                 clientState.notificationInfo.actionType = "addContext";
+                this.newlyAddedContexts = [];
+                if(this._selectedItems.length > 0){
+                    let _selectedItems = this._selectedItems;
+                    let entityCurrentContext = this._entityCurrentContexts;
+                    let entityCurrentContextValues = [];
+                    entityCurrentContext.forEach(item =>{
+                        entityCurrentContextValues.push(Object.values(item)[0]);
+                    })
+
+                    let _newlySelectedItems = _selectedItems.filter(selectedItem =>{
+                        if(entityCurrentContextValues.indexOf(selectedItem.name) == -1){
+                            return selectedItem;
+                        }
+                    });
+                    if(_newlySelectedItems.length > 0){
+                        this.noOfNewConetxts = _newlySelectedItems.length;
+                        let formattedSelectedItems = [];
+                        for (let itemIndex in _newlySelectedItems) {
+                            let formattedSelectedItem = {};
+                            let _currentItem = _newlySelectedItems[itemIndex];
+                            formattedSelectedItem["id"] = _currentItem.name;
+                            formattedSelectedItem["title"] = _currentItem.name;
+                            formattedSelectedItem["type"] = _currentItem.type;
+                            formattedSelectedItems.push(formattedSelectedItem);
+                        }
+                        this.newlyAddedContexts = formattedSelectedItems;
+                    }
+                }
                 if (this._isNotificationDisabled()) {
                     clientState.notificationInfo.showNotificationToUser = false;
                     this.set("_saveRequest", { "clientState": clientState, "entities": entities });
@@ -669,17 +744,36 @@ It manages the current extensions and creates the new extensions.
                     this.set("_saveRequest", { "clientState": clientState, "entities": entities });
                 }
                 this._liquidSaveElement.generateRequest();
+                this.showLoading = true;
+                this._isNotificationReceived = false;
+                let count = 0;
+                let notificationWaitTimer = setInterval(function () {
+                    count++
+                    if (this._isNotificationReceived) {
+                        this.showLoading = false;
+                        clearInterval(notificationWaitTimer);
+                    } else if (count >= 10) {
+                        let toastMessage = "It's taking longer than expected, we will let you know when done";
+                        this.showLoading = false;
+                        clearInterval(notificationWaitTimer);
+                        this._triggerFinishStep(null,null,toastMessage);
+                    }
+                }.bind(this), 1000);
             }
 
             _skipOrCancelSelection(e) {
-                this._selectedItems = [];
-                let eventName = e.target.getAttribute("data-args") || "onCancel";
-                let eventDetail = {
-                    name: eventName
-                }
-                this.fireBedrockEvent(eventName, eventDetail, {
-                    ignoreId: true
-                });
+                    this._selectedItems = [];
+                    let eventName = e.target.getAttribute("data-args") || "onCancel";
+                    let eventDetail = {
+                        name: eventName
+                    }
+                    this.fireBedrockEvent(eventName, eventDetail, {
+                        ignoreId: true
+                    });
+            }
+
+            _selectNewlyAddedContext(){
+                this._triggerFinishStep(null,this.newlyAddedContexts);
             }
 
             _onSaveResponse(e, detail) {
@@ -718,27 +812,51 @@ It manages the current extensions and creates the new extensions.
                             this._responseMessages.push(message);
                         }
                     }
+                    this._triggerFinishStep();
                 }
-                this._triggerFinishStep();
             }
 
-            _triggerFinishStep(isJob) {
+            _updateInitialItems() {
+                if(!_.isEmpty(this._selectedItems)) {
+                    let formattedSelectedItems = []
+                    for(let selectedItem of this._selectedItems) {
+                        formattedSelectedItems.push(selectedItem.valuePath.split("#@#"));
+                    }
+                    this._initialItems = formattedSelectedItems;
+                } else {
+                    this._initialItems = [];
+                }
+            }
+
+            _triggerFinishStep(isJob,newlyAddedContexts,ErrorToastMessage) {
                 //Single entity reclassification
                 if (!this.isBulkProcess) {
-                    this.showSuccessToast("Context data saved successfully.");
+                  
                     let eventName = "onSave";
                     let eventDetail = {
                         name: eventName,
                         "action": {
-                            "name": "refresh-dimension-selector"
-                        }
+                            "name": "refresh-context-selector"
+                        },
                     };
+                    if(newlyAddedContexts && newlyAddedContexts.length > 0){
+                        eventDetail.action["newlyAddedContexts"] = newlyAddedContexts;
+                    }else{
+                        let toastMessage = "Context update request is submitted successfully.";
+                        if(ErrorToastMessage){
+                            toastMessage = ErrorToastMessage;
+                        }
+                        this.showSuccessToast(toastMessage);
+                    }
                     if (eventName && this.functionalMode == "dataFunction") {
                         eventName.action = "business-condition-save-request";
                     };
                     this.fireBedrockEvent(eventName, eventDetail, {
                         ignoreId: true
                     });
+                    let itemCtx = ContextHelper.getFirstItemContext(this.contextData) || {};
+                    this.dataFunctionComplete({"id": itemCtx.id, "type": itemCtx.type});
+
                     return;
                 }
 
@@ -777,6 +895,10 @@ It manages the current extensions and creates the new extensions.
                     "messageKey": "Entity Id"
                 };
 
+                this.finishStepData = data;
+                this.dataFunctionComplete();
+
+                //To-do - BF V2 Cleanup, Once all the places extension manage got changed
                 this.businessFunctionData = data;
                 let eventName = "onSave";
                 let eventDetail = {
@@ -786,6 +908,7 @@ It manages the current extensions and creates the new extensions.
                 this.fireBedrockEvent(eventName, eventDetail, {
                     ignoreId: true
                 });
+                // End here - BF V2 Cleanup
 
                 //Reset contextData, selectedEntities
                 this.contextData = {};
@@ -813,7 +936,7 @@ It manages the current extensions and creates the new extensions.
                 return primaryContext;
             }
 
-            _triggerAsyncReclassification() {
+            _triggerAsyncUpdateContexts() {
                 let asyncLiqReclassification = this.shadowRoot.querySelector("#asyncReclassification");
                 let reclassificationRequest = DataHelper.cloneObject(this._asyncReclassificationRequest);
 
@@ -885,21 +1008,45 @@ It manages the current extensions and creates the new extensions.
             _onTriggerEvent(e, detail) {
                 let event = e.target.getAttribute("id");
                 if (event == "skipEvent" || event == "cancelEvent" || event == "backEvent") {
-                    this._skipOrCancelSelection(e);
+                    let _isSelectedItemsChanged = this._isSelectedItemsChanged(this._selectedItems)
+                    if(_isSelectedItemsChanged){
+                        this.shadowRoot.querySelector("#confirmationDialog").open();
+                    }else{
+                        this._skipOrCancelSelection(e);
+                    }
                 } else if (event == "nextEvent") {
                     this._save(e);
                 }
             }
 
-            _allowEvent(allowSave, event) {
-                if (event == "nextEvent") {
-                    return allowSave;
+            _onSelectedItemsChange() {
+                let selectionChanged = false;
+                if ((_.isEmpty(this._initialItems) || _.isEmpty(this._selectedItems)) &&
+                    (!_.isEmpty(this._initialItems) || !_.isEmpty(this._selectedItems))) {
+                    selectionChanged = true;
+                } else if(!_.isEmpty(this._initialItems) && !_.isEmpty(this._selectedItems)){
+                    if(this._initialItems.length != this._selectedItems.length) {
+                        selectionChanged = true;
+                    } else {
+                        for(let initialItem of  this._initialItems) {
+                            let initialValuePath = initialItem.join("#@#");
+                            let isFound = false;
+                            for(let selectedItem of this._selectedItems) {
+                                if(selectedItem.valuePath == initialValuePath) {
+                                    isFound = true;
+                                    break;
+                                }
+                            }
+                            if(!isFound) {
+                                selectionChanged = true;
+                                break;
+                            }
+                        }
+                    }
                 }
 
-                return true;
+                this.isComponentDirty = selectionChanged;
             }
-
-
         }
 
         customElements.define(RockExtensionManage.is, RockExtensionManage);

@@ -105,7 +105,7 @@
                 </div>
                 <div id="buttonContainer" class="buttonContainer-static">
                     <pebble-button id="cancelButton" class="btn btn-secondary m-r-5" button-text="Cancel" on-tap="_onCancelTap" elevation=1 raised></pebble-button>
-                    <pebble-button id="Paste" class="focus btn btn-success" button-text="Save" on-tap="_executePaste" elevation=1 raised></pebble-button>
+                    <pebble-button id="Paste" class="focus btn btn-success" button-text="Paste" on-tap="_executePaste" elevation=1 raised></pebble-button>
                 </div>
             </div>
         </div>
@@ -177,7 +177,7 @@
                             return {};
                         }
                     },
-                    _contextModel: {
+                    _sourceEntityData: {
                         type: Object,
                         value: function () {
                             return {};
@@ -258,7 +258,6 @@
                 }
             }
 
-
             _onContextDataChange() {
                 if (!_.isEmpty(this.contextData)) {
                     let context = DataHelper.cloneObject(this.contextData);
@@ -295,11 +294,31 @@
             }
             _onSaveResponse(e, detail) {
                 this._bulkSaveTracker++;
+                let message;
+                let parsedData = this._sourceEntityData;
+                let entity = e.detail.request.requestData.entities[0];
+                let response = e.detail.response;
+                let dataContexts = ContextHelper.getDataContexts(this.contextData);
+                let valueContexts = ContextHelper.getValueContexts(this.contextData);
+                let forContext = _.isEmpty(parsedData.Contexts)? "self": Object.values(parsedData.Contexts[0]).toString();
+                let toContext = _.isEmpty(dataContexts)? "self": Object.values(dataContexts[0]).toString();
+                let toEntityName = entity.name ? entity.name : entity.id;
+                let fromEntityName = parsedData.ItemContexts[0].name ? parsedData.ItemContexts[0].name : parsedData.ItemContexts[0].id;
+                if (response.status === 'success') {
+                    message = `Copy paste request submitted for copying data from ${fromEntityName} (${forContext}, ${parsedData.ValContexts[0].locale}) to ${toEntityName} (${toContext}, ${valueContexts[0].locale})`;
+                } else {
+                    message = response.content.msg;
+                }
+
                 if(this._saveRequestMode === "bulkSimulation") {
+                    let status = e.detail.response.status;
+                    if(!_.isEmpty(status)) {
+                        status = status[0].toUpperCase() + status.slice(1,status.length);
+                    }
                     const responseObj = {
-                        "Entity Id": e.detail.request.requestData.entities[0].id,
-                        "Message": e.detail.response.content.msg,
-                        "Status": e.detail.response.status
+                        "Entity Name": toEntityName,
+                        "Message": message,
+                        "Status": status
                     }
                     this._entitySaveResponseObject.push(responseObj);
 
@@ -309,12 +328,11 @@
                         return;
                     }
                 } else {
-                    this._triggerFinishStep();
+                    this._triggerFinishStep(message);
                 }
             }
             
-            _triggerFinishStep() {
-                let message = "Entity is submitted for Paste";
+            _triggerFinishStep(message) {
                 let actions = [
                     {
                         "name": "goBack",
@@ -416,7 +434,7 @@
                 toastElement.autoClose = true;
                 toastElement.show();
             }
-                async _onCompositeModelGetResponse(e) {
+            _onCompositeModelGetResponse(e) {
                     let itemContext = this.getFirstItemContext();
                     let entityId = itemContext.id;
 
@@ -425,7 +443,7 @@
                         if (DataHelper.isValidObjectPath(itemContext, "permissionContext.writePermission")) {
                             writePermission = itemContext.permissionContext.writePermission;
                         }
-                        this._attributeModels = await DataTransformHelper.transformAttributeModelsAsync(
+                        this._attributeModels = DataTransformHelper.transformAttributeModels(
                             e.detail.response.content.entityModels[0], this.contextData,
                             writePermission);
                     }
@@ -500,9 +518,18 @@
                         if (!_.isEmpty(context.attributes)) {
                             let attributes = context.attributes;
                             for (let attributeName in attributes) {
-                                attributes[attributeName].values.forEach(value => {
-                                    value.locale = currentLocale;
-                                })
+                                // nested attributes
+                                if (attributes[attributeName].hasOwnProperty('group')) {
+                                    attributes[attributeName].group.forEach(group => {
+                                        group.values.forEach(value => {
+                                            value.locale = currentLocale;
+                                        })
+                                    });
+                                } else {
+                                    attributes[attributeName].values.forEach(value => {
+                                        value.locale = currentLocale;
+                                    })
+                                }
                             }
                         }
                     })
@@ -511,29 +538,22 @@
                 //getting primary and secondary context for copy and paste entity
                 let data = sessionStorage.getItem('copyEntityData');
                 let parsedData = JSON.parse(data);
+                this._sourceEntityData = parsedData;
 
                 let clonedAttributes;
                 if (DataHelper.isValidObjectPath(entities[0], 'data.attributes')) {
                     clonedAttributes = DataHelper.cloneObject(entities[0].data.attributes);
                 }
-
-                if (this._contextsObjPasteEntity.primaryContexts.indexOf('self') < 0) {
+                let dataContexts = ContextHelper.getDataContexts(this.contextData)
+                if (!_.isEmpty(dataContexts)) {
                     //add the logic to add attributes to context.data here and then send for save
 
                     //If we copied from some context scenario we need to push that data instead of data.attributes.
-                    entities[0].data.contexts.forEach((dataContext, index)=> {
-                        if(JSON.stringify(Object.keys(dataContext.context)) == JSON.stringify(this._contextsObjCopyEntity.primaryContexts)) {
-                            clonedAttributes =  dataContext.attributes;
-                        }
-                    });
-
-                    entities[0].data.contexts.forEach((dataContext, index)=> {
-                        if( JSON.stringify(dataContext.context) == JSON.stringify(this._getContextForSave())) {
-                            entities[0].data.contexts.splice(index);
-                        }
-                    })
+                    if(!_.isEmpty(entities[0].data.contexts)){
+                        clonedAttributes =  entities[0].data.contexts[0].attributes;
+                    }
                     let dataContext = {
-                        "context": this._getContextForSave(),
+                        "context": dataContexts[0],
                         "attributes": clonedAttributes
                     }
                     entities[0].data.contexts.push(dataContext)
@@ -542,6 +562,7 @@
                 } else {
                     let contextCloneAttributes = {};
                     if(DataHelper.isValidObjectPath(entities[0], 'data.contexts.0')) {
+                        // extracting attributes from context of source entity
                         entities[0].data.contexts.forEach(dataContext=> {
                             if(!_.isEmpty(dataContext.attributes)) {
                                 Object.assign(contextCloneAttributes, dataContext.attributes);
@@ -558,8 +579,10 @@
                     let firstItemContext = this.getFirstItemContext();
                     let currentId = firstItemContext.id;
                     let currentEntityType = firstItemContext.type;
+                    let currentEntityName = firstItemContext.name;
                     entities[0].id = currentId;
                     entities[0].type = currentEntityType;
+                    entities[0].name = currentEntityName;
 
                     this._saveRequest = {
                         "entities": [entities[0]]
@@ -577,6 +600,7 @@
                         let cloneEntity = DataHelper.cloneObject(entities[0]);
                         cloneEntity.id = item.id;
                         cloneEntity.type = item.type;
+                        cloneEntity.name = item.name;
                         this._saveRequest = {
                         "entities": [cloneEntity]
                     };
@@ -589,15 +613,7 @@
                 }
 
             }
-
-            _getContextForSave() {
-                let contextForSave = {};
-                this._contextsObjPasteEntity.primaryContexts.forEach(ctx=> {
-                    contextForSave[ctx] = this.contextData.Contexts[0][ctx]
-                });
-                return contextForSave;
-
-            }
+            
             _saveEntity() {
                 let liquidSave = this.shadowRoot.querySelector(
                     "[name=attributeSaveDataService]");
