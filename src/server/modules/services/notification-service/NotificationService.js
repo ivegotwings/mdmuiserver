@@ -35,7 +35,7 @@ class NotificationService {
                 logger.debug("NOTIFICATION_INFO_OBJECT_PREPARED", { detail: notificationInfo }, "notification-service");
 
                 if (!isEmpty(notificationInfo)) {
-
+                    notificationInfo.tenantId = tenantId;
                     // On model import complete Or any model change notification, module version has to be updated to maintain local storage in sync.
                     if (notificationInfo.action == enums.actions.ModelImportComplete || notificationInfo.action == enums.actions.ModelSaveComplete) {
                         (async () => {
@@ -47,9 +47,13 @@ class NotificationService {
                         notificationInfo.taskId = notificationObject.properties.workAutomationId;
                     }
 
-                    notificationInfo.tenantId = tenantId;
-                    if (notificationInfo.userId) {
-                        notificationManager.sendMessageToSpecificUser(notificationInfo, notificationInfo.userId);
+                    let userInfo = {
+                        "userId": notificationInfo.userId,
+                        "tenantId": tenantId
+                    }
+
+                    if (userInfo) {
+                        notificationManager.sendMessageToSpecificUser(notificationInfo, userInfo);
                     } else {
                         notificationManager.sendMessageToAllUser(notificationInfo);
                     }

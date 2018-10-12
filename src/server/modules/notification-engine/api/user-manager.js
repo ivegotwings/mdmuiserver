@@ -27,9 +27,9 @@ if (isStateServerEnabled) {
 
 let localStorage = {};
 
-async function addUserConnectionIds(userId, connectionId) {
-    if (userId && connectionId) {
-        let connections = await getData(userId);
+async function addUserConnectionIds(userInfo, connectionId) {
+    if (userInfo && connectionId) {
+        let connections = await getData(userInfo);
 
         if (isEmpty(connections)) {
             connections = [];
@@ -38,21 +38,21 @@ async function addUserConnectionIds(userId, connectionId) {
         connections.push(connectionId);
 
         if (connections) {
-            setData(userId, connections);
+            setData(userInfo, connections);
         }
     }
     //console.log('User connections ', userId, ' --- ' , JSON.stringify(connections));
 }
 
-async function removeConnectionIdByUser(userId, connectionId) {
-    if (userId && connectionId) {
+async function removeConnectionIdByUser(userInfo, connectionId) {
+    if (userInfo && connectionId) {
 
-        let connections = await getData(userId);
+        let connections = await getData(userInfo);
         //console.log("Remove connection id by user ---->", userId);
         if (connections) {
             //console.log("Remove connection id by user: connections ---->", JSON.stringify(connections));            
             arrayRemove(connections, connectionId);
-            setData(userId, connections);
+            setData(userInfo, connections);
         }
     }
 }
@@ -69,9 +69,9 @@ async function removeUserConnectionIds(userId) {
     }
 }
 
-async function getConnectionIdsOfUser(userId) {
-    if (userId) {
-        return await getData(userId);
+async function getConnectionIdsOfUser(userInfo) {
+    if (userInfo) {
+        return await getData(userInfo);
     }
 }
 
@@ -84,44 +84,102 @@ function arrayRemove(arr, val) {
     }
 }
 
-async function getData(userId) {
+async function getData(userInfo) {
     let data = [];
 
-    if (isStateServerEnabled && client) {
-        let cacheKey = "socket_conn_usr_" + userId;
-        let promise = client.get(cacheKey).then(function (dataString) {
-            if(!isEmpty(dataString)) {
-                data = dataString.split("#@#");
-            }
-        });
+    if (userInfo) {
+        if (isStateServerEnabled && client) {
+            if (userInfo.userId && userInfo.tenantId) {
+                let cacheKey = "socket_conn_tenant_" + userInfo.tenantId + "_user_" + userInfo.userId;
+                let promise = client.get(cacheKey).then(function (dataString) {
+                    if (!isEmpty(dataString)) {
+                        data = dataString.split("#@#");
+                    }
+                });
 
-        await Promise.resolve(promise);
-    }
-    else if (localStorage[userId]) {
-        data = await localStorage[userId];
+                await Promise.resolve(promise);
+            } else if (userInfo.tenantId) {
+                let keys = await _getKeysForTenant(userInfo.tenantId);
+
+                if (keys) {
+                    let stateData = await client.mget(keys);
+
+                    if (stateData) {
+                        stateData.forEach(item => {
+                            if (!isEmpty(item)) {
+                                item.split("#@#").forEach(id => {
+                                    data.push(id);
+                                });
+                            }
+                        });
+                    }
+                }
+            }
+
+        }
+        else {
+            if (userInfo.userId && userInfo.tenantId) {
+                if (localStorage[userInfo.tenantId + "_" + userInfo.userId]) {
+                    data = await localStorage[userInfo.tenantId + "_" + userInfo.userId];
+                }
+            } else if (userInfo.tenantId) {
+                let keys = await _getKeysForTenant(userInfo.tenantId);
+
+                if(keys) {
+                    keys.forEach(key => {
+                        if(localStorage[key]) {
+                            data.push(localStorage[key]);
+                        }
+                    })
+                }
+            }
+        }
     }
 
     return data;
 }
 
-async function setData(userId, connections) {
-    if (isStateServerEnabled && client) {
-        let cacheKey = "socket_conn_usr_" + userId;
-        let connectionIds = connections.join("#@#");
-        return await client.set(cacheKey, connectionIds);
+async function _getKeysForTenant(tenantId) {
+    let keys = [];
+    if (tenantId) {
+        if (isStateServerEnabled && client) {
+            keys = await client.keys("socket_conn_tenant_" + tenantId + "*");
+        } else {
+            let regex = new RegExp('^' + tenantId);
+            keys = Object.keys(localStorage).reduce(function (sum, key) {
+                if (regex.test(key)) {
+                    sum.push(key);
+                }
+                return sum;
+            }, []);
+        }
     }
-    else {
-        localStorage[userId] = connections;
+
+    return keys;
+}
+
+async function setData(userInfo, connections) {
+    if (userInfo && connections) {
+        if (isStateServerEnabled && client) {
+            let cacheKey = "socket_conn_tenant_" + userInfo.tenantId + "_user_" + userInfo.userId;
+            let connectionIds = connections.join("#@#");
+            return await client.set(cacheKey, connectionIds);
+        }
+        else {
+            localStorage[userInfo.tenantId + "_" + userInfo.userId] = connections;
+        }
     }
 }
 
-async function deleteData(userId) {
-    if (isStateServerEnabled && client) {
-        let cacheKey = "socket_conn_usr_" + userId;
-        await client.del(cacheKey);
-    }
-    else if (localStorage[userId]) {
-        delete localStorage[userId];
+async function deleteData(userInfo) {
+    if (userInfo) {
+        if (isStateServerEnabled && client) {
+            let cacheKey = "socket_conn_tenant_" + userInfo.tenantId + "_user_" + userInfo.userId;
+            await client.del(cacheKey);
+        }
+        else if (localStorage[userInfo.tenantId + "_" + userInfo.userId]) {
+            delete localStorage[userInfo.tenantId + "_" + userInfo.userId];
+        }
     }
 }
 
