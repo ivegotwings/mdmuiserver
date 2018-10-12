@@ -247,7 +247,7 @@ async function initiateSearch(callPath, args) {
         response.push(mergeAndCreatePath(basePath, ["requestId"], $atom(requestId), searchResultExpireTime));
 
         // cache the query to request id map for further initiate search call save
-        let cachedQueriesBasePath = [pathKeys.root, dataIndex, "cachedSearchResults", "cachedQueries"];
+        let cachedQueriesBasePath = [pathKeys.root, dataIndex, "cachedSearchResults"];
         let queryAsJsonString = JSON.stringify(origRequest);
 
         response.push(mergeAndCreatePath(cachedQueriesBasePath, [queryAsJsonString], $ref(basePath), searchResultExpireTime));

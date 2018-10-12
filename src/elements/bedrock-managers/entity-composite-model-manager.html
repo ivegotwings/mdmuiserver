@@ -52,7 +52,6 @@
             liquidEntityModelGet.addEventListener("error", this._onError.bind(this));
             liquidEntityModelGet.operation = "getbyids";
             liquidEntityModelGet.requestData = requestData;
-            liquidEntityModelGet.useModelCoalesce = requestData.useModelCoalesce;
             liquidEntityModelGet.generateRequest();
         }
 
@@ -87,15 +86,11 @@
             this.dispatchEvent(new CustomEvent("liquid-error", { detail:e.detail, bubbles: this.bubbles, composed:true }));
         }
 
-        async get(requestData) {
+        async get(requestData, contextData) {
             if(!_.isEmpty(requestData)) {
                 this.compositeModel;
-                this.enhancerAttributes;
+                this.entity;
                 let currentActiveApp = ComponentHelper.getCurrentActiveApp();
-                let contextData = {};
-                if(currentActiveApp) {
-                    contextData = currentActiveApp.contextData;
-                }
                 let query = requestData.params.query;
                 let options = requestData.params.options;
                 let coalesceOptions;
@@ -125,16 +120,16 @@
             let coalesceOptions = {};
             let itemContext = ContextHelper.getFirstItemContext(contextData);
             let domainContext = ContextHelper.getFirstDomainContext(contextData);
-            let dataContext = ContextHelper.getFirstDataContext(contextData);
+            let dataContexts = ContextHelper.getDataContexts(contextData);
             if(itemContext && itemContext.id &&
                 domainContext && domainContext.domain) {
-                    let enhancerAttributeNames = await ContextModelManager.getEnhancerAttributeNamesBasedOnDomainAndContext(domainContext.domain, dataContext);
+                    let enhancerAttributeNames = await ContextModelManager.getAllEnhancerAttributeNamesBasedOnDomain(domainContext.domain);
                     if(!_.isEmpty(enhancerAttributeNames)) {
                         itemContext.attributeNames = enhancerAttributeNames;
                         let callLiquid = await this._getEntityAsync(contextData);
 
-                        if(!_.isEmpty(this.enhancerAttributes)) {
-                            coalesceOptions = this._prepareCoalesceOptions(dataContext);
+                        if(!_.isEmpty(this.entity)) {
+                            coalesceOptions = this._prepareCoalesceOptions(dataContexts);
                         }
                     }
             }
@@ -154,18 +149,7 @@
 
             let _onResponse = (ev) => {
                 if (DataHelper.isValidObjectPath(ev, "detail.response.content.entities.0")) {
-                    let entity = ev.detail.response.content.entities[0];
-                    let firstDataContext = ContextHelper.getFirstDataContext(contextData);
-                    let mergedAttributes = {};
-                    if (entity && entity.data && entity.data.attributes) {
-                        mergedAttributes = DataMergeHelper.mergeAttributes(mergedAttributes, entity.data.attributes, true);
-                    }
-
-                    if (firstDataContext) {
-                        let ctxAttributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, firstDataContext);
-                        mergedAttributes = DataMergeHelper.mergeAttributes(mergedAttributes, ctxAttributes, true);
-                    }
-                    this.enhancerAttributes = mergedAttributes;
+                    this.entity = ev.detail.response.content.entities[0];
                 }
 
                 if (resolve) {
@@ -181,17 +165,39 @@
             liquidEntityDataGet.generateRequest();
         }
 
-        _prepareCoalesceOptions(dataContext) {
+        _prepareCoalesceOptions(dataContexts) {
             let coalesceOptions = {};
+            let enhancerAttributes = [];
+            let isContextPresent = false;
+
+            if(!_.isEmpty(dataContexts)) {
+                for(let idx=0; idx<dataContexts.length; idx++) {
+                    let dataContext = dataContexts[idx];
+                    let attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(this.entity, dataContext);
+                    let attributesForCoalesce = this._prepareEnhancerAttributesForCoalesce(attributes, dataContext);
+                    if(!_.isEmpty(attributesForCoalesce)) {
+                        enhancerAttributes = enhancerAttributes.concat(attributesForCoalesce);
+                    }
+                }
+            } else if (this.entity && this.entity.data && this.entity.data.attributes){
+                let attributes = this.entity.data.attributes;
+                enhancerAttributes = this._prepareEnhancerAttributesForCoalesce(attributes);
+            }
+
+            coalesceOptions["enhancerAttributes"] = enhancerAttributes;
+
+            return coalesceOptions;
+        }
+
+        _prepareEnhancerAttributesForCoalesce(attributes, dataContext) {
             let enhancerAttributes = [];
             let isContextPresent = false;
 
             if(!_.isEmpty(dataContext)) {
                 isContextPresent = true;
             }
-
-            Object.keys(this.enhancerAttributes).forEach(function(attributeName) {
-                let values = this.enhancerAttributes[attributeName].values;
+            Object.keys(attributes).forEach(function(attributeName) {
+                let values = attributes[attributeName].values;
                 for(let valIdx =0; valIdx<values.length; valIdx++) {
                     let obj = {};
                     obj[attributeName] = values[valIdx].value;
@@ -202,9 +208,7 @@
                 }
             }, this);
 
-            coalesceOptions["enhancerAttributes"] = enhancerAttributes;
-
-            return coalesceOptions;
+            return enhancerAttributes;
         }
     }
 

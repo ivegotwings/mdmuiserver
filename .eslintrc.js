@@ -122,6 +122,7 @@ module.exports = {
         "queryParser": true,
         "RUFUtilities": true,
         "RuntimeVersionManager": true,
+        "ModuleVersionManager": true,
         "LocaleManager": true,
         "EntityTypeManager": true,
         "EntityCompositeModelManager": true,
