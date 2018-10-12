@@ -127,8 +127,10 @@ async function getData(userInfo) {
 
                 if(keys) {
                     keys.forEach(key => {
-                        if(localStorage[key]) {
-                            data.push(localStorage[key]);
+                        if(!isEmpty(localStorage[key])) {
+                            localStorage[key].forEach(id => {
+                                data.push(id);
+                            });
                         }
                     })
                 }
