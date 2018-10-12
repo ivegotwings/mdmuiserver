@@ -14,11 +14,11 @@ function sendMessageToAllUser(data) {
         }
 }
 
-function sendMessageToSpecificUser(data, userId) {
+function sendMessageToSpecificUser(data, userInfo) {
         if (socketManager.sendMessage) {
 
-                logger.debug("NOTIFICATION_CALL_TO_BROWSER", { detail: { notificationObj: data, user: userId } }, "notification-service");
-                socketManager.sendMessage(data, userId);
+                logger.debug("NOTIFICATION_CALL_TO_BROWSER", { detail: { notificationObj: data, user: userInfo.userId, tenant: userInfo.tenantId } }, "notification-service");
+                socketManager.sendMessage(data, userInfo);
         }
         else {
                 logger.warn('Server socket is not available', data);
