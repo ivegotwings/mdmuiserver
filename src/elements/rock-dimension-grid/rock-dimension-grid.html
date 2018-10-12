@@ -99,11 +99,11 @@ The user can view the past data but cannot modify it. However he/she can add or 
           <div hidden$="[[configDataItem.hidden]]">
             <pebble-accordion header-text="[[configDataItem.title]]"    >
              <div class="full-height" slot="accordion-content">
-              <template is="dom-if" if="[[_compareRequestType(configDataItem.dataRequestType, 'entity-context')]]">
+              <!-- <template is="dom-if" if="[[_compareRequestType(configDataItem.dataRequestType, 'entity-context')]]">
                 <rock-context-lov id="[[configDataItem.id]]" entity-id="[[entityId]]" entity-type="[[entityType]]"
                   context-name="[[configDataItem.id]]" config-data-item-id="[[configDataItem.id]]" on-selection-changed="_onDimensionChange" 
                   multi-select no-sub-title></rock-context-lov>
-              </template>
+              </template> -->
               <template is="dom-if" if="[[_compareRequestType(configDataItem.dataRequestType, 'entity')]]">
                 <rock-entity-lov id="[[configDataItem.id]]" r-data="[[configDataItem]]" config-data-item-id="[[configDataItem.id]]" id-field="[[configDataItem.dataMappings.id]]"
                   title-pattern="[[configDataItem.dataMappings.title]]" request-data="[[configDataItem.dataRequest]]"
@@ -296,12 +296,14 @@ The user can view the past data but cannot modify it. However he/she can add or 
           this.entityType = DataHelper.getParamValue('type');
 
           if(this.dimensionConfigs){
-              let arrayToObj = {}
+              let arrayToObj = {};
+              let dataModelObject = {};
               for (let i = 0; i < this.dimensionConfigs.length; i++) {
                 const dimension = this.dimensionConfigs[i];
                 if(dimension){
                   arrayToObj[dimension.id] = dimension;
                   if(dimension.dimensionType === "data"){
+                    dataModelObject = dimension;
                     this._dataContextModelObjects[dimension.id] = dimension;
                     this._dataContextModelObjects[dimension.id]["selectedItems"] = [];
                   }
@@ -311,25 +313,50 @@ The user can view the past data but cannot modify it. However he/she can add or 
               if (!_.isEmpty(this.contextData) && !_.isEmpty(arrayToObj)) {
                 let dataContexts = this.getDataContexts();
                 let valueContexts = this.getValueContexts();
-
-                dataContexts.forEach(function(contextObj){
-                    let selectedItems = [];
+                let dataContextKey = dataModelObject.id;
+                let dataContextType = dataModelObject.dataMappings.type
+                if(_.isEmpty(dataContexts)){
+                      let reqData = {
+                                  "params": {
+                                      "query": {
+                                          "filters": {
+                                              "typesCriterion": dataContextType
+                                          }
+                                      }
+                                  }
+                              };
+                      this._dataContextModelObjects[dataContextKey]["dataRequest"] = reqData;
+                      this._dataContextModelObjects[dataContextKey]["selectedItems"] = [];
+                  }else{
+                    dataContexts.forEach(function(contextObj){
                     for (const contextKey in contextObj) {
-                      if (contextObj.hasOwnProperty(contextKey) && arrayToObj[contextKey]) {
+                      if (contextObj.hasOwnProperty(contextKey)) {
                           let _obj = {
-                            id:contextObj[contextKey],
+                            id:contextObj[contextKey].toLowerCase(),
                             title:contextObj[contextKey],
                             type:contextKey
                           }
-                          if(this._dataContextModelObjects[contextKey]){
-                            this._dataContextModelObjects[contextKey]["selectedItems"].push(_obj);
+                          let reqData = {
+                              "params": {
+                                  "query": {
+                                      "filters": {
+                                          "typesCriterion": dataContextType
+                                      }
+                                  }
+                              }
+                          };
+                         
+                          if(this._dataContextModelObjects[dataContextKey]){
+                            this._dataContextModelObjects[dataContextKey]["selectedItems"].push(_obj);
                           }else{
-                            this._dataContextModelObjects[contextKey] = arrayToObj[contextKey];
-                            this._dataContextModelObjects[contextKey]["selectedItems"] = [ _obj ];
+                            this._dataContextModelObjects[dataContextKey] = arrayToObj[contextModelKey];
+                            this._dataContextModelObjects[dataContextKey]["selectedItems"] = [ _obj ];
                           }
+                          this._dataContextModelObjects[dataContextKey]["dataRequest"] = reqData;
                       }
                     }
                 }.bind(this));
+              }
                 
                 valueContexts.forEach(function(valueContextObj){
                     for (const valueContextKey in valueContextObj) {
@@ -458,10 +485,12 @@ The user can view the past data but cannot modify it. However he/she can add or 
                   let values = [];
                   if(selectedItems.length > 0) {
                     selectedItems.forEach(function(selectedItem) {
-                      values.push(selectedItem.id);
+                      if(!newDimensions[selectedItem.type]){
+                        newDimensions[selectedItem.type] = [];
+                      }
+                      newDimensions[selectedItem.type].push(selectedItem.id)
                     });
-                    newDimensions[context] = values;
-                  }
+                   }
                 }
               }
 
