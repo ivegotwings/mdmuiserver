@@ -271,7 +271,7 @@ async function renderAuthenticatedPage(req, res) {
             let versionInfo = {
                 'buildVersion': await RuntimeVersionManager.getBuildVersion(),
                 'runtimeVersion': await RuntimeVersionManager.getVersion(),
-                'moduleVersions': ModuleVersionManager.getAll()
+                'moduleVersions': await ModuleVersionManager.getAll()
             }
 
             let userContext = {
