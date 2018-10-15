@@ -2,7 +2,6 @@
 'use strict';
 
 let stateManager = require('../../common/state-manager/state-manager');
-let _ = require('underscore');
 
 class ModuleVersionManager {
 
