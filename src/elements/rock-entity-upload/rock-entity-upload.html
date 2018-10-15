@@ -101,9 +101,9 @@
                                 <div class="base-grid-structure">
                                     <div class="base-grid-structure-child-1">
                                         Select one or more classifications to download the smart excel template. You can select the classification at any level and
-                                        the data required for all child classifications will be shown in the template.
+                                        the data required for all child classifications will be shown in the template. You can also download the template without selecting classification.
                                         <span class="pull-right pathSelector">
-                                            <pebble-dropdown id="pathSelector" label="Select path for classifications" items="[[paths]]" selected-value="{{selectedPath}}" on-change="_onClassificationRootChange">
+                                            <pebble-dropdown id="pathSelector" label="Select path for classifications" items="[[paths]]" selected-value="{{selectedPath}}" on-change="_onClassificationRootChange" selected-index="{{selectedIndex}}">
                                             </pebble-dropdown>
                                         </span>
                                     </div>
@@ -328,6 +328,14 @@
                     skipContextMapping: {
                         type: Boolean,
                         value: true
+                    },
+                    selectedIndex: {
+                        type: Number,
+                        value: -1
+                    },
+                    defaultPath: {
+                        type: String,
+                        value: ""
                     }
                 }
             }
@@ -395,6 +403,19 @@
                         }
                     }, this);
                     this.paths = paths;
+
+                    //Set default index
+                    let defaultIndex = 0;
+                    if (this.defaultPath) {
+                        for (let idx = 0; idx < this.paths.length; idx++) {
+                            if (this.paths[idx].value && this.paths[idx].value.name &&
+                                this.defaultPath.toLowerCase() == this.paths[idx].value.name.toLowerCase()) {
+                                defaultIndex = idx;
+                                break;
+                            }
+                        }
+                    }
+                    this.selectedIndex = defaultIndex;
                 }
                 this._loading = false;
             }
@@ -736,57 +757,56 @@
             _getDownloadRequest(entityTypes, fileName, contexts) {
                 let req = DataRequestHelper.createGetManageModelRequest(entityTypes);
                 req.fileName = fileName;
-                req.params.options = {
-                    "coalesceOptions": {
-                        "enhancerAttributes": contexts
+                if (!_.isEmpty(contexts)) {
+                    req.params.options = {
+                        "coalesceOptions": {
+                            "enhancerAttributes": contexts
+                        }
                     }
                 }
                 return req;
             }
             _exportSelectedCategory(e) {
                 this._downloadInProgress = true;
-                if (this._selectedCategories && this._selectedCategories.length && !_.isEmpty(this.selectedPath)) {
-                    let contexts = [];
-                    let firstItemContext = this.getFirstItemContext();
-                    let fileName = "CategoryTemplate";
-                    let categoryPathSeperator = this.appSetting('dataDefaults').categoryPathSeparator;
-                    if(DataHelper.isValidObjectPath(this.selectedPath, "properties.pathEntityInfo.0.pathSeperator")) {
-                        categoryPathSeperator = this.selectedPath.properties.pathEntityInfo[0].pathSeperator;
-                    }
-                    this._selectedCategories.forEach(function (category) {
-                        let formattedClassification = category.valuePath.replace(/#@#/g,
-                            categoryPathSeperator);
-                        let context = {};
-                        context[this.selectedPath.name] = formattedClassification;
-                        contexts.push(context);
-                    }, this);
+                let contexts = [];
+                let firstItemContext = this.getFirstItemContext();
+                let fileName = _.isEmpty(this._selectedCategories) ? "EntityTypeTemplate" : "CategoryTemplate";
+                let categoryPathSeperator = this.appSetting('dataDefaults').categoryPathSeparator;
+                if (DataHelper.isValidObjectPath(this.selectedPath, "properties.pathEntityInfo.0.pathSeperator")) {
+                    categoryPathSeperator = this.selectedPath.properties.pathEntityInfo[0].pathSeperator;
+                }
+                this._selectedCategories.forEach(function (category) {
+                    let formattedClassification = category.valuePath.replace(/#@#/g,
+                        categoryPathSeperator);
+                    let context = {};
+                    context[this.selectedPath.name] = formattedClassification;
+                    contexts.push(context);
+                }, this);
 
-                    if (this._selectedCategories.length == 1) {
-                        fileName = this._selectedCategories[0].value.replace(/\W/g, '_');
-                    }
+                if (this._selectedCategories.length == 1) {
+                    fileName = this._selectedCategories[0].value.replace(/\W/g, '_');
+                }
 
-                    if (firstItemContext && firstItemContext.type && contexts.length) {
-                        let req = this._getDownloadRequest([firstItemContext.type], fileName, contexts);
+                if (firstItemContext && firstItemContext.type) {
+                    let req = this._getDownloadRequest([firstItemContext.type], fileName, contexts);
 
-                        let _this = this;
-                        RUFUtilities.fileDownload("/data/cop/downloadModelExcel", {
-                            httpMethod: 'POST',
-                            data: {
-                                data: JSON.stringify(req)
-                            },
-                            fileName: fileName,
-                            successCallback: function (url) {
-                                this._downloadInProgress = false;
-                            }.bind(_this),
-                            failCallback: function (responseHtml, url, error) {
-                                this._onCOPDownloadFailure(error);
-                            }.bind(_this)
-                        });
+                    let _this = this;
+                    RUFUtilities.fileDownload("/data/cop/downloadModelExcel", {
+                        httpMethod: 'POST',
+                        data: {
+                            data: JSON.stringify(req)
+                        },
+                        fileName: fileName,
+                        successCallback: function (url) {
+                            this._downloadInProgress = false;
+                        }.bind(_this),
+                        failCallback: function (responseHtml, url, error) {
+                            this._onCOPDownloadFailure(error);
+                        }.bind(_this)
+                    });
 
-                    }
                 } else {
-                    this.logError(
-                        "Select a category to download category model template", e.detail);
+                    this.logError("Entity type required to download template", e.detail);
                     this._downloadInProgress = false;
                 }
             }
