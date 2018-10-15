@@ -252,6 +252,12 @@
                             return {};
                         }
                     },
+                    _mergedCompositeModel: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
                     _gridDataRelationships: {
                         type: Array,
                         value: function () {
@@ -488,6 +494,39 @@
                     this._dataGet();
                 }
             }
+
+            _pushDataInRowModel(key, frozenRowModels, normalRowModels, gridModelData, gridType) {
+                let gridModelDataOriginal = gridModelData;
+                if(gridType === 'relationship') {
+                    gridModelData = gridModelData[0];
+                }
+                if (this.frozenAttributes.indexOf(key) >= 0) {
+                    frozenRowModels.push({
+                        "header": gridModelData.properties.externalName,
+                        "name": key,
+                        "isFrozen": true,
+                        "dataType": gridModelData.properties.dataType
+                    });
+                    if(gridType === 'relationship') {
+                        this._relationshipModels[key] = gridModelDataOriginal;
+                    } else {
+                        this._attributeModels[key] = gridModelDataOriginal;
+                    }
+                } else {
+                    normalRowModels.push({
+                        "header": gridModelData.properties.externalName,
+                        "name": key,
+                        "dataType": gridModelData.properties.dataType
+                    });
+                    if(gridType === 'relationship') {
+                        this._relationshipModels[key] = gridModelDataOriginal;
+                        normalRowModels[normalRowModels.length-1]["isRelationship"] = true;
+                    } else {
+                        this._attributeModels[key] = gridModelDataOriginal;
+                    }
+                }
+                return {formattedFrozenRowModels: frozenRowModels, formattedFormalRowModels: normalRowModels}
+            }
             _prepareGridRowsModel(entityModels, rows, rowsRelationships) {
                 let frozenRowModels = [];
                 let normalRowModels = [];
@@ -512,41 +551,8 @@
                         Object.keys(attributes).forEach(function (key, index) {
                             if (attributes[key]) {
                                 let attribute = attributes[key];
-                                if (this.frozenAttributes.indexOf(key) >= 0) {
-                                    if (index == 0) {
-                                        frozenRowModels.push({
-                                            "header": attribute.properties.externalName,
-                                            "name": key,
-                                            "isFrozen": true
-                                        });
-                                        this._attributeModels[key] = attribute;
-                                    } else {
-                                        if (!this._rowNameExist(key, frozenRowModels)) {
-                                            frozenRowModels.push({
-                                                "header": attribute.properties.externalName,
-                                                "name": key,
-                                                "isFrozen": true
-                                            });
-                                            this._attributeModels[key] = attribute;
-                                        }
-                                    }
-                                } else {
-                                    if (index == 0) {
-                                        normalRowModels.push({
-                                            "header": attribute.properties.externalName,
-                                            "name": key
-                                        });
-                                        this._attributeModels[key] = attribute;
-                                    } else {
-                                        if (!this._rowNameExist(key, normalRowModels)) {
-                                            normalRowModels.push({
-                                                "header": attribute.properties.externalName,
-                                                "name": key
-                                            });
-                                            this._attributeModels[key] = attribute;
-                                        }
-                                    }
-                                }
+                                let grid = 'attributes';
+                                this._pushDataInRowModel(key, frozenRowModels, normalRowModels, attribute, grid);
                             }
                         }, this);
 
@@ -558,50 +564,8 @@
                                     'owned') {
                                     let relationship = relationships[key];
                                     if (relationship.length > 0) {
-                                        if (this.frozenAttributes.indexOf(key) >= 0) {
-                                            if (index == 0) {
-                                                frozenRowModelsRelationshipGrid.push({
-                                                    "header": relationship[0] ?
-                                                        relationship[0].properties.externalName : key,
-                                                    "name": key,
-                                                    "isFrozen": true
-                                                });
-                                                this._relationshipModels[key] = relationship;
-                                            } else {
-                                                if (!this._rowNameExist(key, frozenRowModels)) {
-                                                    frozenRowModelsRelationshipGrid.push({
-                                                        "header": relationship[0] ?
-                                                            relationship[0].properties.externalName : key,
-                                                        "name": key,
-                                                        "isFrozen": true
-                                                    });
-                                                    this._relationshipModels[key] =
-                                                        relationship;
-                                                }
-                                            }
-                                        } else {
-                                            if (index == 0) {
-                                                normalRowModelsRelationshipGrid.push({
-                                                    "header": relationship[0] ?
-                                                        relationship[0].properties.externalName : key,
-                                                    "name": key,
-                                                    "isRelationship": true
-                                                });
-                                                this._relationshipModels[key] = relationship;
-                                            } else {
-                                                if (!this._rowNameExist(key,
-                                                    normalRowModelsRelationshipGrid)) {
-                                                    normalRowModelsRelationshipGrid.push({
-                                                        "header": relationship[0] ?
-                                                            relationship[0].properties.externalName : key,
-                                                        "name": key,
-                                                        "isRelationship": true
-                                                    });
-                                                    this._relationshipModels[key] =
-                                                        relationship;
-                                                }
-                                            }
-                                        }
+                                        let grid = 'relationship';
+                                        this._pushDataInRowModel(key, frozenRowModelsRelationshipGrid, normalRowModelsRelationshipGrid, relationship, grid);
                                     }
                                 }
                             }, this);
@@ -625,12 +589,6 @@
                 normalRowModelsRelationshipGrid.forEach(function (rowModel) {
                     rowsRelationships.push(rowModel);
                 }, this);
-
-                //for relationships adding listener to the dropdown
-                // var pebbleDropDownRelationship = this.$$("#actionsButtonRelationships");
-                // if (pebbleDropDownRelationship) {
-                //     pebbleDropDownRelationship.addEventListener('change', this._onDropdownChangeRelationships.bind(this));
-                // }
 
             }
             _rowNameExist(rowName, rows) {
@@ -727,54 +685,27 @@
                 return gridConfig;
             }
 
-            async snapshotTransformAttributes(entity, attributeModels, contextData, outputSchema, applySort) {
+            snapshotTransformAttributes(entity, attributeModels, contextData, outputSchema, applySort) {
                 let firstDataContext = ContextHelper.getFirstDataContext(contextData);
                 let firstValueContext = ContextHelper.getFirstValueContext(contextData);
                 let firstItemContext = ContextHelper.getFirstItemContext(contextData);
-                let activeAdditionalCtx;
-                let activePrimaryCtx;
-
-                let mergedAttributes = {};
 
                 let sortedAttributeModels = attributeModels;
                 if (applySort) {
-                    sortedAttributeModels = this.sortAttributeModels(attributeModels);
-                }
-                
-                mergedAttributes = entity.data.attributes;
-
-                if (firstDataContext) {
-                    let dataContexts = ContextHelper.getDataContexts(contextData);
-
-                    for (let dataContext of dataContexts) {
-                        if (dataContext) {
-                            let ctxAttributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, dataContext);
-
-                            if (!_.isEmpty(ctxAttributes)) {
-                                Object.keys(ctxAttributes).forEach((attrName) => {
-                                    mergedAttributes[attrName] = DataHelper.cloneObject(ctxAttributes[attrName]);
-                                });
-                            }
-                        }
-                    }
+                    sortedAttributeModels = DataTransformHelper.sortAttributeModels(attributeModels);
                 }
 
-                let transformedAttributes;
-                if (!_.isEmpty(attributeModels)) {
-                    transformedAttributes = await DataTransformHelper._transformAttributes(mergedAttributes, sortedAttributeModels, firstValueContext, firstDataContext, firstItemContext);
-                } else {
-                    transformedAttributes = DataTransformHelper._transformAttributesWithoutModels(mergedAttributes, firstValueContext);
-                }
+                let transformedAttributeModels = DataTransformHelper.transformAttributes(entity, sortedAttributeModels, this.contextData);
 
                 let outputData = undefined;
 
                 if (outputSchema == "array") {
                     //manage returns output as array...instead of keyed attributes
-                    outputData = _.map(transformedAttributes, function (value, index) {
+                    outputData = _.map(transformedAttributeModels , function (value, index) {
                         return value;
                     });
                 } else {
-                    outputData = transformedAttributes;
+                    outputData = transformedAttributeModels;
                 }
 
                 return outputData;
@@ -783,14 +714,12 @@
             async snapshotTransformRelationships(entity, relationshipModels, contextData, outputSchema, applySort) {
                 let firstDataContext = ContextHelper.getFirstDataContext(contextData);
                 let firstValueContext = ContextHelper.getFirstValueContext(contextData);
-                let activeAdditionalCtx;
-                let activePrimaryCtx;
 
                 let mergedRelationships = {};
 
                 let sortedAttributeModels = relationshipModels;
                 if (applySort) {
-                    sortedAttributeModels = this.sortAttributeModels(relationshipModels);
+                    sortedAttributeModels = DataTransformHelper.sortAttributeModels(relationshipModels);
                 }
 
                 //second condition added to check for a normal entity.
@@ -855,15 +784,6 @@
                             "relationships": this._relationshipModels
                         }
                     };
-
-                    //getting primary and additional contexts to know which context related attributes should be displayed
-                    if (this.isSnapshot) {
-                        if (this._entityModels && this._entityModels.length) {
-                            compositeModel = DataHelper.cloneObject(this._entityModels[0]);
-                        }
-                    }
-                    let transformedRelModels = DataTransformHelper.transformRelationshipModels(compositeModel,
-                        this.contextData);
                     // var transformedRelModels = DataTransformHelper.transformRelationshipAttributeModels(relationshipModels, this._contextData);
                     //Add column for new entity - if compare triggered from entity create.
                     // if (!_.isEmpty(this.compareEntitiesContext) && this.compareEntitiesContext.newEntity) {
@@ -888,26 +808,17 @@
                                 }
                                 nonSortedColumns.push(colDetails);
                             }
-                            let relationships = await this.snapshotTransformRelationships(entity,
-                                transformedRelModels, this._contextData);
-                            let rels = relationships;
-                            // this._entities.forEach(function (currentModel) {
-
-                            //check to see if the context is self because snapshot get call cannot do context filtering as data is saved iin h-base
-                            // if (_.isEmpty(this.contextData.Contexts) &&
-                            //     (DataHelper.isValidObjectPath(entity, 'data.relationships'))) {
-                            //     rels = entity.data.relationships;
-
-                            // } else if ((DataHelper.isValidObjectPath(entity,
-                            //     'data.contexts.0.relationships'))) {
-                            //     rels = entity.data.contexts[0].relationships;
-                            // }
-                            if (rels && rels[row.name]) {
-                                item[entity.id] = rels[row.name];
+                            let relationships;
+                            if(DataHelper.isValidObjectPath(this._mergedCompositeModel, 'transformedRelationshipModels')) {
+                                relationships = await this.snapshotTransformRelationships(entity,
+                                this._mergedCompositeModel.transformedRelationshipModels, this._contextData);
+                            }
+                            if (relationships && relationships[row.name]) {
+                                item[entity.id] = relationships[row.name];
                             } else {
                                 item[entity.id] = "";
                             }
-                            rels = [];
+                            relationships = [];
                         }
 
                         if (!_.isEmpty(nonSortedColumns)) {
@@ -1010,21 +921,7 @@
                         }
                     }
                     columns.push(rowHeader);
-                    let compositeModel = {
-                        "data": {
-                            "attributes": this._attributeModels
-                        }
-                    };
-
-                    //getting primary and additional contexts to know which context related attributes should be displayed
-                    if (this.isSnapshot && this._entityModels && this._entityModels.length) {
-                        compositeModel = DataHelper.cloneObject(this._entityModels[0]);
-                    }
-                    let transformedAttrModels = undefined;
-                    if (!_.isEmpty(this._entityModels)) {
-                        transformedAttrModels = DataTransformHelper.transformAttributeModels(this._entityModels[0], this._contextData);
-                        this.set('_attributeModels', transformedAttrModels);
-                    }
+                    this._mergeCompositeModels();
 
                     //Add column for new entity - if compare triggered from entity create
                     if (!_.isEmpty(this.compareEntitiesContext) && this.compareEntitiesContext.newEntity) {
@@ -1067,7 +964,7 @@
                                 }
                                 nonSortedColumns.push(colDetails);
                             }
-                            let attributes = await this.snapshotTransformAttributes(entity, transformedAttrModels, this._contextData);
+                            let attributes = await this.snapshotTransformAttributes(entity, this._mergedCompositeModel.transformedAttributeModels, this._contextData);
                             let _isAttributeMapped = false;
                             this._entityModels.forEach(function (currentModel) {
                                 let attrs = (DataHelper.isValidObjectPath(currentModel, 'data.contexts.0.attributes')) ? currentModel.data.contexts[0].attributes : currentModel.data.attributes;
@@ -1075,19 +972,8 @@
                                     _isAttributeMapped = true;
                                 }
                             }, this);
-
-                            if (DataHelper.isValidObjectPath(this._entityModels[0], 'data.contexts.0')) {
-                                if (DataHelper.isValidObjectPath(this._entityModels[0].data, 'contexts.0.attributes.' + row.name + 'properties.dataType')) {
-                                    currAttrDatatype = this._entityModels[0].data.contexts[0].attributes[row.name].properties.dataType;
-                                }
-                            } else if (DataHelper.isValidObjectPath(this._entityModels[0], 'data.attributes')) {
-                                currAttrDatatype = this._entityModels[0].data.attributes[row.name].properties.dataType;
-                            } else {
-                                console.error(
-                                    '_prepareGridColumnsModelAndData:- attributeModels does not have the attribute you are looking for'
-                                );
-                            }
-
+                            
+                            currAttrDatatype = row.dataType;
                             if (!_isAttributeMapped) {
                                 item[entity.id] = "NA";
                             } else if (currAttrDatatype == "datetime") {
@@ -1231,6 +1117,33 @@
                 }
             }
 
+            _mergeCompositeModels () {
+                let firstDataContext = ContextHelper.getFirstDataContext(this.contextData);
+                let transformedRelModels;
+                let transformedAttrModels;
+                if (!_.isEmpty(this._entityModels)) {
+                //merging attribute Models from different entity types
+                let mergedAttributesFromModels;
+                let mergedRelationshipsFromModels;
+                let mergedCompositeModel = DataHelper.cloneObject(this._entityModels[0]);
+
+                if(firstDataContext && 
+                   DataHelper.isValidObjectPath(mergedCompositeModel, 'data.contexts.0.attributes') && 
+                   DataHelper.isValidObjectPath(mergedCompositeModel, 'data.contexts.0.relationships')) {
+                    mergedCompositeModel.data.contexts[0].attributes = this._attributeModels;
+                    mergedCompositeModel.data.contexts[0].relationships = this._relationshipModels;
+                } else {
+                mergedCompositeModel.data.attributes = this._attributeModels;
+                mergedCompositeModel.data.relationships = this._relationshipModels;
+                }
+                mergedCompositeModel.id = "";
+                mergedCompositeModel.type = "";
+                transformedAttrModels = DataTransformHelper.transformAttributeModels(mergedCompositeModel, this._contextData);
+                transformedRelModels = DataTransformHelper.transformRelationshipModels(mergedCompositeModel, this._contextData);
+                this.set('_mergedCompositeModel', { transformedAttributeModels: transformedAttrModels,
+                 transformedRelationshipModels: transformedRelModels});
+                }
+            }
             _getSnapshotMetadata(entity) {
                 let snapData = {};
                 if (entity && entity.type && entity.type.indexOf("_snapshot") !== -1) {
@@ -1315,7 +1228,6 @@
                     ContextHelper.addDefaultValContext(this._contextData);
                     let req = DataRequestHelper.createEntityGetRequest(this._contextData);
 
-                    //getting primary and fullContext
                     this._contexts = ContextHelper.getDataContexts(this.contextData);
 
                     //adding params to get relationship related data
