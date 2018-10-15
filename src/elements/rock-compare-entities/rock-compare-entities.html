@@ -494,6 +494,39 @@
                     this._dataGet();
                 }
             }
+
+            _pushDataInRowModel(key, frozenRowModels, normalRowModels, gridModelData, gridType) {
+                let gridModelDataOriginal = gridModelData;
+                if(gridType === 'relationship') {
+                    gridModelData = gridModelData[0];
+                }
+                if (this.frozenAttributes.indexOf(key) >= 0) {
+                    frozenRowModels.push({
+                        "header": gridModelData.properties.externalName,
+                        "name": key,
+                        "isFrozen": true,
+                        "dataType": gridModelData.properties.dataType
+                    });
+                    if(gridType === 'relationship') {
+                        this._relationshipModels[key] = gridModelDataOriginal;
+                    } else {
+                        this._attributeModels[key] = gridModelDataOriginal;
+                    }
+                } else {
+                    normalRowModels.push({
+                        "header": gridModelData.properties.externalName,
+                        "name": key,
+                        "dataType": gridModelData.properties.dataType
+                    });
+                    if(gridType === 'relationship') {
+                        this._relationshipModels[key] = gridModelDataOriginal;
+                        normalRowModels[normalRowModels.length-1]["isRelationship"] = true;
+                    } else {
+                        this._attributeModels[key] = gridModelDataOriginal;
+                    }
+                }
+                return {formattedFrozenRowModels: frozenRowModels, formattedFormalRowModels: normalRowModels}
+            }
             _prepareGridRowsModel(entityModels, rows, rowsRelationships) {
                 let frozenRowModels = [];
                 let normalRowModels = [];
@@ -518,45 +551,8 @@
                         Object.keys(attributes).forEach(function (key, index) {
                             if (attributes[key]) {
                                 let attribute = attributes[key];
-                                if (this.frozenAttributes.indexOf(key) >= 0) {
-                                    if (index == 0) {
-                                        frozenRowModels.push({
-                                            "header": attribute.properties.externalName,
-                                            "name": key,
-                                            "isFrozen": true,
-                                            "dataType": attribute.properties.dataType
-                                        });
-                                        this._attributeModels[key] = attribute;
-                                    } else {
-                                        if (!this._rowNameExist(key, frozenRowModels)) {
-                                            frozenRowModels.push({
-                                                "header": attribute.properties.externalName,
-                                                "name": key,
-                                                "isFrozen": true,
-                                                "dataType": attribute.properties.dataType
-                                            });
-                                            this._attributeModels[key] = attribute;
-                                        }
-                                    }
-                                } else {
-                                    if (index == 0) {
-                                        normalRowModels.push({
-                                            "header": attribute.properties.externalName,
-                                            "name": key,
-                                            "dataType": attribute.properties.dataType
-                                        });
-                                        this._attributeModels[key] = attribute;
-                                    } else {
-                                        if (!this._rowNameExist(key, normalRowModels)) {
-                                            normalRowModels.push({
-                                                "header": attribute.properties.externalName,
-                                                "name": key,
-                                                "dataType": attribute.properties.dataType
-                                            });
-                                            this._attributeModels[key] = attribute;
-                                        }
-                                    }
-                                }
+                                let grid = 'attributes';
+                                this._pushDataInRowModel(key, frozenRowModels, normalRowModels, attribute, grid);
                             }
                         }, this);
 
@@ -568,50 +564,8 @@
                                     'owned') {
                                     let relationship = relationships[key];
                                     if (relationship.length > 0) {
-                                        if (this.frozenAttributes.indexOf(key) >= 0) {
-                                            if (index == 0) {
-                                                frozenRowModelsRelationshipGrid.push({
-                                                    "header": relationship[0] ?
-                                                        relationship[0].properties.externalName : key,
-                                                    "name": key,
-                                                    "isFrozen": true
-                                                });
-                                                this._relationshipModels[key] = relationship;
-                                            } else {
-                                                if (!this._rowNameExist(key, frozenRowModels)) {
-                                                    frozenRowModelsRelationshipGrid.push({
-                                                        "header": relationship[0] ?
-                                                            relationship[0].properties.externalName : key,
-                                                        "name": key,
-                                                        "isFrozen": true
-                                                    });
-                                                    this._relationshipModels[key] =
-                                                        relationship;
-                                                }
-                                            }
-                                        } else {
-                                            if (index == 0) {
-                                                normalRowModelsRelationshipGrid.push({
-                                                    "header": relationship[0] ?
-                                                        relationship[0].properties.externalName : key,
-                                                    "name": key,
-                                                    "isRelationship": true
-                                                });
-                                                this._relationshipModels[key] = relationship;
-                                            } else {
-                                                if (!this._rowNameExist(key,
-                                                    normalRowModelsRelationshipGrid)) {
-                                                    normalRowModelsRelationshipGrid.push({
-                                                        "header": relationship[0] ?
-                                                            relationship[0].properties.externalName : key,
-                                                        "name": key,
-                                                        "isRelationship": true
-                                                    });
-                                                    this._relationshipModels[key] =
-                                                        relationship;
-                                                }
-                                            }
-                                        }
+                                        let grid = 'relationship';
+                                        this._pushDataInRowModel(key, frozenRowModelsRelationshipGrid, normalRowModelsRelationshipGrid, relationship, grid);
                                     }
                                 }
                             }, this);
@@ -635,12 +589,6 @@
                 normalRowModelsRelationshipGrid.forEach(function (rowModel) {
                     rowsRelationships.push(rowModel);
                 }, this);
-
-                //for relationships adding listener to the dropdown
-                // var pebbleDropDownRelationship = this.$$("#actionsButtonRelationships");
-                // if (pebbleDropDownRelationship) {
-                //     pebbleDropDownRelationship.addEventListener('change', this._onDropdownChangeRelationships.bind(this));
-                // }
 
             }
             _rowNameExist(rowName, rows) {
@@ -747,17 +695,17 @@
                     sortedAttributeModels = DataTransformHelper.sortAttributeModels(attributeModels);
                 }
 
-                let transformedAttributes = DataTransformHelper.transformAttributes(entity, sortedAttributeModels, this.contextData);
+                let transformedAttributeModels = DataTransformHelper.transformAttributes(entity, sortedAttributeModels, this.contextData);
 
                 let outputData = undefined;
 
                 if (outputSchema == "array") {
                     //manage returns output as array...instead of keyed attributes
-                    outputData = _.map(transformedAttributes, function (value, index) {
+                    outputData = _.map(transformedAttributeModels , function (value, index) {
                         return value;
                     });
                 } else {
-                    outputData = transformedAttributes;
+                    outputData = transformedAttributeModels;
                 }
 
                 return outputData;
@@ -860,16 +808,17 @@
                                 }
                                 nonSortedColumns.push(colDetails);
                             }
-                            let relationships = await this.snapshotTransformRelationships(entity,
+                            let relationships;
+                            if(DataHelper.isValidObjectPath(this._mergedCompositeModel, 'transformedRelationshipModels')) {
+                                relationships = await this.snapshotTransformRelationships(entity,
                                 this._mergedCompositeModel.transformedRelationshipModels, this._contextData);
-                            let rels = relationships;
-                            // }
-                            if (rels && rels[row.name]) {
-                                item[entity.id] = rels[row.name];
+                            }
+                            if (relationships && relationships[row.name]) {
+                                item[entity.id] = relationships[row.name];
                             } else {
                                 item[entity.id] = "";
                             }
-                            rels = [];
+                            relationships = [];
                         }
 
                         if (!_.isEmpty(nonSortedColumns)) {
@@ -1178,11 +1127,11 @@
                 let mergedRelationshipsFromModels;
                 let mergedCompositeModel = DataHelper.cloneObject(this._entityModels[0]);
 
-                if(firstDataContext) {
-                // no need for checks below because we will surely have attributes key in contexts and multiple contexts are not possible since this is not supported for split view
-                mergedCompositeModel.data.contexts[0].attributes = this._attributeModels;
-                mergedCompositeModel.data.contexts[0].relationships = this._relationshipModels;
-
+                if(firstDataContext && 
+                   DataHelper.isValidObjectPath(mergedCompositeModel, 'data.contexts.0.attributes') && 
+                   DataHelper.isValidObjectPath(mergedCompositeModel, 'data.contexts.0.relationships')) {
+                    mergedCompositeModel.data.contexts[0].attributes = this._attributeModels;
+                    mergedCompositeModel.data.contexts[0].relationships = this._relationshipModels;
                 } else {
                 mergedCompositeModel.data.attributes = this._attributeModels;
                 mergedCompositeModel.data.relationships = this._relationshipModels;
