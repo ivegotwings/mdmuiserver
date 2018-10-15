@@ -61,7 +61,7 @@ class ModuleVersionManager {
             if (moduleVersions) {
                 this.MODULES.forEach((item, index) => {
                     moduleVersionData[item] = {
-                        "version": moduleVersions[index]
+                        "version": moduleVersions[index] ? moduleVersions[index] : this.DEFAULT_VERSION
                     }
                 });
             }
