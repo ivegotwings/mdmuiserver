@@ -2,6 +2,7 @@
 'use strict';
 
 let stateManager = require('../../common/state-manager/state-manager');
+let _ = require('underscore');
 
 class ModuleVersionManager {
 
@@ -10,7 +11,7 @@ class ModuleVersionManager {
     }
 
     static get DEFAULT_VERSION() {
-        return "101";
+        return 101;
     }
 
     static get MODULES() {
@@ -34,7 +35,7 @@ class ModuleVersionManager {
             if(!moduleVersion) {
                 moduleVersion = this.DEFAULT_VERSION;
             }
-
+            console.log('\n\nInitialize version of ' + item + ': ', moduleVersion);
             ModuleVersionManager._data[module] = {
                 'version': moduleVersion,
                 'timestamp': timestamp
@@ -49,17 +50,36 @@ class ModuleVersionManager {
 
         if (!moduleVersion) {
             if (!ModuleVersionManager._data[module]) {
+                ModuleVersionManager._data[module] = {}
+                ModuleVersionManager._data[module].version = this.DEFAULT_VERSION;
                 await this.setVersion(module, this.DEFAULT_VERSION);
             }
 
             moduleVersion = ModuleVersionManager._data[module] ? ModuleVersionManager._data[module].version : undefined;
         }
 
+        console.log('\n\nGet version of '+ module +': ', moduleVersion);
+
         return moduleVersion;
     }
 
-    static getAll() {
-        return ModuleVersionManager._data;
+    static async getAll() {
+        let keys = this.MODULES.map(v => v = v + this.MODULE_VERSION_KEY);
+        let moduleVersionData = {};
+
+        if(keys) {
+            let moduleVersions = await stateManager.mget(keys);
+
+            if(moduleVersions) {
+                this.MODULES.forEach((item, index) =>{
+                    moduleVersionData[item] = {
+                        "version": moduleVersions[index]
+                    }
+                });
+            }
+        }
+
+        return moduleVersionData;
     }
 
     static async setVersion(module, version) {
@@ -67,6 +87,8 @@ class ModuleVersionManager {
             version: version,
             timestamp: (Date.now() / 1000 | 0)
         }
+
+        console.log('\n\nSet version of '+ module +':', version);
 
         let moduleVersionKey = module + this.MODULE_VERSION_KEY;
         await stateManager.set(moduleVersionKey, version);
