@@ -24,8 +24,6 @@ class ModuleVersionManager {
     }
 
     static async initialize() {
-        let timestamp = Date.now();
-
         this.MODULES.forEach(async item => {
             let cacheKey = item + this.MODULE_VERSION_KEY;
             let moduleVersion = await stateManager.get(cacheKey);
@@ -38,8 +36,8 @@ class ModuleVersionManager {
         });
     }
 
-    static async getVersion(module) {
-        let moduleVersion = await stateManager.get(module + this.MODULE_VERSION_KEY);
+    static async getVersion(module, tenantId) {
+        let moduleVersion = await stateManager.get(module + "-" + tenantId + this.MODULE_VERSION_KEY);
 
         if (!moduleVersion) {
             moduleVersion = this.DEFAULT_VERSION;
@@ -50,8 +48,8 @@ class ModuleVersionManager {
         return moduleVersion;
     }
 
-    static async getAll() {
-        let keys = this.MODULES.map(v => v = v + this.MODULE_VERSION_KEY);
+    static async getAll(tenantId) {
+        let keys = this.MODULES.map(v => v = v + "-" + tenantId + this.MODULE_VERSION_KEY);
         let moduleVersionData = {};
 
         if (keys) {
@@ -69,10 +67,10 @@ class ModuleVersionManager {
         return moduleVersionData;
     }
 
-    static async setVersion(module, version) {
+    static async setVersion(module, version, tenantId) {
         //console.log('\n\nSet version of '+ module +':', version);
 
-        let moduleVersionKey = module + this.MODULE_VERSION_KEY;
+        let moduleVersionKey = module + "-" + tenantId + this.MODULE_VERSION_KEY;
         await stateManager.set(moduleVersionKey, version);
         return await 1;
     }
