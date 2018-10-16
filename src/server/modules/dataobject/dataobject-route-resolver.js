@@ -609,6 +609,9 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
             //Hotline set to api request, so delete from clientState
             delete clientState.hotline;
 
+            if (dataObject.params) {
+                apiRequestObj.params = dataObject.params;
+            }
             if (dataObjectAction == "create" || dataObjectAction == "update") {
                 _removeUnnecessaryProperties(apiRequestObj);
                 _prependAdditionalParams(apiRequestObj, dataIndexInfo.name);
@@ -790,7 +793,9 @@ function _prependAdditionalParams(reqObject, dataInfoKey) {
         reqObject.params = {};
     }
 
-    reqObject.params["authorizationType"] = "accommodate";
+    if(!reqObject.params.hasOwnProperty("authorizationType")) {
+        reqObject.params["authorizationType"] = "accommodate";
+    }
 
     if (reqObject[dataInfoKey].isReclassification) {
         delete reqObject[dataInfoKey].isReclassification;
