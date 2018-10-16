@@ -29,12 +29,12 @@ VersionService.prototype = {
         return response;
     },
 
-    updateModuleVersion: async function(module) {
-        let moduleVersion = await ModuleVersionManager.getVersion(module);
-        await ModuleVersionManager.setVersion(module, ++moduleVersion);
+    updateModuleVersion: async function(module, tenantId) {
+        let moduleVersion = await ModuleVersionManager.getVersion(module, tenantId);
+        await ModuleVersionManager.setVersion(module, ++moduleVersion, tenantId);
         
         let response = { "newVersion": moduleVersion };
-        logger.info(module + ' version has been updated to ' + moduleVersion);
+        logger.info(module + ' version has been updated to ' + moduleVersion + 'for tenant: ' + tenantId);
         return response;
     }
 };
