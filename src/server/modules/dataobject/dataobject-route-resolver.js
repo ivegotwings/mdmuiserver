@@ -471,6 +471,7 @@ async function get(dataObjectIds, reqData) {
 
         let dataObjectResponse = res && dataIndexInfo && dataIndexInfo.responseObjectName ? res[dataIndexInfo.responseObjectName] : undefined;
 
+        //console.log('dataObjectResponse res from api ', JSON.stringify(dataObjectResponse, null, 4));
         if (dataObjectResponse && dataObjectResponse.status == "success") {
             let dataObjects = dataIndexInfo && dataIndexInfo.collectionName ? dataObjectResponse[dataIndexInfo.collectionName] : undefined;
 
@@ -497,6 +498,19 @@ async function get(dataObjectIds, reqData) {
                         //populate as ref...
                         byIdsJson[requestedId] = buildRefResponse(dataObject, reqData);
                     }
+                }
+            }
+        }
+        else if (dataObjectResponse && dataObjectResponse.status == 'error') {
+            if (dataObjectResponse.statusDetail) {
+                if (dataObjectResponse.statusDetail.messages) {
+                    let firstAvailableError = dataObjectResponse.statusDetail.messages[0];
+                    if (firstAvailableError) {
+                        throw firstAvailableError;
+                    }
+                }
+                else if (dataObjectResponse.statusDetail.message) {
+                    throw new Error(dataObjectResponse.statusDetail.message);
                 }
             }
         }
@@ -552,6 +566,7 @@ async function getByIds(pathSet, operation) {
     }
     catch (err) {
         let errMsg = "".concat('Failed to get data.\nOperation:', operation, '\nError:', err.message, '\nStackTrace:', err.stack);
+        //console.log(errMsg);
         logger.error(errMsg, null, logger.getCurrentModule());
         throw err;
     }
