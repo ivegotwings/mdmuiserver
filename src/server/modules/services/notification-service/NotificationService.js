@@ -36,10 +36,11 @@ class NotificationService {
 
                 if (!isEmpty(notificationInfo)) {
                     notificationInfo.tenantId = tenantId;
+
                     // On model import complete Or any model change notification, module version has to be updated to maintain local storage in sync.
                     if (notificationInfo.action == enums.actions.ModelImportComplete || notificationInfo.action == enums.actions.ModelSaveComplete) {
                         (async () => {
-                            await versionService.updateModuleVersion('entityModel');
+                            await versionService.updateModuleVersion('entityModel', tenantId);
                         })();
                     }
 
