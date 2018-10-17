@@ -182,13 +182,13 @@
                             return {};
                         }
                     },
-                    sharedcontextdata: {
+                    sharedContextData: {
                         type: Object,
                         value: function () {
                             return {};
                         }
                     },
-                    selecteditemsforpaste: {
+                    selectedItemsForPaste: {
                         type: Array,
                         value: function () {
                             return [];
@@ -200,7 +200,7 @@
                             return [];
                         }
                     },
-                    isentitydiscoveryscreen: {
+                    isBulkProcess: {
                         type: Boolean,
                         value: false
                     },
@@ -210,10 +210,6 @@
                     _bulkSaveTracker: {
                         type: Number,
                         value: 0
-                    },
-                    _saveRequestMode: {
-                        type: String,
-                        value: ""
                     },
                     _attributeModelResponse: {
                         type: Object,
@@ -253,6 +249,18 @@
                     _isOpened: {
                         type: Boolean,
                         value: true
+                    },
+                    _nestedAttributes: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    _copyPasteEntities: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
                     }
                 }
             }
@@ -281,8 +289,11 @@
                 }
 
                 let clonedContextData = DataHelper.cloneObject(this.contextData);
+                //To get all attribute models
+                if(clonedContextData.ItemContexts && clonedContextData.ItemContexts.length) {
+                    clonedContextData.ItemContexts[0].attributeNames  = ["_ALL"];
+                }
                 let compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(clonedContextData);
-                compositeModelGetRequest.params.fields.attributes = ['_ALL'];
                 let _compositeAttributeModelGet;
                 if (compositeModelGetRequest) {
                     _compositeAttributeModelGet = this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
@@ -292,7 +303,6 @@
                     _compositeAttributeModelGet.generateRequest();
                 }
             }
-
             _onSaveResponse(e, detail) {
                 this._bulkSaveTracker++;
                 let message;
@@ -311,7 +321,7 @@
                     message = response.reason;
                 }
 
-                if(this._saveRequestMode === "bulkSimulation") {
+                if(this.isBulkProcess) {
                     let status = e.detail.response.status;
                     if(!_.isEmpty(status)) {
                         status = status[0].toUpperCase() + status.slice(1,status.length);
@@ -323,7 +333,7 @@
                     }
                     this._entitySaveResponseObject.push(responseObj);
 
-                    if(this._bulkSaveTracker === this.selecteditemsforpaste.length) {
+                    if(this._bulkSaveTracker === this.selectedItemsForPaste.length) {
                         this._triggerBulkFinishStep();
                     } else {
                         return;
@@ -332,7 +342,7 @@
                     this._triggerFinishStep(message);
                 }
             }
-            
+
             _triggerFinishStep(message) {
                 let actions = [
                     {
@@ -368,7 +378,7 @@
                     "isNotApp": true
                 }];
 
-                if (this._saveRequestMode === "single") {
+                if (!this.isBulkProcess) {
                     noGrid = true;
                     message = this._responseMessages && this._responseMessages[0] ? this._responseMessages[0].Message :
                         "";
@@ -498,190 +508,248 @@
                     this.$.scopeSelector.isManageScopes = true;
                 }
             }
-            async _onEntityGetResponse(e, detail) {
-                //copied entities response data
-                let { entities } = detail.response.content;
 
-                //changing the locale to pasteEntity  in all self attributes
-                let attributes = entities[0].data.attributes;
-                let currentLocale = this.contextData.ValContexts[0].locale;
-                for (let attributeName in attributes) {
-                    attributes[attributeName].values.forEach(value => {
-                        value.locale = currentLocale;
-                    })
+            async _onEntityGetResponse(e, detail) {
+                //copied entity session data
+                let copiedEntityContext = sessionStorage.getItem('copyEntityData');
+                if (!_.isEmpty(copiedEntityContext)) {
+                    copiedEntityContext = JSON.parse(copiedEntityContext);
+                    this._sourceEntityData = copiedEntityContext;
                 }
 
-                // //changing the locale to pasteEntity in all context attributes
-                if (DataHelper.isValidObjectPath(entities[0], 'data.contexts.0')) {
+                //Entities response data - all copy and paste entity details
+                if (DataHelper.isValidObjectPath(detail, "response.content.entities")) {
+                    this._copyPasteEntities = detail.response.content.entities || [];
+                }
+                let copiedItemContext = ContextHelper.getFirstItemContext(copiedEntityContext);
+                let copiedEntity = this._copyPasteEntities.filter(entity => {
+                   return entity.id == copiedItemContext.id;
+                }, this);
 
-                    let contextsInResponse = entities[0].data.contexts;
+                if (_.isEmpty(copiedEntity)) {
+                    this.logError("Entity get request - Copied entity details missing", copiedEntity);
+                    return;
+                }
+
+                copiedEntity = copiedEntity[0]; // copied entity details
+                let attributes = copiedEntity.data.attributes;
+                let currentLocale = this.contextData.ValContexts[0].locale;
+                //changing the locale to pasteEntity in all self attributes
+                this._setAttributesToCurrentLocale(attributes, currentLocale);
+
+                // //changing the locale to pasteEntity in all context attributes
+                if (DataHelper.isValidObjectPath(copiedEntity, 'data.contexts.0')) {
+
+                    let contextsInResponse = copiedEntity.data.contexts;
                     contextsInResponse.forEach(context => {
                         if (!_.isEmpty(context.attributes)) {
                             let attributes = context.attributes;
-                            for (let attributeName in attributes) {
-                                // nested attributes
-                                if (attributes[attributeName].hasOwnProperty('group')) {
-                                    attributes[attributeName].group.forEach(group => {
-                                        group.values.forEach(value => {
-                                            value.locale = currentLocale;
-                                        })
-                                    });
-                                } else {
-                                    attributes[attributeName].values.forEach(value => {
-                                        value.locale = currentLocale;
-                                    })
-                                }
-                            }
+                            this._setAttributesToCurrentLocale(attributes, currentLocale);
                         }
-                    })
+                    }, this);
                 }
-
-                let data = sessionStorage.getItem('copyEntityData');
-                let parsedData = JSON.parse(data);
-                this._sourceEntityData = parsedData;
 
                 let clonedAttributes;
-                let noPermissionsFlag = false;
-                let attributesWithNoPermissions = [];
-                if (DataHelper.isValidObjectPath(entities[0], 'data.attributes')) {
-                    clonedAttributes = DataHelper.cloneObject(entities[0].data.attributes);
-                        //logic to check permissions of attributes
-                    for (let attributeName in clonedAttributes) {
-                        if(!this.isentitydiscoveryscreen && this._attributeModels.hasOwnProperty(attributeName) && 
-                        DataHelper.isValidObjectPath(this._attributeModels[attributeName], 'properties.hasWritePermission') 
-                        && !this._attributeModels[attributeName].properties.hasWritePermission) {
-                            noPermissionsFlag = true;
-                            attributesWithNoPermissions.push(this._attributeModels[attributeName].externalName);
-                        }
-                    }
-                    if(noPermissionsFlag) {
-                        let message = `You do not have permissions to edit [${attributesWithNoPermissions.join(", ")}] attributes`;
-                            this.showWarningToast(message);
-                            return;
-                    }
-
+                if (DataHelper.isValidObjectPath(copiedEntity, 'data.attributes')) {
+                    clonedAttributes = DataHelper.cloneObject(copiedEntity.data.attributes);
                 }
+                //Attributes permission check
+                if (!this._isAllAttributesHaveEditPermissions(clonedAttributes)) {
+                    return;
+                }
+
                 let dataContexts = ContextHelper.getDataContexts(this.contextData)
                 if (!_.isEmpty(dataContexts)) {
                     //add the logic to add attributes to context.data here and then send for save
 
                     //If we copied from some context scenario we need to push that data instead of data.attributes.
-                    if(!_.isEmpty(entities[0].data.contexts)){
-                        clonedAttributes =  entities[0].data.contexts[0].attributes;
+                    if (!_.isEmpty(copiedEntity.data.contexts)) {
+                        clonedAttributes = copiedEntity.data.contexts[0].attributes;
                     }
                     let dataContext = {
                         "context": dataContexts[0],
                         "attributes": clonedAttributes
                     }
-                    entities[0].data.contexts.push(dataContext)
-
-                    entities[0].data.attributes = {};
+                    copiedEntity.data.contexts.push(dataContext);
+                    copiedEntity.data.attributes = {};
                 } else {
                     let contextCloneAttributes = {};
-                    if(DataHelper.isValidObjectPath(entities[0], 'data.contexts.0')) {
+                    if (DataHelper.isValidObjectPath(copiedEntity, 'data.contexts.0')) {
                         // extracting attributes from context of source entity
-                        entities[0].data.contexts.forEach(dataContext=> {
-                            if(!_.isEmpty(dataContext.attributes)) {
-                                let attributes = dataContext.attributes;
-                                //logic to check permissions of attributes
-                                for (let attributeName in attributes) {
-                                    if(!this.isentitydiscoveryscreen && this._attributeModels.hasOwnProperty(attributeName) && 
-                                    DataHelper.isValidObjectPath(this._attributeModels[attributeName], 'properties.hasWritePermission') 
-                                    && !this._attributeModels[attributeName].properties.hasWritePermission) {
-                                        noPermissionsFlag = true;
-                                        attributesWithNoPermissions.push(this._attributeModels[attributeName].externalName);
-                                    }
-                                }
-                                if(noPermissionsFlag) {
-                                    let message = `You do not have permissions to edit [${attributesWithNoPermissions.join(", ")}] attributes`;
-                                    this.showWarningToast(message);
-                                    return;
-                                }
+                        copiedEntity.data.contexts.forEach(dataContext => {
+                            if (!_.isEmpty(dataContext.attributes)) {
                                 Object.assign(contextCloneAttributes, dataContext.attributes);
                             }
                         })
-                        entities[0].data.attributes = contextCloneAttributes;
-                        entities[0].data.contexts = [];
+                        //Attributes permission check
+                        if (!this._isAllAttributesHaveEditPermissions(contextCloneAttributes)) {
+                            return;
+                        }
+                        copiedEntity.data.attributes = contextCloneAttributes;
+                        copiedEntity.data.contexts = [];
                     }
                 }
-//-------------------------------------------------------------------------------------//
 
-                if (!this.isentitydiscoveryscreen && !_.isEmpty(entities[0])) {
-                    // getting current Entity Id
-                    let firstItemContext = this.getFirstItemContext();
-                    let currentId = firstItemContext.id;
-                    let currentEntityType = firstItemContext.type;
-                    let currentEntityName = firstItemContext.name;
-                    let entity = entities[0];
-                    entity.id = currentId;
-                    entity.type = currentEntityType;
-                    entity.name = currentEntityName;
-                    entity.params = {
-                        "authorizationType": "reject"
-                    }
-
-                    this._saveRequest = {
-                        "entities": entities
-                    }
-                    this._saveRequestMode = "single";
-                    this._saveEntity();
+                //Start update process
+                if (!this.isBulkProcess && !_.isEmpty(copiedEntity)) {
+                    this._prepareRequestAndTriggerSave(copiedEntity);
                 } else {
-                    let ids = this.selecteditemsforpaste.map(elm => {
-                        return elm.id;
-                    });
-                    let types = this.selecteditemsforpaste.map(elm => {
-                        return elm.type;
-                    });
-                    this.selecteditemsforpaste.forEach(item=>{
-                        let cloneEntity = DataHelper.cloneObject(entities[0]);
-                        cloneEntity.id = item.id;
-                        cloneEntity.type = item.type;
-                        cloneEntity.name = item.name;
-                        cloneEntity.params = {
-                        "authorizationType": "reject"
-                        }
-                        this._saveRequest = {
-                        "entities": [cloneEntity]
-                        }
+                    this._prepareRequestAndTriggerSave(copiedEntity, this.selectedItemsForPaste);
+                }
+            }
 
-                    this._saveRequestMode = "bulkSimulation";
-                    this._saveEntity();
-                        this._cloneEntitiesForBulkSave.push(cloneEntity);
-                    });
-                    
+            _isAllAttributesHaveEditPermissions(attributes) {
+                let attributesWithNoPermissions = [];
+                //logic to check permissions of attributes - entity manage only
+                for (let attributeName in attributes) {
+                    if (!this.isBulkProcess && this._attributeModels.hasOwnProperty(attributeName) &&
+                        DataHelper.isValidObjectPath(this._attributeModels[attributeName], 'properties.hasWritePermission') &&
+                        !this._attributeModels[attributeName].properties.hasWritePermission) {
+                        attributesWithNoPermissions.push(this._attributeModels[attributeName].externalName);
+                    }
                 }
 
+                if (attributesWithNoPermissions.length) {
+                    let message = `You do not have permissions to edit [${attributesWithNoPermissions.join(", ")}] attributes`;
+                    this.showWarningToast(message);
+                    return false;
+                }
+                return true;
             }
-            
+
+            _collectNestedAttributes(attributes) {
+                for (let attributeName in attributes) {
+                    let attributeModel = this._attributeModels[attributeName];
+                    if (attributeModel && attributeModel.dataType === "nested" &&
+                        attributes[attributeName].hasOwnProperty('group')) {
+                            this._nestedAttributes.push(attributeName);
+                    }
+                }
+                this._nestedAttributes = _.uniq(this._nestedAttributes);
+            }
+
+            _setAttributesToCurrentLocale(attributes, currentLocale) {
+                this._collectNestedAttributes(attributes);
+                for (let attributeName in attributes) {
+                    // nested attributes
+                    let attributeModel = this._attributeModels[attributeName];
+                    if (this._nestedAttributes.indexOf(attributeName) != -1) {
+                        attributes[attributeName].group.forEach(group => {
+                            for (let key in group) {
+                                if (group[key] && group[key].values) {
+                                    group[key].values.forEach(value => {
+                                        value.locale = currentLocale;
+                                    });
+                                }
+                            }
+                        });
+                    } else if (attributes[attributeName].hasOwnProperty('values')) {
+                        attributes[attributeName].values.forEach(value => {
+                            value.locale = currentLocale;
+                        });
+                    }
+                }
+            }
+
+            _prepareRequestAndTriggerSave(sourceEntity, targetEntities) {
+                let clonedSourceEntity = DataHelper.cloneObject(sourceEntity);
+                if (!this.isBulkProcess) {
+                    let firstItemContext = this.getFirstItemContext();
+                    if (!_.isEmpty(firstItemContext) && firstItemContext.id) {
+                        targetEntities = [{
+                            "id": firstItemContext.id,
+                            "type": firstItemContext.type,
+                            "name": firstItemContext.name
+                        }];
+                    }
+                }
+
+                if (!_.isEmpty(targetEntities)) {
+                    targetEntities.forEach(item => {
+                        //Pick id, type and name from target entities for update
+                        clonedSourceEntity.id = item.id;
+                        clonedSourceEntity.type = item.type;
+                        clonedSourceEntity.name = item.name;
+                        if(!_.isEmpty(this._nestedAttributes)) {
+                            this._updateNestedAttributesForEntity(clonedSourceEntity);
+                        }
+                        if (this.isBulkProcess) {
+                            clonedSourceEntity.params = {
+                                "authorizationType": "reject"
+                            }
+                            this._cloneEntitiesForBulkSave.push(clonedSourceEntity); //Capture for bulk result
+                        }
+
+                        this._saveRequest = {
+                            "entities": [clonedSourceEntity]
+                        };
+                        this._saveEntity();
+                    });
+                }
+            }
+
+            _updateNestedAttributesForEntity(entity) {
+                let targetEntity = this._copyPasteEntities.filter(item => {
+                    return entity.id == item.id;
+                }, this);
+
+                //Target entity not having any attribute values, then return
+                if (_.isEmpty(targetEntity) || !targetEntity[0].data ||
+                    _.isEmpty(targetEntity[0].data.attributes)) {
+                    return;
+                }
+
+                for (let attributeName of this._nestedAttributes) {
+                    let attributeValue = targetEntity[0].data.attributes[attributeName];
+                    let deleteNestedAttrValues = [];
+                    if (attributeValue && !_.isEmpty(attributeValue.group)) {
+                        for (let groupItem of attributeValue.group) {
+                            groupItem.action = "delete";
+                            deleteNestedAttrValues.push(groupItem);
+                        }
+                    }
+
+                    if (deleteNestedAttrValues.length &&
+                        DataHelper.isValidObjectPath(entity, "data.attributes")) {
+                        if (entity.data.attributes[attributeName]) {
+                            entity.data.attributes[attributeName].group = entity.data.attributes[attributeName].group || [];
+                            for (let deleteAttrValue of deleteNestedAttrValues) {
+                                entity.data.attributes[attributeName].group.push(deleteAttrValue);
+                            }
+                        }
+                    }
+                }
+            }
+
             _saveEntity() {
-                let liquidSave = this.shadowRoot.querySelector(
-                    "[name=attributeSaveDataService]");
+                let liquidSave = this.shadowRoot.querySelector("[name=attributeSaveDataService]");
                 if (liquidSave) {
                     liquidSave.generateRequest();
                 } else {
-                    this.logError(
-                        "Save failed: Not able to access attributeSaveDataService liquid");
+                    this.logError("Save failed: Not able to access attributeSaveDataService liquid");
                 }
             }
 
             _onEntityGetFailed(e) {
                 this.logError("Copied entities data get failed", e.detail);
             }
-            
+
             _executePaste(e) {
                 let data = sessionStorage.getItem('copyEntityData');
-                let copiedItemContext, entityGetRequest;
+                let copiedEntityContext, entityGetRequest;
 
                 if (!this.selectedItems || !this.selectedItems.length) {
                     this.showWarningToast("Select at least 1 attribute for paste");
                     return;
                 }
 
-                if(!_.isEmpty(data)) {
-
+                if (!_.isEmpty(data)) {
                     //creating get request from copied entities contextData
-                    copiedItemContext = JSON.parse(data);
-                    entityGetRequest = DataRequestHelper.createEntityGetRequest(copiedItemContext);
+                    copiedEntityContext = JSON.parse(data);
+                    let copiedItemContext = this._getUpdatedItemContextWithSelectedEntities(copiedEntityContext);
+                    copiedEntityContext.ItemContexts = [copiedItemContext];
+
+                    entityGetRequest = DataRequestHelper.createEntityGetRequest(copiedEntityContext);
                     let liquidDataElement = this.shadowRoot.querySelector('#getEntity');
 
                     // getting selected attributes and pushing into the request
@@ -691,14 +759,43 @@
                     entityGetRequest.params.fields.attributes = attributes;
                     //setting non-coalesce flag
                     entityGetRequest.params.query.filters.nonContextual = false;
-                                        
+
                     liquidDataElement.requestData = entityGetRequest;
                     liquidDataElement.generateRequest();
-
                 } else {
                     this.showWarningToast('Copy an entity before pasting it');
                 }
             }
+
+            _getUpdatedItemContextWithSelectedEntities(copiedEntityContext) {
+                let ids = [];
+                let types = [];
+                let itemContext = ContextHelper.getFirstItemContext(copiedEntityContext);
+
+                //Push copied id and type
+                ids.push(itemContext.id);
+                types.push(itemContext.type);
+
+                //Update context with selected entities
+                if (!this.isBulkProcess) {
+                    //Push target ids, types
+                    let firstItemContext = ContextHelper.getFirstItemContext(this.contextData);
+                    ids.push(firstItemContext.id);
+                    types.push(firstItemContext.type);
+                } else {
+                    (this.selectedItemsForPaste || []).forEach(item => {
+                        ids.push(item.id);
+                        types.push(item.type);
+                    }, this);
+                }
+
+                itemContext.id = ids;
+                delete itemContext.name;
+                itemContext.type = _.uniq(types);
+
+                return itemContext;
+            }
+
             _onCancelTap() {
                 let eventDetail = {
                     name: "onCancel"
