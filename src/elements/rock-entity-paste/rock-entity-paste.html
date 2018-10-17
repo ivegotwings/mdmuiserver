@@ -115,7 +115,7 @@
     on-entity-model-composite-get-response="_onCompositeModelGetResponse"></liquid-entity-model-composite-get>
     <liquid-entity-data-save name="attributeSaveDataService" operation="[[_entityDataOperation]]" data-index="[[dataIndex]]"
     request-data="{{_saveRequest}}" last-response="{{_saveResponse}}" on-response="_onSaveResponse"
-    on-error="_onSaveError"></liquid-entity-data-save>
+    on-error="_onSaveResponse"></liquid-entity-data-save>
 
     </template>
     <script>
@@ -282,6 +282,7 @@
 
                 let clonedContextData = DataHelper.cloneObject(this.contextData);
                 let compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(clonedContextData);
+                compositeModelGetRequest.params.fields.attributes = ['_ALL'];
                 let _compositeAttributeModelGet;
                 if (compositeModelGetRequest) {
                     _compositeAttributeModelGet = this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
@@ -291,6 +292,7 @@
                     _compositeAttributeModelGet.generateRequest();
                 }
             }
+
             _onSaveResponse(e, detail) {
                 this._bulkSaveTracker++;
                 let message;
@@ -306,7 +308,7 @@
                 if (response.status === 'success') {
                     message = `Copy paste request submitted for copying data from ${fromEntityName} (${forContext}, ${parsedData.ValContexts[0].locale}) to ${toEntityName} (${toContext}, ${valueContexts[0].locale})`;
                 } else {
-                    message = response.content.msg;
+                    message = response.reason;
                 }
 
                 if(this._saveRequestMode === "bulkSimulation") {
@@ -534,14 +536,30 @@
                     })
                 }
 
-                //getting primary and secondary context for copy and paste entity
                 let data = sessionStorage.getItem('copyEntityData');
                 let parsedData = JSON.parse(data);
                 this._sourceEntityData = parsedData;
 
                 let clonedAttributes;
+                let noPermissionsFlag = false;
+                let attributesWithNoPermissions = [];
                 if (DataHelper.isValidObjectPath(entities[0], 'data.attributes')) {
                     clonedAttributes = DataHelper.cloneObject(entities[0].data.attributes);
+                        //logic to check permissions of attributes
+                    for (let attributeName in clonedAttributes) {
+                        if(!this.isentitydiscoveryscreen && this._attributeModels.hasOwnProperty(attributeName) && 
+                        DataHelper.isValidObjectPath(this._attributeModels[attributeName], 'properties.hasWritePermission') 
+                        && !this._attributeModels[attributeName].properties.hasWritePermission) {
+                            noPermissionsFlag = true;
+                            attributesWithNoPermissions.push(this._attributeModels[attributeName].externalName);
+                        }
+                    }
+                    if(noPermissionsFlag) {
+                        let message = `You do not have permissions to edit [${attributesWithNoPermissions.join(", ")}] attributes`;
+                            this.showWarningToast(message);
+                            return;
+                    }
+
                 }
                 let dataContexts = ContextHelper.getDataContexts(this.contextData)
                 if (!_.isEmpty(dataContexts)) {
@@ -564,6 +582,21 @@
                         // extracting attributes from context of source entity
                         entities[0].data.contexts.forEach(dataContext=> {
                             if(!_.isEmpty(dataContext.attributes)) {
+                                let attributes = dataContext.attributes;
+                                //logic to check permissions of attributes
+                                for (let attributeName in attributes) {
+                                    if(!this.isentitydiscoveryscreen && this._attributeModels.hasOwnProperty(attributeName) && 
+                                    DataHelper.isValidObjectPath(this._attributeModels[attributeName], 'properties.hasWritePermission') 
+                                    && !this._attributeModels[attributeName].properties.hasWritePermission) {
+                                        noPermissionsFlag = true;
+                                        attributesWithNoPermissions.push(this._attributeModels[attributeName].externalName);
+                                    }
+                                }
+                                if(noPermissionsFlag) {
+                                    let message = `You do not have permissions to edit [${attributesWithNoPermissions.join(", ")}] attributes`;
+                                    this.showWarningToast(message);
+                                    return;
+                                }
                                 Object.assign(contextCloneAttributes, dataContext.attributes);
                             }
                         })
@@ -579,13 +612,17 @@
                     let currentId = firstItemContext.id;
                     let currentEntityType = firstItemContext.type;
                     let currentEntityName = firstItemContext.name;
-                    entities[0].id = currentId;
-                    entities[0].type = currentEntityType;
-                    entities[0].name = currentEntityName;
+                    let entity = entities[0];
+                    entity.id = currentId;
+                    entity.type = currentEntityType;
+                    entity.name = currentEntityName;
+                    entity.params = {
+                        "authorizationType": "reject"
+                    }
 
                     this._saveRequest = {
-                        "entities": [entities[0]]
-                    };
+                        "entities": entities
+                    }
                     this._saveRequestMode = "single";
                     this._saveEntity();
                 } else {
@@ -600,9 +637,12 @@
                         cloneEntity.id = item.id;
                         cloneEntity.type = item.type;
                         cloneEntity.name = item.name;
+                        cloneEntity.params = {
+                        "authorizationType": "reject"
+                        }
                         this._saveRequest = {
                         "entities": [cloneEntity]
-                    };
+                        }
 
                     this._saveRequestMode = "bulkSimulation";
                     this._saveEntity();
