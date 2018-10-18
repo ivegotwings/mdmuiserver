@@ -134,7 +134,7 @@ EntityCompositeModelGetService.prototype = {
                 }
 
                 if(modelObj.properties["readPermission"] === true) {
-                    if(modelObj.properties["writePermission"] === true && isEmpty(modelObj.properties.contextCoalesce)) {
+                    if(modelObj.properties["writePermission"] === true && (isEmpty(modelObj.properties.contextCoalesce) || isRelType) ) {
                         modelObj.properties['hasWritePermission'] = true;
                     } else {
                         modelObj.properties['hasWritePermission'] = false;
