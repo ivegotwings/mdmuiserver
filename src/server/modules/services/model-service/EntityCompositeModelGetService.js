@@ -31,7 +31,7 @@ EntityCompositeModelGetService.prototype = {
         let serviceUrl = serviceName + "/" + serviceOperation;
 
         //Get other models...
-        let types = ['entityManageModel', 'entityValidationModel', 'entityDefaultValueModel', 'entityDisplayModel', 'authorizationModel'];
+        let types = ['entityManageModel', 'entityValidationModel', 'entityDefaultValuesModel', 'entityDisplayModel', 'authorizationModel'];
         let internalRequest = this._cloneAndPrepareRequestObject(request, types);
         let res = await this.post(serviceUrl, internalRequest);
 

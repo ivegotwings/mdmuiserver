@@ -239,6 +239,12 @@
                     _combineEntityModels:{
                         type:Array,
                         value:[]
+                    },
+                    _nestedParentAttributes:{
+                        type:Array,
+                        value:() => {
+                            return [];
+                        }
                     }
                 };
             }
@@ -283,6 +289,7 @@
             }
 
             reTriggerRequest() {
+                this.set('_nestedParentAttributes', []);
                 this.shadowRoot.querySelector('#attributeModelDataSource').reTriggerRequest();
             }
 
@@ -442,11 +449,15 @@
                 }
             }
 
-            _getAttributeFormattedDataForDomainMapped(data) {
+            _getAttributeFormattedDataForDomainMapped(data, error, isNestedChildUpdate) {
                 if (data && data.content) {
                     let items = [];
                     let entityModels = !_.isEmpty(data.content.entityModels) ? data.content.entityModels : [];
-                    this._combineEntityModels = this._combineEntityModels.concat(entityModels);
+                    if(isNestedChildUpdate){
+                        this._updateNestedChildAttributeModels(entityModels);
+                    }else{
+                        this._combineEntityModels = this._combineEntityModels.concat(entityModels);
+                    }
                     if(this.mode == "domainMapped" && DataHelper.isValidObjectPath(this.modelGetRequest, "params.query.domain")){
                         let requestedDomain = this.modelGetRequest.params.query.domain;
                         if(requestedDomain === this.domain) {
@@ -467,11 +478,118 @@
                                     let items = DataTransformHelper.transformAtributeModelsToLovSchema(attributeModels, this._lovColumnNameValueCollection);
                                     this.set("items", items);
                                 }
-                                this._combineEntityModels = [];
+                                
+                                var requiredNestedChildAttrs = this._processNestedAttributeModels();
+                                if(!_.isEmpty(requiredNestedChildAttrs) && !isNestedChildUpdate){
+                                    let _attrDataSource = this.shadowRoot.querySelector('#attributeModelDataSource');
+                                    if(_attrDataSource){
+                                        let attrModelGetRequest = DataRequestHelper.createGetAttributeModelRequest(requiredNestedChildAttrs);
+                                        if(!_.isEmpty(attrModelGetRequest)){
+                                            _attrDataSource.triggerNestedAttrRequest(attrModelGetRequest);
+                                        }
+                                    }
+                                    return false;
+                                }else{
+                                    this._combineEntityModels = [];
+                                }
                             }
                         }
+                        
                     }
                 }
+            }
+
+            _processNestedAttributeModels(){
+                let currentItems = this._combineEntityModels;
+                let filteredCurrentItems = [];
+                let requiredNestedChildAttrs = [];
+                currentItems = _.uniq(currentItems, function (item, key, id) {
+                    return item.id && item.externalName;
+                });
+
+                let property, dataType, sortType, multiSortProperties;
+                if (!_.isEmpty(this.sortDetails)) {
+                    property = this.sortDetails.property;
+                    dataType = this.sortDetails.dataType;
+                    sortType = this.sortDetails.sortType;
+                }
+
+                //Default sort
+                if (!property) {
+                    property = "displaySequence";
+                    dataType = "integer";
+                }
+
+                //multi sort
+                if (property != "title") {
+                    multiSortProperties = [{
+                        "name": "title",
+                        "dataType": "string"
+                    }];
+                }
+
+                this.items = DataHelper.sort(currentItems, property, dataType, sortType, multiSortProperties);
+                for (let i = 0; i < this.items.length; ++i) {
+                    let currentItem = this.items[i];
+                    if (currentItem.dataType == "nested") {
+                        if (this.showNestedChildAttributes || this.showNestedAttributes) {
+                            //check whether child attr is availble in items
+                            if(!_.isEmpty(currentItem.childAttributes)){
+                                let isChildAvailable = true;
+                                currentItem.childAttributes.forEach(childAttrId => {
+                                    //check childAttr in items\
+                                    if(!DataHelper.isValidObjectPath(currentItem, 'group.0.'+childAttrId)){
+                                        isChildAvailable = false;
+                                        requiredNestedChildAttrs.push(childAttrId);
+                                    }
+                                })
+                                if(!isChildAvailable){
+                                    this._nestedParentAttributes.push(currentItem);
+                                }
+                            }
+                            let nestedAttributeItems = [];
+                            nestedAttributeItems = DataHelper.getNestedAttributeItems(currentItem, this.showNestedAttributes, this.showNestedChildAttributes, property);
+                            if (nestedAttributeItems.length > 0) {
+                                filteredCurrentItems = filteredCurrentItems.concat(nestedAttributeItems)
+                            }
+                        }
+                    } else {
+                        filteredCurrentItems.push(currentItem);
+                    }
+                }
+
+                this.set("items", filteredCurrentItems);
+                if (this._notFoundEntityTypes && this._notFoundEntityTypes.length) {
+                    let messageContent = this._notFoundEntityTypes.join(", ");
+                    this.logError("rock-attribute-model-lov - Attribute models not found for entity type(s) " + messageContent);
+                }
+                return requiredNestedChildAttrs;
+            }
+
+            _updateNestedChildAttributeModels(childAttrModels){
+                if(!_.isEmpty(childAttrModels) && !_.isEmpty(this._nestedParentAttributes) && !_.isEmpty(this._combineEntityModels)){
+                    this._nestedParentAttributes.forEach( parentAttr => {
+                        let filteredParentAttrs = this._combineEntityModels.filter( combinModel => { return combinModel.id == parentAttr.id; });
+                        if(!_.isEmpty(filteredParentAttrs)){
+                            let filteredParentAttr = filteredParentAttrs[0];
+                            if(!_.isEmpty(filteredParentAttr)){
+                                let childAttributesObj = {};
+                                if(filteredParentAttr.childAttributes && filteredParentAttr.childAttributes.length){
+                                    filteredParentAttr.childAttributes.forEach(childAttr => {
+                                        let filteredChildAttrs = childAttrModels.filter( cAttrModel => { return cAttrModel.name == childAttr; });
+                                        if(!_.isEmpty(filteredChildAttrs)){
+                                            childAttributesObj[childAttr] = filteredChildAttrs[0];
+                                        }
+                                    })
+                                }
+                                if(!_.isEmpty(childAttributesObj)){
+                                    filteredParentAttr.group = [childAttributesObj];
+                                }
+                            }
+                        }
+                    })
+                }
+                this._nestedParentAttributes = [];
             }
 
             _excludeNestedAttributeModels(attributeModels) {
