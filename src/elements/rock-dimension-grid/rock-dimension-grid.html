@@ -97,7 +97,7 @@ The user can view the past data but cannot modify it. However he/she can add or 
       <div id="dimensionFilters">
         <template is="dom-repeat" items="[[_updatedDimensionConfigs]]" as="configDataItem" notify-dom-change>
           <div hidden$="[[configDataItem.hidden]]">
-            <pebble-accordion header-text="[[configDataItem.title]]"    >
+            <pebble-accordion header-text="[[configDataItem.title]]">
              <div class="full-height" slot="accordion-content">
                 <rock-entity-lov id="[[configDataItem.id]]" r-data="[[configDataItem]]" config-data-item-id="[[configDataItem.id]]" id-field="[[configDataItem.dataMappings.id]]"
                   title-pattern="[[configDataItem.dataMappings.title]]" request-data="[[configDataItem.dataRequest]]"
@@ -284,18 +284,18 @@ The user can view the past data but cannot modify it. However he/she can add or 
         /**
           * <b><i>Content development is under progress... </b></i> 
           */
-        triggerSetup () {
+       async triggerSetup () {
           this.entityId = DataHelper.getParamValue('id');
           this.entityType = DataHelper.getParamValue('type');
+          let dataModelObject = {}
 
           if(this.dimensionConfigs){
-              let arrayToObj = {};
-              let dataModelObject = {};
+              let arrayToObj = {}
               for (let i = 0; i < this.dimensionConfigs.length; i++) {
                 const dimension = this.dimensionConfigs[i];
                 if(dimension){
                   arrayToObj[dimension.id] = dimension;
-                  if(dimension.dimensionType === "data"){
+                  if(dimension.id === "context"){
                     dataModelObject = dimension;
                     this._dataContextModelObjects[dimension.id] = dimension;
                     this._dataContextModelObjects[dimension.id]["selectedItems"] = [];
@@ -307,9 +307,34 @@ The user can view the past data but cannot modify it. However he/she can add or 
                 let dataContexts = this.getDataContexts();
                 let valueContexts = this.getValueContexts();
                 let dataContextKey = dataModelObject.id;
-                let dataContextType = dataModelObject.dataMappings.type
-                if(_.isEmpty(dataContexts)){
-                      let reqData = {
+                let domainContexts = ContextHelper.getDomainContexts(this.contextData);
+                let domain = domainContexts[0]["domain"];
+                let dataContextType = await ContextModelManager.getContextTypesBasedOnDomain(domain);
+                if(!_.isEmpty(dataModelObject)){
+                    if(_.isEmpty(dataContexts)){
+                          this._dataContextModelObjects[dataContextKey]["selectedItems"] = [];
+                      }else{
+                        dataContexts.forEach(function(contextObj){
+                        for (const contextKey in contextObj) {
+                          if (contextObj.hasOwnProperty(contextKey)) {
+                              let _obj = {
+                                id:contextObj[contextKey],
+                                title:contextObj[contextKey],
+                                type:contextKey
+                              }
+                            
+                              if(this._dataContextModelObjects[dataContextKey]){
+                                this._dataContextModelObjects[dataContextKey]["selectedItems"].push(_obj);
+                              }else{
+                                this._dataContextModelObjects[dataContextKey] = arrayToObj[contextKey];
+                                this._dataContextModelObjects[dataContextKey]["selectedItems"] = [ _obj ];
+                              }
+                        
+                            }
+                        }
+                      }.bind(this));
+                    }
+                    let reqData = {
                                   "params": {
                                       "query": {
                                           "filters": {
@@ -318,37 +343,10 @@ The user can view the past data but cannot modify it. However he/she can add or 
                                       }
                                   }
                               };
-                      this._dataContextModelObjects[dataContextKey]["dataRequest"] = reqData;
-                      this._dataContextModelObjects[dataContextKey]["selectedItems"] = [];
-                  }else{
-                    dataContexts.forEach(function(contextObj){
-                    for (const contextKey in contextObj) {
-                      if (contextObj.hasOwnProperty(contextKey)) {
-                          let _obj = {
-                            id:contextObj[contextKey].toLowerCase(),
-                            title:contextObj[contextKey],
-                            type:contextKey
-                          }
-                          let reqData = {
-                              "params": {
-                                  "query": {
-                                      "filters": {
-                                          "typesCriterion": dataContextType
-                                      }
-                                  }
-                              }
-                          };
-                         
-                          if(this._dataContextModelObjects[dataContextKey]){
-                            this._dataContextModelObjects[dataContextKey]["selectedItems"].push(_obj);
-                          }else{
-                            this._dataContextModelObjects[dataContextKey] = arrayToObj[contextModelKey];
-                            this._dataContextModelObjects[dataContextKey]["selectedItems"] = [ _obj ];
-                          }
-                          this._dataContextModelObjects[dataContextKey]["dataRequest"] = reqData;
-                      }
-                    }
-                }.bind(this));
+                    this._dataContextModelObjects[dataContextKey]["dataRequest"] = reqData;
+                    this._dataContextModelObjects[dataContextKey]["dataMappings"] = {"id":"name"};
+                    this._dataContextModelObjects[dataContextKey]["dataMappings"]["title"] = "name"
+                    this._dataContextModelObjects[dataContextKey]["dataMappings"]["type"] = dataContextType
               }
                 
                 valueContexts.forEach(function(valueContextObj){
@@ -375,15 +373,11 @@ The user can view the past data but cannot modify it. However he/she can add or 
                             this._valueContextModelObjects[valueContextKey]["selectedItems"] = [ _obj ];
                           }
                           this._valueContextModelObjects[valueContextKey]["dataRequest"] = reqData;
-
-                          this._valueContextModelObjects[valueContextKey]["dataMappings"]["id"] = "id";
+                          this._valueContextModelObjects[valueContextKey]["dataMappings"]["id"] = "name";
                           this._valueContextModelObjects[valueContextKey]["dataMappings"]["title"] = "externalname";
-                          // this._valueContextModelObjects[valueContextKey]["dataMappings"]["titlePattern"] = "{entity.attributes.externalname}";
                       }
                     }
                 }.bind(this));
-
-              }
 
           }
 
@@ -416,6 +410,7 @@ The user can view the past data but cannot modify it. However he/she can add or 
             this._onSelectionChange();
           }, 0)
         }
+       }
         _entityExternalDataFormatter (data) {
             if(data && data.length > 0){
               let localeManager = ComponentHelper.getLocaleManager();
@@ -423,7 +418,7 @@ The user can view the past data but cannot modify it. However he/she can add or 
                   if(element && !_.isEmpty(element)){
                     if(element.title){
                       let title = element.title;
-                      element.id = title.charAt(0).toLowerCase() + title.slice(1);
+                      element.id = title;
                     }
                     if(element.type == "locale"){
                       let localeObj = localeManager.getByName(element.id);
@@ -472,15 +467,14 @@ The user can view the past data but cannot modify it. However he/she can add or 
                     this._dataContextModelObjects[context].selectedItems = event.currentTarget.selectedItems;
                   }
                   let selectedItems = this._dataContextModelObjects[context].selectedItems;
-                  let values = [];
                   if(selectedItems.length > 0) {
                     selectedItems.forEach(function(selectedItem) {
                       if(!newDimensions[selectedItem.type]){
                         newDimensions[selectedItem.type] = [];
                       }
                       newDimensions[selectedItem.type].push(selectedItem.id)
-                    });
-                   }
+                  });
+                }
                 }
               }
 
