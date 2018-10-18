@@ -22,6 +22,7 @@
 <link rel="import" href="../liquid-config-get/liquid-config-get.html">
 <link rel="import" href="../liquid-config-save/liquid-config-save.html">
 <link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
+<link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 
 <link rel="import" href="../pebble-file-upload/pebble-file-upload.html">
 <link rel="import" href="../pebble-dialog/pebble-dialog.html">
@@ -140,6 +141,7 @@
         <bedrock-pubsub event-name="context-mapping-save" handler="_onContextMappingsSkipOrSave" target-id=""></bedrock-pubsub>
         <liquid-entity-model-get id="getEntityTypeModel" operation="getbyids" on-response="_onEntityTypeModelReceived" on-error="_onEntityTypeModelFailed"></liquid-entity-model-get>
         <liquid-entity-model-get id="liquidAttributeModelGet" operation="getbyids" on-error="_onAttributeModelGetError" on-response="_onAttributeModelGetResponse" exclude-in-progress></liquid-entity-model-get>
+        <liquid-entity-data-get id="getEntity" operation="getbyids" data-index="entityData" data-sub-index="data" on-response="_onEntityGetResponse" on-error="_onEntityGetFailed"></liquid-entity-data-get>
     </template>
     <script>
         class RockEntityUpload
@@ -336,6 +338,12 @@
                     defaultPath: {
                         type: String,
                         value: ""
+                    },
+                    attributeModels: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
                     }
                 }
             }
@@ -389,39 +397,108 @@
                 }
             }
 
+            _getClassificationsEntityGetRequest(pathRootNodes) {
+                let request = DataRequestHelper.createEntityGetRequest(this.contextData);
+                //Update attributes type and ids
+                request.params.fields.attributes = ["_ALL"];
+                request.params.query.filters.typesCriterion = ["classification"];
+                request.params.query.ids = pathRootNodes;
+
+                return request;
+            }
+
             _onAttributeModelGetResponse(e) {
                 let response = e.detail.response;
                 if (response && response.content && response.content.entityModels) {
                     let attributeModels = response.content.entityModels;
-                    let paths = [];
+                    let pathModels = [];
+                    let pathRootNodes = [];
                     attributeModels.forEach(function (model) {
-                        if (model && model.properties && model.properties.displayType.toLowerCase() == "path") {
-                            paths.push({
-                                "title": model.properties.externalName,
-                                "value": model
-                            })
+                        if (DataHelper.isValidObjectPath(model, "properties.displayType") &&
+                            (model.properties.displayType || "").toLowerCase() == "path" &&
+                            DataHelper.isValidObjectPath(model.properties, "pathEntityInfo.0.rootNode") &&
+                            model.properties.pathEntityInfo[0].rootNode) {
+                            pathModels.push(model);
+                            pathRootNodes.push(model.properties.pathEntityInfo[0].rootNode);
                         }
-                    }, this);
-                    this.paths = paths;
+                    });
+                    this.attributeModels = pathModels;
 
-                    //Set default index
-                    let defaultIndex = 0;
-                    if (this.defaultPath) {
-                        for (let idx = 0; idx < this.paths.length; idx++) {
-                            if (this.paths[idx].value && this.paths[idx].value.name &&
-                                this.defaultPath.toLowerCase() == this.paths[idx].value.name.toLowerCase()) {
-                                defaultIndex = idx;
-                                break;
-                            }
-                        }
+                    if(_.isEmpty(pathRootNodes)) {
+                        this.logError("Path root nodes not available for the process");
+                        this._loading = false;
+                        return;
                     }
-                    this.selectedIndex = defaultIndex;
+
+                    //Prepare entity get request with pathRootNodes
+                    let request = this._getClassificationsEntityGetRequest(pathRootNodes);
+                    let liquidDataElement = this.shadowRoot.querySelector('#getEntity');
+                    if (liquidDataElement) {
+                        liquidDataElement.requestData = request;
+                        liquidDataElement.generateRequest();
+                    }
                 }
-                this._loading = false;
             }
 
             _onAttributeModelGetError(e) {
                 this.logError("Attribute model get error", e.detail);
+                this._loading = false;
+            }
+
+            async _onEntityGetResponse(e, detail) {
+                let entiteis = [];
+                if (DataHelper.isValidObjectPath(detail, "response.content.entities")) {
+                    entiteis = detail.response.content.entities;
+                }
+
+                if(_.isEmpty(entiteis)) {
+                    this.logError("Path root node entities missing for the process");
+                    this._loading = false;
+                    return;
+                }
+
+                let paths = [];
+                this.attributeModels.forEach(function (model) {
+                    let classificationEntity = entiteis.filter(entity => {
+                        return entity.id == model.properties.pathEntityInfo[0].rootNode;
+                    }, this);
+
+                    if(_.isEmpty(classificationEntity) ||
+                       !DataHelper.isValidObjectPath(classificationEntity[0], "data.attributes.externalName.values.0.value")) {
+                        return;
+                    }
+                    model.properties.pathEntityInfo[0].rootNodeExternalName = classificationEntity[0].data.attributes.externalName.values[0].value;
+
+                    paths.push({
+                        "title": model.properties.pathEntityInfo[0].rootNodeExternalName,
+                        "value": model
+                    });
+                }, this);
+                this.paths = paths;
+
+                if(_.isEmpty(this.paths)) {
+                    this.logError("Root paths are missing for the process");
+                    this._loading = false;
+                    return;
+                }
+
+                //Set default index
+                let defaultIndex = 0;
+                if (this.defaultPath) {
+                    for (let idx = 0; idx < this.paths.length; idx++) {
+                        if (this.paths[idx].value && this.paths[idx].value.name &&
+                            this.defaultPath.toLowerCase() == this.paths[idx].value.name.toLowerCase()) {
+                            defaultIndex = idx;
+                            break;
+                        }
+                    }
+                }
+                this.selectedIndex = defaultIndex;
+                this._loading = false;
+            }
+
+            _onEntityGetFailed(e) {
+                this.logError("Copied entities data get failed", e.detail);
                 this._loading = false;
             }
 
@@ -779,9 +856,8 @@
                     let formattedClassification = category.valuePath.replace(/#@#/g,
                         categoryPathSeperator);
                     //Prefix rootNode to the selected classifcation
-                    if (DataHelper.isValidObjectPath(this.selectedPath, "properties.externalName")) {
-                        formattedClassification = this.selectedPath.properties.externalName + categoryPathSeperator + formattedClassification;
-                    }
+                    formattedClassification = this.selectedPath.properties.pathEntityInfo[0].rootNodeExternalName + categoryPathSeperator + formattedClassification;
+
                     let context = {};
                     context[this.selectedPath.name] = formattedClassification;
                     contexts.push(context);
