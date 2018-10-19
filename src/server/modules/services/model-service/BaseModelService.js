@@ -899,6 +899,9 @@ BaseModelService.prototype = {
                     }
                 }
             }
+            if(!_.isEmpty(attributes["pathEntityInfo"])) {
+                properties["pathEntityInfo"] = this._getAttributeValue(attributes["pathEntityInfo"]);
+            }
         }
 
         return properties;
