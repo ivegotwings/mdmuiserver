@@ -374,6 +374,10 @@ It is responsible to "get" and "save" the attributes.
                     hideRevertAndHistory: {
                         type: Boolean,
                         value: false
+                    },
+                    _isTaxonomyCreationProcess: {
+                        type: Boolean,
+                        value: false
                     }
                 }
             }
@@ -900,7 +904,6 @@ It is responsible to "get" and "save" the attributes.
                         "[name=attributeSaveDataService]");
 
                     if (liquidGet) {
-                        this.mode = "view";
                         this.attributeList && this.attributeList.resetChanged();
 
                         if (!_.isEmpty(liquidGet.requestData)) {
@@ -942,6 +945,7 @@ It is responsible to "get" and "save" the attributes.
                     let message = this.successMessage ? this.successMessage :
                         "Attribute save request is submitted successfully!!";
                     this.showSuccessToast(message, 10000);
+                    this.mode = "view";
 
                     //Raise event on attributes save
                     this.fireBedrockEvent("on-attribute-save", null, {
@@ -996,11 +1000,28 @@ It is responsible to "get" and "save" the attributes.
                 let attributeValues = AttributeHelper.getEmptyValues(valContexts);
                 let attributes = {};
                 for (let key in properties) {
-                    let attrValues = DataHelper.cloneObject(attributeValues);
-                    attrValues.values.forEach(attributeValue => {
-                        attributeValue.value = properties[key];
-                    }, this);
-                    attributes[key] = attrValues;
+                    //Nested
+                    if (properties[key] && properties[key].group) {
+                        let attrValues = [];
+                        for (let grp of properties[key].group) {
+                            let childProperties = {};
+                            for (let grpAttrKey in grp) {
+                                let childAttrValues = DataHelper.cloneObject(attributeValues);
+                                childAttrValues.values.forEach(attributeValue => {
+                                    attributeValue.value = grp[grpAttrKey];
+                                }, this);
+                                childProperties[grpAttrKey] = childAttrValues;
+                            }
+                            attrValues.push(childProperties);
+                        }
+                        attributes[key] = {"group": attrValues};
+                    } else { //Other than Nested
+                        let attrValues = DataHelper.cloneObject(attributeValues);
+                        attrValues.values.forEach(attributeValue => {
+                            attributeValue.value = properties[key];
+                        }, this);
+                        attributes[key] = attrValues;
+                    }
                 }
                 return attributes;
             }
@@ -1024,12 +1045,14 @@ It is responsible to "get" and "save" the attributes.
                     properties.groupName = "Enhancer Attributes";
                     properties.displayType = "path";
                     properties.isCollection = true;
-                    properties.pathEntityInfo = [{
-                        "pathRelationshipName": "belongsTo",
-                        "pathEntityType": "classification",
-                        "rootNode": rootNode,
-                        "pathSeperator": ">>"
-                    }];
+                    properties.pathEntityInfo = {
+                        "group": [{
+                            "pathRelationshipName": "belongsTo",
+                            "pathEntityType": "classification",
+                            "rootNode": rootNode,
+                            "pathSeperator": ">>"
+                        }]
+                    };
                     //Prepare attributes from properties
                     request.data.attributes = this._prepareAttributesForModel(properties);
                     request.data.relationships = {
@@ -1043,10 +1066,6 @@ It is responsible to "get" and "save" the attributes.
                             }
                         }]
                     }
-                    // request.data.relationships.hasattributes = {};
-                    // request.data.relationships.hasattributes[id] = {
-                    //     "properties": properties
-                    // }
 
                     this._saveRequest.entities.push(request);
                 }, this);
