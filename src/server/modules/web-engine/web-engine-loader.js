@@ -163,9 +163,12 @@ app.use(express.static(buildPath, {
 
 //register static file root ...index.html..
 app.get('*', function (req, res) {
-    let isES5 = (req.headers['user-agent'].indexOf('rv:11') !== -1);
+    let isES5;
     let userId = req.header("x-rdp-userid");
     let tenantId = req.header("x-rdp-tenantid");
+    if(req.headers && req.headers['user-agent']){
+        isES5 = (req.headers['user-agent'].indexOf('rv:11') !== -1);
+    }
     if (tenantId && userId) {
         let url = req.url;
         let urlRedirected = false;
