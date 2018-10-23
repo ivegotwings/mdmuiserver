@@ -342,7 +342,7 @@
                                 <span class$="[[_getStyleClass(item)]] text-ellipsis block">[[_computeTitle(item,listItems.title)]]</span>
                             </template>
                         </div>
-                        <div class="list-content subtitle">[[_computeTitle(item,listItems.subtitle)]]</div>
+                        <div class$="list-content subtitle [[_getStyleClass(item)]]">[[_computeTitle(item,listItems.subtitle)]]</div>
                         <template is="dom-repeat" items="{{_firstColFields}}" as="field">
                             <div class="list-content">
                                 <span class$="{{_computeClass(field.noTrim)}}">{{_getDisplayName(field.header)}}
@@ -388,6 +388,38 @@
 
                         </template>
                     </div>
+                    <template is="dom-if" if="[[_hasCoalescedValue(item)]]">
+                        <pebble-icon id="action_[[item.id]]_sourceInfo" data-tooltip="View source information" class="actionButton pebble-icon-size-16 m-r-5 m-l-5 tooltip-bottom" icon="pebble-icon:hierarchy" on-tap="_onSourceInformationClick" item="[[item]]" index="[[index]]" action-index="[[colIndex]]"></pebble-icon>
+                        <pebble-popover class="view-source-information-popover" id="action_[[item.id]]_sourceInfo-popover" for="action_[[item.id]]_sourceInfo">
+                            <div class="attributes-description">
+                                <div class="source-information-header">Source Information</div>
+                                <div class="source-information-description">This value was sourced from the following path</div>
+                                <template is="dom-if" if="[[_hasContextCoalescedValue(item)]]">
+                                    <ul class="source-information-path">
+                                        Context:
+                                        </br>
+                                        <template is="dom-repeat" items="[[item.contextCoalescePaths]]" as="coalescePath">
+                                            <li class="path-item">[[coalescePath]]</li>
+                                        </template>
+                                    </ul>
+                                </template>
+                                <template is="dom-if" if="[[_hasRelatedEntityCoalescedValue(item)]]">
+                                    <ul class="source-information-path">
+                                        Related Entity:
+                                        </br>
+                                        <template is="dom-if" if="[[!_isRelatedEntityRecieved]]">
+                                            Calculating . . .
+                                        </template>
+                                        <template is="dom-if" if="[[_isRelatedEntityRecieved]]">
+                                            <a href="[[_relatedEntityLink]]">
+                                            [[_relatedEntityName]]
+                                        </a>
+                                        </template>
+                                    </ul>
+                                </template>
+                            </div>
+                        </pebble-popover>
+                    </template>
                     <template is="dom-if" if="[[_actionsPresent]]">
                         <div class="right">
                             <pebble-icon id="actions_container_{{item.id}}" class="dropdown-trigger tooltip-bottom pebble-icon-size-16" name="more"
@@ -410,22 +442,6 @@
                                     </paper-item>
                                 </template>
                             </pebble-popover>
-
-                            <template is="dom-if" if="[[_hasContextCoalescedValue(item)]]">
-                                <pebble-popover class="view-source-information-popover" id="action_[[item.id]]_sourceInfo-popover" for="actions_container_{{item.id}}">
-                                    <div class="attributes-description">
-                                        <div class="source-information-header">Source Information</div>
-                                        <div class="source-information-description">This value was sourced from the following path</div>
-                                        <ul class="source-information-path">
-                                            Context:
-                                            </br>
-                                            <template is="dom-repeat" items="[[item.contextCoalescePaths]]" as="coalescePath">
-                                                <li class="path-item">[[coalescePath]]</li>
-                                            </template>
-                                        </ul>
-                                    </div>
-                                </pebble-popover>
-                            </template>
                         </div>
                     </template>
                 </div>
@@ -488,6 +504,18 @@
                             _viewMode: {
                                 type: String,
                                 value: 'List'
+                            },
+                            _isRelatedEntityRecieved: {
+                                type: Boolean,
+                                value: false
+                            },
+                            _relatedEntityLink: {
+                                type: String,
+                                value: ""
+                            },
+                            _relatedEntityName: {
+                                type: String,
+                                value: ""
                             }
                         }
                     }
@@ -635,6 +663,65 @@
                     let actions = DataHelper.cloneObject(this.actions);
                     this._addSourceInfoAction(actions, item);
                     return actions;
+                }
+
+                _hasCoalescedValue(item) {
+                    return this._hasContextCoalescedValue(item) || this._hasRelatedEntityCoalescedValue(item);
+                }
+
+                _hasContextCoalescedValue(item) {
+                    if (item && !_.isEmpty(item.contextCoalescePaths)) {
+                        return true;
+                    }
+                }
+
+                _hasRelatedEntityCoalescedValue(item) {
+                    return item && item.os === "graph" && !_.isEmpty(item.osid) && !_.isEmpty(
+                        item.ostype);
+                }
+
+                _getStyleClass(item) {
+                    if(this._hasCoalescedValue(item)) {
+                        return "coalesced-value";
+                    }
+                }
+
+                _onSourceInformationClick(e) {
+                    let item = e.currentTarget.item;
+                    let popoverId = "#action_" + item.id + "_sourceInfo-popover";
+                    let sourceInformation = this.shadowRoot.querySelector(popoverId);
+                    if (sourceInformation) {
+                        sourceInformation.show();
+                    }
+                    e.stopPropagation();
+
+                    if (this._hasRelatedEntityCoalescedValue(item)) {
+                        this._isRelatedEntityRecieved = false;
+                        this._relatedEntityLink = "";
+                        this._relatedEntityName = "";
+                        let eventDetail = {
+                            data: {
+                                "id": item.osid,
+                                "type": item.ostype
+                            },
+                            callback: this._onRelatedEntityInfoGet.bind(this),
+                            name: "source-info-open"
+                        }
+                        ComponentHelper.fireBedrockEvent("source-info-open", eventDetail, {
+                            ignoreId: true
+                        });
+                    }
+                }
+
+                _onRelatedEntityInfoGet(entity) {
+                    if (!_.isEmpty(entity)) {
+                        this._isRelatedEntityRecieved = true;
+                        this._relatedEntityLink = "entity-manage?id=" + entity.id + "&type=" + entity.type;
+                        this._relatedEntityName = entity.name;
+                    } else {
+                        this._isRelatedEntityRecieved = true;
+                        this._relatedEntityName = "NA";
+                    }
                 }
             }
             customElements.define(GridListView.is, GridListView);
