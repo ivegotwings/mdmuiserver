@@ -52,7 +52,7 @@ It manages the current extensions and creates the new extensions.
                     <p class="status-error status-text" hidden$="[[allowSaveClassifications]]">Do not have permissions to edit/save Contexts, contact administrator.</p>
                 </div>
                 <div class="base-grid-structure-child-2">
-                        <rock-context-tree id="contextTree" selected-items="{{_selectedItems}}" context-data="[[contextData]]" multi-select="[[multiSelect]]" check-child-nodes="[[checkChildNodes]]"
+                        <rock-context-tree id="contextTree" selected-contexts-data="{{_selectedItems}}" context-data="[[contextData]]" multi-select="[[multiSelect]]" check-child-nodes="[[checkChildNodes]]"
                          disable-child-node="[[disableChildNode]]" check-parent-nodes="[[checkParentNodes]]" leaf-node-only="[[leafNodeOnly]]" loading=[[showLoading]]></rock-context-tree>
                 </div>
             </div>
@@ -108,7 +108,7 @@ It manages the current extensions and creates the new extensions.
                             return [];
                         }
                     },
-                    
+
                     taxonomy: {
                         type: String,
                         value: ""
@@ -255,13 +255,6 @@ It manages the current extensions and creates the new extensions.
                         type: Boolean,
                         value: false
                     },
-
-                    _initialItems: {
-                        type: Array,
-                        value: function () {
-                            return [];
-                        }
-                    },
                     noOfNewConetxts:{
                         type:Number,
                         value:0
@@ -283,7 +276,8 @@ It manages the current extensions and creates the new extensions.
 
             static get observers() {
                 return [
-                    '_onContextOrTaxonomyChange(contextData, taxonomy)'
+                    '_onContextOrTaxonomyChange(contextData, taxonomy)',
+                    '_onSelectedItemsChange(_selectedItems.*)'
                 ];
             }
 
@@ -516,7 +510,7 @@ It manages the current extensions and creates the new extensions.
                                     let entityCurrentContexts = [];
                                     for (let ctxIdx = 0; ctxIdx < contexts.length; ctxIdx++) {
                                         let context = contexts[ctxIdx].context;
-                                        if (context) {
+                                        if (!_.isEmpty(context)) {
                                             let item = context["classification"];
                                             if (item) {
                                                 if (context["taxonomy"] == this._taxonomyExtName) {
@@ -538,7 +532,7 @@ It manages the current extensions and creates the new extensions.
 
                                 for (let i = 0; i < contexts.length; i++) {
                                     let context = contexts[i].context;
-                                    if (context) {
+                                    if (!_.isEmpty(context)) {
                                         items.push(Object.values(context));
                                         this._entityCurrentContexts.push(context)
                                     }
@@ -816,22 +810,25 @@ It manages the current extensions and creates the new extensions.
                 }
             }
 
-            _updateInitialItems() {
+            _updateInitialContexts() {
                 if(!_.isEmpty(this._selectedItems)) {
                     let formattedSelectedItems = []
                     for(let selectedItem of this._selectedItems) {
-                        formattedSelectedItems.push(selectedItem.valuePath.split("#@#"));
+                        if(!_.isEmpty(selectedItem)) {
+                            let context = {};
+                            context[selectedItem.type] = selectedItem.value;
+                            formattedSelectedItems.push(context);
+                        }
                     }
-                    this._initialItems = formattedSelectedItems;
+                    this._entityCurrentContexts = formattedSelectedItems;
                 } else {
-                    this._initialItems = [];
+                    this._entityCurrentContexts = [];
                 }
             }
 
             _triggerFinishStep(isJob,newlyAddedContexts,ErrorToastMessage) {
                 //Single entity reclassification
                 if (!this.isBulkProcess) {
-                  
                     let eventName = "onSave";
                     let eventDetail = {
                         name: eventName,
@@ -839,6 +836,8 @@ It manages the current extensions and creates the new extensions.
                             "name": "refresh-context-selector"
                         },
                     };
+                    //After save, updated initialContexts to latest
+                    this._updateInitialContexts();
                     if(newlyAddedContexts && newlyAddedContexts.length > 0){
                         eventDetail.action["newlyAddedContexts"] = newlyAddedContexts;
                     }else{
@@ -1020,32 +1019,7 @@ It manages the current extensions and creates the new extensions.
             }
 
             _onSelectedItemsChange() {
-                let selectionChanged = false;
-                if ((_.isEmpty(this._initialItems) || _.isEmpty(this._selectedItems)) &&
-                    (!_.isEmpty(this._initialItems) || !_.isEmpty(this._selectedItems))) {
-                    selectionChanged = true;
-                } else if(!_.isEmpty(this._initialItems) && !_.isEmpty(this._selectedItems)){
-                    if(this._initialItems.length != this._selectedItems.length) {
-                        selectionChanged = true;
-                    } else {
-                        for(let initialItem of  this._initialItems) {
-                            let initialValuePath = initialItem.join("#@#");
-                            let isFound = false;
-                            for(let selectedItem of this._selectedItems) {
-                                if(selectedItem.valuePath == initialValuePath) {
-                                    isFound = true;
-                                    break;
-                                }
-                            }
-                            if(!isFound) {
-                                selectionChanged = true;
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                this.isComponentDirty = selectionChanged;
+                this.isComponentDirty = this._isSelectedItemsChanged(this._selectedItems);
             }
         }
 
