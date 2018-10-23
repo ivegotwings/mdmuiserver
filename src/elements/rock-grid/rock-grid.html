@@ -809,13 +809,12 @@ The following JSON object is a config sample which configures the grid in all ab
 										<div slot="cell-slot-content">
 											<template is="dom-repeat" id="actionsDomRepeat" items="[[_getActions(config.mode, item)]]" as="action" index-as="colIndex">
 												<pebble-icon id="actions_container_[[item.id]]" class="actionButton pebble-icon-size-16" icon="[[_actionValue(action)]]" on-tap="_fireActionEvent" item="[[item]]" index="[[index]]" action-index="[[colIndex]]"></pebble-icon>
-
 												<template is="dom-if" if="[[_hasPopoverInfo(action)]]">
-													<template is="dom-if" if="[[_hasContextCoalescedValue(item)]]">
-														<pebble-popover class="view-source-information-popover" id="action_[[item.id]]_sourceInfo-popover" for="actions_container_[[item.id]]">
-															<div class="attributes-description">
-																<div class="source-information-header">Source Information</div>
-																<div class="source-information-description">This value was sourced from the following path</div>
+													<pebble-popover class="view-source-information-popover" id="action_[[item.id]]_sourceInfo-popover" for="actions_container_[[item.id]]">
+														<div class="attributes-description">
+															<div class="source-information-header">Source Information</div>
+															<div class="source-information-description">This value was sourced from the following path</div>
+															<template is="dom-if" if="[[_hasContextCoalescedValue(item)]]">
 																<ul class="source-information-path">
 																	Context:
 																	</br>
@@ -823,9 +822,16 @@ The following JSON object is a config sample which configures the grid in all ab
 																		<li class="path-item">[[coalescePath]]</li>
 																	</template>
 																</ul>
-															</div>
-														</pebble-popover>
-													</template>
+															</template>
+															<template is="dom-if" if="[[_hasRelatedEntityCoalescedValue(item)]]">
+																<ul class="source-information-path">
+																	Related Entity:
+																	</br>
+																	<div id="related-entity-info">Calculating . . .</div>
+																</ul>
+															</template>
+														</div>
+													</pebble-popover>
 												</template>
 											</template>
 										</div>
@@ -1365,6 +1371,9 @@ The following JSON object is a config sample which configures the grid in all ab
 					},
 					selectedTotalCount: {
 						type:Number
+					},
+					_sourceInfoPopover: {
+						type: Element
 					}
 				}
 			}
@@ -2636,8 +2645,11 @@ The following JSON object is a config sample which configures the grid in all ab
 					} else if (action.name.toLowerCase() == 'sourceinfo') {
 						let sourceInformation = this.$$("#action_" + e.model.item.id + "_" + action.name + "-popover");
 						if (sourceInformation) {
+							this._sourceInfoPopover = sourceInformation;
 							sourceInformation.show();
 						}
+						e.stopPropagation();
+						this._onSourceInformationClick(detail);
 					} else {
 						return;
 					}
@@ -2660,6 +2672,41 @@ The following JSON object is a config sample which configures the grid in all ab
 
 				}
 				this.fireBedrockEvent(eventName, detail);
+			}
+			_onSourceInformationClick(item) {
+				if (this._hasRelatedEntityCoalescedValue(item)) {
+					let eventDetail = {
+						data: {
+							"id": item.osid,
+							"type": item.ostype
+						},
+						callback: this._onRelatedEntityInfoGet.bind(this),
+						name: "source-info-open"
+					}
+					ComponentHelper.fireBedrockEvent("source-info-open", eventDetail, {
+						ignoreId: true
+					});
+				}
+			}
+
+			_onRelatedEntityInfoGet(entity) {
+				let relatedEntityLink;
+				let relatedEntityName;
+				if (!_.isEmpty(entity)) {
+					relatedEntityLink = "entity-manage?id=" + entity.id + "&type=" + entity.type;
+					relatedEntityName = entity.name;
+				} else {
+					relatedEntityLink = "";
+					relatedEntityName = "NA";
+				}
+
+				if(this._sourceInfoPopover) {
+					let container = this._sourceInfoPopover.querySelector("#related-entity-info");
+					if(container) {
+						let anchor = "<a href=" + relatedEntityLink + ">" + relatedEntityName +"</a>"
+						container.innerHTML = anchor;
+					}
+				}
 			}
 			_markRowAsDelete(row) {
 				if (row) {
@@ -2698,7 +2745,7 @@ The following JSON object is a config sample which configures the grid in all ab
 					}
 
 					if (actions && this.applyContextCoalesce && item) {
-						if (!this._hasContextCoalescedValue(item)) {
+						if (!this._hasContextCoalescedValue(item) && !this._hasRelatedEntityCoalescedValue(item)) {
 							let sourceAction;
 							if (actions.length == 1 && actions[0].name.toLowerCase() == "sourceinfo") {
 								sourceAction = actions[0];
@@ -2707,8 +2754,7 @@ The following JSON object is a config sample which configures the grid in all ab
 							}
 
 							if (sourceAction) {
-								sourceAction.disable = true;
-								sourceAction.tooltip = "Source info is not available.";
+								actions.splice(sourceAction, 1);
 							}
 						}
 					}
@@ -3464,7 +3510,7 @@ The following JSON object is a config sample which configures the grid in all ab
 					styleClass = _.isEmpty(styleClass) ? "disabled-value" : styleClass + " disabled-value";
 				};
 
-				if (this._hasContextCoalescedValue(gridRowData)) {
+				if (this._hasContextCoalescedValue(gridRowData) || this._hasRelatedEntityCoalescedValue(gridRowData)) {
 					styleClass = _.isEmpty(styleClass) ? "coalesced-value" : styleClass + " coalesced-value";
 				}
 
@@ -3488,6 +3534,11 @@ The following JSON object is a config sample which configures the grid in all ab
 				if (!_.isEmpty(item.contextCoalescePaths)) {
 					return true;
 				}
+			}
+
+			_hasRelatedEntityCoalescedValue(item) {
+				return item && item.os === "graph" && !_.isEmpty(item.osid) && !_.isEmpty(
+                    item.ostype);
 			}
 
 			_hasPopoverInfo(action) {
