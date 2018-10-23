@@ -424,62 +424,46 @@
                 this._prepareContext(fromSession);
                 this._attributeModelGet();
             }
-            _attributeModelGet() {
+            async _attributeModelGet() {
                 if (this._contextData) {
                     this._loading = true;
+                    this._modelGetTracker = this._entityTypes.length;
                     if (this._entityTypes && this._entityTypes.length) {
-                        this._entityTypes.forEach(function (entityType) {
-                            let modelCompositeGetLiquid = this.shadowRoot.querySelector('#attr_' +
-                                entityType);
-                            if (modelCompositeGetLiquid && this._modelGetTracker) {
-                                modelCompositeGetLiquid.generateRequest();
-                                this._modelGetTracker++;
-                            } else {
-                                let firstItemContext = this._contextData[ContextHelper.CONTEXT_TYPE_ITEM] &&
-                                    this._contextData[ContextHelper.CONTEXT_TYPE_ITEM].length ? this._contextData[
-                                    ContextHelper.CONTEXT_TYPE_ITEM][0] : undefined;
-                                if (firstItemContext) {
-                                    firstItemContext.type = entityType;
-                                }
-
-                                let compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(
-                                    this._contextData);
-                                compositeModelGetRequest.params.fields.relationships = ["_ALL"];
-
-                                let liquidCustomElement = customElements.get(
-                                    "liquid-entity-model-composite-get");
-                                let liquidElement = new liquidCustomElement();
-                                liquidElement.name = entityType;
-                                liquidElement.id = "attr_" + entityType;
-                                liquidElement.requestData = compositeModelGetRequest;
-                                liquidElement.addEventListener("entity-model-composite-get-response",
-                                    this._onCompositeModelGetResponse);
-
-                                this.shadowRoot.appendChild(liquidElement);
-                                setTimeout(() => {
-                                    liquidElement.generateRequest();
-                                }, 10);
-                                this._modelGetTracker++;
+                        for(let index=0; index<this._entityTypes.length; index++) {
+                            let compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this._contextData);
+                            if(DataHelper.isValidObjectPath(compositeModelGetRequest, 'params.query.name')) {
+                                compositeModelGetRequest.params.query.name = [this._entityTypes[index]]
                             }
-                        }, this);
+                                if(compositeModelGetRequest) {
+                                    let compositeModel = await this._getCompositeModel(compositeModelGetRequest);
+                                    this._onCompositeModelGetResponse(compositeModel);
+                                }
+                        }
                     }
                 }
             }
 
-            _onCompositeModelGetResponse(e) {
-                if (!DataHelper.isValidObjectPath(e, 'detail.response.content.entityModels')) {
-
-                    this.logError("Business function configs are missing", "", true,
-                        "Configurations are missing. Contact administrator");
+            async _getCompositeModel(compositeModelGetRequest) {
+                let compositeModel = {};
+                let entityCompositeModelManager = new EntityCompositeModelManager();
+                if(entityCompositeModelManager && compositeModelGetRequest) {
+                    compositeModelGetRequest.applyEnhancerCoalesce = true;
+                    // replacing name with current entity type as multiple entity types in name are not supported
+                    compositeModel = await entityCompositeModelManager.get(compositeModelGetRequest, this.contextData);
                 }
+                entityCompositeModelManager = null;
+                return compositeModel;
+            }
+
+            _onCompositeModelGetResponse(compositeModel) {
                 let rows = [];
                 let rowsRelationships = [];
-                let entityModels = e.detail.response.content.entityModels;
-                if (entityModels && entityModels.length) {
-                    this._entityModels.push(entityModels[0]);
+                let entityModel = compositeModel;
+                if (entityModel) {
+                    this._entityModels.push(entityModel);
                     if (!this.isSnapshot) {
                         // to get value of attribute tagged with "isExternalName" flag to show as entity title
-                        let entityTitle = DataHelper.getExternalNameAttributeFromModel(entityModels[0]);
+                        let entityTitle = DataHelper.getExternalNameAttributeFromModel(entityModel);
                         if (entityTitle) {
                             this.set("entityTitle", entityTitle);
                         }
