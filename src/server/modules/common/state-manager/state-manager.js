@@ -46,7 +46,7 @@ async function get(key) {
 }
 
 async function mget(keys) {
-    let data = undefined;
+    let data = [];
     let cacheKeys = [];
 
     if(keys) {
@@ -58,11 +58,16 @@ async function mget(keys) {
     let redisError = false;
     if (isStateServerEnabled && client) {
         try {
-            data = await client.mget(cacheKeys);
-            if (!isEmpty(data)) {
-                //console.log('data: ', 'cache key:', cacheKey, 'value:', data);
-                data = JSON.parse(data);
-                //console.log('data parsed: ', 'cache key:', cacheKey, 'value:', data);
+            let resData = await client.mget(cacheKeys);
+
+            if(resData) {
+                resData.forEach(item => {
+                    if(!isEmpty(item)) {
+                        data.push(JSON.parse(item));
+                    } else {
+                        data.push("");
+                    }
+                });
             }
         }
         catch (err) {

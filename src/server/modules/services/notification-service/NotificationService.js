@@ -30,30 +30,45 @@ class NotificationService {
 
     static sendNotificationToUI(notificationObject, tenantId) {
         if (notificationObject) {
-            let notificationInfo = this.prepareNotificationObject(notificationObject.data);
-            logger.debug("NOTIFICATION_INFO_OBJECT_PREPARED", { detail: notificationInfo }, "notification-service");
+            if (!this.isHealthCheckNotification(notificationObject.data)) {
+                let notificationInfo = this.prepareNotificationObject(notificationObject.data);
+                logger.debug("NOTIFICATION_INFO_OBJECT_PREPARED", { detail: notificationInfo }, "notification-service");
 
-            if (!isEmpty(notificationInfo)) {
+                if (!isEmpty(notificationInfo)) {
+                    notificationInfo.tenantId = tenantId;
 
-                // On model import complete Or any model change notification, module version has to be updated to maintain local storage in sync.
-                if (notificationInfo.action == enums.actions.ModelImportComplete || notificationInfo.action == enums.actions.ModelSaveComplete) {
-                    (async () => {
-                        await versionService.updateModuleVersion('entityModel');
-                    })();
-                }
+                    // On model import complete Or any model change notification, module version has to be updated to maintain local storage in sync.
+                    if (notificationInfo.action == enums.actions.ModelImportComplete || notificationInfo.action == enums.actions.ModelSaveComplete) {
+                        (async () => {
+                            await versionService.updateModuleVersion('entityModel', tenantId);
+                        })();
+                    }
 
-                if (isEmpty(notificationInfo.taskId) && notificationObject.properties) {
-                    notificationInfo.taskId = notificationObject.properties.workAutomationId;
-                }
+                    if (isEmpty(notificationInfo.taskId) && notificationObject.properties) {
+                        notificationInfo.taskId = notificationObject.properties.workAutomationId;
+                    }
 
-                notificationInfo.tenantId = tenantId;
-                if (notificationInfo.userId) {
-                    notificationManager.sendMessageToSpecificUser(notificationInfo, notificationInfo.userId);
-                } else {
-                    notificationManager.sendMessageToAllUser(notificationInfo);
+                    let userInfo = {
+                        "userId": notificationInfo.userId,
+                        "tenantId": tenantId
+                    }
+
+                    if (userInfo) {
+                        notificationManager.sendMessageToSpecificUser(notificationInfo, userInfo);
+                    } else {
+                        notificationManager.sendMessageToAllUser(notificationInfo);
+                    }
                 }
             }
         }
+    }
+
+    static isHealthCheckNotification(data) {
+        if (!isEmpty(data) && data.attributes) {
+            let clientId = this._getAttributeValue(data.attributes, "clientId");
+            return clientId && clientId == "healthcheckClient";
+        }
+        return false;
     }
 
     static prepareNotificationObject(data) {

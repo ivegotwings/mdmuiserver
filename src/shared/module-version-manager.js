@@ -3,7 +3,7 @@
 
 class ModuleVersionManager {
     static get DEFAULT_VERSION() {
-        return "101";
+        return 101;
     }
 
     static initialize(data) {
@@ -15,7 +15,7 @@ class ModuleVersionManager {
             this.setVersion(module, this.DEFAULT_VERSION);
         }
 
-        return ModuleVersionManager._data[module] ? ModuleVersionManager._data[module].version : undefined;
+        return ModuleVersionManager._data[module] ? ModuleVersionManager._data[module].version : this.DEFAULT_VERSION;
     }
 
     static getAll () {

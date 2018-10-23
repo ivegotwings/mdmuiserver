@@ -24,11 +24,14 @@ function initSockets(http) {
         //userManager.addUserConnectionIds(defaultUserId, socket.id);
 
         //New user
-        socket.on('Connect new user', function (userId) {
+        socket.on('Connect new user', function (userInfo) {
             //console.log('new user connected ', userId);
-            socket.userName = userId;
-            userManager.addUserConnectionIds(userId, socket.id);
-            io.emit('send message', {}, userId);
+            if (userInfo) {
+                //socket.userName = userInfo.userId;
+                socket.userInfo = userInfo;
+                userManager.addUserConnectionIds(userInfo, socket.id);
+                io.emit('send message', {}, userInfo.userId);
+            }
             //userManager.removeConnectionIdByUser(defaultUserId, socket.id);
         });
 
@@ -36,26 +39,26 @@ function initSockets(http) {
         socket.on('disconnect', function (data) {
             //console.log('user disconnected ', socket.userName);
 
-            if (socket.userName) {
-                userManager.removeConnectionIdByUser(socket.userName, socket.id);
+            if (socket.userInfo) {
+                userManager.removeConnectionIdByUser(socket.userInfo, socket.id);
             } else {
                 //userManager.removeConnectionIdByUser(defaultUserId, socket.id);
             }
-        });   
+        });
     });
 };
 
-function sendMessage(data, userId) {
+function sendMessage(data, userInfo) {
     //console.log('socket.js send message called with user id ', userId);
 
-    if(!io) {
+    if (!io) {
         throw "Socket.io service is not initialized or is unavailable right now";
     }
 
     let currentUserSocketIds = [];
 
-    if (userId) {
-        userManager.getConnectionIdsOfUser(userId).then(function (currentUserSocketIds) {
+    if (userInfo) {
+        userManager.getConnectionIdsOfUser(userInfo).then(function (currentUserSocketIds) {
             // console.log('------------------ socket: current user socket id ---------------------');
             // console.log(JSON.stringify(currentUserSocketIds));
             // console.log('-------------------------------------------------------------------\n\n');
@@ -72,7 +75,7 @@ function sendMessage(data, userId) {
     }
     else {
         io.emit('new message', data);
-    }    
+    }
 }
 
 module.exports = {

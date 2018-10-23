@@ -891,8 +891,7 @@
                             attributeJSON["value"] = attributeJSON.invalidValue;
                         }
                     } else if (attributeModel.dataType === "nested" && attributeModel.group && attributeModel.group.length > 0) {
-                        let childAttributeModels = attributeModel.group[0];
-                        let attrValues = DataTransformHelper.transformNestedAttributes(attribute, childAttributeModels, false, dataContext, valueContext);
+                        let attrValues = DataTransformHelper.transformNestedAttributes(attribute, attributeModel, false, dataContext, valueContext);
                         if (!_.isEmpty(attrValues)) {
                             attributeJSON["value"] = attrValues;
                             attributeJSON.os = attrValues[0].os;
@@ -945,7 +944,9 @@
             return transformedAttributes;
         };
 
-        DataTransformHelper.transformNestedAttributes = function (attribute, childAttributeModels, returnEmptyRecord, dataContext, valueContext) {
+        DataTransformHelper.transformNestedAttributes = function (attribute, nestedAttributeModel, returnEmptyRecord, dataContext, valueContext) {
+            let childAttributeModels = nestedAttributeModel.group && nestedAttributeModel.group.length > 0 ? nestedAttributeModel.group[0] : undefined;
+            let isParentLocalizable = nestedAttributeModel.isLocalizable;
             if (!_.isEmpty(childAttributeModels)) {
                 let value = [];
                 let defaultValCtx = DataHelper.getDefaultValContext();
@@ -978,7 +979,7 @@
                             for (let attributeName in childAttributeModels) {
                                 let childAttrModel = childAttributeModels[attributeName];
                                 let childAttr = childAttributes[attributeName];
-                                let localeCoalescePath = childAttr.properties && childAttr.properties.localeCoalescePath ? childAttr.properties.localeCoalescePath : undefined;
+                                let rowLevelLocaleCoalescePath = isParentLocalizable && childAttributes.properties && childAttributes.properties.localeCoalescePath ? childAttributes.properties.localeCoalescePath : undefined;
                                 childAttributeJson[attributeName] = {};
 
                                 if (childAttr && childAttr.values) {
@@ -1001,32 +1002,39 @@
                                                 let referenceDataId = referenceData.replace(refEntityType + "/", "");
                                                 attributeRefIds.push(referenceDataId);
                                             }
-
-                                            if (childAttrModel.isReferenceType) {
-                                                let selectedLocale = valueContext.locale;
-
-                                                let fallbackLocale = DataHelper.getFallbackLocaleFromCoalescePath(localeCoalescePath);
-
-                                                if (fallbackLocale) {
-                                                    selectedLocale = fallbackLocale;
-                                                }
-
-                                                selectedLocales.push(selectedLocale);
-                                            }
                                         }
                                     }
 
                                     if (childAttributeJson[attributeName]) {
                                         childAttributeJson[attributeName].referenceDataId = attributeRefIds;
 
-                                        if (!_.isEmpty(selectedLocales)) {
-                                            childAttributeJson[attributeName].selectedLocales = selectedLocales;
-                                        }
                                         localeCoalescePath = childAttrModel.isLocalizable ? AttributeHelper.getLocaleCoalescePath(childAttr) : undefined;
+                                        if(childAttrModel.isLocalizable) {
+                                            localeCoalescePath = AttributeHelper.getLocaleCoalescePath(childAttr);
+                                            if(DataHelper.isEmptyObject(localeCoalescePath) && rowLevelLocaleCoalescePath) {
+                                                localeCoalescePath = rowLevelLocaleCoalescePath;
+                                            }
+                                        }
 
                                         if (!DataHelper.isEmptyObject(localeCoalescePath)) {
                                             childAttributeJson[attributeName].properties = childAttributeJson[attributeName].properties || {};
                                             childAttributeJson[attributeName].properties.localeCoalescePath = localeCoalescePath;
+                                        }
+
+                                        if (childAttrModel.isReferenceType) {
+                                            let selectedLocale = valueContext.locale;
+
+                                            let fallbackLocale = DataHelper.getFallbackLocaleFromCoalescePath(localeCoalescePath);
+
+                                            if (fallbackLocale) {
+                                                selectedLocale = fallbackLocale;
+                                            }
+
+                                            selectedLocales.push(selectedLocale);
+                                        }
+
+                                        if (!_.isEmpty(selectedLocales)) {
+                                            childAttributeJson[attributeName].selectedLocales = selectedLocales;
                                         }
 
                                         if (!_.isEmpty(contextCoalescePaths)) {
@@ -1083,18 +1091,31 @@
         DataTransformHelper._fillModels = function (attributeModelObjects, editPermission, isNestedChild, isLocalizable) {
             for (let attributeName in attributeModelObjects) {
                 let model = attributeModelObjects[attributeName];
-
+                
                 model.isNestedChild = isNestedChild;
 
                 if (editPermission === false) {
                     model.properties.hasWritePermission = false;
                 }
 
-                if (model.properties && model.properties.isReferenceType) {
-                    model.properties.isLocalizable = true;
+                /**
+                 * observed quite a few times that nested attribute model coming without
+                 * isCollection flag. For a nested isCollection is must. So setting isCollection to true 
+                 * by Default for all nested attributes.
+                 * */
+                if(model.properties && model.properties.dataType && model.properties.dataType === "nested") {
+                    model.properties["isCollection"] = true;
                 }
 
-                if(model.isNestedChild && isLocalizable) {
+                if (model.properties && model.properties.dataType !== "nested" && model.properties.dataType !== "string") {
+                    model.properties.isLocalizable = false;
+                }
+
+                if(model.isNestedChild) {
+                    model.properties.isLocalizable = isLocalizable ? true : false;
+                }
+
+                if (model.properties && model.properties.isReferenceType) {
                     model.properties.isLocalizable = true;
                 }
 
@@ -1116,9 +1137,6 @@
                 }
                 if (model.displayType.toLowerCase() == 'referencelist') {
                     model.referenceEntityTypes = DataTransformHelper._getEntityTypesForLov(model);
-                }
-                if (model.dataType !== "nested" && model.dataType !== "string") {
-                    model.properties.isLocalizable = false;
                 }
                 if (model.dataType == "boolean") {
                     if (_.isEmpty(model.trueText) || _.isEmpty(model.falseText)) {
@@ -1852,20 +1870,9 @@
                 } else {
                     data.contexts[0].relationships = data.relationships;
                 }
-            } else {
-                let newCtxItem = {};
-                newCtxItem.context = firstDataContext;
-                newCtxItem.attributes = data.attributes;
-                newCtxItem.relationships = data.relationships;
-
-                if (_.isEmpty(data.contexts)) {
-                    data.contexts = [];
-                }
-
-                data.contexts.push(newCtxItem);
+                delete data.attributes;
+                delete data.relationships;
             }
-            delete data.attributes;
-            delete data.relationships;
         };
 
         DataTransformHelper.getContextCoalescePaths = function (properties, dataContext) {
@@ -2035,6 +2042,12 @@
                 }
             }
 
+            if (!fallbackLocales.find(v => v.name == defaultLocale)) {
+                fallbackLocales.push({
+                    "name": defaultLocale
+                });
+            }
+
             if (isReferenceData) {
                 let locales = [{ name: valContext.locale }];
                 let fallbackLocaleObj = {};
@@ -2046,12 +2059,6 @@
                             locales.push(fallbackLocales[i])
                         }
                     }
-                }
-
-                if (!locales.find(v => v.name == defaultLocale)) {
-                    locales.push({
-                        "name": defaultLocale
-                    });
                 }
 
                 for (let i = locales.length - 1; i > -1; i--) {
@@ -2100,13 +2107,13 @@
                         }
                     }
                 }
+            }
 
-                if (valContext.locale != defaultLocale) {
-                    let defaultValues = values.filter(value => value.locale === defaultLocale);
+            if (valContext.locale != defaultLocale) {
+                let defaultValues = values.filter(value => value.locale === defaultLocale);
 
-                    if (defaultValues) {
-                        attrValues = attrValues.concat(defaultValues);
-                    }
+                if (defaultValues) {
+                    attrValues = attrValues.concat(defaultValues);
                 }
             }
             return attrValues;

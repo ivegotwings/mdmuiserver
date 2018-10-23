@@ -44,7 +44,6 @@ logger.info('Web engine start - build path identified', {
 let pjson = require(buildPath + '/package.json');
 const buildVersion = pjson.mdmVersion;
 RuntimeVersionManager.initialize(buildVersion);
-ModuleVersionManager.initialize();
 
 let app = express();
 let http = require('http').Server(app);
@@ -271,7 +270,7 @@ async function renderAuthenticatedPage(req, res) {
             let versionInfo = {
                 'buildVersion': await RuntimeVersionManager.getBuildVersion(),
                 'runtimeVersion': await RuntimeVersionManager.getVersion(),
-                'moduleVersions': ModuleVersionManager.getAll()
+                'moduleVersions': await ModuleVersionManager.getAll(tenantId)
             }
 
             let userContext = {

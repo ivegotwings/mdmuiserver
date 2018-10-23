@@ -124,12 +124,14 @@
             </rock-entity-titlebar>
             <bedrock-pubsub event-name="on-set-titlebar" handler="_onSetTitlebar" target-id="entityTitlebar"></bedrock-pubsub>
             <bedrock-pubsub event-name="context-selector-data-changed" handler="_onContextsChanged" target-id="entityTitlebar"></bedrock-pubsub>
-            <rock-header frozen slot="rock-header">
-                <div slot="fixed-content" class="fixed-content">
-                    <rock-entity-header id="entityManageHeader" context-data="[[contextData]]" workflow-info=[[_workflowInfo]] collapsable></rock-entity-header>
-                    <bedrock-pubsub event-name="toolbar-button-event" handler="_onToolbarEvent" target-id="entityManageHeader"></bedrock-pubsub>
-                </div>
-            </rock-header>
+            <template is="dom-if" if="[[_loadComponents]]">
+                <rock-header frozen slot="rock-header">
+                    <div slot="fixed-content" class="fixed-content">
+                        <rock-entity-header id="entityManageHeader" context-data="[[contextData]]" workflow-info=[[_workflowInfo]] collapsable></rock-entity-header>
+                         <bedrock-pubsub event-name="toolbar-button-event" handler="_onToolbarEvent" target-id="entityManageHeader"></bedrock-pubsub>
+                    </div>
+                </rock-header>
+            </template>
             <bedrock-pubsub event-name="refresh-entity-thumbnail" handler="_refreshEntityThumbnail"></bedrock-pubsub>
             <bedrock-pubsub event-name="on-context-manage-tap" handler="_onContextManageTap"></bedrock-pubsub>
             <bedrock-pubsub event-name="on-snapshot-view-tap" handler="_onSnapshotViewTap"></bedrock-pubsub>
@@ -301,40 +303,48 @@
                     rendercms: {
                         type: Boolean,
                         value: false
+                    },
+                    _isContextReceived:{
+                        type:Boolean,
+                        value:false
                     }
                 }
             }
             static get observers() {
                 return [
-                    "_componentsReceived(domain, _entityReceived)"
+                    "_componentsReceived(domain, _entityReceived,_isContextReceived)"
                 ]
-            }
+            }           
             disconnectedCallback() {
                 super.disconnectedCallback();
             }
             connectedCallback() {
-                super.connectedCallback();           
-
-               // let dimensionSelectorNavigationData = this.getNavigationData("rock-dimension-selector", null,"","search-thing");
-               // this.setChildNavigationData("rock-entity-titlebar","rock-dimension-selector",dimensionSelectorNavigationData);
-                //Update NavigationContexts into contextData
-               // this.refreshNavigationContexts();
-
+                super.connectedCallback();
+                
                 this._searchTimeStamp = new Date().toLocaleString();
-                // Do not load any componets for delted entities.
+                // Do not load any components for deleted entities.
                 if (this._entityType && this._entityType.indexOf("delete") !== 0) {
                     //Get the domain and set it
                     this.getDomain();
-                    this._initializeComponent();
                 } else {
                     this.showInformationToast("This entity has been deleted and hence cannot be viewed/edited.");
                 }
 
             }
-            _initializeComponent() {
-                this._entityTitlebar = this.shadowRoot.querySelector("#entityTitlebar");
-                this._confirmationDialog = this.shadowRoot.querySelector("#confirmationDialog");
-                this._entityHeader = this.shadowRoot.querySelector("rock-entity-header");
+
+            get entityTitleBar() {
+                this._entityTitlebar = this._entityTitlebar || this.shadowRoot.querySelector("#entityTitlebar");
+                return this._entityTitlebar;
+            }
+
+            get confirmationDialog() {
+                this._confirmationDialog = this._confirmationDialog || this.shadowRoot.querySelector("#confirmationDialog");
+                return this._confirmationDialog;
+            }
+
+            get entityHeader() {
+                this._entityHeader = this._entityHeader || this.shadowRoot.querySelector("rock-entity-header");
+                return this._entityHeader;
             }
 
             /**
@@ -400,8 +410,6 @@
 
                     //Reset the context data to notify the children
                     let contextData = DataHelper.cloneObject(this.contextData);
-                    this.contextData = {};
-                    this.set("contextData", contextData);
                     this.requestConfig("rock-entity-manage", contextData);
                     //Update NavigationContexts into contextData
                     this.refreshNavigationContexts();
@@ -441,9 +449,6 @@
                     }
 
                     //Reset the context data to notify the children
-                    let contextData = DataHelper.cloneObject(this.contextData);
-                    this.contextData = {};
-                    this.set("contextData", contextData);
                     this._entityReceived = true;
                 } else {
                     let contentDiv = this.shadowRoot.querySelector("[class='content']");
@@ -457,7 +462,7 @@
             }
 
             _componentsReceived() {
-                if (this.domain && this._entityReceived) {
+                if (this.domain && this._entityReceived && this._isContextReceived) {
                     this.set("_loadComponents", true);
                 }
             }
@@ -525,6 +530,9 @@
                 this.viewMode = DataHelper.getParamValue("viewMode");
 
                 this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+
+                //Update NavigationContexts into contextData
+                this.refreshNavigationContexts();          
             }
             refresh() {
                 let isDirty = this.getIsDirty();
@@ -551,7 +559,7 @@
                     this.queryParams = customArgs.queryParams;
                 }
                 return {
-                    title: this._entityTitlebar ? this.getNavbarTitle(this._entityTitlebar.mainTitle) : "",
+                    title: this.entityTitleBar ? this.getNavbarTitle(this.entityTitleBar.mainTitle) : "",
                     subTitle: this.getIsDirty() ? "Draft" : this._lastSavedTime && this._lastSavedTime != "" ? "Last Saved" : "Last Opened",
                     subTitleValue: this._lastSavedTime && this._lastSavedTime != "" ? this._lastSavedTime : new Date().toLocaleString(),
                     queryParams: this.queryParams
@@ -636,7 +644,8 @@
             _onCopyActionTap() {
                 //saving entity details in session storage so we can use this later for paste
                 let contexts = this.getDataContexts();
-                if(contexts && contexts.length>1) {
+                let valContexts = this.getValueContexts();
+                if( (contexts && contexts.length>1) ||  (valContexts && valContexts.length>1)) {
                     this.showWarningToast("Entity paste functionality is not supported for multiple contexts");
                     return;
                 }
@@ -676,7 +685,8 @@
                     return;
                 }
                 let contexts = this.getDataContexts();
-                if(contexts && contexts.length>1) {
+                let valContexts = this.getValueContexts();
+                if( (contexts && contexts.length>1) ||  (valContexts && valContexts.length>1)) {
                     this.showWarningToast("Entity paste functionality is not supported for multiple contexts");
                     return;
                 }
@@ -776,6 +786,7 @@
                 //reset to notify contextData change to other components
                 let contextData = DataHelper.cloneObject(this.contextData);
                 this.contextData = {};
+                this._isContextReceived = true;
                 this.contextData = contextData;
                 let valContexts = ContextHelper.getValueContexts(this.contextData);
 
@@ -827,7 +838,7 @@
                 if (detail.dataIndex) {
                     this.dataIndex = detail.dataIndex;
                 }
-                this._confirmationDialog.open();
+                this.confirmationDialog.open();
             }
             _onDeleteConfirm() {
                 if (!this.entityDeleteLiquidRestLiq) {
@@ -937,7 +948,7 @@
                 this._loading = false;
             }
             _toggleStepper(contexts) {
-                let rockSideBar = this.$.rockSideBar;
+                let rockSideBar = this.shadowRoot.querySelector("#rockSideBar");
                 if (rockSideBar) {
                     if (contexts && contexts.length > 1) {
                         rockSideBar.setAttribute("show","false");
@@ -1269,7 +1280,7 @@
             }
 
             _refreshTitleBar() {
-                this._entityTitlebar.refreshTitleBar();
+                this.entityTitleBar.refreshTitleBar();
             }
 
             _onSetTitlebar(e, detail) {
@@ -1301,12 +1312,12 @@
             /**
              * Function to retry loading the detailTabs
              */
-            _loadDetailTabs(retryCount) {
+            _loadDetailTabs(retryCount, reloadTabs) {
                 const maxRetryCount = 50;
                 Polymer.Async.timeOut.after(ConstantHelper.MILLISECONDS_30).run(() => {
                     if (!this.detailTabs) {
                         if (retryCount < maxRetryCount) {
-                            this._loadDetailTabs(++retryCount);
+                            this._loadDetailTabs(++retryCount, reloadTabs);
                         } else {
                             this.showWarningToast("Click on the refresh button to reload the details tab");
                             let contentDiv = this.shadowRoot.querySelector("#tabsContent");
@@ -1318,6 +1329,9 @@
                         this._debouncer = Polymer.Debouncer.debounce(this._debouncer,
                             Polymer.Async.timeOut.after(ConstantHelper.MILLISECONDS_30), () => {
                                 this.detailTabs.readyToRender(true);
+                                if(reloadTabs) {
+                                    this.detailTabs.reloadTabs();
+                                }
                             });
                         return;
                     }
@@ -1336,7 +1350,7 @@
             }
             _refreshRockEntityHeader(e) {
                 this._refreshTitleBar();
-                this._entityHeader.refresh(this._invalidateEntityCache);
+                this.entityHeader.refresh(this._invalidateEntityCache);
 
                 if (e) {
                     this._lastSavedTime = new Date().toLocaleString();
@@ -1360,7 +1374,7 @@
                 });
             }
             _refreshEntityThumbnail() {
-                this._entityHeader.refreshThumbnail();
+                this.entityHeader.refreshThumbnail();
             }
             _refreshActiveMenuItems() {
                 this._lastSavedTime = new Date().toLocaleString();
@@ -1452,10 +1466,9 @@
                 } else {
                     ProgressTracker.resetProgress(true);
 
-                    //Refresh the current tab
-                    if (this.detailTabs) {
-                        this.detailTabs.refresh();
-                    }
+                    //Reload all the tabs as enhancer attribute update may result
+                    //in more/less groups or more/less attributes in few groups
+                    this._loadDetailTabs(1, true);
                     //Refresh the Rightsidebar
                     this._refreshRightSidePanel();
                     this._refreshRockEntityHeader();

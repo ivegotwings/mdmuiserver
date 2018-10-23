@@ -7,6 +7,7 @@ let logger = require('../logger/logger-service');
 let cryptoJS = require("crypto-js");
 let moment = require('moment');
 let uuidV1 = require('uuid/v1');
+let sleep = require('system-sleep');
 
 const HTTP_POST = "POST";
 const HTTP_GET = "GET";
@@ -15,7 +16,7 @@ let DFServiceBase = function (options) {
     let _dataConnection = new DFConnection();
     this._restRequest = _dataConnection.getRequest();
     this._serverUrl = _dataConnection.getServerUrl();
-    
+
     if (options.serverType == 'cop') {
         this._serverUrl = _dataConnection.getCOPServerUrl();
     }
@@ -26,20 +27,21 @@ let DFServiceBase = function (options) {
     this.requestJson = async function (serviceName, request, tenant) {
         let timeout = request.timeout || this._timeout;
         let tenantId = tenant;
-        if(!tenantId){
-            tenantId = this.getTenantId();  
-        }  
+        if (!tenantId) {
+            tenantId = this.getTenantId();
+        }
         let timeStamp = moment().toISOString();
 
         let url = this._serverUrl + '/' + tenantId + '/api' + serviceName + '?timeStamp=' + timeStamp;
 
+        //console.log('request ', JSON.stringify(request));
         let headers = this._createRequestHeaders(url, request);
 
-        for(let key in this._baseHeaders) {
+        for (let key in this._baseHeaders) {
             let val = this._baseHeaders[key];
             headers[key] = val;
         }
-       
+
         let options = {
             url: url,
             method: HTTP_POST,
@@ -49,7 +51,7 @@ let DFServiceBase = function (options) {
             simple: false,
             timeout: timeout,
             gzip: true,
-            resolveWithFullResponse : true
+            resolveWithFullResponse: true
         };
 
         let hrstart = process.hrtime();
@@ -58,31 +60,55 @@ let DFServiceBase = function (options) {
 
         let reqPromise = this._restRequest(options)
             .catch(function (error) {
-               logger.logException(internalRequestId, serviceName, options, error);
+                logger.logException(internalRequestId, serviceName, options, error);
             })
             .catch(function (err) {
                 console.error(err); // This will print any error that was thrown in the previous error handler.
             });
 
         let result = await reqPromise;
-        
-        if (result.statusCode && result.statusCode === 503) {
-            result.body = result.body || {response: {}};
-            result.body.response = result.body.response || {};
-            result.body.response.status = 'error';
-            result.body.response.msg = 'Server is busy, please try after some time.'
+
+        if (result) {
+            if (result.statusCode && result.statusCode === 503) {
+                result.body = result.body || {
+                    response: {}
+                };
+                result.body.response = result.body.response || {};
+                result.body.response.status = 'error';
+                result.body.response.statusDetail = {};
+                result.body.response.statusDetail.message = 'Server is busy, please try after some time.'
+            }
+            result = result.body;
+        } else {
+            console.log('Result in service base is undefined for request ', JSON.stringify(request));
         }
-        result = result.body;  
-        
+
+        // if ((request && request.params && request.params.query && request.params.query.id && request.params.query.id == "app-entity-discovery_savedSearch_RDLpkEKy1lwe")
+        //      || (request && request.params && request.params.query && request.params.query.filters && request.params.query.filters.typesCriterion[0] == "xxx")
+        //      || (request && request.params && request.params.query && request.params.query.filters && request.params.query.filters.typesCriterion[0] == "entityDefinition")
+        //     ) {
+        //     //sleep(90000);
+        //     result = {
+        //         "response": {
+        //             "status": "error",
+        //             "statusDetail": {
+        //                 "message": "Server is busy, please try never ever again..."
+        //             }
+        //         }
+        //     };
+
+        //     console.log ('result is overriden for special id ', JSON.stringify(result));
+        // }
+
         let isErrorResponse = logger.logError(internalRequestId, serviceName, options, result);
 
         // console.log("request: -- - - - ", JSON.stringify(options, null, 2));
         // console.log("response: -- - - - ", JSON.stringify(result, null, 2));
 
-        if(!isErrorResponse) {
+        if (!isErrorResponse) {
             logger.logResponseCompletedInfo(internalRequestId, serviceName, hrstart);
         }
-        
+
         logger.logResponse(internalRequestId, serviceName, result);
 
         return result;
@@ -110,7 +136,7 @@ let DFServiceBase = function (options) {
         return userRoles;
     };
 
-    this.getUserDefaultRole  = function () {
+    this.getUserDefaultRole = function () {
         let defaultRole = "vendor";
         let securityContext = executionContext.getSecurityContext();
 
@@ -167,7 +193,7 @@ let DFServiceBase = function (options) {
             let secHeaders = securityContext.headers;
             userId = secHeaders.userId;
 
-            if(secHeaders.userRoles) {
+            if (secHeaders.userRoles) {
                 userRoles = secHeaders.userRoles;
             }
 
@@ -181,16 +207,15 @@ let DFServiceBase = function (options) {
                 "x-rdp-useremail": secHeaders.userEmail || "",
                 "x-rdp-userroles": JSON.stringify(userRoles),
                 "x-rdp-defaultrole": secHeaders.defaultRole || ""
-            };  
+            };
         }
 
-        if(securityContext) {
+        if (securityContext) {
             rdpApiHeaders["x-rdp-authtoken"] = cryptoJS.HmacSHA256(url.split('?')[1], securityContext.clientAuthKey).toString(cryptoJS.enc.Base64);
-        }
-        else {
+        } else {
             console.log('security context not found for the req object ', url, JSON.stringify(request));
         }
-        
+
         return rdpApiHeaders;
     }
 };

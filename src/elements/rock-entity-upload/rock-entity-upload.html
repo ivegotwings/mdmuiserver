@@ -22,6 +22,7 @@
 <link rel="import" href="../liquid-config-get/liquid-config-get.html">
 <link rel="import" href="../liquid-config-save/liquid-config-save.html">
 <link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
+<link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 
 <link rel="import" href="../pebble-file-upload/pebble-file-upload.html">
 <link rel="import" href="../pebble-dialog/pebble-dialog.html">
@@ -101,9 +102,9 @@
                                 <div class="base-grid-structure">
                                     <div class="base-grid-structure-child-1">
                                         Select one or more classifications to download the smart excel template. You can select the classification at any level and
-                                        the data required for all child classifications will be shown in the template.
+                                        the data required for all child classifications will be shown in the template. You can also download the template without selecting classification.
                                         <span class="pull-right pathSelector">
-                                            <pebble-dropdown id="pathSelector" label="Select path for classifications" items="[[paths]]" selected-value="{{selectedPath}}" on-change="_onClassificationRootChange">
+                                            <pebble-dropdown id="pathSelector" label="Select path for classifications" items="[[paths]]" selected-value="{{selectedPath}}" on-change="_onClassificationRootChange" selected-index="{{selectedIndex}}">
                                             </pebble-dropdown>
                                         </span>
                                     </div>
@@ -140,6 +141,7 @@
         <bedrock-pubsub event-name="context-mapping-save" handler="_onContextMappingsSkipOrSave" target-id=""></bedrock-pubsub>
         <liquid-entity-model-get id="getEntityTypeModel" operation="getbyids" on-response="_onEntityTypeModelReceived" on-error="_onEntityTypeModelFailed"></liquid-entity-model-get>
         <liquid-entity-model-get id="liquidAttributeModelGet" operation="getbyids" on-error="_onAttributeModelGetError" on-response="_onAttributeModelGetResponse" exclude-in-progress></liquid-entity-model-get>
+        <liquid-entity-data-get id="getEntity" operation="getbyids" data-index="entityData" data-sub-index="data" on-response="_onEntityGetResponse" on-error="_onEntityGetFailed"></liquid-entity-data-get>
     </template>
     <script>
         class RockEntityUpload
@@ -174,9 +176,6 @@
                         value: function () {
                             return [];
                         }
-                    },
-                    taxonomy: {
-                        type: String
                     },
                     _copRequest: {
                         type: Object,
@@ -331,6 +330,20 @@
                     skipContextMapping: {
                         type: Boolean,
                         value: true
+                    },
+                    selectedIndex: {
+                        type: Number,
+                        value: -1
+                    },
+                    defaultPath: {
+                        type: String,
+                        value: ""
+                    },
+                    attributeModels: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
                     }
                 }
             }
@@ -340,9 +353,6 @@
              */
             ready() {
                 super.ready();
-                if (!this.taxonomy || this.taxonomy == "undefined") {
-                    this.taxonomy = this.appSetting("dataDefaults").taxonomy;
-                }
             }
 
             _contextChanged(contextData) {
@@ -350,7 +360,6 @@
                     this._showView("entity-import");
                     let itemContext = this.getFirstItemContext();
                     this.entityType = itemContext.type;
-                    //this._getTaxonomyManageModel();
 
                     //Get domain for entity type
                     this._prepareClassificationRootPaths();
@@ -388,26 +397,108 @@
                 }
             }
 
+            _getClassificationsEntityGetRequest(pathRootNodes) {
+                let request = DataRequestHelper.createEntityGetRequest(this.contextData);
+                //Update attributes type and ids
+                request.params.fields.attributes = ["externalName"];
+                request.params.query.filters.typesCriterion = ["classification"];
+                request.params.query.ids = pathRootNodes;
+
+                return request;
+            }
+
             _onAttributeModelGetResponse(e) {
                 let response = e.detail.response;
                 if (response && response.content && response.content.entityModels) {
                     let attributeModels = response.content.entityModels;
-                    let paths = [];
+                    let pathModels = [];
+                    let pathRootNodes = [];
                     attributeModels.forEach(function (model) {
-                        if (model && model.properties && model.properties.displayType.toLowerCase() == "path") {
-                            paths.push({
-                                "title": model.properties.externalName,
-                                "value": model
-                            })
+                        if (DataHelper.isValidObjectPath(model, "properties.displayType") &&
+                            (model.properties.displayType || "").toLowerCase() == "path" &&
+                            DataHelper.isValidObjectPath(model.properties, "pathEntityInfo.0.rootNode") &&
+                            model.properties.pathEntityInfo[0].rootNode) {
+                            pathModels.push(model);
+                            pathRootNodes.push(model.properties.pathEntityInfo[0].rootNode);
                         }
-                    }, this);
-                    this.paths = paths;
+                    });
+                    this.attributeModels = pathModels;
+
+                    if(_.isEmpty(pathRootNodes)) {
+                        this.logError("Classification root nodes not available for the process");
+                        this._loading = false;
+                        return;
+                    }
+
+                    //Prepare entity get request with pathRootNodes
+                    let request = this._getClassificationsEntityGetRequest(pathRootNodes);
+                    let liquidDataElement = this.shadowRoot.querySelector('#getEntity');
+                    if (liquidDataElement) {
+                        liquidDataElement.requestData = request;
+                        liquidDataElement.generateRequest();
+                    }
                 }
-                this._loading = false;
             }
 
             _onAttributeModelGetError(e) {
                 this.logError("Attribute model get error", e.detail);
+                this._loading = false;
+            }
+
+            async _onEntityGetResponse(e, detail) {
+                let entities = [];
+                if (DataHelper.isValidObjectPath(detail, "response.content.entities")) {
+                    entities = detail.response.content.entities;
+                }
+
+                if(_.isEmpty(entities)) {
+                    this.logError("Classification entities missing for the process");
+                    this._loading = false;
+                    return;
+                }
+
+                let paths = [];
+                this.attributeModels.forEach(function (model) {
+                    let classificationEntity = entities.filter(entity => {
+                        return entity.id == model.properties.pathEntityInfo[0].rootNode;
+                    }, this);
+
+                    if(_.isEmpty(classificationEntity) ||
+                       !DataHelper.isValidObjectPath(classificationEntity[0], "data.attributes.externalName.values.0.value")) {
+                        return;
+                    }
+                    model.properties.pathEntityInfo[0].rootNodeExternalName = classificationEntity[0].data.attributes.externalName.values[0].value;
+
+                    paths.push({
+                        "title": model.properties.pathEntityInfo[0].rootNodeExternalName,
+                        "value": model
+                    });
+                }, this);
+                this.paths = paths;
+
+                if(_.isEmpty(this.paths)) {
+                    this.logError("Classification root paths are missing for the process");
+                    this._loading = false;
+                    return;
+                }
+
+                //Set default index
+                let defaultIndex = 0;
+                if (this.defaultPath) {
+                    for (let idx = 0; idx < this.paths.length; idx++) {
+                        if (this.paths[idx].value && this.paths[idx].value.name &&
+                            this.defaultPath.toLowerCase() == this.paths[idx].value.name.toLowerCase()) {
+                            defaultIndex = idx;
+                            break;
+                        }
+                    }
+                }
+                this.selectedIndex = defaultIndex;
+                this._loading = false;
+            }
+
+            _onEntityGetFailed(e) {
+                this.logError("Classification entities data get failed", e.detail);
                 this._loading = false;
             }
 
@@ -740,69 +831,67 @@
                     exportDialog.close();
                 }
             }
+            _getDownloadRequest(entityTypes, fileName, contexts) {
+                let req = DataRequestHelper.createGetManageModelRequest(entityTypes);
+                req.fileName = fileName;
+                if (!_.isEmpty(contexts)) {
+                    req.params.options = {
+                        "coalesceOptions": {
+                            "enhancerAttributes": contexts
+                        }
+                    }
+                }
+                return req;
+            }
             _exportSelectedCategory(e) {
                 this._downloadInProgress = true;
-                if (this._selectedCategories && this._selectedCategories.length) {
-                    let contexts = [];
-                    let firstItemContext = this.getFirstItemContext();
-                    let fileName = "CategoryTemplate";
-                    let categoryPathSeperator = this.appSetting('dataDefaults').categoryPathSeparator;
-                    this._selectedCategories.forEach(function (category) {
-                        let formattedClassification = category.valuePath.replace(/#@#/g,
-                            categoryPathSeperator);
-                        contexts.push({
-                            "classification": formattedClassification
-                        });
-                    }, this);
+                let contexts = [];
+                let firstItemContext = this.getFirstItemContext();
+                let fileName = _.isEmpty(this._selectedCategories) ? "EntityTypeTemplate" : "CategoryTemplate";
+                let categoryPathSeperator = this.appSetting('dataDefaults').categoryPathSeparator;
+                if (DataHelper.isValidObjectPath(this.selectedPath, "properties.pathEntityInfo.0.pathSeperator")) {
+                    categoryPathSeperator = this.selectedPath.properties.pathEntityInfo[0].pathSeperator;
+                }
+                this._selectedCategories.forEach(function (category) {
+                    let formattedClassification = category.valuePath.replace(/#@#/g,
+                        categoryPathSeperator);
+                    //Prefix rootNode to the selected classifcation
+                    formattedClassification = this.selectedPath.properties.pathEntityInfo[0].rootNodeExternalName + categoryPathSeperator + formattedClassification;
 
-                    if (this._selectedCategories.length == 1) {
-                        fileName = this._selectedCategories[0].value.replace(/\W/g, '_');
-                    }
+                    let context = {};
+                    context[this.selectedPath.name] = formattedClassification;
+                    contexts.push(context);
+                }, this);
 
-                    if (firstItemContext && firstItemContext.type && contexts.length) {
-                        let req = {
-                            "params": {
-                                "query": {
-                                    "contexts": contexts,
-                                    "filters": {
-                                        "typesCriterion": [
-                                            "entityManageModel"
-                                        ]
-                                    },
-                                    "id": firstItemContext.type + "_entityManageModel"
-                                },
-                                "fields": {
-                                    "attributes": ["_ALL"],
-                                    "relationships": ["_ALL"]
-                                }
-                            },
-                            "fileName": fileName
-                        };
+                if (this._selectedCategories.length == 1) {
+                    fileName = this._selectedCategories[0].value.replace(/\W/g, '_');
+                }
 
-                        let _this = this;
-                        RUFUtilities.fileDownload("/data/cop/downloadModelExcel", {
-                            httpMethod: 'POST',
-                            data: {
-                                data: JSON.stringify(req)
-                            },
-                            fileName: fileName,
-                            successCallback: function (url) {
-                                this._downloadInProgress = false;
-                            }.bind(_this),
-                            failCallback: function (responseHtml, url, error) {
-                                this._onCOPDownloadFailure(error);
-                            }.bind(_this)
-                        });
+                if (firstItemContext && firstItemContext.type) {
+                    let req = this._getDownloadRequest([firstItemContext.type], fileName, contexts);
 
-                    }
+                    let _this = this;
+                    RUFUtilities.fileDownload("/data/cop/downloadModelExcel", {
+                        httpMethod: 'POST',
+                        data: {
+                            data: JSON.stringify(req)
+                        },
+                        fileName: fileName,
+                        successCallback: function (url) {
+                            this._downloadInProgress = false;
+                        }.bind(_this),
+                        failCallback: function (responseHtml, url, error) {
+                            this._onCOPDownloadFailure(error);
+                        }.bind(_this)
+                    });
+
                 } else {
-                    this.logError(
-                        "Select a category to download category model template", e.detail);
+                    this.logError("Entity type required to download template", e.detail);
                     this._downloadInProgress = false;
                 }
             }
             _onCOPDownloadFailure(e) {
-                this.logError("Failed to download category model template", e.detail);
+                this.logError("Failed to download category model template", e);
                 this._downloadInProgress = false;
             }
             _importContextComponent() {

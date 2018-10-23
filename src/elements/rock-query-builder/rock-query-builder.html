@@ -1027,8 +1027,9 @@
                             obj[rel] = Object.keys(rels[rel][0].attributes);
                          }
                         }
-
-                        _relationshipsLookup[entityModel.name] = obj;
+                        
+                        let entityType = entityModel.id.split("_entityManageModel")[0];
+                        _relationshipsLookup[entityType] = obj;
 
                      } else {
                         this.logError("No relationships found on entityModel", e.detail);
@@ -1064,12 +1065,15 @@
                 let type = entityTypes[i];
                 let itemContext = {};
                 itemContext.type = type;
-                itemContext.relationships = relationships
+                itemContext.relationships = relationships;
                 itemContext.relationshipAttributes = relationshipAttributes;
 
                 clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
 
                 let compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(clonedContextData);
+                
+                delete compositeModelGetRequest.params.query.name;
+                compositeModelGetRequest.params.query.id = type+"_entityCompositeModel";
 
                 this.set("relationshipRequest", compositeModelGetRequest);
 
@@ -1087,6 +1091,10 @@
             let response = e.detail.response;
             let relationshipModels = DataTransformHelper.transformRelationshipModels(response.content.entityModels[0], this.contextData);
             let entityType = response.content.entityModels[0].name;
+
+            if(DataHelper.isValidObjectPath(response, 'content.entityModels.0.id')){
+                entityType = response.content.entityModels[0].id.split("_entityCompositeModel")[0];
+            }
             
             if (this._currentIndex == 1) {
                 this._currentItems = {};
@@ -1097,28 +1105,31 @@
                 let relationships = {};
                 for (let i = 0; i < keys.length; i++) {
                     let currentItem = this._currentItems[keys[i]];
-                    let relTypes = Object.keys(currentItem);
-                    if (relTypes && relTypes.length > 0) {
-                        let rels = [];
-                        for (let j = 0; j < relTypes.length; j++) {
-                            let relType = relTypes[j];
-                            let rel = currentItem[relType];
-                            if (rel && rel.length > 0) {
-                                for(let k=0; k<rel.length; k++) {
-                                    
-                                    let newItem = {
-                                        id: rel[k].id,
-                                        relationshipName: relType,
-                                        title: rel[k].properties && rel[k].properties.externalName ? rel[k].properties.externalName : "",
-                                        relEntityType: rel[k].properties.relatedEntityInfo[0].relEntityType,
-                                        attributes: rel[k].attributes,
-                                        relationshipOwnership: rel[k].properties.relationshipOwnership
-                                    };
-                                    rels.push(newItem);
+                    if(currentItem){
+                        let relTypes = Object.keys(currentItem);
+                        if (relTypes && relTypes.length > 0) {
+                            let rels = [];
+                            for (let j = 0; j < relTypes.length; j++) {
+                                let relType = relTypes[j];
+                                let rel = currentItem[relType];
+                                if (rel && rel.length > 0) {
+                                    for(let k=0; k<rel.length; k++) {
+                                        if(rel[k].id){
+                                            let newItem = {
+                                                id: rel[k].id,
+                                                relationshipName: relType,
+                                                title: rel[k].properties && rel[k].properties.externalName ? rel[k].properties.externalName : "",
+                                                relEntityType: rel[k].properties.relatedEntityInfo[0].relEntityType,
+                                                attributes: rel[k].attributes,
+                                                relationshipOwnership: rel[k].properties.relationshipOwnership
+                                            };
+                                            rels.push(newItem);
+                                        }
+                                    }
                                 }
                             }
+                            relationships[keys[i]] = rels;
                         }
-                        relationships[keys[i]] = rels;
                     }
                 }
                 this.set("_relationshipsData", relationships);
@@ -1208,12 +1219,14 @@
 
                     workflows[mappedEntityType] = workflows[mappedEntityType] ? workflows[mappedEntityType] : [];
                     let wfObj = workflowDefinitionResponse[i].data.attributes;
-                    let newItem = {
+                    if(!_.isEmpty(wfObj)){
+                        let newItem = {
                             name : workflowDefinitionResponse[i].name,
                             title : AttributeHelper.getFirstAttributeValue(wfObj.workflowName),
                             attributes : wfObj.activities.group
+                        }
+                        workflows[mappedEntityType].push(newItem);
                     }
-                    workflows[mappedEntityType].push(newItem);
                 }
 
                 this.set("_workflowData", workflows);

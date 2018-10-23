@@ -10,7 +10,7 @@ class ModuleVersionManager {
     }
 
     static get DEFAULT_VERSION() {
-        return "101";
+        return 101;
     }
 
     static get MODULES() {
@@ -24,51 +24,53 @@ class ModuleVersionManager {
     }
 
     static async initialize() {
-        ModuleVersionManager._data = {};
-        let timestamp = Date.now();
-        
         this.MODULES.forEach(async item => {
             let cacheKey = item + this.MODULE_VERSION_KEY;
             let moduleVersion = await stateManager.get(cacheKey);
 
-            if(!moduleVersion) {
+            if (!moduleVersion) {
                 moduleVersion = this.DEFAULT_VERSION;
             }
-
-            ModuleVersionManager._data[module] = {
-                'version': moduleVersion,
-                'timestamp': timestamp
-            }
-
+            //console.log('\n\nInitialize version of ' + item + ': ', moduleVersion);
             await stateManager.set(cacheKey, moduleVersion);
         });
     }
 
-    static async getVersion(module) {
-        let moduleVersion = await stateManager.get(module + this.MODULE_VERSION_KEY);
+    static async getVersion(module, tenantId) {
+        let moduleVersion = await stateManager.get(module + "-" + tenantId + this.MODULE_VERSION_KEY);
 
         if (!moduleVersion) {
-            if (!ModuleVersionManager._data[module]) {
-                await this.setVersion(module, this.DEFAULT_VERSION);
-            }
-
-            moduleVersion = ModuleVersionManager._data[module] ? ModuleVersionManager._data[module].version : undefined;
+            moduleVersion = this.DEFAULT_VERSION;
+            await this.setVersion(module, moduleVersion);
         }
 
+        //console.log('\n\nGet version of '+ module +': ', moduleVersion);
         return moduleVersion;
     }
 
-    static getAll() {
-        return ModuleVersionManager._data;
-    }
+    static async getAll(tenantId) {
+        let keys = this.MODULES.map(v => v = v + "-" + tenantId + this.MODULE_VERSION_KEY);
+        let moduleVersionData = {};
 
-    static async setVersion(module, version) {
-        ModuleVersionManager._data[module] = {
-            version: version,
-            timestamp: (Date.now() / 1000 | 0)
+        if (keys) {
+            let moduleVersions = await stateManager.mget(keys);
+
+            if (moduleVersions) {
+                this.MODULES.forEach((item, index) => {
+                    moduleVersionData[item] = {
+                        "version": moduleVersions[index] ? moduleVersions[index] : this.DEFAULT_VERSION
+                    }
+                });
+            }
         }
 
-        let moduleVersionKey = module + this.MODULE_VERSION_KEY;
+        return moduleVersionData;
+    }
+
+    static async setVersion(module, version, tenantId) {
+        //console.log('\n\nSet version of '+ module +':', version);
+
+        let moduleVersionKey = module + "-" + tenantId + this.MODULE_VERSION_KEY;
         await stateManager.set(moduleVersionKey, version);
         return await 1;
     }
