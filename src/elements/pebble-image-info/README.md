@@ -1,1 +1,0 @@
-pebble-image-info.html

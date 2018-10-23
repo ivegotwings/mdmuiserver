@@ -573,8 +573,7 @@ performed.
                             }
                         }
 
-                        if (this.contextData.Contexts &&
-                            this.contextData.DomainContexts &&
+                        if (this.contextData.DomainContexts &&
                             this.contextData.DomainContexts.length !== 0) {
                             this.requestConfig('rock-entity-header', context);
                         }
@@ -918,27 +917,53 @@ performed.
                             return elm.valuePath;
                         });
                         let attributeForSave = this._currentAttributeInEdit;
-                        if (this._headerAttributeModels[this._currentAttributeInEdit].displayType === "path") {
+                        if (this._headerAttributeModels[attributeForSave].displayType === "path") {
                             let pathTypeAttributeValues;
                             pathTypeAttributeValues = this._getFormattedPathTypeObject(classificationPaths);
+                            let isDelete = false;
+                            if(_.isEmpty(classificationPaths)) {
+                                /**
+                                 * If classificationPaths are empty, either none are selected or
+                                 * all selected paths are unselected. If none are selected, we show 
+                                 * No changes toast message. If all selected paths are un selected
+                                 * then we need to send action delete flag for each path in update request
+                                 * in respective context.
+                                 * **/
+                                isDelete = true;
+                            }
                             let isDirty = this._isDirtyCheck(pathTypeAttributeValues);
                             if(!isDirty) {
                                 this.showInformationToast('No changes to save');
                                 return;
                             }
                             let entityForSave = DataHelper.cloneObject(this._headerAttributesGetResponse);
+                            let firstDataContext = this.getFirstDataContext();
                             let data = entityForSave.content.entities[0].data;
                             // contextual save
-                            if (!_.isEmpty(data.contexts)) {
-                                data.contexts.forEach(contextItem => {
-                                    if (_.isEqual(this.getFirstDataContext(), contextItem.context)) {
-                                        contextItem.attributes = {};
-                                        contextItem.attributes[this._currentAttributeInEdit] = pathTypeAttributeValues;
+                            if(!_.isEmpty(firstDataContext)) {
+                                if(isDelete && !_.isEmpty(data.contexts)) {
+                                    data.contexts.forEach(contextItem => {
+                                        if (_.isEqual(firstDataContext, contextItem.context)) {
+                                            this._setDeleteFlagForValues(contextItem.attributes, attributeForSave);
+                                        }
+                                    })
+                                } else {
+                                    data.contexts = [];
+                                    let attributes = {};
+                                    attributes[attributeForSave] = pathTypeAttributeValues;
+                                    let ctxObj = {
+                                        "context": firstDataContext,
+                                        "attributes": attributes
                                     }
-                                })
+                                    data.contexts.push(ctxObj);
+                                }
                             } else {
-                                data.attributes = {}
-                                data.attributes[attributeForSave] = pathTypeAttributeValues;
+                                if(isDelete) {
+                                    this._setDeleteFlagForValues(data.attributes, attributeForSave);
+                                } else {
+                                    data.attributes = {}
+                                    data.attributes[attributeForSave] = pathTypeAttributeValues;
+                                }
 
                             }
                             this._saveRequest = {
@@ -951,6 +976,19 @@ performed.
                     } else {
                         this.logError('Cannot find rock-classification-tree element in dom');
                     }
+                }
+            }
+
+            /**
+             * Update all the values of the path attribte with action: delete
+             * flag to delete the values.
+             * **/
+            _setDeleteFlagForValues(attributes, attributeForSave) {
+                let attribute = attributes[attributeForSave];
+                if(attribute && !_.isEmpty(attribute.values)) {
+                    attribute.values.forEach((value) => {
+                        value.action = "delete";
+                    });
                 }
             }
 
@@ -1002,11 +1040,16 @@ performed.
             }
 
             _onSaveResponse(e, detail) {
-                this._refreshView();
-                this.showSuccessToast(detail.response.content.msg);
-                let attrEditDialog = this.$.attributeEditDialog;
-                if (attrEditDialog) {
-                    attrEditDialog.close();
+                if(e.detail.response.status == "success") {
+                    this.showSuccessToast(detail.response.content.msg);
+                    let attrEditDialog = this.$.attributeEditDialog;
+                    if (attrEditDialog) {
+                        attrEditDialog.close();
+                    }
+                    this.refresh(true);
+                } else {
+                    this.showWarningToast("Attribute save failed");
+                    this.logError("Attribute save failed. Response status is error", e.detail);
                 }
             }
 
@@ -1042,17 +1085,6 @@ performed.
                         "type": itemCtx.type
                     };
                     return entity;
-                }
-
-                _refreshView() {
-                    let contentView = undefined;
-                    let app = ComponentHelper.getCurrentActiveApp();
-                    if (app) {
-                        contentView = ComponentHelper.getParentElement(app);
-                    }
-                    if (contentView) {
-                        contentView.render();
-                    }
                 }
 
                 _onTabsChange(event) {

@@ -2,7 +2,7 @@
 
 let falcorExpress = require('falcor-express'),
     Router = require('falcor-router'),
-    routerOptions = { 'maxPaths': 70000 }; // maxPaths defines max. allowed number of paths in one router request
+    routerOptions = { 'maxPaths': 300000 }; //TODO: Default maxPaths from falcor is 9000. We need to make it 9000 in CV3-Phase2. maxPaths defines max. allowed number of paths in one router request
 
 let resolver = require('./dataobject-route-resolver');
 
