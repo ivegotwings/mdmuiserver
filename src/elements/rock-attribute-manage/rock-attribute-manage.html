@@ -374,6 +374,43 @@ It is responsible to "get" and "save" the attributes.
                     hideRevertAndHistory: {
                         type: Boolean,
                         value: false
+                    },
+                    _isTaxonomyCreationProcess: {
+                        type: Boolean,
+                        value: false
+                    },
+                    _attributeModelRequestDetails: {
+                        type: Object,
+                        value: function () {
+                            return {
+                                "properties": {
+                                    "externalName": "",
+                                    "dataType": "string",
+                                    "groupName": "Enhancer Attributes",
+                                    "displayType": "path",
+                                    "isCollection": true,
+                                    "pathEntityInfo": {
+                                        "group": [{
+                                            "pathRelationshipName": "belongsTo",
+                                            "pathEntityType": "classification",
+                                            "rootNode": "",
+                                            "pathSeperator": ""
+                                        }]
+                                    }
+                                },
+                                "relationships": {
+                                    "listedUnder": [{
+                                        "id": "",
+                                        "direction": "both",
+                                        "relationshipType": "aggregation",
+                                        "relTo": {
+                                            "id": "thingdomainattributemodels",
+                                            "type": "list"
+                                        }
+                                    }]
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -899,7 +936,6 @@ It is responsible to "get" and "save" the attributes.
                         "[name=attributeSaveDataService]");
 
                     if (liquidGet) {
-                        this.mode = "view";
                         this.attributeList && this.attributeList.resetChanged();
 
                         if (!_.isEmpty(liquidGet.requestData)) {
@@ -914,9 +950,34 @@ It is responsible to "get" and "save" the attributes.
                         }
                     }
 
+                    let currentRequest = e.detail.request.requestData;
+                    if (!_.isEmpty(currentRequest.entities) && liquidSave.operation == 'create') {
+                        let taxonomyRequests = currentRequest.entities.filter(entity => {
+                            return entity.type == "taxonomy";
+                        }, this);
+                        if (taxonomyRequests.length) {
+                            this._isTaxonomyCreationProcess = true;
+                            this.async(function () {
+                                this._triggerClassificationCreation(taxonomyRequests);
+                            }, 150);
+                            return;
+                        }
+
+                        let classificationRequests = currentRequest.entities.filter(entity => {
+                            return entity.type == "classification";
+                        }, this);
+                        if (classificationRequests.length && this._isTaxonomyCreationProcess) {
+                            this.async(function () {
+                                this._triggerAttributeModelCreation(classificationRequests);
+                            }, 150);
+                            return;
+                        }
+                    }
+
                     let message = this.successMessage ? this.successMessage :
                         "Attribute save request is submitted successfully!!";
                     this.showSuccessToast(message, 10000);
+                    this.mode = "view";
 
                     //Raise event on attributes save
                     this.fireBedrockEvent("on-attribute-save", null, {
@@ -943,6 +1004,91 @@ It is responsible to "get" and "save" the attributes.
             _onSaveError(e) {
                 this.logError("entity update failed", e.detail);
                 this.showWarningToast("Attribute save failed");
+            }
+            _triggerClassificationCreation(taxonomyRequests) {
+                this._saveRequest.entities = [];
+                taxonomyRequests.forEach(taxonomyRequest => {
+                    let request = DataHelper.cloneObject(taxonomyRequest);
+                    request.id = "e" + ElementHelper.getRandomString();
+                    if (DataHelper.isValidObjectPath(request, "data.attributes.identifier.values.0.value")) {
+                        request.data.attributes["identifier"].values[0].value += "root";
+                    }
+                    request.type = "classification";
+                    request.data.relationships = {
+                        "belongstotaxonomy": [{
+                            "relTo": {
+                                "id": taxonomyRequest.id,
+                                "type": "taxonomy"
+                            }
+                        }]
+                    }
+                    this._saveRequest.entities.push(request);
+                }, this);
+
+                this._saveEntity();
+            }
+            _prepareAttributesForModel(properties) {
+                let valContexts = ContextHelper.getValueContexts(this.contextData);
+                let attributeValues = AttributeHelper.getEmptyValues(valContexts);
+                let attributes = {};
+                for (let key in properties) {
+                    //Nested
+                    if (properties[key] && properties[key].group) {
+                        let attrValues = [];
+                        for (let grp of properties[key].group) {
+                            let childProperties = {};
+                            for (let grpAttrKey in grp) {
+                                let childAttrValues = DataHelper.cloneObject(attributeValues);
+                                childAttrValues.values.forEach(attributeValue => {
+                                    attributeValue.value = grp[grpAttrKey];
+                                }, this);
+                                childProperties[grpAttrKey] = childAttrValues;
+                            }
+                            attrValues.push(childProperties);
+                        }
+                        attributes[key] = {"group": attrValues};
+                    } else { //Other than Nested
+                        let attrValues = DataHelper.cloneObject(attributeValues);
+                        attrValues.values.forEach(attributeValue => {
+                            attributeValue.value = properties[key];
+                        }, this);
+                        attributes[key] = attrValues;
+                    }
+                }
+                return attributes;
+            }
+            _triggerAttributeModelCreation(classificationRequests) {
+                this._saveRequest.entities = [];
+                classificationRequests.forEach(classificationRequest => {
+                    let request = DataHelper.cloneObject(classificationRequest);
+                    if (!DataHelper.isValidObjectPath(request, "data.attributes.identifier.values.0.value")) {
+                        return;
+                    }
+
+                    let rootNode = request.data.attributes["identifier"].values[0].value;
+                    let id = request.name.replace(/ /g, "").toLowerCase();
+                    request.type = "attributeModel";
+                    request.id = id + "_" + request.type;
+                    request.domain = "thing";
+                    //Prepare properties
+                    let attributeModelDetails = DataHelper.cloneObject(this._attributeModelRequestDetails);
+                    let properties = attributeModelDetails.properties;
+                    properties.externalName = request.name;
+                    properties.pathEntityInfo.group.forEach(grp => {
+                        grp.rootNode = rootNode;
+                        grp.pathSeperator = this.appSetting('dataDefaults').categoryPathSeparator || ">>"
+                    }, this);
+                    //Prepare attributes from properties
+                    request.data.attributes = this._prepareAttributesForModel(properties);
+                    //These relationships will not be added until we consider these in BaseModelService.js
+                    request.data.relationships = attributeModelDetails.relationships;
+
+                    this._saveRequest.entities.push(request);
+                }, this);
+
+                this._isTaxonomyCreationProcess = false;
+                this.dataIndex = "entityModel";
+                this._saveEntity();
             }
             _openCancelDialog() {
                 if (this.getIsDirty()) {
