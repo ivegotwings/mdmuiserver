@@ -740,9 +740,13 @@ async function update(callPath, args, operation) {
     try {
         let jsonEnvelope = args[0];
         let dataIndex = callPath.dataIndexes[0];
-        let dataObjectType = callPath.dataObjectTypes[0]; //TODO: need to support for bulk..
-        let dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][dataObjectType][pathKeys.byIds];
         let clientState = jsonEnvelope.json.clientState;
+        let dataObjects = {};
+        for(let i=0; i<callPath.dataObjectTypes.length; i++) {
+            let dataObjectType = callPath.dataObjectTypes[i];
+            let dataObjectsByType = jsonEnvelope.json[pathKeys.root][dataIndex][dataObjectType][pathKeys.byIds];
+            dataObjects = falcorUtil.mergeObjects(dataObjects, dataObjectsByType);
+        }
 
         response = processData(dataIndex, dataObjects, "update", operation, clientState);
     }
@@ -760,9 +764,13 @@ async function deleteDataObjects(callPath, args, operation) {
     try {
         let jsonEnvelope = args[0];
         let dataIndex = callPath.dataIndexes[0];
-        let dataObjectType = callPath.dataObjectTypes[0]; //TODO: need to support for bulk..
-        let dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][dataObjectType][pathKeys.byIds];
         let clientState = jsonEnvelope.json.clientState;
+        let dataObjects = {};
+        for(let i=0; i<callPath.dataObjectTypes.length; i++) {
+            let dataObjectType = callPath.dataObjectTypes[i];
+            let dataObjectsByType = jsonEnvelope.json[pathKeys.root][dataIndex][dataObjectType][pathKeys.byIds];
+            dataObjects = falcorUtil.mergeObjects(dataObjects, dataObjectsByType);
+        }
 
         response = processData(dataIndex, dataObjects, "delete", operation, clientState);
     }
