@@ -160,6 +160,12 @@
                             return {};
                         }
                     },
+                    _nameToExternalNameDictionary: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
                     _contextsObjPasteEntity: {
                         type: Object,
                         value: function () {
@@ -174,6 +180,18 @@
                         type: Object,
                         value: function () {
                             return {};
+                        }
+                    },
+                    _entityTypesNotToSendForSave: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _entitiesNotEligibleForSave: {
+                        type: Array,
+                        value: function () {
+                            return [];
                         }
                     },
                     _sourceEntityData: {
@@ -194,6 +212,12 @@
                             return [];
                         }
                     },
+                    _targetEntitiesAttributeModels: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
                     _cloneEntitiesForBulkSave: {
                         type: Array,
                         value: function () {
@@ -203,6 +227,14 @@
                     isBulkProcess: {
                         type: Boolean,
                         value: false
+                    },
+                    _entitiesEligibleForSave: {
+                        type: Number,
+                        value: 0
+                    },
+                    _compositeModelResponseTracker: {
+                        type: Number,
+                        value: 0
                     },
                     _message: {
                         type: String
@@ -333,7 +365,8 @@
                     }
                     this._entitySaveResponseObject.push(responseObj);
 
-                    if(this._bulkSaveTracker === this.selectedItemsForPaste.length) {
+                    if(this._bulkSaveTracker === this._entitiesEligibleForSave + this._entitiesNotEligibleForSave.length) {
+                        this._entitySaveResponseObject.push(...(this._prepareMessagesForNonEligibleEntities()))
                         this._triggerBulkFinishStep();
                     } else {
                         return;
@@ -367,6 +400,19 @@
                 this.fireBedrockEvent(eventName, eventDetail, {
                     ignoreId: true
                 });
+            }
+
+            _prepareMessagesForNonEligibleEntities() {
+                let messages = [];
+                this._entitiesNotEligibleForSave.forEach(entity=> {
+                    let message = {
+                        "Entity Name" : entity.name ? entity.name : entity.id,
+                        "Message": `Permissions Denied. You do not have permissions for [${this._entityTypesNotToSendForSave[entity.type].join(", ")}] attributes`,
+                        "Status": "Error"
+                    }
+                    messages.push(message);
+                });
+                return messages;
             }
             _triggerBulkFinishStep() {
                 // let isJob = false;
@@ -651,8 +697,21 @@
                 }
             }
 
+            _getExternalNameForAttribute(attributeName) {
+                let nameToExternalNameObject;
+                if(_.isEmpty(this._nameToExternalNameDictionary)) {
+                    this.selectedItems.forEach(elm=> {
+                        this._nameToExternalNameDictionary[attributeName] = elm.externalName;
+                    })
+                    return this._nameToExternalNameDictionary[attributeName]
+                } else {
+                    return this._nameToExternalNameDictionary[attributeName]
+                }
+            }
+
             _prepareRequestAndTriggerSave(sourceEntity, targetEntities) {
                 let clonedSourceEntity = DataHelper.cloneObject(sourceEntity);
+                let entityTypesNotToSendForSave = [];
                 if (!this.isBulkProcess) {
                     let firstItemContext = this.getFirstItemContext();
                     if (!_.isEmpty(firstItemContext) && firstItemContext.id) {
@@ -662,29 +721,87 @@
                             "name": firstItemContext.name
                         }];
                     }
-                }
+                } else {                                        
+                    let selectedAttributes;
+                    //getting unique entity types
+                    let uniqueEntityTypes = this._getUniqueEntityTypes();
 
-                if (!_.isEmpty(targetEntities)) {
+                    uniqueEntityTypes.forEach(entityType=> {
+                        let currentEntityAttributeModel;
+                        let firstDataContext = ContextHelper.getFirstDataContext(this.contextData);
+                        let attributeModels;
+                        currentEntityAttributeModel = this._targetEntitiesAttributeModels.filter(elm=> {
+                            return elm.name === entityType
+                        })
+                        if(firstDataContext) {
+                            // contextual
+                                    attributeModels = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(
+                                        currentEntityAttributeModel[0], firstDataContext);
+                                        selectedAttributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(
+                                            sourceEntity, firstDataContext);
+                        } else {
+                            // self
+                                    attributeModels = currentEntityAttributeModel[0].data.attributes;
+                                    selectedAttributes = sourceEntity.data.attributes;
+                        }
+                        if(!_.isEmpty(selectedAttributes)) {
+                            Object.keys(selectedAttributes).forEach(attributeName=> {
+                                let externalName = this._getExternalNameForAttribute(attributeName);
+                                if(DataHelper.isValidObjectPath(attributeModels[attributeName], 'properties.hasWritePermission')) {
+                                    if(!attributeModels[attributeName].properties.hasWritePermission) {
+                                        if(entityTypesNotToSendForSave[entityType]) {
+                                            entityTypesNotToSendForSave[entityType].push(externalName)
+                                        } else {
+                                            entityTypesNotToSendForSave[entityType] = [externalName];
+                                        }
+                                    }
+                                } else {
+                                    if(entityTypesNotToSendForSave[entityType]) {
+                                            entityTypesNotToSendForSave[entityType].push(externalName)
+                                    } else {
+                                        entityTypesNotToSendForSave[entityType] = [externalName];
+                                    }
+                                }
+                            })
+                        }
+                    })
+                    this._entityTypesNotToSendForSave = entityTypesNotToSendForSave;
+            }
+
+                            if (!_.isEmpty(targetEntities)) {
                     targetEntities.forEach(item => {
-                        //Pick id, type and name from target entities for update
-                        clonedSourceEntity.id = item.id;
-                        clonedSourceEntity.type = item.type;
-                        clonedSourceEntity.name = item.name;
-                        if(!_.isEmpty(this._nestedAttributes)) {
-                            this._updateNestedAttributesForEntity(clonedSourceEntity);
-                        }
-                        if (this.isBulkProcess) {
-                            clonedSourceEntity.params = {
-                                "authorizationType": "reject"
-                            }
-                            this._cloneEntitiesForBulkSave.push(clonedSourceEntity); //Capture for bulk result
-                        }
 
-                        this._saveRequest = {
-                            "entities": [clonedSourceEntity]
-                        };
-                        this._saveEntity();
+                        if( Object.keys(entityTypesNotToSendForSave).indexOf(item.type) == -1) {    
+                            this._entitiesEligibleForSave++;
+                            //Pick id, type and name from target entities for update
+                            clonedSourceEntity.id = item.id;
+                            clonedSourceEntity.type = item.type;
+                            clonedSourceEntity.name = item.name;
+                            if(!_.isEmpty(this._nestedAttributes)) {
+                                this._updateNestedAttributesForEntity(clonedSourceEntity);
+                            }
+                            if (this.isBulkProcess) {
+                                clonedSourceEntity.params = {
+                                    "authorizationType": "reject"
+                                }
+                                this._cloneEntitiesForBulkSave.push(clonedSourceEntity); //Capture for bulk result
+                            }
+
+                            this._saveRequest = {
+                                "entities": [clonedSourceEntity]
+                            };
+                            this._saveEntity();
+
+                        } else {
+                            this._entitiesNotEligibleForSave.push(item);
+                            this._bulkSaveTracker++;
+                        }
                     });
+
+                    if(this.isBulkProcess && this._entitiesEligibleForSave === 0) {
+                        this._entitySaveResponseObject.push(...(this._prepareMessagesForNonEligibleEntities()))
+                        this._triggerBulkFinishStep();
+                    }
                 }
             }
 
@@ -734,16 +851,15 @@
                 this.logError("Copied entities data get failed", e.detail);
             }
 
-            _executePaste(e) {
+            _onTargetEntityModelGetResponse(e, detail) {
                 let data = sessionStorage.getItem('copyEntityData');
                 let copiedEntityContext, entityGetRequest;
+                this._compositeModelResponseTracker++;
 
-                if (!this.selectedItems || !this.selectedItems.length) {
-                    this.showWarningToast("Select at least 1 attribute for paste");
-                    return;
-                }
-
-                if (!_.isEmpty(data)) {
+                if(DataHelper.isValidObjectPath(e, 'detail.response.content.entityModels.0')) {
+                    this._targetEntitiesAttributeModels.push(e.detail.response.content.entityModels[0]);
+                    let uniqueEntityTypes = this._getUniqueEntityTypes();
+                    if(uniqueEntityTypes.length === this._compositeModelResponseTracker) {
                     //creating get request from copied entities contextData
                     copiedEntityContext = JSON.parse(data);
                     let copiedItemContext = this._getUpdatedItemContextWithSelectedEntities(copiedEntityContext);
@@ -762,9 +878,69 @@
 
                     liquidDataElement.requestData = entityGetRequest;
                     liquidDataElement.generateRequest();
-                } else {
-                    this.showWarningToast('Copy an entity before pasting it');
+                    }
                 }
+            }
+
+            _getUniqueEntityTypes() {
+                let entityTypes = this.selectedItemsForPaste.map(elm=> {
+                    return elm.type;
+                });
+                return (_.uniq(entityTypes));
+            }
+            _getEntityCompositeModels() {
+                let targetEntities = this.selectedItemsForPaste;
+                let uniqueEntityTypes = this._getUniqueEntityTypes();
+                let liquidCustomElement = customElements.get("liquid-entity-model-composite-get");
+
+                uniqueEntityTypes.forEach(entityType=> {
+                    let liquidElement = new liquidCustomElement();
+                    let compositeRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
+                    compositeRequest.params.query.name = entityType;
+                    liquidElement.requestData = compositeRequest;
+                    liquidElement.addEventListener("entity-model-composite-get-response", this._onTargetEntityModelGetResponse.bind(this));
+                    this.shadowRoot.appendChild(liquidElement);
+                    setTimeout(() => {
+                        liquidElement.generateRequest();
+                    }, 10);
+                });
+            }
+
+            _executePaste(e) {
+                let copiedEntityContext, entityGetRequest;
+                let data = sessionStorage.getItem('copyEntityData');
+                if (!this.selectedItems || !this.selectedItems.length) {
+                    this.showWarningToast("Select at least 1 attribute for paste");
+                    return;
+                }
+
+                if (!_.isEmpty(data)) {
+
+                    // making call for composite models of all entity types so we can use that stop non-context mapped attributes save
+                            if(this.isBulkProcess) {
+                                this._getEntityCompositeModels();
+                            } else {
+                                copiedEntityContext = JSON.parse(data);
+                                let copiedItemContext = this._getUpdatedItemContextWithSelectedEntities(copiedEntityContext);
+                                copiedEntityContext.ItemContexts = [copiedItemContext];
+
+                                entityGetRequest = DataRequestHelper.createEntityGetRequest(copiedEntityContext);
+                                let liquidDataElement = this.shadowRoot.querySelector('#getEntity');
+
+                                // getting selected attributes and pushing into the request
+                                let attributes = this.selectedItems.map(elm => {
+                                    return elm.name;
+                                });
+                                entityGetRequest.params.fields.attributes = attributes;
+                                //setting non-coalesce flag
+                                entityGetRequest.params.query.filters.nonContextual = false;
+
+                                liquidDataElement.requestData = entityGetRequest;
+                                liquidDataElement.generateRequest();
+                            }
+                    } else {
+                                this.showWarningToast('Copy an entity before pasting it');
+                    }
             }
 
             _getUpdatedItemContextWithSelectedEntities(copiedEntityContext) {
