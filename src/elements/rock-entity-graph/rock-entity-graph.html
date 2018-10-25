@@ -95,17 +95,15 @@
            
         </style>
         <div class="graph-container">
-            <liquid-entity-data-get id="rootNodeGet" operation="getbyids" on-error="_onLineagePathError"
-                on-response="_onRootNodeGetResponse" exclude-in-progress></liquid-entity-data-get>
+            <liquid-entity-data-get id="rootNodeInitialGet" operation="initiatesearch" request-data="{{_rootNodeGetRequest}}" last-response="{{initiateSearchResponse}}" on-error="_onRootNodeGetError" on-response="_onInitiateSearchResponse" exclude-in-progress></liquid-entity-data-get>
+            <liquid-entity-data-get id="rootNodeSearchResultDetail" operation="getsearchresultdetail" request-data="{{_rootNodeGetRequest}}" request-id="[[initiateSearchResponse.content.requestId]]" on-error="_onRootNodeGetError" on-response="_onRootNodeGetResponse" exclude-in-progress></liquid-entity-data-get>
             <liquid-entity-model-get id="liquidModelGet" operation="getbyids" request-data="[[_modelRequest]]" on-response="_onModelReceived" on-error="_onModelGetFailed"></liquid-entity-model-get>
-        
+
             <template is="dom-if" if="[[_isGraphTreeConfigAvailable(_graphTreeConfig)]]" restamp>
                 <pebble-resizable-panels>
                     <div class="left-panel" panel-width="30%">
                         <template is="dom-if" if="[[_isClassificationTree(_graphTreeConfig)]]">
-                            <rock-classification-tree id="classificationTree" taxonomy="[[taxonomy]]" is-model-tree="[[isModelTree]]"
-                                context-data="[[contextData]]" multi-select="[[multiSelect]]" leaf-node-only="[[leafNodeOnly]]"
-                                enable-node-click="true" hide-leaf-node-checkbox="[[hideLeafNodeCheckbox]]" root-node-data="{{_rootNodeData}}"></rock-classification-tree> 
+                            <rock-classification-tree id="classificationTree" is-model-tree="[[isModelTree]]" context-data="[[contextData]]" multi-select="[[multiSelect]]" leaf-node-only="[[leafNodeOnly]]" enable-node-click="true" hide-leaf-node-checkbox="[[hideLeafNodeCheckbox]]" root-node-data="{{_rootNodeData}}" root-node="[[_rootNode]]" path-entity-type="[[_rootEntityType]]" path-relationship-name="[[_rootRelationshipName]]"></rock-classification-tree>
                         </template>
                         <template is="dom-if" if="[[!_isClassificationTree(_graphTreeConfig)]]">
                             <rock-entity-graph-tree id="graphTree" tree-config="[[_graphTreeConfig]]" context-data="[[contextData]]" item-data="{{selectedItem}}"></rock-entity-graph-tree> 
@@ -213,10 +211,6 @@
                         return {};
                     }
                 },
-                taxonomy:{
-                    type:String,
-                    value:""
-                },
                 multiSelect:{
                     type:Boolean,
                     value:false
@@ -242,6 +236,18 @@
                         return {}
                     },
                     notify:true
+                },
+                _rootNode: {
+                    type: String,
+                    value: ""
+                },
+                _rootEntityType: {
+                    type: String,
+                    value: ""
+                },
+                _rootRelationshipName: {
+                    type: String,
+                    value: ""
                 }
             }
         }
@@ -282,38 +288,61 @@
             }
             return false;
         }
-        _initiateClassificationTree(){
-            let rootNodeGet = this.shadowRoot.querySelector("#rootNodeGet");
-            if(rootNodeGet){
-                rootNodeGet.requestData = DataRequestHelper.createEntityGetRequest(this.contextData);
-                rootNodeGet.generateRequest();
+        _initiateClassificationTree() {
+            let rootNodeInitialGet = this.shadowRoot.querySelector("#rootNodeInitialGet");
+            if (rootNodeInitialGet) {
+                let contextData = DataHelper.cloneObject(this.contextData);
+                if (_.isEmpty(this._graphTreeConfig.rootEntitySearchCriteria)) {
+                    this.logError("Config - Root entity search details missing.");
+                    return;
+                }
+                let relType = this._graphTreeConfig.rootEntitySearchCriteria.relationshipType;
+                let type = this._graphTreeConfig.rootEntitySearchCriteria.type;
+                let firstItemContext = ContextHelper.getFirstItemContext(contextData) || {};
+                let itemContext = { "attributeNames": ["_ALL"], "type": type };
+
+                let classificationCriteria = {};
+                classificationCriteria[relType] = { "relTo": { "id": firstItemContext.id, "type": firstItemContext.type } };
+                itemContext.relationshipsCriterion = [classificationCriteria];
+                contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+                contextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
+
+                this._rootNodeGetRequest = DataRequestHelper.createEntityGetRequest(contextData);
+                rootNodeInitialGet.generateRequest();
             }
         }
-        _onRootNodeGetResponse(ev){
+        _onInitiateSearchResponse(e) {
+            let totalRecords = this.initiateSearchResponse.content.totalRecords;
+            if (totalRecords) {
+                let rootNodeDetailsGet = this.shadowRoot.querySelector("#rootNodeSearchResultDetail");
+                if (rootNodeDetailsGet) {
+                    rootNodeDetailsGet.generateRequest();
+                }
+            } else {
+                this.logError("Process failed - Root classification not available for this taxonomy.");
+            }
+        }
+        _onRootNodeGetResponse(ev) {
             let rootNodeData = {}
-            if(DataHelper.isValidObjectPath(ev, "detail.response.content.entities.0.data")){
-                rootNodeData['text'] = this._getNodeTitle(ev.detail.response.content.entities[0], this._graphTreeConfig.treeNodeTitle);
+            if (!DataHelper.isValidObjectPath(ev, "detail.response.content.entities.0")) {
+                this.logError("Entity details not available.");
+                return;
+            }
+            let entity = ev.detail.response.content.entities[0];
+            if (entity.data) {
+                rootNodeData['text'] = this._getNodeTitle(entity, this._graphTreeConfig.treeNodeTitle);
             }
             rootNodeData.isRootNode = true;
             rootNodeData.expanded = true;
-            if(DataHelper.isValidObjectPath(this._graphTreeConfig, "relationships.0.relationshipName")){
+            this._rootNode = rootNodeData.id = entity.id;
+            this._rootEntityType = rootNodeData.type = entity.type;
+            if (DataHelper.isValidObjectPath(this._graphTreeConfig, "relationships.0.relationshipName")) {
                 let relationshipName = this._graphTreeConfig.relationships[0].relationshipName;
-                rootNodeData.relationshipName = relationshipName;
+                this._rootRelationshipName = rootNodeData.relationshipName = relationshipName;
                 rootNodeData.relationshipOwnership = "whereused";
             }
 
-            //start classification request
-            if (!this.taxonomy || this.taxonomy == "undefined") {
-                let firstItemContext = ContextHelper.getFirstItemContext(this.contextData);
-                if(firstItemContext && firstItemContext.id){
-                    this.taxonomy = firstItemContext.id;
-                    rootNodeData.id = firstItemContext.id;
-                    if(firstItemContext.type){
-                        rootNodeData.type = firstItemContext.type;
-                    }
-                }
-            }
-            if(this.taxonomy){
+            if (rootNodeData.id) {
                 Polymer.Async.timeOut.after(30).run(() => {
                     this.set("_rootNodeData", rootNodeData);
                     const contextTree = this.shadowRoot.querySelector("#classificationTree");
@@ -321,9 +350,12 @@
                         contextTree.generateRequest();
                     }
                 })
-            }else{
+            } else {
                 console.warn("No taxonomy found.")
             }
+        }
+        _onRootNodeGetError(e) {
+            this.logError("Root node get failed.", e);
         }
         _getNodeTitle(entity, attribute){
             let _title = "";
