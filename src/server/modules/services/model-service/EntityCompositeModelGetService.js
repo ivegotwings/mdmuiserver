@@ -31,7 +31,7 @@ EntityCompositeModelGetService.prototype = {
         let serviceUrl = serviceName + "/" + serviceOperation;
 
         //Get other models...
-        let types = ['entityManageModel', 'entityValidationModel', 'entityDefaultValueModel', 'entityDisplayModel', 'authorizationModel'];
+        let types = ['entityManageModel', 'entityValidationModel', 'entityDefaultValuesModel', 'entityDisplayModel', 'authorizationModel'];
         let internalRequest = this._cloneAndPrepareRequestObject(request, types);
         let res = await this.post(serviceUrl, internalRequest);
 
@@ -134,7 +134,7 @@ EntityCompositeModelGetService.prototype = {
                 }
 
                 if(modelObj.properties["readPermission"] === true) {
-                    if(modelObj.properties["writePermission"] === true && (isEmpty(modelObj.properties.contextCoalesce) || isRelType) ) {
+                    if(modelObj.properties["writePermission"] === true && (this._hasRightCoalesceInfo(modelObj.properties) || isRelType) ) {
                         modelObj.properties['hasWritePermission'] = true;
                     } else {
                         modelObj.properties['hasWritePermission'] = false;
@@ -153,6 +153,18 @@ EntityCompositeModelGetService.prototype = {
         }
         
         return model;
+    },
+
+    _hasRightCoalesceInfo: function(properties) {
+        if(isEmpty(properties.contextCoalesce)) {
+            return true;
+        }
+
+        if(!isEmpty(properties.contextCoalesce) && !isEmpty(properties.instanceCoalesce)) {
+            return true;
+        }
+
+        return false;
     }
 };
 

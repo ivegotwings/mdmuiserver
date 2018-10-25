@@ -104,6 +104,7 @@ module.exports = {
         "ContextModelManager": true,
         "DataObjectFalcorUtil": true,
         "DataMergeHelper": true,
+        "DomainManager": true,
         "EntityHelper": true,
         "falcor": true,
         "FormatHelper": true,
