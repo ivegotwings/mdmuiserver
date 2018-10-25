@@ -1,0 +1,249 @@
+<link rel="import" href="../../../bower_components/polymer/polymer-element.html">
+
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+
+<link rel="import" href="./LiquidRequest.html">
+<link rel="import" href="./LiquidResponse.html">
+<link rel="import" href="./LiquidOperationInitiateSearch.html">
+<link rel="import" href="./LiquidOperationGetSearchResultRange.html">
+<link rel="import" href="./LiquidOperationGetSearchResultRecordSize.html">
+<link rel="import" href="./LiquidOperationGetByIds.html">
+
+<script>
+    class LiquidDataObjectManager extends Polymer.Element {
+
+        static get is() {
+            return "liquid-data-object-manager";
+        }
+
+        constructor() {
+            super();
+            this._loadOperationDefinitionMap ();
+        }
+
+        _loadOperationDefinitionMap () {
+            this._operationsMap = {
+                "initiatesearch": [LiquidOperationInitiateSearch],
+                "searchandget": [LiquidOperationInitiateSearch, LiquidOperationGetSearchResultRange, LiquidOperationGetByIds],
+                "searchandgetrecordsize": [LiquidOperationInitiateSearch, LiquidOperationGetSearchResultRecordSize],
+                "getsearchresultrange": [LiquidOperationGetSearchResultRange],
+                "getsearchresultdetail": [LiquidOperationGetSearchResultRange, LiquidOperationGetByIds],
+                "getbyids": [LiquidOperationGetByIds]
+            };
+        }
+
+        async _getOperationDefinition (operation) {
+            return this._operationsMap[operation];
+        }
+
+        async initiateRequest (liquidRequest) {
+            let liquidResponse = new LiquidResponse();
+            liquidResponse.response.status = "OK, Starting the execution!!!";
+
+            if (!this._validateRequest(liquidRequest)) {
+                let errResponse = {
+                    "status": "error",
+                    "message": "request validation failed"
+                };
+                return errResponse;
+            }
+
+            let isPreProcessCompleted = await this._preProcessRequest(liquidRequest);
+
+            if (!isPreProcessCompleted) {
+                console.error('preprocess failed');
+                return;
+            }
+
+            let isSuccess = await this._executeRequest(liquidRequest, liquidResponse);
+
+            return liquidResponse;
+        }
+
+        _validateRequest (liquidRequest) {
+            let requestData = liquidRequest.requestData;
+            let operation = liquidRequest.operation;
+            let hostName = this.domHost ? this.domHost.localName : this.localName;
+            let mainMessage = "cannot make request for operation " + operation + "{0} ... host: " + hostName + "... request: " + JSON.stringify(requestData);
+
+            if (!requestData) {
+                console.warn(mainMessage.format(": requestData not found"));
+                return false;
+            }
+            if (!requestData.params) {
+                console.warn(mainMessage.format(": requestData.params not found"));
+                return false;
+            }
+
+            if (requestData.params.isCombinedQuerySearch) {
+                // Todo.. Do VALIDATION
+                return true;
+            }
+
+            if (!requestData.params.query) {
+                console.warn(mainMessage.format(": requestData.params.query not found"));
+                return false;
+            }
+
+            let isIdExists = requestData.params.query.id !== undefined || requestData.params.query.ids !== undefined;
+            let isNameExists = requestData.params.query.name !== undefined || requestData.params.query.names !== undefined;
+            let isCtxExists = requestData.params.query.contexts !== undefined && requestData.params.query.contexts.length > 0;
+            let isTypeCriterionExists = requestData.params.query.filters !== undefined && requestData.params.query.filters.typesCriterion !== undefined && requestData.params.query.filters.typesCriterion.length > 0;
+
+            if (!(isIdExists || isNameExists || isCtxExists || isTypeCriterionExists)) {
+                console.warn(mainMessage.format(": at least one must be present (ids, contexts, typesCriterion)"));
+                return false;
+            }
+
+            if (!isTypeCriterionExists) {
+                console.warn(mainMessage.format(": typesCriterion is mandatory in filters"));
+                return false;
+            }
+
+            let typesCriterion = requestData.params.query.filters.typesCriterion;
+            if (typesCriterion) {
+                typesCriterion.forEach(function (item) {
+                    if (typeof item != "string") {
+                        console.warn(mainMessage.format(": typesCriterion has non-string value in filters"));
+                        return false;
+                    }
+                }, this);
+            }
+
+            //operation based validation
+            if (operation === "getbyids") {
+                if (!(isIdExists || isNameExists)) {
+                    console.warn(mainMessage.format(": at least one of [id / ids / name] field is mandatory for this operation"));
+                    return false;
+                }
+            } else if (operation == "getsearchresultdetail") {
+                if (!liquidRequest.requestId) {
+                    console.warn(mainMessage.format(": requestId is mandatory for this operation"));
+                    return false;
+                }
+            }
+
+            // Fill if someone does not pass fields
+            if (requestData.params && !requestData.params.fields) {
+                requestData.params.fields = {};
+            }
+
+            return true;
+        }
+    
+        async _preProcessRequest (liquidRequest) {
+            await this._updateDataIndex(liquidRequest);
+
+            await this._updateRequestDataForDeletedObjectTypes(liquidRequest);
+
+            await this._updateRequestDataValueContextsWithFallbackLocales(liquidRequest);
+
+            return await true;
+        }
+
+        async _updateRequestDataForDeletedObjectTypes (liquidRequest) {
+            let requestData = liquidRequest.requestData;
+            
+            if (requestData && requestData.params && requestData.params.query) {
+                let dataObjectName = requestData.params.query.name;
+                if (dataObjectName && dataObjectName.indexOf("delete") === 0) {
+                    requestData.params.query.name = dataObjectName.replace("delete", "");
+                }
+                let dataObjectId = requestData.params.query.id;
+                if (dataObjectId && dataObjectId.indexOf("delete") === 0) {
+                    requestData.params.query.id = dataObjectId.replace("delete", "");
+                }
+            }
+        }
+    
+        async _updateRequestDataValueContextsWithFallbackLocales (liquidRequest) {
+            let reqData = liquidRequest.requestData;
+
+            if (reqData.params && reqData.params.query && reqData.params.query.valueContexts) {
+                let valContexts = DataHelper.cloneObject(reqData.params.query.valueContexts);
+                for (let valContextIndex = 0; valContextIndex < valContexts.length; valContextIndex++) {
+                    let locale = valContexts[valContextIndex].locale;
+                    let fallbackLocales = await DataHelper.getFallbackLocalesForLocaleAsync(locale);
+                    if (fallbackLocales) {
+                        for (let fallbackLocaleIndex = 0; fallbackLocaleIndex < fallbackLocales.length; fallbackLocaleIndex++) {
+                            let fallbackLocale = fallbackLocales[fallbackLocaleIndex].name;
+                            let existingValCtx = reqData.params.query.valueContexts.find(obj => obj.locale === fallbackLocale);
+                            if (!existingValCtx) {
+                                let valCtx = DataHelper.cloneObject(valContexts[valContextIndex]);
+                                valCtx.locale = fallbackLocale;
+                                reqData.params.query.valueContexts.push(valCtx);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    
+        async _updateDataIndex (liquidRequest) {
+            // let requestData = liquidRequest.reqData;
+            // let options = liquidRequest.options;
+
+            // if (options.dataIndex == "config") {
+            //     return;
+            // }
+
+            // let entityType, domain;
+            // if (DataHelper.isValidObjectPath(requestData, "params.query.filters.typesCriterion")) {
+            //     entityType = requestData.params.query.filters.typesCriterion[0];
+            // }
+
+            // if (entityType) {
+            //     let entityTypeManager = EntityTypeManager.getInstance();
+
+            //     if (entityTypeManager) {
+            //         domain = await entityTypeManager.getDomainByType(entityType);
+            //     }
+
+            //     if (domain) {
+            //         let dataIndexDomainMappings = SharedUtils.DataObjectFalcorUtil.getDataIndexDomainMappings();
+            //         if (dataIndexDomainMappings) {
+            //             let dataIndex = dataIndexDomainMappings[domain];
+
+            //             if (!_.isEmpty(dataIndex)) {
+            //                 this.dataIndex = dataIndex;
+            //             }
+            //         }
+            //     }
+            // }
+
+        }
+    
+        async _executeRequest (liquidRequest, liquidResponse) {
+            let OperationExecutors = await this._getOperationDefinition(liquidRequest.operation);
+            for (let executor of OperationExecutors) {
+                let isSuccess = await executor.execute(liquidRequest, liquidResponse);
+                if (!isSuccess) {
+                    return false;
+                }
+            }
+
+            return await true;
+        }
+
+        async _postProcess (liquidRequest, liquidResponse) {
+            let options = liquidRequest.options;
+            let formattedResponse = liquidResponse.response.content;
+            let originalRequestData = liquidRequest.originalRequestData;
+
+            if (options.applyLocaleCoalesce) {
+                formattedResponse = await DataTransformHelper.transformDataToLocaleCoalescedData(formattedResponse, originalRequestData);
+            }
+
+            if (options.useDataCoalesce) {
+                formattedResponse = DataTransformHelper.transformDataToContextCoalescedData(formattedResponse, originalRequestData);
+            }
+
+            if (options.includeTypeExternalName) {
+                //TODO: VISHAL :: Code for type external name...
+            }
+        }
+    }
+
+    customElements.define(LiquidDataObjectManager.is, LiquidDataObjectManager);
+
+</script>

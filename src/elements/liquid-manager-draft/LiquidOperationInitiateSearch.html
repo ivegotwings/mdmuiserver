@@ -1,0 +1,124 @@
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../liquid-dataobject-utils/liquid-dataobject-utils.html">
+
+<link rel="import" href="./LiquidRequest.html">
+<link rel="import" href="./LiquidResponse.html">
+
+<link rel="import" href="./LiquidOperationBase.html">
+<link rel="import" href="./FalcorManager.html">
+
+<script>
+    class LiquidOperationInitiateSearch extends LiquidOperationBase {
+        constructor () {
+            super();
+        }
+
+        static async execute (liquidRequest, liquidResponse) {
+            super.execute(liquidRequest, liquidResponse);
+            let options = liquidRequest.options;
+            let response = {
+                "status": "success",
+                "content": {}
+            };
+
+            let responsePkg = await this._callInitiateSearch(liquidRequest, liquidResponse);
+
+            if (responsePkg) {
+                response.content = await this.format(responsePkg, options);
+            }
+
+            liquidResponse.response = response;
+            return true;
+        }
+
+        static async _callInitiateSearch (liquidRequest, liquidResponse) {
+            let options = liquidRequest.options;
+            let pathKeys = SharedUtils.DataObjectFalcorUtil.getPathKeys();
+            let utils = SharedUtils.DataObjectFalcorUtil;
+
+            let functionPath = [pathKeys.root, options.dataIndex, pathKeys.searchResults, "create"];
+            let checkCachedQuery = true;
+
+            let cachedResultFound = false;
+            let responsePkg = undefined;
+
+            if (checkCachedQuery) {
+                let queryAsJsonString = JSON.stringify(liquidRequest.requestData);
+                let searchResultFields = ["requestId", "maxRecords", "totalRecords", "resultRecordSize"];
+                let searchResultPath = [pathKeys.root, options.dataIndex, "cachedSearchResults", queryAsJsonString, searchResultFields];
+                
+                let cachedQueryResponsePkg = await FalcorManager.get(options.dataIndex, [searchResultPath]);
+
+                if (utils.isValidObjectPath(cachedQueryResponsePkg, "json." + pathKeys.root + "." + options.dataIndex + ".cachedSearchResults." + queryAsJsonString + ".totalRecords")) {
+                    let queryResultPkg = cachedQueryResponsePkg.json[pathKeys.root][options.dataIndex]["cachedSearchResults"][queryAsJsonString];
+                    let totalRecords = queryResultPkg["totalRecords"];
+                    
+                    if(totalRecords > 0) {
+                        let searchResultItemsPath = [pathKeys.root, options.dataIndex, "cachedSearchResults", queryAsJsonString, pathKeys.searchResultItems, [{"from": 0,"to": totalRecords - 1}]];
+                        let itemsPkg = await FalcorManager.get(options.dataIndex, [searchResultItemsPath]);
+                        queryResultPkg[pathKeys.searchResultItems] = itemsPkg.json[pathKeys.root][options.dataIndex]["cachedSearchResults"][queryAsJsonString][pathKeys.searchResultItems];
+                    
+                        responsePkg = {};
+                        responsePkg.json = {};
+                        responsePkg.json[pathKeys.root] = {};
+                        responsePkg.json[pathKeys.root][options.dataIndex] = {};
+                        responsePkg.json[pathKeys.root][options.dataIndex][pathKeys.searchResults] = {};
+                        responsePkg.json[pathKeys.root][options.dataIndex][pathKeys.searchResults][queryResultPkg.requestId] = queryResultPkg;
+                    
+                        cachedResultFound = true;
+                    }
+                }
+            }
+
+            if (!cachedResultFound) {
+                responsePkg = await FalcorManager.call(options.dataIndex, functionPath, [liquidRequest.requestData], [], []);
+            }
+
+            return responsePkg;
+        }
+    
+        static async format (responsePkg, options) {
+            await super.format(responsePkg, options);
+
+            let output = {};
+            let pathKeys = SharedUtils.DataObjectFalcorUtil.getPathKeys();
+
+            let resSearchResults = responsePkg.json[pathKeys.root][options.dataIndex][pathKeys.searchResults];
+            
+            if (!_.isEmpty(resSearchResults)) {
+                let resSearchResultId = Object.keys(resSearchResults)[0];
+                let searchResultItemsKey = pathKeys.searchResultItems;
+
+                for (let fieldKey in resSearchResults[resSearchResultId]) {
+                    let field = resSearchResults[resSearchResultId][fieldKey];
+
+                    if (fieldKey == searchResultItemsKey) {
+                        let items = field;
+                        let formattedItems = [];
+
+                        for (let itemKey in items) {
+                            let item = items[itemKey];
+                            if (item) {
+                                let id = item["4"];
+                                let type = item["2"];
+
+                                if (id && type) {
+                                    formattedItems.push({
+                                        "id": id,
+                                        "type": type
+                                    });
+                                }
+                            }
+                        }
+
+                        output[fieldKey] = formattedItems;
+                    } else {
+                        output[fieldKey] = field;
+                    }
+                }
+            }
+
+            return output;
+        }
+    }
+</script>
