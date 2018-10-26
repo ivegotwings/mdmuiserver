@@ -611,8 +611,9 @@
                 }
                 
                 this._relatedEntityRequestTracker--;
+                let compositeModel;
                 if (e && e.detail && DataHelper.validateGetModelsResponse(e.detail.response)) {
-                    let compositeModel = e.detail.response.content.entityModels[0];
+                    compositeModel = e.detail.response.content.entityModels[0];
                     let attributeModels = DataTransformHelper.transformAttributeModels(compositeModel, this.contextData);
                     _.extend(this.relatedEntityAttributeModel, attributeModels);
                     let properties = compositeModel.properties;
@@ -635,7 +636,24 @@
                     this.logError("Failed to get model of related entity type:", e.detail, true);
                 }
 
-                if (this._relatedEntityRequestTracker == 0 && !_.isEmpty(this.relatedEntityAttributeModel)) {
+                if(_.isEmpty(this.relatedEntityAttributeModel)) {
+                    this.logError("Attribute models are not available for related entity in current context", e.detail);
+                }
+
+                /**
+                 * If no attributemodels present either in relationship or
+                 * related entity, then combined attributeModels will be empty.
+                 * For the rel grid schema we use, attributeModels are mandatory to render grid.
+                 * Even though relationship has entities, grid won't load.
+                 * In that case, getting attribute with 'isExternalName' flag from 
+                 * related entity model and pushing it to the relatedEntityAttributeModels
+                 * in relConfig and updating gridConfig accordingly just to render grid
+                 * */
+                if(this._noAttributeModelsPresent()) {
+                    this._updateConfigWithAttributeModel(compositeModel);
+                }
+
+                if (this._relatedEntityRequestTracker == 0) {
                     this.relGridConfig = this._relConfig;
                     this._resetSpinner();
                 }
@@ -795,13 +813,50 @@
                     whereusedGrid.refresh(options);
                 }
             }
-
             _getRelationshipMode(tabRelMode, gridRelMode) {
                 if(gridRelMode) {
                     return gridRelMode;
                 }
 
                 return tabRelMode;
+            }
+            _noAttributeModelsPresent() {
+                if(this._relConfig) {
+                    let relAttributesEmpty = _.isEmpty(this._relConfig.relationshipAttributeModels);
+                    let relatedEntityAttributesEmpty = !DataHelper.isValidObjectPath(this._relConfig, "relatedEntityModel.relatedEntityAttributeModels") || _.isEmpty(this._relConfig.relatedEntityModel.relatedEntityAttributeModels);
+
+                    return relAttributesEmpty && relatedEntityAttributesEmpty;
+                }
+            }
+
+            _updateConfigWithAttributeModel(entityModel) {
+                if(!_.isEmpty(entityModel) && this._relConfig) {
+                    let externalNameAndExternalNameAttr = AttributeHelper.getExternalNameAndExternalNameAttr(entityModel);
+                    if(!_.isEmpty(externalNameAndExternalNameAttr)) {
+                        let externalNameAttr = externalNameAndExternalNameAttr.externalNameAttr;
+                        let transformAttributeModels = DataTransformHelper.transformAttributeModels(entityModel, {});
+                        let externalNameAttrModel = transformAttributeModels[externalNameAttr];
+                        if(externalNameAttrModel) {
+                            this._relConfig.relatedEntityModel = this._relConfig.relatedEntityModel || {};
+                            this._relConfig.relatedEntityModel.relatedEntityAttributeModels = {};
+                            this._relConfig.relatedEntityModel.relatedEntityAttributeModels[externalNameAttr] = externalNameAttrModel;
+
+                            this._relConfig.gridConfig = this._relConfig.gridConfig || {};
+                            this._relConfig.gridConfig.itemConfig = this._relConfig.gridConfig.itemConfig || {};
+                            this._relConfig.gridConfig.itemConfig.fields = this._relConfig.gridConfig.itemConfig.fields || {};
+                            let columnData = {
+                                "dataType": externalNameAttrModel.dataType,
+                                "header": externalNameAttrModel.externalName,
+                                "isMetaDataColumn": false,
+                                "linkTemplate": "entity-manage?id={id}&type={type}",
+                                "name": externalNameAttr,
+                                "visible": true,
+                                "readOnly": true
+                            };
+                            this._relConfig.gridConfig.itemConfig.fields[externalNameAttr] = columnData;
+                        }
+                    }
+                }
             }
         }
         customElements.define(RockEntityRelationshipSearchResult.is, RockEntityRelationshipSearchResult);
