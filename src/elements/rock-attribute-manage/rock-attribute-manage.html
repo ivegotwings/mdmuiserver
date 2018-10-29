@@ -10,6 +10,7 @@
 <link rel="import" href="../bedrock-helpers/data-merge-helper.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+<link rel="import" href="../bedrock-business-function-behavior/bedrock-component-business-function-behavior.html">
 
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 <link rel="import" href="../liquid-entity-govern-data-get/liquid-entity-govern-data-get.html">
@@ -23,6 +24,7 @@
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
 
 <link rel="import" href="../rock-attribute-list/rock-attribute-list.html">
+<link rel="import" href="../rock-component-config-behavior/rock-component-config-behavior.html">
 
 <!--
 `rock-attribute-manage` Represents the component to manage the attribute values.
@@ -59,6 +61,13 @@ It is responsible to "get" and "save" the attributes.
                 height: 100%;
                 overflow-y: auto;
                 overflow-x: hidden;
+            }
+
+            .buttonContainer-top-right{
+                text-align: right;
+                padding-top: 10px;
+                margin-bottom: 0px;
+                margin-top: 0px;
             }
 
             /* IE edge specific fix for button-siblings */
@@ -108,6 +117,12 @@ It is responsible to "get" and "save" the attributes.
         <liquid-rest id="entityMatchService" url="/data/pass-through/matchservice/search" method="POST" request-data={{_entityMatchRequest}}
             on-liquid-response="_onMatchSuccess" on-liquid-error="_onMatchFailure">
         </liquid-rest>
+        <div id="buttonContainer" align="center" class="buttonContainer-top-right">
+            <template is="dom-if" if="[[!isPartOfBusinessFunction]]">
+                <pebble-button id="cancel" class="btn btn-secondary m-r-5" button-text="Cancel" on-tap="_openCancelDialog" elevation=1 raised></pebble-button>
+            </template>
+            <pebble-button id="save" disabled="[[readonly]]" class="focus btn btn-success" button-text="Save" on-tap="_save" elevation=1 raised></pebble-button>
+        </div>
         <div class="base-grid-structure button-siblings">
             <div class="base-grid-structure-child-1">
                 <template is="dom-if" if="[[_showNoAttributeMessage]]">
@@ -124,20 +139,17 @@ It is responsible to "get" and "save" the attributes.
                 </template>
             </div>
         </div>
-        <div id="buttonContainer" align="center" class="buttonContainer-static">
-            <pebble-button id="cancel" class="btn btn-secondary m-r-5" button-text="Cancel" on-tap="_openCancelDialog" elevation=1 raised></pebble-button>
-            <pebble-button id="save" disabled="[[readonly]]" class="focus btn btn-success" button-text="Save" on-tap="_save" elevation=1
-                raised></pebble-button>
-        </div>
-
         <liquid-entity-data-get name="relatedEntityGet" operation="getbyids" on-response="_relatedEntityGetResponse" exclude-in-progress></liquid-entity-data-get>
-
         <bedrock-pubsub event-name="global-edit" handler="_onGlobalEdit"></bedrock-pubsub>
         <bedrock-pubsub event-name="source-info-open" handler="_onSourceInfoOpen"></bedrock-pubsub>
     </template>
     <script>
-        class RockAttributeManage extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.ComponentContextBehavior],
-            Polymer.OptionalMutableData(Polymer.Element)) {
+        class RockAttributeManage extends Polymer.mixinBehaviors([
+            RUFBehaviors.UIBehavior,
+            RUFBehaviors.ComponentContextBehavior,
+            RUFBehaviors.ComponentConfigBehavior,
+            RUFBehaviors.ComponentBusinessFunctionBehavior
+        ], Polymer.OptionalMutableData(Polymer.Element)) {
             static get is() {
                 return "rock-attribute-manage";
             }
@@ -432,7 +444,7 @@ It is responsible to "get" and "save" the attributes.
             }
             refresh() {
                 //this._configContextChanged(this.getFirstValueContext());
-                this._contextChanged(this.contextData.ValContexts);
+                this._triggerAttributeManage(this.contextData.ValContexts);
             }
             _getButtonsClass(functionalMode) {
                 if (functionalMode == "dataFunction") {
@@ -457,11 +469,34 @@ It is responsible to "get" and "save" the attributes.
                     this.attributeList.mode = mode;
                 }
             }
-            async _contextChanged(valueContexts) {
-                if (valueContexts != undefined) {
+            async _contextChanged(contexts) {
+                if (this.isPartOfBusinessFunction) {
+                    let context = DataHelper.cloneObject(this.contextData);
+                    //App specific
+                    let appName = "";
+                    appName = ComponentHelper.getCurrentActiveAppName(this);
+                    if (appName) {
+                        context[ContextHelper.CONTEXT_TYPE_APP] = [{
+                            "app": appName
+                        }];
+                    }
+                    this.requestConfig('rock-attribute-manage', context);
+                } else {
+                    await this._triggerAttributeManage(contexts);
+                }
+            }
+
+            async onConfigLoaded(componentConfig) {
+                let firstItemContext = ContextHelper.getFirstItemContext(this.contextData);
+                firstItemContext.attributeNames = this.configContext.attributeNames || [];
+                await this._triggerAttributeManage(this.contextData);
+            }
+
+            async _triggerAttributeManage(contexts) {
+                if (contexts != undefined) {
                     this.logInfo("AttributeManageContextChange", "contextData", this.contextData);
 
-                    if (_.isEmpty(valueContexts) || _.isEmpty(this.contextData)) {
+                    if (_.isEmpty(contexts) || _.isEmpty(this.contextData)) {
                         return;
                     }
 
@@ -494,7 +529,7 @@ It is responsible to "get" and "save" the attributes.
 
                         let compositeModel = await this._getCompositeModel(compositeModelGetRequest);
                         let transformedModels = await DataTransformHelper.transformAttributeModels(
-                            compositeModel, this.contextData,writePermission);
+                            compositeModel, this.contextData, writePermission);
                         this._dependentAttributeModels = this._dependentAttributeModels || {};
                         for (let modelName in transformedModels) {
                             this._dependentAttributeModels[modelName] = transformedModels[
@@ -977,7 +1012,13 @@ It is responsible to "get" and "save" the attributes.
                     let message = this.successMessage ? this.successMessage :
                         "Attribute save request is submitted successfully!!";
                     this.showSuccessToast(message, 10000);
-                    this.mode = "view";
+                    let itemContext = ContextHelper.getFirstItemContext(this.contextData);
+                    if (itemContext) {
+                        this.dataFunctionComplete({ "id": itemContext.id, "type": itemContext.type });
+                    }
+                    if (!this.isPartOfBusinessFunction) {
+                        this.mode = "view";
+                    }
 
                     //Raise event on attributes save
                     this.fireBedrockEvent("on-attribute-save", null, {
