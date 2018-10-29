@@ -34,6 +34,9 @@ DataObjectLineageService.prototype = {
                         }
 
                         if (!isEmpty(paths)) {
+                            //Removing root node path since UI is appending root node externalName
+                            paths.pop();
+                            
                             if(!falcorUtil.isValidObjectPath(entity, "data.relationships")) {
                                 entity.data.relationships = {};
                                 entity.data.relationships[relationshipType] = [{}];
