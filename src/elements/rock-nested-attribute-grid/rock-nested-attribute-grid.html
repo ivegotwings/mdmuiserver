@@ -19,9 +19,10 @@
         <style include="bedrock-style-common">
             rock-grid {
                 --data-table-container-position: relative;
-               --list:{
-                   @apply --nested-list;
-               } 
+
+                --list: {
+                    @apply --nested-list;
+                }
             }
 
             .grid {
@@ -42,9 +43,9 @@
         </template>
         <div class="grid" hidden$="[[!_showGrid]]">
             <rock-grid id="attributesGrid" config="{{_gridConfig}}" data="{{_gridData}}" attribute-models="[[_attributeModels]]" no-header
-                page-size="20" is-dirty="{{_isGridDirty}}" context-data="[[contextData]]" apply-locale-coalesce="[[applyLocaleCoalesce]]"
+                page-size="20" is-dirty="{{_isGridDirty}}" context-data="[[contextData]]" apply-locale-coalesce="[[applyLocaleCoalesce]]" apply-graph-coalesced-style$="[[applyGraphCoalescedStyle]]"
                 dependent-attribute-objects="[[dependentAttributeObjects]]" dependent-attribute-model-objects="[[dependentAttributeModelObjects]]"
-                inline-validation-enabled>
+                inline-edit-validation-enabled>
             </rock-grid>
             <bedrock-pubsub event-name="delete-item" handler="_onRowDelete" target-id="attributesGrid"></bedrock-pubsub>
             <bedrock-pubsub event-name="refresh-grid" handler="_onRefreshGrid" target-id="attributesGrid"></bedrock-pubsub>
@@ -52,10 +53,10 @@
     </template>
     <script>
         class RockNestedAttributeGrid
-        extends Polymer.mixinBehaviors([
-            RUFBehaviors.UIBehavior,
-            RUFBehaviors.ComponentContextBehavior
-        ], Polymer.OptionalMutableData(Polymer.Element)) {
+            extends Polymer.mixinBehaviors([
+                RUFBehaviors.UIBehavior,
+                RUFBehaviors.ComponentContextBehavior
+            ], Polymer.OptionalMutableData(Polymer.Element)) {
             static get is() {
                 return 'rock-nested-attribute-grid'
             }
@@ -182,6 +183,10 @@
                         value: function () {
                             return {};
                         }
+                    },
+                    applyGraphCoalescedStyle: {
+                        type: Boolean,
+                        value: false
                     }
                 }
             }
@@ -206,8 +211,8 @@
             }
             _attributeObjectChanged(attributeObject) {
                 if (!_.isEmpty(attributeObject) && attributeObject.value && (!this._isGridReady || (this.originalAttributeObject &&
-                        this.originalAttributeObject.value && DataHelper.areEqualArrays(attributeObject.value,
-                            this.originalAttributeObject.value)))) {
+                    this.originalAttributeObject.value && DataHelper.areEqualArrays(attributeObject.value,
+                        this.originalAttributeObject.value)))) {
                     this._prepareGridData(attributeObject);
                 }
             }
@@ -279,13 +284,14 @@
 
             _prepareGridData(attributeObject) {
                 this._gridData = [];
-
                 this.async(function () {
+                    let hasErrorOrWarnings = false;
                     if (attributeObject && attributeObject.value && attributeObject.value.length > 0) {
+                        let errors = attributeObject.errors && attributeObject.errors.length ? attributeObject.errors[0] : undefined;
                         for (let i = 0; i < attributeObject.value.length; i++) {
                             let value = attributeObject.value[i];
                             if (!this._gridData.find(obj => value["valueIdentifier"] && (obj.valueIdentifier ===
-                                    value["valueIdentifier"].value))) {
+                                value["valueIdentifier"].value))) {
                                 let rowData = {};
                                 for (let attrName in value) {
                                     if (typeof value[attrName] == 'object') {
@@ -300,17 +306,30 @@
                                             rowData[attrName + "_contextCoalescePaths"] = value[
                                                 attrName].contextCoalescePaths;
                                         }
+                                        if (value[attrName].os === "graph" && value[attrName].osid && value[attrName].ostype) {
+                                            rowData[attrName + "_os"] = value[attrName].os;
+                                            rowData[attrName + "_osid"] = value[attrName].osid;
+                                            rowData[attrName + "_ostype"] = value[attrName].ostype;
+                                        }
                                     }
+                                }
+                                if (!_.isEmpty(errors) && DataHelper.isValidObjectPath(value, "valueIdentifier.value")) {
+                                    rowData.errors = errors[value.valueIdentifier.value];
+                                    hasErrorOrWarnings = true;
                                 }
                                 if (!this._isRowEmpty(rowData)) this._gridData.push(rowData);
                             }
                         }
                     }
+                    if (this.attributesGrid && hasErrorOrWarnings) {
+                        this.attributesGrid.inlineReadValidationEnabled = hasErrorOrWarnings;
+                    };
                     this._originalGridData = DataHelper.cloneObject(this._gridData);
                     this._modeChanged(this.mode);
                 });
                 this._isGridReady = true;
             }
+
             _modeChanged(mode) {
                 this._gridData = this._originalGridData ? DataHelper.cloneObject(this._originalGridData) : [];
 
@@ -449,7 +468,7 @@
                 if (attributes && attributes.length) {
                     let keysWithValue = attributes.filter(function (key) {
                         if (self._attributeModels[key] && (!_.isEmpty(rowData[key]) || _.isNumber(
-                                rowData[key]))) {
+                            rowData[key]))) {
                             return key;
                         }
                     });
@@ -475,7 +494,7 @@
                 }
                 if (identifierAttrName) {
                     if (value && value[identifierAttrName] && data[identifierAttrName] !== value[
-                            identifierAttrName].value) {
+                        identifierAttrName].value) {
                         return true;
                     }
                 }
@@ -510,7 +529,7 @@
                 let length = this._gridData.length;
                 let values = DataTransformHelper.transformNestedAttributes({}, this.attributeModelObject, true);
                 let value = values[0];
-                value["valueIdentifier"].value = length;
+                value["valueIdentifier"].value = DataHelper.generateUUID();
                 let newRowItem = {};
                 for (let attrName in value) {
                     newRowItem[attrName] = value[attrName].value;
