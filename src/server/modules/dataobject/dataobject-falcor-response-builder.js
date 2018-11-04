@@ -181,11 +181,6 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
                 }
             } else {
                 for (let item of attr.group) {
-                    // If nested attributes item is marked as deleted it should not be added in cache again.
-                    if("action" in item && item.action.toLowerCase() == "delete") {
-                        continue;
-                    }
-
                     let source = item.source || undefined;
                     let locale = item.locale || undefined;
                     let localeCoalesce = undefined;
@@ -193,6 +188,11 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
                     let valCtxKey = falcorUtil.createCtxKey({ 'source': source, 'locale': locale });
                     let valCtxItem = falcorUtil.getOrCreate(valCtxItems, valCtxKey, {});
                     let group = falcorUtil.getOrCreate(valCtxItem, 'group', []);
+
+                    // If nested attributes item is marked as deleted it should not be added in cache again.
+                    if("action" in item && item.action.toLowerCase() == "delete") {
+                        continue;
+                    }
 
                     let localeCoalesceValCtxKey = falcorUtil.createCtxKey({ 'source': source, 'localeCoalesce': true, 'locale': locale });
                     let localeCoalesceValCtxItem = falcorUtil.getOrCreate(valCtxItems, localeCoalesceValCtxKey, {});
