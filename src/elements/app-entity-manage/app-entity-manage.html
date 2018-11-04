@@ -789,13 +789,17 @@
                 }
             }
 
-            _onContextDataChanged() {
+            async _onContextDataChanged() {
                 //reset to notify contextData change to other components
                 let contextData = DataHelper.cloneObject(this.contextData);
                 this.contextData = {};
                 this._isContextReceived = true;
                 this.contextData = contextData;
                 let valContexts = ContextHelper.getValueContexts(this.contextData);
+
+                if(this.contextData.Contexts && !_.isEmpty(valContexts)) {
+                    await this._getCompositeModel();
+                }
 
                 this._reRenderOnDimensionChange(false);
             }
@@ -961,7 +965,7 @@
                     }
                 }
             }
-            summaryTodoTap(e, detail) {
+            async summaryTodoTap(e, detail) {
                 if (!detail || !detail.type) {
                     this.logError("Configuration missing.", e.detail);
                     return;
@@ -982,7 +986,7 @@
                     this.manageAttributeByProperty = detail.config.propertyInfo || {};
 
                     if (this.manageAttrGroups.length > 0 || !_.isEmpty(this.manageAttributeByProperty)) {
-                        this._triggerManageAttributes();
+                        await this._triggerManageAttributes();
                     } else {
                         if (this.manageAttrNames.length > 0) {
                             this._openManageAttributesDialog(this.manageAttrLabel, this.manageAttrNames);
@@ -1058,54 +1062,58 @@
                 }
             }
 
-            _triggerManageAttributes() {
-                if (!this.compositeAttrModelGetLiq) {   
-                    return;
+            async _triggerManageAttributes() {
+                if(_.isEmpty(this._compositeModel)) {
+                    await this._getCompositeModel();
                 }
-
+                this._onAttributeCompositeModelGetResponse();
+            }
+            async _getCompositeModel() {
+                let compositeModel = {};
+                let entityCompositeModelManager = new EntityCompositeModelManager();
                 let request = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
                 delete request.params.fields.relationships;
                 delete request.params.fields.relationshipAttributes;
                 request.params.fields.attributes = ["_ALL"];
-                this.compositeAttrModelGetLiq.requestData = request;
-                this.compositeAttrModelGetLiq.generateRequest();
+                let compositeModelGetRequest = request;
+                if(entityCompositeModelManager && compositeModelGetRequest) {
+                    compositeModel = await entityCompositeModelManager.get(compositeModelGetRequest, this.contextData);
+                }
+                entityCompositeModelManager = null;
+                this.set("_compositeModel", compositeModel);
+                return compositeModel;
             }
-            _onAttributeCompositeModelGetResponse(e, detail) {
+            _onAttributeCompositeModelGetResponse() {
                 let groupAttributes = [];
-                if (detail && DataHelper.validateGetModelsResponse(detail.response)) {
-                    if (DataHelper.isValidObjectPath(detail, "response.content.entityModels.0")) {
-                        this._compositeModel = detail.response.content.entityModels[0];
-                        let attributeModel = DataTransformHelper.transformAttributeModels(detail.response.content.entityModels[0], this.contextData);
-                        // Merge config attributes and group attributes
-                        let allAttrNames;
-                        if(!_.isEmpty(this.manageAttributeByProperty)) {
-                                for (let key in attributeModel) {
-                                        if (attributeModel[key].properties[this.manageAttributeByProperty
-                                            .propertyName] ==
-                                            this.manageAttributeByProperty.propertyValue) {
-                                            groupAttributes.push(key);
-                                        }
-                                    if (!_.isEmpty(this.manageAttrGroups)) {
-                                        if(DataHelper.isValidObjectPath(attributeModel[key], 'properties.groupName')) {
-
-                                            if (this.manageAttrGroups.indexOf(attributeModel[key].properties.groupName) != -1) {
-                                                groupAttributes.push(key);
-                                            }
-    
-                                        }
-                                    }
+                let attributeModel = DataTransformHelper.transformAttributeModels(this._compositeModel, this.contextData);
+                // Merge config attributes and group attributes
+                let allAttrNames;
+                if(!_.isEmpty(this.manageAttributeByProperty)) {
+                        for (let key in attributeModel) {
+                                if (attributeModel[key].properties[this.manageAttributeByProperty
+                                    .propertyName] ==
+                                    this.manageAttributeByProperty.propertyValue) {
+                                    groupAttributes.push(key);
                                 }
-                                
-                            allAttrNames = groupAttributes;
-                        } else {
-                            if(this.manageAttrNames) {
-                                allAttrNames = this.manageAttrNames.concat(groupAttributes);
-                                if (allAttrNames.length > 0) {
-                                    this._openManageAttributesDialog(this.manageAttrLabel, allAttrNames);
-                                } else {
-                                    this.logError("Manage Attributes - Composite model get response error", detail);
+                            if (!_.isEmpty(this.manageAttrGroups)) {
+                                if(DataHelper.isValidObjectPath(attributeModel[key], 'properties.groupName')) {
+
+                                    if (this.manageAttrGroups.indexOf(attributeModel[key].properties.groupName) != -1) {
+                                        groupAttributes.push(key);
+                                    }
+
                                 }
                             }
+                        }
+                        
+                    allAttrNames = groupAttributes;
+                } else {
+                    if(this.manageAttrNames) {
+                        allAttrNames = this.manageAttrNames.concat(groupAttributes);
+                        if (allAttrNames.length > 0) {
+                            this._openManageAttributesDialog(this.manageAttrLabel, allAttrNames);
+                        } else {
+                            this.logError("Manage Attributes - Composite model get response error", this._compositeModel);
                         }
                     }
                 }
