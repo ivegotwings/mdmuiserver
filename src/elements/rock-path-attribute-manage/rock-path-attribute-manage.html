@@ -125,14 +125,7 @@
                         value: ""
                     },
 
-                    paths: {
-                        type: Array,
-                        value: function () {
-                            return []
-                        }
-                    },
-
-                    selectedPath: {
+                    classificationAttributeModel: {
                         type: Object,
                         value: function () {
                             return {};
@@ -230,17 +223,6 @@
                 }
             }
 
-            _getClassificationsEntityGetRequest(pathRootNodes) {
-                let request = DataRequestHelper.createEntityGetRequest(this.contextData);
-                //Update attributes type and ids
-                delete request.params.query.id;
-                request.params.fields.attributes = ["externalName"];
-                request.params.query.filters.typesCriterion = ["classification"];
-                request.params.query.ids = pathRootNodes;
-
-                return request;
-            }
-
             _onAttributeModelGetResponse(e) {
                 let response = e.detail.response;
                 if (response && response.content && response.content.entityModels) {
@@ -275,6 +257,17 @@
                 this._loading = false;
             }
 
+            _getClassificationsEntityGetRequest(pathRootNodes) {
+                let request = DataRequestHelper.createEntityGetRequest(this.contextData);
+                //Update attributes type and ids
+                delete request.params.query.id;
+                request.params.fields.attributes = ["externalName"];
+                request.params.query.filters.typesCriterion = ["classification"];
+                request.params.query.ids = pathRootNodes;
+
+                return request;
+            }
+
             async _onEntityGetResponse(e, detail) {
                 let entities = [];
                 if (DataHelper.isValidObjectPath(detail, "response.content.entities")) {
@@ -292,18 +285,24 @@
                     if (DataHelper.isValidObjectPath(request, "params.query.filters.typesCriterion")) {
                         //Classification get
                         if (request.params.query.filters.typesCriterion.indexOf("classification") != -1) {
-                            this._prepareClassificationRootPaths(entities);
-                            if (_.isEmpty(this.paths)) {
-                                this.logError("Classification root paths are missing for the process");
+                            this._setClassificationAttributeModel(entities);
+                            if (_.isEmpty(this.classificationAttributeModel) &&
+                                DataHelper.isValidObjectPath(this.classificationAttributeModel, "properties.pathEntityInfo.0")) {
+                                this.logError("Classification attribute model missing for the process");
                                 this._loading = false;
                                 return;
+                            }
+                            //If component opened in rock BF, then set title
+                            let activeBusinessFunctionDialog = RUFUtilities.activeBusinessFunctionDialog;
+                            if (activeBusinessFunctionDialog) {
+                                activeBusinessFunctionDialog.setTitle("Select classifications for - " + this.classificationAttributeModel.properties.externalName);
                             }
                             //generate request for entity
                             let entityRequest = DataRequestHelper.createEntityGetRequest(this.contextData);
                             entityRequest.params.fields.attributes = [this.classificationAttribute];
                             this._triggerEntityGetRequest(entityRequest);
                         } else {
-                            //Entity get
+                            //Current Entity get for already saved classifications
                             this._currentEntity = entities[0];
                             if (DataHelper.isValidObjectPath(entities, "0.data.attributes")) {
                                 let attributes = entities[0].data.attributes;
@@ -318,19 +317,14 @@
                                 this._selectedCategories = this._initialClassifications = classifications;
                             }
 
-                            if (this.selectedPath && DataHelper.isValidObjectPath(this.selectedPath.value, "properties.pathEntityInfo.0")) {
-                                this._showClassificationTree();
-                            } else {
-                                this.logError("Path details missing", this.selectedPath);
-                                this._loading = false;
-                            }
+                            this._showClassificationTree();
                         }
                     }
                 }
             }
 
             _onEntityGetFailed(e) {
-                this.logError("Classification entities data get failed", e.detail);
+                this.logError("Entities data get failed", e.detail);
                 this._loading = false;
             }
 
@@ -342,9 +336,8 @@
                 }
             }
 
-            _prepareClassificationRootPaths(entities) {
-                let paths = [];
-                this.attributeModels.forEach(function (model) {
+            _setClassificationAttributeModel(entities) {
+                for (let model of this.attributeModels) {
                     let classificationEntity = entities.filter(entity => {
                         return entity.id == model.properties.pathEntityInfo[0].rootNode;
                     }, this);
@@ -355,26 +348,15 @@
                     }
                     model.properties.pathEntityInfo[0].rootNodeExternalName = classificationEntity[0].data.attributes.externalName.values[0].value;
 
-                    paths.push({
-                        "title": model.properties.pathEntityInfo[0].rootNodeExternalName,
-                        "value": model
-                    });
-                }, this);
-                this.paths = paths;
-
-                if (!_.isEmpty(this.paths)) {
-                    for (let idx = 0; idx < this.paths.length; idx++) {
-                        if (this.paths[idx].value && this.paths[idx].value.name &&
-                            this.classificationAttribute == this.paths[idx].value.name.toLowerCase()) {
-                            this.selectedPath = this.paths[idx];
-                            break;
-                        }
+                    if (this.classificationAttribute == model.name.toLowerCase()) {
+                        this.classificationAttributeModel = model;
+                        break;
                     }
                 }
             }
 
             _showClassificationTree() {
-                let pathEntityInfo = this.selectedPath.value.properties.pathEntityInfo[0];
+                let pathEntityInfo = this.classificationAttributeModel.properties.pathEntityInfo[0];
                 this.pathEntityType = pathEntityInfo.pathEntityType;
                 this.pathRelationshipName = pathEntityInfo.pathRelationshipName;
                 this.pathRootNode = pathEntityInfo.rootNode;
@@ -423,7 +405,7 @@
                 if (DataHelper.isValidObjectPath(e, "detail.response.status") &&
                     e.detail.response.status == "success") {
                     let itemCtx = ContextHelper.getFirstItemContext(this.contextData) || {};
-                    this.dataFunctionComplete({"id": itemCtx.id, "type": itemCtx.type});
+                    this.dataFunctionComplete({ "id": itemCtx.id, "type": itemCtx.type });
                     this._updateInitialClassifications();
                     this.showSuccessToast("Classifications save request submitted successfully.");
                 }
