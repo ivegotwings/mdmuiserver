@@ -54,14 +54,13 @@
         <div class="button-siblings">
             <div class="base-grid-structure w-70 align-center" align="center">
                 <div class="tree-heading base-grid-structure-child-1">
-                    <p class="title" hidden$="[[hideTitle]]">[[pathAttributeModel.properties.externalName]]</p>
+                    <p class="title" hidden$="[[hideTitle]]">[[_getAttributeExternalName(pathAttributeModels)]]</p>
                 </div>
                 <div class="base-grid-structure-child-2">
                     <rock-classification-tree id="contextTree" multi-select="[[multiSelect]]" root-node="[[pathRootNode]]" path-entity-type="[[pathEntityType]]" path-relationship-name="[[pathRelationshipName]]" context-data="[[contextData]]" selected-classifications="{{_selectedCategories}}" leaf-node-only="[[leafNodeOnly]]"></rock-classification-tree>
                 </div>
             </div>
         </div>
-        <liquid-entity-model-get id="getEntityTypeModel" operation="getbyids" on-response="_onEntityTypeModelReceived" on-error="_onEntityTypeModelFailed"></liquid-entity-model-get>
         <liquid-entity-model-get id="liquidAttributeModelGet" operation="getbyids" on-error="_onAttributeModelGetError" on-response="_onAttributeModelGetResponse" exclude-in-progress></liquid-entity-model-get>
         <liquid-entity-data-get id="getEntity" operation="getbyids" data-index="entityData" on-response="_onEntityGetResponse" on-error="_onEntityGetFailed" no-cache="true"></liquid-entity-data-get>
         <liquid-entity-data-save id="attributeSaveDataService" operation="update" data-index="entityData" last-response="{{_saveResponse}}" on-response="_onSaveResponse" on-error="_onSaveError"></liquid-entity-data-save>
@@ -132,14 +131,7 @@
                         value: ""
                     },
 
-                    pathAttributeModel: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    },
-
-                    attributeModels: {
+                    pathAttributeModels: {
                         type: Array,
                         value: function () {
                             return [];
@@ -233,16 +225,9 @@
             }
 
             async _triggerGetClassificationsProcess() {
-                //entityType, then fetch domain
-                let itemContext = this.getFirstItemContext();
-                let entityTypeManager = EntityTypeManager.getInstance();
-                if (entityTypeManager && itemContext) {
-                    this.domain = await entityTypeManager.getDomainByType(itemContext.type);
-                }
-                let enhancerAttributes = await ContextModelManager.getEnhancerAttributeNamesBasedOnDomainAndContext(this.domain);
                 this._liquidAttributeModelGetElement = this.$$('#liquidAttributeModelGet');
                 if (this._liquidAttributeModelGetElement) {
-                    this._liquidAttributeModelGetElement.requestData = DataRequestHelper.createGetAttributeModelRequest(enhancerAttributes);
+                    this._liquidAttributeModelGetElement.requestData = DataRequestHelper.createGetAttributeModelRequest([this.pathAttribute]);
                     this._liquidAttributeModelGetElement.generateRequest();
                 }
             }
@@ -252,44 +237,32 @@
                 if (response && response.content && response.content.entityModels) {
                     let attributeModels = response.content.entityModels;
                     let pathModels = [];
-                    let pathRootNodes = [];
                     attributeModels.forEach(function (model) {
                         if (DataHelper.isValidObjectPath(model, "properties.displayType") &&
                             (model.properties.displayType || "").toLowerCase() == "path" &&
                             DataHelper.isValidObjectPath(model.properties, "pathEntityInfo.0.rootNode") &&
                             model.properties.pathEntityInfo[0].rootNode) {
                             pathModels.push(model);
-                            pathRootNodes.push(model.properties.pathEntityInfo[0].rootNode);
                         }
                     }, this);
-                    this.attributeModels = pathModels;
 
-                    if (_.isEmpty(pathRootNodes)) {
-                        this.logError("Classification root nodes not available for the process");
+                    if (_.isEmpty(pathModels)) {
+                        this.logError("Path attribute model not available for the process");
                         this._loading = false;
                         return;
                     }
 
-                    //Prepare entity get request with pathRootNodes
-                    let request = this._getClassificationsEntityGetRequest(pathRootNodes);
-                    this._triggerEntityGetRequest(request);
+                    this.pathAttributeModels = pathModels;
+                    //To get current entity details
+                    let entityRequest = DataRequestHelper.createEntityGetRequest(this.contextData);
+                    entityRequest.params.fields.attributes = [this.pathAttribute];
+                    this._triggerEntityGetRequest(entityRequest);
                 }
             }
 
             _onAttributeModelGetError(e) {
                 this.logError("Attribute model get error", e.detail);
                 this._loading = false;
-            }
-
-            _getClassificationsEntityGetRequest(pathRootNodes) {
-                let request = DataRequestHelper.createEntityGetRequest(this.contextData);
-                //Update attributes type and ids
-                delete request.params.query.id;
-                request.params.fields.attributes = ["externalName"];
-                request.params.query.filters.typesCriterion = ["classification"];
-                request.params.query.ids = pathRootNodes;
-
-                return request;
             }
 
             async _onEntityGetResponse(e, detail) {
@@ -299,52 +272,33 @@
                 }
 
                 if (_.isEmpty(entities)) {
-                    this.logError("Entities missing for the process");
+                    this.logError("Current entity missing for the process");
                     this._loading = false;
                     return;
                 }
 
-                if (detail && detail.request && detail.request.requestData) {
-                    let request = detail.request.requestData;
-                    if (DataHelper.isValidObjectPath(request, "params.query.filters.typesCriterion")) {
-                        //Classification get
-                        if (request.params.query.filters.typesCriterion.indexOf("classification") != -1) {
-                            this._setPathAttributeModel(entities);
-                            if (_.isEmpty(this.pathAttributeModel) &&
-                                DataHelper.isValidObjectPath(this.pathAttributeModel, "properties.pathEntityInfo.0")) {
-                                this.logError("Path attribute model missing for the process");
-                                this._loading = false;
-                                return;
-                            }
-                            //If component opened in rock BF, then set title
-                            let activeBusinessFunctionDialog = RUFUtilities.activeBusinessFunctionDialog;
-                            if (activeBusinessFunctionDialog) {
-                                activeBusinessFunctionDialog.setTitle("Select classifications for - " + this.pathAttributeModel.properties.externalName);
-                            }
-                            //generate request for entity
-                            let entityRequest = DataRequestHelper.createEntityGetRequest(this.contextData);
-                            entityRequest.params.fields.attributes = [this.pathAttribute];
-                            this._triggerEntityGetRequest(entityRequest);
-                        } else {
-                            //Current Entity get for already saved classifications
-                            this._currentEntity = entities[0];
-                            if (DataHelper.isValidObjectPath(entities, "0.data.attributes")) {
-                                let attributes = entities[0].data.attributes;
-                                let classifications = [];
-                                if (attributes[this.pathAttribute]) {
-                                    attributes[this.pathAttribute].values.forEach(item => {
-                                        let paths = item.value.split(this._pathSeperator) || [];
-                                        paths.shift(); //Remove root node
-                                        classifications.push(paths);
-                                    }, this)
-                                }
-                                this._selectedCategories = this._initialClassifications = classifications;
-                            }
-
-                            this._showClassificationTree();
-                        }
+                //Current Entity get for already saved classifications
+                this._currentEntity = entities[0];
+                if (DataHelper.isValidObjectPath(entities[0], "data.attributes")) {
+                    let attributes = entities[0].data.attributes;
+                    let classifications = [];
+                    if (attributes[this.pathAttribute]) {
+                        attributes[this.pathAttribute].values.forEach(item => {
+                            let paths = item.value.split(this._pathSeperator) || [];
+                            paths.shift(); //Remove root node
+                            classifications.push(paths);
+                        }, this)
                     }
+                    this._selectedCategories = this._initialClassifications = classifications;
                 }
+
+                //If component opened in rock BF, then set title
+                let activeBusinessFunctionDialog = RUFUtilities.activeBusinessFunctionDialog;
+                if (activeBusinessFunctionDialog) {
+                    activeBusinessFunctionDialog.setTitle("Select classifications for - " + this.pathAttributeModels[0].properties.externalName);
+                }
+
+                this._showClassificationTree();
             }
 
             _onEntityGetFailed(e) {
@@ -360,27 +314,8 @@
                 }
             }
 
-            _setPathAttributeModel(entities) {
-                for (let model of this.attributeModels) {
-                    let classificationEntity = entities.filter(entity => {
-                        return entity.id == model.properties.pathEntityInfo[0].rootNode;
-                    }, this);
-
-                    if (_.isEmpty(classificationEntity) ||
-                        !DataHelper.isValidObjectPath(classificationEntity[0], "data.attributes.externalName.values.0.value")) {
-                        return;
-                    }
-                    model.properties.pathEntityInfo[0].rootNodeExternalName = classificationEntity[0].data.attributes.externalName.values[0].value;
-
-                    if (this.pathAttribute == model.name.toLowerCase()) {
-                        this.pathAttributeModel = model;
-                        break;
-                    }
-                }
-            }
-
             _showClassificationTree() {
-                let pathEntityInfo = this.pathAttributeModel.properties.pathEntityInfo[0];
+                let pathEntityInfo = this.pathAttributeModels[0].properties.pathEntityInfo[0];
                 this.pathEntityType = pathEntityInfo.pathEntityType;
                 this.pathRelationshipName = pathEntityInfo.pathRelationshipName;
                 this.pathRootNode = pathEntityInfo.rootNode;
@@ -414,7 +349,7 @@
 
                 //Add root node for classifications
                 let attributesJSON = this._prepareAttributesForSave();
-                let saveEntityRequest = await DataTransformHelper.prepareEntityForAttributesSave(this._currentEntity, attributesJSON, this.contextData, this.attributeModels);
+                let saveEntityRequest = await DataTransformHelper.prepareEntityForAttributesSave(this._currentEntity, attributesJSON, this.contextData, this.pathAttributeModels);
                 this._setDeleteActionForAttributeValues(saveEntityRequest);
                 let liquidDataElement = this.shadowRoot.querySelector('#attributeSaveDataService');
                 if (liquidDataElement) {
@@ -443,8 +378,7 @@
             _prepareAttributesForSave() {
                 let values = [];
                 let attributes = [];
-                let pathAttributeModels = this.attributeModels.filter(item => { return item.name == this.pathAttribute });
-                let rootPathExternalName = pathAttributeModels[0].properties.externalName;
+                let rootPathExternalName = this.pathAttributeModels[0].properties.externalName;
 
                 //Add selected categories
                 this._selectedCategories.forEach(category => {
@@ -504,6 +438,14 @@
                     initialClassifications.push(category.valuePath.split(this._valuePathSeperator));
                 }, this);
                 this._initialClassifications = initialClassifications;
+            }
+
+            _getAttributeExternalName(pathAttributeModels) {
+                let externalName = "";
+                if (DataHelper.isValidObjectPath(pathAttributeModels, "0.properties.externalName")) {
+                    externalName = pathAttributeModels[0].properties.externalName;
+                }
+                return externalName;
             }
         }
         customElements.define(RockPathAttributeManage.is, RockPathAttributeManage);
