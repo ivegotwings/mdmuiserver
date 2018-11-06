@@ -1,0 +1,1 @@
+rock-path-attribute-manage
