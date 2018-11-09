@@ -298,6 +298,10 @@ Custom property | Description | Default
                         type: String,
                         value: "Nothing to fix!"
                     },
+                    _multipleContextsMessage: {
+                        type: String,
+                        value: "Select one context to fix data."
+                    },
                     businessCondition: {
                         type: Object,
                         value: function () {
@@ -353,6 +357,11 @@ Custom property | Description | Default
 
             _contextDataChanged() {
                 if (!_.isEmpty(this.contextData)) {
+                    let dataContexts = ContextHelper.getDataContexts(this.contextData);
+                    if(dataContexts.length > 1) {
+                        this._showMessage(this._multipleContextsMessage);
+                        return;
+                    }
                     this._clonedContextData = DataHelper.cloneObject(this.contextData);
                     let itemContext = ContextHelper.getFirstItemContext(this._clonedContextData);
                     itemContext.attributeNames = [];
@@ -435,10 +444,16 @@ Custom property | Description | Default
                 let itemContext = ContextHelper.getFirstItemContext(clonedContextData);
                 itemContext.attributeNames = ["_ALL"];
 
+                let dataContexts = ContextHelper.getDataContexts(this._clonedContextData);
+
                 // Prepare DataContext
                 // Note: Can be possible that No Workflow is available for Current EntityType
-                let dataContexts = itemContext.workflowContexts;
-                if (!_.isEmpty(dataContexts)) {
+                let workflowContexts = itemContext.workflowContexts;
+                if (!_.isEmpty(workflowContexts)) {
+                    dataContexts = dataContexts.concat(workflowContexts);
+                }
+
+                if(!_.isEmpty(dataContexts)) {
                     clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = dataContexts;
                 }
 
@@ -504,12 +519,22 @@ Custom property | Description | Default
             }
 
             _setEntityBusinessConditionsGovernData(entityGovernData) {
-                if (typeof (entityGovernData) && typeof (entityGovernData.data) !== "undefined" && typeof (entityGovernData.data.attributes) !== "undefined") {
-                    let entityGovernDataAttributes = entityGovernData.data.attributes;
+                if(typeof (entityGovernData) && typeof (entityGovernData.data) !== "undefined") {
                     let entityBusinessConditions = [];
-
-                    if (DataHelper.isValidObjectPath(entityGovernDataAttributes, "businessConditions.group")) {
-                        entityBusinessConditions = entityGovernDataAttributes.businessConditions.group;
+                    let dataContexts = ContextHelper.getDataContexts(this._clonedContextData);
+                    if(!_.isEmpty(dataContexts)) {
+                        for(let i=0; i<dataContexts.length; i++) {
+                            let context = dataContexts[i];
+                            let businessConditions = EntityHelper.getattributeBasedOnContext(entityGovernData, "businessConditions", context);
+                            if(!_.isEmpty(businessConditions) && !_.isEmpty(businessConditions.group)) {
+                                entityBusinessConditions = entityBusinessConditions.concat(businessConditions.group);
+                            }
+                        }
+                    } else {
+                        let businessConditions = EntityHelper.getattributeBasedOnContext(entityGovernData, "businessConditions");
+                        if(!_.isEmpty(businessConditions) && !_.isEmpty(businessConditions.group)) {
+                            entityBusinessConditions = businessConditions.group;
+                        }
                     }
 
                     if (!_.isEmpty(entityBusinessConditions)) {
@@ -589,45 +614,46 @@ Custom property | Description | Default
             }
 
             _requestRuleContextMappings() {
-                if (this._entityGovernWorkflowNames.length > 0 || this._entityBusinessConditionNames.length > 0) {
-                    let ruleContextMappingsGet = this.shadowRoot.querySelector('#ruleContextMappingsGet');
+                let ruleContextMappingsGet = this.shadowRoot.querySelector('#ruleContextMappingsGet');
 
-                    if (typeof (ruleContextMappingsGet) === "undefined" ||
-                        ruleContextMappingsGet == null) {
-                        RUFUtilities.Logger.error("Element having id ruleContextMappingsGet not found.", null, "entity-manage");
-                        this._showMessage(this._errorMessage);
-                        return;
-                    }
-
-
-                    let clonedContextData = DataHelper.cloneObject(this._clonedContextData);
-
-                    // Prepare ItemContext
-                    let itemContext = ContextHelper.getFirstItemContext(clonedContextData);
-                    let requestedType = "ruleContextMappings";
-                    let requestedId = itemContext.type + "_" + requestedType;
-                    itemContext.id = requestedId;
-                    itemContext.type = requestedType;
-                    itemContext.relationships = ["hasBusinessConditions"];
-                    itemContext.relationshipAttributes = ['isDeleted', 'enabled', 'stepName'];
-                    clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
-
-                    // Prepare DataContext
-                    // This should be optional because entity can be in workflow or cannot be in workflow
-                    let dataContexts = itemContext.workflowContexts;
-                    let valueContext = [DataHelper.getDefaultValContext()];
-                    clonedContextData[ContextHelper.CONTEXT_TYPE_VALUE] = valueContext;
-
-                    if (!_.isEmpty(dataContexts)) {
-                        clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = dataContexts;
-                    }
-
-                    // Create Request and Get
-                    ruleContextMappingsGet.requestData = DataRequestHelper.createEntityGetRequest(clonedContextData);
-                    ruleContextMappingsGet.generateRequest();
-                } else {
-                    this._showMessage(this._nothingToFixMessage);
+                if (typeof (ruleContextMappingsGet) === "undefined" ||
+                    ruleContextMappingsGet == null) {
+                    RUFUtilities.Logger.error("Element having id ruleContextMappingsGet not found.", null, "entity-manage");
+                    this._showMessage(this._errorMessage);
+                    return;
                 }
+
+
+                let clonedContextData = DataHelper.cloneObject(this._clonedContextData);
+
+                // Prepare ItemContext
+                let itemContext = ContextHelper.getFirstItemContext(clonedContextData);
+                let requestedType = "ruleContextMappings";
+                let requestedId = itemContext.type + "_" + requestedType;
+                itemContext.id = requestedId;
+                itemContext.type = requestedType;
+                itemContext.relationships = ["hasBusinessConditions"];
+                itemContext.relationshipAttributes = ['isDeleted', 'enabled', 'stepName'];
+                clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+
+                let valueContext = [DataHelper.getDefaultValContext()];
+                clonedContextData[ContextHelper.CONTEXT_TYPE_VALUE] = valueContext;
+
+                // Prepare DataContext
+                // This should be optional because entity can be in workflow or cannot be in workflow
+                let workflowContexts = itemContext.workflowContexts;
+                let dataContexts = ContextHelper.getDataContexts(clonedContextData);
+                if (!_.isEmpty(workflowContexts)) {
+                    dataContexts = dataContexts.concat(workflowContexts);
+                }
+
+                if(!_.isEmpty(dataContexts)) {
+                    clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = dataContexts;
+                }
+
+                // Create Request and Get
+                ruleContextMappingsGet.requestData = DataRequestHelper.createEntityGetRequest(clonedContextData);
+                ruleContextMappingsGet.generateRequest();
             }
 
             _onRuleContextMappingsGetResponse(e) {
@@ -636,39 +662,53 @@ Custom property | Description | Default
                 let allBusinessConditions = [];
                 let responseContent = DataHelper.validateAndGetResponseContent(e.detail.response);
                 if (responseContent) {
-                    let ruleContextMappings = responseContent.entityModels.length > 0 ? responseContent.entityModels[0].data : undefined;
+                    let ruleContextMappings = responseContent.entityModels.length > 0 ? responseContent.entityModels[0] : undefined;
 
-                    if (DataHelper.isValidObjectPath(ruleContextMappings, "contexts") && ruleContextMappings.contexts.length > 0) {
+                    if (DataHelper.isValidObjectPath(ruleContextMappings, "data.contexts") && !_.isEmpty(ruleContextMappings.data.contexts)) {
                         this._contextSpecificBusinessConditions = [];
-                        let contextSpecificRuleMaps = ruleContextMappings.contexts;
+                        let contextSpecificRuleMaps = ruleContextMappings.data.contexts;
 
                         for (let i = 0; i < contextSpecificRuleMaps.length; i++) {
-                            let workflowName = contextSpecificRuleMaps[i].context.workflow;
-                            let businessConditions = contextSpecificRuleMaps[i].relationships.hasBusinessConditions;
+                            if(typeof (contextSpecificRuleMaps[i].context.workflow) !== "undefined") {
+                                let workflowName = contextSpecificRuleMaps[i].context.workflow;
+                                let businessConditions = contextSpecificRuleMaps[i].relationships.hasBusinessConditions;
 
-                            let contextSpecificBusinessCondition = {};
-                            contextSpecificBusinessCondition["workflowName"] = workflowName;
-                            contextSpecificBusinessCondition["businessConditions"] = businessConditions;
-                            this.push("_contextSpecificBusinessConditions", contextSpecificBusinessCondition);
-                            allBusinessConditions = allBusinessConditions.concat(businessConditions);
+                                let contextSpecificBusinessCondition = {};
+                                contextSpecificBusinessCondition["workflowName"] = workflowName;
+                                contextSpecificBusinessCondition["businessConditions"] = businessConditions;
+                                this.push("_contextSpecificBusinessConditions", contextSpecificBusinessCondition);
+                                allBusinessConditions = allBusinessConditions.concat(businessConditions);
+                            }
                         }
                     }
 
-                    if (DataHelper.isValidObjectPath(ruleContextMappings, "relationships")) {
-
-                        let globalBusinessConditions = ruleContextMappings.relationships.hasBusinessConditions;
-                        if (typeof (globalBusinessConditions) !== "undefined") {
-                            this._globalBusinessConditions = [];
-
-                            for (let j = 0; j < globalBusinessConditions.length; j++) {
-
-                                let globalBusinessCondition = {};
-                                globalBusinessCondition["name"] = globalBusinessConditions[j].relTo.id;
-                                globalBusinessCondition["attributes"] = globalBusinessConditions[j].attributes;
-                                this.push("_globalBusinessConditions", globalBusinessCondition);
+                    let dataContexts = ContextHelper.getDataContexts(this._clonedContextData);
+                    let globalBusinessConditions = [];
+                    if(!_.isEmpty(dataContexts)) {
+                        for(let i=0; i < dataContexts.length; i++) {
+                            let context = dataContexts[i];
+                            let relationships = EntityHelper.getRelationshipsBasedOnContext(ruleContextMappings, context);
+                            let hasBusinessConditions = relationships && relationships.hasBusinessConditions ? relationships.hasBusinessConditions : [];
+                            if(!_.isEmpty(hasBusinessConditions)) {
+                                globalBusinessConditions = globalBusinessConditions.concat(hasBusinessConditions);
                             }
-                            allBusinessConditions = allBusinessConditions.concat(globalBusinessConditions);
                         }
+                    } else {
+                        let relationships = EntityHelper.getRelationshipsBasedOnContext(ruleContextMappings, {}, true);
+                        globalBusinessConditions = relationships && relationships.hasBusinessConditions ? relationships.hasBusinessConditions : [];
+                    }
+
+                    if (!_.isEmpty(globalBusinessConditions)) {
+                        this._globalBusinessConditions = [];
+
+                        for (let j = 0; j < globalBusinessConditions.length; j++) {
+
+                            let globalBusinessCondition = {};
+                            globalBusinessCondition["name"] = globalBusinessConditions[j].relTo.id;
+                            globalBusinessCondition["attributes"] = globalBusinessConditions[j].attributes;
+                            this.push("_globalBusinessConditions", globalBusinessCondition);
+                        }
+                        allBusinessConditions = allBusinessConditions.concat(globalBusinessConditions);
                     }
 
                     if (allBusinessConditions && allBusinessConditions.length > 0) {
