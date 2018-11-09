@@ -331,6 +331,12 @@ let SERVICE_CONFIG = {
             "offlineSettings": {
             }
         },
+        "adminservice/deploytenantseed": {
+            "url": "/adminservice/deploytenantseed",
+            "mode": "online",
+            "offlineSettings": {
+            }
+        },
         "binaryobjectservice/get": {
             "url": "/binaryobjectservice/get",
             "mode": "online",
