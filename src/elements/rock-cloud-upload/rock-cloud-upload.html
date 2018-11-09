@@ -47,6 +47,8 @@
 
         <liquid-rest id="prepareUploadLiquid" url="/data/binarystreamobjectservice/prepareUpload" method="POST"
             on-liquid-response="_onPrepareUploadLiquidSuccess" on-liquid-error="_onPrepareUploadLiquidFailure"></liquid-rest>
+        <liquid-rest id="notifyTenantSeedDeploy" url="/pass-through-deploytenantseed/adminservice/deploytenantseed" method="POST"
+            on-liquid-response="_onDeployTenantSeedLiquidSuccess" on-liquid-error="_onDeployTenantSeedLiquidFailure"></liquid-rest>
         <liquid-rest id="createUploadedFilesLiquid" url="/data/binarystreamobjectservice/create" method="POST" request-data={{_createUploadedFilesRequest}}
             on-liquid-response="_onCreateUploadedFilesLiquidSuccess" on-liquid-error="_onCreateUploadedFilesLiquidFailure"></liquid-rest>
 
@@ -118,6 +120,10 @@
                             uploadRequest: {
                                 type: Object,
                                 value: function () { return {}; }
+                            },
+                            s3ObjectKey: {
+                                type: String,
+                                value: ""
                             }
                         }
                     }
@@ -142,8 +148,8 @@
                             this.files.push(file);
 
                             //Generate unique file name...
-                            let s3ObjectKey = this._generateS3ObjectKey(file.name);
-                            file.s3ObjectKey = s3ObjectKey;
+                            this.s3ObjectKey = this._generateS3ObjectKey(file.name);
+                            file.s3ObjectKey = this.s3ObjectKey;
 
                             //Allowed types check
                             if(this.allowedFileTypes && this.allowedFileTypes.length) {
@@ -162,7 +168,7 @@
                                     "id": DataHelper.generateUUID(),
                                     "type": type,
                                     "properties": {
-                                        "objectKey": s3ObjectKey,
+                                        "objectKey": this.s3ObjectKey,
                                         "originalFileName": originalFileName
                                     },
                                     "data": {}
@@ -240,6 +246,51 @@
                     this._resetUploadElement();
                 }
                 _onUploadSuccess (e, succeededFilesData, sender) {
+                    //Make a liquid call for deploying tenant seed data
+                    if(this.uploadRequest && this.uploadRequest.type == "seedDataStream"){
+                        let deployTenantSeedRequestObject = {
+                            "adminObject":
+                            {
+                                "id": DataHelper.generateUUID(),
+                                "type": "adminObject",
+                                "properties": {
+                                    "storageType": "stream",
+                                    "objectKey": this.s3ObjectKey,
+                                    "tenantId": DataHelper.getTenantId()
+                                }
+                            }
+                        }
+                        
+                        let liq = this.shadowRoot.querySelector("#notifyTenantSeedDeploy");
+                        if (liq) {
+                            liq.requestData = deployTenantSeedRequestObject;
+                            liq.generateRequest();
+                        }
+                        
+                    } else {
+                        this._triggerFinishStep();
+                    }
+                    
+                }
+
+                _onDeployTenantSeedLiquidSuccess(e){
+                    let response = e.detail.response;
+                    if (response && response.response && response.response.status == "success") {
+                        this._triggerFinishStep();
+                    } else {
+                        this.showErrorToast("Unable to upload. Contact Administrator");
+                        this.logError("Unable to deploy tenant seed.", e.detail);
+                        this._resetUploadElement();
+                    }
+                }
+                
+                _onDeployTenantSeedLiquidFailure(){
+                    this.showErrorToast("Unable to upload. Contact Administrator");
+                    this.logError("Unable to upload.", e.detail);
+                    this._resetUploadElement();
+                }
+
+                _triggerFinishStep (){
                     this._isDirty = true;
                     this._loading = true;
 

@@ -21,7 +21,12 @@ BinaryStreamObjectService.prototype = {
             
             let binaryStreamRequests = request.body;
             for (let binaryStreamRequest of binaryStreamRequests) {
-                let res = await this.post(prepareUploadURL, binaryStreamRequest);
+                let res = "";
+                if(binaryStreamRequest.binaryStreamObject.type == "seedDataStream"){
+                    res = await this.post(prepareUploadURL, binaryStreamRequest, "dataplatform");
+                } else {
+                    res = await this.post(prepareUploadURL, binaryStreamRequest);
+                }
 
                 //Collect successfull responses...
                 if(res && res.response && res.response.status && res.response.status.toLowerCase() == "success") {

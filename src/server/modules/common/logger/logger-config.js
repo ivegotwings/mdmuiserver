@@ -210,6 +210,9 @@ let LOGGER_CONFIG = function () {
         "/binarystreamobjectservice/create": {
             "level": "info"
         },
+        "/adminservice/deploytenantseed": {
+            "level": "info"
+        },
         "/binaryobjectservice/get": {
             "level": "info"
         },
