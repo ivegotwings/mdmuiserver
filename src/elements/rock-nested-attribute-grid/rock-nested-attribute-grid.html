@@ -19,9 +19,10 @@
         <style include="bedrock-style-common">
             rock-grid {
                 --data-table-container-position: relative;
-               --list:{
-                   @apply --nested-list;
-               } 
+
+                --list: {
+                    @apply --nested-list;
+                }
             }
 
             .grid {
@@ -41,10 +42,7 @@
             </template>
         </template>
         <div class="grid" hidden$="[[!_showGrid]]">
-            <rock-grid id="attributesGrid" config="{{_gridConfig}}" data="{{_gridData}}" attribute-models="[[_attributeModels]]" no-header
-                page-size="20" is-dirty="{{_isGridDirty}}" context-data="[[contextData]]" apply-locale-coalesce="[[applyLocaleCoalesce]]"
-                dependent-attribute-objects="[[dependentAttributeObjects]]" dependent-attribute-model-objects="[[dependentAttributeModelObjects]]"
-                inline-validation-enabled>
+            <rock-grid id="attributesGrid" config="{{_gridConfig}}" data="{{_gridData}}" attribute-models="[[_attributeModels]]" no-header page-size="20" is-dirty="{{_isGridDirty}}" context-data="[[contextData]]" apply-locale-coalesce="[[applyLocaleCoalesce]]" apply-graph-coalesced-style$="[[applyGraphCoalescedStyle]]" dependent-attribute-objects="[[dependentAttributeObjects]]" dependent-attribute-model-objects="[[dependentAttributeModelObjects]]" inline-edit-validation-enabled>
             </rock-grid>
             <bedrock-pubsub event-name="delete-item" handler="_onRowDelete" target-id="attributesGrid"></bedrock-pubsub>
             <bedrock-pubsub event-name="refresh-grid" handler="_onRefreshGrid" target-id="attributesGrid"></bedrock-pubsub>
@@ -52,10 +50,10 @@
     </template>
     <script>
         class RockNestedAttributeGrid
-        extends Polymer.mixinBehaviors([
-            RUFBehaviors.UIBehavior,
-            RUFBehaviors.ComponentContextBehavior
-        ], Polymer.OptionalMutableData(Polymer.Element)) {
+            extends Polymer.mixinBehaviors([
+                RUFBehaviors.UIBehavior,
+                RUFBehaviors.ComponentContextBehavior
+            ], Polymer.OptionalMutableData(Polymer.Element)) {
             static get is() {
                 return 'rock-nested-attribute-grid'
             }
@@ -76,12 +74,6 @@
                     label: {
                         type: String,
                         value: ""
-                    },
-                    _gridConfig: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
                     },
                     /**
                      * Indicates whether the attribute is rendered in edit mode or view mode.
@@ -143,6 +135,32 @@
                         notify: true,
                         reflectToAttribute: true
                     },
+                    applyLocaleCoalesce: {
+                        type: Boolean,
+                        value: false
+                    },
+                    dependentAttributeObjects: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    dependentAttributeModelObjects: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    applyGraphCoalescedStyle: {
+                        type: Boolean,
+                        value: false
+                    },
+                    _gridConfig: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
                     _gridData: {
                         type: Array,
                         value: function () {
@@ -167,21 +185,9 @@
                         type: Boolean,
                         value: false
                     },
-                    applyLocaleCoalesce: {
+                    _mode: {
                         type: Boolean,
-                        value: false
-                    },
-                    dependentAttributeObjects: {
-                        type: Array,
-                        value: function () {
-                            return [];
-                        }
-                    },
-                    dependentAttributeModelObjects: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
+                        value: "view"
                     }
                 }
             }
@@ -206,8 +212,8 @@
             }
             _attributeObjectChanged(attributeObject) {
                 if (!_.isEmpty(attributeObject) && attributeObject.value && (!this._isGridReady || (this.originalAttributeObject &&
-                        this.originalAttributeObject.value && DataHelper.areEqualArrays(attributeObject.value,
-                            this.originalAttributeObject.value)))) {
+                    this.originalAttributeObject.value && DataHelper.areEqualArrays(attributeObject.value,
+                        this.originalAttributeObject.value)))) {
                     this._prepareGridData(attributeObject);
                 }
             }
@@ -279,13 +285,14 @@
 
             _prepareGridData(attributeObject) {
                 this._gridData = [];
-
                 this.async(function () {
+                    let hasErrorOrWarnings = false;
                     if (attributeObject && attributeObject.value && attributeObject.value.length > 0) {
+                        let errors = attributeObject.errors && attributeObject.errors.length ? attributeObject.errors[0] : undefined;
                         for (let i = 0; i < attributeObject.value.length; i++) {
                             let value = attributeObject.value[i];
                             if (!this._gridData.find(obj => value["valueIdentifier"] && (obj.valueIdentifier ===
-                                    value["valueIdentifier"].value))) {
+                                value["valueIdentifier"].value))) {
                                 let rowData = {};
                                 for (let attrName in value) {
                                     if (typeof value[attrName] == 'object') {
@@ -300,39 +307,51 @@
                                             rowData[attrName + "_contextCoalescePaths"] = value[
                                                 attrName].contextCoalescePaths;
                                         }
+                                        if (value[attrName].os === "graph" && value[attrName].osid && value[attrName].ostype) {
+                                            rowData[attrName + "_os"] = value[attrName].os;
+                                            rowData[attrName + "_osid"] = value[attrName].osid;
+                                            rowData[attrName + "_ostype"] = value[attrName].ostype;
+                                        }
                                     }
+                                }
+                                if (!_.isEmpty(errors) && DataHelper.isValidObjectPath(value, "valueIdentifier.value") && errors[value.valueIdentifier.value]) {
+                                    rowData.governanceErrors = errors[value.valueIdentifier.value];
+                                    hasErrorOrWarnings = true;
                                 }
                                 if (!this._isRowEmpty(rowData)) this._gridData.push(rowData);
                             }
                         }
                     }
+                    if (this.attributesGrid && hasErrorOrWarnings) {
+                        this.attributesGrid.inlineReadValidationEnabled = hasErrorOrWarnings;
+                    };
                     this._originalGridData = DataHelper.cloneObject(this._gridData);
-                    this._modeChanged(this.mode);
+                    this._modeChanged(this.mode, true);
                 });
                 this._isGridReady = true;
             }
-            _modeChanged(mode) {
-                this._gridData = this._originalGridData ? DataHelper.cloneObject(this._originalGridData) : [];
 
-                const _showGrid = mode === 'edit' || (mode === 'view' && !_.isEmpty(this.attributeObject.value));
-                this.set("_showGrid", _showGrid);
+            _modeChanged(mode, isReRender) {
+                if (this._mode != mode || isReRender) {
+                    this._mode = mode;
+                    this._gridData = this._originalGridData ? DataHelper.cloneObject(this._originalGridData) : [];
 
-                const _gridMode = mode === 'view' ? 'read' : mode;
-                this.set('_gridConfig.mode', _gridMode);
+                    const _showGrid = mode === 'edit' || (mode === 'view' && !_.isEmpty(this.attributeObject.value));
+                    this.set("_showGrid", _showGrid);
 
-                if (this.attributesGrid) {
-                    this.attributesGrid.reRenderGrid();
+                    const _gridMode = mode === 'view' ? 'read' : mode;
+                    this.set('_gridConfig.mode', _gridMode);
+
+                    if (this.attributesGrid) {
+                        this.attributesGrid.reRenderGrid();
+                    }
                 }
             }
             _gridDataChanged(_isGridDirty) {
-                if (_isGridDirty === true) {
-                    this.changed = true;
-                } else if (_isGridDirty === false) {
-                    this.changed = false;
-                } else {
-                    this.changed = undefined;
+                if (this.changed != _isGridDirty) {
+                    this.changed = _isGridDirty;
+                    this._setAttributeObject();
                 }
-                this._setAttributeObject();
             }
             __getDescriptionValue() {
                 let props = undefined;
@@ -449,7 +468,7 @@
                 if (attributes && attributes.length) {
                     let keysWithValue = attributes.filter(function (key) {
                         if (self._attributeModels[key] && (!_.isEmpty(rowData[key]) || _.isNumber(
-                                rowData[key]))) {
+                            rowData[key]))) {
                             return key;
                         }
                     });
@@ -475,7 +494,7 @@
                 }
                 if (identifierAttrName) {
                     if (value && value[identifierAttrName] && data[identifierAttrName] !== value[
-                            identifierAttrName].value) {
+                        identifierAttrName].value) {
                         return true;
                     }
                 }
@@ -510,7 +529,7 @@
                 let length = this._gridData.length;
                 let values = DataTransformHelper.transformNestedAttributes({}, this.attributeModelObject, true);
                 let value = values[0];
-                value["valueIdentifier"].value = length;
+                value["valueIdentifier"].value = DataHelper.generateUUID();
                 let newRowItem = {};
                 for (let attrName in value) {
                     newRowItem[attrName] = value[attrName].value;
