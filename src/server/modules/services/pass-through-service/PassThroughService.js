@@ -19,7 +19,12 @@ PassThroughService.prototype = {
         let passThroughUrl = request.url.replace('/data/pass-through-snapshot/', 'entityappservice/');
         return await this.post(passThroughUrl, request.body);
     },
-    
+
+    deployTenantSeedCall: async function(request){
+        let passThroughUrl = request.url.replace('/pass-through-deploytenantseed/', '');
+        return await this.post(passThroughUrl, request.body, "dataplatform");
+    },
+
     bulkCall: async function (request) {
         //console.log('Bulk Operation Request - ', request.body);
         let passThroughUrl = request.url.replace('/pass-through-bulk/', '');

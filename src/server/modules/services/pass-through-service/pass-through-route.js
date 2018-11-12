@@ -48,6 +48,10 @@ let PassThroughRouter = function (app) {
         let response = await passThroughService.createTaskForCombinedQuery(req);
         res.status(200).send(response);
     });
+    app.post('/pass-through-deploytenantseed/adminservice/deploytenantseed', async function (req, res) {
+        let response = await passThroughService.deployTenantSeedCall(req);
+        res.status(200).send(response);
+    });
     app.post('/data/pass-through-snapshot/*', async function (req, res) {
         let response = await passThroughService.snapshotCall(req);
         res.status(200).send(response);
