@@ -357,19 +357,21 @@
                 this.variantPath = "";
                 this.contextkeys = [];
                 this.enhancerAttributes = [];
-                if (e.detail.response.status == "success" && e.detail.response.content.entityModels) {
-                    let response = e.detail.response.content.entityModels[0];   
-                    if(response.properties.variantPath) {                
-                        this.variantPath = response.properties.variantPath;
-                    } 
-                    if(response.properties.contextkeys) {
-                        this.contextkeys = response.properties.contextkeys;
+                if (e.detail.response.status == "success" && DataHelper.isValidObjectPath(e.detail.response,"content.entityModels")) {
+                    let response = e.detail.response.content.entityModels[0];  
+                    if(response && response.properties) {
+                        if(response.properties.variantPath) {                
+                            this.variantPath = response.properties.variantPath;
+                        } 
+                        if(response.properties.contextkeys) {
+                            this.contextkeys = response.properties.contextkeys;
+                        }
+                        if(response.properties.enhancerAttributes) {
+                            this.enhancerAttributes = response.properties.enhancerAttributes;
+                        }
                     }
-                    if(response.properties.enhancerAttributes) {
-                        this.enhancerAttributes = response.properties.enhancerAttributes;
-                    }
-					
-					if(this.variantPath == "" || _.isEmpty(this.contextkeys)){
+                        
+					if(!this.variantPath || _.isEmpty(this.contextkeys)){
 						this.isSpinnerActive = false;
 						this.logWarning("Incorrect variant model settings. Contact administrator for further detail.","response", JSON.stringify(e.detail));
 						this.displayMessage = "Incorrect variant model. Contact administrator for further detail.";
@@ -378,33 +380,9 @@
 					}
                     
                     if(!_.isEmpty(this.enhancerAttributes)){
-						let req = {
-						"params": {
-							"query": {
-								"id":  DataHelper.getParamValue('id'),
-								"filters": {
-									"typesCriterion": [
-										DataHelper.getParamValue('type')
-									]
-								}
-							},
-							"fields": {
-								"attributes":  DataHelper.cloneObject(this.enhancerAttributes)
-							}
-						}
-						};
-                        
-                        let valContexts = ContextHelper.getValueContexts(this.contextData);
-                        if (_.isEmpty(valContexts) && _.isEmpty(valContexts[0])) {
-                            valContexts = [DataHelper.getDefaultValContext()];
-                        }
-                        req.params.query.valueContexts = valContexts;
 
-                        if(!_.isEmpty(this.contextData.Contexts)){
-                            req.params.query.contexts = [this.contextData.Contexts[0]];
-                        }
-                        
-
+                        let req = DataRequestHelper.createEntityGetRequest(this.contextData);
+                        req.params.fields.attributes = DataHelper.cloneObject(this.enhancerAttributes);
 						let entityGet = this.shadowRoot.querySelector("#getEntity");
 						if (entityGet) {
 							entityGet.requestData = req;
@@ -480,20 +458,18 @@
                 let variantContext = {};                
 				
 				if(!_.isEmpty(this.enhancerAttributes)) {
-					for (let i=0; i<this.enhancerAttributes.length; i++) {
-						let key = this.enhancerAttributes[i];						
-						if(!_.isEmpty(entityAttributes[key])) {
+					for (let attributeName of this.enhancerAttributes) {
+						if(!_.isEmpty(entityAttributes[attributeName])) {
 							//Fetching the 1st enhancer attribute value
-							variantContext[key] = entityAttributes[key].values[0].value;                        
+							variantContext[attributeName] = AttributeHelper.getFirstAttributeValue(entityAttributes[attributeName]);                        
 						} else {
-							variantContext[key] = "_DEFAULT";
+							variantContext[attributeName] = "_DEFAULT";
 						}
 					}			
 				}
 				
 				if(!_.isEmpty(this.contextkeys)) {
-					for (let i=0; i<this.contextkeys.length; i++) {
-						let key = this.contextkeys[i];						
+					for (let key of this.contextkeys) {
 						//Fetching the 1st context value
                         let filteredArray = _.find(this.contextData.Contexts,function(item){return item[key]});
                         if(!_.isEmpty(filteredArray)) {
@@ -514,7 +490,7 @@
              *  Generate a request to fetch the entity model for the given dimention attributes
              */
             _onDimentionAttributeListReceived(e, detail) {
-                if (e.detail.response.response.status == "success" && e.detail.response.response.entityModels) {
+                if (e.detail.response.response.status == "success" && DataHelper.isValidObjectPath(e.detail.response,"response.entityModels")) {
                     let response = e.detail.response.response.entityModels[0];
                     response = this._mergeAllContextualLevelsIntoSelf(response);
                     this.displayMessage = "";
