@@ -12,6 +12,7 @@
 
 <link rel="import" href="../liquid-config-get/liquid-config-get.html" />
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
+<link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
 <link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
 <link rel="import" href="../liquid-entity-data-save/liquid-entity-data-save.html">
 <link rel="import" href="../liquid-rest/liquid-rest.html">
@@ -185,7 +186,10 @@
             </template>
         </div>
 
-        <liquid-rest id="variantModelGet" url="/data/pass-through/entityappmodelservice/getnearestcontext" method="POST" on-liquid-response="_onDimentionAttributeListReceived"
+        <liquid-entity-model-get id="getVariantModelSettings" operation="getbyids" on-response="_onVariantModelSettingsReceived" on-error="_onVariantModelSettingsGetFailed"></liquid-entity-model-get>
+        <liquid-entity-data-get id="getEntity" operation="getbyids" data-index="entityData" data-sub-index="data" on-response="_onEntityGetResponse"
+            on-error="_onEntityGetFailed"></liquid-entity-data-get>
+        <liquid-rest id="variantModelGet" url="/data/pass-through/entityappmodelservice/getnearest" method="POST" on-liquid-response="_onDimentionAttributeListReceived"
             on-liquid-error="_onDimentionAttributeListGetFailed"></liquid-rest>
         <liquid-entity-model-composite-get id="entityModelGet" on-entity-model-composite-get-response="_onEntityModelGetResponse"
             on-error="_onEntityModelGetFailed"></liquid-entity-model-composite-get>
@@ -320,34 +324,197 @@
                     displayMessage: {
                         type: String,
                         value: ""
+                    },
+
+                    variantPath: {
+                        type: String,
+                        value: ""
                     }
 
                 }
             }
 
             /**
-             *  Generate a request to get the dimention attributes from the variant model
+             *  Generate a request to get the variant-model-settings
              */
             _contextChanged() {
                 this.isSpinnerActive = true;
-                let req = DataRequestHelper.createVariantModelGetRequest(DataHelper.getParamValue('type'), this
-                    .contextData.Contexts);
-                if (req) {
-                    let variantModelGet = this.shadowRoot.querySelector("#variantModelGet");
-                    if (variantModelGet) {
-                        variantModelGet.requestData = req;
-                        variantModelGet.generateRequest();
+                let req = DataRequestHelper.createVariantModelSettingsGetRequest(DataHelper.getParamValue('type'));
+                if (req) {                   
+                    let variantModelSettingsGet = this.shadowRoot.querySelector("#getVariantModelSettings");
+                    if (variantModelSettingsGet) {
+                        variantModelSettingsGet.requestData = req;
+                        variantModelSettingsGet.generateRequest();
                     }
                 }
-
             }
+            
+            /**
+             *  Function to handle success of variant-model-settings get 
+             *  Generate a request to fetch the entity's enhancer attributes
+             */
+            _onVariantModelSettingsReceived(e, detail){
+                this.variantPath = "";
+                this.contextkeys = [];
+                this.enhancerAttributes = [];
+                if (e.detail.response.status == "success" && e.detail.response.content.entityModels) {
+                    let response = e.detail.response.content.entityModels[0];   
+                    if(response.properties.variantPath) {                
+                        this.variantPath = response.properties.variantPath;
+                    } 
+                    if(response.properties.contextkeys) {
+                        this.contextkeys = response.properties.contextkeys;
+                    }
+                    if(response.properties.enhancerAttributes) {
+                        this.enhancerAttributes = response.properties.enhancerAttributes;
+                    }
+					
+					if(this.variantPath == "" || _.isEmpty(this.contextkeys)){
+						this.isSpinnerActive = false;
+						this.logWarning("Incorrect variant model settings. Contact administrator for further detail.","response", JSON.stringify(e.detail));
+						this.displayMessage = "Incorrect variant model. Contact administrator for further detail.";
+						this._isValidDisplayMessage = true;
+						return;
+					}
+                    
+                    if(!_.isEmpty(this.enhancerAttributes)){
+						let req = {
+						"params": {
+							"query": {
+								"id":  DataHelper.getParamValue('id'),
+								"filters": {
+									"typesCriterion": [
+										DataHelper.getParamValue('type')
+									]
+								}
+							},
+							"fields": {
+								"attributes":  DataHelper.cloneObject(this.enhancerAttributes)
+							}
+						}
+						};
+                        
+                        let valContexts = ContextHelper.getValueContexts(this.contextData);
+                        if (_.isEmpty(valContexts) && _.isEmpty(valContexts[0])) {
+                            valContexts = [DataHelper.getDefaultValContext()];
+                        }
+                        req.params.query.valueContexts = valContexts;
+
+                        if(!_.isEmpty(this.contextData.Contexts)){
+                            req.params.query.contexts = [this.contextData.Contexts[0]];
+                        }
+                        
+
+						let entityGet = this.shadowRoot.querySelector("#getEntity");
+						if (entityGet) {
+							entityGet.requestData = req;
+							entityGet.generateRequest();
+						}
+					} else {
+						this._requestVariantModel();
+					} 
+					
+                } else {
+                   this._onVariantModelSettingsGetFailed(e);
+                }
+            }
+            
+            /**
+             *  Function to handle failure of variant-model-settings get
+             */
+            _onVariantModelSettingsGetFailed(e){
+                this.logError("Unable to fetch variant model settings. Contact administrator for further detail.", e.detail);
+                this.isSpinnerActive = false;
+                this.displayMessage = "Unable to fetch variant model. Contact administrator for further detail.";
+                this._isValidDisplayMessage = true;
+            }
+
+            /**
+             *  Function to handle success of entity get for fetching enhancer attributes
+             */
+            _onEntityGetResponse (e, detail) {               
+                let responseContent = DataHelper.validateAndGetResponseContent(detail.response);                
+                if (responseContent && responseContent.entities && responseContent.entities.length > 0) {
+                    let entityAttributes = [];
+                    if(!_.isEmpty(this.contextData.Contexts) && !_.isEmpty(responseContent.entities[0].data.contexts)){
+                        entityAttributes = responseContent.entities[0].data.contexts[0].attributes
+                    } else {
+                        if(!_.isEmpty(responseContent.entities[0].data.attributes)) {
+                            entityAttributes = responseContent.entities[0].data.attributes
+                        }
+                    }
+                    this._requestVariantModel(entityAttributes);
+                } else {
+                    this._onEntityGetFailed(e);                   
+                }
+            }
+
+            /**
+             *  Function to handle failure of entity data get
+             */
+            _onEntityGetFailed(e){
+                this.isSpinnerActive = false;
+                this.logWarning("Unable to fetch root entity. Contact administrator for further detail.","response", JSON.stringify(e.detail));
+                this.displayMessage = "Unable to fetch entity. Contact administrator for further detail.";
+                this._isValidDisplayMessage = true;
+            }  
+            
+            /**
+             *  Generate a request to fetch the variant model
+             */
+			_requestVariantModel(entityAttributes){
+				let contextData = this._getVariantContext(entityAttributes);
+                let req = DataRequestHelper.createVariantModelGetRequest(contextData, this.variantPath);
+                if (req) {                    
+					let variantModelGet = this.shadowRoot.querySelector("#variantModelGet");
+					if (variantModelGet) {
+						variantModelGet.requestData = req;
+						variantModelGet.generateRequest();
+					}
+				}    
+			}
+            /**
+             *  Function to fetch the context data for variant model get request
+             */
+            _getVariantContext(entityAttributes){
+                let variantContext = {};                
+				
+				if(!_.isEmpty(this.enhancerAttributes)) {
+					for (let i=0; i<this.enhancerAttributes.length; i++) {
+						let key = this.enhancerAttributes[i];						
+						if(!_.isEmpty(entityAttributes[key])) {
+							//Fetching the 1st enhancer attribute value
+							variantContext[key] = entityAttributes[key].values[0].value;                        
+						} else {
+							variantContext[key] = "_DEFAULT";
+						}
+					}			
+				}
+				
+				if(!_.isEmpty(this.contextkeys)) {
+					for (let i=0; i<this.contextkeys.length; i++) {
+						let key = this.contextkeys[i];						
+						//Fetching the 1st context value
+                        let filteredArray = _.find(this.contextData.Contexts,function(item){return item[key]});
+                        if(!_.isEmpty(filteredArray)) {
+                            variantContext[key] = filteredArray[key];                            
+                        } else {
+							variantContext[key] = "_DEFAULT";
+						}
+					}
+                }
+                
+                variantContext["entityType"] = DataHelper.getParamValue('type');
+                
+				return variantContext;                
+            }            
 
             /**
              *  Function to handle success of variant model get 
              *  Generate a request to fetch the entity model for the given dimention attributes
              */
             _onDimentionAttributeListReceived(e, detail) {
-                if (e.detail.response.response.status == "success") {
+                if (e.detail.response.response.status == "success" && e.detail.response.response.entityModels) {
                     let response = e.detail.response.response.entityModels[0];
                     response = this._mergeAllContextualLevelsIntoSelf(response);
                     this.displayMessage = "";
@@ -400,6 +567,7 @@
                 this.variantModelObj.attributeList = [];
                 this.variantModelObj.targetEntities = [];
                 this.variantModelObj.mandatoryAttributes = [];
+                this.variantModelObj.contextkeys = this.contextkeys;
                 let list = response.properties.levels;
 
                 for (let listItem = 0; listItem < list.length; listItem++) {
@@ -787,7 +955,7 @@
 
                 this.isSpinnerActive = false;
                 this.businessFunctionData = this.variantModelObj;
-
+                
                 //Move to next step
                 let eventName = "onSave";
                 let eventDetail = {
@@ -978,6 +1146,10 @@
                     }
 
                     delete entityModel.data;
+                    if(!entityModel.properties) {
+                        entityModel.properties = {};
+                        entityModel.properties.levels = [];
+                    }                   
                     entityModel.properties.levels = mergedLevels;
                 }
                 return entityModel;

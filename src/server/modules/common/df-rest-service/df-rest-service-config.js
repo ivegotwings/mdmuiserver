@@ -408,6 +408,11 @@ let SERVICE_CONFIG = {
             "url": "/entityappmodelservice/getnearestcontext",
             "mode": "online",
             "offlineSettings": {}
+        },
+        "entityappmodelservice/getnearest": {
+            "url": "/entityappmodelservice/getnearest",
+            "mode": "online",
+            "offlineSettings": {}
         }
     }
 };
