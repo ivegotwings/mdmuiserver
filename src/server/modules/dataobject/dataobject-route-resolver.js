@@ -782,18 +782,32 @@ async function deleteDataObjects(callPath, args, operation) {
 }
 
 function _getOriginalRelIds(dataObject) {
-    let originalRelIds;
+    let originalRelIds = {};
+    if(dataObject.data) {
+        let contexts = dataObject.data.contexts;
+        if(!isEmpty(contexts)) {
+            for(let i=0; i<contexts.length; i++) {
+                let ctxObj = contexts[i];
+                let context = ctxObj.context;
+                let ctxKey = falcorUtil.createCtxKey(context);
+                let rels = ctxObj.relationships;
+                if(rels && rels.originalRelIds) {
+                    originalRelIds[ctxKey] = rels.originalRelIds;
+                    delete rels.originalRelIds;
+                }
+            }
+        } else if(dataObject.data.relationships) {
+            let rels = dataObject.data.relationships;
 
-    if (dataObject.data && dataObject.data.relationships) {
-        let rels = dataObject.data.relationships;
-
-        if (rels.originalRelIds) {
-            originalRelIds = rels.originalRelIds;
-            delete rels.originalRelIds;
+            if (rels.originalRelIds) {
+                let selfCtxKey = falcorUtil.createSelfCtxKey();
+                originalRelIds[selfCtxKey] = rels.originalRelIds;
+                delete rels.originalRelIds;
+            }
         }
     }
 
-    return originalRelIds;
+    return !isEmpty(originalRelIds) ? originalRelIds : undefined;
 }
 
 function _prependAdditionalParams(reqObject, dataInfoKey) {
