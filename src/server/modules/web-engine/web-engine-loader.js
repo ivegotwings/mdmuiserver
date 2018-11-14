@@ -41,8 +41,7 @@ logger.info('Web engine start - build path identified', {
     "buildPath": buildPath
 });
 
-let pjson = require(buildPath + '/package.json');
-const buildVersion = pjson.mdmVersion;
+const buildVersion = config.get('modules.versionService.buildVersion');
 RuntimeVersionManager.initialize(buildVersion);
 
 let app = express();

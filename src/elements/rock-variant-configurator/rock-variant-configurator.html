@@ -31,11 +31,11 @@
             :host {
                 display: block;
                 height: 100%;
-            }
+            }  
 
             pebble-data-table {
                 width: 90%;
-                margin: 0 auto;
+                margin: 0 auto;                
             }
 
             data-table-row[selected] {
@@ -190,9 +190,7 @@
         <liquid-entity-data-get id="getEntity" operation="getbyids" data-index="entityData" data-sub-index="data" on-response="_onEntityGetResponse"
             on-error="_onEntityGetFailed"></liquid-entity-data-get>
         <liquid-rest id="variantModelGet" url="/data/pass-through/entityappmodelservice/getnearest" method="POST" on-liquid-response="_onDimentionAttributeListReceived"
-            on-liquid-error="_onDimentionAttributeListGetFailed"></liquid-rest>
-        <liquid-entity-model-composite-get id="entityModelGet" on-entity-model-composite-get-response="_onEntityModelGetResponse"
-            on-error="_onEntityModelGetFailed"></liquid-entity-model-composite-get>
+            on-liquid-error="_onDimentionAttributeListGetFailed"></liquid-rest>       
         <liquid-entity-data-get operation="getbyids" id="variantAttributesOptionsGet" apply-locale-coalesce on-response="_onVariantAttributesOptionsGetReceived"
             on-error="_onVariantAttributesOptionsGetFailed" exclude-in-progress></liquid-entity-data-get>
         <liquid-rest id="entityGovernService" url="/data/pass-through/entitygovernservice/validate" method="POST" request-data={{_entityGovernRequest}}
@@ -490,24 +488,30 @@
 
             /**
              *  Function to handle success of variant model get 
-             *  Generate a request to fetch the entity model for the given dimention attributes
+             *  Fetch the entity composite model for the given dimention attributes
+             *  Call the function to generate the dimention attributes values
              */
-            _onDimentionAttributeListReceived(e, detail) {
+            async _onDimentionAttributeListReceived(e, detail) {
                 if (e && e.detail && DataHelper.isValidObjectPath(e, "detail.response.response") && e.detail.response.response.status == "success" && DataHelper.isValidObjectPath(e.detail.response,"response.entityModels")) {
                     let response = e.detail.response.response.entityModels[0];
                     response = this._mergeAllContextualLevelsIntoSelf(response);
                     this.displayMessage = "";
                     this._isValidDisplayMessage = false;
-                    if (response.properties.levels.length > 0) {
+                    if (response.properties.levels.length > 0) {                        
                         this.dimentionAttributesList = this._getDimentionAttributeList(response);
-                        let req = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
-                        if (req) {
-                            req.params.fields.attributes = this.dimentionAttributesList;
-                            let entityModelGet = this.shadowRoot.querySelector("#entityModelGet");
-                            if (entityModelGet) {
-                                entityModelGet.requestData = req;
-                                entityModelGet.generateRequest();
-                            }
+                        let compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
+                        if (compositeModelGetRequest) {
+                            compositeModelGetRequest.params.fields.attributes = this.dimentionAttributesList;
+                            let compositeModel = await this._getCompositeModel(compositeModelGetRequest);
+                            if (!_.isEmpty(compositeModel)) {
+                                this._attributeModels = DataTransformHelper.transformAttributeModels(compositeModel, this.contextData);
+                                if (this._attributeModels && !_.isEmpty(this._attributeModels)) {
+                                    this.getVariantAttributesOptions(this.dimentionAttributesList);
+                                }
+                            } else {
+                                this.logWarning("Entity composite model get failed");
+                                this.isSpinnerActive = false;
+                            }                           
                         }
                     } else {
                         this.isSpinnerActive = false;
@@ -526,6 +530,20 @@
                         "Unable to fetch variant model. Contact administrator for further detail.";
                     this._isValidDisplayMessage = true;
                 }
+            }
+            
+            /**
+             *  Function to get the entity composite model for the given dimention attributes
+             */
+            async _getCompositeModel(compositeModelGetRequest) {
+                let compositeModel = {};
+                let entityCompositeModelManager = new EntityCompositeModelManager();
+                if(entityCompositeModelManager && compositeModelGetRequest) {
+                    compositeModelGetRequest.applyEnhancerCoalesce = true;
+                    compositeModel = await entityCompositeModelManager.get(compositeModelGetRequest, this.contextData);
+                }
+                entityCompositeModelManager = null;
+                return compositeModel;
             }
 
             /**
@@ -546,7 +564,6 @@
                 this.variantModelObj.attributeList = [];
                 this.variantModelObj.targetEntities = [];
                 this.variantModelObj.mandatoryAttributes = [];
-                this.variantModelObj.contextkeys = this.contextkeys;
                 let list = response.properties.levels;
 
                 for (let listItem = 0; listItem < list.length; listItem++) {
@@ -575,29 +592,7 @@
 
                 return this.variantModelObj.attributeList;
             }
-
-            /**
-             *  Function to handle success of entity model get
-             *  Call the function to generate the dimention attributes values
-             */
-            _onEntityModelGetResponse(e) {
-                if (e.detail.response) {
-                    this._attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content
-                        .entityModels[0], this.contextData);
-                    if (this._attributeModels && !_.isEmpty(this._attributeModels)) {
-                        this.getVariantAttributesOptions(this.dimentionAttributesList);
-                    }
-                }
-            }
-
-            /**
-             *  Function to handle failure of entity model get
-             */
-            _onEntityModelGetFailed(e) {
-                this.logWarning("variant entity model get failed with error", "response", JSON.stringify(e.detail));
-                this.isSpinnerActive = false;
-            }
-
+           
             /**
              *  Handles delete row click
              */
