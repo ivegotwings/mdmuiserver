@@ -1,6 +1,7 @@
 'use strict';
 const PassThroughService = require('./PassThroughService');
 const EntityCompositeModelService = require('../model-service/EntityCompositeModelGetService');
+let middlewares = require('./../../../middlewares');
 let options = {};
 let runOffline = process.env.RUN_OFFLINE;
 
@@ -12,7 +13,7 @@ const passThroughService = new PassThroughService(options);
 const entityCompositeModelService = new EntityCompositeModelService(options);
 
 let PassThroughRouter = function (app) {
-    app.post('/data/pass-through/*', async function (req, res) {
+    app.post('/data/pass-through/*', middlewares.urlValidator, async function (req, res) {
         
         // var responseContent = "";
         // Object.keys(req).forEach(function(key){
@@ -28,35 +29,35 @@ let PassThroughRouter = function (app) {
         res.status(200).send(response);
 
     });
-    app.post('/pass-through-bulk/matchservice/search', async function (req, res) {
+    app.post('/pass-through-bulk/matchservice/search', middlewares.urlValidator, async function (req, res) {
         let response = await passThroughService.bulkCall(req);
         res.status(200).send(response);
     });
-    app.post('/pass-through-bulk/entitygovernservice/workflowChangeAssignment', async function (req, res) {
+    app.post('/pass-through-bulk/entitygovernservice/workflowChangeAssignment', middlewares.urlValidator, async function (req, res) {
         let response = await passThroughService.bulkCall(req);
         res.status(200).send(response);
     });
-    app.post('/pass-through-bulk/entitygovernservice/transitionWorkflow', async function (req, res) {
+    app.post('/pass-through-bulk/entitygovernservice/transitionWorkflow', middlewares.urlValidator, async function (req, res) {
         let response = await passThroughService.bulkCall(req);
         res.status(200).send(response);
     });
-    app.post('/pass-through-bulk/entitygovernservice/validate', async function (req, res) {
+    app.post('/pass-through-bulk/entitygovernservice/validate', middlewares.urlValidator, async function (req, res) {
         let response = await passThroughService.bulkCall(req);
         res.status(200).send(response);
     });
-    app.post('/data/pass-through-combined-query/bulkentityservice/createtask', async function (req, res) {
+    app.post('/data/pass-through-combined-query/bulkentityservice/createtask', middlewares.urlValidator, async function (req, res) {
         let response = await passThroughService.createTaskForCombinedQuery(req);
         res.status(200).send(response);
     });
-    app.post('/pass-through-deploytenantseed/adminservice/deploytenantseed', async function (req, res) {
+    app.post('/pass-through-deploytenantseed/adminservice/deploytenantseed', middlewares.urlValidator, async function (req, res) {
         let response = await passThroughService.deployTenantSeedCall(req);
         res.status(200).send(response);
     });
-    app.post('/data/pass-through-snapshot/*', async function (req, res) {
+    app.post('/data/pass-through-snapshot/*', middlewares.urlValidator, async function (req, res) {
         let response = await passThroughService.snapshotCall(req);
         res.status(200).send(response);
     });
-    app.post('/data/pass-through-model/compositemodelget', async function(req, res) {
+    app.post('/data/pass-through-model/compositemodelget', middlewares.urlValidator, async function(req, res) {
         let response = await entityCompositeModelService.get(req.body);
         res.status(200).send(response);
     });
