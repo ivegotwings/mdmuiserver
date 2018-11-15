@@ -260,7 +260,7 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
     return;
 }
 
-function _buildRelationshipsResponse(rels, reqData, currentDataContextJson, paths, basePath) {
+function _buildRelationshipsResponse(rels, reqData, currentDataContextJson, paths, basePath, ctxKey) {
 
     let reqRelIds = reqData.relIds,
         operation = reqData.operation;
@@ -279,8 +279,8 @@ function _buildRelationshipsResponse(rels, reqData, currentDataContextJson, path
             let relsJson = {};
             let relIds = [];
 
-            if (originalRelIds && originalRelIds[relTypeKey]) {
-                relIds = originalRelIds[relTypeKey];
+            if (originalRelIds && originalRelIds[ctxKey] && originalRelIds[ctxKey][relTypeKey]) {
+                relIds = originalRelIds[ctxKey][relTypeKey];
             }
 
             for (let relKey in relTypeData) {
@@ -587,7 +587,7 @@ function buildResponse(dataObject, reqData, paths) {
                 if (!isEmpty(reqData.relTypes)) {
                     let rels = contextItem.relationships;
                     if (!isEmpty(rels)) {
-                        _buildRelationshipsResponse(rels, reqData, currentDataContextJson, paths, currentContextBasePath);
+                        _buildRelationshipsResponse(rels, reqData, currentDataContextJson, paths, currentContextBasePath, ctxKey);
                     }
                 }
 

@@ -246,48 +246,54 @@
             return { "jsonEnvelope": jsonEnvelope, "dataObjectIds": dataObjectIds, "dataObjectTypes": dataObjectTypes };
         },
         _prepareOriginalRelIdsForRelationshipsSave: function (dataObject, model, basePath) {
-            if (dataObject.data && dataObject.data.relationships) {
-                let relTypeKeys = [];
-                let rels = dataObject.data.relationships;
-                if (!_.isEmpty(rels)) {
-                    relTypeKeys = Object.keys(rels);
-                    let originalRelIds = rels["originalRelIds"] = {};
-                    let utils = SharedUtils.DataObjectFalcorUtil;
-
-                    let contextPath;
-                    let contexts = dataObject.data.contexts;
-                    let selfCtxKey = utils.createSelfCtxKey();
-                    if (contexts && contexts.length > 0) {
-                        //TODO:: Prepare path for the requested context...
-                        //Currently it is not implemented hence considering self context key
-                        contextPath = utils.mergePathSets(basePath, selfCtxKey);
-                    } else {
-                        contextPath = utils.mergePathSets(basePath, selfCtxKey);
+            if(dataObject.data) {
+                let utils = SharedUtils.DataObjectFalcorUtil;
+                let contexts = dataObject.data.contexts;
+                if (contexts && contexts.length > 0) {
+                    for(let i=0; i<contexts.length; i++) {
+                        let context = contexts[i].context;
+                        let ctxKey = utils.createCtxKey(context);
+                        let rels = contexts[i].relationships;
+                        this._prepareOriginalRelIds(rels, basePath, model, ctxKey);
                     }
+                } else if (dataObject.data.relationships) {
+                    let rels = dataObject.data.relationships;
+                    let selfCtxKey = utils.createSelfCtxKey();
+                    this._prepareOriginalRelIds(rels, basePath, model, selfCtxKey);
+                }
+            }
+        },
 
-                    for (let relTypeKey of relTypeKeys) {
-                        let relIdsPath = utils.mergePathSets(contextPath, ["relationships", relTypeKey, "relIds"]);
-                        let relIdsJson = model.getCache(relIdsPath);    //get original rel ids from local cache
+        _prepareOriginalRelIds: function (rels, basePath, model, ctxKey) {
+            if(!_.isEmpty(rels)) {
+                let utils = SharedUtils.DataObjectFalcorUtil;
+                let contextPath = utils.mergePathSets(basePath, ctxKey);
+                let relTypeKeys = [];
+                relTypeKeys = Object.keys(rels);
+                let originalRelIds = rels["originalRelIds"] = {};
 
-                        if (relIdsJson) {
-                            let originalRelIdsForType;
-                            let pathObject = relIdsJson;
-                            //Walk through relIdsJson and get originalRelIds
-                            for (let pathItem of relIdsPath) {
-                                pathObject = pathObject[pathItem];
+                for (let relTypeKey of relTypeKeys) {
+                    let relIdsPath = utils.mergePathSets(contextPath, ["relationships", relTypeKey, "relIds"]);
+                    let relIdsJson = model.getCache(relIdsPath);    //get original rel ids from local cache
 
-                                if (!pathObject) {
-                                    break;
-                                }
+                    if (relIdsJson) {
+                        let originalRelIdsForType;
+                        let pathObject = relIdsJson;
+                        //Walk through relIdsJson and get originalRelIds
+                        for (let pathItem of relIdsPath) {
+                            pathObject = pathObject[pathItem];
 
-                                if (pathItem == "relIds") {
-                                    originalRelIdsForType = pathObject.value;
-                                }
+                            if (!pathObject) {
+                                break;
                             }
 
-                            if (originalRelIdsForType) {
-                                originalRelIds[relTypeKey] = originalRelIdsForType;
+                            if (pathItem == "relIds") {
+                                originalRelIdsForType = pathObject.value;
                             }
+                        }
+
+                        if (originalRelIdsForType) {
+                            originalRelIds[relTypeKey] = originalRelIdsForType;
                         }
                     }
                 }
