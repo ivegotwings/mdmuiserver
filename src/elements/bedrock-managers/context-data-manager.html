@@ -1,0 +1,110 @@
+<link rel="import" href="../../../bower_components/polymer/polymer-element.html">
+<link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
+<link rel="import" href="../bedrock-helpers/context-helper.html">
+<link rel="import" href="../bedrock-helpers/data-request-helper.html">
+<link rel="import" href="../bedrock-logger-behavior/bedrock-logger-behavior.html">
+
+<script>
+    class ContextDataManager extends Polymer.mixinBehaviors([RUFBehaviors.LoggerBehavior], Polymer.Element) {
+
+        static get is() {
+            return "context-data-manager";
+        }
+        constructor() {
+            super();
+            this.mappedDataContextLocale;
+            this.contextDataDetails;
+            this.contextTypes;
+            if (!RUFUtilities.contextDataManager) {
+                RUFUtilities.contextDataManager = this;
+            }
+            return RUFUtilities.contextDataManager;
+        }
+        static getInstance() {
+            if (!RUFUtilities.contextDataManager) {
+                RUFUtilities.contextDataManager = new ContextDataManager();;
+            }
+            return RUFUtilities.contextDataManager;
+        }
+        _generateRequest(resolve) {
+            let liquidEntityCustomElement = customElements.get("liquid-entity-data-get");
+            let liquidEntityDataGet = new liquidEntityCustomElement();
+
+            let _onResponse = (ev) => {
+                if(DataHelper.isValidObjectPath(ev, "detail.response.content.entities")) {
+                    let entities = ev.detail.response.content.entities;
+                    if(!_.isEmpty(entities)) {
+                        this.contextDataDetails = entities
+                    }
+                }
+                if (resolve) {
+                    resolve();
+                }
+            };
+
+            liquidEntityDataGet.addEventListener("response", _onResponse.bind(this));
+            liquidEntityDataGet.addEventListener("error", this._onError.bind(this));
+            liquidEntityDataGet.requestId = "";
+
+            liquidEntityDataGet.excludeInProgress = true;
+            liquidEntityDataGet.operation = "searchandget";
+            let req = {
+                "params": {
+                    "query": {
+                        "filters": {
+                            "typesCriterion": this.contextTypes
+                        }
+                    },
+                    "fields": {
+                        "relationships": ["allowedlocales"]
+                    }
+                }
+            }
+
+            liquidEntityDataGet.requestData = req;
+            liquidEntityDataGet.generateRequest();
+        }
+        _onError(e) {
+            this.logError('Entity get failed', e.detail);
+        }
+        _triggerRequest() {
+            return new Promise((resolve, reject) => {
+                this._generateRequest(resolve);
+            })
+        }
+        async getMappedLocales(contextTypes) {
+            if (!_.isEmpty(this.mappedDataContextLocale)){
+                return this.mappedDataContextLocale;
+            } else {
+                this.contextTypes = contextTypes;
+                let callLiquid = await this._triggerRequest();
+                return this.getContextMappedLocales();
+            }
+        }
+        getContextMappedLocales(){
+            if (!_.isEmpty(this.contextDataDetails)){
+                let _mappedLocale = {};
+                let _contextDataDetails = this.contextDataDetails;
+                _contextDataDetails.forEach(_contextData =>{
+                    if (_contextData.data && _contextData.data.relationships && !_.isEmpty(_contextData.data.relationships["allowedlocales"])) {
+                        let _allowedLocales = _contextData.data.relationships["allowedlocales"];
+                        if(!isEmpty(_allowedLocales)){
+                            let locales = []
+                            _allowedLocales.forEach(locale => {
+                                locales.push(locale.id)
+                            })
+                            _mappedLocale[_contextData.name] = locales
+                        }
+                    }
+                });
+                this.mappedDataContextLocale = _mappedLocale;
+            }
+            return this.mappedDataContextLocale;
+        }
+        async preload() {
+            return await this._triggerRequest();
+        }
+    }
+
+    customElements.define(ContextDataManager.is, ContextDataManager);
+</script>
