@@ -104,13 +104,11 @@
         </div>
         <bedrock-pubsub event-name="refresh-context-selector" handler="refresh"></bedrock-pubsub>
         <liquid-entity-model-get id="entityModelGet" operation="getbyids" request-data="{{_entityModelRequest}}" on-response="_onEntityModelGetResponse" on-error="_onEntityModelGetError"></liquid-entity-model-get>
-        <liquid-rest id="entityContextGet" url="/data/pass-through/entityservice/getcontext" method="POST" request-data="{{_entityContextRequest}}" on-liquid-response="_onEntityContextGetResponse" on-liquid-error="_onEntityContextGetError" exclude-in-progress>
-            <liquid-rest id="preselectedContextGet" url="/data/pass-through/entityservice/get" method="POST" request-data="{{_preselectedContextRequest}}" on-liquid-response="_onPreselectedContextGetResponse" on-liquid-error="_onPreselectedContextGetGetError" exclude-in-progress>
-                </liquid-entity-data-get>
-            </liquid-rest>
-            <liquid-config-get id="liqInitFavouriteContextsSearch" operation="initiatesearch" request-data="{{favouriteContextsGetRequest}}" last-response="{{favouriteContextsInitSearchResponse}}" on-response="_onFavouriteContextsInitSearchResponse"></liquid-config-get>
-            <liquid-config-get id="liqFavouriteContextsGetSearchResultDetail" operation="getsearchresultdetail" on-response="_onFavouriteContextsGetSearchResultDetailResponse"></liquid-config-get>
-            <liquid-config-save id="favouriteContextsSave" request-data="[[favouriteContextsSaveRequest]]" on-response="_onFavouriteContextsSaveResponse" on-error="_onFavouriteContextsSaveError"></liquid-config-save>
+        <liquid-rest id="entityContextGet" url="/data/pass-through/entityservice/getcontext" method="POST" request-data="{{_entityContextRequest}}" on-liquid-response="_onEntityContextGetResponse" on-liquid-error="_onEntityContextGetError" exclude-in-progress></liquid-rest>
+        <liquid-rest id="preselectedContextGet" url="/data/pass-through/entityservice/get" method="POST" request-data="{{_preselectedContextRequest}}" on-liquid-response="_onPreselectedContextGetResponse" on-liquid-error="_onPreselectedContextGetGetError" exclude-in-progress></liquid-rest>
+        <liquid-config-get id="liqInitFavouriteContextsSearch" operation="initiatesearch" request-data="{{favouriteContextsGetRequest}}" last-response="{{favouriteContextsInitSearchResponse}}" on-response="_onFavouriteContextsInitSearchResponse"></liquid-config-get>
+        <liquid-config-get id="liqFavouriteContextsGetSearchResultDetail" operation="getsearchresultdetail" on-response="_onFavouriteContextsGetSearchResultDetailResponse"></liquid-config-get>
+        <liquid-config-save id="favouriteContextsSave" request-data="[[favouriteContextsSaveRequest]]" on-response="_onFavouriteContextsSaveResponse" on-error="_onFavouriteContextsSaveError"></liquid-config-save>
     </template>
     <script>
         class RockContextSelector
@@ -295,6 +293,12 @@
                     enableSelectAll: {
                         type: Boolean,
                         value: false
+                    },
+                    preSelectedContexts: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
                     }
                 }
             }
@@ -513,6 +517,9 @@
                         item.dataMappings["type"] = types;
                         if (!_.isEmpty(types)) {
                             types.forEach(function (type) {
+                                if(!_.isEmpty(this.preSelectedContexts) && !_.isEmpty(this.preSelectedContexts[type])) {
+                                    item.selectedItem = this.preSelectedContexts[type][0];
+                                }
                                 ctxIds.push(type + "_entityManageModel");
 
                                 if (_self._contextHierarchy.indexOf(type) < 0) {
@@ -893,10 +900,6 @@
                                          * dataContext is optional but valueContext is mandatory
                                          * */
                                         this._setDefaultSelectedItem(configDataItem, rockLov);
-                                        //Set from navigationData
-                                        if (!_.isEmpty(defaultDimensions) && defaultDimensions[ctxKey] && !_.isEmpty(defaultDimensions[ctxKey])) {
-                                            rockLov.selectedItems = this._getDefaultSelectedItems(ctxKey, defaultDimensions, rockLov.selectedItems);
-                                        }
                                         if (!rockLov.multiSelect) {
                                             let selectedItem = !_.isEmpty(rockLov.selectedItem) ? rockLov.selectedItem : undefined;
                                             let selectedItems = !_.isEmpty(rockLov.selectedItems) ? rockLov.selectedItems : undefined;
@@ -913,6 +916,10 @@
                                             selectedDimensions[ctxKey] = itemId ? [itemId] : [];
                                             this.selectedDimensionsDetail[ctxKey] = item ? [item] : [];
                                         } else {
+                                            //Set from navigationData
+                                            if (!_.isEmpty(defaultDimensions) && defaultDimensions[ctxKey] && !_.isEmpty(defaultDimensions[ctxKey])) {
+                                                rockLov.selectedItems = this._getDefaultSelectedItems(ctxKey, defaultDimensions, rockLov.selectedItems);
+                                            }
                                             let selectedItems = rockLov.selectedItems;
                                             let type = entityTypes[j];
                                             let items = selectedItems ? selectedItems.filter(item => item.type === type) : undefined;
@@ -1064,10 +1071,10 @@
                                             lovElement.selectedItems = this.selectedDimensionsDetail[ctxType];
                                             lovElement.selectedItem = !_.isEmpty(lovElement.selectedItems) ? lovElement.selectedItems[0] : {};
                                             lovElement.requestData = reqData;
-                                            lovElement.reset();
                                         }
                                     }
                                 }
+                                lovElement.reset();
                             }
                         }
                     }, this);
@@ -1107,6 +1114,7 @@
                     let mappedValueContexts = this._getMappedValueContextsBasedOnCtxType(currentContextType);
 
                     if (mappedValueContexts) {
+                        this.selectedDimensionsDetail["PreSelectedItems"] = {};
                         let dependentCtxs = mappedValueContexts.map(a => a.valueContext);
 
                         if (dependentCtxs) {
@@ -1117,14 +1125,38 @@
 
                                 for (let selectedItem of selectedItems) {
                                     if (selectedItem.relTo) {
+                                        let defaultValueContextId;
                                         let relIds = selectedItem.relTo.map(function (rel) {
                                             if (rel.relTo.type == dctxs) {
+                                                if(rel.attributes) {
+                                                    let relAttr = rel.attributes[this._getDefaultSelectedAttrName()];
+
+                                                    if (DataHelper.isValidObjectPath(relAttr, "values.0.value") && relAttr.values[0].value.toString() == "true") {
+                                                        defaultValueContextId = rel.relTo.id;
+                                                    }
+                                                }
                                                 return rel.relTo.id;
                                             }
-                                        });
+                                        }, this);
 
                                         if (!_.isEmpty(relIds)) {
                                             dependentLovRelationships[dctxs] = dependentLovRelationships[dctxs].concat(relIds);
+                                        }
+
+                                        if (!this.selectedDimensionsDetail["PreSelectedItems"]) {
+                                            this.selectedDimensionsDetail["PreSelectedItems"] = {};
+                                        }
+
+                                        if (_.isEmpty(this.selectedDimensionsDetail["PreSelectedItems"][dctxs])) {
+                                            this.selectedDimensionsDetail["PreSelectedItems"][dctxs] = [];
+                                        }
+
+                                        if (_.isEmpty(defaultValueContextId)) {
+                                            defaultValueContextId = selectedItem.relTo[0].relTo.id;
+                                        }
+
+                                        if (this.selectedDimensionsDetail["PreSelectedItems"][dctxs].indexOf(defaultValueContextId) === -1) {
+                                            this.selectedDimensionsDetail["PreSelectedItems"][dctxs].push(defaultValueContextId);
                                         }
                                     }
                                 }
@@ -1156,36 +1188,35 @@
                                     }
                                 }, this);
 
-                                if (!_.isEmpty(selectedItems)) {
+                                let preSelectedItems = _domHost.selectedDimensionsDetail["PreSelectedItems"] && _domHost.selectedDimensionsDetail["PreSelectedItems"][ctxType];
+                                if (!_.isEmpty(preSelectedItems)) {
+                                    //var preselctedItem = data.find(v => v.id == preSelectedItemId);
+                                    let preselctedItem = data.find(v => preSelectedItems.find(u => u === v.id));
+
+                                    if (preselctedItem) {
+                                        let name;
+                                        let path = "data.attributes." + elementInfo.externalAttrName + ".values.0.value";
+                                        if (DataHelper.isValidObjectPath(preselctedItem, path)) {
+                                            name = preselctedItem.data.attributes[elementInfo.externalAttrName].values[0].value;
+                                        } else {
+                                            name = preselctedItem.name;
+                                        }
+                                        let item = formattedData.find(v => v.title == name);
+
+                                        if (item) {
+                                            this.selectedItem = item;
+                                            this.selectedItems = [item];
+                                            _domHost._setSelectedDimensions();
+                                        }
+                                    }
+                                } else if (!_.isEmpty(selectedItems)) {
                                     if (!DataHelper.areEqualArrays(this.selectedItems, selectedItems)) {
                                         this.selectedItems = selectedItems;
                                         _domHost._setSelectedDimensions();
                                     }
                                 } else {
-                                    let preSelectedItems = _domHost.selectedDimensionsDetail["PreSelectedItems"] && _domHost.selectedDimensionsDetail["PreSelectedItems"][ctxType];
-                                    if (!_.isEmpty(preSelectedItems)) {
-                                        //var preselctedItem = data.find(v => v.id == preSelectedItemId);
-                                        let preselctedItem = data.find(v => preSelectedItems.find(u => u === v.id));
-
-                                        if (preselctedItem) {
-                                            let name;
-                                            let path = "data.attributes." + elementInfo.externalAttrName + ".values.0.value";
-                                            if (DataHelper.isValidObjectPath(preselctedItem, path)) {
-                                                name = preselctedItem.data.attributes[elementInfo.externalAttrName].values[0].value;
-                                            } else {
-                                                name = preselctedItem.name;
-                                            }
-                                            let item = formattedData.find(v => v.title == name);
-
-                                            if (item) {
-                                                this.selectedItems = [item];
-                                                _domHost._setSelectedDimensions();
-                                            }
-                                        }
-                                    } else {
-                                        this.selectedItems =  !_.isEmpty(_domHost.selectedDimensionsDetail[ctxType]) ? _domHost.selectedDimensionsDetail[ctxType] : [];
-                                        _domHost._setSelectedDimensions();
-                                    }
+                                    this.selectedItems =  !_.isEmpty(_domHost.selectedDimensionsDetail[ctxType]) ? _domHost.selectedDimensionsDetail[ctxType] : [];
+                                    _domHost._setSelectedDimensions();
                                 }
                             }
                         }
@@ -1235,7 +1266,6 @@
                 let mappedValueContexts = elementInfo && elementInfo.mappedValueContexts;
 
                 if (mappedValueContexts && data && formattedData) {
-                    this.selectedDimensionsDetail["PreSelectedItems"] = {};
                     for (let d of data) {
                         if (d.data && d.data.relationships) {
                             for (let rel in d.data.relationships) {
@@ -1261,29 +1291,6 @@
                                         let defaultValueContextId;
                                         for (let r of valContextRelationships) {
                                             item.relTo.push(r);
-                                            if (r.attributes && mappedValueContext) {
-                                                let relAttr = r.attributes[this._getDefaultSelectedAttrName()];
-
-                                                if (DataHelper.isValidObjectPath(relAttr, "values.0.value") && relAttr.values[0].value.toString() == "true") {
-                                                    defaultValueContextId = r.relTo.id;
-                                                }
-                                            }
-                                        }
-
-                                        if (!this.selectedDimensionsDetail["PreSelectedItems"]) {
-                                            this.selectedDimensionsDetail["PreSelectedItems"] = {};
-                                        }
-
-                                        if (_.isEmpty(this.selectedDimensionsDetail["PreSelectedItems"][mappedValueContext.valueContext])) {
-                                            this.selectedDimensionsDetail["PreSelectedItems"][mappedValueContext.valueContext] = [];
-                                        }
-
-                                        if (_.isEmpty(defaultValueContextId)) {
-                                            defaultValueContextId = valContextRelationships[0].relTo.id;
-                                        }
-
-                                        if (this.selectedDimensionsDetail["PreSelectedItems"][mappedValueContext.valueContext].indexOf(defaultValueContextId) === -1) {
-                                            this.selectedDimensionsDetail["PreSelectedItems"][mappedValueContext.valueContext].push(defaultValueContextId);
                                         }
                                     }
                                 }
