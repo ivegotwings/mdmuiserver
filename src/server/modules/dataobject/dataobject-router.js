@@ -6,6 +6,8 @@ let falcorExpress = require('falcor-express'),
 
 let resolver = require('./dataobject-route-resolver');
 
+let middlewares = require('./../../middlewares');
+
 let DataObjectRouterBase = Router.createClass(
     [
         {
@@ -80,27 +82,27 @@ module.exports = function () {
 };
 
 module.exports = function (app) {
-    app.use('/data/entityData.json',
+    app.use('/data/entityData.json', middlewares.urlValidator,
         falcorExpress.dataSourceRoute(function (req, res) {
             return new DataObjectRouter(routerOptions);
         }));
-    app.use('/data/entityModelData.json',
+    app.use('/data/entityModelData.json', middlewares.urlValidator,
         falcorExpress.dataSourceRoute(function (req, res) {
             return new DataObjectRouter(routerOptions);
         }));
-    app.use('/data/entityGovernData.json',
+    app.use('/data/entityGovernData.json', middlewares.urlValidator,
         falcorExpress.dataSourceRoute(function (req, res) {
             return new DataObjectRouter(routerOptions);
         }));
-    app.use('/data/configData.json',
+    app.use('/data/configData.json', middlewares.urlValidator,
         falcorExpress.dataSourceRoute(function (req, res) {
             return new DataObjectRouter(routerOptions);
         }));
-    app.use('/data/eventData.json',
+    app.use('/data/eventData.json', middlewares.urlValidator,
         falcorExpress.dataSourceRoute(function (req, res) {
             return new DataObjectRouter(routerOptions);
         }));
-    app.use('/data/requestTracking.json',
+    app.use('/data/requestTracking.json', middlewares.urlValidator,
         falcorExpress.dataSourceRoute(function (req, res) {
             return new DataObjectRouter(routerOptions);
         }));
