@@ -126,6 +126,7 @@ module.exports = {
         "ModuleVersionManager": true,
         "LocaleManager": true,
         "EntityTypeManager": true,
+        "ContextDataManager":true,
         "EntityCompositeModelManager": true,
         "SharedUtils": true,
         "SharedEnumsUtil": true,
