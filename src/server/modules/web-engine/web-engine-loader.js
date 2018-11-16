@@ -13,7 +13,6 @@ let path = require("path");
 let RuntimeVersionManager = require('../services/version-service/RuntimeVersionManager');
 let ModuleVersionManager = require('../services/version-service/ModuleVersionManager');
 let executionContext = require('../common/context-manager/execution-context');
-let middlewares = require('../../middlewares');
 
 let config = require('config');
 
@@ -73,9 +72,6 @@ logger.info('Web engine start - body parser middleware is loaded');
 
 // register cors to allow cross domain calls
 app.use(cors());
-
-// validate url 
-app.use(middlewares.urlValidator);
 
 logger.info('Web engine start - cors middleware is loaded');
 
