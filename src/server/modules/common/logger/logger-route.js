@@ -22,7 +22,9 @@ let LoggerRouter = function (app) {
 
     app.use('/data/logger/sendlogs', async function (req, res) {
         let response = {"status": "error"};
-
+        if(req.query){
+            res.status(403);
+        }
         if(req.body && req.body[0] && req.body[0].message) {
             //console.log(req.body[0].message);
             let logRecord = JSON.parse(req.body[0].message);

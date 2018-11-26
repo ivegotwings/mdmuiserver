@@ -72,7 +72,7 @@
         </style>
         <liquid-entity-data-get id="lineagepath" operation="getbyids" request-data="{{lineagerequest}}" on-error="_onLineagePathError"
             on-response="_onLineagePathResponse" exclude-in-progress></liquid-entity-data-get>
-        <liquid-entity-data-get id="rootNodeGet" operation="getbyids" request-data="{{_rootNodeGetRequest}}" on-error="_onLineagePathError"
+        <liquid-entity-data-get id="rootNodeGet" operation="getbyids" on-error="_onRootNodeGetError"
             on-response="_onRootNodeGetResponse" exclude-in-progress></liquid-entity-data-get>
         <liquid-entity-data-get id="initiateSearch" operation="initiatesearch" request-data="{{request}}" last-response="{{initiateSearchResponse}}"
             on-error="_onGetSearchError" on-response="_onInitiateSearchResponse" exclude-in-progress></liquid-entity-data-get>
@@ -276,13 +276,18 @@
                         type: Boolean,
                         value: false
                     },
-
+                    rootNodeExternalName: {
+                        type: String,
+                        value: "",
+                        notify: true
+                    }
                 }
             }
 
             static get observers() {
                 return [
-                    '_onSelectedItemsChange(_selectedItems.*, _selectedItem)'
+                    '_onSelectedItemsChange(_selectedItems.*, _selectedItem)',
+                    '_onRootNodeChange(rootNode)'
                 ];
             }
 
@@ -312,7 +317,6 @@
             }
 
             resetSearch() {
-                this._loading = true;
                 this._isSearchMode = false;
                 this.clearSelectedItems();
                 this.executeRequest("");
@@ -435,6 +439,7 @@
                             name: "detailresponsereceived",
                             data: map
                         }
+                        this._loading = false;
                         this.dispatchEvent(new CustomEvent('bedrock-event', { detail: eventData, bubbles: true, composed: true }));
                     }
                 }
@@ -540,7 +545,6 @@
                     }
                 }
                 this._searchClicked = false;
-                this._loading = false;
             }
 
             //If _selectedClassificationPaths available, then only pre selection process triggers
@@ -610,6 +614,46 @@
 
             _childListRefreshed() {
                 this._checkForSelectedClassification();
+            }
+
+            _onRootNodeChange() {
+                if (this.rootNode) {
+                    let classificationReq = this._getClassificationsEntityGetRequest();
+                    let liquidDataElement = this.shadowRoot.querySelector("#rootNodeGet");
+                    if (liquidDataElement) {
+                        liquidDataElement.requestData = classificationReq;
+                        liquidDataElement.generateRequest();
+                    }
+                }
+            }
+
+            _getClassificationsEntityGetRequest() {
+                let request = DataRequestHelper.createEntityGetRequest(this.contextData);
+                //Update attributes type and id
+                request.params.fields.attributes = ["externalName"];
+                request.params.query.filters.typesCriterion = ["classification"];
+                request.params.query.id = this.rootNode;
+
+                return request;
+            }
+
+            _onRootNodeGetResponse(e, detail) {
+                let entities = [];
+                if (DataHelper.isValidObjectPath(detail, "response.content.entities")) {
+                    entities = detail.response.content.entities;
+                }
+
+                if (_.isEmpty(entities) &&
+                    !DataHelper.isValidObjectPath(entities[0], "data.attributes.externalName.values.0.value")) {
+                    this.logError("Classification entity/extenalName missing for the save process");
+                    return;
+                }
+
+                this.rootNodeExternalName = entities[0].data.attributes.externalName.values[0].value;
+            }
+
+            _onRootNodeGetError(e) {
+                this.logError("Classification entity data get failed", e.detail);
             }
         }
 

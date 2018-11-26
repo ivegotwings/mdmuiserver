@@ -50,6 +50,7 @@ module.exports = {
         "complexity": ["off", 20],
         "array-callback-return": "off",
         "no-eq-null": "off",
+        "no-control-regex":"off",
         "max-classes-per-file": ["off", 1],
         "class-methods-use-this": ["off", { "exceptMethods": [] }],
         "no-loop-func": "off",
