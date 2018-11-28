@@ -1115,8 +1115,8 @@ BaseModelService.prototype = {
                 properties.referenceData = refEntityInfo.refEntityType + "/" + attrValue + "_" + refEntityInfo.refEntityType;
             }
         }
-        value.locale = tenantSetting[tenantConfigKey].defaultValueSource;
-        value.source = tenantSetting[tenantConfigKey].defaultValueLocale;
+        value.locale = tenantSetting[tenantConfigKey].defaultValueLocale;
+        value.source = tenantSetting[tenantConfigKey].defaultValueSource;
         value.value = attrValue ? attrValue : "";
 
         if (!isEmpty(properties)) {
