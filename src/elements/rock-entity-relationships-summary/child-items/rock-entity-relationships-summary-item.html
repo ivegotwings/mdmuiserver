@@ -1,6 +1,5 @@
 <link rel="import" href="../../../../bower_components/polymer/polymer-element.html">
 <link rel="import" href="../../../../bower_components/iron-ajax/iron-ajax.html">
-<link rel="import" href="../../../../bower_components/iron-flex-layout/iron-flex-layout-classes.html">
 
 <link rel="import" href="../../bedrock-helpers/data-helper.html">
 <link rel="import" href="../../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
@@ -135,11 +134,6 @@
                             value: {}
                         },
 
-                        isDownDirection: {
-                            type: Boolean,
-                            value: false
-                        },
-
                         downRequestTemplate: {
                             type: Object,
                             value: {
@@ -206,16 +200,16 @@
                 super.ready();
                 let liquid;
                 this._loading = true;
-                if (this.isDownDirection) {
-                    this.description = this.data.relatedEntityTypes[0].properties.externalName;
+                let ownership = this.data.relEntityType.properties.relationshipOwnership;
+                this.description = this.data.relEntityType.properties.externalName || this.data.relEntityType.id;
+                if (ownership == "owned") {
                     this.request = this.generateDownRequestObject(this.downRequestTemplate);
                     liquid = this.$.getRelations;
                     liquid.operation = "getbyids";
                     liquid.useDataCoalesce = this.applyContextCoalesce;
                     DataHelper.oneTimeEvent(liquid, 'response', this.onResponseGetByIdData.bind(this));
                 } else{
-                    this.description = this.data.label;
-                    this.request = this.generateUpRequestObject(this.upRequestTemplate,this.data.relationshipType);
+                    this.request = this.generateUpRequestObject(this.upRequestTemplate,this.data.relationshipTypeName);
                     liquid = this.$.getRelations;
                     liquid.operation = "initiatesearchandgetcount";
                     DataHelper.oneTimeEvent(liquid, 'response', this.onResponseSearchData.bind(this));
@@ -236,7 +230,7 @@
                 let request = DataHelper.cloneObject(template);
                 request.params.query.id = this.entity.id;
                 request.params.query.filters.typesCriterion = [this.entity.type];
-                let relationship = this.data.relatedEntityTypes.length >1 ? this.data.relationshipTypeName : this.data.relatedEntityTypes[0].id;
+                let relationship = this.data.relationshipTypeName;
 
                 request.params.fields.relationships = [relationship];
                 let firstDataContext = this.getFirstDataContext();
@@ -246,7 +240,11 @@
 
             generateUpRequestObject (template,relationshipType) {
                 let request = DataHelper.cloneObject(template);
-                request.params.query.filters.typesCriterion = this.data.entityType;
+                let entityType;
+                if(DataHelper.isValidObjectPath(this.data, 'relEntityType.properties.relatedEntityInfo.0.relEntityType')){
+                    entityType = this.data.relEntityType.properties.relatedEntityInfo[0].relEntityType;
+                }
+                request.params.query.filters.typesCriterion = [entityType];
                 let relationshipTypeObject = {};
                 relationshipTypeObject[relationshipType] = {
                     "relTo": {
@@ -255,7 +253,7 @@
                     }
                 };
                 request.params.query.filters.relationshipsCriterion.push(relationshipTypeObject)
-                request.params.fields.relationships = this.data.entityType;
+                request.params.fields.relationships = entityType;
                 let firstDataContext = this.getFirstDataContext();
                 if(firstDataContext){
                     request.params.query.contexts = [firstDataContext];
