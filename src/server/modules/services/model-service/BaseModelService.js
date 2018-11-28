@@ -6,7 +6,7 @@ let falcorUtil = require('../../../../shared/dataobject-falcor-util');
 let logger = require('../../common/logger/logger-service');
 let isEmpty = require('../../common/utils/isEmpty');
 let _ = require('underscore');
-
+let tenantSystemConfigService = require('../configuration-service/TenantSystemConfigService');
 let config = require('config');
 let modelCacheEnabled = config.get('modules.webEngine.modelCacheEnabled');
 
@@ -18,12 +18,15 @@ const compositeModelTypes = ["entityManageModel", "entityDisplayModel", "entityV
 let modelGetManager = new ModelGetManager({});
 let dataObjectManageService = new DataObjectManageService({});
 let localCacheManager = new LocalCacheManager();
-
+let tenantSetting = null;
+let tenantConfigKey = null;
 BaseModelService.prototype = {
     get: async function (request) {
         let response;
         let requestType = falcorUtil.isValidObjectPath(request, "params.query.filters.typesCriterion") ? request.params.query.filters.typesCriterion[0] : "";
-
+        
+        tenantSetting = await tenantSystemConfigService.prototype.getCachedTenantMetaData();
+        tenantConfigKey = tenantSetting["tenant-settings-key"];
         if (!isEmpty(requestType)) {
             switch (requestType) {
                 case "attributeModel":
@@ -775,11 +778,10 @@ BaseModelService.prototype = {
                         // create nested attribute for key object properties based on composite attribute model.
                         entityAttributes[attrModelName] = {}
                         entityAttributes[attrModelName].group = [];
-
                         for (let group of attributeModels[attrModelName].group) {
                             let grp = {
-                                "source": "internal",
-                                "locale": "en-US"
+                                "source": tenantSetting[tenantConfigKey].defaultValueSource,
+                                "locale": tenantSetting[tenantConfigKey].defaultValueLocale,
                             };
                             for (let grpAttrName in group) {
                                 if (grpAttrName.toLowerCase() != "id") {
@@ -1113,9 +1115,8 @@ BaseModelService.prototype = {
                 properties.referenceData = refEntityInfo.refEntityType + "/" + attrValue + "_" + refEntityInfo.refEntityType;
             }
         }
-
-        value.locale = "en-US";
-        value.source = "internal";
+        value.locale = tenantSetting[tenantConfigKey].defaultValueSource;
+        value.source = tenantSetting[tenantConfigKey].defaultValueLocale;
         value.value = attrValue ? attrValue : "";
 
         if (!isEmpty(properties)) {

@@ -2,7 +2,7 @@ let DFConnection = require('../common/service-base/DFConnection');
 let moment = require('moment');
 let sleep = require('system-sleep');
 let uuidV1 = require('uuid/v1');
-
+let tenantSystemConfigService = require('../services/configuration-service/TenantSystemConfigService');
 let ApiHealthCheckService = function (options) {
     let _dataConnection = new DFConnection();
     this._restRequest = _dataConnection.getRequest();
@@ -179,7 +179,7 @@ ApiHealthCheckService.prototype = {
             }
 
             let dataObject = updateRequest.body[objectName];
-            this.setAttrVal(dataObject.data.attributes, attrName, newVal);
+            await this.setAttrVal(dataObject.data.attributes, attrName, newVal);
 
             updateRequest.url = dfUrl;
 
@@ -304,7 +304,7 @@ ApiHealthCheckService.prototype = {
             deleteRequest.url = dfUrl.replace(serverUrl, deleteApiUrl);
 
             let dataObject = createRequest.body[objectName];
-            this.setAttrVal(dataObject.data.attributes, attrName, newVal);
+            await this.setAttrVal(dataObject.data.attributes, attrName, newVal);
 
             createRequest.url = dfUrl;
 
@@ -493,11 +493,15 @@ ApiHealthCheckService.prototype = {
 
         return errResponse;
     },
-    setAttrVal: function (attributes, attrName, val) {
+    setAttrVal: async function (attributes, attrName, val) {
+        
+        let tenantSetting = await tenantSystemConfigService.prototype.getCachedTenantMetaData();
+        let tenantConfigKey = tenantSetting["tenant-settings-key"];
+
         let attr = this.getOrCreate(attributes, attrName, {});
         let values = [{
-            "source": "internal",
-            "locale": "en-US",
+            "source": tenantSetting[tenantConfigKey].defaultValueSource,
+            "locale": tenantSetting[tenantConfigKey].defaultValueLocale,
             "value": val
         }];
 
