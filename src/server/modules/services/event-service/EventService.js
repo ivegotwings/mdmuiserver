@@ -1472,6 +1472,9 @@ Eventservice.prototype = {
                 case "ui_authorizationmodel":
                     taskType = "Authorization Model Imports"
                     break;
+                case "ui_workflowappmodel":
+                    taskType = "Workflow Model Imports"
+                    break;
                 case "ui_basedatamodel_export":
                     taskType = "Base Data Model Exports"
                     break;
@@ -1483,6 +1486,9 @@ Eventservice.prototype = {
                     break;    
                 case "ui_authorizationmodel_export":
                     taskType = "Authorization Model Exports"
+                    break;
+                case "ui_workflowappmodel_export":
+                    taskType = "Workflow Model Exports"
                     break;
             }
         }
