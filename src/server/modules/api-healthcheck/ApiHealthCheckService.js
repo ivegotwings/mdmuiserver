@@ -9,7 +9,6 @@ let ApiHealthCheckService = function (options) {
     this._serverUrl = _dataConnection.getServerUrl();
     this._copServerUrl = _dataConnection.getCOPServerUrl();
     this._internalRdfUrl = _dataConnection.getInternalRdfUrl();
-    console.log(new tenantSystemConfigService(options).getDefaultLocale())
 }
 
 ApiHealthCheckService.prototype = {
