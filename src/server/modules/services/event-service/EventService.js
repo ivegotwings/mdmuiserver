@@ -572,10 +572,6 @@ Eventservice.prototype = {
 
         let attributeNames = ["entityId", "entityType", "entityAction", "requestStatus"];
         req.params.fields.attributes = attributeNames;
-        req.params.query.valueContexts = [{
-            "source": "rdp",
-            "locale": tenantSetting[tenantConfigKey].defaultValueLocale
-        }];
 
         let attributesCriteria = [];
 
@@ -640,10 +636,6 @@ Eventservice.prototype = {
             let attributeNames = ["_ALL"];
             req.params.fields.attributes = attributeNames;
         }
-        // req.params.query.valueContexts = [{
-        //     "source": "rdp",
-        //     "locale": "en-US"
-        // }];
 
         if(inputRequest.params.query.ids) {
             req.params.query.ids = inputRequest.params.query.ids;
@@ -1061,10 +1053,6 @@ Eventservice.prototype = {
 
         let attributeNames = ["entityId", "entityType", "entityAction"];
         req.params.fields.attributes = attributeNames;
-        req.params.query.valueContexts = [{
-            "source": "rdp",
-            "locale": tenantSetting[tenantConfigKey].defaultValueLocale
-        }];
 
         let attributesCriteria = [];
 
