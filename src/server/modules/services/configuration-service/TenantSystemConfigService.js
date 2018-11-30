@@ -1,24 +1,47 @@
 'use strict';
 
+let localConfigCache = {};
 let DFRestService = require('../../common/df-rest-service/DFRestService');
 let RuntimeVersionManager = require('../version-service/RuntimeVersionManager');
-
-const falcorUtil = require('../../../../shared/dataobject-falcor-util');
-
+let executionContext = require('../../common/context-manager/execution-context');
+const falcorUtil = require('../../../../shared/dataobject-falcor-util'),
+      isEmpty = require('../../common/utils/isEmpty');
 let TenantSystemConfigService = function (options) {
     DFRestService.call(this, options);
 };
 
-let localConfigCache = {};
+
 
 TenantSystemConfigService.prototype = {
+    getCachedTenantMetaData: function(){
+        let defaultSourceAndLocale = {
+            defaultValueSource : "internal",
+            defaultValueLocale: "en-US"
+        };
+        if (isEmpty(localConfigCache)) {
+            localConfigCache["tenant-settings-key"] = "default";
+            localConfigCache["default"] = defaultSourceAndLocale;
+        }
+        return localConfigCache;
+    },
+    getDefaultSource: function(){
+        let tenantSetting = this.getCachedTenantMetaData();
+        let tenantConfigKey = tenantSetting["tenant-settings-key"];
+        return tenantSetting[tenantConfigKey].defaultValueSource;
+    },
+    getDefaultLocale: function(){
+        let tenantSetting = this.getCachedTenantMetaData();
+        let tenantConfigKey = tenantSetting["tenant-settings-key"];
+        return tenantSetting[tenantConfigKey].defaultValueLocale;
+    },
     get: async function (url, tenantConfigRequest) {
         let tenant = this.getTenantId();
 
         let mode = "online";
         let configId = tenantConfigRequest.params.query.id;
-        let cacheKey = await this.getCacheKey(tenant, configId);
-
+        this.configId = configId;
+        let cacheKey = await this.getCacheKey();
+        localConfigCache["tenant-settings-key"] = cacheKey;
         if (localConfigCache[cacheKey]) {
             return falcorUtil.cloneObject(localConfigCache[cacheKey]);
         }
@@ -33,10 +56,15 @@ TenantSystemConfigService.prototype = {
         localConfigCache[cacheKey] = falcorUtil.cloneObject(tenantConfigMetadata);
         return tenantConfigMetadata;
     },
-    getCacheKey: async function(tenant, configId) {
+    getCacheKey: async function() {
         let runtimeVersion = await RuntimeVersionManager.getVersion();
-        let cacheKey = "".concat(tenant,"_", configId,"_", runtimeVersion);
-        return cacheKey;
+        let securityContext = executionContext && executionContext.getSecurityContext();
+        let tenantId = "unknown";
+        let configId = this.configId;
+        if (securityContext) {
+            tenantId = securityContext.tenantId;
+        }
+        return "".concat(tenantId,"_", configId,"_", runtimeVersion);
     },
     getTenantMetadata: function(config){
         

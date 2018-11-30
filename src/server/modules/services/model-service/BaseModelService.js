@@ -6,7 +6,7 @@ let falcorUtil = require('../../../../shared/dataobject-falcor-util');
 let logger = require('../../common/logger/logger-service');
 let isEmpty = require('../../common/utils/isEmpty');
 let _ = require('underscore');
-
+let tenantSystemConfigService = require('../configuration-service/TenantSystemConfigService');
 let config = require('config');
 let modelCacheEnabled = config.get('modules.webEngine.modelCacheEnabled');
 
@@ -18,12 +18,11 @@ const compositeModelTypes = ["entityManageModel", "entityDisplayModel", "entityV
 let modelGetManager = new ModelGetManager({});
 let dataObjectManageService = new DataObjectManageService({});
 let localCacheManager = new LocalCacheManager();
-
 BaseModelService.prototype = {
     get: async function (request) {
         let response;
         let requestType = falcorUtil.isValidObjectPath(request, "params.query.filters.typesCriterion") ? request.params.query.filters.typesCriterion[0] : "";
-
+        
         if (!isEmpty(requestType)) {
             switch (requestType) {
                 case "attributeModel":
@@ -775,11 +774,10 @@ BaseModelService.prototype = {
                         // create nested attribute for key object properties based on composite attribute model.
                         entityAttributes[attrModelName] = {}
                         entityAttributes[attrModelName].group = [];
-
                         for (let group of attributeModels[attrModelName].group) {
                             let grp = {
-                                "source": "internal",
-                                "locale": "en-US"
+                                "source": tenantSystemConfigService.prototype.getDefaultSource(),
+                                "locale": tenantSystemConfigService.prototype.getDefaultLocale(),
                             };
                             for (let grpAttrName in group) {
                                 if (grpAttrName.toLowerCase() != "id") {
@@ -1113,9 +1111,8 @@ BaseModelService.prototype = {
                 properties.referenceData = refEntityInfo.refEntityType + "/" + attrValue + "_" + refEntityInfo.refEntityType;
             }
         }
-
-        value.locale = "en-US";
-        value.source = "internal";
+        value.locale = tenantSystemConfigService.prototype.getDefaultLocale();
+        value.source = tenantSystemConfigService.prototype.getDefaultSource();
         value.value = attrValue ? attrValue : "";
 
         if (!isEmpty(properties)) {
