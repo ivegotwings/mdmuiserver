@@ -80,30 +80,10 @@ let DFServiceBase = function (options) {
             }
             result = result.body;
         } else {
-            console.log('Result in service base is undefined for request ', JSON.stringify(request));
+            console.log('Result in service base is undefined for request ', JSON.stringify(options));
         }
 
-        // if ((request && request.params && request.params.query && request.params.query.id && request.params.query.id == "app-entity-discovery_savedSearch_RDLpkEKy1lwe")
-        //      || (request && request.params && request.params.query && request.params.query.filters && request.params.query.filters.typesCriterion[0] == "xxx")
-        //      || (request && request.params && request.params.query && request.params.query.filters && request.params.query.filters.typesCriterion[0] == "entityDefinition")
-        //     ) {
-        //     //sleep(90000);
-        //     result = {
-        //         "response": {
-        //             "status": "error",
-        //             "statusDetail": {
-        //                 "message": "Server is busy, please try never ever again..."
-        //             }
-        //         }
-        //     };
-
-        //     console.log ('result is overriden for special id ', JSON.stringify(result));
-        // }
-
         let isErrorResponse = logger.logError(internalRequestId, serviceName, options, result);
-
-        // console.log("request: -- - - - ", JSON.stringify(options, null, 2));
-        // console.log("response: -- - - - ", JSON.stringify(result, null, 2));
 
         if (!isErrorResponse) {
             logger.logResponseCompletedInfo(internalRequestId, serviceName, hrstart);
