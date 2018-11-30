@@ -12,6 +12,7 @@
 <link rel="import" href="../rock-relationship-manage/rock-relationship-manage.html">
 <link rel="import" href="../rock-entity-quick-manage/rock-entity-quick-manage.html">
 <link rel="import" href="../rock-entity-graph-tree/rock-entity-graph-tree.html">
+<link rel="import" href="../rock-entity-detail-tabs/rock-entity-detail-tabs.html">
 <link rel="import" href="../rock-component-config-behavior/rock-component-config-behavior.html">
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-padding-margin.html">
@@ -153,9 +154,14 @@
                                 <template is="dom-if" if="{{!_visibleMessageCard(selectedItem)}}" restamp>
                                     <div class="graph-grid-wrapper only-attribute-container">	
                                         <div class="grid-container col-8-4-grid-child-1">
-                                            <template is="dom-if" if="[[_visibleGridView(selectedItem.viewMode, _panelContentLoaded)]]">
-                                                <rock-relationship-manage id="relationshipManage" exclude-non-contextual="[[excludeNonContextual]]"></rock-relationship-manage>
-                                            </template>  
+                                                <template is="dom-if" if="[[_visibleGridView(selectedItem.viewMode, _panelContentLoaded)]]">
+                                                    <template is="dom-if" if="[[_isTaxonomyPage()]]">
+                                                        <rock-entity-detail-tabs id="rockDetailTabs" view-mode="{{viewMode}}" context-data="[[_tabContextData]]" readonly="[[readonly]]"></rock-entity-detail-tabs>
+                                                    </template>
+                                                    <template is="dom-if" if="[[!_isTaxonomyPage()]]">
+                                                        <rock-relationship-manage id="relationshipManage" exclude-non-contextual="[[excludeNonContextual]]"></rock-relationship-manage>
+                                                    </template>
+                                                </template>  
                                         </div>
                                         <div class="col-8-4-grid-child-2">               
                                             <template is="dom-if" if="[[_visibleQuickManageView(selectedItem.viewMode, _panelContentLoaded)]]">
@@ -200,6 +206,13 @@
                     },
                     observer: "_onContextDataChange"
                 },
+                _tabContextData: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    },
+                    notify: true
+                },
                 configData: {
 					type: Object,
 					value: function () { 
@@ -212,9 +225,21 @@
                         return {};
                     }
                 },
+                viewMode: {
+                        type: String,
+                        value: ""
+                },
                 onlyAttribute:{
                     type:String,
                     value:""
+                },
+
+                /**
+                 * If set as true , it indicates the component is in read only mode
+                 */
+                    readonly: {
+                    type: Boolean,
+                    value: false
                 },
                 selectedItem:{
                     type:Object,
@@ -240,6 +265,15 @@
                 _entityContextData:{
                     type:Object,
                     value: function(){
+                        return {};
+                    }
+                },
+                                    /*
+                     * Indicates the configuration for the "tab" element.
+                     */
+                tabConfig: {
+                    type: Object,
+                    value: function () {
                         return {};
                     }
                 },
@@ -313,21 +347,21 @@
                     context[ContextHelper.CONTEXT_TYPE_APP] = [{
                         "app": appName
                     }];
-                }
+                }                
                 this.requestConfig('rock-entity-graph', context);
             }
         }
         onConfigLoaded(componentConfig) {
             if(componentConfig && componentConfig.config) {
-                this.configData = componentConfig.config;
-                if(_.isEmpty(this._graphTreeConfig)){
-                    this._graphTreeConfig = componentConfig.config.entityGraphTreeConfig;
-                    if(this._graphTreeConfig.isClassificationTree){
-                        this._initiateClassificationTree();    
-                    }
-                }else{
-                    this._onGridConfigLoaded(componentConfig.config);
-                }
+                    this.configData = componentConfig.config;
+                    if(_.isEmpty(this._graphTreeConfig)){
+                        this._graphTreeConfig = componentConfig.config.entityGraphTreeConfig;
+                        if(this._graphTreeConfig.isClassificationTree){
+                            this._initiateClassificationTree();    
+                        }
+                    }else{
+                        this._onGridConfigLoaded(componentConfig.config);
+                    }                
             }   
         }
         _isClassificationTree(){
@@ -359,6 +393,19 @@
                 rootNodeInitialGet.generateRequest();
             }
         }
+
+        get detailTabs() {
+            this._detailTabs = this._detailTabs || this.shadowRoot.querySelector("#rockDetailTabs");
+            return this._detailTabs;
+        }
+
+        _refreshView() {
+            if (this.detailTabs) {
+                this.detailTabs.readyToRender(true);
+                this.detailTabs.reloadCurrentTab();
+            }
+        }
+
         _onInitiateSearchResponse(e) {
             let totalRecords = this.initiateSearchResponse.content.totalRecords;
             if (totalRecords) {
@@ -368,6 +415,25 @@
                 }
             } else {
                 this.logError("Process failed - Root classification not available for this taxonomy.");
+            }
+        }
+
+        _getDomain() {
+            let domainContext = this.getFirstDomainContext();
+            if(domainContext && domainContext.domain) {
+                return domainContext.domain;                
+            } else {
+                return false;
+            }
+
+        }
+
+        _isTaxonomyPage() {
+            let domain = this._getDomain();
+            if(domain && domain == "taxonomyModel") {
+                return true;
+            } else {
+                return false;
             }
         }
         _onRootNodeGetResponse(ev) {
@@ -512,25 +578,38 @@
         }
         _onTreeItemChange(){
             if(!_.isEmpty(this.selectedItem) && this.selectedItem.viewMode){
-                this.set("_entityContextData", this._getEntityContextData());
+                let entityContextData = this._getEntityContextData();
+                this.set("_entityContextData", entityContextData);
+                let domain = this._getDomain();
                 
-                if(this._isClassificationTree()){
+                if(this._isClassificationTree() && domain!=='taxonomyModel'){
                     this._onGridConfigLoaded();
                     return;
                 }
-                if(this._isGridView()){
+                if(this._isGridView() || this._isClassificationTree()){
                     this.set("_panelContentLoaded", false);
                     let context = DataHelper.cloneObject(this._entityContextData);
-                    context[ContextHelper.CONTEXT_TYPE_APP] = [{
-                        "app": "app-entity-manage"
-                    }];
-                    this.requestConfig("rock-entity-detail-tabs", context);
+                    if(domain =='taxonomyModel') {
+                        let firstItemContext = this.getFirstItemContext();
+                        let currentApp = ComponentHelper.getCurrentActiveApp();
+                        if(firstItemContext && currentApp) {
+                            context[ContextHelper.CONTEXT_TYPE_APP] = [{
+                                "app": currentApp.nodeName.toLowerCase() + '-' + firstItemContext.type
+                            }];
+                        }
+                        this._tabContextData = DataHelper.cloneObject({});
+                        this._tabContextData = DataHelper.cloneObject(context);
+                        Polymer.Async.timeOut.after(100).run(() => {
+                            this._refreshView();
+                        });
+                    }
                 }else{
                     this.set("_panelContentLoaded", true);
                     Polymer.Async.timeOut.after(100).run(() => {
                         this._reloadQuickManage();
                     })
                 }
+                this.set("_panelContentLoaded", true);
 
             }else{
                 this.set("_entityConfigContext", {});
@@ -597,7 +676,7 @@
         _onGridConfigLoaded(tabConfig){
             let configContext = {};
             let mode, doSyncValidation, noOfColumns;
-            
+
             if(tabConfig && !_.isEmpty(tabConfig)){
                 let componentProperties;
                 if(tabConfig.tabItems){
