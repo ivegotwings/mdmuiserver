@@ -156,6 +156,7 @@
         <liquid-entity-model-get id="getEntityTypeModel" operation="getbyids" on-response="_onEntityTypeModelReceived" on-error="_onEntityTypeModelFailed"></liquid-entity-model-get>
         <liquid-entity-model-get id="liquidAttributeModelGet" operation="getbyids" on-error="_onAttributeModelGetError" on-response="_onAttributeModelGetResponse" exclude-in-progress></liquid-entity-model-get>
         <liquid-entity-data-get id="getEntity" operation="getbyids" data-index="entityData" data-sub-index="data" on-response="_onEntityGetResponse" on-error="_onEntityGetFailed"></liquid-entity-data-get>
+        <liquid-rest id="classificationModelGet" url="/data/pass-through/entitymodelservice/get" method="POST" on-liquid-response="_onClassificationModelGetResponse"></liquid-rest>
     </template>
     <script>
         class RockEntityUpload
@@ -358,6 +359,16 @@
                         value: function () {
                             return [];
                         }
+                    },
+                    _classificationExtNameAttr: {
+                        type: String,
+                        value: ""
+                    },
+                    _pathRootNodes: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
                     }
                 }
             }
@@ -411,16 +422,6 @@
                 }
             }
 
-            _getClassificationsEntityGetRequest(pathRootNodes) {
-                let request = DataRequestHelper.createEntityGetRequest(this.contextData);
-                //Update attributes type and ids
-                request.params.fields.attributes = ["externalName"];
-                request.params.query.filters.typesCriterion = ["classification"];
-                request.params.query.ids = pathRootNodes;
-
-                return request;
-            }
-
             _onAttributeModelGetResponse(e) {
                 let response = e.detail.response;
                 if (response && response.content && response.content.entityModels) {
@@ -437,6 +438,7 @@
                         }
                     });
                     this.attributeModels = pathModels;
+                    this._pathRootNodes = pathRootNodes;
 
                     if(_.isEmpty(pathRootNodes)) {
                         this.logError("Classification root nodes not available for the process");
@@ -444,19 +446,64 @@
                         return;
                     }
 
-                    //Prepare entity get request with pathRootNodes
-                    let request = this._getClassificationsEntityGetRequest(pathRootNodes);
-                    let liquidDataElement = this.shadowRoot.querySelector('#getEntity');
-                    if (liquidDataElement) {
-                        liquidDataElement.requestData = request;
-                        liquidDataElement.generateRequest();
-                    }
+                    //get classification manage model for external attribute
+                    this._getClassificationManageModel()
                 }
             }
 
             _onAttributeModelGetError(e) {
                 this.logError("Attribute model get error", e.detail);
                 this._loading = false;
+            }
+
+            _getClassificationManageModel() {
+                let request = DataRequestHelper.createGetManageModelRequest(["classification"]);
+
+                let classificationModelGetElement = this.$$("#classificationModelGet");
+                if (classificationModelGetElement) {
+                    classificationModelGetElement.requestData = request;
+                    classificationModelGetElement.generateRequest();
+                }
+            }
+
+            _onClassificationModelGetResponse(e) {
+                let response = DataHelper.isValidObjectPath(e, "detail.response.response") ? e.detail.response.response : "";
+
+                if (response && !_.isEmpty(response.entityModels)) {
+                    let entityModel = response.entityModels[0];
+                    let externalNameAndExternalNameAttr = AttributeHelper.getExternalNameAndExternalNameAttr(entityModel);
+
+                    if (externalNameAndExternalNameAttr && externalNameAndExternalNameAttr.externalNameAttr) {
+                        this._classificationExtNameAttr = externalNameAndExternalNameAttr.externalNameAttr;
+                        this._triggerClassificationEntityGet();
+                    } else {
+                        this.logError("Attribute not found with isExternalName in classification entity manage model.", e.detail);
+                        this._loading = false;
+                    }
+                } else {
+                    this.logError("Entity manage model not found for classification.", e.detail);
+                    this._loading = false;
+                }
+            }
+
+            _getClassificationsEntityGetRequest() {
+                let request = DataRequestHelper.createEntityGetRequest(this.contextData);
+                //Update attributes, type and ids
+                request.params.fields.attributes = [this._classificationExtNameAttr];
+                request.params.query.filters.typesCriterion = ["classification"];
+                request.params.query.ids = this._pathRootNodes;
+
+                return request;
+            }
+
+            _triggerClassificationEntityGet() {
+                //Prepare entity get request with pathRootNodes
+                let request = this._getClassificationsEntityGetRequest();
+                let liquidDataElement = this.shadowRoot.querySelector('#getEntity');
+                if (liquidDataElement) {
+                    liquidDataElement.requestData = request;
+                    liquidDataElement.generateRequest();
+                }
             }
 
             async _onEntityGetResponse(e, detail) {
@@ -477,18 +524,20 @@
                         return entity.id == model.properties.pathEntityInfo[0].rootNode;
                     }, this);
 
-                    if(_.isEmpty(classificationEntity) ||
-                       !DataHelper.isValidObjectPath(classificationEntity[0], "data.attributes.externalName.values.0.value")) {
+                    let attributeValue = "";
+                    if (_.isEmpty(classificationEntity) ||
+                        !(attributeValue = AttributeHelper.getAttributeValuesFromEntity(classificationEntity[0], this._classificationExtNameAttr))) {
                         return;
                     }
-                    model.properties.pathEntityInfo[0].rootNodeExternalName = classificationEntity[0].data.attributes.externalName.values[0].value;
+
+                    model.properties.pathEntityInfo[0].rootNodeExternalName = attributeValue;
 
                     paths.push({
-                        "title": model.properties.pathEntityInfo[0].rootNodeExternalName,
+                        "title": attributeValue,
                         "value": model
                     });
                 }, this);
-                this.paths = paths;
+                this.paths = paths; //dropdown paths list
 
                 if(_.isEmpty(this.paths)) {
                     this.logError("Classification root paths are missing for the process");
