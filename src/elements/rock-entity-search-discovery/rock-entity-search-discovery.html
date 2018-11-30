@@ -299,6 +299,7 @@
             </div>
             <rock-search-query-parser id="queryParser" relationship-name={{relationshipName}} context-data="[[contextData]]" filter-criterion-key="[[filterCriterionKey]]"></rock-search-query-parser>
             <bedrock-pubsub id="parser-event" event-name="on-search-filters" handler="_onSearchFiltersChange" target-id="queryParser"></bedrock-pubsub>
+            <liquid-entity-model-get id="attrModelGet" operation="getbyids" on-error="_onError" on-response="_onAttrModelResponse" exclude-in-progress></liquid-entity-model-get>
         </template>
     </template>
     <script>
@@ -543,6 +544,12 @@
                             return [];
                         }
                     },
+                    externalSearchAttributes: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
                     maxAllowedValuesForSearch: {
                         type: Number
                     }
@@ -586,6 +593,65 @@
                         }
                     }
                     this._configDataChanged();
+                }
+            }
+            
+            _getAttributeModels(){
+                let requestData = {
+                    "params": {
+                        "query": {
+                            "filters": {
+                                "typesCriterion": [
+                                    "attributeModel"
+                                ]
+                            }
+                        },
+                        "fields": {
+                            "ctxTypes": [
+                                "properties"
+                            ],
+                            "attributes": [""]
+                        }
+                    }
+                }
+                let attrIds = Object.keys(this.externalSearchAttributes).map(attr => { return attr+"_attributeModel" });
+                requestData.params.query.ids = attrIds;
+                let attrModelGet = this.shadowRoot.querySelector("#attrModelGet");
+                if(attrModelGet){
+                    attrModelGet.requestData = requestData;
+                    attrModelGet.generateRequest();
+                }
+
+            }
+            _onError(er){
+
+            }
+            _onAttrModelResponse(ev){
+                if(DataHelper.isValidObjectPath(ev, 'detail.response.content.entityModels')){
+                    let entityModels = ev.detail.response.content.entityModels;
+                    if(!_.isEmpty(entityModels)){
+                        let attrModelObj = {};
+                        entityModels.forEach((elem) => {
+                            elem["preselectedValues"] = this.externalSearchAttributes[elem.name];
+                            attrModelObj[elem.name] = elem;
+                        });
+
+                        let lovColumnNameValueCollection = {};
+                        if(this._entityTypeModelLov){
+                            lovColumnNameValueCollection = this._entityTypeModelLov.getColumnNameValueCollection();
+                        } 
+                        let attributeDataModels = {"data": {"attributes":attrModelObj}};
+                        let attributeModels = DataTransformHelper.transformAttributeModels(attributeDataModels, {});
+                        if (!_.isEmpty(attributeModels)) {
+                            let items = DataTransformHelper.transformAtributeModelsToLovSchema(attributeModels, lovColumnNameValueCollection);
+                            if(!_.isEmpty(items)){
+                                let rockSearchFilter = this._entitySearchFilterElement.$$("rock-search-filter");
+                                if (rockSearchFilter) {
+                                    rockSearchFilter.preselectedFilters(items)
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -695,7 +761,11 @@
                             return;
                         }
                     }
-                    if (!this.savedSearchId) {
+                    if(!_.isEmpty(this.externalSearchAttributes)){
+                        Polymer.Async.microTask.run(() => {
+                            this._getAttributeModels();
+                        });
+                    }else if (!this.savedSearchId) {
                         this._buildQueryString();
                     }
                 }
