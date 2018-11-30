@@ -18,15 +18,11 @@ const compositeModelTypes = ["entityManageModel", "entityDisplayModel", "entityV
 let modelGetManager = new ModelGetManager({});
 let dataObjectManageService = new DataObjectManageService({});
 let localCacheManager = new LocalCacheManager();
-let tenantSetting = null;
-let tenantConfigKey = null;
 BaseModelService.prototype = {
     get: async function (request) {
         let response;
         let requestType = falcorUtil.isValidObjectPath(request, "params.query.filters.typesCriterion") ? request.params.query.filters.typesCriterion[0] : "";
         
-        tenantSetting = await tenantSystemConfigService.prototype.getCachedTenantMetaData();
-        tenantConfigKey = tenantSetting["tenant-settings-key"];
         if (!isEmpty(requestType)) {
             switch (requestType) {
                 case "attributeModel":
@@ -780,8 +776,8 @@ BaseModelService.prototype = {
                         entityAttributes[attrModelName].group = [];
                         for (let group of attributeModels[attrModelName].group) {
                             let grp = {
-                                "source": tenantSetting[tenantConfigKey].defaultValueSource,
-                                "locale": tenantSetting[tenantConfigKey].defaultValueLocale,
+                                "source": tenantSystemConfigService.prototype.getDefaultSource(),
+                                "locale": tenantSystemConfigService.prototype.getDefaultLocale(),
                             };
                             for (let grpAttrName in group) {
                                 if (grpAttrName.toLowerCase() != "id") {
@@ -1115,8 +1111,8 @@ BaseModelService.prototype = {
                 properties.referenceData = refEntityInfo.refEntityType + "/" + attrValue + "_" + refEntityInfo.refEntityType;
             }
         }
-        value.locale = tenantSetting[tenantConfigKey].defaultValueLocale;
-        value.source = tenantSetting[tenantConfigKey].defaultValueSource;
+        value.locale = tenantSystemConfigService.prototype.getDefaultLocale();
+        value.source = tenantSystemConfigService.prototype.getDefaultSource();
         value.value = attrValue ? attrValue : "";
 
         if (!isEmpty(properties)) {

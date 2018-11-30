@@ -9,6 +9,7 @@ let ApiHealthCheckService = function (options) {
     this._serverUrl = _dataConnection.getServerUrl();
     this._copServerUrl = _dataConnection.getCOPServerUrl();
     this._internalRdfUrl = _dataConnection.getInternalRdfUrl();
+    console.log(new tenantSystemConfigService(options).getDefaultLocale())
 }
 
 ApiHealthCheckService.prototype = {
@@ -179,7 +180,7 @@ ApiHealthCheckService.prototype = {
             }
 
             let dataObject = updateRequest.body[objectName];
-            await this.setAttrVal(dataObject.data.attributes, attrName, newVal);
+            this.setAttrVal(dataObject.data.attributes, attrName, newVal);
 
             updateRequest.url = dfUrl;
 
@@ -304,7 +305,7 @@ ApiHealthCheckService.prototype = {
             deleteRequest.url = dfUrl.replace(serverUrl, deleteApiUrl);
 
             let dataObject = createRequest.body[objectName];
-            await this.setAttrVal(dataObject.data.attributes, attrName, newVal);
+            this.setAttrVal(dataObject.data.attributes, attrName, newVal);
 
             createRequest.url = dfUrl;
 
@@ -493,15 +494,12 @@ ApiHealthCheckService.prototype = {
 
         return errResponse;
     },
-    setAttrVal: async function (attributes, attrName, val) {
-        
-        let tenantSetting = await tenantSystemConfigService.prototype.getCachedTenantMetaData();
-        let tenantConfigKey = tenantSetting["tenant-settings-key"];
+    setAttrVal: function (attributes, attrName, val) {
 
         let attr = this.getOrCreate(attributes, attrName, {});
         let values = [{
-            "source": tenantSetting[tenantConfigKey].defaultValueSource,
-            "locale": tenantSetting[tenantConfigKey].defaultValueLocale,
+            "source": tenantSystemConfigService.prototype.getDefaultSource(),
+            "locale": tenantSystemConfigService.prototype.getDefaultLocale(),
             "value": val
         }];
 

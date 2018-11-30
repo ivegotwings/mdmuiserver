@@ -24,6 +24,16 @@ TenantSystemConfigService.prototype = {
         }
         return localConfigCache;
     },
+    getDefaultSource: function(){
+        let tenantSetting = this.getCachedTenantMetaData();
+        let tenantConfigKey = tenantSetting["tenant-settings-key"];
+        return tenantSetting[tenantConfigKey].defaultValueSource;
+    },
+    getDefaultLocale: function(){
+        let tenantSetting = this.getCachedTenantMetaData();
+        let tenantConfigKey = tenantSetting["tenant-settings-key"];
+        return tenantSetting[tenantConfigKey].defaultValueLocale;
+    },
     get: async function (url, tenantConfigRequest) {
         let tenant = this.getTenantId();
 

@@ -42,15 +42,11 @@ const eventSubTypesOrder = ["NONE",
     "PROCESSING_COMPLETE_WITH_WARNING",
     "PROCESSING_SUBMISSION_ERROR"];
     
-let tenantSetting = null;
-let tenantConfigKey = null;
 Eventservice.prototype = {
     get: async function (request) {
         let response = {};
         let getBasedOnTaskSummarizationProcessor = false;
         
-        tenantSetting = await tenantSystemConfigService.prototype.getCachedTenantMetaData();
-        tenantConfigKey = tenantSetting["tenant-settings-key"];
         //Task summarization processor temp changes...
         if(taskSummarizationProcessorEnabled) {
             if(request.params.fields) {
@@ -520,8 +516,8 @@ Eventservice.prototype = {
         if (attributeNames && attributeNames.length > 0) {
             req.params.fields.attributes = attributeNames;
             req.params.query.valueContexts = [{
-                "source": tenantSetting[tenantConfigKey].defaultValueSource,
-                "locale": tenantSetting[tenantConfigKey].defaultValueLocale
+                "source": tenantSystemConfigService.prototype.getDefaultSource(),
+                "locale": tenantSystemConfigService.prototype.getDefaultLocale(),
             }];
         }
 
@@ -787,8 +783,8 @@ Eventservice.prototype = {
                             eventAttributes["isExtractComplete"] = attributes["isExtractComplete"];
                             eventAttributes["createdOn"] = {"values": [
                                 {
-                                    "source": tenantSetting[tenantConfigKey].defaultValueSource,
-                                    "locale": tenantSetting[tenantConfigKey].defaultValueLocale,
+                                    "source": tenantSystemConfigService.prototype.getDefaultSource(),
+                                    "locale": tenantSystemConfigService.prototype.getDefaultLocale(),
                                     "id": uuidV1(),
                                     "value": taskSummaryObject.properties ? taskSummaryObject.properties.createdDate : ""
                                 }
@@ -799,8 +795,8 @@ Eventservice.prototype = {
                             if(attributes["taskType"] && attributes["taskType"].values[0].value.search(/createvariants/i) > -1){
                                 eventAttributes["taskName"] = {"values": [
                                     {
-                                        "source": tenantSetting[tenantConfigKey].defaultValueSource,
-                                        "locale": tenantSetting[tenantConfigKey].defaultValueLocale,
+                                        "source": tenantSystemConfigService.prototype.getDefaultSource(),
+                                        "locale": tenantSystemConfigService.prototype.getDefaultLocale(),
                                         "id": uuidV1(),
                                         "value": "Create Variants"
                                     }
@@ -892,8 +888,8 @@ Eventservice.prototype = {
         req.params.query.id = taskId;
         req.params.fields.attributes = ["_ALL"];
         req.params.query.valueContexts = [{
-            "source": tenantSetting[tenantConfigKey].defaultValueSource,
-            "locale": tenantSetting[tenantConfigKey].defaultValueLocale
+            "source": tenantSystemConfigService.prototype.getDefaultSource(),
+            "locale": tenantSystemConfigService.prototype.getDefaultLocale(),
         }];
 
         req.params.options = {
@@ -1344,8 +1340,8 @@ Eventservice.prototype = {
                 event.data.attributes[attrName] = {};
                 event.data.attributes[attrName].values = [{
                     "value": val,
-                    "source": tenantSetting[tenantConfigKey].defaultValueSource,
-                    "locale": tenantSetting[tenantConfigKey].defaultValueLocale
+                    "source": tenantSystemConfigService.prototype.getDefaultSource(),
+                    "locale": tenantSystemConfigService.prototype.getDefaultLocale(),
                 }];
             }
         }

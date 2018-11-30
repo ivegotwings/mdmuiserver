@@ -45,13 +45,11 @@ DataObjectLineageService.prototype = {
                             !falcorUtil.isValidObjectPath(entity, "data.relationships." + relationshipType) && (entity.data.relationships[relationshipType] = [{}]);
                             
                             let relAttributes = {}
-                            let tenantSetting = await tenantSystemConfigService.prototype.getCachedTenantMetaData();
-                            let tenantConfigKey = tenantSetting["tenant-settings-key"];
                             relAttributes[relAttribute] = {
                                 "values": [
                                     {
-                                        "locale": tenantSetting[tenantConfigKey].defaultValueLocale,
-                                        "source": tenantSetting[tenantConfigKey].defaultValueSource,
+                                        "locale": tenantSystemConfigService.prototype.getDefaultSource(),
+                                        "source": tenantSystemConfigService.prototype.getDefaultLocale(),
                                         "id": "7166b3f5-e50b-416c-9a13-1df35a8eece2",
                                         "value": paths.reverse().join(">>")
                                     }
