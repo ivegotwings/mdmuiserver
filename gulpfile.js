@@ -101,7 +101,7 @@ function serverBuild(buildPath) {
   });
 }
 
-function clientBuild(relativeBuildPath, bundle, isES5, isDev) {
+async function clientBuild(relativeBuildPath, bundle, isES5, isDev) {
   return new Promise((resolve) => {
 
     const polymerProject = new polymerBuild.PolymerProject(polymerJson);
@@ -265,28 +265,20 @@ gulp.task('prod-server-build', function () {
   ]);
 });
 
-gulp.task('prod-es6-bundled-build', function () {
-  return Promise.all([
-    clientBuild(es6BundledPath, true, false, false)
-  ]);
+gulp.task('prod-es6-bundled-build', async function () {
+  await clientBuild(es6BundledPath, true, false, true)
 });
 
-gulp.task('dev-es6-bundled-build', function () {
-  return Promise.all([
-    clientBuild(es6BundledPath, true, false, true)
-  ]);
+gulp.task('dev-es6-bundled-build', async function () {
+  await clientBuild(es6BundledPath, true, false, true)
 })
 
-gulp.task('prod-es6-unbundled-build', function () {
-  return Promise.all([
-    clientBuild(es6unBundledPath, false, false)
-  ]);
+gulp.task('prod-es6-unbundled-build', async function () {
+  await clientBuild(es6unBundledPath, false, false)
 });
 
-gulp.task('prod-es5-bundled-build', function () {
-  return Promise.all([
-    clientBuild(es5BundledPath, true, true)
-  ]);
+gulp.task('prod-es5-bundled-build', async function () {
+  await clientBuild(es5BundledPath, true, true);
 });
 
 gulp.task('prod-build-wrap-up', function () {
