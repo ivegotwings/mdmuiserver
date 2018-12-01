@@ -1,10 +1,11 @@
 <link rel="import" href="../../../bower_components/polymer/polymer-element.html">
-<link rel="import" href="../bedrock-style-manager/styles/bedrock-styles-scroll-bar.html" />
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-scroll-bar.html" />
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-toast-behavior/bedrock-toast-behavior.html">
 
 <dom-module id="pebble-iframe">
     <template>
-        <style include="bedrock-styles-scroll-bar bedrock-style-common">
+        <style include="bedrock-style-scroll-bar bedrock-style-common">
             :host {
                 height: 100%;
                 display: block;
@@ -56,7 +57,11 @@
     </template>
     
     <script>
-        class PebbleIframe extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior], Polymer.Element){
+        class PebbleIframe extends 
+            Polymer.mixinBehaviors([
+                RUFBehaviors.UIBehavior,
+                RUFBehaviors.ToastBehavior,
+            ], Polymer.Element){
             static get is() {
                 return "pebble-iframe";
             }
@@ -111,6 +116,8 @@
                                         ComponentHelper.appRoute(eventData.page, eventData.data);
                                     }else if(!_.isEmpty(eventData.filterData)){
                                         this.redirectToSearch(eventData.page, eventData.filterData);
+                                    }else{
+                                        this.showErrorToast("Please select filter");
                                     }
                                 }
                             }
@@ -124,9 +131,62 @@
             }
 
             redirectToSearch(page, filterData){
-                this.setState(filterData);
-                let encodedData = {state: this.getQueryParamFromState()};
-                ComponentHelper.appRoute(page, encodedData);
+                if(!_.isEmpty(filterData)){
+                    let mappedContexts = [];
+                    if(!_.isEmpty(filterData.locales) && !_.isEmpty(filterData.sources)){
+                        filterData.locales.forEach(locale => {
+                            filterData.sources.forEach(source => {
+                                if(source.internal && locale.internal){
+                                    let valueContext = {
+                                        source:source.internal,
+                                        locale:locale.internal
+                                    }   
+                                    mappedContexts.push(valueContext);
+                                }
+                            })
+                        });
+                        filterData.mappedContextsString = JSON.stringify(mappedContexts);
+                        delete filterData.locales;
+                        delete filterData.sources;
+                    }
+                    //Workflow
+                    if(!_.isEmpty(filterData.workflowNames)){
+                        if(filterData.workflowNames.length == 1){
+                            if(_.isEmpty(filterData.workflowActivityNames)){
+                                this.showWarningToast('Please select workflow activity');
+                                return;
+                            }
+                            let currentWorkflow = filterData.workflowNames[0];
+                            filterData.wfName = currentWorkflow.external;
+                            filterData.wfShortName = currentWorkflow.internal;
+                            delete filterData.workflowNames;
+                        }
+                    }
+                    if(!_.isEmpty(filterData.workflowActivityNames)){
+                        if(_.isEmpty(filterData.wfName)){
+                            this.showWarningToast('Please select workflow.');
+                            return;
+                        }
+                        let activity = filterData.workflowActivityNames[0];
+                        filterData.wfActivityExternalName = activity.external;
+                        filterData.wfActivityName = activity.internal;
+                        delete filterData.workflowActivityNames;
+                    }
+
+                    //Attributes
+                    if(!_.isEmpty(filterData.attributes)){
+                        let attributes = {};
+                        filterData.attributes.forEach( attr => {
+                            attributes[attr.internal] = attr.values;
+                        })
+                        delete filterData.attributes;
+                        filterData.attributes = attributes;
+                    }
+
+                    this.setState(filterData);
+                    let encodedData = {state: this.getQueryParamFromState()};
+                    ComponentHelper.appRoute(page, encodedData);
+                }
             }
 
             refresh() {
