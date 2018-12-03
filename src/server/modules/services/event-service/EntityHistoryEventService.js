@@ -79,7 +79,7 @@ EntityHistoryEventservice.prototype = {
     _generateHistoryData: async function (events, valContexts, dataContexts) {
         let historyList = [];
         let historyListToBeReturned = [];
-        let defaultAttribute = ['clientId', 'relatedRequestId', 'eventSubType', 'entityType', 'entityId', 'eventType', 'entityAction', 'taskId'];
+        let excludeAttribute = ['clientId', 'relatedRequestId', 'eventSubType', 'entityType', 'entityId', 'eventType', 'entityAction', 'taskId',"sourceTimestamp"];
         let defaultRelationship = ['eventTarget'];
         let defaultRelationshipAttributes = ['typeExternalName', 'id', 'name']
         let internalIds = {};
@@ -98,7 +98,7 @@ EntityHistoryEventservice.prototype = {
             
             if (this._isValidObjectPath(event, 'data.contexts.0.attributes')) {
                 let contextAttributes = event.data.contexts[0].attributes;
-                let contextAttributeUpdateHistoryEvent = this._createAttributeUpdateHistoryEvent(event, contextAttributes, defaultAttribute, internalIds)
+                let contextAttributeUpdateHistoryEvent = this._createAttributeUpdateHistoryEvent(event, contextAttributes, excludeAttribute, internalIds)
                 Array.prototype.push.apply(historyList, contextAttributeUpdateHistoryEvent);
             }
 
@@ -118,14 +118,14 @@ EntityHistoryEventservice.prototype = {
                 if (this._isValidObjectPath(attributes, 'eventType.values.0.value')) {
                     let actionType = attributes.eventType.values[0].value;
                     if (actionType == 'EntityAdd') {
-                        let attributeUpdateHistoryEvent = this._createAttributeUpdateHistoryEvent(event, attributes, defaultAttribute, internalIds)
+                        let attributeUpdateHistoryEvent = this._createAttributeUpdateHistoryEvent(event, attributes, excludeAttribute, internalIds)
                         Array.prototype.push.apply(historyList, attributeUpdateHistoryEvent);
 
                         let attributeAddHistoryEvent = this._createEntityAddHistoryEvent(event, attributes, internalIds);
                         Array.prototype.push.apply(historyList, attributeAddHistoryEvent);
                     }
                     else if (actionType == 'EntityUpdate') {
-                        let attributeUpdateHistoryEvent = this._createAttributeUpdateHistoryEvent(event, attributes, defaultAttribute, internalIds)
+                        let attributeUpdateHistoryEvent = this._createAttributeUpdateHistoryEvent(event, attributes, excludeAttribute, internalIds)
                         Array.prototype.push.apply(historyList, attributeUpdateHistoryEvent);
                     }
                 }
@@ -367,12 +367,12 @@ EntityHistoryEventservice.prototype = {
         }
         return attrValues;
     },
-    _createAttributeUpdateHistoryEvent: function (event, attributes, defaultAttribute, internalIds) {
+    _createAttributeUpdateHistoryEvent: function (event, attributes, excludeAttribute, internalIds) {
         let historyList = [];
         let historyObj = {};
         for (let attribute in attributes) {
-            if (attributes.hasOwnProperty(attribute) && attribute != "sourceTimestamp") {
-                if ((defaultAttribute.indexOf(attribute) < 0) && (attribute.indexOf("previous-") < 0)) {
+            if (attributes.hasOwnProperty(attribute)) {
+                if ((excludeAttribute.indexOf(attribute) < 0) && (attribute.indexOf("previous-") < 0)) {
                     internalIds.attributeList.push(attribute);
                     let attrObj = attributes[attribute];
                     historyObj = {};
@@ -393,7 +393,7 @@ EntityHistoryEventservice.prototype = {
         return historyList;
     },
 
-    _createRelationshipHistoryEvent: function (event, relatioships, defaultRelationship, internalIds, defaultAttribute) {
+    _createRelationshipHistoryEvent: function (event, relatioships, defaultRelationship, internalIds, excludeAttribute) {
         let historyList = [];
         let historyObj = {}
         for (let relationship in relatioships) {
@@ -416,7 +416,7 @@ EntityHistoryEventservice.prototype = {
                             if((isRelAttributeUpdate || relTorelationship.attributes) && !relationshipChangeType.startsWith("deleteRelationship")) {
                                 let relAttributes = relTorelationship.attributes;
                                 for (let attribute in relAttributes) {
-                                    if (relAttributes.hasOwnProperty(attribute) && (defaultAttribute.indexOf(attribute) < 0) && (attribute.indexOf("previous-") < 0)) {
+                                    if (relAttributes.hasOwnProperty(attribute) && (excludeAttribute.indexOf(attribute) < 0) && (attribute.indexOf("previous-") < 0)) {
                                         let attrObj = relAttributes[attribute]
                                         historyObj = {};
                                         this._populateHistoryRecord(event, relTorelationship, historyObj, internalIds);
