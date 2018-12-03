@@ -279,6 +279,16 @@ let SERVICE_CONFIG = {
                 "fieldToCompareInData": "id"
             }
         },
+        "entityservice/getentityhistory": {
+            "url": "/entityappservice/getentityhistory",
+            "mode": "online",
+            "offlineSettings": {
+                "operation": "get",
+                "requestPathToSelectDataFile": "params.query.filters.typesCriterion",
+                "requestPathToFilterData": "params.query.id",
+                "fieldToCompareInData": "id"
+            }
+        },
         "requesttrackingservice/get": {
             "url": "/requesttrackingservice/get",
             "mode": "online",
