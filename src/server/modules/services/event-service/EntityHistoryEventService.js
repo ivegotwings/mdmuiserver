@@ -152,7 +152,7 @@ EntityHistoryEventservice.prototype = {
                 if (this._isValidObjectPath(externalResponse, "response.entityModels.0.data")) {
                     let data = externalResponse.response.entityModels[0].data;
 
-                    if (data.attributes && !isEmpty(data.attributes)) {
+                    if (!isEmpty(data.attributes)) {
                         attributeModels = data.attributes;
                     }
                 }
@@ -653,8 +653,17 @@ EntityHistoryEventservice.prototype = {
         let userNames = {};
         for (let m = 0; m < userList.length; m++) {
             let userRecord = userList[m];
-            if (this._isValidObjectPath(userRecord, 'properties.firstName'))
-                userNames[userRecord.id] = userRecord.properties.firstName + ' ' + userRecord.properties.lastName;
+            let userName = "";
+            if (this._isValidObjectPath(userRecord, 'properties.firstName')){
+                userName = userRecord.properties.firstName;
+            }
+            if (this._isValidObjectPath(userRecord, 'properties.lastName')){
+                userName = userName ? (userName + ' ' + userRecord.properties.lastName) : userRecord.properties.lastName;
+            }
+            if(_.isEmpty(userName)){
+                userName = userRecord.properties.name
+            }
+            userNames[userRecord.id] = userName;
         }
         return userNames;
     },
