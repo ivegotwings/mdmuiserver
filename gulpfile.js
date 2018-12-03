@@ -185,13 +185,7 @@ async function clientBuild(relativeBuildPath, bundle, isES5, isDev) {
               inlineCss: true,
               rewriteUrlsInTemplates: false,
               sourcemaps: false,
-              stripComments: true,
-              // Merge shared dependencies into a single bundle when
-              // they have at least three dependents
-              strategy: generateShellOnlyMergeStrategy(polymerJson.shell, 3),
-              // Shared bundles will be named:
-              // `shared/bundle_1.html`, `shared/bundle_2.html`, etc...
-              urlMapper: polyBundler.generateCountingSharedBundleUrlMapper('src/elements/shared-bundles/bundle_')
+              stripComments: true
             }))
             .once('data', () => {
               console.log('Bundling resources... ');
@@ -220,31 +214,6 @@ async function clientBuild(relativeBuildPath, bundle, isES5, isDev) {
       });
   });
 };
-
-function generateShellOnlyMergeStrategy(shell, maybeMinEntrypoints) {
-  const minEntrypoints = maybeMinEntrypoints === undefined ? 2 : maybeMinEntrypoints;
-  if (minEntrypoints < 0) {
-    throw new Error(`Minimum entrypoints argument must be non-negative`);
-  }
-
-  return polyBundler.composeStrategies([
-    // Merge all bundles that are direct dependencies of the shell into the
-    // shell.
-    polyBundler.generateEagerMergeStrategy(shell),
-    // Create a new bundle which contains the contents of all bundles which
-    // either...
-    polyBundler.generateMatchMergeStrategy((bundle) => {
-      // ...contain the shell file
-      return (!bundle.files.has(shell)) &&
-        // or are dependencies of at least the minimum number of entrypoints
-        // and are not entrypoints themselves.
-        bundle.entrypoints.size >= minEntrypoints;
-      //&& !getBundleEntrypoint(bundle);
-    }),
-    // Don't link to the shell from other bundles.
-    polyBundler.generateNoBackLinkStrategy([shell]),
-  ]);
-}
 
 gulp.task('eslint-src', function() {
   return gulp.src(['src/**/*.*'])
