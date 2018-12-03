@@ -1,6 +1,8 @@
 'use strict';
 const PassThroughService = require('./PassThroughService');
 const EntityCompositeModelService = require('../model-service/EntityCompositeModelGetService');
+const EntityHistoryEventService = require('../event-service/EntityHistoryEventService');
+
 let middlewares = require('./../../../middlewares');
 let options = {};
 let runOffline = process.env.RUN_OFFLINE;
@@ -11,6 +13,7 @@ if(runOffline) {
 
 const passThroughService = new PassThroughService(options);
 const entityCompositeModelService = new EntityCompositeModelService(options);
+const entityHistoryEventService = new EntityHistoryEventService(options);
 
 let PassThroughRouter = function (app) {
     app.post('/data/pass-through/*', middlewares.urlValidator, async function (req, res) {
@@ -28,6 +31,10 @@ let PassThroughRouter = function (app) {
         let response = await passThroughService.call(req);
         res.status(200).send(response);
 
+    });
+    app.post('/data/pass-through-event/get', middlewares.urlValidator, async function (req, res) {
+        let response = await entityHistoryEventService.get(req.body);
+        res.status(200).send(response);
     });
     app.post('/pass-through-bulk/matchservice/search', middlewares.urlValidator, async function (req, res) {
         let response = await passThroughService.bulkCall(req);
