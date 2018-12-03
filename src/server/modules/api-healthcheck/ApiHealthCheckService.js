@@ -2,7 +2,7 @@ let DFConnection = require('../common/service-base/DFConnection');
 let moment = require('moment');
 let sleep = require('system-sleep');
 let uuidV1 = require('uuid/v1');
-
+let tenantSystemConfigService = require('../services/configuration-service/TenantSystemConfigService');
 let ApiHealthCheckService = function (options) {
     let _dataConnection = new DFConnection();
     this._restRequest = _dataConnection.getRequest();
@@ -494,10 +494,11 @@ ApiHealthCheckService.prototype = {
         return errResponse;
     },
     setAttrVal: function (attributes, attrName, val) {
+
         let attr = this.getOrCreate(attributes, attrName, {});
         let values = [{
-            "source": "internal",
-            "locale": "en-US",
+            "source": tenantSystemConfigService.prototype.getDefaultSource(),
+            "locale": tenantSystemConfigService.prototype.getDefaultLocale(),
             "value": val
         }];
 

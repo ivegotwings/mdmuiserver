@@ -9,6 +9,10 @@
 <link rel="import" href="../bedrock-helpers/context-helper.html" />
 <link rel="import" href="../bedrock-helpers/element-helper.html" />
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html" />
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-flex-layout.html">
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-padding-margin.html">
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-icons.html">
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-grid-layout.html">
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-gridsystem.html" />
 
 <link rel="import" href="../pebble-button/pebble-button.html" />
@@ -28,7 +32,7 @@
 
 <dom-module id="rock-entity-search-discovery">
     <template>
-        <style include="bedrock-style-common bedrock-style-gridsystem iron-flex">
+        <style include="bedrock-style-common bedrock-style-gridsystem bedrock-style-grid-layout bedrock-style-icons bedrock-style-padding-margin bedrock-style-flex-layout">
             :host {
                 display: block;
                 height: 100%;
@@ -108,15 +112,18 @@
 
             .resetsearch pebble-button {
                 height: auto;
+
                 --pebble-button: {
                     font-size: var(--font-size-xs, 10px) !important;
                     height: auto;
                     padding-bottom: 0;
                 }
+
                 --pebble-icon-dimension: {
                     width: 12px;
                     height: 12px;
                 }
+
                 --pebble-button-left-icon: {
                     margin-right: 5px;
                 }
@@ -143,6 +150,7 @@
 
             .underline {
                 height: 16px;
+
                 --pebble-button: {
                     text-decoration: underline;
                     padding-top: 0;
@@ -180,6 +188,9 @@
 
             #entityGridComponents {
                 @apply --search-result-height;
+            }
+            .min-width-0 {
+                min-width: 0px;
             }
         </style>
         <template is="dom-if" if="[[_processTemplate]]">
@@ -295,18 +306,19 @@
             </div>
             <rock-search-query-parser id="queryParser" relationship-name={{relationshipName}} context-data="[[contextData]]" filter-criterion-key="[[filterCriterionKey]]"></rock-search-query-parser>
             <bedrock-pubsub id="parser-event" event-name="on-search-filters" handler="_onSearchFiltersChange" target-id="queryParser"></bedrock-pubsub>
+            <liquid-entity-model-get id="attrModelGet" operation="getbyids" on-error="_onError" on-response="_onAttrModelResponse" exclude-in-progress></liquid-entity-model-get>
         </template>
     </template>
     <script>
-
-
         class RockEntitySearchDiscovery
-            extends Polymer.mixinBehaviors([
-                RUFBehaviors.AppBehavior,
-                RUFBehaviors.QueryBuilderBehavior,
-                RUFBehaviors.ComponentConfigBehavior
-            ], Polymer.Element) {
-            static get is() { return 'rock-entity-search-discovery' }
+        extends Polymer.mixinBehaviors([
+            RUFBehaviors.AppBehavior,
+            RUFBehaviors.QueryBuilderBehavior,
+            RUFBehaviors.ComponentConfigBehavior
+        ], Polymer.Element) {
+            static get is() {
+                return 'rock-entity-search-discovery'
+            }
 
             static get properties() {
                 return {
@@ -527,20 +539,26 @@
                         type: String,
                         value: "attributesCriterion"
                     },
-                    externalSearchEntityTypes:{
-                        type:Array,
-                        value:function(){
+                    externalSearchEntityTypes: {
+                        type: Array,
+                        value: function () {
                             return [];
                         }
                     },
-                    externalSearchRelationships:{
-                        type:Array,
-                        value:function(){
+                    externalSearchRelationships: {
+                        type: Array,
+                        value: function () {
                             return [];
                         }
                     },
-                    maxAllowedValuesForSearch:{
-                        type: Number                        
+                    externalSearchAttributes: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    maxAllowedValuesForSearch: {
+                        type: Number
                     }
                 }
             }
@@ -561,12 +579,12 @@
                     let configuredSelectedEntityTypes = this.configData.selectedEntityTypes;
                     this.maxAllowedValuesForSearch = this.configData.maxAllowedValuesForSearch;
                     let _externalEntityTypes = null;
-                    if(!_.isEmpty(this.externalSearchEntityTypes)){
+                    if (!_.isEmpty(this.externalSearchEntityTypes)) {
                         _externalEntityTypes = this._getExternalSearchCriterion(this.externalSearchEntityTypes, true)
                     }
                     let entityTypeManager = EntityTypeManager.getInstance();
                     if (this.requestedEntityTypes.length == 0) {
-                        if(!_.isEmpty(_externalEntityTypes)){
+                        if (!_.isEmpty(_externalEntityTypes)) {
                             this.set('requestedEntityTypes', _externalEntityTypes);
                         } else if (configuredSelectedEntityTypes && configuredSelectedEntityTypes.length > 0) {
                             this.set('requestedEntityTypes', configuredSelectedEntityTypes);
@@ -584,11 +602,59 @@
                     this._configDataChanged();
                 }
             }
+            
+            _getAttributeModels(){
+                let attrIds = Object.keys(this.externalSearchAttributes);
+                let requestData = DataRequestHelper.createGetAttributeModelRequest(attrIds);
+                let attrModelGet = this.shadowRoot.querySelector("#attrModelGet");
+                if(attrModelGet){
+                    attrModelGet.requestData = requestData;
+                    attrModelGet.generateRequest();
+                }
+            }
+            _onError(err){
+                this._buildQueryString();
+                this.logError("Attribute Filter Values Empty", err);
+            }
+            _onAttrModelResponse(ev){
+                if(DataHelper.isValidObjectPath(ev, 'detail.response.content.entityModels')){
+                    let entityModels = ev.detail.response.content.entityModels;
+                    if(!_.isEmpty(entityModels)){
+                        let attrModelObj = {};
+                        entityModels.forEach((elem) => {
+                            elem["preselectedValues"] = this.externalSearchAttributes[elem.name];
+                            attrModelObj[elem.name] = elem;
+                        });
 
-            _getExternalSearchCriterion(inputArray, isInternal){
+                        let lovColumnNameValueCollection = {};
+                        if(this._entityTypeModelLov){
+                            lovColumnNameValueCollection = this._entityTypeModelLov.getColumnNameValueCollection();
+                        } 
+                        let attributeDataModels = {"data": {"attributes":attrModelObj}};
+                        let attributeModels = DataTransformHelper.transformAttributeModels(attributeDataModels, {});
+                        if (!_.isEmpty(attributeModels)) {
+                            let items = DataTransformHelper.transformAtributeModelsToLovSchema(attributeModels, lovColumnNameValueCollection);
+                            if(!_.isEmpty(items)){
+                                let rockSearchFilter = this._entitySearchFilterElement.$$("rock-search-filter");
+                                if (rockSearchFilter) {
+                                    rockSearchFilter.preselectedFilters(items)
+                                }
+                            }
+                        }
+                    }else{
+                        this._buildQueryString();
+                        this.logWarning("AttributeFilterValuesEmpty");
+                    }
+                }else{
+                    this._buildQueryString();
+                    this.logError("AttributeFilterValuesEmpty");
+                }
+            }
+
+            _getExternalSearchCriterion(inputArray, isInternal) {
                 let filteredArray = [];
-                if(!_.isEmpty(inputArray)){
-                    filteredArray = inputArray.reduce( (items, n) => {
+                if (!_.isEmpty(inputArray)) {
+                    filteredArray = inputArray.reduce((items, n) => {
                         let _value = isInternal ? n.internal : n.external;
                         items.push(_value);
                         return items;
@@ -612,11 +678,11 @@
                     }
                     this._processTemplate = true;
                     //Enabling the _savedSearchElement if savedSearchId is available, to load the selected saved search 
-                    if(this.savedSearchId){
+                    if (this.savedSearchId) {
                         this._savedSearchPopover = true;
                     }
                     Polymer.dom.flush();
-                    
+
                     this._initializeComponent();
                     if (this._savedSearchElement) {
                         this._savedSearchElement.contextData = this.contextData;
@@ -674,14 +740,14 @@
                             this.set("_governDataCriterion", governDataCriterion);
                         }
                     }
-                    if(!_.isEmpty(this.externalSearchRelationships)){
+                    if (!_.isEmpty(this.externalSearchRelationships)) {
                         let firstRelationship = this.externalSearchRelationships[0];
-                        if(firstRelationship.internal && firstRelationship.external){
+                        if (firstRelationship.internal && firstRelationship.external) {
                             let attributeListArray = [];
                             let queryBuilderData = {
-                                relationship:firstRelationship.external,
-                                relationshipShortName:firstRelationship.internal
-                            }                            
+                                relationship: firstRelationship.external,
+                                relationshipShortName: firstRelationship.internal
+                            }
                             let entityTypes = RUFBehaviors.QueryBuilderBehavior.getSelectedEntityTypes(this._selectedEntityTypes)
                             let queryString = RUFBehaviors.QueryBuilderBehavior.buildQuery(entityTypes, attributeListArray, queryBuilderData, false, "");
                             let parsableString = RUFBehaviors.QueryBuilderBehavior.buildQuery(entityTypes, attributeListArray, queryBuilderData, true, "");
@@ -691,7 +757,11 @@
                             return;
                         }
                     }
-                    if (!this.savedSearchId) {
+                    if(!_.isEmpty(this.externalSearchAttributes)){
+                        Polymer.Async.microTask.run(() => {
+                            this._getAttributeModels();
+                        });
+                    }else if (!this.savedSearchId) {
                         this._buildQueryString();
                     }
                 }
@@ -835,7 +905,7 @@
                     this.inputQueryString = this._searchBarElement.query;
                 } */
                 this.importHref(this.resolveUrl(
-                    '../rock-query-builder/rock-query-builder.html'),
+                        '../rock-query-builder/rock-query-builder.html'),
                     () => {
                         let queryBuilder = this.shadowRoot.querySelector("#queryBuilder");
                         if (queryBuilder) {
@@ -1114,7 +1184,9 @@
                             if (tag.options) {
                                 tag.options.noPopoverOnAttach = true;
                             } else {
-                                tag.options = { "noPopoverOnAttach": true };
+                                tag.options = {
+                                    "noPopoverOnAttach": true
+                                };
                             }
 
                             tags.push(tag);
@@ -1182,7 +1254,11 @@
                         this._searchGridElement.clearSelection(); //Clear current selection
                         this._searchGridElement.selectItem(selectedItem); //Select item
                         this._currentIndex = this._searchGridElement.getSelectedItemIndex();
-                        this.refresh();
+                        let entityQuickManage = this.shadowRoot.querySelector("#entityQuickManage");
+                        if (entityQuickManage) {
+                            entityQuickManage.contextData = [];
+                            entityQuickManage.contextData = this.contextData;
+                        }
 
                         //Grid need to wait for sometime to quickmanage container to fit, because
                         //the grid is relative to quick manage container.After quick manage rendered,
@@ -1261,7 +1337,7 @@
             }
 
             _onClickNext(e, detail, sender) {
-                let currentIndex = this._currentIndex + 1;                
+                let currentIndex = this._currentIndex + 1;
                 if (currentIndex < this._gridFullLength) {
                     this._selectEntity(currentIndex);
                 }
@@ -1270,7 +1346,7 @@
             _onAttributeSave(e, detail, sender) {
                 //Changing the row style of the updated record
                 let selectedRow = this._searchGridElement.getSelectedGridRow();
-                if(selectedRow) {
+                if (selectedRow) {
                     selectedRow.style['font-style'] = 'italic';
                 }
             }
@@ -1285,7 +1361,7 @@
 
             _onSelectedEntityTypesChange(e, detail) {
                 this._onEntityTypePopoverClose();
-                this._buildQueryString();                
+                this._buildQueryString();
             }
 
             _onEntityTypePopoverClose(e, detail) {
@@ -1377,8 +1453,8 @@
                 }
             }
             /**
-            * When the grid data is empty, hide the grid,action buttons and show the "no data" info
-            **/
+             * When the grid data is empty, hide the grid,action buttons and show the "no data" info
+             **/
             _onEntityGridEmpty() {
                 let gridComponents = this.shadowRoot.querySelector("#entitySearchGrid");
                 gridComponents.style['visibility'] = "hidden";
@@ -1394,12 +1470,12 @@
             }
 
             /**
-           * When the grid data is not empty, show the grid,action buttons and hide the "no data" info
-           **/
+             * When the grid data is not empty, show the grid,action buttons and hide the "no data" info
+             **/
             _onEntityGridFull() {
                 let gridInfo = this.shadowRoot.querySelector("#entityGridInfo");
                 gridInfo.style['display'] = "none";
-                
+
                 let gridComponents = this.shadowRoot.querySelector("#entitySearchGrid");
                 gridComponents.style['visibility'] = "visible";
                 let actionBtns = this.shadowRoot.querySelector(".action-buttons");
@@ -1423,8 +1499,8 @@
                 this._quickManageEnabled = false;
             }
             /**
-            * Getting the active selected entities when typescriterion changes
-            **/
+             * Getting the active selected entities when typescriterion changes
+             **/
             _getActiveEntityTypes(activeEntities) {
                 let selectedEntityTypes = [];
                 if (activeEntities && !_.isEmpty(activeEntities)) {
@@ -1433,8 +1509,8 @@
                 return selectedEntityTypes;
             }
             /**
-            * When Refine more tags get added/updated, search query needs to be built and advanced search options need to be incorporated
-            */
+             * When Refine more tags get added/updated, search query needs to be built and advanced search options need to be incorporated
+             */
             _buildQueryString(e, detail) {
                 //Closing the quick manage to enable search if it is opened when search query is built
                 if (this._quickManageEnabled) {
@@ -1494,8 +1570,8 @@
             }
 
             /**
-            * When search query is built from the query-builder, display query on the search bar
-            */
+             * When search query is built from the query-builder, display query on the search bar
+             */
             _onQueryBuild(e, detail) {
                 let displayQuery = detail.displayQuery;
                 let prasableQuery = detail.parsableQuery;
@@ -1517,8 +1593,8 @@
             }
 
             /**
-            * Function to display the query on the search bar
-            */
+             * Function to display the query on the search bar
+             */
             _displayQuery(queryStr, parsableQueryStr) {
                 if (!this._searchBarElement) {
                     return;
@@ -1540,13 +1616,19 @@
 
                 if (this.savedSearchId || this._workflowCriterion) {
                     //update the nav menu contents
-                    this.dispatchEvent(new CustomEvent('load', { detail: { "title": this.inputQueryString }, bubbles: true, composed: true }));
+                    this.dispatchEvent(new CustomEvent('load', {
+                        detail: {
+                            "title": this.inputQueryString
+                        },
+                        bubbles: true,
+                        composed: true
+                    }));
                 }
             }
 
             /**
-            * Function to parse the query
-            */
+             * Function to parse the query
+             */
             _parseQuery(query) {
                 let parserPubsub = this.shadowRoot.querySelector("[id=parser-event]");
                 let queryParser = this.shadowRoot.querySelector("[id=queryParser]");
@@ -1726,6 +1808,6 @@
             }
         }
         customElements.define(RockEntitySearchDiscovery.is, RockEntitySearchDiscovery)
-
+    
     </script>
 </dom-module>

@@ -1,7 +1,5 @@
 <link rel="import" href="../../../bower_components/polymer/polymer-element.html">
 <link rel="import" href="../../../bower_components/polymer/lib/mixins/mutable-data.html">
-<link rel="import" href="../../../bower_components/iron-flex-layout/iron-flex-layout.html">
-
 
 <link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../bedrock-helpers/data-request-helper.html">
@@ -20,7 +18,12 @@
 <link rel="import" href="../pebble-date-picker/pebble-date-picker.html">
 <link rel="import" href="../pebble-datetime-picker/pebble-datetime-picker.html">
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
-<link rel="import" href="../bedrock-style-manager/styles/bedrock-styles-scroll-bar.html">
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-list.html">
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-padding-margin.html">
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-icons.html">
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-tooltip.html">
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-floating.html">
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-scroll-bar.html">
 <link rel="import" href="../pebble-icons/pebble-icons.html">
 <link rel="import" href="../pebble-icon/pebble-icon.html">
 <link rel="import" href="../pebble-popover/pebble-popover.html">
@@ -39,7 +42,7 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
 -->
 <dom-module id="rock-attribute">
     <template>
-        <style include="bedrock-style-common bedrock-styles-scroll-bar">
+        <style include="bedrock-style-common bedrock-style-scroll-bar bedrock-style-tooltip bedrock-style-floating bedrock-style-icons bedrock-style-padding-margin bedrock-style-list">
             :host(.fallback-value) {
                 --locale-coalesce-marker: {
                     color: var(--color-variant-1);
@@ -65,6 +68,17 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                 --context-coalesce-marker: {
                     font-style: italic;
                 }
+            }
+            .attribute-view-label {
+                font-size: var(--font-size-sm, 12px);
+                font-family: 'Roboto', Helvetica, Arial, sans-serif;
+                font-weight: normal;
+                font-style: normal;
+                font-stretch: normal;
+                line-height: 16px;
+                text-transform: capitalize;
+                color: var(--label-text-color, #96b0c6);
+                @apply --context-coalesce-label;
             }
 
             .attribute-coalesced-label .attribute-view-label {
@@ -498,7 +512,7 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                         </template>
                         <!-- BOOLEAN -->
                         <template is="dom-if" if="[[_isBoolean(attributeModelObject)]]">
-                            <pebble-boolean id="input" label="[[_getLabel(attributeModelObject.externalName)]]" value="{{attributeDisplayValue}}" invalid="{{invalid}}" no-label-float="[[noLabelFloat]]" description-object="[[_getDescriptionObject()]]" true-text="[[_isNullOrEmpty(attributeModelObject.trueText, 'TRUE')]]" false-text="[[_isNullOrEmpty(attributeModelObject.falseText,'FALSE')]]" tabindex="[[tabindex]]">
+                            <pebble-boolean id="input" label="[[_getLabel(attributeModelObject.externalName)]]" value="{{attributeDisplayValue}}" invalid="{{invalid}}" no-label-float="[[noLabelFloat]]" description-object="[[_getDescriptionObject()]]" true-text="[[isNullOrEmpty(attributeModelObject.trueText, 'TRUE')]]" false-text="[[isNullOrEmpty(attributeModelObject.falseText,'FALSE')]]" tabindex="[[tabindex]]">
                             </pebble-boolean>
                         </template>
                         <!-- DATE -->
@@ -629,7 +643,7 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                 </div> -->
         </div>
         <pebble-popover id="messagePopover" for="message-circle" no-overlap horizontal-align="right">
-            <pebble-error-list id="attrErrorList" messages="[[_prepareErrorMessages(messages)]]" errors="[[_prepareErrorMessages(errors)]]" warnings="[[validationWarnings]]" show-fix-now="[[!_isEditMode(mode)]]"></pebble-error-list>
+            <pebble-error-list id="attrErrorList" messages="[[_getErrorMessages(messages)]]" errors="[[_getErrorMessages(errors)]]" warnings="[[validationWarnings]]" show-fix-now="[[!_isEditMode(mode)]]"></pebble-error-list>
         </pebble-popover>
         <bedrock-pubsub target-id="attrErrorList" event-name="fix-error" handler="_fixError"></bedrock-pubsub>
 
@@ -1208,6 +1222,9 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                 this._onAttributeObjectChangedEnd();
             }
 
+            isNullOrEmpty (val, fallbackVal) {
+                return _.isNullOrEmpty(val, fallbackVal);
+            }
             _onAttributeObjectChangedEnd() {
                 this._fallbackList = this._getFallbackPath();
                 this._contextCoalescePathList = this.attributeObject.contextCoalescePaths;
@@ -1331,16 +1348,20 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                 }
             }
             _getAllMessages(serverErrors, validationErrors, validationWarnings) {
-                let serverSideErrors = !_.isEmpty(serverErrors) && serverErrors[0] && serverErrors[0][this.attributeObject.name] && Array.isArray(serverErrors[0][this.attributeObject.name]) ? serverErrors[0][this.attributeObject.name] : serverErrors;
-                let messages = _.uniq((serverSideErrors || []).concat(validationErrors || []).concat(validationWarnings || []));
-                if (this.attributeModelObject && this.attributeModelObject.dataType == "nested") {
+                validationErrors = this._prepareErrorMessages(validationErrors);
+                validationWarnings = this._prepareErrorMessages(validationWarnings);
+                let messages = _.uniq((serverErrors || []).concat(validationErrors || []).concat(validationWarnings || []));
+                return messages;
+            }
+            _prepareErrorMessages(messages) {
+                if (this.attributeModelObject && this.attributeModelObject.dataType == "nested" && !_.isEmpty(messages)) {
                     let obj = {};
                     obj[this.attributeObject.name] = messages;
                     messages = [obj];
                 }
                 return messages;
             }
-            _prepareErrorMessages(messages) {
+            _getErrorMessages(messages) {
                 if (this.attributeModelObject && this.attributeModelObject.dataType == "nested" && !_.isEmpty(this.messages)) {
                     return messages[0][this.attributeObject.name] || messages;
                 }

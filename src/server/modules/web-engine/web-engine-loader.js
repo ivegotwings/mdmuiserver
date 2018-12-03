@@ -1,6 +1,3 @@
-//require("babel-register");
-//require("babel-polyfill");
-require("hogan.js");
 
 let express = require('express');
 let history = require('connect-history-api-fallback');
@@ -11,8 +8,6 @@ let cookieParser = require('cookie-parser');
 let fileUpload = require('express-fileupload');
 let path = require("path");
 let RuntimeVersionManager = require('../services/version-service/RuntimeVersionManager');
-let ModuleVersionManager = require('../services/version-service/ModuleVersionManager');
-let executionContext = require('../common/context-manager/execution-context');
 
 let config = require('config');
 
@@ -80,17 +75,6 @@ contextMgrMiddleware(app);
 
 logger.info('Web engine start - context manager middleware is loaded');
 
-//handling root path (specifically for SAML type of authentication)
-app.get('/', function (req, res) {
-    if (!renderAuthenticatedPage(req, res)) {
-        res.render('index', {
-            isAuthenticated: false
-        });
-    }
-});
-
-logger.info('Web engine start - default location route is loaded');
-
 //Load falcor api routes
 let dataobjectRoute = require('../dataobject/dataobject-router');
 dataobjectRoute(app);
@@ -155,19 +139,26 @@ let versionRoute = require('../services/version-service/version-route');
 versionRoute(app);
 
 logger.info('Web engine start - version routes are loaded');
-//app.use(express.static(path.join(buildPath, "/build/ui-platform/static/es6-bundled"), { maxAge: "1s" }));
+
 app.use(express.static(buildPath, {
     maxAge: "1s"
 }));
+
+let uiAppServiceRoute = require('../services/ui-app-service/ui-app-service-route');
+uiAppServiceRoute(app);
+
+logger.info('Web engine start - user info route is loaded');
 
 //register static file root ...index.html..
 app.get('*', function (req, res) {
     let isES5;
     let userId = req.header("x-rdp-userid");
     let tenantId = req.header("x-rdp-tenantid");
-    if(req.headers && req.headers['user-agent']){
+    if (req.headers && req.headers['user-agent']) {
         isES5 = (req.headers['user-agent'].indexOf('rv:11') !== -1);
     }
+
+    // console.log('* request', req.url, userId, tenantId);
     if (tenantId && userId) {
         let url = req.url;
         let urlRedirected = false;
@@ -212,23 +203,8 @@ app.get('*', function (req, res) {
             res.sendFile(path.join(buildPath, url));
             return;
         }
-    }
-    if (!renderAuthenticatedPage(req, res)) {
-        console.log('sending non-authenticated index page');
-        //If request is not authenticated, we are trying see if URL has tenant after root of the URL
-        let urlComps = req.url.split('/');
-        tenantId = urlComps[0] != "" ? urlComps[0] : urlComps.length > 1 ? urlComps[1] : "";
-        //If we find tenant id (assumed tenant id), we set that tenant id in index file
-        if (tenantId && tenantId != "") {
-            res.render('index', {
-                isAuthenticated: false,
-                tenantId: tenantId
-            });
-        } else {
-            res.render('index', {
-                isAuthenticated: false
-            });
-        }
+        
+        res.sendFile(path.join(buildPath, "index.html"));
     }
 });
 
@@ -255,64 +231,3 @@ notificationEngine.initSockets(server);
 logger.info('Web engine start - notification engine is started');
 
 server.timeout = config.get('modules.webEngine').connectionTimeout;
-
-async function renderAuthenticatedPage(req, res) {
-    let userId = req.header("x-rdp-userid");
-    let tenantId = req.header("x-rdp-tenantid");
-
-    if (tenantId && userId) {
-        let securityContext = executionContext.getSecurityContext();
-        
-        if (securityContext && securityContext.headers && securityContext.headers.userRoles) {
-            
-            let secHeaders = securityContext.headers;
-
-            let noPreload = true;
-
-            let versionInfo = {
-                'buildVersion': await RuntimeVersionManager.getBuildVersion(),
-                'runtimeVersion': await RuntimeVersionManager.getVersion(),
-                'moduleVersions': await ModuleVersionManager.getAll(tenantId)
-            }
-
-            let userContext = {
-                "roles": secHeaders.userRoles,
-                "user": userId,
-                "defaultRole": secHeaders.defaultRole,
-                "tenant": tenantId,
-                "userName": secHeaders.userName,
-                "userFullName": secHeaders.fullName,
-                "isAuthenticated": true
-            };
-
-            let baseContextData = {
-                "UserContexts": [userContext]
-            };
-
-            //console.log('version info: ', JSON.stringify(versionInfo, null, 2));
-
-            res.render('index', {
-                isAuthenticated: true,
-                tenantId: tenantId,
-                userId: userId,
-                roles: secHeaders.userRoles,
-                defaultRole: secHeaders.defaultRole,
-                fullName: secHeaders.fullName,
-                userName: secHeaders.userName,
-                ownershipData: secHeaders.ownershipData,
-                ownershipeditdata: secHeaders.ownershipeditdata,
-                noPreload: noPreload,
-                versionInfo: JSON.stringify(versionInfo),
-                baseContextData: JSON.stringify(baseContextData)
-            });
-
-            return true;
-        }
-        else {
-            //TODO: generate error page for browser
-            console.error('security context is not yet ready');
-        }
-    } else {
-        return false;
-    }
-}

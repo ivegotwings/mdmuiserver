@@ -101,7 +101,7 @@ function serverBuild(buildPath) {
   });
 }
 
-function clientBuild(relativeBuildPath, bundle, isES5, isDev) {
+async function clientBuild(relativeBuildPath, bundle, isES5, isDev) {
   return new Promise((resolve) => {
 
     const polymerProject = new polymerBuild.PolymerProject(polymerJson);
@@ -185,13 +185,7 @@ function clientBuild(relativeBuildPath, bundle, isES5, isDev) {
               inlineCss: true,
               rewriteUrlsInTemplates: false,
               sourcemaps: false,
-              stripComments: true,
-              // Merge shared dependencies into a single bundle when
-              // they have at least three dependents
-              strategy: generateShellOnlyMergeStrategy(polymerJson.shell, 3),
-              // Shared bundles will be named:
-              // `shared/bundle_1.html`, `shared/bundle_2.html`, etc...
-              urlMapper: polyBundler.generateCountingSharedBundleUrlMapper('src/elements/shared-bundles/bundle_')
+              stripComments: true
             }))
             .once('data', () => {
               console.log('Bundling resources... ');
@@ -221,31 +215,6 @@ function clientBuild(relativeBuildPath, bundle, isES5, isDev) {
   });
 };
 
-function generateShellOnlyMergeStrategy(shell, maybeMinEntrypoints) {
-  const minEntrypoints = maybeMinEntrypoints === undefined ? 2 : maybeMinEntrypoints;
-  if (minEntrypoints < 0) {
-    throw new Error(`Minimum entrypoints argument must be non-negative`);
-  }
-
-  return polyBundler.composeStrategies([
-    // Merge all bundles that are direct dependencies of the shell into the
-    // shell.
-    polyBundler.generateEagerMergeStrategy(shell),
-    // Create a new bundle which contains the contents of all bundles which
-    // either...
-    polyBundler.generateMatchMergeStrategy((bundle) => {
-      // ...contain the shell file
-      return (!bundle.files.has(shell)) &&
-        // or are dependencies of at least the minimum number of entrypoints
-        // and are not entrypoints themselves.
-        bundle.entrypoints.size >= minEntrypoints;
-      //&& !getBundleEntrypoint(bundle);
-    }),
-    // Don't link to the shell from other bundles.
-    polyBundler.generateNoBackLinkStrategy([shell]),
-  ]);
-}
-
 gulp.task('eslint-src', function() {
   return gulp.src(['src/**/*.*'])
     .pipe(eslint())
@@ -265,28 +234,20 @@ gulp.task('prod-server-build', function () {
   ]);
 });
 
-gulp.task('prod-es6-bundled-build', function () {
-  return Promise.all([
-    clientBuild(es6BundledPath, true, false, false)
-  ]);
+gulp.task('prod-es6-bundled-build', async function () {
+  await clientBuild(es6BundledPath, true, false, true)
 });
 
-gulp.task('dev-es6-bundled-build', function () {
-  return Promise.all([
-    clientBuild(es6BundledPath, true, false, true)
-  ]);
+gulp.task('dev-es6-bundled-build', async function () {
+  await clientBuild(es6BundledPath, true, false, true)
 })
 
-gulp.task('prod-es6-unbundled-build', function () {
-  return Promise.all([
-    clientBuild(es6unBundledPath, false, false)
-  ]);
+gulp.task('prod-es6-unbundled-build', async function () {
+  await clientBuild(es6unBundledPath, false, false)
 });
 
-gulp.task('prod-es5-bundled-build', function () {
-  return Promise.all([
-    clientBuild(es5BundledPath, true, true)
-  ]);
+gulp.task('prod-es5-bundled-build', async function () {
+  await clientBuild(es5BundledPath, true, true);
 });
 
 gulp.task('prod-build-wrap-up', function () {
