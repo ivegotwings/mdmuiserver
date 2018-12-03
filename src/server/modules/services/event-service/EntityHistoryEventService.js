@@ -195,11 +195,13 @@ EntityHistoryEventservice.prototype = {
                 attributeDetails["attributeId"] = historyRecord.internalAttributeId;
                 if(!_.isEmpty(attributeModels)){
                     let currentAttrModel = attributeModels[historyRecord.internalAttributeId];
-                    if(currentAttrModel.properties.displayType == "nestedgrid"){
-                        isNested = true;
-                    }
-                    if(currentAttrModel.properties.displayType == "richtexteditor"){
-                        isRichTextEditor = true;
+                    if(currentAttrModel && currentAttrModel.properties){
+                        if(currentAttrModel.properties.displayType == "nestedgrid"){
+                            isNested = true;
+                        }
+                        if(currentAttrModel.properties.displayType == "richtexteditor"){
+                            isRichTextEditor = true;
+                        }
                     }
                 }
             }
