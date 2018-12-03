@@ -153,7 +153,9 @@
         <liquid-entity-data-save name="entitySaveDataService" operation="[[_entityDataOperation]]" data-index="[[dataIndex]]"
         request-data="{{_saveRequest}}" last-response="{{_saveResponse}}" on-response="_onSaveResponse"
         on-error="_onSaveResponse"></liquid-entity-data-save>
-    </template>
+        <liquid-rest id="entityModelGet" url="/data/pass-through/entitymodelservice/get" method="POST"
+        on-liquid-response="_onTargetEntityModelGetResponse" on-liquid-error="_onTargetEntityModelGetResponseFailed"></liquid-rest>
+    </template> 
     <script>
         class RockEntityPaste
             extends Polymer.mixinBehaviors([
@@ -422,8 +424,7 @@
                 let clonedContextData = DataHelper.cloneObject(this.contextData);                
                 if(clonedContextData.ItemContexts && clonedContextData.ItemContexts.length) {
                     clonedContextData.ItemContexts[0].attributeNames = ["_ALL"];
-                    clonedContextData.ItemContexts[0].relationships = ["_ALL"];
-                    clonedContextData.ItemContexts[0].relationshipAttributes = ["_ALL"];
+                    clonedContextData.ItemContexts[0].relationships = ["_ALL"];                    
                 }
                 let compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(clonedContextData);
                 let _compositeAttributeModelGet;
@@ -496,7 +497,7 @@
                 } else if (itemType) {
                     return "Select " + itemType + " for paste";
                 }
-                
+
                 return;
             }
 
@@ -544,21 +545,18 @@
              * Function to get the composite model of the target entities
              */ 
             _getEntityCompositeModels() {
-                let liquidCustomElement = customElements.get("liquid-entity-model-composite-get");
                 this._targetEntitiesModels = [];
+                this._targetEntitiesManageModels = [];
                 this._compositeModelResponseTracker = 0;
                 this.uniqueEntityTypes.forEach(entityType=> {
-                    let liquidElement = new liquidCustomElement();
+                    let liquidElement = this.shadowRoot.querySelector('#entityModelGet');
                     let compositeRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
-                    compositeRequest.params.query.name = entityType;
+                    compositeRequest.params.query.ids = [entityType+"_entityManageModel",entityType+"_entityDisplayModel"];
                     let attributes = this._getAttributesForRequestQuery(); 
                     let relationships = this._getRelationshipsForRequestQuery();
                     compositeRequest.params.fields.attributes = attributes;
                     compositeRequest.params.fields.relationships = relationships;
-                    compositeRequest.params.fields.relationshipAttributes = ["_ALL"];                        
-                    liquidElement.requestData = compositeRequest;
-                    liquidElement.addEventListener("entity-model-composite-get-response", this._onTargetEntityModelGetResponse.bind(this));
-                    this.shadowRoot.appendChild(liquidElement);
+                    liquidElement.requestData = compositeRequest;                   
                     setTimeout(() => {
                         liquidElement.generateRequest();
                     }, 10);
@@ -569,14 +567,28 @@
              * Function to handle success of composite model get of target entity
              */ 
             _onTargetEntityModelGetResponse(e, detail) {                
-                this._compositeModelResponseTracker++;
-                if(DataHelper.isValidObjectPath(e, 'detail.response.content.entityModels.0')) {
-                    this._targetEntitiesModels.push(e.detail.response.content.entityModels[0]);
+                this._compositeModelResponseTracker++; 
+                if(DataHelper.isValidObjectPath(e, 'detail.response.response.entityModels')) {
+                    for(let i=0;i<e.detail.response.response.entityModels.length;i++) {
+                        let model = e.detail.response.response.entityModels[i];
+                        if(model.id && model.id.indexOf("_entityManageModel") > 0){
+                            this._targetEntitiesManageModels.push(model);
+                        } else {
+                            this._targetEntitiesModels.push(model);
+                        }
+                    }
                     if(!_.isEmpty(this.uniqueEntityTypes) && this.uniqueEntityTypes.length === this._compositeModelResponseTracker) {
                         this._onEntityGetRequest();
                     }
                 }
-            }                        
+            } 
+            
+            /**
+             * Function to handle failure of composite model get of target entity
+             */
+            _onTargetEntityModelGetResponseFailed(e){
+                this.logError("Target entities model get failed", e.detail);
+            }
             
             /**
              * Function to get the copied entity data with selected attributes and relationships
@@ -596,7 +608,25 @@
 
                 entityGetRequest.params.fields.attributes = attributes;
                 entityGetRequest.params.fields.relationships = relationships;
-                entityGetRequest.params.fields.relationshipAttributes = ["_ALL"];
+                entityGetRequest.params.fields.relationshipAttributes = [];
+                
+                //Read the relationshipattributes from the targetEntitiesManageModels
+                if(!_.isEmpty(this._targetEntitiesManageModels)){
+                    let relAttributes = [];
+                    for(let i=0; i<this._targetEntitiesManageModels.length;i++){
+                        if(DataHelper.isValidObjectPath(this._targetEntitiesManageModels[i], "data.relationships")){
+                            let relObj = this._targetEntitiesManageModels[i].data.relationships;
+                            for(let relName in relObj){
+                                if(!_.isEmpty(relObj[relName][0].attributes)){
+                                    relAttributes.push(Object.keys(relObj[relName][0].attributes).join());
+                                }
+                            }
+                        }
+                    }
+                    entityGetRequest.params.fields.relationshipAttributes = relAttributes;
+                }
+                
+                
 
                 //setting non-coalesce flag
                 entityGetRequest.params.query.filters.nonContextual = false;
@@ -889,7 +919,7 @@
                         models = this._relationshipModels;
                     }
                     for (let itemName in items) {
-                        if (!this.isBulkProcess && models.hasOwnProperty(itemName) &&
+                        if (models.hasOwnProperty(itemName) &&
                             DataHelper.isValidObjectPath(models[itemName], 'properties.hasWritePermission') &&
                             !models[itemName].properties.hasWritePermission) {
                                 itemsWithNoPermissions.push(models[itemName].externalName);
@@ -1086,7 +1116,7 @@
                     return;
                 }
                 let currentEntityModel = this._targetEntitiesModels.filter(elm=> {
-                    return elm.id === entityType + "_entityCompositeModel";
+                    return elm.id === entityType + "_entityDisplayModel";
                 });  
                 let firstDataContext = ContextHelper.getFirstDataContext(this.contextData);
 
