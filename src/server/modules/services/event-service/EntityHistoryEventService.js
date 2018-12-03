@@ -20,22 +20,12 @@ EntityHistoryEventservice.prototype = {
         try {
             let request = falcorUtil.cloneObject(requestObj);
             if (request.params) {
-                if (request.params) {
-                    request.params.query.filters.typesCriterion = ["sku"];
-                    delete request.params.entityType;
-                }
-                if (request.params) {
-                    request.params["fields"] = {}
-                    request.params.fields["attributes"] = ["_ALL"];
-                    request.params.fields["relationships"] = ["_ALL"];
-                }   
                 if (request.params.isSearchRequest) {
                     //This is for initiate search... make search call and return response
                     response = await this.post("entityservice/getentityhistory", request);
                     if (response && response.response && response.response.entities) {
                         let events = response.response.entities;
                         response.response.events = response.response.entities;
-                        delete response.response.entities;
                         for (let i = 0; i < events.length; i++) {
                             let event = events[i];
                             event.type = "entityhistoryevent";
