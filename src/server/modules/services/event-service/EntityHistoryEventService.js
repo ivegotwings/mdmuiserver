@@ -102,8 +102,13 @@ EntityHistoryEventservice.prototype = {
                 Array.prototype.push.apply(historyList, contextAttributeUpdateHistoryEvent);
             }
 
-            if (this._isValidObjectPath(event, 'data.relationships')) {
+            if (this._isValidObjectPath(event, 'data.relationships') && _.isEmpty(dataContexts)) {
                 let relationships = event.data.relationships;
+                let relatioshipsHistoryEvent = this._createRelationshipHistoryEvent(event, relationships, defaultRelationship, internalIds, defaultRelationshipAttributes)
+                Array.prototype.push.apply(historyList, relatioshipsHistoryEvent);
+            }
+            if (this._isValidObjectPath(event, 'data.contexts.0.relationships')) {
+                let relationships = event.data.contexts[0].relationships;
                 let relatioshipsHistoryEvent = this._createRelationshipHistoryEvent(event, relationships, defaultRelationship, internalIds, defaultRelationshipAttributes)
                 Array.prototype.push.apply(historyList, relatioshipsHistoryEvent);
             }
