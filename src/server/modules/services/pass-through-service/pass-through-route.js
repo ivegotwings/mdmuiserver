@@ -32,7 +32,7 @@ let PassThroughRouter = function (app) {
         res.status(200).send(response);
 
     });
-    app.post('/data/pass-through-event/get', middlewares.urlValidator, async function (req, res) {
+    app.post('/data/pass-through-entity-history/get', middlewares.urlValidator, async function (req, res) {
         let response = await entityHistoryEventService.get(req.body);
         res.status(200).send(response);
     });
