@@ -8,6 +8,8 @@
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-padding-margin.html">
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-grid-layout.html">
 <link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-helpers/data-request-helper.html">
+<link rel="import" href="../bedrock-helpers/data-transform-helper.html">
 
 <link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
@@ -152,9 +154,7 @@
         on-entity-model-composite-get-response="_onCompositeModelGetResponse"></liquid-entity-model-composite-get>
         <liquid-entity-data-save name="entitySaveDataService" operation="[[_entityDataOperation]]" data-index="[[dataIndex]]"
         request-data="{{_saveRequest}}" last-response="{{_saveResponse}}" on-response="_onSaveResponse"
-        on-error="_onSaveResponse"></liquid-entity-data-save>
-        <liquid-rest id="entityModelGet" url="/data/pass-through/entitymodelservice/get" method="POST"
-        on-liquid-response="_onTargetEntityModelGetResponse" on-liquid-error="_onTargetEntityModelGetResponseFailed"></liquid-rest>
+        on-error="_onSaveResponse"></liquid-entity-data-save>      
     </template> 
     <script>
         class RockEntityPaste
@@ -541,51 +541,34 @@
             /**
              * Function to get the composite model of the target entities
              */ 
-            _getEntityCompositeModels() {
-                this._targetEntitiesModels = [];
-                this._targetEntitiesManageModels = [];
-                this._compositeModelResponseTracker = 0;
-                this.uniqueEntityTypes.forEach(entityType=> {
-                    let liquidElement = this.shadowRoot.querySelector('#entityModelGet');
-                    let compositeRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
-                    compositeRequest.params.query.ids = [entityType+"_entityManageModel",entityType+"_entityDisplayModel"];
-                    let attributes = this._getAttributesForRequestQuery(); 
-                    let relationships = this._getRelationshipsForRequestQuery();
-                    compositeRequest.params.fields.attributes = attributes;
-                    compositeRequest.params.fields.relationships = relationships;
-                    liquidElement.requestData = compositeRequest;                   
-                    setTimeout(() => {
-                        liquidElement.generateRequest();
-                    }, 10);
-                });                
-            }
-            
-            /**
-             * Function to handle success of composite model get of target entity
-             */ 
-            _onTargetEntityModelGetResponse(e, detail) {                
-                this._compositeModelResponseTracker++; 
-                if(DataHelper.isValidObjectPath(e, 'detail.response.response.entityModels')) {
-                    for(let i=0;i<e.detail.response.response.entityModels.length;i++) {
-                        let model = e.detail.response.response.entityModels[i];
-                        if(model.id && model.id.indexOf("_entityManageModel") > 0){
-                            this._targetEntitiesManageModels.push(model);
-                        } else {
-                            this._targetEntitiesModels.push(model);
-                        }
-                    }
-                    if(!_.isEmpty(this.uniqueEntityTypes) && this.uniqueEntityTypes.length === this._compositeModelResponseTracker) {
-                        this._onEntityGetRequest();
-                    }
+            async _getEntityCompositeModels() {
+                this._targetEntitiesModels = [];                
+                for(let item of this.uniqueEntityTypes) {                    
+                    let clonedContextData = DataHelper.cloneObject(this.contextData);                   
+                    let compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(clonedContextData);
+                    compositeModelGetRequest.params.query.name = item;
+                    compositeModelGetRequest.params.fields.attributes = this._getAttributesForRequestQuery(); 
+                    compositeModelGetRequest.params.fields.relationships = this._getRelationshipsForRequestQuery();                    
+                    let compositeModel = await this._getCompositeModel(compositeModelGetRequest);                    
+                    this._targetEntitiesModels.push(compositeModel);                
                 }
-            } 
+                                
+                this._onEntityGetRequest();
+            }
             
             /**
-             * Function to handle failure of composite model get of target entity
-             */
-            _onTargetEntityModelGetResponseFailed(e){
-                this.logError("Target entities model get failed", e.detail);
-            }
+             * Function to get the composite model for the given request from the EntityCompositeModelManager
+             */ 
+            async _getCompositeModel(compositeModelGetRequest) {
+                let compositeModel = {};
+                let entityCompositeModelManager = new EntityCompositeModelManager();
+                if(entityCompositeModelManager && compositeModelGetRequest) {
+                    compositeModelGetRequest.applyEnhancerCoalesce = true;
+                    compositeModel = await entityCompositeModelManager.get(compositeModelGetRequest, this.contextData);
+                }
+                entityCompositeModelManager = null;
+                return compositeModel;
+            }            
             
             /**
              * Function to get the copied entity data with selected attributes and relationships
@@ -608,14 +591,14 @@
                 entityGetRequest.params.fields.relationshipAttributes = [];
                 
                 //Read the relationshipattributes from the targetEntitiesManageModels
-                if(!_.isEmpty(this._targetEntitiesManageModels)){
+                if(!_.isEmpty(this._targetEntitiesModels)){
                     let relAttributes = [];
-                    for(let i=0; i<this._targetEntitiesManageModels.length;i++){
-                        if(DataHelper.isValidObjectPath(this._targetEntitiesManageModels[i], "data.relationships")){
-                            let relObj = this._targetEntitiesManageModels[i].data.relationships;
+                    for(let i=0; i<this._targetEntitiesModels.length;i++){
+                        if(DataHelper.isValidObjectPath(this._targetEntitiesModels[i], "data.relationships")){
+                            let relObj = this._targetEntitiesModels[i].data.relationships;
                             for(let relName in relObj){
                                 if(!_.isEmpty(relObj[relName][0].attributes)){
-                                    relAttributes.push(Object.keys(relObj[relName][0].attributes).join());
+                                    relAttributes = _.union(Object.keys(relObj[relName][0].attributes),relAttributes);
                                 }
                             }
                         }
@@ -1113,47 +1096,43 @@
                     return;
                 }
                 let currentEntityModel = this._targetEntitiesModels.filter(elm=> {
-                    return elm.id === entityType + "_entityDisplayModel";
+                    return elm.id === entityType + "_entityCompositeModel";
                 });  
                 let firstDataContext = ContextHelper.getFirstDataContext(this.contextData);
-
+                let attributeModels = {};
+                let relationshipModels = {};
+                let selectedAttributes = {};
+                let selectedRelationships = {};
+                        
                 switch (itemType) {
-                    case "attributeModel":
-                        let attributeModels;
+                    case "attributeModel":                       
                         if(firstDataContext) {
                             attributeModels = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(currentEntityModel[0], firstDataContext);
                         } else if(DataHelper.isValidObjectPath(currentEntityModel[0], 'data.attributes')) {
                             attributeModels = currentEntityModel[0].data.attributes;                         
                         }
-                        return attributeModels;
-                        break;
-                    case "relationshipModel":
-                        let relationshipModels;
+                        return attributeModels;                        
+                    case "relationshipModel":                       
                         if(firstDataContext) {
                             relationshipModels = SharedUtils.DataObjectFalcorUtil.getRelationshipsByCtx(currentEntityModel[0], firstDataContext);
                         } else if(DataHelper.isValidObjectPath(currentEntityModel[0], 'data.relationships')) {
                             relationshipModels = currentEntityModel[0].data.relationships;
                         }
-                        return relationshipModels;
-                        break;
-                    case "selectedAttributes":
-                        let selectedAttributes;
+                        return relationshipModels;                        
+                    case "selectedAttributes":                        
                         if(firstDataContext) {
                             selectedAttributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(sourceEntity, firstDataContext);
                         } else if(DataHelper.isValidObjectPath(sourceEntity, 'data.attributes')) {
                             selectedAttributes = sourceEntity.data.attributes;
                         }
-                        return selectedAttributes;
-                        break;
+                        return selectedAttributes;                        
                     case "selectedRelationships":
-                        let selectedRelationships;
                         if(firstDataContext) {
                             selectedRelationships = SharedUtils.DataObjectFalcorUtil.getRelationshipsByCtx(sourceEntity, firstDataContext);
                         } else if(DataHelper.isValidObjectPath(sourceEntity, 'data.relationships')) {
                             selectedRelationships = sourceEntity.data.relationships;
                         } 
-                        return selectedRelationships;  
-                        break;                                        
+                        return selectedRelationships;         
                 }
             }
 
