@@ -24,7 +24,7 @@ import '../rock-layout/rock-layout.js';
 import '../rock-component-config-behavior/rock-component-config-behavior.js';
 import '../bedrock-pubsub/bedrock-pubsub.js';
 import '../pebble-dialog/pebble-dialog.js';
-import { importHref } from '@polymer/polymer/lib/utils/import-href.js';
+// import { importHref } from '@polymer/polymer/lib/utils/import-href.js';
 import { resolveUrl } from '@polymer/polymer/lib/utils/resolve-url.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockBusinessFunctionDialog extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.BusinessFunctionBehavior, RUFBehaviors.ComponentConfigBehavior], PolymerElement) {
