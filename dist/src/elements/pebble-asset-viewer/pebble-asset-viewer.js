@@ -9,7 +9,7 @@ import '../bedrock-style-manager/styles/bedrock-style-scroll-bar.js';
 import '../pebble-spinner/pebble-spinner.js';
 import '../pebble-icons/pebble-icons.js';
 import '../pebble-icon/pebble-icon.js';
-import { importHref } from '@polymer/polymer/lib/utils/import-href.js';
+// import { importHref } from '@polymer/polymer/lib/utils/import-href.js';
 import { dom } from '@polymer/polymer/lib/legacy/polymer.dom.js';
 class PebbleAssetViewer extends OptionalMutableData(PolymerElement) {
   static get template() {

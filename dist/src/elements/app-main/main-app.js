@@ -38,7 +38,7 @@ import { setPassiveTouchGestures } from '@polymer/polymer/lib/utils/settings.js'
 import * as gestures from '@polymer/polymer/lib/utils/gestures.js';
 import { dom } from '@polymer/polymer/lib/legacy/polymer.dom.js';
 import { afterNextRender } from '@polymer/polymer/lib/utils/render-status.js';
-import { importHref } from '@polymer/polymer/lib/utils/import-href.js';
+// import { importHref } from '@polymer/polymer/lib/utils/import-href.js';
 import { resolveUrl } from '@polymer/polymer/lib/utils/resolve-url.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 
