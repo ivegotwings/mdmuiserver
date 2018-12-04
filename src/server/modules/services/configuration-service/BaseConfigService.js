@@ -21,7 +21,6 @@ BaseConfigService.prototype = {
     get: async function (url, baseConfigRequest) {
         let serviceConfig = SERVICE_CONFIG.services[url];
         let tenant = this.getTenantId();
-        let runtimeVersion = await RuntimeVersionManager.getVersion();
 
         let mode = "online";
         if (serviceConfig && serviceConfig.baseConfigMode && serviceConfig.baseConfigMode == "offline") {
