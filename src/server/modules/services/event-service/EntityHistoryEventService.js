@@ -236,6 +236,7 @@ EntityHistoryEventservice.prototype = {
 
             if(historyRecord.eventType == "entityAdd"){
                 message = "<span class='userName'>" + userName + "</span> created this <span class='activity-property'>" + entityTypeExternalName + "</span>";
+                historyRecord["entityAdd"] = true;
             } else if(historyRecord.eventType == "attributeUpdate"){
                 if (historyRecord.data.attributes.action.values[0].value == "delete") {
                     message = "<span> removed <span class='activity-property'>" + attributeExternalName + "</span>";
@@ -312,10 +313,26 @@ EntityHistoryEventservice.prototype = {
             }
 
             if(addedHistoryRecord) {
-                let attributes = addedHistoryRecord.data.attributes;
-                attributes.message.values.push(messageValue);
-                attributes.action.values.push(historyRecord.data.attributes.action.values[0])
+                if(historyRecord.eventType == "entityAdd"){
+                    addedHistoryRecord["entityAdd"] = true;
+                }else{
+                    let attributes = addedHistoryRecord.data.attributes;
+                    attributes.message.values.push(messageValue);
+                    attributes.action.values.push(historyRecord.data.attributes.action.values[0]);
+                    if(historyRecord.eventType == "attributeUpdate" || historyRecord.eventType == "relationshipAttributeUpdate"){
+                        addedHistoryRecord["noOfAttrsChanged"] = addedHistoryRecord.noOfAttrsChanged ? addedHistoryRecord.noOfAttrsChanged + 1 : 1;
+                    }else if(addedHistoryRecord.eventType == "relationshipChange"){
+                        addedHistoryRecord["noOfRelsChanged"] = addedHistoryRecord.noOfRelsChanged ? addedHistoryRecord.noOfRelsChanged + 1 : 1;
+                    }
+                }
             } else {
+
+                if(historyRecord.eventType == "attributeUpdate" || historyRecord.eventType == "relationshipAttributeUpdate"){
+                    historyRecord["noOfAttrsChanged"] = 1;
+                }else if(historyRecord.eventType == "relationshipChange"){
+                    historyRecord["noOfRelsChanged"] = 1;
+                }
+
                 historyRecord.data.attributes.message = {
                     "values": [
                         messageValue
@@ -329,7 +346,9 @@ EntityHistoryEventservice.prototype = {
                         }
                     ]
                 };
-                historyListToBeReturned.push(historyRecord);
+                if(historyRecord.eventType != "entityAdd"){
+                    historyListToBeReturned.push(historyRecord);
+                }
             }
         }
 
