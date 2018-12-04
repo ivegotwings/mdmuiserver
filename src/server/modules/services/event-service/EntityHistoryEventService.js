@@ -318,9 +318,21 @@ EntityHistoryEventservice.prototype = {
                 }else{
                     let attributes = addedHistoryRecord.data.attributes;
                     attributes.message.values.push(messageValue);
-                    attributes.action.values.push(historyRecord.data.attributes.action.values[0])
+                    attributes.action.values.push(historyRecord.data.attributes.action.values[0]);
+                    if(historyRecord.eventType == "attributeUpdate" || historyRecord.eventType == "relationshipAttributeUpdate"){
+                        addedHistoryRecord["noOfAttrsChanged"] = addedHistoryRecord.noOfAttrsChanged ? addedHistoryRecord.noOfAttrsChanged + 1 : 1;
+                    }else if(addedHistoryRecord.eventType == "relationshipChange"){
+                        addedHistoryRecord["noOfRelsChanged"] = addedHistoryRecord.noOfRelsChanged ? addedHistoryRecord.noOfRelsChanged + 1 : 1;
+                    }
                 }
             } else {
+
+                if(historyRecord.eventType == "attributeUpdate" || historyRecord.eventType == "relationshipAttributeUpdate"){
+                    historyRecord["noOfAttrsChanged"] = 1;
+                }else if(historyRecord.eventType == "relationshipChange"){
+                    historyRecord["noOfRelsChanged"] = 1;
+                }
+
                 historyRecord.data.attributes.message = {
                     "values": [
                         messageValue
