@@ -1,5 +1,5 @@
 import './element-helper.js';
-import { importHref } from '@polymer/polymer/lib/utils/import-href.js';
+// import { importHref } from '@polymer/polymer/lib/utils/import-href.js';
 window.ComponentHelper = window.ComponentHelper || {};
 
 ComponentHelper.fireBedrockEvent = function (name, data, settings, element) {
