@@ -702,9 +702,14 @@
                     }, this);
                 }
 
-                if (this._checkPreselectedContextOnLoad(parsedContexts)) {
-                    this._parsedContexts = parsedContexts;
-                } else {
+                this._parsedContexts = parsedContexts;
+                /**
+                * If entitytype is present need to wait until entity current contexts are recieved 
+                * to request only for those contexts.
+                * If there are any preselectedContexts on load as well we need to wait until we recieve 
+                * those context details to reduce multiple times redering of context-selector
+                * */
+                if (_.isEmpty(this.entityType) && !this._checkPreselectedContextOnLoad(parsedContexts)) {
                     this._contextToBeRendered = undefined;
                     this._contextToBeRendered = parsedContexts;
                     this._updateSelectedDimensions();
@@ -1082,7 +1087,14 @@
                                         }
                                     }
                                 }
-                                lovElement.reset();
+                                /**
+                                * For "context" lov types may be more than 1. To reduce restting context-lov
+                                * once per each type, it has to be reset only once that too for the last context type.
+                                * Hence checking if the current iteration is the last one to reset context lov
+                                * */
+                                if(i == ctxTypes.length - 1) {
+                                    lovElement.reset();
+                                }
                             }
                         }
                     }, this);
@@ -1232,34 +1244,6 @@
                             }
                         }
 
-                        if (!_.isEmpty(_domHost.entityId) &&
-                            !_.isEmpty(_domHost.entityType) &&
-                            elementInfo.contextType === "data") {
-                            let entities = [];
-                            if (!_.isEmpty(_domHost._entityContexts)) {
-                                _domHost._entityContexts.forEach(function (ctx) {
-                                    let ctxKeys = Object.keys(ctx);
-                                    if (!_.isEmpty(ctxKeys)) {
-                                        ctxKeys.forEach(function (key) {
-                                            let ctxVal = ctx[key];
-                                            let formattedEntity = formattedData.find(function (entity) {
-                                                if (entity.type === key && entity.title === ctxVal) {
-                                                    return true;
-                                                }
-
-                                                return false;
-                                            });
-                                            if (formattedEntity) {
-                                                entities.push(formattedEntity);
-                                            }
-                                        }, this);
-                                    }
-                                }, this);
-                            }
-                            DataHelper.sort(entities, "title");
-                            formattedData = entities;
-                        }
-
                         if (!_.isEmpty(_domHost.favouriteContexts) && elementInfo.contextType.toLowerCase() == "data") {
                             formattedData.forEach(function (item) {
                                 if (_domHost.favouriteContexts.find(ctx => ctx[item.type] === item.title)) {
@@ -1358,40 +1342,74 @@
             _onEntityContextGetResponse(e) {
                 let response = e.detail.response.response;
 
-                if (response) {
-                    if (response.entities && response.entities.length) {
-                        let entity = response.entities[0];
-
-                        if (entity && entity.data && entity.data.contexts) {
-                            let _entityContexts = [];
-
-                            entity.data.contexts.forEach(function (ctx) {
-                                _entityContexts.push(ctx.context)
-                            }, this);
-
-                            this._entityContexts = _entityContexts;
-                        }
-                    }
-                    this.refreshDimensionData();
-                } else {
+                if(!response) {
                     this.logError(this.appName + "-Dimension Selector - Entity Context get response exception", e.detail, true);
+                    return;
                 }
+
+                if (response.entities && response.entities.length) {
+                    let entity = response.entities[0];
+
+                    if (entity && entity.data && entity.data.contexts) {
+                        let _entityContexts = [];
+
+                        entity.data.contexts.forEach(function (ctx) {
+                            _entityContexts.push(ctx.context)
+                        }, this);
+
+                        this._entityContexts = _entityContexts;
+                    }
+                }
+                this.refreshDimensionData();
             }
 
             refreshDimensionData() {
-                if (typeof (this.configData) !== "undefined") {
-                    for (let i = 0; i < this.configData.length; i++) {
-                        let configDataItem = this.configData[i];
-                        let rockLov = undefined;
-                        let lovContainer = this.shadowRoot.querySelector("#" + configDataItem.id);
-
-                        if (lovContainer) {
-                            rockLov = lovContainer.querySelector("rock-entity-lov");
-
-                            if (rockLov) {
-                                rockLov.reset();
+                if (!_.isEmpty(this._parsedContexts)) {
+                    for (let i = 0; i < this._parsedContexts.length; i++) {
+                        let configDataItem = this._parsedContexts[i];
+                        if(configDataItem.id === "context") {
+                            /**
+                            * If entity doesn't have any contexts, no need to request for contexts. 
+                            * Hence making requestData undefined for context-lov
+                            * */
+                            if(_.isEmpty(this._entityContexts)) {
+                                configDataItem.dataRequest = undefined
+                            } else if(DataHelper.isValidObjectPath(configDataItem, "dataMappings.title") && 
+                                        configDataItem.dataMappings.title &&
+                                        DataHelper.isValidObjectPath(configDataItem, "dataRequest.params.query.filters")){
+                                /**
+                                * If entity has contexts, request should be sent to get only entity current contexts
+                                * Hence preparing attributesCriterion with current context items and updating request object
+                                * and then rendering context selector
+                                * */
+                                let externalAttrName = DataHelper.getAttributesBetweenCurlies(configDataItem.dataMappings.title);
+                                if (externalAttrName) {
+                                    let contextsToBeLoaded = [];
+                                    this._entityContexts.forEach(function(context) {
+                                        contextsToBeLoaded = contextsToBeLoaded.concat(Object.values(context));
+                                    }, this);
+                                    if(!_.isEmpty(contextsToBeLoaded)) {
+                                        let attributesCriterion = [];
+                                        let attrCriterion = {};
+                                        attrCriterion[externalAttrName] = {
+                                            "exacts": contextsToBeLoaded
+                                        }
+                                        attributesCriterion.push(attrCriterion);
+                                        configDataItem.dataRequest.params.query.filters.attributesCriterion = attributesCriterion;
+                                    }
+                                }
                             }
                         }
+                    }
+
+                    /** 
+                    * Need to check if there are any contexts to be preselected on load
+                    * If there are none then render context-selector
+                    * */
+                    if (!this._checkPreselectedContextOnLoad(this._parsedContexts)) {
+                        this._contextToBeRendered = undefined;
+                        this._contextToBeRendered = this._parsedContexts;
+                        this._updateSelectedDimensions();
                     }
                 }
             }
