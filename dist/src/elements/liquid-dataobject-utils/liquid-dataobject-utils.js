@@ -3,7 +3,7 @@ import '../bedrock-internalref-dataobject-falcor-util/bedrock-internalref-dataob
 /***
  * Provides common utilities for data objects
  */
-LiquidDataObjectUtils = {};
+let LiquidDataObjectUtils = {};
 //required for gulp script parsing
 //files with window.RUFBehaviors in them are not delayed for loading
 window.RUFBehaviors = window.RUFBehaviors || {};
@@ -33,3 +33,5 @@ LiquidDataObjectUtils.invalidateDataObjectCache = function (dataObject, dataInde
 LiquidDataObjectUtils.invalidateAllCache = function () {
     RUFBehaviors.DataChannel.clearAllCache();
 };
+
+export default LiquidDataObjectUtils;
