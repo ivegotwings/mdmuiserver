@@ -45,7 +45,7 @@ import '../bedrock-style-manager/styles/bedrock-style-scroll-bar.js';
 import '../bedrock-pubsub/bedrock-pubsub.js';
 import { IronA11yKeysBehavior } from '@polymer/iron-a11y-keys-behavior/iron-a11y-keys-behavior.js';
 import * as gestures from '@polymer/polymer/lib/utils/gestures.js';
-import { Settings } from '@polymer/polymer/lib/utils/settings.js';
+import * as  Settings  from '@polymer/polymer/lib/utils/settings.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class PebbleLov extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehaviors.LovBehavior], OptionalMutableData(PolymerElement)) {
   static get template() {
