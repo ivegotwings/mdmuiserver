@@ -6,25 +6,11 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { Settings } from '@polymer/polymer/lib/utils/settings.js';
-
 import { dom as dom$0 } from '@polymer/polymer/lib/legacy/polymer.dom.js';
 window.ElementHelper = window.ElementHelper || {};
 
 ElementHelper.cloneObject = function (o) {
     return DataHelper.cloneObject(o);
-};
-
-ElementHelper.getShadowElement = function (customElement) {
-    let rootElement;
-
-    if (Settings.dom == "shadow") {
-        rootElement = customElement.root;
-    } else {
-        rootElement = customElement;
-    }
-
-    return rootElement;
 };
 
 /**
