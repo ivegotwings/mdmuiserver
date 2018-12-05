@@ -135,25 +135,6 @@
                             value: {}
                         },
 
-                        downRequestTemplate: {
-                            type: Object,
-                            value: {
-                                "params": {
-                                    "query": {
-                                        "id": "",
-                                        "filters": {
-                                            "typesCriterion": []
-                                        }
-                                    },
-                                    "fields": {
-                                        "relationships": []
-                                    },
-                                    "options": {
-                                        "maxRecords": 1
-                                    }
-                                }
-                            }
-                        },
 
                         upRequestTemplate: {
                             type: Object,
@@ -193,31 +174,41 @@
                         applyContextCoalesce: {
                             type: Boolean,
                             value: false
+                        },
+                        value: {
+                            type: String,
+                            value: ""
+                        },
+                        description: {
+                            type: String,
+                            value: ""
                         }
                     }
                 }
-
+                static get observers(){
+                    return [
+                    '_onValueAndDescriptionChanged(value,description)'
+                ]
+                }
             ready () {
                 super.ready();
-                let liquid;
-                this._loading = true;
-                let ownership = this.data.relEntityType.properties.relationshipOwnership;
-                this.description = this.data.relEntityType.properties.externalName || this.data.relEntityType.id;
-                if (ownership == "owned") {
-                    this.request = this.generateDownRequestObject(this.downRequestTemplate);
-                    liquid = this.$.getRelations;
-                    liquid.operation = "getbyids";
-                    liquid.useDataCoalesce = this.applyContextCoalesce;
-                    DataHelper.oneTimeEvent(liquid, 'response', this.onResponseGetByIdData.bind(this));
-                } else{
+                if(!_.isEmpty(this.data)){
+                    let liquid;
+                    this._loading = true;
+                    let ownership = this.data.relEntityType.properties.relationshipOwnership;
+                    this.description = this.data.relEntityType.properties.externalName || this.data.relEntityType.id;
+                    
                     this.request = this.generateUpRequestObject(this.upRequestTemplate,this.data.relationshipTypeName);
                     liquid = this.$.getRelations;
-                    liquid.operation = "initiatesearchandgetcount";
-                    DataHelper.oneTimeEvent(liquid, 'response', this.onResponseSearchData.bind(this));
+                    if(liquid) {
+                        liquid.operation = "initiatesearchandgetcount";
+                        DataHelper.oneTimeEvent(liquid, 'response', this.onResponseSearchData.bind(this));
+                        liquid.generateRequest();
+                    }
                 }
-                if(liquid) {
-                    liquid.generateRequest();
-                }
+            }
+            _onValueAndDescriptionChanged(value, description){
+                this._loading = false;
             }
             getSummaryItemColor(arg){
                 if(arg){
@@ -226,17 +217,6 @@
                     return "relationships-summary__item-value " + this.color
                 }
                 
-            }
-            generateDownRequestObject (template) {
-                let request = DataHelper.cloneObject(template);
-                request.params.query.id = this.entity.id;
-                request.params.query.filters.typesCriterion = [this.entity.type];
-                let relationship = this.data.relationshipTypeName;
-
-                request.params.fields.relationships = [relationship];
-                let firstDataContext = this.getFirstDataContext();
-                request.params.query.contexts = [firstDataContext];
-                return request;
             }
 
             generateUpRequestObject (template,relationshipType) {
@@ -260,32 +240,6 @@
                     request.params.query.contexts = [firstDataContext];
                 }
                 return request;
-            }
-
-            onResponseGetByIdData (e) {
-                if (e.detail && e.detail.response) {
-                    let response = e.detail.response;
-                    if (response && response.content) {
-                        let countOfRelations = 0;
-                        if (e.detail.response.content.entities &&
-                            e.detail.response.content.entities[0] &&
-                            e.detail.response.content.entities[0].data) {
-                            let currentItemData = e.detail.response.content.entities[0].data;
-                            let relationshipData = {};
-                            if (currentItemData.contexts && currentItemData.contexts.length > 0) {
-                                relationshipData = currentItemData.contexts[0].relationships;
-                            } else {
-                                relationshipData = currentItemData.relationships;
-                            }
-                            if (relationshipData &&
-                                relationshipData[this.data.relationshipTypeName]) {
-                                countOfRelations = relationshipData[this.data.relationshipTypeName].length;
-                            }
-                        }
-                        this.value = countOfRelations;
-                        this._loading = false;
-                    }
-                }
             }
 
             onResponseSearchData (e) {

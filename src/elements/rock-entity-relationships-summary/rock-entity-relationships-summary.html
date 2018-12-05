@@ -68,6 +68,12 @@
         <liquid-entity-model-get id="getRelDomains" operation="getbyids" on-response="_onRelModelsReceived"
                                  on-error="_onModelGetFailed"></liquid-entity-model-get>
 
+        <liquid-entity-data-get exclude-in-progress
+                                id="getRelations"
+                                on-error="_onError"
+                                operation="getbyids"
+                                use-data-coalesce=[[applyContextCoalesce]]
+                                data-index$="[[dataIndex]]"></liquid-entity-data-get>
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
 
         <template is="dom-if" if="{{hasComponentErrored(isComponentErrored)}}">
@@ -77,11 +83,17 @@
         <template is="dom-if" if="{{!hasComponentErrored(isComponentErrored)}}">
             <div class="relationships-summary__items-wrapper">
                 <ul class="relationships-summary__items">
-                    <template is="dom-repeat" items="[[values]]">
+                    <template is="dom-repeat" items="[[values]]" filter="isWhereUsedItem">
                         <li class="relationships-summary__item-wrapper">
                             <rock-entity-relationships-summary-item entity="[[entity]]" color="[[_getStyle(0, index)]]" data="[[item]]"
                                 data-index$="[[dataIndex]]"
                                 context-data="[[contextData]]" on-tap="_onTap" apply-context-coalesce="[[applyContextCoalesce]]"></rock-entity-relationships-summary-item>
+                        </li>
+                    </template>
+                    <template is="dom-repeat" items="[[ownedItems]]">
+                        <li class="relationships-summary__item-wrapper">
+                        <rock-entity-relationships-summary-item  color="[[_getStyle(0, index)]]" on-tap="_onTap"
+                            value="[[item.count]]" description="[[item.description]]"></rock-entity-relationships-summary-item>
                         </li>
                     </template>
                 </ul>
@@ -122,7 +134,10 @@
                         type: Array,
                         value: []
                     },
-
+                    ownedItems: {
+                        type: Array,
+                        value: []
+                    },
                     excludeItems: {
                         type: Array,
                         value: function () {
@@ -157,7 +172,23 @@
                     linkTab: {
                         type: String,
                         value: ""
-                    }
+                    },
+                    downRequest: {
+                        type: Object,
+                        value: {
+                            "params": {
+                                "query": {
+                                    "id": "",
+                                    "filters": {
+                                        "typesCriterion": []
+                                    }
+                                },
+                                "fields": {
+                                    "relationships": []
+                                }
+                            }
+                        }
+                    },
                 }
             }
 
@@ -230,6 +261,7 @@
                             relationshipTypeNames.push(models[i].name);
                         }
                     }
+                    
                     let relationshipMappings = [];
                     for(let rel of this._relationshipEntityTypeMappings){
                         if(relationshipTypeNames.indexOf(rel.relationshipTypeName) > -1 && this.excludeItems.indexOf(rel.relationshipTypeName) == -1){
@@ -241,8 +273,12 @@
                             }
                         }
                     }
+
                     this.set("values",[])
                     this.values = relationshipMappings;
+
+                    
+                    this._generateRelationshipCountRequest(relationshipMappings);
                     //adding a delay of half second since if data is severd from cache its
                     //immediate so we dont see the loader.
                     Polymer.Async.timeOut.after(500).run(() => {
@@ -256,7 +292,82 @@
                     this._loading = false;
                 }
             }
+            isWhereUsedItem(item){
+                let ownership = item.relEntityType.properties.relationshipOwnership;
+                return ownership !== "owned";
+            }
+            _generateRelationshipCountRequest(relationshipMappings){
+                let downDirectionRequest = null;
+                if(relationshipMappings){
+                    relationshipMappings.forEach((mapping) => {
+                        if(DataHelper.isValidObjectPath(mapping, 'relEntityType.properties.relationshipOwnership')){
+                            let ownership = mapping.relEntityType.properties.relationshipOwnership;
+                            if(ownership == "owned"){
+                                downDirectionRequest = this.prepareDownRequestObject(mapping, downDirectionRequest);
+                            }
+                        }
+                    });
+                    
+                    let liquid = this.$.getRelations;
+                    if(liquid){
+                        DataHelper.oneTimeEvent(liquid, 'response', this.onResponseGetByIdData.bind(this));
+                        liquid.requestData = downDirectionRequest;
+                        liquid.generateRequest();
+                    }
+                }
+                
+            }
+            prepareDownRequestObject (mapping, downDirectionRequest) {
+                if(!downDirectionRequest){
+                    downDirectionRequest = DataHelper.cloneObject(this.downRequest);
+                }
+                downDirectionRequest.params.query.id = this.entity.id;
+                downDirectionRequest.params.query.filters.typesCriterion = [this.entity.type];
+                let relationship = mapping.relationshipTypeName;
 
+                downDirectionRequest.params.fields.relationships.push(relationship);
+                let firstDataContext = this.getFirstDataContext();
+                downDirectionRequest.params.query.contexts = [firstDataContext];
+                return downDirectionRequest;
+            }
+
+            onResponseGetByIdData (e) {
+                if (e.detail && e.detail.response) {
+                    let response = e.detail.response;
+                    if (response && response.content) {
+                        if (e.detail.response.content.entities &&
+                            e.detail.response.content.entities[0]) {
+                                let relationshipsTotalCounts = e.detail.response.content.entities[0].relationshipsTotalCount;
+                                let ownedItems = [];
+                                this.values.forEach((mapping)=>{
+                                    let ownership = mapping.relEntityType.properties.relationshipOwnership;
+                                    if(ownership == "owned"){
+                                        let relationshipTypeName = mapping.relationshipTypeName;
+                                        let description = mapping.relEntityType.properties.externalName || mapping.relEntityType.id;
+                                        let data;
+                                        if(relationshipsTotalCounts){
+                                            data = {
+                                                count: relationshipsTotalCounts[relationshipTypeName],
+                                                description: description
+                                            }
+                                        }
+                                        else{
+                                            data = {
+                                                count: 0,
+                                                description: description
+                                            }
+                                        }
+                                        ownedItems.push(data);
+                                    }   
+                                })
+                                this.ownedItems = ownedItems;
+                            }
+                    }
+                }
+            }
+            _onError (e) {
+                this.logError("Failed to get Entity data", e.detail);
+            }
             _onModelGetFailed(e) {
                 this.logError("TabMenuError", e.detail, true);
                 this._loading = false;
