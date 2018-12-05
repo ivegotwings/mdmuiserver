@@ -29,7 +29,7 @@ import { microTask, timeOut } from '@polymer/polymer/lib/utils/async.js';
 import { Debouncer } from '@polymer/polymer/lib/utils/debounce.js';
 import '../bedrock-helpers/component-helper.js';
 import '../bedrock-externalref-classlist-temp/bedrock-externalref-classlist-temp.js';
-import { Settings } from '@polymer/polymer/lib/utils/settings.js';
+import * as Settings  from '@polymer/polymer/lib/utils/settings.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 let SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -439,7 +439,7 @@ class PebbleClockSelector extends mixinBehaviors([IronResizableBehavior], Option
                   el.classList.add(c);
               });
           }
-          if (!Settings.useNativeShadow) {
+          if (!Settings.useShadow) {
               el.classList.add('style-scope');
               el.classList.add('pebble-clock-selector');
           }

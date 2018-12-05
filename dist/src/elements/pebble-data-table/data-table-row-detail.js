@@ -1,7 +1,7 @@
 import { PolymerElement } from '@polymer/polymer/polymer-element.js';
 import { OptionalMutableData } from '@polymer/polymer/lib/mixins/mutable-data.js';
 import './data-table-templatizer-behavior.js';
-import { Settings } from '@polymer/polymer/lib/utils/settings.js';
+import * as Settings  from '@polymer/polymer/lib/utils/settings.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class DataTableRowDetail extends mixinBehaviors([saulis.DataTableTemplatizerBehavior], OptionalMutableData(
   PolymerElement)) {
@@ -34,7 +34,7 @@ class DataTableRowDetail extends mixinBehaviors([saulis.DataTableTemplatizerBeha
   }
   connectedCallback() {
     super.connectedCallback();
-    if (!Settings.useNativeShadow) {
+    if (!Settings.useShadow) {
       // details is supposed to be placed outside the local dom of pebble-data-table.
       Polymer.StyleTransformer.dom(this, 'pebble-data-table', this._scopeCssViaAttr, true);
       if (this.domHost) {
