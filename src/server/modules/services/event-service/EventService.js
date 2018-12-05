@@ -1477,6 +1477,9 @@ Eventservice.prototype = {
                 case "ui_workflowappmodel_export":
                     taskType = "Workflow Model Exports"
                     break;
+                case "loadtenantseed":
+                    taskType = "Tenant Seed Imports"
+                    break;
             }
         }
         else {
