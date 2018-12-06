@@ -286,6 +286,9 @@ EntityHistoryEventservice.prototype = {
                     if(historyRecord.previousValues == "_NULL"){
                         historyRecord.previousValues = "NULL"
                     }
+                    if(historyRecord.attributeValues == "_NULL"){
+                        historyRecord.attributeValues = "NULL"
+                    }
                     message = "</span> changed <span class='activity-property'>" + attributeExternalName + "</span>"+" from <span class='prev-attribute-value'>" + historyRecord.previousValues + "</span> to <span class='attribute-value'>" + historyRecord.attributeValues + "</span> for <a href='?id="+ historyRecord.internalRelToId+"&type=" + historyRecord.relToType + "'>" + relToTypeExternalName + ": " + historyRecord.internalRelToId + "</a> having <span class='activity-property'>" + relationshipExternalName + "</span> relationship";
                 } else {
                     if(historyRecord.attributeValues == "_NULL"){
@@ -443,8 +446,8 @@ EntityHistoryEventservice.prototype = {
                                     if (relAttributes.hasOwnProperty(attribute) && (excludeAttribute.indexOf(attribute) < 0) && (attribute.indexOf("previous-") < 0)) {
                                         let attrObj = relAttributes[attribute]
                                         historyObj = {};
-                                        this._populateHistoryRecord(event, relTorelationship, historyObj, internalIds);
-
+                                        this._populateHistoryRecord(event, attrObj, historyObj, internalIds);
+                                        isRelAttributeUpdate = true;
                                         historyObj.eventType = "relationshipAttributeUpdate";
                                         historyObj.internalAttributeId = attribute;
                                         historyObj.relationshipType = relationship;
