@@ -1,4 +1,4 @@
-ProgressTracker = function () {
+let ProgressTracker = function () {
     let requestCount = 0;
     let responseCount = 0;
 
@@ -64,3 +64,5 @@ ProgressTracker = function () {
         handleProgress: handleProgress
     };
 }();
+
+export default ProgressTracker;
