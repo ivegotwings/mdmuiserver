@@ -100,7 +100,7 @@ EntityHistoryEventservice.prototype = {
                 let contextAttributes = event.data.contexts[0].attributes;
                 if(this._isValidObjectPath(event, 'data.attributes')){
                     let attributes = event.data.attributes;
-                    if (this._isValidObjectPath(attributes, 'entityType.values.0.value')) {
+                    if (this._isValidObjectPath(attributes, 'entityType.values.0.value')){
                         internalIds.currentEntityType = attributes.entityType.values[0].value;
                     }
                 }
