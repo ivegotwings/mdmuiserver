@@ -1,7 +1,6 @@
 import '@polymer/polymer/polymer-legacy.js';
 import '@polymer/iron-ajax/iron-ajax.js';
 import '@polymer/iron-ajax/iron-request.js';
-import 'intl-messageformat/dist/intl-messageformat.min.js';
 /***
 * `RUFBehaviors.Internationalization` wraps the [format.js](http://formatjs.io/) library to
 * help you internationalize your application. Note that if you are on a browser that
