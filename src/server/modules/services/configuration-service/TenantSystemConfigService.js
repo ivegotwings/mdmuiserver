@@ -15,7 +15,7 @@ TenantSystemConfigService.prototype = {
         let defaultSource = "internal";
 
         let tenantConfigKey = this.getCacheKey();
-        let tenantConfig = localConfigCache[tenantConfigKey]
+        let tenantConfig = localConfigCache[tenantConfigKey];
         if(tenantConfig && tenantConfig.defaultValueSource) {
             defaultSource = tenantConfig.defaultValueSource;
         }
@@ -26,7 +26,7 @@ TenantSystemConfigService.prototype = {
         let defaultLocale = "en-US";
 
         let tenantConfigKey = this.getCacheKey();
-        let tenantConfig = localConfigCache[tenantConfigKey]
+        let tenantConfig = localConfigCache[tenantConfigKey];
         if(tenantConfig && tenantConfig.defaultValueLocale) {
             defaultLocale = tenantConfig.defaultValueLocale;
         }
