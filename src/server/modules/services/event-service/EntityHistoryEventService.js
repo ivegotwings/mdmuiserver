@@ -98,6 +98,13 @@ EntityHistoryEventservice.prototype = {
             
             if (this._isValidObjectPath(event, 'data.contexts.0.attributes')) {
                 let contextAttributes = event.data.contexts[0].attributes;
+                if(this._isValidObjectPath(event, 'data.attributes')){
+                    let attributes = event.data.attributes;
+                    if (this._isValidObjectPath(attributes, 'entityType.values.0.value')){
+                        internalIds.currentEntityType = attributes.entityType.values[0].value;
+                    }
+                }
+
                 let contextAttributeUpdateHistoryEvent = this._createAttributeUpdateHistoryEvent(event, contextAttributes, excludeAttribute, internalIds)
                 Array.prototype.push.apply(historyList, contextAttributeUpdateHistoryEvent);
             }
@@ -152,7 +159,10 @@ EntityHistoryEventservice.prototype = {
                 if (this._isValidObjectPath(externalResponse, "response.entityModels.0.data")) {
                     let data = externalResponse.response.entityModels[0].data;
 
-                    if (!isEmpty(data.attributes)) {
+
+                    if(!_.isEmpty(dataContexts) && this._isValidObjectPath(data, 'contexts.0.attributes')){
+                        attributeModels = data.contexts[0].attributes;
+                    }else if(!_.isEmpty(data.attributes)){
                         attributeModels = data.attributes;
                     }
                 }
