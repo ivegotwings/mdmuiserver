@@ -155,6 +155,7 @@ EntityHistoryEventservice.prototype = {
                     if (!isEmpty(data.attributes)) {
                         attributeModels = data.attributes;
                     }
+                }
             }
         }
 
