@@ -451,8 +451,8 @@ EntityHistoryEventservice.prototype = {
                                     if (relAttributes.hasOwnProperty(attribute) && (excludeAttribute.indexOf(attribute) < 0) && (attribute.indexOf("previous-") < 0)) {
                                         let attrObj = relAttributes[attribute]
                                         historyObj = {};
-                                        this._populateHistoryRecord(event, relTorelationship, historyObj, internalIds);
-
+                                        this._populateHistoryRecord(event, attrObj, historyObj, internalIds);
+                                        isRelAttributeUpdate = true;
                                         historyObj.eventType = "relationshipAttributeUpdate";
                                         historyObj.internalAttributeId = attribute;
                                         historyObj.relationshipType = relationship;
