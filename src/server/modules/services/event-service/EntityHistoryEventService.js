@@ -158,9 +158,9 @@ EntityHistoryEventservice.prototype = {
                 if (this._isValidObjectPath(externalResponse, "response.entityModels.0.data")) {
                     let data = externalResponse.response.entityModels[0].data;
 
-                    if(!_.isEmpty(dataContexts)){
+                    if(!_.isEmpty(dataContexts) && this._isValidObjectPath(data, 'contexts.0.attributes')){
                         attributeModels = data.contexts[0].attributes;
-                    }else{
+                    }else if(!_.isEmpty(data.attributes)){
                         attributeModels = data.attributes;
                     }
                 }
