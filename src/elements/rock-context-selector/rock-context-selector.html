@@ -13,6 +13,9 @@
 
 <link rel="import" href="../rock-entity-lov/rock-entity-lov.html">
 
+<link rel="import" href="../liquid-config-get/liquid-config-get.html">
+<link rel="import" href="../liquid-config-save/liquid-config-save.html">
+
 <dom-module id="rock-context-selector">
     <template>
         <style include="bedrock-style-common bedrock-style-tooltip">
@@ -81,7 +84,7 @@
                 --paper-button-text: {
                     max-width: 100%;
                 }
-            }            
+            }
         </style>
         <div class="dimension-wrap">
             <template is="dom-repeat" items="[[_contextToBeRendered]]" as="ctx">
@@ -249,10 +252,6 @@
                             return {};
                         }
                     },
-                    contextSelectorRefresh: {
-                        type: Boolean,
-                        value: false
-                    },
                     favouriteContexts: {
                         type: Array,
                         value: function () {
@@ -337,11 +336,9 @@
 
             disconnectedCallback() {
                 super.disconnectedCallback();
-                this.contextSelectorRefresh = false;
             }
             connectedCallback() {
                 super.connectedCallback();
-                this.contextSelectorRefresh = true;
             }
 
             _prepareContext() {
@@ -395,7 +392,7 @@
                     this._updateSelectedDimensions();
                 }
             }
-                
+
             async onConfigLoaded(componentConfig) {
                 if (componentConfig && componentConfig.config) {
                     let configData = DataHelper.convertObjectToArray(componentConfig.config);
@@ -518,7 +515,7 @@
                         item.dataMappings["type"] = types;
                         if (!_.isEmpty(types)) {
                             types.forEach(function (type) {
-                                if(!_.isEmpty(this.preSelectedContexts) && !_.isEmpty(this.preSelectedContexts[type])) {
+                                if (!_.isEmpty(this.preSelectedContexts) && !_.isEmpty(this.preSelectedContexts[type])) {
                                     item.selectedItem = this.preSelectedContexts[type][0];
                                 }
                                 ctxIds.push(type + "_entityManageModel");
@@ -528,7 +525,7 @@
                                 }
                             }, this);
                         } else {
-                            itemsToBeRemoved.push(idx);
+                            itemsToBeRemoved.push(item);
                             this.logError(this.appName + "-Context Selector - types not defined for " + item.id + " in context model");
                         }
                     }
@@ -538,10 +535,13 @@
                      * dimension and render remaining dimensions in context-selector
                      * */
                     if (!_.isEmpty(itemsToBeRemoved)) {
-                        for (let idx = 0; idx < itemsToBeRemoved.length; idx++) {
-                            let index = itemsToBeRemoved[idx];
-                            this.configData.splice(index, 1);
-                        }
+                        let remainingConfigs = this.configData.filter(config => {
+                            let isFound = itemsToBeRemoved.find(item => { return item.id == config.id });
+                            if (!isFound) {
+                                return config;
+                            }
+                        });
+                        this.set("configData", remainingConfigs);
                     }
                 }
 
@@ -696,9 +696,14 @@
                     }, this);
                 }
 
-                if (this._checkPreselectedContextOnLoad(parsedContexts)) {
-                    this._parsedContexts = parsedContexts;
-                } else {
+                this._parsedContexts = parsedContexts;
+                /**
+                * If entitytype is present need to wait until entity current contexts are recieved 
+                * to request only for those contexts.
+                * If there are any preselectedContexts on load as well we need to wait until we recieve 
+                * those context details to reduce multiple times redering of context-selector
+                * */
+                if (_.isEmpty(this.entityType) && !this._checkPreselectedContextOnLoad(parsedContexts)) {
                     this._contextToBeRendered = undefined;
                     this._contextToBeRendered = parsedContexts;
                     this._updateSelectedDimensions();
@@ -842,6 +847,9 @@
             }
 
             _onEntityLovConfirmButtonTapped(event) {
+                if (!_.isEmpty(this.navigationData)) {
+                    this.navigationData = [];
+                }
                 this._currentLovEvent = event;
                 this._updateSelectedDimensions();
                 this._toggleLovPopover(this._currentContextSelector.popover);
@@ -863,17 +871,14 @@
                 Polymer.Debouncer.debounce(this._debouncer, Polymer.Async.timeOut.after(100), () => {
                     this._setSelectedDimensions();
                     this._updateCurrentContextState();
-                    this.contextSelectorRefresh = false;
                 });
             }
 
             _setSelectedDimensions() {
                 //On page refresh set from navigationData
                 let defaultDimensions = [];
-                if (this.contextSelectorRefresh) {
-                    if (!_.isEmpty(this.navigationData)) {
-                        defaultDimensions = this.navigationData;
-                    }
+                if (!_.isEmpty(this.navigationData)) {
+                    defaultDimensions = this.navigationData;
                 }
 
                 let selectedDimensions = {};
@@ -1076,7 +1081,14 @@
                                         }
                                     }
                                 }
-                                lovElement.reset();
+                                /**
+                                * For "context" lov types may be more than 1. To reduce restting context-lov
+                                * once per each type, it has to be reset only once that too for the last context type.
+                                * Hence checking if the current iteration is the last one to reset context lov
+                                * */
+                                if (i == ctxTypes.length - 1) {
+                                    lovElement.reset();
+                                }
                             }
                         }
                     }, this);
@@ -1130,7 +1142,7 @@
                                         let defaultValueContextId;
                                         let relIds = selectedItem.relTo.map(function (rel) {
                                             if (rel.relTo.type == dctxs) {
-                                                if(rel.attributes) {
+                                                if (rel.attributes) {
                                                     let relAttr = rel.attributes[this._getDefaultSelectedAttrName()];
 
                                                     if (DataHelper.isValidObjectPath(relAttr, "values.0.value") && relAttr.values[0].value.toString() == "true") {
@@ -1191,7 +1203,7 @@
                                 }, this);
 
                                 let preSelectedItems;
-                                if(_domHost._rootContextChanged) {
+                                if (_domHost._rootContextChanged) {
                                     preSelectedItems = _domHost.selectedDimensionsDetail["PreSelectedItems"] && _domHost.selectedDimensionsDetail["PreSelectedItems"][ctxType];
                                 }
                                 if (!_.isEmpty(preSelectedItems)) {
@@ -1220,38 +1232,10 @@
                                         _domHost._setSelectedDimensions();
                                     }
                                 } else {
-                                    this.selectedItems =  !_.isEmpty(_domHost.selectedDimensionsDetail[ctxType]) ? _domHost.selectedDimensionsDetail[ctxType] : [];
+                                    this.selectedItems = !_.isEmpty(_domHost.selectedDimensionsDetail[ctxType]) ? _domHost.selectedDimensionsDetail[ctxType] : [];
                                     _domHost._setSelectedDimensions();
                                 }
                             }
-                        }
-
-                        if (!_.isEmpty(_domHost.entityId) &&
-                            !_.isEmpty(_domHost.entityType) &&
-                            elementInfo.contextType === "data") {
-                            let entities = [];
-                            if (!_.isEmpty(_domHost._entityContexts)) {
-                                _domHost._entityContexts.forEach(function (ctx) {
-                                    let ctxKeys = Object.keys(ctx);
-                                    if (!_.isEmpty(ctxKeys)) {
-                                        ctxKeys.forEach(function (key) {
-                                            let ctxVal = ctx[key];
-                                            let formattedEntity = formattedData.find(function (entity) {
-                                                if (entity.type === key && entity.title === ctxVal) {
-                                                    return true;
-                                                }
-
-                                                return false;
-                                            });
-                                            if (formattedEntity) {
-                                                entities.push(formattedEntity);
-                                            }
-                                        }, this);
-                                    }
-                                }, this);
-                            }
-                            DataHelper.sort(entities, "title");
-                            formattedData = entities;
                         }
 
                         if (!_.isEmpty(_domHost.favouriteContexts) && elementInfo.contextType.toLowerCase() == "data") {
@@ -1352,40 +1336,74 @@
             _onEntityContextGetResponse(e) {
                 let response = e.detail.response.response;
 
-                if (response) {
-                    if (response.entities && response.entities.length) {
-                        let entity = response.entities[0];
-
-                        if (entity && entity.data && entity.data.contexts) {
-                            let _entityContexts = [];
-
-                            entity.data.contexts.forEach(function (ctx) {
-                                _entityContexts.push(ctx.context)
-                            }, this);
-
-                            this._entityContexts = _entityContexts;
-                        }
-                    }
-                    this.refreshDimensionData();
-                } else {
+                if (!response) {
                     this.logError(this.appName + "-Dimension Selector - Entity Context get response exception", e.detail, true);
+                    return;
                 }
+
+                if (response.entities && response.entities.length) {
+                    let entity = response.entities[0];
+
+                    if (entity && entity.data && entity.data.contexts) {
+                        let _entityContexts = [];
+
+                        entity.data.contexts.forEach(function (ctx) {
+                            _entityContexts.push(ctx.context)
+                        }, this);
+
+                        this._entityContexts = _entityContexts;
+                    }
+                }
+                this.refreshDimensionData();
             }
 
             refreshDimensionData() {
-                if (typeof (this.configData) !== "undefined") {
-                    for (let i = 0; i < this.configData.length; i++) {
-                        let configDataItem = this.configData[i];
-                        let rockLov = undefined;
-                        let lovContainer = this.shadowRoot.querySelector("#" + configDataItem.id);
-
-                        if (lovContainer) {
-                            rockLov = lovContainer.querySelector("rock-entity-lov");
-
-                            if (rockLov) {
-                                rockLov.reset();
+                if (!_.isEmpty(this._parsedContexts)) {
+                    for (let i = 0; i < this._parsedContexts.length; i++) {
+                        let configDataItem = this._parsedContexts[i];
+                        if (configDataItem.id === "context") {
+                            /**
+                            * If entity doesn't have any contexts, no need to request for contexts. 
+                            * Hence making requestData undefined for context-lov
+                            * */
+                            if (_.isEmpty(this._entityContexts)) {
+                                configDataItem.dataRequest = undefined
+                            } else if (DataHelper.isValidObjectPath(configDataItem, "dataMappings.title") &&
+                                configDataItem.dataMappings.title &&
+                                DataHelper.isValidObjectPath(configDataItem, "dataRequest.params.query.filters")) {
+                                /**
+                                * If entity has contexts, request should be sent to get only entity current contexts
+                                * Hence preparing attributesCriterion with current context items and updating request object
+                                * and then rendering context selector
+                                * */
+                                let externalAttrName = DataHelper.getAttributesBetweenCurlies(configDataItem.dataMappings.title);
+                                if (externalAttrName) {
+                                    let contextsToBeLoaded = [];
+                                    this._entityContexts.forEach(function (context) {
+                                        contextsToBeLoaded = contextsToBeLoaded.concat(Object.values(context));
+                                    }, this);
+                                    if (!_.isEmpty(contextsToBeLoaded)) {
+                                        let attributesCriterion = [];
+                                        let attrCriterion = {};
+                                        attrCriterion[externalAttrName] = {
+                                            "exacts": contextsToBeLoaded
+                                        }
+                                        attributesCriterion.push(attrCriterion);
+                                        configDataItem.dataRequest.params.query.filters.attributesCriterion = attributesCriterion;
+                                    }
+                                }
                             }
                         }
+                    }
+
+                    /** 
+                    * Need to check if there are any contexts to be preselected on load
+                    * If there are none then render context-selector
+                    * */
+                    if (!this._checkPreselectedContextOnLoad(this._parsedContexts)) {
+                        this._contextToBeRendered = undefined;
+                        this._contextToBeRendered = this._parsedContexts;
+                        this._updateSelectedDimensions();
                     }
                 }
             }
@@ -1405,9 +1423,9 @@
                     if (!_.isEmpty(availableSelectedItems) && !(availableSelectedItems.length == 1 && _.isEmpty(availableSelectedItems[0]))) {
                         selectedItems = availableSelectedItems.filter(availItem => { return availItem.type != ctxKey; });
                         let lovSelectedItems = availableSelectedItems.filter(availItem => { return availItem.type == ctxKey; });
-                        if(_.isEmpty(lovSelectedItems) && !_.isEmpty(defaultDimensions[ctxKey])){
+                        if (_.isEmpty(lovSelectedItems) && !_.isEmpty(defaultDimensions[ctxKey])) {
                             selectedItems = selectedItems.concat(defaultDimensions[ctxKey]);
-                        }else{
+                        } else {
                             //If the availableSelectedItems and defaultDimensions are same, set them as selectedItems
                             for (let availableSelectedItemIndex = 0; availableSelectedItemIndex < availableSelectedItems.length; availableSelectedItemIndex++) {
                                 for (let defaultDimensionIndex = 0; defaultDimensionIndex < defaultDimensions[ctxKey].length; defaultDimensionIndex++) {
@@ -1598,29 +1616,12 @@
             _resetCurrentContextLov() {
                 if (this.currentFavouriteSelectorLovId) {
                     let currentLov = this.shadowRoot.querySelector("#" + this.currentFavouriteSelectorLovId);
-                    if (currentLov) {
-                        let items = currentLov.items;
-                        this._updateFavouriteItems(items);
-                        currentLov.items = [];
-                        currentLov.items = items;
+                    if (currentLov && currentLov.updateFavouriteItems) {
+                        this.favouriteContexts = this.favouriteContexts || [];
+                        currentLov.updateFavouriteItems(this.favouriteContexts, "title");
                     }
                 }
                 this.currentFavouriteSelectorLovId = undefined;
-            }
-
-            _updateFavouriteItems(items) {
-                if (!_.isEmpty(items)) {
-                    this.favouriteContexts = this.favouriteContexts || [];
-                    items.forEach(function (item) {
-                        if (this.favouriteContexts.find(ctx => ctx[item.type] === item.title)) {
-                            item.isFavourite = true;
-                        } else {
-                            delete item.isFavourite;
-                        }
-                    }, this);
-
-                    DataHelper.sort(items, "title");
-                }
             }
         }
 

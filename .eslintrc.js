@@ -147,6 +147,14 @@ module.exports = {
         "PebbleDialog": true,
         "AppBusinessFunction": true,
         "ProgressTracker": true,
-        "FileDownloadManager": true
+        "FileDownloadManager": true,
+        "LiquidOperationInitiateSearch": true,
+        "LiquidOperationGetSearchResultRange": true,
+        "LiquidOperationGetByIds": true,
+        "LiquidOperationGetSearchResultRecordSize": true,
+        "LiquidResponse": true,
+        "LiquidRequest": true,
+        "LiquidOperationBase": true,
+        "FalcorManager": true
     }
 };

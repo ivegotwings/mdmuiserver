@@ -3,7 +3,7 @@ let DFRestService = require('../../common/df-rest-service/DFRestService'),
     uuidV1 = require('uuid/v1'),
     arrayContains = require('../../common/utils/array-contains'),
     moment = require('moment');
-
+let tenantSystemConfigService = require('../configuration-service/TenantSystemConfigService');
 let config = require('config');
 let taskSummarizationProcessorEnabled = config.get('modules.webEngine.taskSummarizationProcessorEnabled');
 
@@ -15,7 +15,6 @@ let Eventservice = function (options) {
 
 const falcorUtil = require('../../../../shared/dataobject-falcor-util');
 const pathKeys = falcorUtil.getPathKeys();
-
 const eventSubTypeMap = {
     'QUEUED': ['QUEUED', 'QUEUED_SUCCESS', 'PROCESSING_STARTED'],
     'PROCESSING': ['SUBMITTED', 'PROCESSING_COMPLETED', "PROCESSING_COMPLETE_WITH_WARNING"],
@@ -42,7 +41,7 @@ const eventSubTypesOrder = ["NONE",
     "PROCESSING_COMPLETE_ERROR",
     "PROCESSING_COMPLETE_WITH_WARNING",
     "PROCESSING_SUBMISSION_ERROR"];
-
+    
 Eventservice.prototype = {
     get: async function (request) {
         let response = {};
@@ -517,8 +516,8 @@ Eventservice.prototype = {
         if (attributeNames && attributeNames.length > 0) {
             req.params.fields.attributes = attributeNames;
             req.params.query.valueContexts = [{
-                "source": "internal",
-                "locale": "en-US"
+                "source": tenantSystemConfigService.prototype.getDefaultSource(),
+                "locale": tenantSystemConfigService.prototype.getDefaultLocale(),
             }];
         }
 
@@ -569,10 +568,6 @@ Eventservice.prototype = {
 
         let attributeNames = ["entityId", "entityType", "entityAction", "requestStatus"];
         req.params.fields.attributes = attributeNames;
-        req.params.query.valueContexts = [{
-            "source": "rdp",
-            "locale": "en-US"
-        }];
 
         let attributesCriteria = [];
 
@@ -637,10 +632,6 @@ Eventservice.prototype = {
             let attributeNames = ["_ALL"];
             req.params.fields.attributes = attributeNames;
         }
-        // req.params.query.valueContexts = [{
-        //     "source": "rdp",
-        //     "locale": "en-US"
-        // }];
 
         if(inputRequest.params.query.ids) {
             req.params.query.ids = inputRequest.params.query.ids;
@@ -792,8 +783,8 @@ Eventservice.prototype = {
                             eventAttributes["isExtractComplete"] = attributes["isExtractComplete"];
                             eventAttributes["createdOn"] = {"values": [
                                 {
-                                    "locale": "en-US",
-                                    "source": "internal",
+                                    "source": tenantSystemConfigService.prototype.getDefaultSource(),
+                                    "locale": tenantSystemConfigService.prototype.getDefaultLocale(),
                                     "id": uuidV1(),
                                     "value": taskSummaryObject.properties ? taskSummaryObject.properties.createdDate : ""
                                 }
@@ -804,8 +795,8 @@ Eventservice.prototype = {
                             if(attributes["taskType"] && attributes["taskType"].values[0].value.search(/createvariants/i) > -1){
                                 eventAttributes["taskName"] = {"values": [
                                     {
-                                        "locale": "en-US",
-                                        "source": "internal",
+                                        "source": tenantSystemConfigService.prototype.getDefaultSource(),
+                                        "locale": tenantSystemConfigService.prototype.getDefaultLocale(),
                                         "id": uuidV1(),
                                         "value": "Create Variants"
                                     }
@@ -897,8 +888,8 @@ Eventservice.prototype = {
         req.params.query.id = taskId;
         req.params.fields.attributes = ["_ALL"];
         req.params.query.valueContexts = [{
-            "source": "internal",
-            "locale": "en-US"
+            "source": tenantSystemConfigService.prototype.getDefaultSource(),
+            "locale": tenantSystemConfigService.prototype.getDefaultLocale(),
         }];
 
         req.params.options = {
@@ -1058,10 +1049,6 @@ Eventservice.prototype = {
 
         let attributeNames = ["entityId", "entityType", "entityAction"];
         req.params.fields.attributes = attributeNames;
-        req.params.query.valueContexts = [{
-            "source": "rdp",
-            "locale": "en-US"
-        }];
 
         let attributesCriteria = [];
 
@@ -1353,8 +1340,8 @@ Eventservice.prototype = {
                 event.data.attributes[attrName] = {};
                 event.data.attributes[attrName].values = [{
                     "value": val,
-                    "source": "internal",
-                    "locale": "en-US"
+                    "source": tenantSystemConfigService.prototype.getDefaultSource(),
+                    "locale": tenantSystemConfigService.prototype.getDefaultLocale(),
                 }];
             }
         }
@@ -1489,6 +1476,9 @@ Eventservice.prototype = {
                     break;
                 case "ui_workflowappmodel_export":
                     taskType = "Workflow Model Exports"
+                    break;
+                case "loadtenantseed":
+                    taskType = "Tenant Seed Imports"
                     break;
             }
         }

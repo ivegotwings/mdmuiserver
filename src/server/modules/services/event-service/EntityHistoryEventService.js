@@ -20,17 +20,12 @@ EntityHistoryEventservice.prototype = {
         try {
             let request = falcorUtil.cloneObject(requestObj);
             if (request.params) {
-                if (request.params.query && request.params.query.filters) {
-                    request.params.query.filters.typesCriterion = ["entitymanageevent"]
-                }
-
                 if (request.params.isSearchRequest) {
                     //This is for initiate search... make search call and return response
-                    response = await this.post("eventservice/get", request);
-
-                    if (response && response.response && response.response.events) {
-                        let events = response.response.events;
-
+                    response = await this.post("entityservice/getentityhistory", request);
+                    if (response && response.response && response.response.entities) {
+                        let events = response.response.entities;
+                        response.response.events = response.response.entities;
                         for (let i = 0; i < events.length; i++) {
                             let event = events[i];
                             event.type = "entityhistoryevent";
@@ -53,12 +48,12 @@ EntityHistoryEventservice.prototype = {
                         request.params.fields.relationships = ["_ALL"];
                     }
 
-                    response = await this.post("eventservice/get", request);
-                    if (response && response.response && response.response.events) {
-                        let events = response.response.events;
-                        let historyList = await this._generateHistoryData(events, valContexts, dataContexts);
+                    response = await this.post("entityservice/getentityhistory", request);
 
-                        response.response.events = historyList;
+                    if (response && response.response && response.response.entities) {
+                        let events = response.response.entities;
+                        let historyList = await this._generateHistoryData(events, valContexts, dataContexts);
+                        response.response.entities = historyList;
                     }
                 }
             }
@@ -84,7 +79,7 @@ EntityHistoryEventservice.prototype = {
     _generateHistoryData: async function (events, valContexts, dataContexts) {
         let historyList = [];
         let historyListToBeReturned = [];
-        let defaultAttribute = ['clientId', 'relatedRequestId', 'eventSubType', 'entityType', 'entityId', 'eventType', 'entityAction', 'taskId'];
+        let excludeAttribute = ['clientId', 'relatedRequestId', 'eventSubType', 'entityType', 'entityId', 'eventType', 'entityAction', 'taskId',"sourceTimestamp"];
         let defaultRelationship = ['eventTarget'];
         let defaultRelationshipAttributes = ['typeExternalName', 'id', 'name']
         let internalIds = {};
@@ -100,19 +95,25 @@ EntityHistoryEventservice.prototype = {
             //Note: When multiple updates happens at the same time, display updates in the order-
             //context attributes, relationships, self attributes, entity create. 
             //Hence adding updates in this order
+            
             if (this._isValidObjectPath(event, 'data.contexts.0.attributes')) {
                 let contextAttributes = event.data.contexts[0].attributes;
-                let contextAttributeUpdateHistoryEvent = this._createAttributeUpdateHistoryEvent(event, contextAttributes, defaultAttribute, internalIds)
+                let contextAttributeUpdateHistoryEvent = this._createAttributeUpdateHistoryEvent(event, contextAttributes, excludeAttribute, internalIds)
                 Array.prototype.push.apply(historyList, contextAttributeUpdateHistoryEvent);
             }
 
-            if (this._isValidObjectPath(event, 'data.relationships')) {
+            if (this._isValidObjectPath(event, 'data.relationships') && _.isEmpty(dataContexts)) {
                 let relationships = event.data.relationships;
                 let relatioshipsHistoryEvent = this._createRelationshipHistoryEvent(event, relationships, defaultRelationship, internalIds, defaultRelationshipAttributes)
                 Array.prototype.push.apply(historyList, relatioshipsHistoryEvent);
             }
+            if (this._isValidObjectPath(event, 'data.contexts.0.relationships')) {
+                let relationships = event.data.contexts[0].relationships;
+                let relatioshipsHistoryEvent = this._createRelationshipHistoryEvent(event, relationships, defaultRelationship, internalIds, defaultRelationshipAttributes)
+                Array.prototype.push.apply(historyList, relatioshipsHistoryEvent);
+            }
 
-            if (this._isValidObjectPath(event, 'data.attributes')) {
+            if (this._isValidObjectPath(event, 'data.attributes') && _.isEmpty(dataContexts)) {
                 let attributes = event.data.attributes;
 
                 if (i == 0 && this._isValidObjectPath(attributes, 'entityType.values.0.value')) {
@@ -122,14 +123,14 @@ EntityHistoryEventservice.prototype = {
                 if (this._isValidObjectPath(attributes, 'eventType.values.0.value')) {
                     let actionType = attributes.eventType.values[0].value;
                     if (actionType == 'EntityAdd') {
-                        let attributeUpdateHistoryEvent = this._createAttributeUpdateHistoryEvent(event, attributes, defaultAttribute, internalIds)
+                        let attributeUpdateHistoryEvent = this._createAttributeUpdateHistoryEvent(event, attributes, excludeAttribute, internalIds)
                         Array.prototype.push.apply(historyList, attributeUpdateHistoryEvent);
 
                         let attributeAddHistoryEvent = this._createEntityAddHistoryEvent(event, attributes, internalIds);
                         Array.prototype.push.apply(historyList, attributeAddHistoryEvent);
                     }
                     else if (actionType == 'EntityUpdate') {
-                        let attributeUpdateHistoryEvent = this._createAttributeUpdateHistoryEvent(event, attributes, defaultAttribute, internalIds)
+                        let attributeUpdateHistoryEvent = this._createAttributeUpdateHistoryEvent(event, attributes, excludeAttribute, internalIds)
                         Array.prototype.push.apply(historyList, attributeUpdateHistoryEvent);
                     }
                 }
@@ -141,12 +142,20 @@ EntityHistoryEventservice.prototype = {
         let relationshipKeyValue = {};
         let userNamebyIdKeyValue = {};
         let entityTypeKeyValue = {};
-
+        let externalResponse = {};
+        let attributeModels = {};
         if (internalIds.attributeList.length > 0) {
-            let externalResponse = await this._fetchCurrentEntityManageModel(internalIds, valContexts, dataContexts);
+            externalResponse = await this._fetchCurrentEntityDisplayModel(internalIds, valContexts, dataContexts);
 
-            if(externalResponse) {
-                this._getAttributeAndRelTypeExternalName(externalResponse, attributesKeyValue, relationshipKeyValue)
+            if (externalResponse) {
+                this._getAttributeAndRelTypeExternalName(externalResponse, attributesKeyValue, relationshipKeyValue);
+                if (this._isValidObjectPath(externalResponse, "response.entityModels.0.data")) {
+                    let data = externalResponse.response.entityModels[0].data;
+
+                    if (!isEmpty(data.attributes)) {
+                        attributeModels = data.attributes;
+                    }
+                }
             }
         }
 
@@ -173,8 +182,8 @@ EntityHistoryEventservice.prototype = {
         for (let h = 0; h < historyList.length; h++) {
             let historyRecord = historyList[h];
             let message = "", userName = undefined, attributeExternalName = undefined, relationshipExternalName = undefined, 
-                entityTypeExternalName = undefined, relToTypeExternalName = undefined;
-
+                entityTypeExternalName = undefined, relToTypeExternalName = undefined, isNested = false, isRichTextEditor = false;
+            let attributeDetails = {};
             if (historyRecord.user) {
                 userName = userNamebyIdKeyValue[historyRecord.user];
                 if(!userName) {
@@ -188,8 +197,19 @@ EntityHistoryEventservice.prototype = {
                 if(!attributeExternalName) {
                     attributeExternalName = historyRecord.internalAttributeId;
                 }
+                attributeDetails["attributeId"] = historyRecord.internalAttributeId;
+                if(!_.isEmpty(attributeModels)){
+                    let currentAttrModel = attributeModels[historyRecord.internalAttributeId];
+                    if(currentAttrModel && currentAttrModel.properties){
+                        if(currentAttrModel.properties.displayType == "nestedgrid"){
+                            isNested = true;
+                        }
+                        if(currentAttrModel.properties.displayType == "richtexteditor"){
+                            isRichTextEditor = true;
+                        }
+                    }
+                }
             }
-
             if (historyRecord.relationshipType) {
                 relationshipExternalName = relationshipKeyValue[historyRecord.relationshipType];
 
@@ -216,43 +236,62 @@ EntityHistoryEventservice.prototype = {
 
             if(historyRecord.eventType == "entityAdd"){
                 message = "<span class='userName'>" + userName + "</span> created this <span class='activity-property'>" + entityTypeExternalName + "</span>";
+                historyRecord["entityAdd"] = true;
             } else if(historyRecord.eventType == "attributeUpdate"){
                 if (historyRecord.data.attributes.action.values[0].value == "delete") {
-                    message = "<span class='userName'>" + userName + "</span> removed <span class='activity-property'>" + attributeExternalName + "</span>";
+                    message = "<span> removed <span class='activity-property'>" + attributeExternalName + "</span>";
                 } else {
-                    message = "<span class='userName'>" + userName + "</span> changed <span class='activity-property'>" + attributeExternalName + "</span>";
+                    message = "<span> changed <span class='activity-property'>" + attributeExternalName + "</span>";
                     if(historyRecord.previousValues) {
-                        if(historyRecord.previousValues == "_NULL"){
-                            historyRecord.previousValues = "NULL"
+                        if(historyRecord.previousValues.indexOf("_NULL") > -1){
+                            historyRecord.previousValues = historyRecord.previousValues.replace("_NULL","NULL")
                         }
+                        if((isNested || isRichTextEditor) && historyRecord.previousValues != "NULL"){
+                            attributeDetails[historyRecord.internalAttributeId] = historyRecord.previousValues;
+                            let attributePrevData = JSON.stringify(attributeDetails);
+                            if(isRichTextEditor){
+                                historyRecord.previousValues = [1];
+                            }
+                            message += "<span> from <span id='prevAttributeValue' class='prev-attribute-value' data='"+attributePrevData+"'><a href='#'>" + historyRecord.previousValues.length + " values</a></span></span>";
+                        }else{
                         message += " from <span class='prev-attribute-value'>" + historyRecord.previousValues + "</span>";
                     }
+                    }
                     if(historyRecord.attributeValues) {
-                        if(historyRecord.attributeValues == "_NULL"){
-                            historyRecord.attributeValues = "NULL"
+                        if(historyRecord.attributeValues.indexOf("_NULL") > -1){
+                            historyRecord.attributeValues = historyRecord.attributeValues.replace("_NULL","NULL")
                         }
+                        if((isNested || isRichTextEditor) && historyRecord.attributeValues != "NULL"){
+                            attributeDetails[historyRecord.internalAttributeId] = historyRecord.attributeValues;
+                            let attributeData = JSON.stringify(attributeDetails);
+                            if(isRichTextEditor){
+                                historyRecord.attributeValues = [1];
+                            }
+                            message += "<span> to <span id='attributeValue' class='attribute-value' data='"+attributeData+"'><a href='#'>" + historyRecord.attributeValues.length + " values</a></span> </span>";
+                        }else{
                         message += " to <span class='attribute-value'>" + historyRecord.attributeValues + "</span>";
                     }
                 }
+                }
             } else if(historyRecord.eventType == "relationshipChange"){
                 if (historyRecord.data.attributes.action.values[0].value == "delete") {
-                    message = "<span class='userName'>" + userName + "</span> removed <a href='?id="+ historyRecord.internalRelToId+"&type=" + historyRecord.relToType + "'>" + relToTypeExternalName + ": " + historyRecord.internalRelToId + "</a> having <span class='activity-property'>" + relationshipExternalName + "</span> relationship";
+                    message = "</span> removed <a href='?id="+ historyRecord.internalRelToId+"&type=" + historyRecord.relToType + "'>" + relToTypeExternalName + ": " + historyRecord.internalRelToId + "</a> having <span class='activity-property'>" + relationshipExternalName + "</span> relationship";
                 } else {
-                    message = "<span class='userName'>" + userName + "</span> added <a href='?id="+ historyRecord.internalRelToId+"&type=" + historyRecord.relToType + "'>" + relToTypeExternalName + ": " + historyRecord.internalRelToId + "</a> having <span class='activity-property'>" + relationshipExternalName + "</span> relationship";
+                    message = "</span> added <a href='?id="+ historyRecord.internalRelToId+"&type=" + historyRecord.relToType + "'>" + relToTypeExternalName + ": " + historyRecord.internalRelToId + "</a> having <span class='activity-property'>" + relationshipExternalName + "</span> relationship";
                 }
             } else if(historyRecord.eventType == "relationshipAttributeUpdate"){
                 if (historyRecord.data.attributes.action.values[0].value == "delete") {
-                    message = "<span class='userName'>" + userName + "</span> removed <span class='activity-property'>" + attributeExternalName + "</span> for <a href='?id="+ historyRecord.internalRelToId+"&type=" + historyRecord.relToType + "'>" + relToTypeExternalName + ": " + historyRecord.internalRelToId + "</a> having <span class='activity-property'>" + relationshipExternalName + "</span> relationship";
+                    message = "</span> removed <span class='activity-property'>" + attributeExternalName + "</span> for <a href='?id="+ historyRecord.internalRelToId+"&type=" + historyRecord.relToType + "'>" + relToTypeExternalName + ": " + historyRecord.internalRelToId + "</a> having <span class='activity-property'>" + relationshipExternalName + "</span> relationship";
                 } else if(historyRecord.previousValues) {
                     if(historyRecord.previousValues == "_NULL"){
                         historyRecord.previousValues = "NULL"
                     }
-                    message = "<span class='userName'>" + userName + "</span> changed <span class='activity-property'>" + attributeExternalName + "</span>"+" from <span class='prev-attribute-value'>" + historyRecord.previousValues + "</span> to <span class='attribute-value'>" + historyRecord.attributeValues + "</span> for <a href='?id="+ historyRecord.internalRelToId+"&type=" + historyRecord.relToType + "'>" + relToTypeExternalName + ": " + historyRecord.internalRelToId + "</a> having <span class='activity-property'>" + relationshipExternalName + "</span> relationship";
+                    message = "</span> changed <span class='activity-property'>" + attributeExternalName + "</span>"+" from <span class='prev-attribute-value'>" + historyRecord.previousValues + "</span> to <span class='attribute-value'>" + historyRecord.attributeValues + "</span> for <a href='?id="+ historyRecord.internalRelToId+"&type=" + historyRecord.relToType + "'>" + relToTypeExternalName + ": " + historyRecord.internalRelToId + "</a> having <span class='activity-property'>" + relationshipExternalName + "</span> relationship";
                 } else {
                     if(historyRecord.attributeValues == "_NULL"){
                         historyRecord.attributeValues = "NULL"
                     }
-                    message = "<span class='userName'>" + userName + "</span> changed <span class='activity-property'>" + attributeExternalName + "</span> to <span class='attribute-value'>" + historyRecord.attributeValues + "</span> for <a href='?id="+ historyRecord.internalRelToId+"&type=" + historyRecord.relToType + "'>" + relToTypeExternalName + ": " + historyRecord.internalRelToId + "</a> having <span class='activity-property'>" + relationshipExternalName + "</span> relationship";
+                    message = "</span> changed <span class='activity-property'>" + attributeExternalName + "</span> to <span class='attribute-value'>" + historyRecord.attributeValues + "</span> for <a href='?id="+ historyRecord.internalRelToId+"&type=" + historyRecord.relToType + "'>" + relToTypeExternalName + ": " + historyRecord.internalRelToId + "</a> having <span class='activity-property'>" + relationshipExternalName + "</span> relationship";
                 }
             }
 
@@ -274,17 +313,42 @@ EntityHistoryEventservice.prototype = {
             }
 
             if(addedHistoryRecord) {
-                let attributes = addedHistoryRecord.data.attributes;
-                attributes.message.values.push(messageValue);
-                attributes.action.values.push(historyRecord.data.attributes.action.values[0])
+                if(historyRecord.eventType == "entityAdd"){
+                    addedHistoryRecord["entityAdd"] = true;
+                }else{
+                    let attributes = addedHistoryRecord.data.attributes;
+                    attributes.message.values.push(messageValue);
+                    attributes.action.values.push(historyRecord.data.attributes.action.values[0]);
+                    if(historyRecord.eventType == "attributeUpdate" || historyRecord.eventType == "relationshipAttributeUpdate"){
+                        addedHistoryRecord["noOfAttrsChanged"] = addedHistoryRecord.noOfAttrsChanged ? addedHistoryRecord.noOfAttrsChanged + 1 : 1;
+                    }else if(addedHistoryRecord.eventType == "relationshipChange"){
+                        addedHistoryRecord["noOfRelsChanged"] = addedHistoryRecord.noOfRelsChanged ? addedHistoryRecord.noOfRelsChanged + 1 : 1;
+                    }
+                }
             } else {
+
+                if(historyRecord.eventType == "attributeUpdate" || historyRecord.eventType == "relationshipAttributeUpdate"){
+                    historyRecord["noOfAttrsChanged"] = 1;
+                }else if(historyRecord.eventType == "relationshipChange"){
+                    historyRecord["noOfRelsChanged"] = 1;
+                }
+
                 historyRecord.data.attributes.message = {
                     "values": [
                         messageValue
                     ]
                 };
-
-                historyListToBeReturned.push(historyRecord);
+                historyRecord.data.attributes["userDetail"] = {
+                    "values":[
+                        {
+                            "id": uuidV1(),
+                            "value": userName
+                        }
+                    ]
+                };
+                if(historyRecord.eventType != "entityAdd"){
+                    historyListToBeReturned.push(historyRecord);
+                }
             }
         }
 
@@ -309,37 +373,41 @@ EntityHistoryEventservice.prototype = {
         let attrValues="";
         if (attrObj && attrObj.values) {
             let attributeValues = attrObj.values;
-            for (let k = 0; k < attributeValues.length; k++) {
-                let attrbuteValue = attributeValues[k];
+            for (let valueIndex = 0; valueIndex < attributeValues.length; valueIndex++) {
+                let attrbuteValue = attributeValues[valueIndex];
                 if (attrbuteValue && attrbuteValue.value !== undefined) {
-                    if (k > 0) {
+                    if (valueIndex > 0) {
                         attrValues = attrValues + ',';
                     }
                     attrValues = attrValues + attrbuteValue.value
                 }
             }
+        }else if(attrObj && attrObj.group){
+            if(attrObj.group[0].value == "_NULL"){
+                attrValues = attrObj.group[0].value;
+            }else{
+                attrValues = attrObj.group;
+            }
         }
         return attrValues;
     },
-    _createAttributeUpdateHistoryEvent: function (event, attributes, defaultAttribute, internalIds) {
+    _createAttributeUpdateHistoryEvent: function (event, attributes, excludeAttribute, internalIds) {
         let historyList = [];
         let historyObj = {};
         for (let attribute in attributes) {
             if (attributes.hasOwnProperty(attribute)) {
-                if ((defaultAttribute.indexOf(attribute) < 0) && (attribute.indexOf("previous-") < 0)) {
+                if ((excludeAttribute.indexOf(attribute) < 0) && (attribute.indexOf("previous-") < 0)) {
                     internalIds.attributeList.push(attribute);
-                    let attrObj = attributes[attribute]
+                    let attrObj = attributes[attribute];
                     historyObj = {};
                     this._populateHistoryRecord(event, attrObj, historyObj, internalIds);
                     
                     historyObj.eventType = "attributeUpdate";
                     historyObj.internalAttributeId = attribute;
-                    historyObj.attributeValues = undefined;
 
                     if(attributes.hasOwnProperty("previous-"+attribute)){
                         historyObj.previousValues = this._getCombinedAttributeValues(attributes["previous-"+attribute]);
                     }
-                    
                     historyObj.attributeValues = this._getCombinedAttributeValues(attrObj);
                     historyList.push(historyObj);
                 }
@@ -349,7 +417,7 @@ EntityHistoryEventservice.prototype = {
         return historyList;
     },
 
-    _createRelationshipHistoryEvent: function (event, relatioships, defaultRelationship, internalIds, defaultAttribute) {
+    _createRelationshipHistoryEvent: function (event, relatioships, defaultRelationship, internalIds, excludeAttribute) {
         let historyList = [];
         let historyObj = {}
         for (let relationship in relatioships) {
@@ -372,7 +440,7 @@ EntityHistoryEventservice.prototype = {
                             if((isRelAttributeUpdate || relTorelationship.attributes) && !relationshipChangeType.startsWith("deleteRelationship")) {
                                 let relAttributes = relTorelationship.attributes;
                                 for (let attribute in relAttributes) {
-                                    if (relAttributes.hasOwnProperty(attribute) && (defaultAttribute.indexOf(attribute) < 0) && (attribute.indexOf("previous-") < 0)) {
+                                    if (relAttributes.hasOwnProperty(attribute) && (excludeAttribute.indexOf(attribute) < 0) && (attribute.indexOf("previous-") < 0)) {
                                         let attrObj = relAttributes[attribute]
                                         historyObj = {};
                                         this._populateHistoryRecord(event, relTorelationship, historyObj, internalIds);
@@ -469,18 +537,18 @@ EntityHistoryEventservice.prototype = {
         return actionType;
     },
 
-    _fetchCurrentEntityManageModel: async function (internalIds, valContexts, dataContexts) {
+    _fetchCurrentEntityDisplayModel: async function (internalIds, valContexts, dataContexts) {
         let req = {
             "params": {
                 "query": {
                     "filters": {
                         "typesCriterion": [
-                            "entityManageModel"
+                            "entityDisplayModel"
                         ]
                     },
                     "valueContexts": valContexts,
                     "contexts": dataContexts,
-                    "id": internalIds.currentEntityType + "_entityManageModel"
+                    "id": internalIds.currentEntityType + "_entityDisplayModel"
                 },
                 "fields": {
                     "attributes": internalIds.attributeList,
@@ -604,8 +672,17 @@ EntityHistoryEventservice.prototype = {
         let userNames = {};
         for (let m = 0; m < userList.length; m++) {
             let userRecord = userList[m];
-            if (this._isValidObjectPath(userRecord, 'properties.firstName'))
-                userNames[userRecord.id] = userRecord.properties.firstName + ' ' + userRecord.properties.lastName;
+            let userName = "";
+            if (this._isValidObjectPath(userRecord, 'properties.firstName')){
+                userName = userRecord.properties.firstName;
+            }
+            if (this._isValidObjectPath(userRecord, 'properties.lastName')){
+                userName = userName ? (userName + ' ' + userRecord.properties.lastName) : userRecord.properties.lastName;
+            }
+            if(_.isEmpty(userName)){
+                userName = userRecord.properties.name
+            }
+            userNames[userRecord.id] = userName;
         }
         return userNames;
     },

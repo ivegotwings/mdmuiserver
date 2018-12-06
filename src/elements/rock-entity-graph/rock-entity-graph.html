@@ -12,8 +12,10 @@
 <link rel="import" href="../rock-relationship-manage/rock-relationship-manage.html">
 <link rel="import" href="../rock-entity-quick-manage/rock-entity-quick-manage.html">
 <link rel="import" href="../rock-entity-graph-tree/rock-entity-graph-tree.html">
+<link rel="import" href="../rock-relationship-detail-tabs/rock-relationship-detail-tabs.html">
 <link rel="import" href="../rock-component-config-behavior/rock-component-config-behavior.html">
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-text-alignment.html">
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-padding-margin.html">
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-grid-layout.html">
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-floating.html">
@@ -27,7 +29,7 @@
 
 <dom-module id="rock-entity-graph">
     <template>
-        <style include="bedrock-style-scroll-bar bedrock-style-common bedrock-style-grid-layout bedrock-style-floating bedrock-style-padding-margin">
+        <style include="bedrock-style-scroll-bar bedrock-style-common bedrock-style-grid-layout bedrock-style-floating bedrock-style-padding-margin bedrock-style-text-alignment">
             :host{
                 display: block;
                 height: 100%;
@@ -153,9 +155,14 @@
                                 <template is="dom-if" if="{{!_visibleMessageCard(selectedItem)}}" restamp>
                                     <div class="graph-grid-wrapper only-attribute-container">	
                                         <div class="grid-container col-8-4-grid-child-1">
-                                            <template is="dom-if" if="[[_visibleGridView(selectedItem.viewMode, _panelContentLoaded)]]">
-                                                <rock-relationship-manage id="relationshipManage" exclude-non-contextual="[[excludeNonContextual]]"></rock-relationship-manage>
-                                            </template>  
+                                                <template is="dom-if" if="[[_visibleGridView(selectedItem.viewMode, _panelContentLoaded)]]">
+                                                    <template is="dom-if" if="[[_isClassificationTree(_graphTreeConfig)]]">
+                                                        <rock-relationship-detail-tabs id="rockRelationshipTabs" view-mode="{{viewMode}}" context-data="[[_tabContextData]]" readonly="[[readonly]]"></rock-relationship-detail-tabs>
+                                                    </template>
+                                                    <template is="dom-if" if="[[!_isClassificationTree(_graphTreeConfig)]]">
+                                                        <rock-relationship-manage id="relationshipManage" exclude-non-contextual="[[excludeNonContextual]]"></rock-relationship-manage>
+                                                    </template>
+                                                </template>  
                                         </div>
                                         <div class="col-8-4-grid-child-2">               
                                             <template is="dom-if" if="[[_visibleQuickManageView(selectedItem.viewMode, _panelContentLoaded)]]">
@@ -188,9 +195,6 @@
                 ], Polymer.OptionalMutableData(Polymer.Element)) {
         static get is() { return 'rock-entity-graph' }
 
-        ready() {
-            super.ready();
-        }
         static get properties() {
             return {
                 contextData: {
@@ -199,6 +203,13 @@
                         return {};
                     },
                     observer: "_onContextDataChange"
+                },
+                _tabContextData: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    },
+                    notify: true
                 },
                 configData: {
 					type: Object,
@@ -212,9 +223,21 @@
                         return {};
                     }
                 },
+                viewMode: {
+                        type: String,
+                        value: ""
+                },
                 onlyAttribute:{
                     type:String,
                     value:""
+                },
+
+                /**
+                 * If set as true , it indicates the component is in read only mode
+                 */
+                    readonly: {
+                    type: Boolean,
+                    value: false
                 },
                 selectedItem:{
                     type:Object,
@@ -240,6 +263,15 @@
                 _entityContextData:{
                     type:Object,
                     value: function(){
+                        return {};
+                    }
+                },
+                                    /*
+                     * Indicates the configuration for the "tab" element.
+                     */
+                tabConfig: {
+                    type: Object,
+                    value: function () {
                         return {};
                     }
                 },
@@ -313,21 +345,21 @@
                     context[ContextHelper.CONTEXT_TYPE_APP] = [{
                         "app": appName
                     }];
-                }
+                }                
                 this.requestConfig('rock-entity-graph', context);
             }
         }
         onConfigLoaded(componentConfig) {
             if(componentConfig && componentConfig.config) {
-                this.configData = componentConfig.config;
-                if(_.isEmpty(this._graphTreeConfig)){
-                    this._graphTreeConfig = componentConfig.config.entityGraphTreeConfig;
-                    if(this._graphTreeConfig.isClassificationTree){
-                        this._initiateClassificationTree();    
-                    }
-                }else{
-                    this._onGridConfigLoaded(componentConfig.config);
-                }
+                    this.configData = componentConfig.config;
+                    if(_.isEmpty(this._graphTreeConfig)){
+                        this._graphTreeConfig = componentConfig.config.entityGraphTreeConfig;
+                        if(this._graphTreeConfig.isClassificationTree){
+                            this._initiateClassificationTree();    
+                        }
+                    }else{
+                        this._onGridConfigLoaded(componentConfig.config);
+                    }                
             }   
         }
         _isClassificationTree(){
@@ -359,6 +391,19 @@
                 rootNodeInitialGet.generateRequest();
             }
         }
+
+        get detailTabs() {
+            this._detailTabs = this._detailTabs || this.shadowRoot.querySelector("#rockRelationshipTabs");
+            return this._detailTabs;
+        }
+
+        _refreshView() {
+            if (this.detailTabs) {
+                this.detailTabs.readyToRender(true);
+                this.detailTabs.reloadCurrentTab();
+            }
+        }
+
         _onInitiateSearchResponse(e) {
             let totalRecords = this.initiateSearchResponse.content.totalRecords;
             if (totalRecords) {
@@ -512,25 +557,31 @@
         }
         _onTreeItemChange(){
             if(!_.isEmpty(this.selectedItem) && this.selectedItem.viewMode){
-                this.set("_entityContextData", this._getEntityContextData());
-                
-                if(this._isClassificationTree()){
-                    this._onGridConfigLoaded();
-                    return;
+                let entityContextData = this._getEntityContextData();
+                this.set("_entityContextData", entityContextData);
+                if(this._isClassificationTree()) {
+                    let context = DataHelper.cloneObject(this._entityContextData);
+                        this._tabContextData = DataHelper.cloneObject({});
+                        this._tabContextData = DataHelper.cloneObject(context);
+                        this.set("_panelContentLoaded", true);
+                        Polymer.Async.timeOut.after(100).run(() => {
+                            this._refreshView();
+                        });
                 }
                 if(this._isGridView()){
                     this.set("_panelContentLoaded", false);
                     let context = DataHelper.cloneObject(this._entityContextData);
-                    context[ContextHelper.CONTEXT_TYPE_APP] = [{
-                        "app": "app-entity-manage"
-                    }];
-                    this.requestConfig("rock-entity-detail-tabs", context);
+                        context[ContextHelper.CONTEXT_TYPE_APP] = [{
+                            "app": "app-entity-manage"
+                        }];
+                        this.requestConfig("rock-entity-detail-tabs", context);
                 }else{
                     this.set("_panelContentLoaded", true);
                     Polymer.Async.timeOut.after(100).run(() => {
                         this._reloadQuickManage();
                     })
                 }
+                //this.set("_panelContentLoaded", true);
 
             }else{
                 this.set("_entityConfigContext", {});
@@ -597,7 +648,7 @@
         _onGridConfigLoaded(tabConfig){
             let configContext = {};
             let mode, doSyncValidation, noOfColumns;
-            
+
             if(tabConfig && !_.isEmpty(tabConfig)){
                 let componentProperties;
                 if(tabConfig.tabItems){

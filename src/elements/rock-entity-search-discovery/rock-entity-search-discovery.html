@@ -9,6 +9,7 @@
 <link rel="import" href="../bedrock-helpers/context-helper.html" />
 <link rel="import" href="../bedrock-helpers/element-helper.html" />
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html" />
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-flex-layout.html">
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-padding-margin.html">
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-icons.html">
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-grid-layout.html">
@@ -31,7 +32,7 @@
 
 <dom-module id="rock-entity-search-discovery">
     <template>
-        <style include="bedrock-style-common bedrock-style-gridsystem bedrock-style-grid-layout bedrock-style-icons bedrock-style-padding-margin">
+        <style include="bedrock-style-common bedrock-style-gridsystem bedrock-style-grid-layout bedrock-style-icons bedrock-style-padding-margin bedrock-style-flex-layout">
             :host {
                 display: block;
                 height: 100%;
@@ -305,6 +306,7 @@
             </div>
             <rock-search-query-parser id="queryParser" relationship-name={{relationshipName}} context-data="[[contextData]]" filter-criterion-key="[[filterCriterionKey]]"></rock-search-query-parser>
             <bedrock-pubsub id="parser-event" event-name="on-search-filters" handler="_onSearchFiltersChange" target-id="queryParser"></bedrock-pubsub>
+            <liquid-entity-model-get id="attrModelGet" operation="getbyids" on-error="_onError" on-response="_onAttrModelResponse" exclude-in-progress></liquid-entity-model-get>
         </template>
     </template>
     <script>
@@ -549,6 +551,12 @@
                             return [];
                         }
                     },
+                    externalSearchAttributes: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
                     maxAllowedValuesForSearch: {
                         type: Number
                     }
@@ -592,6 +600,54 @@
                         }
                     }
                     this._configDataChanged();
+                }
+            }
+            
+            _getAttributeModels(){
+                let attrIds = Object.keys(this.externalSearchAttributes);
+                let requestData = DataRequestHelper.createGetAttributeModelRequest(attrIds);
+                let attrModelGet = this.shadowRoot.querySelector("#attrModelGet");
+                if(attrModelGet){
+                    attrModelGet.requestData = requestData;
+                    attrModelGet.generateRequest();
+                }
+            }
+            _onError(err){
+                this._buildQueryString();
+                this.logError("Attribute Filter Values Empty", err);
+            }
+            _onAttrModelResponse(ev){
+                if(DataHelper.isValidObjectPath(ev, 'detail.response.content.entityModels')){
+                    let entityModels = ev.detail.response.content.entityModels;
+                    if(!_.isEmpty(entityModels)){
+                        let attrModelObj = {};
+                        entityModels.forEach((elem) => {
+                            elem["preselectedValues"] = this.externalSearchAttributes[elem.name];
+                            attrModelObj[elem.name] = elem;
+                        });
+
+                        let lovColumnNameValueCollection = {};
+                        if(this._entityTypeModelLov){
+                            lovColumnNameValueCollection = this._entityTypeModelLov.getColumnNameValueCollection();
+                        } 
+                        let attributeDataModels = {"data": {"attributes":attrModelObj}};
+                        let attributeModels = DataTransformHelper.transformAttributeModels(attributeDataModels, {});
+                        if (!_.isEmpty(attributeModels)) {
+                            let items = DataTransformHelper.transformAtributeModelsToLovSchema(attributeModels, lovColumnNameValueCollection);
+                            if(!_.isEmpty(items) && this._entitySearchFilterElement){
+                                let rockSearchFilter = this._entitySearchFilterElement.$$("rock-search-filter");
+                                if (rockSearchFilter) {
+                                    rockSearchFilter.preselectedFilters(items)
+                                }
+                            }
+                        }
+                    }else{
+                        this._buildQueryString();
+                        this.logWarning("AttributeFilterValuesEmpty");
+                    }
+                }else{
+                    this._buildQueryString();
+                    this.logError("AttributeFilterValuesEmpty");
                 }
             }
 
@@ -701,7 +757,11 @@
                             return;
                         }
                     }
-                    if (!this.savedSearchId) {
+                    if(!_.isEmpty(this.externalSearchAttributes)){
+                        Polymer.Async.microTask.run(() => {
+                            this._getAttributeModels();
+                        });
+                    }else if (!this.savedSearchId) {
                         this._buildQueryString();
                     }
                 }
@@ -824,9 +884,11 @@
 
             _showResetSearch(e) {
                 let tags = [];
-                let rockSearchFilter = this._entitySearchFilterElement.$$("rock-search-filter");
-                if (rockSearchFilter) {
-                    tags = rockSearchFilter.tags;
+                if(this._entitySearchFilterElement){
+                    let rockSearchFilter = this._entitySearchFilterElement.$$("rock-search-filter");
+                    if (rockSearchFilter) {
+                        tags = rockSearchFilter.tags;
+                    }
                 }
 
                 //Preventing the reset search button from disappearing when there is a saved search selected/ search bar query/ refine more tag
@@ -875,8 +937,9 @@
                 // Clear SearchFilter
                 this.tags = []; // Todo
                 this._selectedSearchFilters = [];
-                this._entitySearchFilterElement.clearSearchFilters();
-
+                if(this._entitySearchFilterElement){
+                    this._entitySearchFilterElement.clearSearchFilters();
+                }
                 this._resetSearchEnabled = false;
 
                 //Reset the entityTypes according to the _gridConfig 
@@ -1048,7 +1111,9 @@
 
                 if (!_.isEmpty(this._selectedSearchFilters)) {
                     this._showResetSearch();
-                    this._entitySearchFilterElement.tags = this._formatSavedSearchTags(this._selectedSearchFilters, attributeModels);
+                    if(this._entitySearchFilterElement){
+                        this._entitySearchFilterElement.tags = this._formatSavedSearchTags(this._selectedSearchFilters, attributeModels);
+                    }
                 }
 
                 if (this.searchQuery && this._searchBarElement) {
