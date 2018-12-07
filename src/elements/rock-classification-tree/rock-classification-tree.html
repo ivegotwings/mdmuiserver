@@ -74,8 +74,6 @@
                 }
             }
         </style>
-        <liquid-entity-data-get id="lineagepath" operation="getbyids" request-data="{{lineagerequest}}" on-error="_onLineagePathError"
-            on-response="_onLineagePathResponse" exclude-in-progress></liquid-entity-data-get>
         <liquid-entity-data-get id="rootNodeGet" operation="getbyids" on-error="_onRootNodeGetError"
             on-response="_onRootNodeGetResponse" exclude-in-progress></liquid-entity-data-get>
         <liquid-entity-data-get id="initiateSearch" operation="initiatesearch" request-data="{{request}}" last-response="{{initiateSearchResponse}}"
@@ -99,7 +97,8 @@
             <div class="base-grid-structure-child-2">
                 <pebble-tree id="contextTree" class="contextTree" leaf-node-only="[[leafNodeOnly]]" data="{{classifications}}" check-child-nodes="[[checkChildNodes]]"
                     default-child-depth="10" selected-items="{{_selectedItems}}" selected-item="{{_selectedItem}}" multi-select="[[multiSelect]]"
-                    disable-child-node="[[disableChildNode]]" hide-leaf-node-checkbox="[[hideLeafNodeCheckbox]]" check-parent-nodes="[[checkParentNodes]]"></pebble-tree>
+                    disable-child-node="[[disableChildNode]]" hide-leaf-node-checkbox="[[hideLeafNodeCheckbox]]" check-parent-nodes="[[checkParentNodes]]"
+                    is-search-mode="[[isSearchMode]]"></pebble-tree>
             </div>
         </div>
         <bedrock-pubsub event-name="tree-node-child-list-refreshed" handler="_childListRefreshed"></bedrock-pubsub>
@@ -136,7 +135,7 @@
                         }
                     },
 
-                    _isSearchMode: {
+                    isSearchMode: {
                         type: Boolean,
                         value: false
                     },
@@ -314,11 +313,11 @@
             }
 
             _onSearch(e) {
-                this._isSearchMode = true;
+                this.isSearchMode = true;
                 this._searchClicked = true;
                 this._searchBarElement = this.shadowRoot.querySelector("#classificationSearchBar");
                 if(this._searchBarElement && this._searchBarElement.$.input.value == ""){
-                    this._isSearchMode = false;
+                    this.isSearchMode = false;
                 }
                 this._loading= true;
                 this.executeRequest("", e.detail.query);
@@ -326,7 +325,7 @@
             }
 
             resetSearch() {
-                this._isSearchMode = false;
+                this.isSearchMode = false;
                 this.clearSelectedItems();
                 this.executeRequest("");
                 this._searchBarElement = this.shadowRoot.querySelector("#classificationSearchBar");
@@ -343,42 +342,6 @@
                         this.selectedClassifications = DataHelper.cloneObject(this._selectedItems);
                     } else {
                         this.selectedClassifications = !_.isEmpty(this._selectedItem) ? [this._selectedItem] : [];
-                    }
-                    if (this._isSearchMode) {
-                        let req = {
-                            "params": {
-                                "query": {
-                                    "filters": {
-                                        "typesCriterion": [
-                                            "classification"
-                                        ]
-                                    }
-                                },
-                                "fields": {
-                                    "relationships": [
-                                        "belongsto"
-                                    ],
-                                    "relationshipAttributes": [
-                                        "lineagepath"
-                                    ]
-                                }
-                            }
-                        };
-                        DataRequestHelper.addDefaultContext(req);
-                        if (this.selectedClassifications) {
-                            req.params.query.ids = [];
-                            this.selectedClassifications.forEach((classification) => {
-                                req.params.query.ids.push(classification.id);
-                            });
-
-                            this.lineagerequest = req;
-                            let lineagepathElement = this.$$("#lineagepath");
-                            if (lineagepathElement) {
-                                this._loading = true;
-                                lineagepathElement.generateRequest();
-                            }
-
-                        }
                     }
                 }
             }
@@ -431,35 +394,6 @@
                 }
             }
 
-            _onLineagePathResponse(e) {
-                if (DataHelper.isValidObjectPath(e, 'detail.response')) {
-                    let response = e.detail.response;
-                    if (response.content && response.content.entities) {
-                        let entities = response.content.entities;
-                        let map = {};
-
-                        entities.forEach(e => {
-                            if (DataHelper.isValidObjectPath(e, 'data.relationships.belongsto.0.attributes.lineagepath.values.0.value')) {
-                                map[e.id] = e.data.relationships.belongsto[0].attributes.lineagepath.values[0].value;
-                            }
-                        })
-                        
-                        this.selectedClassifications.forEach((classification) => {
-                            if(!_.isEmpty(map[classification.id])){
-                                classification.valuePath = map[classification.id];
-                            }
-                        });
-
-                        let eventData = {
-                            name: "detailresponsereceived",
-                            data: map
-                        }
-                        this._loading = false;
-                        this.dispatchEvent(new CustomEvent('bedrock-event', { detail: eventData, bubbles: true, composed: true }));
-                    }
-                }
-            }
-
             executeRequest(parentClassificationId, searchKeyword) {
                 let relEntityType = "classification";
                 let relType = "belongsto";
@@ -475,7 +409,7 @@
                 }
 
                 let contextData = DataHelper.cloneObject(this.contextData);
-                let itemContext = { "attributeNames": [this._classificationExtNameAttr], "type": "classification" };
+                let itemContext = { "attributeNames": [this._classificationExtNameAttr,"externalnamepath"], "type": "classification" };
 
                 let classificationCriteria = {};
                 classificationCriteria[relType] = { "relTo": { "id": parentClassificationId, "type": relEntityType } };
@@ -534,8 +468,11 @@
                     let classification = classifications[i];
                     let externalNameAttr = EntityHelper.getAttribute(classification, this._classificationExtNameAttr);
                     let externamName = AttributeHelper.getFirstAttributeValue(externalNameAttr);
+                    let externalPathAttr = EntityHelper.getAttribute(classification, "externalnamepath");
+                    let externalPath = AttributeHelper.getFirstAttributeValue(externalPathAttr);
                     classification.text = externamName || classification.name;
                     classification.value = classification.name;
+                    classification.externalPath = "( " + externalPath + " )";;
                     classification.children = [];
                 }
 
