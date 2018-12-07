@@ -303,6 +303,10 @@
                     _isFirstContextLoad: {
                         type: Boolean,
                         value: true
+                    },
+                    _entityContextsModified: {
+                        type: Boolean,
+                        value: false
                     }
                 }
             }
@@ -378,12 +382,14 @@
                         this.selectNewlyAddedContext(data.newlyAddedContexts);
                     }
                 }
+                this._entityContextsModified = true;
                 this._createContextGetRequest(this.entityId, this.entityType);
             }
 
             selectNewlyAddedContext(selectedItemData) {
                 let contextEl = this.shadowRoot.querySelector("#context-lov");
                 if (contextEl) {
+                    contextEl.selectedItems = selectedItemData;
                     let currentContext = this._contextToBeRendered;
                     let contextObj = currentContext.filter(contextItem => {
                         if (contextItem.id == "context") {
@@ -391,9 +397,6 @@
                         }
                     })
                     contextObj[0].selectedItem = selectedItemData;
-                    this._contextToBeRendered = undefined;
-                    this._contextToBeRendered = currentContext;
-                    this._updateSelectedDimensions();
                 }
             }
 
@@ -1063,15 +1066,23 @@
                         if (lovElement && lovElement.rData) {
                             let ctxData = lovElement.rData;
                             let ctxTypes = ctxData.dataMappings.type;
-                            for (let i = 0; i < ctxTypes.length; i++) {
-                                let ctxType = ctxTypes[i];
-                                let itemIdx = this._contextHierarchy.indexOf(ctxType);
-
-                                let selectedItems = lovElement.selectedItems;
-                                if (_.isEmpty(selectedItems) && !_.isEmpty(lovElement.selectedItem)) {
-                                    selectedItems = [lovElement.selectedItem];
+                            if(ctxData && ctxData.contextType == "data") {
+                                if(this._entityContextsModified) {
+                                    let parsedContext = !_.isEmpty(this._contextToBeRendered) ? this._contextToBeRendered.find(obj => obj.id === ctxKey) : undefined;
+                                    if(parsedContext && !_.isEmpty(parsedContext.dataRequest)) {
+                                        lovElement.requestData = parsedContext.dataRequest;
+                                        lovElement.reset();
+                                    }
+                                    this._entityContextsModified = false;
                                 }
-                                if (ctxData && ctxData.contextType == "data") {
+                                for (let i = 0; i < ctxTypes.length; i++) {
+                                    let ctxType = ctxTypes[i];
+                                    let itemIdx = this._contextHierarchy.indexOf(ctxType);
+
+                                    let selectedItems = lovElement.selectedItems;
+                                    if (_.isEmpty(selectedItems) && !_.isEmpty(lovElement.selectedItem)) {
+                                        selectedItems = [lovElement.selectedItem];
+                                    }
                                     if (!_.isEmpty(selectedItems)) {
                                         let ids = [];
                                         selectedItems.forEach((selectedItem) => {
@@ -1447,8 +1458,14 @@
                             if (_.isEmpty(this._entityContexts)) {
                                 configDataItem.dataRequest = undefined
                             } else if (DataHelper.isValidObjectPath(configDataItem, "dataMappings.title") &&
-                                configDataItem.dataMappings.title &&
-                                DataHelper.isValidObjectPath(configDataItem, "dataRequest.params.query.filters")) {
+                                configDataItem.dataMappings.title) {
+                                    if(_.isEmpty(configDataItem.dataRequest)) {
+                                        let itemContexts = [{"type": configDataItem.dataMappings.type}];
+                                        let contextData = {"ItemContexts": itemContexts};
+                                        let reqData = DataRequestHelper.createEntityGetRequest(contextData, true);
+                                        configDataItem.dataRequest = reqData;
+                                    }
+
                                 /**
                                 * If entity has contexts, request should be sent to get only entity current contexts
                                 * Hence preparing attributesCriterion with current context items and updating request object
