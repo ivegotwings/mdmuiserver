@@ -23,25 +23,28 @@ information about `paper-button`.
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import '@polymer/polymer/polymer-legacy.js';
-
+import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 import { IronSelectableBehavior } from '@polymer/iron-selector/iron-selectable.js';
 import { IronA11yKeysBehavior } from '@polymer/iron-a11y-keys-behavior/iron-a11y-keys-behavior.js';
-import { Polymer as Polymer$0 } from '@polymer/polymer/lib/legacy/polymer-fn.js';
-Polymer$0({
-  _template: Polymer.html`
-        <slot></slot>
-`,
 
-  is: 'paper-button-group',
-
-  behaviors: [
+class PaperButtonGroup
+    extends mixinBehaviors([
       IronSelectableBehavior,
       IronA11yKeysBehavior
-  ],
-
-  ready: function () {
-      this.selectable = 'paper-button';
-      this.selectedAttribute = 'active';
+    ], PolymerElement) {
+  static get template() {
+    return Polymer.html`
+    <slot></slot>
+    `;
   }
-});
+  static get is() { return 'paper-button-group' }
+
+  constructor() {
+    super();
+    this.selectable = 'paper-button';
+    this.selectedAttribute = 'active';
+  }
+}
+
+customElements.define(PaperButtonGroup.is, PaperButtonGroup);
