@@ -10,38 +10,35 @@ let TenantSystemConfigService = function (options) {
     DFRestService.call(this, options);
 };
 
-
-
 TenantSystemConfigService.prototype = {
-    getCachedTenantMetaData: function(){
-        let defaultSourceAndLocale = {
-            defaultValueSource : "internal",
-            defaultValueLocale: "en-US"
-        };
-        if (isEmpty(localConfigCache)) {
-            localConfigCache["tenant-settings-key"] = "default";
-            localConfigCache["default"] = defaultSourceAndLocale;
-        }
-        return localConfigCache;
-    },
     getDefaultSource: function(){
-        let tenantSetting = this.getCachedTenantMetaData();
-        let tenantConfigKey = tenantSetting["tenant-settings-key"];
-        return tenantSetting[tenantConfigKey].defaultValueSource;
+        let defaultSource = "internal";
+
+        let tenantConfigKey = this.getCacheKey();
+        let tenantConfig = localConfigCache[tenantConfigKey];
+        if(tenantConfig && tenantConfig.defaultValueSource) {
+            defaultSource = tenantConfig.defaultValueSource;
+        }
+        
+        return defaultSource;
     },
     getDefaultLocale: function(){
-        let tenantSetting = this.getCachedTenantMetaData();
-        let tenantConfigKey = tenantSetting["tenant-settings-key"];
-        return tenantSetting[tenantConfigKey].defaultValueLocale;
+        let defaultLocale = "en-US";
+
+        let tenantConfigKey = this.getCacheKey();
+        let tenantConfig = localConfigCache[tenantConfigKey];
+        if(tenantConfig && tenantConfig.defaultValueLocale) {
+            defaultLocale = tenantConfig.defaultValueLocale;
+        }
+        
+        return defaultLocale;
     },
     get: async function (url, tenantConfigRequest) {
-        let tenant = this.getTenantId();
+        //Get runtime version...
+        let runtimeVersion = await RuntimeVersionManager.getVersion();
+        localConfigCache["runtime-version"] = runtimeVersion;
 
-        let mode = "online";
-        let configId = tenantConfigRequest.params.query.id;
-        this.configId = configId;
-        let cacheKey = await this.getCacheKey();
-        localConfigCache["tenant-settings-key"] = cacheKey;
+        let cacheKey = this.getCacheKey();
         if (localConfigCache[cacheKey]) {
             return falcorUtil.cloneObject(localConfigCache[cacheKey]);
         }
@@ -56,18 +53,21 @@ TenantSystemConfigService.prototype = {
         localConfigCache[cacheKey] = falcorUtil.cloneObject(tenantConfigMetadata);
         return tenantConfigMetadata;
     },
-    getCacheKey: async function() {
-        let runtimeVersion = await RuntimeVersionManager.getVersion();
-        let securityContext = executionContext && executionContext.getSecurityContext();
+    getCacheKey: function() {
         let tenantId = "unknown";
-        let configId = this.configId;
-        if (securityContext) {
+        let securityContext = executionContext.getSecurityContext();
+        if (securityContext && securityContext.tenantId) {
             tenantId = securityContext.tenantId;
         }
-        return "".concat(tenantId,"_", configId,"_", runtimeVersion);
+        
+        let runtimeVersion = "unknown";
+        if(localConfigCache["runtime-version"]) {
+            runtimeVersion = localConfigCache["runtime-version"];
+        }
+        
+        return "".concat(tenantId, "_", runtimeVersion);
     },
     getTenantMetadata: function(config){
-        
         let tenantMetadata={};
         if(falcorUtil.isValidObjectPath(config, "response.configObjects.0")){
             let configObject = config.response.configObjects[0];
