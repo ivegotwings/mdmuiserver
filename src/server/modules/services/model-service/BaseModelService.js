@@ -80,7 +80,7 @@ BaseModelService.prototype = {
         return dataOperationResult;
     },
 
-    _setModelPropertiesFromCollection: async function (attributeModelsResponse) {
+    _setModelPropertiesFromCollection: function (attributeModelsResponse) {
         let attributeEntityModels = [];
         if (!falcorUtil.isValidObjectPath(attributeModelsResponse, "response.entityModels") ||
             !attributeModelsResponse.response.entityModels.length) {
@@ -129,7 +129,7 @@ BaseModelService.prototype = {
         logger.debug("BASE_MODEL_COMPOSITE_ATTRIBUTE_MODEL", { compositeAttributeModel: compositeAttributeModel }, "modelService");
 
         // Set properties from collection
-        await this._setModelPropertiesFromCollection(response);
+        this._setModelPropertiesFromCollection(response);
 
         // transform attribute models in to entities based on composite attribute model.
         if (compositeAttributeModel && response && falcorUtil.isValidObjectPath(response, "response.entityModels")) {
@@ -956,13 +956,13 @@ BaseModelService.prototype = {
             return;
         }
 
-        let collectionProperties = Object.keys(properties).reduce((result, proptery) => {
+        let collectionProperties = Object.keys(properties).reduce((result, property) => {
             for (let key in attributePropertyMapper) {
-                if (Object.keys(attributePropertyMapper[key] || {}).indexOf(proptery) != -1) {
+                if (Object.keys(attributePropertyMapper[key] || {}).indexOf(property) != -1) {
                     result.push({
-                        "property": proptery,
+                        "property": property,
                         "collectionKey": key,
-                        "collectionProperty": attributePropertyMapper[key][proptery]
+                        "collectionProperty": attributePropertyMapper[key][property]
                     })
                 }
             }
@@ -1210,6 +1210,18 @@ BaseModelService.prototype = {
         return { "values": values };
     },
 
+    _includeCollectionAttribute: function (compositeAttributeModelList) {
+        for (let collectionProperty of collectionProperties) {
+            let isModelContainsCollectionAttributes = Object.keys(attributePropertyMapper[collectionProperty]).some(item => {
+                return (compositeAttributeModelList.indexOf(item) != -1);
+            }) || false;
+
+            if(isModelContainsCollectionAttributes) {
+                compositeAttributeModelList.push(collectionProperty);
+            }
+        }
+    },
+
     _prepareCompositeModels: function (attributeModels, compositeAttributeModel, entityTypeModel, isIdEntityIdentifier) {
         let compositeModels = [];
         let compositeAttributeModelList = this._fetchListOfAttributesBasedOnGroup(compositeAttributeModel);
@@ -1224,6 +1236,7 @@ BaseModelService.prototype = {
                     "domain": "generic",
                     "data": {}
                 }
+                this._includeCollectionAttribute(compositeAttributeModelList[compModel]);
 
                 if (attributeModels.data) {
                     let attribuetModelData = attributeModels.data;
@@ -1233,7 +1246,6 @@ BaseModelService.prototype = {
                         compositeModelData.attributes = {};
                         for (let attrKey in attribuetModelData.attributes) {
                             let attr = attribuetModelData.attributes[attrKey];
-                            this._setPropertiesFromCollection(attr.properties);
 
                             if (attr) {
                                 let clonedAttr = falcorUtil.cloneObject(attr);
