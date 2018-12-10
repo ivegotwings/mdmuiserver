@@ -131,34 +131,14 @@ ConfigurationService.prototype = {
         return response;
     },
     _getTenantSystemConfig: async function(requestContext){
-        let tenantConfigRequest = {
-            "params": {
-                "query": {
-                    "id": requestContext.tenant,
-                    "filters": {
-                        "typesCriterion": [
-                        "tenantserviceconfig"
-                        ]
-                    }
-                },
-                "fields": {
-                    "properties": [
-                        "_ALL"
-                    ]
-                },
-                "options": {
-                    "totalRecords": 100
-                }
-                }
-            };
-            //console.log("calling tenantSystemConfigService");
-            let tenantConfigResponse = await this.tenantSystemConfigService.get(RDF_SERVICE_NAME + "/get", tenantConfigRequest);
-            if (!tenantConfigResponse) {
-                let errorMsg = "".concat('Tenant config not found for :', requestContext.tenant);
-                logger.error(errorMsg, null, logger.getCurrentModule());
-                throw new Error(errorMsg);
-            }
-            return tenantConfigResponse;
+        //console.log("calling tenantSystemConfigService");
+        let tenantConfigResponse = await this.tenantSystemConfigService.get();
+        if (!tenantConfigResponse) {
+            let errorMsg = "".concat('Tenant config not found for :', requestContext.tenant);
+            logger.error(errorMsg, null, logger.getCurrentModule());
+            throw new Error(errorMsg);
+        }
+        return tenantConfigResponse;
     },
     _getAndMergeNearestConfig: async function (requestContext, mergedConfigObject, isBase) {
         let tenant = requestContext.tenant;

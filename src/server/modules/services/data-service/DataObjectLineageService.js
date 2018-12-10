@@ -1,9 +1,10 @@
 let DFServiceRest = require("../../common/df-rest-service/DFRestService");
 let falcorUtil = require('../../../../shared/dataobject-falcor-util');
 let isEmpty = require('../../common/utils/isEmpty');
-let tenantSystemConfigService = require('../configuration-service/TenantSystemConfigService');
+const TenantSystemConfigService = require('../configuration-service/TenantSystemConfigService');
 let DataObjectLineageService = function (options) {
-    DFServiceRest.call(this, options)
+    DFServiceRest.call(this, options);
+    this.tenantSystemConfigService = new TenantSystemConfigService(options);
 }
 
 DataObjectLineageService.prototype = {
@@ -44,12 +45,13 @@ DataObjectLineageService.prototype = {
 
                             !falcorUtil.isValidObjectPath(entity, "data.relationships." + relationshipType) && (entity.data.relationships[relationshipType] = [{}]);
                             
-                            let relAttributes = {}
+                            let defaultValContext = await this.tenantSystemConfigService.getDefaultValContext();
+                            let relAttributes = {};
                             relAttributes[relAttribute] = {
                                 "values": [
                                     {
-                                        "locale": tenantSystemConfigService.prototype.getDefaultSource(),
-                                        "source": tenantSystemConfigService.prototype.getDefaultLocale(),
+                                        "locale": defaultValContext.locale,
+                                        "source": defaultValContext.source,
                                         "id": "7166b3f5-e50b-416c-9a13-1df35a8eece2",
                                         "value": paths.reverse().join(">>")
                                     }
