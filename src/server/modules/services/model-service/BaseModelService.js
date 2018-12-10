@@ -32,7 +32,7 @@ BaseModelService.prototype = {
     get: async function (request) {
         let response;
         let requestType = falcorUtil.isValidObjectPath(request, "params.query.filters.typesCriterion") ? request.params.query.filters.typesCriterion[0] : "";
-        
+
         if (!isEmpty(requestType)) {
             switch (requestType) {
                 case "attributeModel":
@@ -286,7 +286,7 @@ BaseModelService.prototype = {
 
                             // Handling delete scenarion of nested attribute mapping.
                             let deletedAttrEntities = childAttributeRels.map(v => v.action && v.action == "delete" ? v.relTo.id.replace("_" + relEntityType, "") : undefined);
-                            if(deletedAttrEntities) {
+                            if (deletedAttrEntities) {
                                 properties.childAttributes = properties.childAttributes.filter(v => deletedAttrEntities.indexOf(v) == -1);
                             }
                         }
@@ -400,10 +400,22 @@ BaseModelService.prototype = {
             }
 
             if (!isEmpty(compositeModels)) {
+                let modelCount = 0;
                 for (let compositeModel of compositeModels) {
-                    request[request.dataIndex] = compositeModel;
-                    let dataOperationResult = await dataObjectManageService.process(request, action);
+                    let clonedRequest = falcorUtil.cloneObject(request);
+                    clonedRequest[request.dataIndex] = compositeModel;
+
+                    // All requests for model are going with client state and app instance id, so for each and every success notification page willl get reloaded if it is active.
+                    // Removing app instance id from all except last request.
+                    if (modelCount != compositeModels.length - 1) {
+                        if (falcorUtil.isValidObjectPath(clonedRequest, "clientState.notificationInfo.context.appInstanceId")) {
+                            delete clonedRequest.clientState.notificationInfo.context.appInstanceId;
+                        }
+                    }
+
+                    let dataOperationResult = await dataObjectManageService.process(clonedRequest, action);
                     dataOperationResults.push(dataOperationResult);
+                    modelCount++;
                 }
             }
         }
@@ -1030,14 +1042,14 @@ BaseModelService.prototype = {
                     case "hasrelationshipattributes": {
                         let attributes = entityTypeModelData.relationships[relType];
                         let entityIds = attributes.map(v => v.relTo.id);
-        
+
                         if (entityIds) {
                             let retryCount = 1;
                             let maxRetryCount = 5;
                             let entities;
-                            while(retryCount <= maxRetryCount) {
+                            while (retryCount <= maxRetryCount) {
                                 entities = await modelGetManager.getModels(entityIds, "attributeModel");
-                                if(isEmpty(entities)) {
+                                if (isEmpty(entities)) {
                                     retryCount++;
                                 } else {
                                     break;
@@ -1080,9 +1092,9 @@ BaseModelService.prototype = {
                             let retryCount = 1;
                             let maxRetryCount = 5;
                             let relEntities;
-                            while(retryCount <= maxRetryCount) {
+                            while (retryCount <= maxRetryCount) {
                                 relEntities = await modelGetManager.getModels(relEntityIds, "relationshipModel");
-                                if(isEmpty(relEntities)) {
+                                if (isEmpty(relEntities)) {
                                     retryCount++;
                                 } else {
                                     break;
@@ -1219,7 +1231,7 @@ BaseModelService.prototype = {
                 return (compositeAttributeModelList.indexOf(item) != -1);
             }) || false;
 
-            if(isModelContainsCollectionAttributes) {
+            if (isModelContainsCollectionAttributes) {
                 compositeAttributeModelList.push(collectionProperty);
             }
         }
@@ -1283,7 +1295,7 @@ BaseModelService.prototype = {
                                 compositeModelData.relationships[relType] = [];
                                 let rel = attribuetModelData.relationships[relType][0];
 
-                                if(rel.properties) {
+                                if (rel.properties) {
                                     rel.properties.relationshipType = rel.properties.relationshipType || "association";
                                     rel.properties.relationshipOwnership = rel.properties.relationshipOwnership || "owned";
                                 }
