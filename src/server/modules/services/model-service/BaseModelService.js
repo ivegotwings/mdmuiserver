@@ -16,6 +16,15 @@ let BaseModelService = function (option) {
 }
 
 const compositeModelTypes = ["entityManageModel", "entityDisplayModel", "entityValidationModel", "entityDefaultValuesModel"];
+const collectionProperties = ["range"];
+const attributePropertyMapper = {
+    "range": {
+        "rangeFrom": "rangeFrom",
+        "rangeTo": "rangeTo",
+        "rangeFromInclusive": "isRangeFromInclusive",
+        "rangeToInclusive": "isRangeToInclusive"
+    }
+};
 let modelGetManager = new ModelGetManager({});
 let dataObjectManageService = new DataObjectManageService({});
 let localCacheManager = new LocalCacheManager();
@@ -72,6 +81,43 @@ BaseModelService.prototype = {
         return dataOperationResult;
     },
 
+    _setModelPropertiesFromCollection: function (attributeModelsResponse) {
+        let attributeEntityModels = [];
+        if (!falcorUtil.isValidObjectPath(attributeModelsResponse, "response.entityModels") ||
+            !attributeModelsResponse.response.entityModels.length) {
+            return;
+        }
+
+        attributeEntityModels = attributeModelsResponse.response.entityModels;
+
+        for (let attributeEntityModel of attributeEntityModels) {
+            this._setPropertiesFromCollection(attributeEntityModel.properties);
+        }
+    },
+
+    _setPropertiesFromCollection: function (attributeProperties) {
+        let propertyKeys = Object.keys(attributeProperties).filter(propertyKey => {
+            if (collectionProperties.indexOf(propertyKey) != -1) {
+                return propertyKey;
+            }
+        })
+
+        if (isEmpty(propertyKeys)) {
+            return;
+        }
+
+        //processing which property values is an array, eg: range property
+        for (let propertyKey of propertyKeys) {
+            let property = attributeProperties[propertyKey][0];
+            for (let field in property) {
+                let key = Object.keys(attributePropertyMapper[propertyKey] || {}).find(mapperKey => {
+                    return attributePropertyMapper[propertyKey][mapperKey] == field;
+                }) || field;
+                attributeProperties[key] = property[field];
+            }
+        }
+    },
+
     _getAttributeModels: async function (request) {
         let response;
 
@@ -82,6 +128,9 @@ BaseModelService.prototype = {
         // get composite model of attribute model "attributeModel"
         let compositeAttributeModel = await modelGetManager.getCompositeModel("attributeModel");
         logger.debug("BASE_MODEL_COMPOSITE_ATTRIBUTE_MODEL", { compositeAttributeModel: compositeAttributeModel }, "modelService");
+
+        // Set properties from collection
+        this._setModelPropertiesFromCollection(response);
 
         // transform attribute models in to entities based on composite attribute model.
         if (compositeAttributeModel && response && falcorUtil.isValidObjectPath(response, "response.entityModels")) {
@@ -901,8 +950,43 @@ BaseModelService.prototype = {
                 }
             }
         }
-
+        this._setCollectionFromProperties(properties);
         return properties;
+    },
+
+    _setCollectionFromProperties: function (properties) {
+        if (isEmpty(properties)) {
+            return;
+        }
+
+        let collectionProperties = Object.keys(properties).reduce((result, property) => {
+            for (let key in attributePropertyMapper) {
+                if (Object.keys(attributePropertyMapper[key] || {}).indexOf(property) != -1) {
+                    result.push({
+                        "property": property,
+                        "collectionKey": key,
+                        "collectionProperty": attributePropertyMapper[key][property]
+                    })
+                }
+            }
+            return result;
+        }, []);
+
+        if (!collectionProperties || !collectionProperties.length) {
+            return;
+        }
+
+        for (let item of collectionProperties) {
+            let collectionKey = item["collectionKey"];
+            let collectionProperty = item["collectionProperty"];
+
+            if (!properties[collectionKey]) {
+                properties[collectionKey] = [{}];
+            }
+
+            properties[collectionKey][0][collectionProperty] = properties[item["property"]];
+            delete properties[item["property"]];
+        }
     },
 
     _transformAttrsAndRelsIntoMappedRels: async function (relationshipModelObjects, attrAndRelModels) {
@@ -1129,6 +1213,18 @@ BaseModelService.prototype = {
         return { "values": values };
     },
 
+    _includeCollectionAttribute: function (compositeAttributeModelList) {
+        for (let collectionProperty of collectionProperties) {
+            let isModelContainsCollectionAttributes = Object.keys(attributePropertyMapper[collectionProperty]).some(item => {
+                return (compositeAttributeModelList.indexOf(item) != -1);
+            }) || false;
+
+            if(isModelContainsCollectionAttributes) {
+                compositeAttributeModelList.push(collectionProperty);
+            }
+        }
+    },
+
     _prepareCompositeModels: function (attributeModels, compositeAttributeModel, entityTypeModel, isIdEntityIdentifier) {
         let compositeModels = [];
         let compositeAttributeModelList = this._fetchListOfAttributesBasedOnGroup(compositeAttributeModel);
@@ -1143,6 +1239,7 @@ BaseModelService.prototype = {
                     "domain": "generic",
                     "data": {}
                 }
+                this._includeCollectionAttribute(compositeAttributeModelList[compModel]);
 
                 if (attributeModels.data) {
                     let attribuetModelData = attributeModels.data;
