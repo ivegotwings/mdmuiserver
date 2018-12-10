@@ -2,13 +2,14 @@ let DFConnection = require('../common/service-base/DFConnection');
 let moment = require('moment');
 let sleep = require('system-sleep');
 let uuidV1 = require('uuid/v1');
-let tenantSystemConfigService = require('../services/configuration-service/TenantSystemConfigService');
+const TenantSystemConfigService = require('../services/configuration-service/TenantSystemConfigService');
 let ApiHealthCheckService = function (options) {
     let _dataConnection = new DFConnection();
     this._restRequest = _dataConnection.getRequest();
     this._serverUrl = _dataConnection.getServerUrl();
     this._copServerUrl = _dataConnection.getCOPServerUrl();
     this._internalRdfUrl = _dataConnection.getInternalRdfUrl();
+    this.tenantSystemConfigService = new TenantSystemConfigService(options);
 }
 
 ApiHealthCheckService.prototype = {
@@ -178,8 +179,10 @@ ApiHealthCheckService.prototype = {
                 return response;
             }
 
+            let defaultValContext = await this.tenantSystemConfigService.getDefaultValContext();
+
             let dataObject = updateRequest.body[objectName];
-            this.setAttrVal(dataObject.data.attributes, attrName, newVal);
+            this.setAttrVal(dataObject.data.attributes, attrName, newVal, defaultValContext);
 
             updateRequest.url = dfUrl;
 
@@ -303,8 +306,10 @@ ApiHealthCheckService.prototype = {
             getRequest.url = dfUrl.replace(serverUrl, getApiUrl);
             deleteRequest.url = dfUrl.replace(serverUrl, deleteApiUrl);
 
+            let defaultValContext = await this.tenantSystemConfigService.getDefaultValContext();
+
             let dataObject = createRequest.body[objectName];
-            this.setAttrVal(dataObject.data.attributes, attrName, newVal);
+            this.setAttrVal(dataObject.data.attributes, attrName, newVal, defaultValContext);
 
             createRequest.url = dfUrl;
 
@@ -493,12 +498,12 @@ ApiHealthCheckService.prototype = {
 
         return errResponse;
     },
-    setAttrVal: function (attributes, attrName, val) {
+    setAttrVal: function (attributes, attrName, val, defaultValContext) {
 
         let attr = this.getOrCreate(attributes, attrName, {});
         let values = [{
-            "source": tenantSystemConfigService.prototype.getDefaultSource(),
-            "locale": tenantSystemConfigService.prototype.getDefaultLocale(),
+            "source": defaultValContext.source,
+            "locale": defaultValContext.locale,
             "value": val
         }];
 
