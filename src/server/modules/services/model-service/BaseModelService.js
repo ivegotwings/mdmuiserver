@@ -400,13 +400,14 @@ BaseModelService.prototype = {
             }
 
             if (!isEmpty(compositeModels)) {
+                let modelCount = 0;
                 for (let compositeModel of compositeModels) {
-                    let clonedRequest =  falcorUtil.cloneObject(request);
+                    let clonedRequest = falcorUtil.cloneObject(request);
                     clonedRequest[request.dataIndex] = compositeModel;
 
                     // All requests for model are going with client state and app instance id, so for each and every success notification page willl get reloaded if it is active.
                     // Removing app instance id from all except last request.
-                    if (compositeModels.indexOf(compositeModel) != compositeModels.length - 1) {
+                    if (modelCount != compositeModels.length - 1) {
                         if (falcorUtil.isValidObjectPath(clonedRequest, "clientState.notificationInfo.context.appInstanceId")) {
                             delete clonedRequest.clientState.notificationInfo.context.appInstanceId;
                         }
@@ -414,6 +415,7 @@ BaseModelService.prototype = {
 
                     let dataOperationResult = await dataObjectManageService.process(clonedRequest, action);
                     dataOperationResults.push(dataOperationResult);
+                    modelCount++;
                 }
             }
         }
