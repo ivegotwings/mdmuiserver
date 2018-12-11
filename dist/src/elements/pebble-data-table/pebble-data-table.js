@@ -27,7 +27,7 @@ import './data-table-row-detail.js';
 import './grid-selection-popover.js';
 import { Base } from '@polymer/polymer/polymer-legacy.js';
 import { dom } from '@polymer/polymer/lib/legacy/polymer.dom.js';
-import { Settings } from '@polymer/polymer/lib/utils/settings.js';
+import * as Settings  from '@polymer/polymer/lib/utils/settings.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 function ArrayDataSource(arr) {
   function _filter(items, filter) {
@@ -1479,7 +1479,7 @@ IronScrollTargetBehavior
   }
 
   _isFocusable(target) {
-    if (Settings.useNativeShadow) {
+    if (Settings.useShadow) {
       // https://nemisj.com/focusable/
       // tabIndex is not reliable in IE.
       return target.tabIndex >= 0;
