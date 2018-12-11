@@ -91,7 +91,9 @@ BaseModelService.prototype = {
         attributeEntityModels = attributeModelsResponse.response.entityModels;
 
         for (let attributeEntityModel of attributeEntityModels) {
-            this._setPropertiesFromCollection(attributeEntityModel.properties);
+            if (attributeEntityModel.properties) {
+                this._setPropertiesFromCollection(attributeEntityModel.properties);
+            }
         }
     },
 
