@@ -61,7 +61,7 @@ Custom property | Description | Default
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '@polymer/iron-media-query/iron-media-query.js';
 import '@polymer/neon-animation/neon-animated-pages.js';
@@ -80,7 +80,7 @@ import '../pebble-button/pebble-button.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class PebbleDatePicker extends mixinBehaviors([IronResizableBehavior], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="pebble-date-picker-dialog-style">
             :host {
                 -webkit-touch-callout: none;

@@ -2,7 +2,7 @@ import { Base } from '@polymer/polymer/polymer-legacy.js';
 import '../liquid-rest.js';
 import { Polymer as Polymer$0 } from '@polymer/polymer/lib/legacy/polymer-fn.js';
 Polymer$0({
-  _template: Polymer.html`
+  _template: html`
          <liquid-rest id="liquidRest" url="/data/pass-through/entitymanageservice/get" auto\$="[[auto]]" verbose="" method="POST" request-data="{{request}}" last-response="{{response}}" on-response="_onEntitiesReceived" on-error="_onEntityGetFailed"></liquid-rest>
 `,
 

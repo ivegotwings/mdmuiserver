@@ -7,7 +7,7 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '@polymer/iron-ajax/iron-ajax.js';
 import '../../bedrock-helpers/data-helper.js';
@@ -25,7 +25,7 @@ class RockEntityRelationshipsSummaryItem
     RUFBehaviors.ComponentContextBehavior
     ], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-common bedrock-style-tooltip">
             .relationships-summary__item {
                 border-radius: 50%;

@@ -15,7 +15,7 @@ import '../liquid-entity-model-get/liquid-entity-model-get.js';
 import '../bedrock-logger-behavior/bedrock-logger-behavior.js';
 import { Polymer as Polymer$0 } from '@polymer/polymer/lib/legacy/polymer-fn.js';
 Polymer$0({
-  _template: Polymer.html`
+  _template: html`
         <liquid-entity-model-get id="initGetEntities" operation="initiatesearch" request-data="{{request}}" last-response="{{_initGetEntitySearchResponse}}" on-error="_onError" on-response="_generateSearchRequest" exclude-in-progress="">
             <liquid-entity-model-get id="getEntitiesSearchResults" operation="getsearchresultdetail" request-data="{{request}}" request-id="[[_initGetEntitySearchResponse.content.requestId]]" on-response="_onGetResponse" on-error="_onError" exclude-in-progress="">
     </liquid-entity-model-get></liquid-entity-model-get>

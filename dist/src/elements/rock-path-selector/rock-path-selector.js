@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import { OptionalMutableData } from '@polymer/polymer/lib/mixins/mutable-data.js';
 import '../bedrock-helpers/data-helper.js';
 import '../bedrock-helpers/data-request-helper.js';
@@ -24,7 +24,7 @@ import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockPathSelector extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.ComponentContextBehavior],
     OptionalMutableData(PolymerElement)) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-common bedrock-style-scroll-bar bedrock-style-padding-margin bedrock-style-grid-layout bedrock-style-buttons">
 
         </style>

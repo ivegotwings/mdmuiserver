@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '../bedrock-helpers/component-helper.js';
 import '../bedrock-ui-behavior/bedrock-ui-behavior.js';
 import '../bedrock-helpers/element-helper.js';
@@ -10,7 +10,7 @@ class PebbleEchoHtml extends mixinBehaviors([
             RUFBehaviors.UIBehavior
         ],PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
     <style include="bedrock-style-common">
       :host {
         @apply --pebble-echo;

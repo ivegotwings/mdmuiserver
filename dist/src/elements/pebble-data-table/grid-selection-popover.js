@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../bedrock-style-manager/styles/bedrock-style-list.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
@@ -10,7 +10,7 @@ import '../pebble-popover/pebble-popover.js';
 import '../pebble-checkbox/pebble-checkbox.js';
 class GridSelectionPopover extends PolymerElement {
   static get template() {
-    return Polymer.html`
+    return html`
     <style include="bedrock-style-common bedrock-style-icons bedrock-style-padding-margin bedrock-style-list">
       li {
         list-style: none;

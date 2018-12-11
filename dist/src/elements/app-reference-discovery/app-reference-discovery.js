@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import { microTask } from '@polymer/polymer/lib/utils/async.js';
 import '../bedrock-app-behavior/bedrock-app-behavior.js';
 import '../bedrock-pubsub/bedrock-pubsub.js';
@@ -41,7 +41,7 @@ class AppReferenceDiscovery
         RUFBehaviors.NavigationBehavior
     ], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-common bedrock-style-icons bedrock-style-padding-margin bedrock-style-flex-layout">
             #dimensionContainer {
                 width:100%;

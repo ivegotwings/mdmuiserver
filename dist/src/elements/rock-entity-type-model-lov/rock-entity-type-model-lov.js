@@ -7,7 +7,7 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '../bedrock-app-context-behavior/bedrock-app-context-behavior.js';
 import '../bedrock-pubsub/bedrock-pubsub.js';
@@ -23,7 +23,7 @@ import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockEntityTypeModelLov extends mixinBehaviors([RUFBehaviors.UIBehavior, 
 RUFBehaviors.LovBehavior], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <attribute-model-datasource id="entityModelDataSource" is-request-by-id="[[isRequestById]]" mode="all" request="[[requestData]]" r-data-source="{{rDataSource}}" r-data-formatter="{{_dataFormatter}}" keywords-criterion-builder="{{_keywordsCriterionBuilder}}" schema="lov" sort-criterion-builder="{{_sortCriterionBuilder}}">
         </attribute-model-datasource>
 

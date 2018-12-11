@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '../liquid-rest/liquid-rest.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../bedrock-style-manager/styles/bedrock-style-flex-layout.js';
@@ -15,7 +15,7 @@ class RockApiHealthcheckStatusItem
     RUFBehaviors.UIBehavior
   ], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
       <style include="bedrock-style-common bedrock-style-gridsystem bedrock-style-scroll-bar bedrock-style-floating bedrock-style-icons bedrock-style-padding-margin bedrock-style-flex-layout">
          :host {
           margin-bottom: 5px;

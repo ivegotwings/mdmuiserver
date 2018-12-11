@@ -1,8 +1,8 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '../rock-dataobject-summary-countview/rock-dataobject-summary-countview.js';
 class RockDataobjectSummary extends PolymerElement{
   static get template() {
-    return Polymer.html`
+    return html`
         <template is="dom-if" if="[[_isDefaultView(viewMode)]]">
 
             <rock-dataobject-summary-countview model-domain="[[modelDomain]]" dataobject-list="[[dataobjectList]]" domain="[[domain]]" data-index\$="[[dataIndex]]"></rock-dataobject-summary-countview>

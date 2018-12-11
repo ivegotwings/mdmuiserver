@@ -32,7 +32,7 @@ Custom property | Description | Default
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '@polymer/iron-icon/iron-icon.js';
 import '@polymer/iron-meta/iron-meta.js';
@@ -40,7 +40,7 @@ import { Base } from '@polymer/polymer/polymer-legacy.js';
 import { dom } from '@polymer/polymer/lib/legacy/polymer.dom.js';
 class PebbleIcon extends PolymerElement {
   static get template() {
-    return Polymer.html`
+    return html`
     <style>
       :host {
         position: relative;

@@ -9,7 +9,7 @@ It filters the data as per the filter criteria.
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import { OptionalMutableData } from '@polymer/polymer/lib/mixins/mutable-data.js';
 import '../bedrock-pubsub/bedrock-pubsub.js';
@@ -29,7 +29,7 @@ class RockEntityLov
         RUFBehaviors.LovBehavior
     ], OptionalMutableData(PolymerElement)) {
   static get template() {
-    return Polymer.html`
+    return html`
         <entity-lov-datasource id="entityLovDataSource" data-index\$="[[dataIndex]]" base-request="[[requestData]]" r-data-source="{{rDataSource}}" r-data-formatter="{{_dataFormatter}}" keywords-criterion-builder="{{_keywordsCriterionBuilder}}" sort-criterion-builder="{{_sortCriterionBuilder}}" attributes-criterion-builder="{{_attributesCriterionBuilder}}" is-attribute-filter="{{_isAttributeFilter}}" lazy-loading-disabled="[[lazyLoadingDisabled]]">
         </entity-lov-datasource>
         <rock-image-source-provider image-source="{{imageSource}}"></rock-image-source-provider>

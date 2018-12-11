@@ -8,7 +8,7 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '../bedrock-helpers/data-helper.js';
 import '../bedrock-logger-behavior/bedrock-logger-behavior.js';
@@ -21,7 +21,7 @@ class EntityLovDatasource extends mixinBehaviors([
     RUFBehaviors.LoggerBehavior],
     PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <liquid-entity-data-get id="initGetEntitySearch" data-index\$="[[dataIndex]]" apply-locale-coalesce="[[applyLocaleCoalesce]]" operation="initiatesearch" request-data="[[request]]" on-error="_onGetSearchError" exclude-in-progress=""></liquid-entity-data-get>
         <liquid-entity-data-get id="getEntitySearchResults" data-index\$="[[dataIndex]]" apply-locale-coalesce="[[applyLocaleCoalesce]]" operation="getsearchresultdetail" request-data="[[request]]" request-id="[[_initGetEntitySearchResponse.content.requestId]]" last-response="{{getEntitySearchResultsResponse}}" on-error="_onGetSearchError" exclude-in-progress="" include-type-external-name=""></liquid-entity-data-get>
         <liquid-entity-data-get id="entitySearchAndGet" data-index\$="[[dataIndex]]" apply-locale-coalesce="[[applyLocaleCoalesce]]" operation="searchandget" request-data="[[request]]" on-response="_onEntitySearchAndGetResponse" last-response="{{entitySearchAndGetResponse}}" on-error="_onGetSearchError" exclude-in-progress="" include-type-external-name=""></liquid-entity-data-get>

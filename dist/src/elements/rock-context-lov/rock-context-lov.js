@@ -7,7 +7,7 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '../bedrock-pubsub/bedrock-pubsub.js';
 import '../bedrock-helpers/data-helper.js';
@@ -19,7 +19,7 @@ import '../pebble-lov/pebble-lov.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockContexLov extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehaviors.LovBehavior], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <liquid-rest id="contextLiquid" auto="[[auto]]" method="POST" request-data="{{requestData}}" on-liquid-response="_onResponseReceived" exclude-in-progress="">
         </liquid-rest>
         <pebble-lov id="contextLov" readonly="[[readonly]]" page-size="[[pageSize]]" multi-select="[[multiSelect]]" show-image="[[showImage]]" show-color="[[showColor]]" no-sub-title="[[noSubTitle]]" show-action-buttons="[[showActionButtons]]" items="[[items]]" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" on-selection-changed="_onLovSelectionChanged" on-lov-confirm-button-tap="_onLovConfirmButtonTapped" on-lov-close-button-tap="_onLovCloseButtonTapped">

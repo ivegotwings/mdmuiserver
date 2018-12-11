@@ -9,7 +9,7 @@ based on the given configuration.
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '@polymer/iron-ajax/iron-ajax.js';
 import '../bedrock-helpers/component-helper.js';
@@ -29,7 +29,7 @@ class RockWizard
         RUFBehaviors.UIBehavior
     ], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-common bedrock-style-scroll-bar bedrock-style-grid-layout bedrock-style-padding-margin">
             :host {
                 display: block;

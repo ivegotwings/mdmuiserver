@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '../pebble-external-html/pebble-external-html.js';
 import '../pebble-button/pebble-button.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';

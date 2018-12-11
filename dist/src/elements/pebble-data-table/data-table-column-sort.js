@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import { OptionalMutableData } from '@polymer/polymer/lib/mixins/mutable-data.js';
 import './data-table-icons.js';
 import '../pebble-icon/pebble-icon.js';
@@ -6,7 +6,7 @@ import '../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../bedrock-style-manager/styles/bedrock-style-icons.js';
 class DataTableColumnSort extends OptionalMutableData(PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
     <style include="bedrock-style-common bedrock-style-icons">
       :host {
         display: block;

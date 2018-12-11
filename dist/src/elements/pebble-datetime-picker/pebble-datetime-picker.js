@@ -51,7 +51,7 @@ See the docs for `Polymer.IronOverlayBehavior` for accessibility features implem
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '../bedrock-helpers/format-helper.js';
 import '../bedrock-validator/bedrock-validator.js';
@@ -63,7 +63,7 @@ import '../pebble-textbox/pebble-textbox.js';
 import './pebble-datetime-picker-overlay.js';
 class PebbleDatetimePicker extends PolymerElement {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-common bedrock-style-icons">
             .datetimepicker-container {
                 @apply --layout-horizontal;

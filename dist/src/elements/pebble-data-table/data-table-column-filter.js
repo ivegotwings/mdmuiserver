@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '@polymer/paper-input/paper-input.js';
 import { timeOut } from '@polymer/polymer/lib/utils/async.js';
 import { Debouncer } from '@polymer/polymer/lib/utils/debounce.js';
@@ -10,7 +10,7 @@ import '../bedrock-style-manager/styles/bedrock-style-icons.js';
 import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 class DataTableColumnFilter extends PolymerElement {
   static get template() {
-    return Polymer.html`
+    return html`
     <style include="bedrock-style-common bedrock-style-tooltip bedrock-style-icons bedrock-style-padding-margin">
       :host([hidden]) {
         display: none;

@@ -8,7 +8,7 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '../bedrock-ui-behavior/bedrock-ui-behavior.js';
 import '../bedrock-component-context-behavior/bedrock-component-context-behavior.js';
@@ -21,7 +21,7 @@ class RelationshipsTabMenuProvider
         RUFBehaviors.ComponentContextBehavior
     ], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <liquid-entity-model-get id="liquidModeleGet" operation="getbyids" request-data="{{_request}}" on-response="_onModelReceived" on-error="_onModelGetFailed"></liquid-entity-model-get>
         <liquid-entity-model-get id="getRelDomains" operation="getbyids" on-response="_onRelModelsReceived" on-error="_onModelGetFailed"></liquid-entity-model-get>
 `;

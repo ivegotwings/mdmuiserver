@@ -8,7 +8,7 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import { OptionalMutableData } from '@polymer/polymer/lib/mixins/mutable-data.js';
 import '@polymer/iron-ajax/iron-ajax.js';
@@ -53,7 +53,7 @@ let favScopesName = "favouriteScopes"
 class RockScopeSelector extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalMutableData(
     PolymerElement)) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-common bedrock-style-tooltip bedrock-style-floating bedrock-style-icons bedrock-style-padding-margin">
             #newScope {
                 font-weight: var(--font-bold, bold);

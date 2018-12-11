@@ -21,7 +21,7 @@ performed.
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '@polymer/iron-ajax/iron-ajax.js';
 import '../bedrock-helpers/data-helper.js';
@@ -68,7 +68,7 @@ class RockEntityHeader
             RUFBehaviors.ComponentConfigBehavior
         ], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-common bedrock-style-icons bedrock-style-grid-layout bedrock-style-padding-margin bedrock-style-buttons">
             :host {
                 width: 100%;

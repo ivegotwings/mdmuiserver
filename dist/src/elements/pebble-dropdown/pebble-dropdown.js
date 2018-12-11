@@ -10,7 +10,7 @@ Currently, the selected item is displayed in the control. The label is displayed
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '@polymer/paper-dropdown-menu/paper-dropdown-menu.js';
 import '@polymer/paper-listbox/paper-listbox.js';
@@ -22,7 +22,7 @@ import '../pebble-info-icon/pebble-info-icon.js';
 
 class PebbleDropdown extends PolymerElement {
   static get template() {
-    return Polymer.html`
+    return html`
     <style include="bedrock-style-common bedrock-style-scroll-bar bedrock-style-paper-listbox">
       paper-dropdown-menu {
         width: 100%;

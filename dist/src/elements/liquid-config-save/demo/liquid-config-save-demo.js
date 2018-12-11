@@ -3,7 +3,7 @@ import '../liquid-config-save.js';
 import { Polymer as Polymer$0 } from '@polymer/polymer/lib/legacy/polymer-fn.js';
 
 Polymer$0({
-  _template: Polymer.html`
+  _template: html`
         <liquid-config-save verbose="" name="configSaveService" on-response="_onSaveResponse"></liquid-config-save>
 `,
 

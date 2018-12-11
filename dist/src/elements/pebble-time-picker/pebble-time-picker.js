@@ -57,7 +57,7 @@ See the docs for `Polymer.IronResizableBehavior` for accessibility features impl
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import { OptionalMutableData } from '@polymer/polymer/lib/mixins/mutable-data.js';
 import '@polymer/iron-media-query/iron-media-query.js';
@@ -74,7 +74,7 @@ import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class PebbleTimePicker extends
     mixinBehaviors([IronResizableBehavior], OptionalMutableData(PolymerElement)) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="pebble-time-picker-dialog-style">
             :host * {
                 -webkit-tap-highlight-color: rgba(0, 0, 0, 0);

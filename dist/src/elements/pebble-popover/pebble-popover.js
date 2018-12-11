@@ -34,7 +34,7 @@ See the docs for `Polymer.IronOverlayBehavior` for accessibility features implem
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import { IronDropdownScrollManager } from '@polymer/iron-dropdown/iron-dropdown-scroll-manager.js';
 import { IronOverlayBehavior } from '@polymer/iron-overlay-behavior/iron-overlay-behavior.js';
@@ -48,7 +48,7 @@ import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 let currentPopover = null;
 class PebblePopover extends mixinBehaviors([RUFBehaviors.UIBehavior, IronOverlayBehavior], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
     <style include="bedrock-style-common bedrock-style-scroll-bar">
       :host {
         display: inline-table;
