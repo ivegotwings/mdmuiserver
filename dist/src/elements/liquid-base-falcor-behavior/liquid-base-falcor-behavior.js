@@ -6,7 +6,7 @@ import '../bedrock-helpers/element-helper.js';
 import '../bedrock-helpers/data-helper.js';
 import '../liquid-dataobject-utils/liquid-dataobject-utils.js';
 import '../liquid-base-behavior/liquid-base-behavior.js';
-import '../app-main/ProgressTracker.js';
+import ProgressTracker from '../app-main/ProgressTracker.js';
 /*
  * <i><b>Content development is under progress... </b></i>
  * @demo demo/index.html

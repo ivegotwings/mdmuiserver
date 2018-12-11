@@ -165,3 +165,5 @@ class LocaleManager {
         });
     }
 }
+
+export default LocaleManager;

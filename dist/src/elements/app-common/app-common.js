@@ -37,7 +37,7 @@ import '../bedrock-init/bedrock-init.js';
 import { microTask } from '@polymer/polymer/lib/utils/async.js';
 import { flush } from '@polymer/polymer/lib/legacy/polymer.dom.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
-import '../app-main/ProgressTracker.js';
+import ProgressTracker from '../app-main/ProgressTracker.js';
 
 class AppCommon
 extends mixinBehaviors([
