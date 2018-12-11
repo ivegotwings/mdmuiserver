@@ -2,7 +2,7 @@ import { Base } from '@polymer/polymer/polymer-legacy.js';
 import '../liquid-entity-model-get.js';
 import { Polymer as Polymer$0 } from '@polymer/polymer/lib/legacy/polymer-fn.js';
 Polymer$0({
-  _template: Polymer.html`
+  _template: html`
         <liquid-entity-model-get id="entityGetData1" auto\$="[[auto]]" verbose="" operation="getbyids" request-data="{{request}}" last-response="{{entities}}" on-response="_onEntitiesReceived" on-error="_onEntityGetFailed"></liquid-entity-model-get>
 `,
 

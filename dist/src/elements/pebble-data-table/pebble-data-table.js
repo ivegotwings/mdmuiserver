@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import { OptionalMutableData } from '@polymer/polymer/lib/mixins/mutable-data.js';
 import '@polymer/iron-list/iron-list.js';
 import { IronResizableBehavior } from '@polymer/iron-resizable-behavior/iron-resizable-behavior.js';
@@ -93,8 +93,8 @@ IronScrollTargetBehavior
 ],
   OptionalMutableData(PolymerElement)) {
   static get template() {
-    return Polymer.html`
-    <style include="bedrock-style-scroll-bar  bedrock-style-icons bedrock-style-padding-margin">
+    return html`
+    <style include="bedrock-style-scroll-bar bedrock-style-tooltip bedrock-style-icons bedrock-style-padding-margin">
       :host {
         display: block;
         position: relative;

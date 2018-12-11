@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '../bedrock-app-behavior/bedrock-app-behavior.js';
 import '../bedrock-ui-behavior/bedrock-ui-behavior.js';
 import '../bedrock-business-function-behavior/bedrock-business-function-behavior.js';
@@ -34,7 +34,7 @@ class RockVariantConfigurator
         RUFBehaviors.UIBehavior
     ], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-common bedrock-style-grid-layout bedrock-style-icons bedrock-style-padding-margin bedrock-style-buttons">
             :host {
                 display: block;

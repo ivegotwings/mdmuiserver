@@ -58,7 +58,7 @@ See the docs for `Polymer.IronSelectableBehavior` for accessibility features imp
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import { OptionalMutableData } from '@polymer/polymer/lib/mixins/mutable-data.js';
 import { IronSelectableBehavior } from '@polymer/iron-selector/iron-selectable.js';
@@ -67,7 +67,7 @@ import './pebble-step.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class PebbleStepper extends mixinBehaviors([IronSelectableBehavior], OptionalMutableData(PolymerElement)) {
   static get template() {
-    return Polymer.html`
+    return html`
     <style>
       :host([horizontal]) {
         @apply --layout-horizontal;

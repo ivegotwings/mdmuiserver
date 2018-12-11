@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../bedrock-style-manager/styles/bedrock-style-scroll-bar.js';
 import '../rock-api-healthcheck-status-item/rock-api-healthcheck-status-item.js';
@@ -10,7 +10,7 @@ class RockApihealthcheckStatusList
   RUFBehaviors.ComponentConfigBehavior
   ], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
       <style include="bedrock-style-common bedrock-style-scroll-bar">
         .block {
           padding: 0 20px;

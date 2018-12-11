@@ -12,7 +12,7 @@ It takes additional data through properties. It is available in small, medium, a
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '@polymer/paper-button/paper-button.js';
 import '@polymer/paper-progress/paper-progress.js';
@@ -28,7 +28,7 @@ import './content-type-helper.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class PebbleFileUpload extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-common bedrock-style-heading bedrock-style-icons bedrock-style-padding-margin bedrock-style-flex-layout">
             :host {
                 display: block;

@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import { OptionalMutableData } from '@polymer/polymer/lib/mixins/mutable-data.js';
 import '../bedrock-app-behavior/bedrock-app-behavior.js';
 import '../bedrock-style-manager/styles/bedrock-style-scroll-bar.js';
@@ -33,7 +33,7 @@ class RockEntityGraph
                 RUFBehaviors.NavigationBehavior
             ], OptionalMutableData(PolymerElement)) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-scroll-bar bedrock-style-common bedrock-style-grid-layout bedrock-style-floating bedrock-style-padding-margin bedrock-style-text-alignment">
             :host{
                 display: block;

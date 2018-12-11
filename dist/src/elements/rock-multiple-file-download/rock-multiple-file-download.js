@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '../bedrock-pubsub/bedrock-pubsub.js';
 import '../bedrock-helpers/component-helper.js';
 import '../bedrock-helpers/context-helper.js';
@@ -19,8 +19,8 @@ class RockMultipleFileDownload
         RUFBehaviors.LoggerBehavior
     ], PolymerElement) {
   static get template() {
-    return Polymer.html`
-        <style include="bedrock-style-common bedrock-style-gridsystem bedrock-style-grid-layout bedrock-style-padding-margin bedrock-style-list">
+    return html`
+        <style include="bedrock-style-common bedrock-style-gridsystem bedrock-style-tooltip bedrock-style-grid-layout bedrock-style-padding-margin bedrock-style-list">
             .attribute-value {
                 font-size: var(--font-size-sm, 12px);
                 font-weight: var(--font-medium, 500);

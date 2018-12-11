@@ -16,7 +16,7 @@ import '../../bedrock-helpers/data-helper.js';
 import { Polymer as Polymer$0 } from '@polymer/polymer/lib/legacy/polymer-fn.js';
 
 Polymer$0({
-  _template: Polymer.html`
+  _template: html`
         <!--<iron-ajax url="SampleOutput.json" handle-as="json" last-response="{{entityData}}"> -->
 `,
 

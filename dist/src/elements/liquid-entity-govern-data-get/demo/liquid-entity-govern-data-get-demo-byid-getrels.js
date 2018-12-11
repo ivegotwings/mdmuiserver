@@ -3,7 +3,7 @@ import '../liquid-entity-govern-data-get.js';
 import { Polymer as Polymer$0 } from '@polymer/polymer/lib/legacy/polymer-fn.js';
 
 Polymer$0({
-  _template: Polymer.html`
+  _template: html`
         <liquid-entity-govern-data-get id="entityGetData3" auto\$="[[auto]]" verbose="" operation="getbyids" request-id="req1" request-data="{{request}}" last-response="{{entities}}" on-response="_onEntitiesReceived" on-error="_onEntityGetFailed"></liquid-entity-govern-data-get>
         <liquid-entity-govern-data-get id="entityGetData4" verbose="" operation="getbyids" request-id="req2" request-data="{{request2}}" last-response="{{entities2}}"></liquid-entity-govern-data-get>
 `,

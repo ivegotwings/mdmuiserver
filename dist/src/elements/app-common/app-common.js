@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '@polymer/app-layout/app-drawer/app-drawer.js';
 import '@polymer/app-layout/app-scroll-effects/app-scroll-effects.js';
 import '@polymer/app-layout/app-header/app-header.js';
@@ -44,8 +44,8 @@ extends mixinBehaviors([
     RUFBehaviors.ComponentConfigBehavior
 ], PolymerElement) {
   static get template() {
-    return Polymer.html`
-        <style include="bedrock-style-variables bedrock-style-common bedrock-style-floating bedrock-style-icons bedrock-style-padding-margin">
+    return html`
+        <style include="bedrock-style-variables bedrock-style-common bedrock-style-tooltip bedrock-style-floating bedrock-style-icons bedrock-style-padding-margin">
             app-header {
                 color: var(--top-header-font-color);
                 width: 100%;

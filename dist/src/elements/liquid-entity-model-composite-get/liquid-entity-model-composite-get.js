@@ -14,7 +14,7 @@ import '../liquid-entity-model-get/liquid-entity-model-get.js';
 import { Polymer as Polymer$0 } from '@polymer/polymer/lib/legacy/polymer-fn.js';
 
 Polymer$0({
-  _template: Polymer.html`
+  _template: html`
         <liquid-entity-model-get id="liquidEntityModelGet" \$verbose="[[verbose]]" operation="getbyids" on-response="_onResponse" on-error="_onError"></liquid-entity-model-get>
 `,
 

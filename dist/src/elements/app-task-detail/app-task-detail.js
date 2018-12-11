@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '@polymer/polymer/lib/utils/async.js';
 import '../bedrock-pubsub/bedrock-pubsub.js';
 import '../bedrock-app-behavior/bedrock-app-behavior.js';
@@ -23,7 +23,7 @@ class AppTaskDetail
         RUFBehaviors.AppBehavior
     ], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-common bedrock-style-grid-layout bedrock-style-text-alignment">
             :host {
                 display: block;

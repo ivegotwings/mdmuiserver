@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '@polymer/paper-card/paper-card.js';
 import '../bedrock-pubsub/bedrock-pubsub.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
@@ -29,7 +29,7 @@ import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 
 class RockQueryBuilder extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehaviors.AppContextBehavior,RUFBehaviors.QueryBuilderBehavior, RUFBehaviors.ComponentContextBehavior], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
     <style include="bedrock-style-common bedrock-style-scroll-bar bedrock-style-grid-layout bedrock-style-icons bedrock-style-padding-margin bedrock-style-text-alignment">
         .queryBuilderContainer {
             position: absolute;

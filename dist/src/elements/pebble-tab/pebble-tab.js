@@ -12,7 +12,7 @@ See the docs for `Polymer.IronControlState`, `Polymer.IronButtonState` and `Poly
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import { IronButtonState } from '@polymer/iron-behaviors/iron-button-state.js';
 import { IronControlState } from '@polymer/iron-behaviors/iron-control-state.js';
@@ -28,7 +28,7 @@ import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class PebbleTab extends mixinBehaviors([IronControlState, IronButtonState, PaperRippleBehavior],
     PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-common bedrock-style-icons">
             :host {
                 display: inline-block;

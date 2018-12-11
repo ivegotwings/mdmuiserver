@@ -9,7 +9,7 @@ It renders the list of attributes based on the specified parameters.
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import { OptionalMutableData } from '@polymer/polymer/lib/mixins/mutable-data.js';
 import '@polymer/paper-spinner/paper-spinner-lite.js';
@@ -27,7 +27,7 @@ import { dom } from '@polymer/polymer/lib/legacy/polymer.dom.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockAttributeList extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehaviors.ComponentContextBehavior],OptionalMutableData(PolymerElement)){
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-common bedrock-style-scroll-bar bedrock-style-grid-layout">
             :host{
                 display: block;	

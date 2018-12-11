@@ -9,14 +9,14 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import { PaperCheckedElementBehavior } from '@polymer/paper-behaviors/paper-checked-element-behavior.js';
 import { PaperRippleBehavior } from '@polymer/paper-behaviors/paper-ripple-behavior.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class PebbleToggleButton extends mixinBehaviors([PaperCheckedElementBehavior], PolymerElement){
   static get template() {
-    return Polymer.html`
+    return html`
         <style>
             :host {
                 display: inline-block;

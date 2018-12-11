@@ -8,7 +8,7 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import { OptionalMutableData } from '@polymer/polymer/lib/mixins/mutable-data.js';
 import '../liquid-entity-data-get/liquid-entity-data-get.js';
@@ -28,8 +28,8 @@ class RockBulkActionResult
         RUFBehaviors.ComponentContextBehavior
     ], OptionalMutableData(PolymerElement)) {
   static get template() {
-    return Polymer.html`
-        <style include="bedrock-style-common bedrock-style-grid-layout bedrock-style-padding-margin bedrock-style-buttons">
+    return html`
+        <style include="bedrock-style-common bedrock-style-tooltip bedrock-style-grid-layout bedrock-style-padding-margin bedrock-style-buttons">
             :host {
                 height:100%;
                 padding-top: 20px;

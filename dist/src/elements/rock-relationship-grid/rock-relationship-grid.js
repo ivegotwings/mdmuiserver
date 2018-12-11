@@ -175,7 +175,7 @@ The following JSON object is a sample of data which binds the grid.
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import { OptionalMutableData } from '@polymer/polymer/lib/mixins/mutable-data.js';
 import '@polymer/iron-ajax/iron-ajax.js';
@@ -224,8 +224,8 @@ class RockRelationshipGrid
     RUFBehaviors.ComponentBusinessFunctionBehavior
   ], OptionalMutableData(PolymerElement)) {
   static get template() {
-    return Polymer.html`
-    <style include="bedrock-style-common bedrock-style-grid-layout bedrock-style-padding-margin bedrock-style-buttons">
+    return html`
+    <style include="bedrock-style-common bedrock-style-tooltip bedrock-style-grid-layout bedrock-style-padding-margin bedrock-style-buttons">
       :host {
         display: block;
         height: 100%;

@@ -8,7 +8,7 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '../pebble-actions/pebble-actions.js';
 import '../bedrock-component-context-behavior/bedrock-component-context-behavior.js';
@@ -29,7 +29,7 @@ extends mixinBehaviors([
     RUFBehaviors.LoggerBehavior
 ], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-common">/* empt */</style>
         <template is="dom-if" if="{{hasComponentErrored(isComponentErrored)}}">
             <div id="error-container"></div>

@@ -11,7 +11,7 @@ Each step indicates the given flow in the `pebble-stepper`.
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import { OptionalMutableData } from '@polymer/polymer/lib/mixins/mutable-data.js';
 import '@polymer/iron-collapse/iron-collapse.js';
@@ -28,7 +28,7 @@ class PebbleStep
     RUFBehaviors.UIBehavior
   ], OptionalMutableData(PolymerElement)) {
   static get template() {
-    return Polymer.html`
+    return html`
     <style>
       /* horizontal step style */
 

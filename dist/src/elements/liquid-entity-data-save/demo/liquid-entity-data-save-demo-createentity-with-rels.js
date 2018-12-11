@@ -4,7 +4,7 @@ import '../liquid-entity-data-save.js';
 import { Polymer as Polymer$0 } from '@polymer/polymer/lib/legacy/polymer-fn.js';
 
 Polymer$0({
-  _template: Polymer.html`
+  _template: html`
         <liquid-entity-data-get id="entityGetData3" verbose="" operation="getbyids" request-data="{{request}}" last-response="{{entities}}" on-response="_entitiesReceived"></liquid-entity-data-get>
         <liquid-entity-data-save verbose="" name="attributeSaveDataService" operation="create" last-response="{{saveResponse}}" on-response="onSaveResponse"></liquid-entity-data-save>
 `,

@@ -8,7 +8,7 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '../bedrock-helpers/data-helper.js';
 import '../bedrock-grid-datasource-behavior/bedrock-grid-datasource-behavior.js';
@@ -28,7 +28,7 @@ class EntitySearchGridDatasource
     RUFBehaviors.GridDataSourceBehavior
     ], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <liquid-entity-data-get id="initiateSearchResult" operation="initiatesearch" request-data="[[_initSearchRequest]]" on-error="_onSearchError" data-index\$="[[dataIndex]]" exclude-in-progress=""></liquid-entity-data-get>
         <liquid-entity-data-get id="getSearchResultDetail" operation="getsearchresultdetail" apply-locale-coalesce="[[applyLocaleCoalesce]]" request-data="[[_searchResultRequest]]" request-id="[[_initSearchResponse.content.requestId]]" last-response="{{searchResultResponse}}" on-error="_onSearchResultError" exclude-in-progress="" include-type-external-name="" data-index\$="[[dataIndex]]"></liquid-entity-data-get>
 `;

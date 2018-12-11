@@ -8,7 +8,7 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '@polymer/iron-list/iron-list.js';
 import '@polymer/paper-item/paper-item.js';
@@ -34,11 +34,11 @@ extends mixinBehaviors([
     RUFBehaviors.GridItemViewBehavior
 ], PolymerElement) {
   static get template() {
-    return Polymer.html`
-        <style include="bedrock-style-common bedrock-style-scroll-bar bedrock-style-grid-layout bedrock-style-floating bedrock-style-icons bedrock-style-padding-margin bedrock-style-list">
-            :host {
-                display: block;
-                height: 100%;
+    return html`
+        <style include="bedrock-style-common bedrock-style-scroll-bar bedrock-style-tooltip bedrock-style-grid-layout bedrock-style-floating bedrock-style-icons bedrock-style-padding-margin bedrock-style-list">
+            :host{
+                display: block;		
+                height:100%;
             }
 
             iron-list {

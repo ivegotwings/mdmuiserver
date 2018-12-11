@@ -11,7 +11,7 @@ It renders the list of attributes based on the specified relationship type.
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '@polymer/iron-demo-helpers/demo-pages-shared-styles.js';
 import '../bedrock-component-context-behavior/bedrock-component-context-behavior.js';
@@ -35,7 +35,7 @@ class RockRelationshipManage
         RUFBehaviors.ComponentConfigBehavior
     ], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-common bedrock-style-grid-layout bedrock-style-scroll-bar">
             :host {
                 height: 100%;

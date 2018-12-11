@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import { OptionalMutableData } from '@polymer/polymer/lib/mixins/mutable-data.js';
 import '../bedrock-pubsub/bedrock-pubsub.js';
 import '../bedrock-helpers/data-helper.js';
@@ -21,8 +21,8 @@ class RockContextSelector
         RUFBehaviors.ComponentConfigBehavior
     ], OptionalMutableData(PolymerElement)) {
   static get template() {
-    return Polymer.html`
-        <style include="bedrock-style-common">
+    return html`
+        <style include="bedrock-style-common bedrock-style-tooltip">
             :host {
                 display: block;
                 width: 100%;

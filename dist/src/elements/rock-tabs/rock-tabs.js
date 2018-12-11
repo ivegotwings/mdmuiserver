@@ -10,7 +10,7 @@ It makes it easy to explore and switch between different views or functional asp
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '@polymer/iron-pages/iron-pages.js';
 import '@polymer/paper-menu/paper-menu.js';
@@ -39,7 +39,7 @@ extends mixinBehaviors([
     RUFBehaviors.UIBehavior
 ], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-common bedrock-style-scroll-bar bedrock-style-grid-layout bedrock-style-icons bedrock-style-paper-listbox">
             :host {
                 display: block;

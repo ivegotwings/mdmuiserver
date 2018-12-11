@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '../bedrock-style-manager/styles/bedrock-style-scroll-bar.js';
 import '../bedrock-ui-behavior/bedrock-ui-behavior.js';
 import '../bedrock-pubsub/bedrock-pubsub.js';
@@ -12,7 +12,7 @@ class PebbleIframe extends
         RUFBehaviors.ToastBehavior,
     ], PolymerElement){
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-scroll-bar bedrock-style-common">
             :host {
                 height: 100%;

@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '../bedrock-app-behavior/bedrock-app-behavior.js';
 import '../rock-layout/rock-layout.js';
 import '../rock-layout/rock-titlebar/rock-titlebar.js';
@@ -8,7 +8,7 @@ import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 
 class AppEntityPreview extends mixinBehaviors([RUFBehaviors.AppBehavior], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style>
             rock-layout {
                 --rock-footer-background-color: #f5f7f9;

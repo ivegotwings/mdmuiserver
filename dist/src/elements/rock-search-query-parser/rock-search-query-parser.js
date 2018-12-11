@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '../bedrock-component-context-behavior/bedrock-component-context-behavior.js';
 import '../bedrock-ui-behavior/bedrock-ui-behavior.js';
 import '../bedrock-helpers/data-helper.js';
@@ -478,7 +478,7 @@ queryParser.isEmptyObject = function (obj) {
 class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.ComponentContextBehavior],
   PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
     <liquid-entity-model-composite-get name="compositeAttributeModelGet" on-entity-model-composite-get-response="_onCompositeModelGetResponse">
     </liquid-entity-model-composite-get>
     <liquid-entity-model-get id="liquidModelGet" name="attributeModelGet" operation="getbyids" on-error="_onError" on-response="_onAttributeModelsResponse" exclude-in-progress=""></liquid-entity-model-get>

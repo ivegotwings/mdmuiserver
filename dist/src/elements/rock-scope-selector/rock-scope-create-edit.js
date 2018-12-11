@@ -7,7 +7,7 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '@polymer/paper-input/paper-input.js';
 import '@polymer/paper-radio-group/paper-radio-group.js';
@@ -23,8 +23,8 @@ import '../bedrock-style-manager/styles/bedrock-style-icons.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockScopeCreateEdit extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerElement) {
   static get template() {
-    return Polymer.html`
-        <style include="bedrock-style-common bedrock-style-icons bedrock-style-fonts bedrock-style-padding-margin bedrock-style-padding-margin bedrock-style-text-alignment">
+    return html`
+        <style include="bedrock-style-common bedrock-style-tooltip bedrock-style-icons bedrock-style-fonts bedrock-style-padding-margin bedrock-style-padding-margin bedrock-style-text-alignment">
             :host {
                 --paper-input-container-label: {
                     font-size: var(--default-font-size, 14px) !important;
