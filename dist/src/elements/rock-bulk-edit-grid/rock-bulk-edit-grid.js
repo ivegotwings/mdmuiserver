@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import { OptionalMutableData } from '@polymer/polymer/lib/mixins/mutable-data.js';
 import '../bedrock-pubsub/bedrock-pubsub.js';
 import '../bedrock-helpers/data-helper.js';
@@ -17,7 +17,7 @@ class RockBulkEditGrid
         RUFBehaviors.ComponentContextBehavior
     ], OptionalMutableData(PolymerElement)) {
   static get template() {
-    return Polymer.html`
+    return html`
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
         <attribute-model-datasource id="attributeModelDataSource" mode="self" request="[[requestData]]" r-data-formatter="[[_dataFormatter]]" schema="grid">
         </attribute-model-datasource>

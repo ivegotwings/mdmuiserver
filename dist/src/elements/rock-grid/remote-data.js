@@ -8,14 +8,14 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '../liquid-entity-data-get/liquid-entity-data-get.js';
 import { dom } from '@polymer/polymer/lib/legacy/polymer.dom.js';
 class RemoteData
     extends  PolymerElement {
   static get template() {
-    return Polymer.html`
+    return html`
         <template is="dom-if" if="{{_isEntitySearchGrid(operation)}}">
             <liquid-entity-data-get id="initiateSearchResult" operation="initiatesearch" request-data="{{request}}" last-response="{{_searchResponse}}" exclude-in-progress=""></liquid-entity-data-get>
             <liquid-entity-data-get id="getsearchresultdetail" operation="getsearchresultdetail" request-data="{{request}}" request-id="[[_searchResponse.content.requestId]]" last-response="{{remoteData}}" exclude-in-progress=""></liquid-entity-data-get>

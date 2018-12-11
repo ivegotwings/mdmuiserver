@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import { OptionalMutableData } from '@polymer/polymer/lib/mixins/mutable-data.js';
 import '../bedrock-app-behavior/bedrock-app-behavior.js';
 import '../bedrock-pubsub/bedrock-pubsub.js';
@@ -16,7 +16,7 @@ class RockEntityPreview
         RUFBehaviors.AppBehavior, RUFBehaviors.LoggerBehavior, RUFBehaviors.ToastBehavior
     ], OptionalMutableData(PolymerElement)) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style>
             :host {
                 @apply --app-entity-preview-content-height;

@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '../rock-layout/rock-layout.js';
 import '../pebble-iframe/pebble-iframe.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
@@ -13,7 +13,7 @@ class RockAnalyticsWidget
         RUFBehaviors.UIBehavior
     ], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-common bedrock-style-gridsystem bedrock-style-grid-layout">/* empty */</style>
         <div class="base-grid-structure">
             <div class="base-grid-structure-child-1">

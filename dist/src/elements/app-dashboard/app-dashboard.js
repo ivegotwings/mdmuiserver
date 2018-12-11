@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '../bedrock-app-behavior/bedrock-app-behavior.js';
 import '../bedrock-pubsub/bedrock-pubsub.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
@@ -14,7 +14,7 @@ class AppDashboard
         RUFBehaviors.AppBehavior
     ], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style>
             rock-layout {
                 --rock-footer-background-color: #f5f7f9;

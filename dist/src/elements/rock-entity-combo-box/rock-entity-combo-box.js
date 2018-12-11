@@ -8,7 +8,7 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import { OptionalMutableData } from '@polymer/polymer/lib/mixins/mutable-data.js';
 import '../bedrock-pubsub/bedrock-pubsub.js';
@@ -23,7 +23,7 @@ import '../rock-image-source-provider/rock-image-source-provider.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockEntityComboBox extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehaviors.LovBehavior],OptionalMutableData(PolymerElement)){
   static get template() {
-    return Polymer.html`
+    return html`
         <liquid-entity-model-get id="getReferenceModels" operation="getbyids" request-data="[[_getRefModelsRequest]]" on-response="_onRefModelsReceived" on-error="_onRefModelsGetFailed"></liquid-entity-model-get>
         <entity-lov-datasource id="entityLovDataSource" apply-locale-coalesce="[[applyLocaleCoalesce]]" base-request="[[requestData]]" r-data-source="{{rDataSource}}" domain="[[_domain]]" r-data-formatter="{{_dataFormatter}}" attributes-criterion-builder="{{_attributesCriterionBuilder}}" keywords-criterion-builder="{{_keywordsCriterionBuilder}}" sort-criterion-builder="{{_sortCriterionBuilder}}" is-attribute-filter="{{_isAttributeFilter}}">
         </entity-lov-datasource>

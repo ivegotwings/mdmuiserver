@@ -8,7 +8,7 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '../bedrock-ui-behavior/bedrock-ui-behavior.js';
 import '../pebble-button/pebble-button.js';
@@ -22,7 +22,7 @@ import '../bedrock-style-manager/styles/bedrock-style-icons.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class PebbleErrorList extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-common bedrock-style-icons bedrock-style-text-alignment">
             pebble-horizontal-divider {
                 --pebble-horizontal-divider-color: var(--palette-pale-grey-three, #e7ebf0);

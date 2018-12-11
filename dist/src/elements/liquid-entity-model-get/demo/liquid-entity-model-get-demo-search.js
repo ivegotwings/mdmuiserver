@@ -3,7 +3,7 @@ import '../liquid-entity-model-get.js';
 import { Polymer as Polymer$0 } from '@polymer/polymer/lib/legacy/polymer-fn.js';
 
 Polymer$0({
-  _template: Polymer.html`
+  _template: html`
         <liquid-entity-model-get id="entityGetData2" auto\$="[[auto]]" verbose="" operation="initiatesearch" request-data="{{request}}" last-response="{{searchResponse}}">
         </liquid-entity-model-get>
 

@@ -8,7 +8,7 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '../bedrock-helpers/data-helper.js';
 import '../bedrock-grid-datasource-behavior/bedrock-grid-datasource-behavior.js';
@@ -17,7 +17,7 @@ import { dom } from '@polymer/polymer/lib/legacy/polymer.dom.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class TaskErrorGridDatasource extends mixinBehaviors([RUFBehaviors.GridDataSourceBehavior], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <liquid-event-get id="initiateSearchResult" operation="initiatesearch" request-data="[[request]]" last-response="{{_initSearchResponse}}" exclude-in-progress=""></liquid-event-get>
         <liquid-event-get id="getSearchResultDetail" operation="getsearchresultdetail" request-data="[[request]]" request-id="[[_initSearchResponse.content.requestId]]" last-response="{{searchResultResponse}}" exclude-in-progress=""></liquid-event-get>
 `;

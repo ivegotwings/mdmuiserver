@@ -13,7 +13,7 @@ import '../liquid-dataobject-save-behavior/liquid-dataobject-save-behavior.js';
 import { Polymer as Polymer$0 } from '@polymer/polymer/lib/legacy/polymer-fn.js';
 
 Polymer$0({
-  _template: Polymer.html`
+  _template: html`
 
 `,
 

@@ -2,7 +2,7 @@ import { Base } from '@polymer/polymer/polymer-legacy.js';
 import '../liquid-entity-model-composite-get.js';
 import { Polymer as Polymer$0 } from '@polymer/polymer/lib/legacy/polymer-fn.js';
 Polymer$0({
-  _template: Polymer.html`
+  _template: html`
         <liquid-entity-model-composite-get id="liqEntityCompositeModelGet" verbose="" request-data="{{request}}" on-entity-model-composite-get="_onEntitiesReceived" on-error="_onEntityGetFailed"></liquid-entity-model-composite-get>
 `,
 

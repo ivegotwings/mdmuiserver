@@ -44,7 +44,7 @@ Custom property | Description | Default
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '../bedrock-helpers/security-context-helper.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
@@ -59,7 +59,7 @@ import '../pebble-icon/pebble-icon.js';
 import { flush } from '@polymer/polymer/lib/legacy/polymer.dom.js';
 class RockProfile extends PolymerElement {
   static get template() {
-    return Polymer.html`
+    return html`
     <style include="bedrock-style-common bedrock-style-heading bedrock-style-floating bedrock-style-icons bedrock-style-padding-margin bedrock-style-flex-layout bedrock-style-list">
       :host {
         --profile-image-size: 25px;

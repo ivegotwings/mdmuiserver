@@ -23,7 +23,7 @@ Custom property | Description | Default
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '../pebble-icon/pebble-icon.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
@@ -33,7 +33,7 @@ import '../bedrock-style-manager/styles/bedrock-style-grid-layout.js';
 import '../bedrock-style-manager/styles/bedrock-style-scroll-bar.js';
 class PebbleAccordion extends PolymerElement {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-common bedrock-style-scroll-bar bedrock-style-grid-layout bedrock-style-icons bedrock-style-padding-margin">
             :host {
                 display: block;

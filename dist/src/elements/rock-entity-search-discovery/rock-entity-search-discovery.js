@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import { microTask } from '@polymer/polymer/lib/utils/async.js';
 import '../bedrock-pubsub/bedrock-pubsub.js';
 import '../bedrock-app-behavior/bedrock-app-behavior.js';
@@ -34,7 +34,7 @@ extends mixinBehaviors([
     RUFBehaviors.ComponentConfigBehavior
 ], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-common bedrock-style-gridsystem bedrock-style-grid-layout bedrock-style-icons bedrock-style-padding-margin bedrock-style-flex-layout">
             :host {
                 display: block;

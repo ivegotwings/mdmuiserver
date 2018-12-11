@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '../liquid-entity-model-get/liquid-entity-model-get.js';
 import '../bedrock-helpers/context-helper.js';
 import '../bedrock-helpers/data-request-helper.js';
