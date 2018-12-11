@@ -13,7 +13,7 @@ import { timeOut } from '@polymer/polymer/lib/utils/async.js';
 import { Debouncer } from '@polymer/polymer/lib/utils/debounce.js';
 import '@polymer/polymer/lib/elements/dom-if.js';
 import '../bedrock-managers/bedrock-managers.js';
-import '../bedrock-managers/locale-manager.js';
+import LocaleManager from '../bedrock-managers/locale-manager.js';
 import '../bedrock-managers/context-model-manager.js';
 import '../bedrock-managers/entity-composite-model-manager.js';
 import '../bedrock-helpers/constant-helper.js';
