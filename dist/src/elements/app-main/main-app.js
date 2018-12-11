@@ -4,7 +4,7 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import { OptionalMutableData } from '@polymer/polymer/lib/mixins/mutable-data.js';
 import '@polymer/app-route/app-route.js';
@@ -60,6 +60,7 @@ function isEmpty(obj) {
     return true;
 }
 
+
 class MainApp
 extends mixinBehaviors([
     RUFBehaviors.UIBehavior,
@@ -67,7 +68,7 @@ extends mixinBehaviors([
     RUFBehaviors.ComponentConfigBehavior
 ], OptionalMutableData(PolymerElement)) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-variables bedrock-style-common">
             #middle-container {
                 margin-left: 45px;
@@ -474,8 +475,8 @@ extends mixinBehaviors([
           ComponentHelper.removeNode(document.getElementById("loader"));
 
           timeOut.after(ConstantHelper.MILLISECONDS_100).run(() => {
-              afterNextRender(this, () => {
-                  importHref(resolveUrl("../../src/elements/app-common/app-common.html"), null, null, true);
+              afterNextRender(() => {
+                  import("../app-common/app-common.js");
                   let localeManager = ComponentHelper.getLocaleManager();
                   if (localeManager) {
                       localeManager.preload();
@@ -548,7 +549,7 @@ extends mixinBehaviors([
                       this.page = pageurl;
                       this.changePageRoutePath(pageurl);
                       let that = this;
-                      importHref(resolveUrl("../../src/elements/rock-content-view-manager/rock-content-view-manager.html"), function () {
+                      import("../rock-content-view-manager/rock-content-view-manager.js").then(function () {
                           let contentViewManager = that.contentViewManager;
                           if (contentViewManager) {
                               ComponentHelper.setQueryParamsWithoutEncode(queryParams);
@@ -648,5 +649,5 @@ extends mixinBehaviors([
       }
   }
 }
-
 customElements.define(MainApp.is, MainApp)
+
