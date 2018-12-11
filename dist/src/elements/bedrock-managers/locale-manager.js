@@ -198,3 +198,5 @@ class LocaleManager {
         return "".concat("data:locales-master#@#tenant:", tenantId, "#@#runtime-version:", rv);
     }
 }
+
+export default LocaleManager;
