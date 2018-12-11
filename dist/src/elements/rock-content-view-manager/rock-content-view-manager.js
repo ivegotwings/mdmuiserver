@@ -14,6 +14,8 @@ import '../bedrock-helpers/component-helper.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../rock-content-view/rock-content-view.js';
 import { flush } from '@polymer/polymer/lib/legacy/polymer.dom.js';
+import '../app-main/ProgressTracker.js';
+
 class RockContentViewManager extends PolymerElement {
   static get template() {
     return Polymer.html`
