@@ -7,7 +7,7 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '../bedrock-helpers/security-context-helper.js';
 import '../bedrock-pubsub/bedrock-pubsub.js';
@@ -21,7 +21,7 @@ import '../rock-component-config-behavior/rock-component-config-behavior.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockDisclaimer extends mixinBehaviors([RUFBehaviors.ComponentConfigBehavior], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-common bedrock-style-padding-margin">
         </style>
         <template is="dom-if" if="[[_isDisclaimerNeeded(messages)]]">

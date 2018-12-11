@@ -7,7 +7,7 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '@polymer/paper-input/paper-input.js';
 import '@polymer/paper-radio-group/paper-radio-group.js';
@@ -26,7 +26,7 @@ extends mixinBehaviors([
     RUFBehaviors.UIBehavior
 ], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-common bedrock-style-fonts bedrock-style-padding-margin bedrock-style-padding-margin bedrock-style-text-alignment">
             :host {
                 --paper-input-container-label: {

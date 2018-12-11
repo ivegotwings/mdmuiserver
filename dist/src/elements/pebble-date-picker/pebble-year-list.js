@@ -27,7 +27,7 @@ Custom property | Description | Default
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '@polymer/iron-list/iron-list.js';
 import { IronResizableBehavior } from '@polymer/iron-resizable-behavior/iron-resizable-behavior.js';
@@ -37,7 +37,7 @@ import { Debouncer } from '@polymer/polymer/lib/utils/debounce.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class PebbleYearList extends mixinBehaviors([IronResizableBehavior], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
     <style>
       :host {
         display: block;

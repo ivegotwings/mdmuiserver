@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '../bedrock-helpers/validation-helper.js';
 import '../bedrock-helpers/format-helper.js';
 import '../bedrock-externalref-moment/bedrock-externalref-moment.js';

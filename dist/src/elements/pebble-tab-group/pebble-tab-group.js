@@ -12,7 +12,7 @@ See the docs for `Polymer.IronResizableBehavior`, `Polymer.IronMenubarBehavior` 
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import { IronMenubarBehavior } from '@polymer/iron-menu-behavior/iron-menubar-behavior.js';
 import { IronResizableBehavior } from '@polymer/iron-resizable-behavior/iron-resizable-behavior.js';
@@ -33,7 +33,7 @@ import { IronMenuBehaviorImpl } from '@polymer/iron-menu-behavior/iron-menu-beha
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class PebbleTabGroup extends mixinBehaviors([RUFBehaviors.UIBehavior,IronResizableBehavior,IronMenubarBehavior], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-common bedrock-style-icons bedrock-style-padding-margin">
              :host {
                 @apply --layout;

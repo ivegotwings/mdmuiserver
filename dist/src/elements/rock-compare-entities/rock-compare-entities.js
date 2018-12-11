@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '../bedrock-helpers/context-helper.js';
 import '../bedrock-ui-behavior/bedrock-ui-behavior.js';
 import '../bedrock-pubsub/bedrock-pubsub.js';
@@ -22,7 +22,7 @@ class RockCompareEntities extends mixinBehaviors([
     RUFBehaviors.ComponentBusinessFunctionBehavior
 ], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-common bedrock-style-grid-layout bedrock-style-padding-margin">
             :host {
                 display: block;

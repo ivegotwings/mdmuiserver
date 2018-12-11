@@ -1,8 +1,8 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '../bedrock-externalref-resizablepanels/bedrock-externalref-resizablepanels.js';
 class PebbleResizablePanels extends PolymerElement {
   static get template() {
-    return Polymer.html`
+    return html`
         <style>
             :host{
                 display: block;

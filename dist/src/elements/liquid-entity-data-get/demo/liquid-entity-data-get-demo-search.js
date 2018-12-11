@@ -98,7 +98,7 @@ if (SharedUtils && SharedUtils.ModuleVersionManager) {
 }
 
 Polymer$0({
-  _template: Polymer.html`
+  _template: html`
         <liquid-entity-data-get id="liqInitiateSearch" auto\$="[[auto]]" operation="searchandget" request-data="{{initiateSearchRequestData}}" last-response="{{initiateSearchResponse}}" on-response="_onInitiateSearchResponse">
         </liquid-entity-data-get>
 

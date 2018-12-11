@@ -17,7 +17,7 @@ such as "to-do" and "to-fix" for an entity.
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '../bedrock-component-context-behavior/bedrock-component-context-behavior.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
@@ -30,7 +30,7 @@ class RockEntitySummary
           RUFBehaviors.ComponentConfigBehavior
           ], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
     <rock-widget-panel config="{{config}}" readonly="[[readonly]]" no-of-columns="" context-data="[[contextData]]"></rock-widget-panel>
 `;
   }

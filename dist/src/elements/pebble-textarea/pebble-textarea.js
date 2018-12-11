@@ -8,7 +8,7 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '@polymer/paper-input/paper-textarea.js';
 import '../bedrock-validator/bedrock-validator.js';
@@ -16,7 +16,7 @@ import '../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../pebble-info-icon/pebble-info-icon.js';
 class PebbleTextarea extends PolymerElement {
   static get template() {
-    return Polymer.html`
+    return html`
     <style include="bedrock-style-common">
       paper-textarea {
         --paper-input-container: {

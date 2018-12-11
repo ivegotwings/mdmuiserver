@@ -8,7 +8,7 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '../pebble-toolbar/pebble-toolbar.js';
 import '../rock-component-config-behavior/rock-component-config-behavior.js';
@@ -19,7 +19,7 @@ import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockEntityActions
     extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.ComponentContextBehavior, RUFBehaviors.ComponentConfigBehavior], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <pebble-toolbar id="toolbar" readonly="[[readonly]]" config-data="[[_toolbarConfig]]"></pebble-toolbar>
         <bedrock-pubsub event-name="toolbar-button-event" handler="_onToolbarEvent" target-id="toolbar"></bedrock-pubsub>
 `;

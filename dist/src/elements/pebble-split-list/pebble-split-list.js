@@ -8,7 +8,7 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '../bedrock-ui-behavior/bedrock-ui-behavior.js';
 import '../bedrock-helpers/component-helper.js';
@@ -29,7 +29,7 @@ import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class PebbleSplitList extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-common bedrock-style-gridsystem bedrock-style-heading bedrock-style-tooltip bedrock-style-grid-layout bedrock-style-icons bedrock-style-padding-margin">
             :host {
                 display: block;

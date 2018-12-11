@@ -8,7 +8,7 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import { OptionalMutableData } from '@polymer/polymer/lib/mixins/mutable-data.js';
 import '../bedrock-component-context-behavior/bedrock-component-context-behavior.js';
@@ -22,7 +22,7 @@ import '../liquid-rest/liquid-rest.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockEntityDownload extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.ComponentContextBehavior], OptionalMutableData(PolymerElement)) {
   static get template() {
-    return Polymer.html`
+    return html`
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
         [[_message]]
         <liquid-rest id="copDownloadService" url="" method="POST" request-data="{{_copDownloadRequest}}" on-liquid-response="_onCOPDownloadSuccess" on-liquid-error="_onCOPDownloadFailure"></liquid-rest>

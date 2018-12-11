@@ -8,7 +8,7 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '../bedrock-helpers/data-helper.js';
 import '../bedrock-datasource-behavior/bedrock-datasource-behavior.js';
@@ -17,7 +17,7 @@ import { dom } from '@polymer/polymer/lib/legacy/polymer.dom.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class EventListDatasource extends mixinBehaviors([RUFBehaviors.DataSourceBehavior], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <liquid-event-get id="initGetEventSearch" operation="initiatesearch" request-data="{{request}}" last-response="{{_initGetEventSearchResponse}}" on-error="_onGetSearchError" exclude-in-progress=""></liquid-event-get>
         <liquid-event-get id="getEventSearchResults" operation="getsearchresultdetail" request-data="{{request}}" request-id="[[_initGetEventSearchResponse.content.requestId]]" last-response="{{getEventSearchResultsResponse}}" on-error="_onGetSearchError" no-cache="true" exclude-in-progress=""></liquid-event-get>
 `;

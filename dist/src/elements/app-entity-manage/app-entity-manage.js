@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import { OptionalMutableData } from '@polymer/polymer/lib/mixins/mutable-data.js';
 import { timeOut } from '@polymer/polymer/lib/utils/async.js';
 import { Debouncer } from '@polymer/polymer/lib/utils/debounce.js';
@@ -29,6 +29,8 @@ import '../rock-entity-sidebar/rock-entity-sidebar.js';
 import '../rock-dimension-grid/rock-dimension-grid.js';
 import '../rock-entity-manage-elements/rock-entity-manage-elements.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
+import ProgressTracker from '../app-main/ProgressTracker.js';
+
 class AppEntityManage
     extends mixinBehaviors([
         RUFBehaviors.AppBehavior,
@@ -39,7 +41,7 @@ class AppEntityManage
         RUFBehaviors.NavigationBehavior
     ], OptionalMutableData(PolymerElement)) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-common">
             rock-entity-detail-tabs {
                 --rock-tab-content-height: {

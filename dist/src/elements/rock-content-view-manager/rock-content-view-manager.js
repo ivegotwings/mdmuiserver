@@ -8,15 +8,17 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '../bedrock-helpers/component-helper.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../rock-content-view/rock-content-view.js';
 import { flush } from '@polymer/polymer/lib/legacy/polymer.dom.js';
+import ProgressTracker from '../app-main/ProgressTracker.js';
+
 class RockContentViewManager extends PolymerElement {
   static get template() {
-    return Polymer.html`
+    return html`
     <style>
       #contentViewManager {
         background-color: var(--white, #fff);

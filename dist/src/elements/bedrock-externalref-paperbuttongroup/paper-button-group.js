@@ -23,7 +23,7 @@ information about `paper-button`.
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 import { IronSelectableBehavior } from '@polymer/iron-selector/iron-selectable.js';
 import { IronA11yKeysBehavior } from '@polymer/iron-a11y-keys-behavior/iron-a11y-keys-behavior.js';
@@ -34,7 +34,7 @@ class PaperButtonGroup
       IronA11yKeysBehavior
     ], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
     <slot></slot>
     `;
   }

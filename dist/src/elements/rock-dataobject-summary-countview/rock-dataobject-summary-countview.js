@@ -1,9 +1,9 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '../liquid-entity-model-get/liquid-entity-model-get.js';
 import './rock-dataobject-summary-countview-item.js';
 class RockDataobjectSummaryCountview extends PolymerElement{
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-common bedrock-style-gridsystem">
             :host {
                 display: block;

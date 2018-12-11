@@ -4,7 +4,7 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import { OptionalMutableData } from '@polymer/polymer/lib/mixins/mutable-data.js';
 import '@polymer/app-route/app-route.js';
@@ -13,7 +13,7 @@ import { timeOut } from '@polymer/polymer/lib/utils/async.js';
 import { Debouncer } from '@polymer/polymer/lib/utils/debounce.js';
 import '@polymer/polymer/lib/elements/dom-if.js';
 import '../bedrock-managers/bedrock-managers.js';
-import '../bedrock-managers/locale-manager.js';
+import LocaleManager from '../bedrock-managers/locale-manager.js';
 import '../bedrock-managers/context-model-manager.js';
 import '../bedrock-managers/entity-composite-model-manager.js';
 import '../bedrock-helpers/constant-helper.js';
@@ -60,6 +60,7 @@ function isEmpty(obj) {
     return true;
 }
 
+
 class MainApp
 extends mixinBehaviors([
     RUFBehaviors.UIBehavior,
@@ -67,7 +68,7 @@ extends mixinBehaviors([
     RUFBehaviors.ComponentConfigBehavior
 ], OptionalMutableData(PolymerElement)) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-variables bedrock-style-common">
             #middle-container {
                 margin-left: 45px;
@@ -474,8 +475,8 @@ extends mixinBehaviors([
           ComponentHelper.removeNode(document.getElementById("loader"));
 
           timeOut.after(ConstantHelper.MILLISECONDS_100).run(() => {
-              afterNextRender(this, () => {
-                  importHref(resolveUrl("../../src/elements/app-common/app-common.html"), null, null, true);
+              afterNextRender(() => {
+                  import("../app-common/app-common.js");
                   let localeManager = ComponentHelper.getLocaleManager();
                   if (localeManager) {
                       localeManager.preload();
@@ -548,13 +549,13 @@ extends mixinBehaviors([
                       this.page = pageurl;
                       this.changePageRoutePath(pageurl);
                       let that = this;
-                      importHref(resolveUrl("../../src/elements/rock-content-view-manager/rock-content-view-manager.html"), function () {
+                      import("../rock-content-view-manager/rock-content-view-manager.js").then(function () {
                           let contentViewManager = that.contentViewManager;
                           if (contentViewManager) {
                               ComponentHelper.setQueryParamsWithoutEncode(queryParams);
                               contentViewManager.openView(page, that.appRepository[page], that.queryParams, that.openAction);
                           }
-                      }, null, true);
+                      });
                       ComponentHelper.emptyDeleteQueue();
                   } else {
                       if (!_.isEmpty(pageurl)) {
@@ -649,5 +650,5 @@ extends mixinBehaviors([
       }
   }
 }
-
 customElements.define(MainApp.is, MainApp)
+

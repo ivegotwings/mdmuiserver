@@ -7,7 +7,7 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import { timeOut } from '@polymer/polymer/lib/utils/async.js';
 import { Debouncer } from '@polymer/polymer/lib/utils/debounce.js';
@@ -24,7 +24,7 @@ class BedrockDataobjectNotificationHandler
         RUFBehaviors.UIBehavior
     ], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <bedrock-pubsub event-name="dataobject-notification" handler="_onDataObjectNotification"></bedrock-pubsub>
         <bedrock-pubsub event-name="notification-tap" handler="_onNotificationTap"></bedrock-pubsub>
 `;

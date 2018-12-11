@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '../bedrock-app-behavior/bedrock-app-behavior.js';
 import '../bedrock-pubsub/bedrock-pubsub.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
@@ -12,7 +12,7 @@ import { timeOut } from '@polymer/polymer/lib/utils/async.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class AppExternalDashboard extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBehaviors.ComponentConfigBehavior, RUFBehaviors.LoggerBehavior], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-common">
             rock-layout {
                 --rock-footer-background-color: #f5f7f9;

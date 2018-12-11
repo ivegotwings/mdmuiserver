@@ -10,7 +10,7 @@ It displays the content containing elements of varying size such as notification
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '@polymer/paper-material/paper-material.js';
 import '@polymer/paper-item/paper-item.js';
@@ -27,7 +27,7 @@ import '../pebble-popover/pebble-popover.js';
 import { timeOut } from '@polymer/polymer/lib/utils/async.js';
 class PebbleCard extends PolymerElement {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-common bedrock-style-gridsystem bedrock-style-tooltip bedrock-style-grid-layout bedrock-style-icons bedrock-style-padding-margin">
             :host {
                 display: block;

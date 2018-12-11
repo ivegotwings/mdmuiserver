@@ -8,7 +8,7 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '../bedrock-helpers/data-helper.js';
 import '../bedrock-lov-datasource-behavior/bedrock-lov-datasource-behavior.js';
@@ -22,7 +22,7 @@ class EntityModelLovDatasource
         RUFBehaviors.LOVDataSourceBehavior
     ], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <liquid-entity-model-get id="initEntityModelSearch" operation="initiatesearch" request-data="{{request}}" last-response="{{_initEntityModelSearchResponse}}" on-error="_onError" exclude-in-progress=""></liquid-entity-model-get>
         <liquid-entity-model-get id="getEntityModelSearchResult" operation="getsearchresultdetail" request-data="{{request}}" request-id="[[_initEntityModelSearchResponse.content.requestId]]" last-response="{{getEntityModelSearchResponse}}" on-error="_onError" exclude-in-progress=""></liquid-entity-model-get>
 `;

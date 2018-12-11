@@ -8,7 +8,7 @@ It filters the entities in the grid and provides a mechanism to add the filter c
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '../bedrock-ui-behavior/bedrock-ui-behavior.js';
 import '../bedrock-app-context-behavior/bedrock-app-context-behavior.js';
@@ -18,7 +18,7 @@ import '../rock-search-filter/rock-search-filter.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockEntitySearchFilter extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.AppContextBehavior], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <rock-search-filter id="search-filter" settings="[[settings]]" attributes-type="[[attributesType]]" icon="pebble-icon:filter" text="Refine More" filters-config="[[filtersConfig]]" tags="{{tags}}" max-allowed-values-for-search="[[maxAllowedValuesForSearch]]" context-data="[[contextData]]" hide-search-trigger="">
         </rock-search-filter>
         <bedrock-pubsub event-name="tag-value-change" handler="_onSearchTagValueChange"></bedrock-pubsub>

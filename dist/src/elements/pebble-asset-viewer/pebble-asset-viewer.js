@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import { OptionalMutableData } from '@polymer/polymer/lib/mixins/mutable-data.js';
 import '@polymer/paper-fab/paper-fab.js';
 import '@polymer/paper-tooltip/paper-tooltip.js';
@@ -13,7 +13,7 @@ import '../pebble-icon/pebble-icon.js';
 import { dom } from '@polymer/polymer/lib/legacy/polymer.dom.js';
 class PebbleAssetViewer extends OptionalMutableData(PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-common bedrock-style-scroll-bar bedrock-style-icons bedrock-style-padding-margin"></style>
         <template is="dom-if" if="[[assetUrl]]">
             <style>

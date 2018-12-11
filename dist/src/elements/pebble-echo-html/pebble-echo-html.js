@@ -1,7 +1,7 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 class PebbleEchoHtml extends PolymerElement {
   static get template() {
-    return Polymer.html`
+    return html`
     <style include="bedrock-style-common">
       :host {
         @apply --pebble-echo;

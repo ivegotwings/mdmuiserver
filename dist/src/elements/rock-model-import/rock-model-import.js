@@ -8,7 +8,7 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '../bedrock-component-context-behavior/bedrock-component-context-behavior.js';
 import '../bedrock-ui-behavior/bedrock-ui-behavior.js';
@@ -27,7 +27,7 @@ class RockModelImport
         RUFBehaviors.ComponentContextBehavior
     ], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-common bedrock-style-grid-layout bedrock-style-padding-margin">
             .placeHolder {
                 width: calc(100% - 10px);
