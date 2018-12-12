@@ -64,6 +64,10 @@ function readSecurityHeaders(req) {
         defaultRole = Array.isArray(roles) ? roles[0] : roles;
     }
 
+    if(Array.isArray(roles)) {
+        roles = roles.join(",");
+    }
+
     let firstName = req.headers["x-rdp-firstname"];
     let lastName = req.headers["x-rdp-lastname"];
 

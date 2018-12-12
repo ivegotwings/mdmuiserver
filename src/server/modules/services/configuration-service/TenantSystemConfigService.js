@@ -10,64 +10,98 @@ let TenantSystemConfigService = function (options) {
     DFRestService.call(this, options);
 };
 
-
+const RDF_SERVICE_NAME = "configurationservice";
 
 TenantSystemConfigService.prototype = {
-    getCachedTenantMetaData: function(){
-        let defaultSourceAndLocale = {
-            defaultValueSource : "internal",
-            defaultValueLocale: "en-US"
+    getDefaultValContext: async function(){
+        let defaultValContext = {
+            "source": "internal",
+            "locale": "en-US"
         };
-        if (isEmpty(localConfigCache)) {
-            localConfigCache["tenant-settings-key"] = "default";
-            localConfigCache["default"] = defaultSourceAndLocale;
+        
+        let tenantConfigKey = this.getCacheKey();
+        let tenantConfig = localConfigCache[tenantConfigKey];
+        if(!isEmpty(tenantConfig) && !isEmpty(tenantConfig.defaultValueSource) && !isEmpty(tenantConfig.defaultValueLocale)) {
+            defaultValContext = {
+                "source": tenantConfig.defaultValueSource,
+                "locale": tenantConfig.defaultValueLocale
+            };
+        } else {
+            //tenantConfig is not available in cache...
+            //Get from API call...
+            tenantConfig = await this.get();
+            if(!isEmpty(tenantConfig) && !isEmpty(tenantConfig.defaultValueSource) && !isEmpty(tenantConfig.defaultValueLocale)) {
+                defaultValContext = {
+                    "source": tenantConfig.defaultValueSource,
+                    "locale": tenantConfig.defaultValueLocale
+                };
+            }
         }
-        return localConfigCache;
+        
+        return defaultValContext;
     },
-    getDefaultSource: function(){
-        let tenantSetting = this.getCachedTenantMetaData();
-        let tenantConfigKey = tenantSetting["tenant-settings-key"];
-        return tenantSetting[tenantConfigKey].defaultValueSource;
-    },
-    getDefaultLocale: function(){
-        let tenantSetting = this.getCachedTenantMetaData();
-        let tenantConfigKey = tenantSetting["tenant-settings-key"];
-        return tenantSetting[tenantConfigKey].defaultValueLocale;
-    },
-    get: async function (url, tenantConfigRequest) {
-        let tenant = this.getTenantId();
+    get: async function () {
+        //Get runtime version...
+        let runtimeVersion = await RuntimeVersionManager.getVersion();
+        localConfigCache["runtime-version"] = runtimeVersion;
 
-        let mode = "online";
-        let configId = tenantConfigRequest.params.query.id;
-        this.configId = configId;
-        let cacheKey = await this.getCacheKey();
-        localConfigCache["tenant-settings-key"] = cacheKey;
+        //Get tenant id...
+        let tenantId = this._getTenantId();
+
+        let cacheKey = this.getCacheKey(tenantId);
         if (localConfigCache[cacheKey]) {
             return falcorUtil.cloneObject(localConfigCache[cacheKey]);
         }
 
-        let tenantConfigResponse;
-        let tenantConfigMetadata;
+        let tenantConfigRequest = {
+            "params": {
+                "query": {
+                    "id": tenantId,
+                    "filters": {
+                        "typesCriterion": [
+                        "tenantserviceconfig"
+                        ]
+                    }
+                },
+                "fields": {
+                    "properties": [
+                        "_ALL"
+                    ]
+                },
+                "options": {
+                    "totalRecords": 100
+                }
+            }
+        };
 
         //rdf returns tenant config only if the tenant is dataplatform
-        tenantConfigResponse = await this.post(url, tenantConfigRequest, "dataplatform");
-        tenantConfigMetadata = this.getTenantMetadata(tenantConfigResponse);
+        let tenantConfigResponse = await this.post(RDF_SERVICE_NAME + "/get", tenantConfigRequest, "dataplatform");
+        let tenantConfigMetadata = this.getTenantMetadata(tenantConfigResponse);
         
         localConfigCache[cacheKey] = falcorUtil.cloneObject(tenantConfigMetadata);
         return tenantConfigMetadata;
     },
-    getCacheKey: async function() {
-        let runtimeVersion = await RuntimeVersionManager.getVersion();
-        let securityContext = executionContext && executionContext.getSecurityContext();
+    getCacheKey: function(tenantId) {
+        if(!tenantId) {
+            tenantId = this._getTenantId();
+        }
+        
+        let runtimeVersion = "unknown";
+        if(localConfigCache["runtime-version"]) {
+            runtimeVersion = localConfigCache["runtime-version"];
+        }
+        
+        return "".concat(tenantId, "_", runtimeVersion);
+    },
+    _getTenantId: function() {
         let tenantId = "unknown";
-        let configId = this.configId;
-        if (securityContext) {
+        let securityContext = executionContext.getSecurityContext();
+        if (securityContext && securityContext.tenantId) {
             tenantId = securityContext.tenantId;
         }
-        return "".concat(tenantId,"_", configId,"_", runtimeVersion);
+        return tenantId;
     },
     getTenantMetadata: function(config){
-        
         let tenantMetadata={};
         if(falcorUtil.isValidObjectPath(config, "response.configObjects.0")){
             let configObject = config.response.configObjects[0];

@@ -3,7 +3,7 @@ let DFRestService = require('../../common/df-rest-service/DFRestService'),
     uuidV1 = require('uuid/v1'),
     arrayContains = require('../../common/utils/array-contains'),
     moment = require('moment');
-let tenantSystemConfigService = require('../configuration-service/TenantSystemConfigService');
+const TenantSystemConfigService = require('../configuration-service/TenantSystemConfigService');
 let config = require('config');
 let taskSummarizationProcessorEnabled = config.get('modules.webEngine.taskSummarizationProcessorEnabled');
 
@@ -11,6 +11,7 @@ let _ = require('underscore');
 
 let Eventservice = function (options) {
     DFRestService.call(this, options);
+    this.tenantSystemConfigService = new TenantSystemConfigService(options);
 };
 
 const falcorUtil = require('../../../../shared/dataobject-falcor-util');
@@ -136,6 +137,7 @@ Eventservice.prototype = {
 
                 //console.log('groups ', JSON.stringify(groups));
 
+                let defaultValContext = await this.tenantSystemConfigService.getDefaultValContext();
                 for (let groupKey in groups) {
                     let group = groups[groupKey];
                     let currentEventRecordIdx = 0;
@@ -156,7 +158,7 @@ Eventservice.prototype = {
 
                             if(highOrderEvent) {
                                 if (!this._getAttributeValue(highOrderEvent, "recordCount") && this._getAttributeValue(event, "recordCount")) {
-                                    this._setAttributeValue(highOrderEvent, "recordCount", this._getAttributeValue(event, "recordCount"));
+                                    this._setAttributeValue(highOrderEvent, "recordCount", this._getAttributeValue(event, "recordCount"), defaultValContext);
                                 }
                             }
                         }
@@ -166,10 +168,10 @@ Eventservice.prototype = {
                     if (highOrderEvent && (!reqExternalEventSubType || this._compareEventSubType(highOrderEvent.eventSubType, reqExternalEventSubType))) {
 
                         if (reqExternalEventSubType) {
-                            this._setAttributeValue(highOrderEvent, "eventSubType", reqExternalEventSubType);
+                            this._setAttributeValue(highOrderEvent, "eventSubType", reqExternalEventSubType, defaultValContext);
                         }
                         else {
-                            this._setAttributeValue(highOrderEvent, "eventSubType", this._getExternalEventSubType(highOrderEvent.eventSubType));
+                            this._setAttributeValue(highOrderEvent, "eventSubType", this._getExternalEventSubType(highOrderEvent.eventSubType), defaultValContext);
                         }
 
                         filteredEvents.push(highOrderEvent);
@@ -213,9 +215,11 @@ Eventservice.prototype = {
             let taskId = request.body.taskId;
             //console.log('Get details for ', taskId);
 
+            let defaultValContext = await this.tenantSystemConfigService.getDefaultValContext();
+
             //Task summarization processor temp changes...
             if(taskSummarizationProcessorEnabled) {
-                response = await this._getTaskDetailsFromSummarizationProcessor(taskId);
+                response = await this._getTaskDetailsFromSummarizationProcessor(taskId, defaultValContext);
 
                 if(response && !isEmpty(response)) {
                     return response;
@@ -226,7 +230,7 @@ Eventservice.prototype = {
             let attributeNames = ["fileId", "fileName", "fileType", "eventType", "eventSubType", "recordCount", "createdOn", "userId", "profileType", "taskName", "taskType", "message", "integrationType"];
             let eventTypeFilterString = "BATCH_COLLECT_ENTITY_IMPORT BATCH_TRANSFORM_ENTITY_IMPORT EXTRACT BATCH_COLLECT_ENTITY_EXPORT BATCH_TRANSFORM_ENTITY_EXPORT BATCH_PUBLISH_ENTITY_EXPORT";
             let eventSubTypeFilterString = "";
-            let eventsGetRequest = this._generateEventsGetReq(taskId, attributeNames, eventTypeFilterString, eventSubTypeFilterString, false);
+            let eventsGetRequest = this._generateEventsGetReq(taskId, attributeNames, eventTypeFilterString, eventSubTypeFilterString, false, defaultValContext);
 
             //console.log('Batch events get request to RDF', JSON.stringify(eventsGetRequest));
             let eventServiceGetUrl = 'eventservice/get';
@@ -285,7 +289,7 @@ Eventservice.prototype = {
                             if (!this._getAttributeValue(highOrderEvent, "recordCount")) {
                                 let currentEventRecordCount = this._getAttributeValue(event, "recordCount");
                                 if(currentEventRecordCount) {
-                                    this._setAttributeValue(highOrderEvent, "recordCount", currentEventRecordCount);
+                                    this._setAttributeValue(highOrderEvent, "recordCount", currentEventRecordCount, defaultValContext);
                                 }
                             }
                         }
@@ -378,7 +382,7 @@ Eventservice.prototype = {
                             let attributeNames = ["createdOn"]; //This attribute is needed to get endTime
                             let eventTypeFilterString = "RECORD_TRANSFORM_ENTITY_IMPORT RECORD_PUBLISH_ENTITY_IMPORT RECORD_PUBLISH_ENTITY_EXPORT LOAD";
                             let eventSubTypeFilterString = "PROCESSING_ERROR PROCESSING_COMPLETE_ERROR";
-                            let eventsGetRequest = this._generateEventsGetReq(taskId, attributeNames, eventTypeFilterString, eventSubTypeFilterString, true);
+                            let eventsGetRequest = this._generateEventsGetReq(taskId, attributeNames, eventTypeFilterString, eventSubTypeFilterString, true, defaultValContext);
 
                             //console.log('Record events get request to RDF', JSON.stringify(eventsGetRequest));
                             let recordEventsGetRes = await this.post(eventServiceGetUrl, eventsGetRequest);
@@ -488,7 +492,8 @@ Eventservice.prototype = {
             response = await this.post(importTaskListGetUrl, importTaskListGetRequest);
 
             if(response) {
-                this._convertTaskSummaryObjectInToEvents(response);
+                let defaultValContext = await this.tenantSystemConfigService.getDefaultValContext();
+                this._convertTaskSummaryObjectInToEvents(response, defaultValContext);
             }
         }
         catch (err) {
@@ -508,7 +513,7 @@ Eventservice.prototype = {
 
         return response;
     },
-    _generateEventsGetReq: function (taskId, attributeNames, eventTypesFilterString, eventSubTypesFilterString, isRecordCountGet) {
+    _generateEventsGetReq: function (taskId, attributeNames, eventTypesFilterString, eventSubTypesFilterString, isRecordCountGet, defaultValContext) {
         let types = ["externalevent"];
         let req = this._getRequestJson(types);
 
@@ -516,8 +521,8 @@ Eventservice.prototype = {
         if (attributeNames && attributeNames.length > 0) {
             req.params.fields.attributes = attributeNames;
             req.params.query.valueContexts = [{
-                "source": tenantSystemConfigService.prototype.getDefaultSource(),
-                "locale": tenantSystemConfigService.prototype.getDefaultLocale(),
+                "source": defaultValContext.source,
+                "locale": defaultValContext.locale,
             }];
         }
 
@@ -751,7 +756,7 @@ Eventservice.prototype = {
         return req;
     },
     //Task summarization processor temp changes...
-    _convertTaskSummaryObjectInToEvents: function(taskSummaryObjectsResponse) {
+    _convertTaskSummaryObjectInToEvents: function(taskSummaryObjectsResponse, defaultValContext) {
         let response = taskSummaryObjectsResponse.response;
 
         if(response) {
@@ -783,8 +788,8 @@ Eventservice.prototype = {
                             eventAttributes["isExtractComplete"] = attributes["isExtractComplete"];
                             eventAttributes["createdOn"] = {"values": [
                                 {
-                                    "source": tenantSystemConfigService.prototype.getDefaultSource(),
-                                    "locale": tenantSystemConfigService.prototype.getDefaultLocale(),
+                                    "source": defaultValContext.source,
+                                    "locale": defaultValContext.locale,
                                     "id": uuidV1(),
                                     "value": taskSummaryObject.properties ? taskSummaryObject.properties.createdDate : ""
                                 }
@@ -795,8 +800,8 @@ Eventservice.prototype = {
                             if(attributes["taskType"] && attributes["taskType"].values[0].value.search(/createvariants/i) > -1){
                                 eventAttributes["taskName"] = {"values": [
                                     {
-                                        "source": tenantSystemConfigService.prototype.getDefaultSource(),
-                                        "locale": tenantSystemConfigService.prototype.getDefaultLocale(),
+                                        "source": defaultValContext.source,
+                                        "locale": defaultValContext.locale,
                                         "id": uuidV1(),
                                         "value": "Create Variants"
                                     }
@@ -815,11 +820,11 @@ Eventservice.prototype = {
         }
     },
     //Task summarization processor temp changes...
-    _getTaskDetailsFromSummarizationProcessor: async function(taskId) {
+    _getTaskDetailsFromSummarizationProcessor: async function(taskId, defaultValContext) {
         let response = {};
 
         //Generate summary get request...
-        let taskSummmaryGetRequest = this._generateTaskSummaryGetReq(taskId);
+        let taskSummmaryGetRequest = this._generateTaskSummaryGetReq(taskId, defaultValContext);
 
         let taskSummaryGetUrl = 'requesttrackingservice/get';
         let taskSummaryGetRes = await this.post(taskSummaryGetUrl, taskSummmaryGetRequest);
@@ -881,15 +886,15 @@ Eventservice.prototype = {
         return response;
     },
     //Task summarization processor temp changes...
-    _generateTaskSummaryGetReq: function (taskId) {
+    _generateTaskSummaryGetReq: function (taskId, defaultValContext) {
         let types = ["tasksummaryobject"];
         let req = this._getRequestJson(types);
 
         req.params.query.id = taskId;
         req.params.fields.attributes = ["_ALL"];
         req.params.query.valueContexts = [{
-            "source": tenantSystemConfigService.prototype.getDefaultSource(),
-            "locale": tenantSystemConfigService.prototype.getDefaultLocale(),
+            "source": defaultValContext.source,
+            "locale": defaultValContext.locale,
         }];
 
         req.params.options = {
@@ -1331,7 +1336,7 @@ Eventservice.prototype = {
         let externalEventSubType = this._getExternalEventSubType(currentInternalEventSubType);
         return externalEventSubType == reqExternalEventSubType;
     },
-    _setAttributeValue: function (event, attrName, val) {
+    _setAttributeValue: function (event, attrName, val, defaultValContext) {
         if (event && event.data && event.data.attributes) {
             if (event.data.attributes[attrName] && event.data.attributes[attrName].values && event.data.attributes[attrName].values.length > 0) {
                 event.data.attributes[attrName].values[0].value = val;
@@ -1340,8 +1345,8 @@ Eventservice.prototype = {
                 event.data.attributes[attrName] = {};
                 event.data.attributes[attrName].values = [{
                     "value": val,
-                    "source": tenantSystemConfigService.prototype.getDefaultSource(),
-                    "locale": tenantSystemConfigService.prototype.getDefaultLocale(),
+                    "source": defaultValContext.source,
+                    "locale": defaultValContext.locale,
                 }];
             }
         }
@@ -1476,6 +1481,9 @@ Eventservice.prototype = {
                     break;
                 case "ui_workflowappmodel_export":
                     taskType = "Workflow Model Exports"
+                    break;
+                case "loadtenantseed":
+                    taskType = "Tenant Seed Imports"
                     break;
             }
         }

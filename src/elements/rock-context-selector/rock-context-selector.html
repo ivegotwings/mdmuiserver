@@ -84,7 +84,7 @@
                 --paper-button-text: {
                     max-width: 100%;
                 }
-            }            
+            }
         </style>
         <div class="dimension-wrap">
             <template is="dom-repeat" items="[[_contextToBeRendered]]" as="ctx">
@@ -252,10 +252,6 @@
                             return {};
                         }
                     },
-                    contextSelectorRefresh: {
-                        type: Boolean,
-                        value: false
-                    },
                     favouriteContexts: {
                         type: Array,
                         value: function () {
@@ -303,6 +299,14 @@
                     _rootContextChanged: {
                         type: Boolean,
                         value: false
+                    },
+                    _isFirstContextLoad: {
+                        type: Boolean,
+                        value: true
+                    },
+                    _entityContextsModified: {
+                        type: Boolean,
+                        value: false
                     }
                 }
             }
@@ -340,11 +344,9 @@
 
             disconnectedCallback() {
                 super.disconnectedCallback();
-                this.contextSelectorRefresh = false;
             }
             connectedCallback() {
                 super.connectedCallback();
-                this.contextSelectorRefresh = true;
             }
 
             _prepareContext() {
@@ -380,12 +382,14 @@
                         this.selectNewlyAddedContext(data.newlyAddedContexts);
                     }
                 }
+                this._entityContextsModified = true;
                 this._createContextGetRequest(this.entityId, this.entityType);
             }
 
             selectNewlyAddedContext(selectedItemData) {
                 let contextEl = this.shadowRoot.querySelector("#context-lov");
                 if (contextEl) {
+                    contextEl.selectedItems = selectedItemData;
                     let currentContext = this._contextToBeRendered;
                     let contextObj = currentContext.filter(contextItem => {
                         if (contextItem.id == "context") {
@@ -393,12 +397,9 @@
                         }
                     })
                     contextObj[0].selectedItem = selectedItemData;
-                    this._contextToBeRendered = undefined;
-                    this._contextToBeRendered = currentContext;
-                    this._updateSelectedDimensions();
                 }
             }
-                
+
             async onConfigLoaded(componentConfig) {
                 if (componentConfig && componentConfig.config) {
                     let configData = DataHelper.convertObjectToArray(componentConfig.config);
@@ -474,10 +475,6 @@
                     if (domain) {
                         this._domainChanged(domain);
                     }
-
-                    if (!_.isEmpty(entityType)) {
-                        this._entityTypeChanged(entityType);
-                    }
                 }
             }
 
@@ -521,7 +518,7 @@
                         item.dataMappings["type"] = types;
                         if (!_.isEmpty(types)) {
                             types.forEach(function (type) {
-                                if(!_.isEmpty(this.preSelectedContexts) && !_.isEmpty(this.preSelectedContexts[type])) {
+                                if (!_.isEmpty(this.preSelectedContexts) && !_.isEmpty(this.preSelectedContexts[type])) {
                                     item.selectedItem = this.preSelectedContexts[type][0];
                                 }
                                 ctxIds.push(type + "_entityManageModel");
@@ -657,15 +654,6 @@
                         let subtitlePattern = "typeExternalName";
                         let mappedValueContexts = this._getMappedValueContextsBasedOnCtxType(types[0]);
 
-                        if (mappedValueContexts) {
-                            let dependentRelationships = mappedValueContexts.map(v => v.valueContextRelationship);
-
-                            if (dependentRelationships) {
-                                reqData.params.fields.relationships = dependentRelationships;
-                                reqData.params.fields.relationshipAttributes = [this._getDefaultSelectedAttrName()];
-                            }
-                        }
-
                         ctxs[ctxKey] = {
                             "id": ctxKey,
                             "title": ctxExtName,
@@ -692,6 +680,19 @@
                 }
             }
 
+            _addDependentRelatinoshipBasedOnType(reqData, type) {
+                let mappedValueContexts = this._getMappedValueContextsBasedOnCtxType(type);
+
+                if (mappedValueContexts) {
+                    let dependentRelationships = mappedValueContexts.map(v => v.valueContextRelationship);
+
+                    if (dependentRelationships) {
+                        reqData.params.fields.relationships = dependentRelationships;
+                        reqData.params.fields.relationshipAttributes = [this._getDefaultSelectedAttrName()];
+                    }
+                }
+            }
+
             _renderContextSelector(ctxs) {
                 let parsedContexts = [];
                 if (!_.isEmpty(ctxs)) {
@@ -702,9 +703,19 @@
                     }, this);
                 }
 
-                if (this._checkPreselectedContextOnLoad(parsedContexts)) {
-                    this._parsedContexts = parsedContexts;
-                } else {
+                this._parsedContexts = parsedContexts;
+                /**
+                * If entitytype is present need to wait until entity current contexts are recieved 
+                * to request only for those contexts.
+                * If there are any preselectedContexts on load as well we need to wait until we recieve 
+                * those context details to reduce multiple times redering of context-selector
+                * */
+
+                if (!_.isEmpty(this.entityType)) {
+                    this._entityTypeChanged(this.entityType);
+                    return;
+                }
+                if (!this._checkPreselectedContextOnLoad(parsedContexts)) {
                     this._contextToBeRendered = undefined;
                     this._contextToBeRendered = parsedContexts;
                     this._updateSelectedDimensions();
@@ -848,6 +859,7 @@
             }
 
             _onEntityLovConfirmButtonTapped(event) {
+                this._isFirstContextLoad = false;
                 this._currentLovEvent = event;
                 this._updateSelectedDimensions();
                 this._toggleLovPopover(this._currentContextSelector.popover);
@@ -869,17 +881,14 @@
                 Polymer.Debouncer.debounce(this._debouncer, Polymer.Async.timeOut.after(100), () => {
                     this._setSelectedDimensions();
                     this._updateCurrentContextState();
-                    this.contextSelectorRefresh = false;
                 });
             }
 
             _setSelectedDimensions() {
                 //On page refresh set from navigationData
                 let defaultDimensions = [];
-                if (this.contextSelectorRefresh) {
-                    if (!_.isEmpty(this.navigationData)) {
-                        defaultDimensions = this.navigationData;
-                    }
+                if (!_.isEmpty(this.navigationData) && this._isFirstContextLoad) {
+                    defaultDimensions = this.navigationData;
                 }
 
                 let selectedDimensions = {};
@@ -1051,14 +1060,169 @@
                     let isRootContextChanged = this._isRootContextChanged();
                     this.set("_rootContextChanged", isRootContextChanged);
                     let dependentLovRelationships = {};
+                    let selectedCtxIds = {};
                     this.configData.forEach(function (item) {
                         let ctxKey = item.id;
                         let lovElement = this.$$('#' + ctxKey + '-lov');
                         if (lovElement && lovElement.rData) {
                             let ctxData = lovElement.rData;
                             let ctxTypes = ctxData.dataMappings.type;
+                            if(ctxData && ctxData.contextType == "data") {
+                                if(this._entityContextsModified) {
+                                    let parsedContext = !_.isEmpty(this._contextToBeRendered) ? this._contextToBeRendered.find(obj => obj.id === ctxKey) : undefined;
+                                    if(parsedContext && !_.isEmpty(parsedContext.dataRequest)) {
+                                        lovElement.requestData = parsedContext.dataRequest;
+                                        lovElement.reset();
+                                    }
+                                    this._entityContextsModified = false;
+                                }
+                                for (let i = 0; i < ctxTypes.length; i++) {
+                                    let ctxType = ctxTypes[i];
+                                    let itemIdx = this._contextHierarchy.indexOf(ctxType);
+
+                                    let selectedItems = lovElement.selectedItems;
+                                    if (_.isEmpty(selectedItems) && !_.isEmpty(lovElement.selectedItem)) {
+                                        selectedItems = [lovElement.selectedItem];
+                                    }
+                                    if (!_.isEmpty(selectedItems)) {
+                                        let ids = [];
+                                        selectedItems.forEach((selectedItem) => {
+                                            if (ctxType == selectedItem.type) {
+                                                let entityId = selectedItem.entityId ? selectedItem.entityId : item.selectedItem.entityId;
+
+                                                if (!_.isEmpty(entityId)) {
+                                                    ids.push(entityId);
+                                                }
+                                            }
+                                        });
+
+                                        if (!_.isEmpty(ids)) {
+                                            selectedCtxIds[ctxType] = ids;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }, this);
+
+                    let localeLovButton = this.shadowRoot.querySelector("#locale-toggle-button");
+
+                    if (localeLovButton) {
+                        localeLovButton.disabled = true;
+                    }
+
+                    if (!_.isEmpty(selectedCtxIds)) {
+                        let ctxtypesCriterion = Object.keys(selectedCtxIds);
+                        let ctxIds = [];
+
+                        ctxtypesCriterion.forEach((ctxType) => {
+                            ctxIds = ctxIds.concat(selectedCtxIds[ctxType]);
+                        });
+
+                        if (!_.isEmpty(ctxtypesCriterion) && !_.isEmpty(ctxIds)) {
+
+                            let requestData = {
+                                "params": {
+                                    "query": {
+                                        "ids": ctxIds,
+                                        "valueContexts": [
+                                            {
+                                                "source": "internal",
+                                                "locale": "en-US"
+                                            }
+                                        ],
+                                        "filters": {
+                                            "typesCriterion": ctxtypesCriterion
+                                        }
+                                    },
+                                    "fields": {}
+                                }
+                            }
+
+                            this._addDependentRelatinoshipBasedOnType(requestData, ctxtypesCriterion[0])
+
+                            let liquidCustomElement = customElements.get("liquid-entity-data-get");
+                            let liquidElement = new liquidCustomElement();
+                            liquidElement.requestData = requestData;
+                            liquidElement.operation = "getbyids";
+
+                            let ctxGetResponse = (e) => {
+                                if (DataHelper.isValidObjectPath(e, "detail.response.content.entities")) {
+                                    let entities = e.detail.response.content.entities;
+                                    let valCtxIds = {};
+                                    let defaultValCtxIds = {};
+
+                                    entities.forEach((entity) => {
+                                        if (!_.isEmpty(entity)) {
+                                            if (DataHelper.isValidObjectPath(entity, "data.relationships")) {
+                                                let relationships = entity.data.relationships;
+
+                                                if (!_.isEmpty(relationships)) {
+                                                    Object.keys(relationships).forEach((relType) => {
+                                                        let rels = relationships[relType];
+
+                                                        if (!_.isEmpty(rels)) {
+                                                            rels.forEach((rel) => {
+                                                                let relId = rel.relTo.id;
+                                                                let relEntityType = rel.relTo.type;
+
+                                                                if (!valCtxIds[relEntityType]) {
+                                                                    valCtxIds[relEntityType] = [];
+                                                                }
+
+                                                                if (_.isEmpty(defaultValCtxIds[relEntityType])) {
+                                                                    if (rel.attributes) {
+                                                                        let relAttr = rel.attributes[this._getDefaultSelectedAttrName()];
+                                                                        if (DataHelper.isValidObjectPath(relAttr, "values.0.value") && relAttr.values[0].value.toString() == "true") {
+                                                                            defaultValCtxIds[relEntityType] = rel.relTo.id;
+                                                                        }
+                                                                    } else {
+                                                                        defaultValCtxIds[relEntityType] = [];
+                                                                    }
+                                                                }
+
+                                                                valCtxIds[relEntityType].push(relId);
+                                                            });
+                                                        }
+                                                    });
+                                                }
+                                            }
+                                        }
+                                    });
+
+                                    this._setDependentValCtxLovRelationships(defaultValCtxIds, valCtxIds);
+                                    this._updateCurrentValContextState(valCtxIds);
+                                }
+                            };
+
+                            let ctxGetError = (e) => {
+                                console.logError('Value context dependecy get failed based on current selected contexts', e.detail);
+                            }
+
+                            liquidElement.addEventListener("response", ctxGetResponse.bind(this));
+                            liquidElement.addEventListener("error", ctxGetError.bind(this));
+
+                            liquidElement.generateRequest();
+                        }
+
+                    } else {
+                        this._updateCurrentValContextState({});
+                    }
+                }
+            }
+
+            _updateCurrentValContextState(dependentLovRelationships) {
+                this.configData.forEach(function (item) {
+                    let ctxKey = item.id;
+                    let lovElement = this.$$('#' + ctxKey + '-lov');
+                    if (lovElement && lovElement.rData) {
+                        let ctxData = lovElement.rData;
+
+                        if (ctxData && ctxData.contextType == "value") {
+                            let ctxTypes = ctxData.dataMappings.type;
                             for (let i = 0; i < ctxTypes.length; i++) {
                                 let ctxType = ctxTypes[i];
+
                                 let itemIdx = this._contextHierarchy.indexOf(ctxType);
 
                                 let selectedItems = lovElement.selectedItems;
@@ -1066,29 +1230,31 @@
                                     selectedItems = [lovElement.selectedItem];
                                 }
 
-                                //Prepare list of dependent lov's and it's relationships based on selected dimension.
-                                // This list will be used when dependent lov will get reset with related entities which are mapped to current context as relationship.
-                                this._setDependentValCtxLovRelationships(ctxType, selectedItems, dependentLovRelationships);
 
-                                if (ctxData && ctxData.contextType == "value") {
-                                    let reqData = ctxData.dataRequest;
-                                    if (DataHelper.isValidObjectPath(reqData, "params.query")) {
-                                        if (!DataHelper.areEqualArrays(reqData.params.query.ids, dependentLovRelationships[ctxType])) {
-                                            reqData.params.query.ids = dependentLovRelationships[ctxType];
+                                let reqData = ctxData.dataRequest;
+                                if (DataHelper.isValidObjectPath(reqData, "params.query")) {
+                                    if (!DataHelper.areEqualArrays(reqData.params.query.ids, dependentLovRelationships[ctxType])) {
+                                        reqData.params.query.ids = dependentLovRelationships[ctxType];
 
-                                            lovElement.selectedItems = this.selectedDimensionsDetail[ctxType];
-                                            lovElement.selectedItem = !_.isEmpty(lovElement.selectedItems) ? lovElement.selectedItems[0] : {};
-                                            lovElement.requestData = reqData;
-                                        }
+                                        lovElement.selectedItems = this.selectedDimensionsDetail[ctxType];
+                                        lovElement.selectedItem = !_.isEmpty(lovElement.selectedItems) ? lovElement.selectedItems[0] : {};
+                                        lovElement.requestData = reqData;
+
+                                        lovElement.reset();
                                     }
                                 }
-                                lovElement.reset();
                             }
                         }
-                    }, this);
+                    }
+                }, this);
 
-                    this._setSelectedDimensions();
+                let localeLovButton = this.shadowRoot.querySelector("#locale-toggle-button");
+
+                if (localeLovButton) {
+                    localeLovButton.disabled = false;
                 }
+
+                this._setSelectedDimensions();
             }
 
             _isRootContextChanged() {
@@ -1117,59 +1283,27 @@
                 return isRootCtxhanged;
             }
 
-            _setDependentValCtxLovRelationships(currentContextType, selectedItems, dependentLovRelationships) {
-                if (!_.isEmpty(selectedItems)) {
-                    let mappedValueContexts = this._getMappedValueContextsBasedOnCtxType(currentContextType);
+            _setDependentValCtxLovRelationships(defaultValCtxIds, valCtxIds) {
+                if (!_.isEmpty(defaultValCtxIds)) {
+                    this.selectedDimensionsDetail["PreSelectedItems"] = {};
+                    for (let dctxs in defaultValCtxIds) {
 
-                    if (mappedValueContexts) {
-                        this.selectedDimensionsDetail["PreSelectedItems"] = {};
-                        let dependentCtxs = mappedValueContexts.map(a => a.valueContext);
-
-                        if (dependentCtxs) {
-                            for (let dctxs of dependentCtxs) {
-                                if (!dependentLovRelationships[dctxs]) {
-                                    dependentLovRelationships[dctxs] = [];
-                                }
-
-                                for (let selectedItem of selectedItems) {
-                                    if (selectedItem.relTo) {
-                                        let defaultValueContextId;
-                                        let relIds = selectedItem.relTo.map(function (rel) {
-                                            if (rel.relTo.type == dctxs) {
-                                                if(rel.attributes) {
-                                                    let relAttr = rel.attributes[this._getDefaultSelectedAttrName()];
-
-                                                    if (DataHelper.isValidObjectPath(relAttr, "values.0.value") && relAttr.values[0].value.toString() == "true") {
-                                                        defaultValueContextId = rel.relTo.id;
-                                                    }
-                                                }
-                                                return rel.relTo.id;
-                                            }
-                                        }, this);
-
-                                        if (!_.isEmpty(relIds)) {
-                                            dependentLovRelationships[dctxs] = dependentLovRelationships[dctxs].concat(relIds);
-                                        }
-
-                                        if (!this.selectedDimensionsDetail["PreSelectedItems"]) {
-                                            this.selectedDimensionsDetail["PreSelectedItems"] = {};
-                                        }
-
-                                        if (_.isEmpty(this.selectedDimensionsDetail["PreSelectedItems"][dctxs])) {
-                                            this.selectedDimensionsDetail["PreSelectedItems"][dctxs] = [];
-                                        }
-
-                                        if (_.isEmpty(defaultValueContextId)) {
-                                            defaultValueContextId = selectedItem.relTo[0].relTo.id;
-                                        }
-
-                                        if (this.selectedDimensionsDetail["PreSelectedItems"][dctxs].indexOf(defaultValueContextId) === -1) {
-                                            this.selectedDimensionsDetail["PreSelectedItems"][dctxs].push(defaultValueContextId);
-                                        }
-                                    }
-                                }
-                            }
+                        if (!this.selectedDimensionsDetail["PreSelectedItems"]) {
+                            this.selectedDimensionsDetail["PreSelectedItems"] = {};
                         }
+
+                        if (_.isEmpty(this.selectedDimensionsDetail["PreSelectedItems"][dctxs])) {
+                            this.selectedDimensionsDetail["PreSelectedItems"][dctxs] = [];
+                        }
+
+                        if (_.isEmpty(defaultValCtxIds[dctxs])) {
+                            defaultValCtxIds[dctxs] = valCtxIds[dctxs][0];
+                        }
+
+                        if (this.selectedDimensionsDetail["PreSelectedItems"][dctxs].indexOf(defaultValCtxIds[dctxs]) === -1) {
+                            this.selectedDimensionsDetail["PreSelectedItems"][dctxs].push(defaultValCtxIds[dctxs]);
+                        }
+
                     }
                 }
             }
@@ -1184,7 +1318,6 @@
                         // Add relationship detail into formatted item if entity has dependent relationship
                         // If entity has dependent relationship then check for "isDefault" relationship attribute to get preselected dependent value for current entity.
                         let _domHost = _rData ? this : this.domHost;
-                        _domHost._setDepenedencyRelationshipAndPreSelectedItems(data, formattedData, elementInfo);
 
                         if (elementInfo.contextType.toLowerCase() == "value" && DataHelper.isValidObjectPath(this.requestData, "params.query.ids.0")) {
                             let selectedItemIds = this.selectedItems.map(v => v.id);
@@ -1197,7 +1330,7 @@
                                 }, this);
 
                                 let preSelectedItems;
-                                if(_domHost._rootContextChanged) {
+                                if (_domHost._rootContextChanged) {
                                     preSelectedItems = _domHost.selectedDimensionsDetail["PreSelectedItems"] && _domHost.selectedDimensionsDetail["PreSelectedItems"][ctxType];
                                 }
                                 if (!_.isEmpty(preSelectedItems)) {
@@ -1226,38 +1359,10 @@
                                         _domHost._setSelectedDimensions();
                                     }
                                 } else {
-                                    this.selectedItems =  !_.isEmpty(_domHost.selectedDimensionsDetail[ctxType]) ? _domHost.selectedDimensionsDetail[ctxType] : [];
+                                    this.selectedItems = !_.isEmpty(_domHost.selectedDimensionsDetail[ctxType]) ? _domHost.selectedDimensionsDetail[ctxType] : [];
                                     _domHost._setSelectedDimensions();
                                 }
                             }
-                        }
-
-                        if (!_.isEmpty(_domHost.entityId) &&
-                            !_.isEmpty(_domHost.entityType) &&
-                            elementInfo.contextType === "data") {
-                            let entities = [];
-                            if (!_.isEmpty(_domHost._entityContexts)) {
-                                _domHost._entityContexts.forEach(function (ctx) {
-                                    let ctxKeys = Object.keys(ctx);
-                                    if (!_.isEmpty(ctxKeys)) {
-                                        ctxKeys.forEach(function (key) {
-                                            let ctxVal = ctx[key];
-                                            let formattedEntity = formattedData.find(function (entity) {
-                                                if (entity.type === key && entity.title === ctxVal) {
-                                                    return true;
-                                                }
-
-                                                return false;
-                                            });
-                                            if (formattedEntity) {
-                                                entities.push(formattedEntity);
-                                            }
-                                        }, this);
-                                    }
-                                }, this);
-                            }
-                            DataHelper.sort(entities, "title");
-                            formattedData = entities;
                         }
 
                         if (!_.isEmpty(_domHost.favouriteContexts) && elementInfo.contextType.toLowerCase() == "data") {
@@ -1273,44 +1378,6 @@
                 return formattedData;
             }
 
-            _setDepenedencyRelationshipAndPreSelectedItems(data, formattedData, elementInfo) {
-                let mappedValueContexts = elementInfo && elementInfo.mappedValueContexts;
-
-                if (mappedValueContexts && data && formattedData) {
-                    for (let d of data) {
-                        if (d.data && d.data.relationships) {
-                            for (let rel in d.data.relationships) {
-                                if (d.data.relationships[rel]) {
-                                    let name;
-                                    let path = "data.attributes." + elementInfo.externalAttrName + ".values.0.value";
-                                    if (DataHelper.isValidObjectPath(d, path)) {
-                                        name = d.data.attributes[elementInfo.externalAttrName].values[0].value;
-                                    } else {
-                                        name = d.name;
-                                    }
-                                    let item = formattedData.find(v => v.id == name);
-
-                                    if (item && !item.relTo) {
-                                        item.relTo = [];
-                                    }
-
-                                    let mappedValueContext = mappedValueContexts.find(v => v.valueContextRelationship == rel);
-
-                                    let valContextRelationships = d.data.relationships[rel];
-
-                                    if (!_.isEmpty(valContextRelationships)) {
-                                        let defaultValueContextId;
-                                        for (let r of valContextRelationships) {
-                                            item.relTo.push(r);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
             _onPreselectedContextGetResponse(ev) {
                 if (DataHelper.isValidObjectPath(ev, 'detail.response.response.entities.0')) {
                     let entity = ev.detail.response.response.entities[0];
@@ -1322,6 +1389,7 @@
                                 let _selectedItemData = this._entityExternalDataFormatter([this._parsedContexts[idx].selectedItem], [entity], this._parsedContexts[idx]);
                                 if (!_.isEmpty(_selectedItemData)) {
                                     this._parsedContexts[idx].selectedItem = _selectedItemData[0];
+                                    this._parsedContexts[idx].selectedItem.entityId = entity.id;
                                 }
                                 break;
                             }
@@ -1358,40 +1426,80 @@
             _onEntityContextGetResponse(e) {
                 let response = e.detail.response.response;
 
-                if (response) {
-                    if (response.entities && response.entities.length) {
-                        let entity = response.entities[0];
-
-                        if (entity && entity.data && entity.data.contexts) {
-                            let _entityContexts = [];
-
-                            entity.data.contexts.forEach(function (ctx) {
-                                _entityContexts.push(ctx.context)
-                            }, this);
-
-                            this._entityContexts = _entityContexts;
-                        }
-                    }
-                    this.refreshDimensionData();
-                } else {
+                if (!response) {
                     this.logError(this.appName + "-Dimension Selector - Entity Context get response exception", e.detail, true);
+                    return;
                 }
+
+                if (response.entities && response.entities.length) {
+                    let entity = response.entities[0];
+
+                    if (entity && entity.data && entity.data.contexts) {
+                        let _entityContexts = [];
+
+                        entity.data.contexts.forEach(function (ctx) {
+                            _entityContexts.push(ctx.context)
+                        }, this);
+
+                        this._entityContexts = _entityContexts;
+                    }
+                }
+                this.refreshDimensionData();
             }
 
             refreshDimensionData() {
-                if (typeof (this.configData) !== "undefined") {
-                    for (let i = 0; i < this.configData.length; i++) {
-                        let configDataItem = this.configData[i];
-                        let rockLov = undefined;
-                        let lovContainer = this.shadowRoot.querySelector("#" + configDataItem.id);
+                if (!_.isEmpty(this._parsedContexts)) {
+                    for (let i = 0; i < this._parsedContexts.length; i++) {
+                        let configDataItem = this._parsedContexts[i];
+                        if (configDataItem.id === "context") {
+                            /**
+                            * If entity doesn't have any contexts, no need to request for contexts. 
+                            * Hence making requestData undefined for context-lov
+                            * */
+                            if (_.isEmpty(this._entityContexts)) {
+                                configDataItem.dataRequest = undefined
+                            } else if (DataHelper.isValidObjectPath(configDataItem, "dataMappings.title") &&
+                                configDataItem.dataMappings.title) {
+                                    if(_.isEmpty(configDataItem.dataRequest)) {
+                                        let itemContexts = [{"type": configDataItem.dataMappings.type}];
+                                        let contextData = {"ItemContexts": itemContexts};
+                                        let reqData = DataRequestHelper.createEntityGetRequest(contextData, true);
+                                        configDataItem.dataRequest = reqData;
+                                    }
 
-                        if (lovContainer) {
-                            rockLov = lovContainer.querySelector("rock-entity-lov");
-
-                            if (rockLov) {
-                                rockLov.reset();
+                                /**
+                                * If entity has contexts, request should be sent to get only entity current contexts
+                                * Hence preparing attributesCriterion with current context items and updating request object
+                                * and then rendering context selector
+                                * */
+                                let externalAttrName = DataHelper.getAttributesBetweenCurlies(configDataItem.dataMappings.title);
+                                if (externalAttrName) {
+                                    let contextsToBeLoaded = [];
+                                    this._entityContexts.forEach(function (context) {
+                                        contextsToBeLoaded = contextsToBeLoaded.concat(Object.values(context));
+                                    }, this);
+                                    if (!_.isEmpty(contextsToBeLoaded)) {
+                                        let attributesCriterion = [];
+                                        let attrCriterion = {};
+                                        attrCriterion[externalAttrName] = {
+                                            "exacts": contextsToBeLoaded
+                                        }
+                                        attributesCriterion.push(attrCriterion);
+                                        configDataItem.dataRequest.params.query.filters.attributesCriterion = attributesCriterion;
+                                    }
+                                }
                             }
                         }
+                    }
+
+                    /** 
+                    * Need to check if there are any contexts to be preselected on load
+                    * If there are none then render context-selector
+                    * */
+                    if (!this._checkPreselectedContextOnLoad(this._parsedContexts)) {
+                        this._contextToBeRendered = undefined;
+                        this._contextToBeRendered = this._parsedContexts;
+                        this._updateSelectedDimensions();
                     }
                 }
             }
@@ -1411,9 +1519,9 @@
                     if (!_.isEmpty(availableSelectedItems) && !(availableSelectedItems.length == 1 && _.isEmpty(availableSelectedItems[0]))) {
                         selectedItems = availableSelectedItems.filter(availItem => { return availItem.type != ctxKey; });
                         let lovSelectedItems = availableSelectedItems.filter(availItem => { return availItem.type == ctxKey; });
-                        if(_.isEmpty(lovSelectedItems) && !_.isEmpty(defaultDimensions[ctxKey])){
+                        if (_.isEmpty(lovSelectedItems) && !_.isEmpty(defaultDimensions[ctxKey])) {
                             selectedItems = selectedItems.concat(defaultDimensions[ctxKey]);
-                        }else{
+                        } else {
                             //If the availableSelectedItems and defaultDimensions are same, set them as selectedItems
                             for (let availableSelectedItemIndex = 0; availableSelectedItemIndex < availableSelectedItems.length; availableSelectedItemIndex++) {
                                 for (let defaultDimensionIndex = 0; defaultDimensionIndex < defaultDimensions[ctxKey].length; defaultDimensionIndex++) {
@@ -1604,29 +1712,12 @@
             _resetCurrentContextLov() {
                 if (this.currentFavouriteSelectorLovId) {
                     let currentLov = this.shadowRoot.querySelector("#" + this.currentFavouriteSelectorLovId);
-                    if (currentLov) {
-                        let items = currentLov.items;
-                        this._updateFavouriteItems(items);
-                        currentLov.items = [];
-                        currentLov.items = items;
+                    if (currentLov && currentLov.updateFavouriteItems) {
+                        this.favouriteContexts = this.favouriteContexts || [];
+                        currentLov.updateFavouriteItems(this.favouriteContexts, "title");
                     }
                 }
                 this.currentFavouriteSelectorLovId = undefined;
-            }
-
-            _updateFavouriteItems(items) {
-                if (!_.isEmpty(items)) {
-                    this.favouriteContexts = this.favouriteContexts || [];
-                    items.forEach(function (item) {
-                        if (this.favouriteContexts.find(ctx => ctx[item.type] === item.title)) {
-                            item.isFavourite = true;
-                        } else {
-                            delete item.isFavourite;
-                        }
-                    }, this);
-
-                    DataHelper.sort(items, "title");
-                }
             }
         }
 

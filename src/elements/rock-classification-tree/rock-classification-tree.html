@@ -74,8 +74,8 @@
                 }
             }
         </style>
-        <liquid-entity-data-get id="lineagepath" operation="getbyids" request-data="{{lineagerequest}}" on-error="_onLineagePathError"
-            on-response="_onLineagePathResponse" exclude-in-progress></liquid-entity-data-get>
+        <liquid-entity-data-get id="lineagepath" operation="getbyids" request-data="{{lineagerequest}}" on-error="_onLineagePathError"	
+        on-response="_onLineagePathResponse" exclude-in-progress></liquid-entity-data-get>
         <liquid-entity-data-get id="rootNodeGet" operation="getbyids" on-error="_onRootNodeGetError"
             on-response="_onRootNodeGetResponse" exclude-in-progress></liquid-entity-data-get>
         <liquid-entity-data-get id="initiateSearch" operation="initiatesearch" request-data="{{request}}" last-response="{{initiateSearchResponse}}"
@@ -291,7 +291,7 @@
             static get observers() {
                 return [
                     '_onSelectedItemsChange(_selectedItems.length, _selectedItem)',
-                    '_onRootNodeChange(rootNode)'
+                    '_onRootNodeChange(rootNode, _classificationExtNameAttr)'
                 ];
             }
 
@@ -329,6 +329,7 @@
                 this._isSearchMode = false;
                 this.clearSelectedItems();
                 this.executeRequest("");
+                this._loading= true;
                 this._searchBarElement = this.shadowRoot.querySelector("#classificationSearchBar");
                 this._searchBarElement.clear();
                 this._searchBarElement.$.input.value = "";
@@ -344,40 +345,38 @@
                     } else {
                         this.selectedClassifications = !_.isEmpty(this._selectedItem) ? [this._selectedItem] : [];
                     }
-                    if (this._isSearchMode) {
-                        let req = {
-                            "params": {
-                                "query": {
-                                    "filters": {
-                                        "typesCriterion": [
-                                            "classification"
-                                        ]
-                                    }
-                                },
-                                "fields": {
-                                    "relationships": [
-                                        "belongsto"
-                                    ],
-                                    "relationshipAttributes": [
-                                        "lineagepath"
+                }
+                if (this._isSearchMode) {
+                    let req = {
+                        "params": {
+                            "query": {
+                                "filters": {
+                                    "typesCriterion": [
+                                        "classification"
                                     ]
                                 }
+                            },
+                            "fields": {
+                                "relationships": [
+                                    "belongsto"
+                                ],
+                                "relationshipAttributes": [
+                                    "lineagepath"
+                                ]
                             }
-                        };
-                        DataRequestHelper.addDefaultContext(req);
-                        if (this.selectedClassifications) {
-                            req.params.query.ids = [];
-                            this.selectedClassifications.forEach((classification) => {
-                                req.params.query.ids.push(classification.id);
-                            });
-
-                            this.lineagerequest = req;
-                            let lineagepathElement = this.$$("#lineagepath");
-                            if (lineagepathElement) {
-                                this._loading = true;
-                                lineagepathElement.generateRequest();
-                            }
-
+                        }
+                    };
+                    DataRequestHelper.addDefaultContext(req);
+                    if (this.selectedClassifications) {
+                        req.params.query.ids = [];
+                        this.selectedClassifications.forEach((classification) => {
+                            req.params.query.ids.push(classification.id);
+                        });
+                        this.lineagerequest = req;
+                        let lineagepathElement = this.$$("#lineagepath");
+                        if (lineagepathElement) {
+                            this._loading = true;
+                            lineagepathElement.generateRequest();
                         }
                     }
                 }
@@ -437,19 +436,17 @@
                     if (response.content && response.content.entities) {
                         let entities = response.content.entities;
                         let map = {};
-
                         entities.forEach(e => {
                             if (DataHelper.isValidObjectPath(e, 'data.relationships.belongsto.0.attributes.lineagepath.values.0.value')) {
                                 map[e.id] = e.data.relationships.belongsto[0].attributes.lineagepath.values[0].value;
                             }
                         })
-                        
+
                         this.selectedClassifications.forEach((classification) => {
-                            if(!_.isEmpty(map[classification.id])){
+                            if (!_.isEmpty(map[classification.id])) {
                                 classification.valuePath = map[classification.id];
                             }
                         });
-
                         let eventData = {
                             name: "detailresponsereceived",
                             data: map
@@ -532,7 +529,7 @@
                 }
                 for (let i in classifications) {
                     let classification = classifications[i];
-                    let externalNameAttr = EntityHelper.getAttribute(classification, "externalName");
+                    let externalNameAttr = EntityHelper.getAttribute(classification, this._classificationExtNameAttr);
                     let externamName = AttributeHelper.getFirstAttributeValue(externalNameAttr);
                     classification.text = externamName || classification.name;
                     classification.value = classification.name;
@@ -635,7 +632,7 @@
             }
 
             _onRootNodeChange() {
-                if (this.rootNode) {
+                if (this.rootNode && this._classificationExtNameAttr) {
                     let classificationReq = this._getClassificationsEntityGetRequest();
                     let liquidDataElement = this.shadowRoot.querySelector("#rootNodeGet");
                     if (liquidDataElement) {
@@ -648,7 +645,7 @@
             _getClassificationsEntityGetRequest() {
                 let request = DataRequestHelper.createEntityGetRequest(this.contextData, true);
                 //Update attributes type and id
-                request.params.fields.attributes = ["externalName"];
+                request.params.fields.attributes = [this._classificationExtNameAttr];
                 request.params.query.filters.typesCriterion = ["classification"];
                 request.params.query.id = this.rootNode;
 
@@ -661,13 +658,14 @@
                     entities = detail.response.content.entities;
                 }
 
-                if (_.isEmpty(entities) &&
-                    !DataHelper.isValidObjectPath(entities[0], "data.attributes.externalName.values.0.value")) {
+                let attributeValue = "";
+                if (_.isEmpty(entities) ||
+                    !(attributeValue = AttributeHelper.getFirstAttributeValue(EntityHelper.getAttribute(entities[0], this._classificationExtNameAttr)))) {
                     this.logError("Classification entity/extenalName missing for the save process");
                     return;
                 }
 
-                this.rootNodeExternalName = entities[0].data.attributes.externalName.values[0].value;
+                this.rootNodeExternalName = attributeValue;
             }
 
             _onRootNodeGetError(e) {
