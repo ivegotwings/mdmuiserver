@@ -49,12 +49,14 @@ function createCallerContext(req) {
 }
 
 function readSecurityHeaders(req) {
-    let tid = req.headers["x-rdp-tenantid"];
-    let uid = req.headers["x-rdp-userid"];
-    let roles = req.headers["x-rdp-userroles"];
-    let defaultRole = req.headers["x-rdp-defaultrole"];
+    let userDefaults = config.get("modules.userDefaults");
 
-    //console.log('roles', roles);
+    let tid = req.headers["x-rdp-tenantid"] || userDefaults.tenantId;
+    let uid = req.headers["x-rdp-userid"] || userDefaults.userId;
+    let roles = req.headers["x-rdp-userroles"] || userDefaults.roles;
+    let defaultRole = req.headers["x-rdp-defaultrole"] || userDefaults.defaultRole;
+
+    // console.log('roles', roles);
 
     if (roles && roles.length) {
         roles = JSON.parse(roles);
@@ -68,8 +70,8 @@ function readSecurityHeaders(req) {
         roles = roles.join(",");
     }
 
-    let firstName = req.headers["x-rdp-firstname"];
-    let lastName = req.headers["x-rdp-lastname"];
+    let firstName = req.headers["x-rdp-firstname"] || userDefaults.firstName;
+    let lastName = req.headers["x-rdp-lastname"] || userDefaults.lastName;
 
     let fullName = "";
     if (firstName) {
@@ -90,14 +92,14 @@ function readSecurityHeaders(req) {
         'clientAuthKey': clientAuthKey ? clientAuthKey : "",
         'headers': {
             "clientId": clientId ? clientId : "",
-            "ownershipData": req.headers["x-rdp-ownershipdata"] || "",
-            "ownershipEditData": req.headers["x-rdp-ownershipeditdata"] || "",
+            "ownershipData": req.headers["x-rdp-ownershipdata"] || userDefaults.ownershipData,
+            "ownershipEditData": req.headers["x-rdp-ownershipeditdata"] || userDefaults.ownershipEditData,
             "userId": uid,
             "firstName": firstName,
             "lastName": lastName,
             "fullName": fullName,
-            "userName": req.headers["x-rdp-username"],
-            "userEmail": req.headers["x-rdp-useremail"],
+            "userName": req.headers["x-rdp-username"] || userDefaults.userName,
+            "userEmail": req.headers["x-rdp-useremail"] || userDefaults.userEmail,
             "userRoles": roles,
             "defaultRole": defaultRole
         }

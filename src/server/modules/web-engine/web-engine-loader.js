@@ -152,8 +152,10 @@ logger.info('Web engine start - user info route is loaded');
 //register static file root ...index.html..
 app.get('*', function (req, res) {
     let isES5;
-    let userId = req.header("x-rdp-userid");
-    let tenantId = req.header("x-rdp-tenantid");
+    let userDefaults = config.get("modules.userDefaults");
+
+    let userId = req.header("x-rdp-userid") || userDefaults.userId;
+    let tenantId = req.header("x-rdp-tenantid") || userDefaults.tenantId;
     if (req.headers && req.headers['user-agent']) {
         isES5 = (req.headers['user-agent'].indexOf('rv:11') !== -1);
     }

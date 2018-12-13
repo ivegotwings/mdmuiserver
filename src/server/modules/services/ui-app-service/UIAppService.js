@@ -1,5 +1,6 @@
 let RuntimeVersionManager = require('../version-service/RuntimeVersionManager'),
-    ModuleVersionManager = require('../version-service/ModuleVersionManager');
+    ModuleVersionManager = require('../version-service/ModuleVersionManager'),
+    config = require('config');
 
 let executionContext = require('../../common/context-manager/execution-context');
 
@@ -10,8 +11,9 @@ let UIAppService = function () {
 
 UIAppService.prototype = {
     getBaseInfo: async function (req, res) {
-        let userId = req.header("x-rdp-userid");
-        let tenantId = req.header("x-rdp-tenantid");
+        let userDefaults = config.get("modules.userDefaults");
+        let userId = req.header("x-rdp-userid") || userDefaults.userId;
+        let tenantId = req.header("x-rdp-tenantid") || userDefaults.tenantId;
         if (tenantId && userId) {
             let securityContext = executionContext.getSecurityContext();
             if (securityContext && securityContext.headers && securityContext.headers.userRoles) {
