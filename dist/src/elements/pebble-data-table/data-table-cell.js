@@ -1,6 +1,6 @@
 import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import { OptionalMutableData } from '@polymer/polymer/lib/mixins/mutable-data.js';
-import './data-table-templatizer-behavior.js';
+import saulis from './data-table-templatizer-behavior.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class DataTableCell extends mixinBehaviors([saulis.DataTableTemplatizerBehavior], OptionalMutableData(
   PolymerElement)) {
