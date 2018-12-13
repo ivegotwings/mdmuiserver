@@ -106,6 +106,7 @@ module.exports = {
         "DataObjectFalcorUtil": true,
         "DataMergeHelper": true,
         "DomainManager": true,
+        "PubSubManager": true,
         "EntityHelper": true,
         "falcor": true,
         "FormatHelper": true,
