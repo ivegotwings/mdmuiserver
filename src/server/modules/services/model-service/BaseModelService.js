@@ -122,7 +122,10 @@ BaseModelService.prototype = {
 
     _getAttributeModels: async function (request) {
         let response;
-
+        let collectionNames = {
+            "entityData": "entities",
+            "entityModel": "entityModels"
+        };
         // get attribute model "<attribute name>_attributeModel"
         response = await this.post("entitymodelservice/get", request);
         logger.debug("BASE_MODEL_ATTRIBUTE_MODEL", { attributeModelsResponse: response }, "modelService");
@@ -141,7 +144,7 @@ BaseModelService.prototype = {
             response = {
                 "response": {
                     "status": "success",
-                    "entityModels": entities
+                    [collectionNames[request.dataIndex]]: entities
                 }
             }
         }
