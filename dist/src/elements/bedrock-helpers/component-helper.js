@@ -111,12 +111,14 @@ ComponentHelper.loadContent = function (contentElement, component, element, call
     if (cElement) {
         createComponent(cElement);
     } else {
-        importHref(element.resolveUrl(component.path), function (e) {
+        if(component.path.indexOf('html') !== -1)
+            component.path = component.path.replace(/html$/g,'js')
+        import(component.path).then(function (e) {
             let cElement = customElements.get(component.name);
             createComponent(cElement);
         }, function (e) {
             console.log('dynamic component load failed with exception', e); //import failed
-        }, true);
+        });
     }
 
 };
