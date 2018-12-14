@@ -176,3 +176,5 @@ class EntityTypeManager extends mixinBehaviors([RUFBehaviors.LoggerBehavior], Po
 }
 
 customElements.define(EntityTypeManager.is, EntityTypeManager);
+
+export default EntityTypeManager
