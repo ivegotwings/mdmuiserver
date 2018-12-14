@@ -1,4 +1,5 @@
 import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
+import MessageHelper from '../bedrock-helpers/message-helper.js';
 import '../bedrock-app-behavior/bedrock-app-behavior.js';
 import '../bedrock-ui-behavior/bedrock-ui-behavior.js';
 import '../bedrock-business-function-behavior/bedrock-business-function-behavior.js';
