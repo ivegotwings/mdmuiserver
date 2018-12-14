@@ -1,4 +1,4 @@
-ContentTypeUtils = {};
+let ContentTypeUtils = {};
 
 let mimedb = 
     {
@@ -6807,7 +6807,7 @@ ContentTypeUtils.PopulateMaps = function() {
     return mappings;
 };
 
-ContentTypeHelper = {};
+let ContentTypeHelper = {};
 
 ContentTypeHelper.Mappings = ContentTypeUtils.PopulateMaps();
 ContentTypeHelper.Extensions = ContentTypeHelper.Mappings.extensions;
@@ -6864,3 +6864,5 @@ ContentTypeHelper.getContentTypes = function(fileTypes) {
     }
     return contentTypes;
 }
+
+export default ContentTypeHelper;

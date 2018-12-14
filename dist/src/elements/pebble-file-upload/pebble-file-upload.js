@@ -24,7 +24,7 @@ import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
 import '../bedrock-style-manager/styles/bedrock-style-icons.js';
 import '../bedrock-style-manager/styles/bedrock-style-heading.js';
 import '../pebble-button/pebble-button.js';
-import './content-type-helper.js';
+import ContentTypeHelper from './content-type-helper.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class PebbleFileUpload extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerElement) {
   static get template() {

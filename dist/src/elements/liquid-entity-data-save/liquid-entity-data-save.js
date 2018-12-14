@@ -1,32 +1,24 @@
-import '@polymer/polymer/polymer-legacy.js';
 import '../liquid-dataobject-save-behavior/liquid-dataobject-save-behavior.js';
-import { Polymer as Polymer$0 } from '@polymer/polymer/lib/legacy/polymer-fn.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
+import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 
-Polymer$0({
-  _template: html`
+class LiquidEntityDataSave
+    extends mixinBehaviors([
+      RUFBehaviors.LiquidDataObjectSaveBehavior
+    ], PolymerElement) {
+  static get template() {
+    return html`
+    `;
+  }
+  static get is() { return 'liquid-entity-data-save' }
 
-`,
+  constructor() {
+    super();
+  }
 
-  is: "liquid-entity-data-save",
-  behaviors: [RUFBehaviors.LiquidDataObjectSaveBehavior],
-
-  /**
-    * Content is not appearing - Content development is under progress.
-    */
-  attached: function () {
-  },
-
-  /**
-    * Content is not appearing - Content development is under progress.
-    */
-  ready: function () {
-  },
-
-  properties: {
-      /**
-        * <b><i>Content development is under progress... </b></i>
-        */
-      dataIndex: {
+  static get properties() {
+    return {
+        dataIndex: {
           type: String,
           value: "entityData"
       },
@@ -35,5 +27,8 @@ Polymer$0({
           type: String,
           value: "entities"
       }
+    }
   }
-});
+}
+
+customElements.define(LiquidEntityDataSave.is, LiquidEntityDataSave);

@@ -13,7 +13,7 @@ It makes it easy to explore and switch between different views or functional asp
 import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '@polymer/iron-pages/iron-pages.js';
-import '@polymer/paper-menu/paper-menu.js';
+// import '@polymer/paper-menu/paper-menu.js'; //to do replace with listbox
 import '@polymer/paper-item/paper-item.js';
 import '@polymer/paper-listbox/paper-listbox.js';
 import '../bedrock-ui-behavior/bedrock-ui-behavior.js';

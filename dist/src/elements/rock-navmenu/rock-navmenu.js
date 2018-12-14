@@ -14,7 +14,7 @@ import { OptionalMutableData } from '@polymer/polymer/lib/mixins/mutable-data.js
 import '@polymer/paper-listbox/paper-listbox.js';
 import '@polymer/paper-item/paper-item.js';
 import '@polymer/iron-collapse/iron-collapse.js';
-import '@polymer/paper-menu/paper-submenu.js';
+// import '@polymer/paper-menu/paper-submenu.js';
 import '@polymer/paper-tooltip/paper-tooltip.js';
 import '../bedrock-helpers/element-helper.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';

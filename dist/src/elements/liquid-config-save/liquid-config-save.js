@@ -7,38 +7,32 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import '@polymer/polymer/polymer-legacy.js';
-
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
+import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 import '../liquid-dataobject-save-behavior/liquid-dataobject-save-behavior.js';
-import { Polymer as Polymer$0 } from '@polymer/polymer/lib/legacy/polymer-fn.js';
 
-Polymer$0({
-  _template: html`
+class LiquidConfigSave
+    extends mixinBehaviors([
+      RUFBehaviors.LiquidDataObjectSaveBehavior
+    ], PolymerElement) {
+  static get template() {
+    return html`
+    `;
+  }
+  static get is() { return 'liquid-config-save' }
 
-`,
+  constructor() {
+    super();
+  }
 
-  is: "liquid-config-save",
-  behaviors: [RUFBehaviors.LiquidDataObjectSaveBehavior],
-
-  /**
-  * Content is not appearing - Content development is under progress.
-  */
-  attached: function () {
-  },
-
-  /**
-  * Content is not appearing - Content development is under progress.
-  */
-  ready: function () {
-  },
-
-  properties: {
-      /**
-  * <b><i>Content development is under progress... </b></i>
-  */
-      dataIndex: {
+  static get properties() {
+    return {
+        dataIndex: {
           type: String,
           value: "config"
       }
+    }
   }
-});
+}
+
+customElements.define(LiquidConfigSave.is, LiquidConfigSave);

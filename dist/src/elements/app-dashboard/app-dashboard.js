@@ -68,7 +68,7 @@ class AppDashboard
               "defaultRole": this.defaultRole
           };
           this.contextData[ContextHelper.CONTEXT_TYPE_USER] = [userContext];
-          this.importHref(this.resolveUrl("../app-entity-discovery/app-entity-discovery.html"), null, null, true);
+          import("../app-entity-discovery/app-entity-discovery.js");
       });
   }
   _markSavedSearchAsFavourite(e, detail) {
