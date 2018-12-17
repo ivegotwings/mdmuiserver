@@ -9,12 +9,15 @@
 <link rel="import" href="../bedrock-helpers/context-helper.html">
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-gridsystem.html">
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-padding-margin.html">
+<link rel="import" href="../bedrock-toast-behavior/bedrock-toast-behavior.html">
 
 <link rel="import" href="../liquid-rest/liquid-rest.html">
 
 <link rel="import" href="../pebble-bulk-file-upload/pebble-bulk-file-upload.html">
 <link rel="import" href="../pebble-icon/pebble-icon.html">
 <link rel="import" href="../pebble-spinner/pebble-spinner.html">
+<link rel="import" href="../pebble-checkbox/pebble-checkbox.html">
 
 <!--
 <b><i>Content development is under progress... </b></i>
@@ -24,7 +27,7 @@
 
 <dom-module id="rock-cloud-upload">
     <template>
-        <style include="bedrock-style-common bedrock-style-gridsystem">
+        <style include="bedrock-style-common bedrock-style-gridsystem bedrock-style-padding-margin">
 
             :host{
                 height:100%;
@@ -41,6 +44,13 @@
                 box-shadow: 0 0 10px 0 var(--cloudy-blue-color, #c1cad4);
                 position: relative;
             }
+
+            pebble-checkbox {
+                float: right;
+            }
+            .checkbox-label-color {
+                color: #75808b;
+            }
         </style>
 
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
@@ -54,7 +64,10 @@
 
         <div id="content-upload" class="content-upload-wrapper">
             <div class="placeHolder">
-                <pebble-bulk-file-upload method="PUT" accept="" no-auto="true" s3-upload="true" max-file-size="[[maxFileSize]]" max-files="[[maxFiles]]"></pebble-bulk-file-upload>
+                <template is="dom-if" if="[[deleteModeEnabled]]">
+                    <pebble-checkbox on-change="_onDeleteModeChanged"><div class="checkbox-label-color">Delete mode (Only JSONs)</div></pebble-checkbox>
+                </template>
+                <pebble-bulk-file-upload method="PUT" class$="[[_getClass(deleteModeEnabled)]]" accept="" no-auto="true" s3-upload="true" max-file-size="[[maxFileSize]]" max-files="[[maxFiles]]"></pebble-bulk-file-upload>
                 <bedrock-pubsub event-name="pebble-bulk-file-upload-started" handler="_onUploadStarted"></bedrock-pubsub>
                 <bedrock-pubsub event-name="pebble-bulk-file-upload-success" handler="_onUploadSuccess"></bedrock-pubsub>
                 <bedrock-pubsub event-name="pebble-bulk-file-upload-failed" handler="_onUploadFailed"></bedrock-pubsub>
@@ -64,7 +77,8 @@
     <script>
             class RockCloudUpload
                     extends Polymer.mixinBehaviors([
-                        RUFBehaviors.UIBehavior
+                        RUFBehaviors.UIBehavior,
+                        RUFBehaviors.ToastBehavior                       
                     ], Polymer.Element) {
                     static get is() { return 'rock-cloud-upload' }
                     static get properties() {
@@ -124,6 +138,14 @@
                             s3ObjectKey: {
                                 type: String,
                                 value: ""
+                            },
+                            deleteModeEnabled: {
+                                type: Boolean,
+                                value: false
+                            },
+                            flushConfig: {
+                                type: Boolean,
+                                value: false
                             }
                         }
                     }
@@ -137,8 +159,33 @@
                     this._bulkEditUploadElement = this._bulkEditUploadElement || this.shadowRoot.querySelector('pebble-bulk-file-upload');
                     return this._bulkEditUploadElement;
                 }
+                
+                /**
+                * Function to get the classname when the deleteMode checkbox is visible
+                **/
+                _getClass (deleteModeEnabled) {
+                    let className = "";
+                    if(deleteModeEnabled){
+                        className = "m-t-25";
+                    }
+                    return className;
+                }
 
+                /**
+                * Function to handle dropped file
+                **/
                 _onUploadStarted (e, uploadedFiles, sender) {
+                    
+                    //Show confirmation dialog when user uploads a file and the deleteMode is enabled
+                    if(this.flushConfig) {
+                        let cancelClicked = this._showWarning(e); 
+                        if(cancelClicked) {
+                            //If user clicks cancel – then import will be stopped and uploaded file will be cleared
+                            this._resetUploadElement();
+                            return;
+                        }
+                    }
+
                     let prepareUploadRequest = [];
                     this.files = [];
 
@@ -195,6 +242,16 @@
                         }
                     }
                 }
+                
+                /**
+                * Function to show the warning message when the deleteMode checkbox is checked
+                **/
+                _showWarning (event) {
+                    if (!window.confirm("Are you sure you want to delete all JSONs given in the zip file?")) {
+                        event.preventDefault(); 
+                        return true;                        
+                    } 
+                }
 
                 _resetUploadElement () {
                     this._isDirty = false;
@@ -247,20 +304,21 @@
                 }
                 _onUploadSuccess (e, succeededFilesData, sender) {                    
                     //Make a liquid call for deploying tenant seed data
-                    if(this.uploadRequest && this.uploadRequest.type == "seedDataStream"){
+                    if(this.uploadRequest && this.uploadRequest.type == "seedDataStream"){                        
                         let deployTenantSeedRequestObject = {
                             "adminObject":
                             {
                                 "id": DataHelper.generateUUID(),
                                 "type": "adminObject",
                                 "properties": {
+                                    "flushConfig": this.flushConfig,
                                     "storageType": "stream",
                                     "objectKey": this.s3ObjectKey,
                                     "tenantId": DataHelper.getTenantId()
                                 }
                             }
                         }
-                        
+                                             
                         let liq = this.shadowRoot.querySelector("#notifyTenantSeedDeploy");
                         if (liq) {
                             liq.requestData = deployTenantSeedRequestObject;
@@ -370,6 +428,7 @@
                     }, 5000);
                 }
                 _onUploadFailed (e, errorMessage, sender) {
+                    this.showErrorToast(errorMessage);
                     this.logError(errorMessage);
                 }
                 _onCreateUploadedFilesLiquidFailure (e) {
@@ -439,6 +498,13 @@
                             contentView.removeAttribute("hidden");
                         }
                     }
+                }
+
+                _onDeleteModeChanged(e) {
+                    this.flushConfig = false;
+                    if (e.currentTarget.checked) {
+                        this.flushConfig = true;
+                    } 
                 }
             }
             customElements.define(RockCloudUpload.is, RockCloudUpload);
