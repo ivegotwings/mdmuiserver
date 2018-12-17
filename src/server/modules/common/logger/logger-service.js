@@ -100,7 +100,6 @@ LoggerService.prototype = {
     if (detail) {
       finalMessage += "[Detail - " + JSON.stringify(detail) + "] ";
     }
-    else (obj)
 
     formattedObj["logMessage"] = finalMessage;
 

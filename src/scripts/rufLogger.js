@@ -79,7 +79,8 @@
             calleeServiceName: calleeServiceName
         };
 
-        //console.log(level, logObj);
+        console.log(level, logObj);
+
         log4JSLogger[level](JSON.stringify(logObj));
     };
 
