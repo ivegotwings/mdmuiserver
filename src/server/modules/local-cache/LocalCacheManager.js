@@ -18,9 +18,11 @@ LocalCacheManager.prototype = {
     },
 
     set: async function (cacheKey, value) {
-        let runtimeVersion = await RuntimeVersionManager.getVersion();
-        isEmpty(localCache[runtimeVersion]) && (localCache[runtimeVersion] = {});
-        localCache[runtimeVersion][cacheKey] = falcorUtil.cloneObject(value);
+        if (!isEmpty(cacheKey) && typeof value != 'undefined') {
+            let runtimeVersion = await RuntimeVersionManager.getVersion();
+            isEmpty(localCache[runtimeVersion]) && (localCache[runtimeVersion] = {});
+            localCache[runtimeVersion][cacheKey] = falcorUtil.cloneObject(value);
+        }
     },
 
     del: function (version) {
