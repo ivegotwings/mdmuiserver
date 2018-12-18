@@ -202,6 +202,16 @@
                     _mode: {
                         type: Boolean,
                         value: "view"
+                    },
+                    nestedIdentifierKeys:{
+                        type:Array,
+                        value:[],
+                        notify: true,
+                    },
+                    nestedIdentifierKeysValue:{
+                        type:Object,
+                        value:{},
+                        notify: true,
                     }
                 }
             }
@@ -305,14 +315,25 @@
                 this.async(function () {
                     let hasErrorOrWarnings = false;
                     let childAttrModels = this.attributeModelObject.group ? this.attributeModelObject.group[0] : [];
-
+                    if(!_.isEmpty(childAttrModels)){
+                        this.nestedIdentifierKeys = [];
+                        for (let model in childAttrModels) {
+                            if(childAttrModels[model].isAttributeIdentifier && this.nestedIdentifierKeys.indexOf(childAttrModels[model].name) == -1){
+                                 this.push('nestedIdentifierKeys', childAttrModels[model].name);
+                            }
+                        }
+                    }
+                  
                     if (attributeObject && attributeObject.value && attributeObject.value.length > 0 && !_.isEmpty(childAttrModels)) {
                         let errors = attributeObject.errors && attributeObject.errors.length ? attributeObject.errors[0] : undefined;
+                        this.nestedIdentifierKeysValue = {};
                         for (let i = 0; i < attributeObject.value.length; i++) {
                             let value = attributeObject.value[i];
+                            let _currentIdentifierKeysValue = "";
                             if (!this._gridData.find(obj => value["valueIdentifier"] && (obj.valueIdentifier ===
                                 value["valueIdentifier"].value))) {
                                 let rowData = {};
+                                let _rowIdentifier = value["valueIdentifier"].value;
                                 for (let attrName in value) {
                                     let chilAttrModel = childAttrModels[attrName];
                                     if (typeof value[attrName] == 'object') {
@@ -324,6 +345,9 @@
                                             }
                                         } else {
                                             rowData[attrName] = value[attrName].value;
+                                        }
+                                        if(this.nestedIdentifierKeys.indexOf(attrName) > -1 && !_.isEmpty(rowData[attrName])){
+                                            _currentIdentifierKeysValue += rowData[attrName];
                                         }
 
                                         if (value[attrName].referenceDataId) {
@@ -347,7 +371,10 @@
                                     rowData.governanceErrors = errors[value.valueIdentifier.value];
                                     hasErrorOrWarnings = true;
                                 }
-                                if (!this._isRowEmpty(rowData)) this._gridData.push(rowData);
+                                this.nestedIdentifierKeysValue[_rowIdentifier] = _currentIdentifierKeysValue
+                                if (!this._isRowEmpty(rowData)){
+                                    this._gridData.push(rowData);
+                                } 
                             }
                         }
                     }
@@ -472,6 +499,9 @@
                                         }
                                         this.attributeObject.value[index]["action"] = "delete";
                                     }
+                                    if(!_.isEmpty(this.nestedIdentifierKeys)){
+                                        this._updateAndGetIdentifierValue(rowData);
+                                    }
 
                                     /***creating one new empty row***/
                                     let valObj = this._getNewValueObject(rowData);
@@ -482,14 +512,66 @@
                                 } else {
                                     /***Child attribute without isAttributeIdentifier flag updated, directly
                                      * update the original row.***/
+                                    if(!_.isEmpty(this.nestedIdentifierKeys)){
+                                        this._updateAndGetIdentifierValue(rowData);
+                                    }
                                     this._updateRowDataWithValue(rowData, value);
                                 }
                             }
                         }
                     }
+                    if(!_.isEmpty(this.nestedIdentifierKeys)){
+                        this._checkforDuplicates();
+                    }
                     this.notifyPath("attributeObject.value");
                 } else if (this.changed === false) {
                     this.attributeObject = DataHelper.cloneObject(this.originalAttributeObject);
+                }
+            }
+
+            _updateAndGetIdentifierValue(rowData){
+                let rowIdentifierValue = "";
+                let rowId = rowData.valueIdentifier;
+                let rowIdentifierObject = {};
+                rowIdentifierObject["message"] = "";
+                rowIdentifierObject["rowIdentifierValue"] = "";
+                let attributeModelObject = this.attributeModelObject;
+                if (attributeModelObject && attributeModelObject.group && attributeModelObject.group.length > 0) {
+
+                    let childAttrModels = attributeModelObject.group[0];
+                    this.nestedIdentifierKeys.forEach((key) => {
+                        if(rowData[key] && !_.isEmpty(rowData[key])){
+                            rowIdentifierObject["rowIdentifierValue"] +=  rowData[key];
+                            let attributeExternalName = childAttrModels[key].externalName;
+                            rowIdentifierObject["message"] = !_.isEmpty(rowIdentifierObject["message"]) ? " , " + attributeExternalName + " : " + rowData[key] : attributeExternalName + " : " + rowData[key];
+                        }
+                    })
+                    if(!_.isEmpty(rowIdentifierObject["rowIdentifierValue"])){
+                        if(rowId){
+                            this.nestedIdentifierKeysValue[rowId] = rowIdentifierObject["rowIdentifierValue"];
+                        }
+                    }
+                }
+                return rowIdentifierObject;
+            }
+
+            _checkforDuplicates(){
+                let gridData = this.attributesGrid.getData();
+                for (let i = 0; i < gridData.length; i++) {
+                    let item = gridData[i];
+                    let rowIdentifierObject = this._updateAndGetIdentifierValue(item)
+                    if(!_.isEmpty(rowIdentifierObject["message"]) && !_.isEmpty(rowIdentifierObject["rowIdentifierValue"])){
+                        let identifierValues = Object.values(this.nestedIdentifierKeysValue);
+                        let duplicateRowCount =  identifierValues.filter(item => item == rowIdentifierObject.rowIdentifierValue).length;
+                        if(duplicateRowCount > 1){
+                            item["duplicateValidationError"] = ["Duplicate row with " + rowIdentifierObject.message ];
+                        }else{
+                            item["duplicateValidationError"] = [];
+                        }
+                    }else{
+                        item["duplicateValidationError"] = [];
+                    }
+                    this.updateAttributeErrors();
                 }
             }
             _isRowEmpty(rowData) {
