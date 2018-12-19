@@ -471,6 +471,7 @@ The following JSON object is a sample of data which binds the grid.
     </pebble-dialog>
     <div id="messageCard">
     </div>
+    <liquid-entity-data-get id="currentEntityGet" operation="getbyids" on-response="_currentEntityResponse"></liquid-entity-data-get>
     <bedrock-pubsub target-id="gridMsgDialog" event-name="on-buttonok-clicked" handler="_onDialogOk"></bedrock-pubsub>
     <bedrock-pubsub event-name="global-edit" handler="_onGlobalEdit"></bedrock-pubsub>
     <bedrock-pubsub event-name="quick-manage-event" handler="_onTapQuickManage"></bedrock-pubsub>
@@ -684,6 +685,18 @@ The following JSON object is a sample of data which binds the grid.
           isCollapsed: {
             type: Boolean,
             notify: true
+          },
+          _currentEntity: {
+            type: Object,
+            value: function () {
+              return {};
+            }
+          },
+          _additionalAttributes: {
+            type: Array,
+            value: function () {
+              return ["rootexternalname", "path", "externalnamepath"];
+            }
           }
         }
       }
@@ -691,7 +704,8 @@ The following JSON object is a sample of data which binds the grid.
       static get observers() {
         return [
           '_convertIntoEntityLovList(searchResultResponse)',
-          '_addRelationship(relEntitiesResponse)'
+          '_addRelationship(relEntitiesResponse)',
+          '_getCurrentEntity(contextData)'
         ]
       }
       constructor() {
@@ -715,6 +729,31 @@ The following JSON object is a sample of data which binds the grid.
 
         return false;
       }
+
+      //This flow is needed only for classification type
+      _getCurrentEntity() {
+        if (_.isEmpty(this.contextData)) {
+          return;
+        }
+        let itemContext = ContextHelper.getFirstItemContext(this.contextData);
+        if (!itemContext || itemContext.type != "classification") {
+          return;
+        }
+        let currentEntityGetElement = this.shadowRoot.querySelector("#currentEntityGet");
+        if (currentEntityGetElement) {
+          let request = DataRequestHelper.createEntityGetRequest(this.contextData);
+          request.params.fields.attributes = this._additionalAttributes;
+          currentEntityGetElement.requestData = request;
+          currentEntityGetElement.generateRequest();
+        }
+      }
+
+      _currentEntityResponse(e, detail) {
+        if (detail && DataHelper.validateGetEntitiesResponse(detail.response)) {
+          this._currentEntity = detail.response.content.entities[0];
+        }
+      }
+
       _onBulkRelationshipEdit(e, detail) {
         let grid = this._getRelationshipGrid();
         let selectedItems = grid.getSelectedItems();
@@ -1067,7 +1106,7 @@ The following JSON object is a sample of data which binds the grid.
         }
 
         this._saveRequest = {
-          "entities": originalEntities
+          "entities": this._updateEntitiesWithAdditionalAttributes(originalEntities)
         };
 
         //TODO: Sync validation has been commited for now since ther is no BR on relationship attributes.
@@ -1092,6 +1131,54 @@ The following JSON object is a sample of data which binds the grid.
         this._saveEntity();
 
       }
+
+      _updateEntitiesWithAdditionalAttributes(originalEntities) {
+        let pathSeperator = this.appSetting('dataDefaults').categoryPathSeparator || ">>";
+        let entities = DataHelper.cloneObject(originalEntities) || [];
+        let isAllClassificationEntities = _.every(entities, function (entity) {
+          return entity.type == "classification";
+        })
+        if (!isAllClassificationEntities) {
+          return entities;
+        }
+
+        let relEntities = [];
+        if (DataHelper.validateGetEntitiesResponse(this.relEntitiesResponse)) {
+          relEntities = this.relEntitiesResponse.content.entities;
+        }
+
+        if (DataHelper.isValidObjectPath(this._currentEntity, "data.attributes") && !_.isEmpty(entities)) {
+          entities.forEach(entity => {
+            entity.data.attributes = DataHelper.cloneObject(this._currentEntity.data.attributes);
+            //Update paths
+            if (entity.data.attributes.externalnamepath) {
+              entity.data.attributes.externalnamepath.values.forEach(item => {
+                item.value = item.value + pathSeperator + entity.externalName;
+              });
+            }
+            if (entity.data.attributes.path) {
+              entity.data.attributes.path.values.forEach(item => {
+                item.value = item.value + pathSeperator + entity.id;
+              });
+            }
+
+            //Delete existing relationships
+            let currentRelEntity = relEntities.find(e => {
+              return e.id == entity.id;
+            });
+            if (DataHelper.isValidObjectPath(currentRelEntity, "data.relationships") &&
+              currentRelEntity.data.relationships &&
+              currentRelEntity.data.relationships[this.relationship]) {
+              currentRelEntity.data.relationships[this.relationship].forEach(relObj => {
+                relObj.action = "delete";
+                entity.data.relationships[this.relationship].push(relObj);
+              })
+            }
+          })
+        }
+        return entities;
+      }
+
       _onTapQuickManage(e) {
         let relationship = this.relationship;
         if (e && e.detail && e.detail.enableQuickManage) {
@@ -1264,7 +1351,8 @@ The following JSON object is a sample of data which binds the grid.
                 }
               },
               "fields": {
-                "attributes": attributes
+                "attributes": attributes,
+                "relationships": [this.relationship]
               },
               "options": {
                 "maxRecords": 10
@@ -1591,12 +1679,34 @@ The following JSON object is a sample of data which binds the grid.
           let entityDelLiquid = this.shadowRoot.querySelector("#entityRelationsDeleteService");
           if (entityDelLiquid) {
             entityDelLiquid.requestData = {
-              "entities": updateRequests
+              "entities": this._resetEntitiesAdditionalAttributes(updateRequests)
             };
             entityDelLiquid.operation = "update";
             entityDelLiquid.generateRequest();
           }
         }
+      }
+
+      _resetEntitiesAdditionalAttributes(updateRequests) {
+        let requests = DataHelper.cloneObject(updateRequests) || [];
+        let isAllClassificationRequests = _.every(requests, function (request) {
+          return request.type == "classification";
+        })
+        if (!isAllClassificationRequests) {
+          return requests;
+        }
+        let attributes = {};
+        for (let attributeName of this._additionalAttributes) {
+          attributes[attributeName] = {
+            "action": "delete"
+          }
+        }
+        if (!_.isEmpty(requests)) {
+          requests.forEach(request => {
+            request.data.attributes = attributes;
+          })
+        }
+        return requests;
       }
 
       _hasContextCoalescedValue(item) {
@@ -1829,12 +1939,13 @@ The following JSON object is a sample of data which binds the grid.
             "relationships": {}
           }
         }
+        let itemContext = ContextHelper.getFirstItemContext(this.contextData) || {};
         let rel = {
           "direction": "both",
           "relationshipType": this.relationshipGridConfig.relationshipModel.properties.relationshipType,
           "relTo": {
-            "id": this.contextData.ItemContexts[0].id,
-            "type": this.contextData.ItemContexts[0].type
+            "id": itemContext.id,
+            "type": itemContext.type
           }
         };
         defaultEntity.data.relationships[this.relationship] = [rel];
@@ -1846,6 +1957,9 @@ The following JSON object is a sample of data which binds the grid.
             ContextHelper.getDataContexts(this.contextData),
             this.getEntityName()
           ]);
+        if (!_.isEmpty(this._currentEntity) && itemContext.type == "classification") {
+          defaultEntity.data.attributes = this._currentEntity.data.attributes;
+        }
         const sharedData = {
           "context-data": contextData,
           "entity-domain": domain,
