@@ -107,6 +107,7 @@ module.exports = {
         "DataMergeHelper": true,
         "DomainManager": true,
         "PubSubManager": true,
+        "APIExternalCommunication": true,
         "EntityHelper": true,
         "falcor": true,
         "FormatHelper": true,
