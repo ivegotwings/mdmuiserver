@@ -193,6 +193,9 @@ BaseModelService.prototype = {
             entity.name = model.name;
             entity.type = model.type;
             entity.properties = model.properties;
+            if(!entity.properties.name){
+                entity.properties.name = model.name;
+            }
             entity.data = {};
 
             if (compositeModel.data) {
