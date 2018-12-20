@@ -19,7 +19,7 @@ import '../bedrock-ui-behavior/bedrock-ui-behavior.js';
 import '../liquid-entity-model-get/liquid-entity-model-get.js';
 import '../pebble-lov/pebble-lov.js';
 import '../rock-grid-data-sources/attribute-model-datasource.js';
-import '../bedrock-managers/domain-manager.js';
+import DomainManager from '../bedrock-managers/domain-manager.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockAttributeModelLov extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.LovBehavior], OptionalMutableData(PolymerElement)) {
   static get template() {

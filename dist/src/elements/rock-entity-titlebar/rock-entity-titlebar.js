@@ -19,6 +19,7 @@ import '../rock-layout/rock-titlebar/rock-titlebar.js';
 import '../rock-context-selector/rock-context-selector.js';
 import '../rock-component-config-behavior/rock-component-config-behavior.js';
 import '../bedrock-component-context-behavior/bedrock-component-context-behavior.js';
+import EntityTypeManager from '../bedrock-managers/entity-type-manager.js'
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 
 class RockEntityTitlebar

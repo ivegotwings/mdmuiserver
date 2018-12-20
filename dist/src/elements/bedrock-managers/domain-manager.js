@@ -26,3 +26,5 @@ class DomainManager extends mixinBehaviors([RUFBehaviors.LoggerBehavior], Polyme
 }
 
 customElements.define(DomainManager.is, DomainManager);
+
+export default DomainManager;
