@@ -35,6 +35,7 @@ import '../bedrock-style-manager/styles/bedrock-style-buttons.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
 import '../bedrock-style-manager/styles/bedrock-style-grid-layout.js';
 import '../rock-attribute-list/rock-attribute-list.js';
+import EntityCompositeModelManager from '../bedrock-managers/entity-composite-model-manager.js';
 import { timeOut } from '@polymer/polymer/lib/utils/async.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockAttributeManage extends mixinBehaviors(

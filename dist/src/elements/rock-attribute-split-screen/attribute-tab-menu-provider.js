@@ -14,6 +14,7 @@ import '../bedrock-ui-behavior/bedrock-ui-behavior.js';
 import '../bedrock-component-context-behavior/bedrock-component-context-behavior.js';
 import '../bedrock-helpers/data-helper.js';
 import '../liquid-entity-model-get/liquid-entity-model-get.js';
+import EntityCompositeModelManager from '../bedrock-managers/entity-composite-model-manager.js'
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class AttributeTabMenuProvider
     extends mixinBehaviors([
