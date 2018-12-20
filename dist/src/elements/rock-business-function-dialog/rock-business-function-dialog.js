@@ -180,10 +180,10 @@ class RockBusinessFunctionDialog extends mixinBehaviors([RUFBehaviors.UIBehavior
               this.set("noSteps", true);
           }
           let self = this;
-          importHref(resolveUrl("../../src/elements/rock-business-function-elements/rock-business-function-elements.html"), function () {
+          import("../rock-business-function-elements/rock-business-function-elements.js").then(function() {
               self.config = config;
               self.dialog.open();
-          }, null, true);
+          });
       }
   }
 
