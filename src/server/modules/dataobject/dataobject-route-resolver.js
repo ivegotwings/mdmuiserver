@@ -369,7 +369,7 @@ function createGetRequest(reqData) {
         fields: fields,
         options: options
     };
-
+    params.authorizationType = "accommodate";
     if (reqData.dataIndex === "entityData") {
         params.intent = "write";
     }
