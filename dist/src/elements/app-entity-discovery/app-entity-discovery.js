@@ -214,8 +214,7 @@ class AppEntityDiscovery
 
   preloadEntityManage() {
       afterNextRender(this, () => {
-          this.importHref(this.resolveUrl("../app-entity-manage/app-entity-manage.html"), null, null,
-              true);
+          import("../app-entity-manage/app-entity-manage.js");
       });
   }
   disconnectedCallback() {
