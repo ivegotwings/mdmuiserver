@@ -1,4 +1,5 @@
 import '@polymer/polymer/polymer-legacy.js';
+import EntityTypeManager from '../bedrock-managers/entity-type-manager.js';
 /***
  * `RUFBehaviors.QueryBuilderBehavior` provides common properties and methods that must be implemented for all
  *  query builder elements. It is a mandatory behavior for all query builder elements to implement.

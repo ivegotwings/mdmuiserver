@@ -12,6 +12,7 @@ import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 import '../rock-entity-lov/rock-entity-lov.js';
 import '../liquid-config-get/liquid-config-get.js';
 import '../liquid-config-save/liquid-config-save.js';
+import ContextModelManager from '../bedrock-managers/context-model-manager.js';
 import { Debouncer } from '@polymer/polymer/lib/utils/debounce.js';
 import { timeOut } from '@polymer/polymer/lib/utils/async.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
