@@ -10,12 +10,17 @@ let LOGGER_CONFIG = function () {
         "RelatedRequestId", "GroupRequestId", "TaskId", "UserId", "EntityId", 
         "ObjectType", "ClassName", "Method", "NewTimestamp", "Action", 
         "InclusiveTime", "LogMessage"];
+
+        <Property name="pattern">%d{ISO8601} [%level] [%X{requestId}] [%X{GUID}] [%X{tenantId}] [%X{callerServiceName}]
+            [%X{calleeServiceName}] [%X{relatedRequestId}] [%X{groupRequestId}] [%X{taskId}] [%X{userId}] [%X{id}] [%X{type}] [%c{1.}]
+            [%X{method}] %d{ISO8601} [%X{action}] [%X{inclusiveTime}] [%X{messageCode}] [%X{instanceId}] %msg ThreadId - %t%n
+        </Property>
     */
     //change log format keys into camelcase format for easy use.
     this.formatKeys = ["requestId", "guid", "tenantId", "callerServiceName", "calleeServiceName",
         "relatedRequestId", "groupRequestId", "taskId", "userId", "entityId",
         "objectType", "className", "method", "newTimestamp", "action",
-        "inclusiveTime", "logMessage"];
+        "inclusiveTime", "messageCode", "instanceId", "logMessage"];
 
     this.baseTemplate = {
         "api-healthcheck": {
