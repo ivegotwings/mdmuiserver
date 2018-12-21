@@ -6,8 +6,8 @@ let logger = require('../logger/logger-service');
 
 let cryptoJS = require("crypto-js");
 let moment = require('moment');
-let uuidV1 = require('uuid/v1');
-let sleep = require('system-sleep');
+
+const convertHrtime = require('convert-hrtime');
 
 const HTTP_POST = "POST";
 const HTTP_GET = "GET";
@@ -30,6 +30,7 @@ let DFServiceBase = function (options) {
         if (!tenantId) {
             tenantId = this.getTenantId();
         }
+        
         let timeStamp = moment().toISOString();
 
         let url = this._serverUrl + '/' + tenantId + '/api' + serviceName + '?timeStamp=' + timeStamp;
@@ -56,7 +57,6 @@ let DFServiceBase = function (options) {
 
         let hrstart = process.hrtime();
         let internalRequestId = logger.logRequest(serviceName, options);
-        let _self = this;
 
         let reqPromise = this._restRequest(options)
             .catch(function (error) {
@@ -85,10 +85,12 @@ let DFServiceBase = function (options) {
 
         let isErrorResponse = logger.logError(internalRequestId, serviceName, options, result);
 
-        if (!isErrorResponse) {
-            logger.logResponseCompletedInfo(internalRequestId, serviceName, hrstart);
-        }
+        let hrTime = convertHrtime(process.hrtime(hrstart));
 
+        let takenInMilliSeconds = hrTime && hrTime.milliseconds ? hrTime.milliseconds.toFixed(3) : 0;
+
+        logger.logResponseCompletedInfo(internalRequestId, serviceName, takenInMilliSeconds);
+        
         logger.logResponse(internalRequestId, serviceName, result);
 
         return result;
