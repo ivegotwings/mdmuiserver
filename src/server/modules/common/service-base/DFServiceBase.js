@@ -80,7 +80,8 @@ let DFServiceBase = function (options) {
             }
             result = result.body;
         } else {
-            console.log('Result in service base is undefined for request ', JSON.stringify(options));
+            let error = "NULL response received";
+            logger.logException(internalRequestId, serviceName, options, error);
         }
 
         let isErrorResponse = logger.logError(internalRequestId, serviceName, options, result);
