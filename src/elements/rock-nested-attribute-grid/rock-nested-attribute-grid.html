@@ -204,6 +204,10 @@
                     _mode: {
                         type: Boolean,
                         value: "view"
+                    },
+                    nestedIdentifierKeys:{
+                        type:Array,
+                        value:[]
                     }
                 }
             }
@@ -307,7 +311,15 @@
                 this.async(function () {
                     let hasErrorOrWarnings = false;
                     let childAttrModels = this.attributeModelObject.group ? this.attributeModelObject.group[0] : [];
-
+                    if(!_.isEmpty(childAttrModels)){
+                        this.nestedIdentifierKeys = [];
+                        for (let model in childAttrModels) {
+                            if(childAttrModels[model].isAttributeIdentifier && this.nestedIdentifierKeys.indexOf(model) == -1){
+                                 this.push('nestedIdentifierKeys', model);
+                            }
+                        }
+                    }
+                  
                     if (attributeObject && attributeObject.value && attributeObject.value.length > 0 && !_.isEmpty(childAttrModels)) {
                         let errors = attributeObject.errors && attributeObject.errors.length ? attributeObject.errors[0] : undefined;
                         for (let i = 0; i < attributeObject.value.length; i++) {
@@ -327,7 +339,6 @@
                                         } else {
                                             rowData[attrName] = value[attrName].value;
                                         }
-
                                         if (value[attrName].referenceDataId) {
                                             rowData[attrName + "_referenceDataId"] = value[attrName].referenceDataId;
                                         }
@@ -349,7 +360,9 @@
                                     rowData.governanceErrors = errors[value.valueIdentifier.value];
                                     hasErrorOrWarnings = true;
                                 }
-                                if (!this._isRowEmpty(rowData)) this._gridData.push(rowData);
+                                if (!this._isRowEmpty(rowData)){
+                                    this._gridData.push(rowData);
+                                } 
                             }
                         }
                     }
@@ -448,7 +461,7 @@
                                     let index = this.attributeObject.value.indexOf(value);
                                     if (index !== -1) {
                                         if (deletedValue && value.valueIdentifier.value === deletedValue.valueIdentifier
-                                            .value) {
+                                            .value || rowData.isNewlyAddedDataRowDelete) {
                                             /***if value and deleted value both are present, user has edited child attribute with
                                              * with isAttributeIdentifier flag first and then cleared all child attributes or marked 
                                              * it delete. In this case to avoid duplicating the rows to be deleted.***/
@@ -489,10 +502,48 @@
                             }
                         }
                     }
+                    if(!_.isEmpty(this.nestedIdentifierKeys)){
+                        this._checkforDuplicates();
+                    }
                     this.notifyPath("attributeObject.value");
                 } else if (this.changed === false) {
                     this.attributeObject = DataHelper.cloneObject(this.originalAttributeObject);
                 }
+            }
+
+            _checkforDuplicates(){
+                let gridData = this.attributesGrid.getData();
+                let nestedIdentifierObj = {};
+                let attributeModelObject = this.attributeModelObject;
+                if (attributeModelObject && attributeModelObject.group && attributeModelObject.group.length > 0 && gridData.length > 0) {
+                    let childAttrModels = attributeModelObject.group[0];
+                    for (let dataIndex = 0; dataIndex < gridData.length; dataIndex++) {
+                        let nestedIdentifierValues = ""
+                        let gridItem = gridData[dataIndex]
+                        let externalNameKeyValueObj = {};
+                        this.nestedIdentifierKeys.forEach((key) => {
+                            nestedIdentifierValues += gridItem[key];
+                            let attributeExternalName = childAttrModels[key].externalName;
+                            externalNameKeyValueObj[attributeExternalName] = gridItem[key];
+                        })
+                        gridItem["duplicateKeysName"] = [];
+                        if(nestedIdentifierObj.hasOwnProperty(nestedIdentifierValues)){
+                            let errorMessage = "";
+
+                            for(let key in externalNameKeyValueObj){
+                                gridItem["duplicateKeysName"].push(key);
+                                gridData[nestedIdentifierObj[nestedIdentifierValues]]["duplicateKeysName"].push(key);
+                                errorMessage = !_.isEmpty(errorMessage) ? errorMessage + " , "+ key + " : " + externalNameKeyValueObj[key] : key + " : " + externalNameKeyValueObj[key];
+                            }
+                            gridItem["duplicateValidationError"] = ["Duplicate row with " + errorMessage];
+                            gridData[nestedIdentifierObj[nestedIdentifierValues]]["duplicateValidationError"] = ["Duplicate row with " + errorMessage];
+                        }else{
+                            nestedIdentifierObj[nestedIdentifierValues] = dataIndex;
+                            gridItem["duplicateValidationError"] = [];
+                        }
+                    }
+                }
+                this.updateAttributeErrors();
             }
             _isRowEmpty(rowData) {
                 let attributes = Object.keys(rowData);
