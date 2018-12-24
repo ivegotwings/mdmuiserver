@@ -232,6 +232,10 @@
                         value: function () {
                             return {};
                         }
+                    },
+                    _searchKeyWord: {
+                        type: String,
+                        value: ''
                     }
                 }
             }
@@ -260,8 +264,9 @@
             _onSearch(e) {
                 this._searchClicked = true;
                 this._isSearchMode = !_.isEmpty(e.detail.query);
+                this._searchKeyWord = e.detail.query;
                 this.loading= true;
-                this.executeRequest("", e.detail.query);
+                this.executeRequest();
             }
 
             get contextTree() {
@@ -271,9 +276,10 @@
 
             resetSearch() {
                 this._isSearchMode = false;
+                this._searchKeyWord = "";
                 this._clearSelectedItems();
                 this.loading= true;
-                this.executeRequest("");
+                this.executeRequest();
                 this._searchBarElement = this.shadowRoot.querySelector("#searchBar");
                 this._searchBarElement.clear();
                 this._searchBarElement.$.input.value = "";
@@ -419,9 +425,10 @@
                 return contextTypes;
             }
 
-            executeRequest(parentNode, searchKeyword) {
+            executeRequest(parentNode) {
                 let types = [];
                 let relationshipsCriterion = [];
+                let searchKeyword = this._searchKeyWord;
                 let parentContextData = parentNode ? parentNode.nodeData : undefined;
                 if(!_.isEmpty(parentContextData)) {
                     let ctxObj = this._contextHierarchy[parentContextData.type];
@@ -442,18 +449,23 @@
                 if(_.isEmpty(types) && !_.isEmpty(parentNode)) {
                     parentNode.changeToLeafMode();
                     parentNode.set('nodeData.children', []);
-                    parentNode.refreshChildList();
+                    if(!this._isSearchMode) {
+                        parentNode.refreshChildList();
+                    }
                     this.loading = false;
                     return;
                 }
                 let contextData = DataHelper.cloneObject(this.contextData);
                 let attributeNames = [];
                 let relationships = [];
-                if(searchKeyword) {
+                if(searchKeyword && _.isEmpty(parentNode)) {
                     types = this.contextTypes;
                 }
                 types.forEach(function(type) {
-                    attributeNames.push(this._modelsData[type].externalAttrName);
+                    let attributeName = this._modelsData[type].externalAttrName;
+                    if(attributeNames.indexOf(attributeName) < 0) {
+                        attributeNames.push(attributeName);
+                    }
                     let ctxObj = this._contextHierarchy[type];
                     let relName = ctxObj ? ctxObj.contextRelationship : undefined;
                     if(relName) {
@@ -464,16 +476,19 @@
                 if(!_.isEmpty(relationshipsCriterion)) {
                     itemContext.relationshipsCriterion = relationshipsCriterion;
                 }
-                if (searchKeyword) {	
-                    delete itemContext.relationshipsCriterion;	
-                }
 
                 contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
                 contextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
-                let req = DataRequestHelper.createEntityGetRequest(contextData);
+                let req = DataRequestHelper.createEntityGetRequest(contextData, true);
 
                 if (searchKeyword) {
-                    req.params.query.filters.keywordsCriterion = { "operator": "_AND", "keywords": searchKeyword };
+                    let attributesCriterion = this._prepareAttributesCriterion(searchKeyword, attributeNames);
+                    if(!_.isEmpty(attributesCriterion)) {
+                        req.params.query.filters.attributesCriterion = attributesCriterion;
+                        if(attributesCriterion.length > 1) {
+                            req.params.query.filters["isAttributesCriterionOR"] = true;
+                        }
+                    }
                 }
 
                 let initGetEntitySearchLiquid = this.shadowRoot.querySelector("#initGetEntitySearch");
@@ -513,11 +528,6 @@
                         let allNodes = this._transformEntitiesToNodes(entities);
                         allNodes.sort(function (a, b) { return (a.name > b.name) ? 1 : ((b.name > a.name) ? -1 : 0); });
 
-                        if(this._isSearchMode && DataHelper.isValidObjectPath(e, "detail.request.requestData.params.query.filters.keywordsCriterion.keywords")) {
-                            let searchText = e.detail.request.requestData.params.query.filters.keywordsCriterion.keywords;
-                            this._filterNodesBasedOnKeyword(searchText, allNodes);
-                        }
-
                         this._selectedDataContexts = [];
                         if(currentNode) {
                             if (!allNodes.length) {
@@ -535,13 +545,15 @@
                                     let index = this.selectedItems.indexOf(existingSelectedItem);
                                     this.splice('selectedItems', index, 1);
                                 }
-                                this.entityCurrentContexts.forEach((selectedContext) => {
-                                    if (selectedContext && selectedContext[0] === node.name) {
-                                        let selectedCtx = DataHelper.cloneObject(selectedContext);
-                                        selectedCtx.unshift(currentNode.nodeData.name);
-                                        this._selectedDataContexts.push(selectedCtx);
-                                    }
-                                })
+                                if(!_.isEmpty(this.entityCurrentContexts)) {
+                                    this.entityCurrentContexts.forEach((selectedContext) => {
+                                        if (selectedContext && selectedContext[0] === node.name) {
+                                            let selectedCtx = DataHelper.cloneObject(selectedContext);
+                                            selectedCtx.unshift(currentNode.nodeData.name);
+                                            this._selectedDataContexts.push(selectedCtx);
+                                        }
+                                    }, this);
+                                }
                             }, this);
 
                             if(this._isSearchMode) {
@@ -585,7 +597,9 @@
                         if(currentNode) {
                             currentNode.changeToLeafMode();
                             currentNode.set('nodeData.children', []);
-                            currentNode.refreshChildList();
+                            if(!this._isSearchMode) {
+                                currentNode.refreshChildList();
+                            }
                             this.loading = false;
                             return;
                         }
@@ -616,20 +630,20 @@
                 return currentNode;
             }
 
-            _filterNodesBasedOnKeyword(searchText, allNodes) {
-                if(searchText.substr(searchText.length - 1, 1) == '*'){
-                    searchText = searchText.substr(0, searchText.length-2);
+            _prepareAttributesCriterion(searchKeyWord, attributeNames) {
+                let attributesCriterion = [];
+                if(!_.isEmpty(attributeNames)) {
+                    attributeNames.forEach((attributeName) => {
+                        let attrCriterion = {};
+                        attrCriterion[attributeName] = {
+                            "contains": searchKeyWord,
+                            "type": "_STRING"
+                        };
+                        attributesCriterion.push(attrCriterion);
+                    }, this);
                 }
-                if(searchText.substr(0, 1) == '*'){
-                    searchText = searchText.substr(1, searchText.length-2);
-                }
-                allNodes = allNodes.filter(searchItem => {
-                    let _searchTarget = searchItem.value ? searchItem.value : searchItem.text;
-                    if(_searchTarget) {
-                        _searchTarget = _searchTarget.replace(/[{(/)}\[\]]/g, ' ');
-                    }
-                    return (_searchTarget.search(new RegExp(searchText, "i")) > -1);
-                }, this);
+
+                return attributesCriterion;
             }
 
             _transformEntitiesToNodes(entities) {
