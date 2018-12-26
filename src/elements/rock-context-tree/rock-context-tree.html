@@ -86,6 +86,50 @@
                     margin-right: 5px;
                 }
             }
+
+            pebble-popover#selectedContextsPopover {
+                font-weight: normal;
+                text-transform: initial;
+                text-align: left;
+                margin-left: -12px;
+                margin-top: 7px;
+                --default-popup-b-p: 5px;
+                --default-popup-t-p: 5px;
+                --default-font-size: 12px;
+                width: 180px;
+                overflow-y: auto;
+                overflow-x: auto;
+            }
+
+            pebble-popover#selectedContextsPopover::after,
+            pebble-popover#selectedContextsPopover::before {
+                bottom: 100%;
+                left: 20px;
+                border: solid transparent;
+                content: " ";
+                height: 0;
+                width: 0;
+                position: absolute;
+                pointer-events: none;
+            }
+
+            pebble-popover#selectedContextsPopover::after {
+                border-color: rgba(255, 255, 255, 0);
+                border-bottom-color: #ffffff;
+                border-width: 6px;
+                margin-left: -6px;
+            }
+
+            pebble-popover#selectedContextsPopover::before {
+                border-color: rgba(194, 225, 245, 0);
+                border-bottom-color: rgb(216, 221, 228);
+                border-width: 7px;
+                margin-left: -7px;
+            }
+
+            .context-item {
+                margin-left: 10px;
+            }
         </style>
         <div class="base-grid-structure">
             <div class="base-grid-structure-child-1">
@@ -96,13 +140,24 @@
                     </div>
                     <bedrock-pubsub event-name="rock-search" handler="_onSearch" target-id="searchBar"></bedrock-pubsub>
                 </div>
-                <p class="status-text" hidden$=[[!showContextText]]>[[selectedContextText]]</p>
+                <p id="selectedContextsText" class="status-text" hidden$=[[!showContextText]] on-mouseover="_openPopover" on-mouseout="_closePopover">[[selectedContextText]]</p>
             </div>
             <div hidden$="[[_contextsDataFound]]" class="status-error">No Contexts Found</div>
             <div class="base-grid-structure-child-2">
                 <pebble-tree id="contextTree" class="contextTree" data="{{contextsData}}" check-child-nodes="[[checkChildNodes]]" default-child-depth="10" selected-items="{{selectedItems}}" selected-item="{{_selectedItem}}" multi-select="[[multiSelect]]" disable-child-node="[[disableChildNode]]" check-parent-nodes="[[checkParentNodes]]" select-parent-item="[[selectParentItem]]" leaf-node-only="[[leafNodeOnly]]" show-warning-on-unselect="[[showWarningOnUnselect]]"></pebble-tree>
             </div>
         </div>
+        <pebble-popover id="selectedContextsPopover" for="selectedContextsText" no-overlap>
+            <template is="dom-repeat" items="[[selectedItems]]" as="item">
+                <div class="context-item">[[item.text]]</div>
+            </template>
+        </pebble-popover>
+        <pebble-dialog id="dirtyCheckDialog" dialog-title="Confirmation" button-ok-text="Yes" button-cancel-text="Cancel" modal alert-box show-cancel show-ok no-cancel-on-outside-click
+            no-cancel-on-esc-key>
+            <p>Unsaved changes will be discarded. Do you want to continue?</p>
+        </pebble-dialog>
+        <bedrock-pubsub event-name="on-buttonok-clicked" handler="_resetSearch" target-id="dirtyCheckDialog"></bedrock-pubsub>
+
         <bedrock-pubsub event-name="tree-node-selected" handler="_onContextItemSelected"></bedrock-pubsub>
         <bedrock-pubsub event-name="tree-node-de-selected" handler="_onContextItemDeSelected"></bedrock-pubsub>
         <pebble-spinner active="[[loading]]"></pebble-spinner>
@@ -262,11 +317,39 @@
             }
 
             _onSearch(e) {
+                if(e.detail.query) {
+                    let query = DataHelper.cloneObject(e.detail.query);
+                    let isValid = this._validateQuery(query);
+
+                    if(!isValid) {
+                        this.showWarningToast("Enter minimum 2 characters to search");
+                        return;
+                    }
+                }
                 this._searchClicked = true;
                 this._isSearchMode = !_.isEmpty(e.detail.query);
                 this._searchKeyWord = e.detail.query;
                 this.loading= true;
                 this.executeRequest();
+            }
+
+            _validateQuery(query) {
+                if(_.isEmpty(query) && query.length < 2) {
+                    return false;
+                }
+                if(query.substr(0,1) == '*') {
+                    query = query.substr(1, query.length-2);
+                }
+
+                if(query.substr(query.length - 1, 1) == '*') {
+                    query = query.substr(0, query.length-1);
+                }
+
+                if(query.length < 2) {
+                    return false;
+                }
+
+                return true;
             }
 
             get contextTree() {
@@ -275,10 +358,27 @@
             }
 
             resetSearch() {
+                let isTreeDirty = this._checkForDirty();
+                if(isTreeDirty) {
+                    this.shadowRoot.querySelector("#dirtyCheckDialog").open();
+                } else {
+                    this._resetSearch();
+                }
+            }
+
+            _checkForDirty() {
+                let manageElement = ComponentHelper.getParentElement(this);
+                if(manageElement) {
+                    return manageElement.isComponentDirty;
+                }
+            }
+
+            _resetSearch() {
                 this._isSearchMode = false;
                 this._searchKeyWord = "";
                 this._clearSelectedItems();
                 this.loading= true;
+                this.contextsData = [];
                 this.executeRequest();
                 this._searchBarElement = this.shadowRoot.querySelector("#searchBar");
                 this._searchBarElement.clear();
@@ -286,6 +386,7 @@
             }
 
             _onSelectedItemsChange(selectedItems, _selectedItem) {
+                DataHelper.sort(this.selectedItems, "text");
                 //Set the output
                 if (selectedItems != undefined || _selectedItem != undefined) {
                     let currentSelectedItems = _.uniq(this.selectedItems, function(item, key, id) {
@@ -571,9 +672,10 @@
                                 })
                             }, this);
                             this.contextsData = allNodes;
-                            if(this._isSearchMode) {
-                                this._expandAllNodes(allNodes);
-                            }
+                        }
+
+                        if(this._isSearchMode) {
+                            this._expandAllNodes(allNodes);
                         }
 
                         this.currentEntityContexts = this.currentEntityContexts || [];
@@ -710,6 +812,8 @@
                     if(!existingSelectedItem) {
                         this.loading = true;
                         this._requestForRelatedEntity(parentNodeData);
+                    } else {
+                        this._appendContextPath(e.detail.data.nodeData.id, existingSelectedItem);
                     }
                 }
             }
@@ -753,6 +857,13 @@
                 if(DataHelper.isValidObjectPath(e, "detail.response.content.entities.0")) {
                     let entities = e.detail.response.content.entities;
                     let nodes = this._transformEntitiesToNodes(entities);
+                    if(DataHelper.isValidObjectPath(e, "detail.request.requestData.params.query.id")) {
+                        let nodeId = e.detail.request.requestData.params.query.id;
+                        let currentNodeItem = this.selectedItems.find(obj => obj.parentNodeId === nodeId);
+                        if(currentNodeItem) {
+                            this._appendContextPath(currentNodeItem.id, nodes[0]);
+                        }
+                    }
                     this.push("selectedItems", nodes[0]);
                 }
                 this.loading = false;
@@ -762,13 +873,40 @@
                 nodes.forEach((node) => {
                     let ctxObj = this._contextHierarchy[node.type];
                     let childCtxObjects = ctxObj ? ctxObj.childCtxObjects : undefined;
-                    if(!_.isEmpty(childCtxObjects)) {
-                        let currentNode = this.contextTree.getElementNodeById(node.id);
-                        if(currentNode) {
+                    let currentNode = this.contextTree.getElementNodeById(node.id);
+                    if(currentNode) {
+                        if(!_.isEmpty(childCtxObjects)) {
                             currentNode.expand();
+                        } else {
+                            currentNode.changeToLeafMode();
+                            currentNode.set('nodeData.children', []);
                         }
                     }
                 }, this);
+            }
+
+            _appendContextPath(nodeId, parentNodeData) {
+                let currentNode =this.contextTree.getElementNodeById(nodeId);
+                if(currentNode) {
+                    let node = currentNode.shadowRoot.getElementById(currentNode.nodeData.id);
+                    if(node) {
+                        node.innerHTML = "( " + parentNodeData.value + ", " + currentNode.nodeData.value + " )";
+                    }
+                }
+            }
+
+            _openPopover() {
+                let popOver = this.shadowRoot.querySelector("#selectedContextsPopover");
+                if(popOver) {
+                    popOver.show();
+                }
+            }
+
+            _closePopover() {
+                let popOver = this.shadowRoot.querySelector("#selectedContextsPopover");
+                if(popOver) {
+                    //popOver.close();
+                }
             }
         }
 
