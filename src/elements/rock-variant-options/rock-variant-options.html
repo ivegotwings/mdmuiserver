@@ -16,7 +16,6 @@
 <link rel="import" href="../liquid-config-get/liquid-config-get.html" />
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 <link rel="import" href="../liquid-rest/liquid-rest.html">
-<link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
 
 <link rel="import" href="../rock-component-config-behavior/rock-component-config-behavior.html">
 <link rel="import" href="../rock-grid/rock-grid.html">
@@ -85,7 +84,6 @@
         <liquid-rest id="variantOptions" url="/data/pass-through/entityappservice/generatevariants" method="POST" on-liquid-response="_onVariantOptionsReceivedSuccess"
             on-liquid-error="_onVariantOptionsReceivedFailure"></liquid-rest>        
         <liquid-entity-data-save id="syncEntityCreate" operation="[[_entityDataOperation]]" on-response="_onSyncEntityCreateSuccess" on-error="_onSyncEntityCreateError"></liquid-entity-data-save>
-        <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{attributeModelRequest}}" on-entity-model-composite-get-response="_onCompositeModelGetResponse"></liquid-entity-model-composite-get>
         <bedrock-pubsub event-name="grid-data-loaded" handler="_onVariantGridLoaded" target-id="variantOptionsGrid"></bedrock-pubsub>
     </template>
     <script>
@@ -185,13 +183,6 @@
                             value: function () { return {}; }
                         },
 
-                        attributeModelRequest: {
-                            type: Object,
-                            value: function () {
-                                return {};
-                            }
-                        },
-
                         isSpinnerActive:{
                             type: Boolean,
                             value: false
@@ -232,65 +223,28 @@
                         this.config = componentConfig.config;
                         this.maxThresholdForDisplay = componentConfig.config.maxVariantsForDisplay;
                         this.maxThresholdForSyncCreate = componentConfig.config.maxThresholdForSyncCreate;
-                        //Get the attributeModels
-                        this._generateAttributeModels();
+                        //load the variants
+                        this._loadVariantOptions();
                     } else {
                         this.logWarning("Config not found for rock-variant-options", "response", componentConfig);
                     }
                 }
 
                 /**
-                 *  Function to generate the attribute models of all the target entities
+                 *  Function to load the variant options
                 */
-                _generateAttributeModels() {
-                    let contextData = this._getContextForTargetEntities();
-                    let compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(contextData);
-                    if (compositeModelGetRequest) {
-                        this.set("attributeModelRequest", compositeModelGetRequest);
-                        let liquidModelGet = this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
-                        if (liquidModelGet) {
-                            liquidModelGet.generateRequest();
-                        }
-                    }
-                }
-
-                /**
-                 *  Function to context for target entities
-                */
-                _getContextForTargetEntities() {
-                    let targetEntityTypes = this.businessFunctionData.targetEntities;
-                    let itemContexts = [];
-                    let targetEntityAttributes = [];
-                    for (let i in targetEntityTypes) {
-                        targetEntityAttributes = targetEntityAttributes.concat(targetEntityTypes[i].attributeNames);
-                    }
-                    
-                    let lastIndex = targetEntityTypes.length == 1 ? 0 : targetEntityTypes.length - 1;
-                    itemContexts.push({
-                        "type": targetEntityTypes[lastIndex].targetEntity,
-                        "attributeNames": targetEntityAttributes
-                    });
-                    let contextData = DataHelper.cloneObject(this.contextData);
-                    contextData[this.CONTEXT_TYPE_ITEM] = itemContexts;
-                    return contextData;
-                }
-
-                /**
-                 *  Function to handle success of attribute models of all the target entities
-                */
-                _onCompositeModelGetResponse(e) {
-                    if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
-                        let contextData = this._getContextForTargetEntities();
-                        this.attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], contextData);
+                _loadVariantOptions() {
+                    if (!_.isEmpty(this.businessFunctionData.attributeModels)) {                        
+                        this.attributeModels = this.businessFunctionData.attributeModels;
 
                         //Update the gridConfig with dynamic columns
                         this._updateGridConfig();
 
                         //generate a request to get the grid data 
-                        this._showVariantOptions();
+                        this._showVariantOptions();                        
                     }
                 }
-
+                             
                 /**
                  *  Function to update the gridConfig with dynamic fields
                 */
@@ -381,7 +335,6 @@
                  *  Create the request obj for getting the variants
                 */
                 _getVariantOptionsRequest(pFlag) {
-
                     let createVariants = "true";
                     if (!pFlag) {
                         createVariants = "false";
@@ -508,7 +461,6 @@
                  * Function to check if the create button has to be disabled
                  */ 
                 _isCreateDisabled(gridData, isWarningMessage) {
-
                     if (!_.isEmpty(gridData)) {
                         let existsItems = _.filter(gridData, function(item){ return item.variantStatus.toLowerCase() == "exists"; });
                         //If all the items in the grid are having status as exists,then disable the create button
@@ -529,7 +481,6 @@
                  *  Use the sync create/update API if the grid is displayed and entities may be excluded
                  */
                 _onCreate() {
-
                     this.isSpinnerActive = true;
                     let requestData = {};
                     let liquidObj = {};
@@ -669,9 +620,7 @@
                 /**
                  *  Generate a request to create bulk entities
                 */
-                _onBulkEntityCreate(selectedEntities) {
-
-                   
+                _onBulkEntityCreate(selectedEntities) {                   
                     let formData = new FormData();
                     let req = DataRequestHelper.createImportRequest({}, this.copContext);
                     this._taskId = DataHelper.generateUUID();
