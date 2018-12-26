@@ -368,20 +368,6 @@ BaseModelService.prototype = {
         return response;
     },
 
-    _updateDisplayType: function (transformedModel) {
-        let attributeModels = falcorUtil.cloneObject(transformedModel);
-        if (falcorUtil.isValidObjectPath(attributeModels, "data.attributes")) {
-            let attributes = attributeModels.data.attributes;
-            for (let key in attributes) {
-                let attribute = attributes[key];
-                if(attribute && attribute.properties && attribute.properties.displayType) {
-                    attribute.properties.displayType = attribute.properties.displayType.toLowerCase();
-                }
-            }
-        }
-        return attributeModels;
-    },
-
     _processEntityTypeModel: async function (request, action) {
         let transformedModel, dataOperationResults = [];
 
@@ -400,7 +386,7 @@ BaseModelService.prototype = {
 
             if (transformedModel) {
                 model = this._prepareEntityTypeModel(transformedModel);
-                compositeModels = this._prepareCompositeModels(this._updateDisplayType(transformedModel), compositeAttributeModel, request.entityModel);
+                compositeModels = this._prepareCompositeModels(transformedModel, compositeAttributeModel, request.entityModel);
             }
 
             if (!isEmpty(model)) {
@@ -1259,9 +1245,33 @@ BaseModelService.prototype = {
         }
     },
 
-    _prepareCompositeModels: function (attributeModels, compositeAttributeModel, entityTypeModel, isIdEntityIdentifier) {
+    _updateModelProperties: function (transformedAttributeModels) {
+        let attributeModels = falcorUtil.cloneObject(transformedAttributeModels);
+        if (falcorUtil.isValidObjectPath(attributeModels, "data.attributes")) {
+            let attributes = attributeModels.data.attributes;
+            this._updateDisplayType(attributes);
+        }
+        return attributeModels;
+    },
+
+    _updateDisplayType: function (attributes) {
+        for (let key in attributes) {
+            let attribute = attributes[key];
+            if (attribute && attribute.properties) {
+                if (attribute.properties.displayType) {
+                    attribute.properties.displayType = attribute.properties.displayType.toLowerCase();
+                }
+                if (attribute.properties.dataType == "nested" && !isEmpty(attribute.group)) {
+                    this._updateDisplayType(attribute.group[0]);
+                }
+            }
+        }
+    },
+
+    _prepareCompositeModels: function (transformedAttributeModels, compositeAttributeModel, entityTypeModel, isIdEntityIdentifier) {
         let compositeModels = [];
         let compositeAttributeModelList = this._fetchListOfAttributesBasedOnGroup(compositeAttributeModel);
+        let attributeModels = this._updateModelProperties(transformedAttributeModels); // Update model properties to convert displayType to lower case
 
         if (!isEmpty(attributeModels) && !isEmpty(compositeAttributeModelList)) {
             for (let compModel of compositeModelTypes) {
