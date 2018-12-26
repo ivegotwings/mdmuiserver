@@ -57,6 +57,7 @@
         this.callCounters[operation] = 1;
       }
     },
+    
     getModel: function (channelName) {
       if (!channelName) {
         throw "channelName is not provided";
@@ -72,6 +73,97 @@
 
       return this._models[channelName];
     },
+    
+    falcorCacheSerializer: function (key, value) {
+      if (value && value["$type"] && value["$type"] == "error") {
+        return undefined;
+      }
+
+      if (key == "searchResults") {
+        return undefined;
+      }
+      return value;
+    },
+    
+    getLocalStorageCacheKey: function (channelName) {
+      let userId = DataHelper.getUserId();
+      let tenantId = DataHelper.getTenantId();
+      let rv = SharedUtils.RuntimeVersionManager.getVersion();
+      let mv = SharedUtils.ModuleVersionManager.getVersion(channelName);
+      return "".concat("data:", channelName, "#@#tenant:", tenantId, "#@#user:", userId, "#@#runtime-version:", rv, "#@#module-version:", mv);
+    },
+    
+    cleanupObsoletedLocalStorage: function (channelName, excludeKey) {
+      let userId = DataHelper.getUserId();
+      let tenantId = DataHelper.getTenantId();
+      let keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        let key = localStorage.key(i);
+        if (key != excludeKey && key.startsWith("data:" + channelName + "#@#tenant:" + tenantId + "#@#user:" + userId) > 0) {
+          keysToRemove.push(key);
+        }
+      }
+
+      for (let i = 0; i < keysToRemove.length; i++) {
+        localStorage.removeItem(keysToRemove[i]);
+      }
+    },
+    
+    clearAllCache: function () {
+      let allConfigs = RUFBehaviors.DataChannel._getAllChannelConfigs();
+
+      if (allConfigs && allConfigs.channels) {
+        for (let channelName in allConfigs.channels) {
+          RUFBehaviors.DataChannel.clearChannelCache(channelName);
+        }
+      }
+    },
+    
+    clearChannelCache: function (channelName) {
+      let falcorModel = RUFBehaviors.DataChannel.getModel(channelName);
+
+      if (falcorModel) {
+        falcorModel.setCache({});
+      }
+    },
+    
+    onEntityDataChange: function () {
+      RUFBehaviors.DataChannel.onCacheChange('entityData', 10000);
+    },
+    
+    onEntityGovernDataChange: function () {
+      RUFBehaviors.DataChannel.onCacheChange('entityGovernData', 10000);
+    },
+    
+    onConfigChange: function () {
+      RUFBehaviors.DataChannel.onCacheChange('config', 10000);
+    },
+    
+    onEntityModelChange: function () {
+      RUFBehaviors.DataChannel.onCacheChange('entityModel', 10000);
+    },
+    
+    onEventDataChange: function () {
+      RUFBehaviors.DataChannel.onCacheChange('eventData', 10000);
+    },
+    
+    onCacheChange: function (channelName, debounceDuration) {
+      let dataChannel = RUFBehaviors.DataChannel;
+
+      if (!dataChannel.cacheChangeDebouncers) {
+        dataChannel.cacheChangeDebouncers = {};
+      }
+      let _debouncer = dataChannel.cacheChangeDebouncers[channelName];
+
+      _debouncer = Polymer.Debouncer.debounce(_debouncer, Polymer.Async.timeOut.after(debounceDuration), () => {
+        let falcorCacheData = dataChannel.getModel(channelName).getCache();
+        if (falcorCacheData) {
+          let cacheKey = dataChannel.getLocalStorageCacheKey(channelName);
+          localStorage.setItem(cacheKey, JSON.stringify(falcorCacheData, dataChannel.falcorCacheSerializer));
+        }
+      });
+    },
+
     _createModel: function (channelName) {
       let dataChannel = RUFBehaviors.DataChannel;
 
@@ -97,9 +189,14 @@
         source: falcorDataSource,
         maxSize: channelConfig.maxSize,
         collectRatio: channelConfig.collectRatio,
-        onChange: cacheChangeEvent
+        onChange: cacheChangeEvent,
+        errorSelector: function(path, message) {
+          message.$expires =  -1000 * 60 * 1; // expires all errors after 1 min so that system can recover
+          return message;
+        }
       });
 
+      
       if (channelConfig.treatErrorsAsValues) {
         model.treatErrorsAsValues();
       }
@@ -115,81 +212,7 @@
 
       return model;
     },
-    falcorCacheSerializer: function (key, value) {
-      if (key == "searchResults") {
-        return undefined;
-      }
-      return value;
-    },
-    getLocalStorageCacheKey: function (channelName) {
-      let userId = DataHelper.getUserId();
-      let tenantId = DataHelper.getTenantId();
-      let rv = SharedUtils.RuntimeVersionManager.getVersion();
-      let mv = SharedUtils.ModuleVersionManager.getVersion(channelName);
-      return "".concat("data:", channelName, "#@#tenant:", tenantId, "#@#user:", userId, "#@#runtime-version:", rv, "#@#module-version:", mv);
-    },
-    cleanupObsoletedLocalStorage: function (channelName, excludeKey) {
-      let userId = DataHelper.getUserId();
-      let tenantId = DataHelper.getTenantId();
-      let keysToRemove = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        let key = localStorage.key(i);
-        if (key != excludeKey && key.startsWith("data:" + channelName + "#@#tenant:" + tenantId + "#@#user:" + userId) > 0) {
-          keysToRemove.push(key);
-        }
-      }
-
-      for (let i = 0; i < keysToRemove.length; i++) {
-        localStorage.removeItem(keysToRemove[i]);
-      }
-    },
-    clearAllCache: function () {
-      let allConfigs = RUFBehaviors.DataChannel._getAllChannelConfigs();
-
-      if (allConfigs && allConfigs.channels) {
-        for (let channelName in allConfigs.channels) {
-          RUFBehaviors.DataChannel.clearChannelCache(channelName);
-        }
-      }
-    },
-    clearChannelCache: function (channelName) {
-      let falcorModel = RUFBehaviors.DataChannel.getModel(channelName);
-
-      if (falcorModel) {
-        falcorModel.setCache({});
-      }
-    },
-    onEntityDataChange: function () {
-      RUFBehaviors.DataChannel.onCacheChange('entityData', 10000);
-    },
-    onEntityGovernDataChange: function () {
-      RUFBehaviors.DataChannel.onCacheChange('entityGovernData', 10000);
-    },
-    onConfigChange: function () {
-      RUFBehaviors.DataChannel.onCacheChange('config', 10000);
-    },
-    onEntityModelChange: function () {
-      RUFBehaviors.DataChannel.onCacheChange('entityModel', 10000);
-    },
-    onEventDataChange: function () {
-      RUFBehaviors.DataChannel.onCacheChange('eventData', 10000);
-    },
-    onCacheChange: function (channelName, debounceDuration) {
-      let dataChannel = RUFBehaviors.DataChannel;
-
-      if (!dataChannel.cacheChangeDebouncers) {
-        dataChannel.cacheChangeDebouncers = {};
-      }
-      let _debouncer = dataChannel.cacheChangeDebouncers[channelName];
-
-      _debouncer = Polymer.Debouncer.debounce(_debouncer, Polymer.Async.timeOut.after(debounceDuration), () => {
-        let falcorCacheData = dataChannel.getModel(channelName).getCache();
-        if (falcorCacheData) {
-          let cacheKey = dataChannel.getLocalStorageCacheKey(channelName);
-          localStorage.setItem(cacheKey, JSON.stringify(falcorCacheData, dataChannel.falcorCacheSerializer));
-        }
-      });
-    },
+    
     _getChannelConfig: function (channelName) {
       let allConfigs = this._getAllChannelConfigs();
       if (allConfigs.channels[channelName] !== undefined) {
@@ -199,6 +222,7 @@
         throw "Requested data channel " + channelName + " does not exist in channel config";
       }
     },
+    
     _getAllChannelConfigs: function () {
       return {
         'channels': {

@@ -27,8 +27,6 @@ const CONST_ALL = falcorUtil.CONST_ALL,
 
 const pathKeys = falcorUtil.getPathKeys();
 
-const LOCALE_COALESCE_KEY = "localeCoalesce";
-
 let errorMessageExpireTime = -10 * 1000; // 10 secs
 
 function _getKeyNames(obj, reqKeys) {
@@ -122,13 +120,6 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
                 let valCtxItem = falcorUtil.getOrCreate(valCtxItems, valCtxKey, {});
                 let values = falcorUtil.getOrCreate(valCtxItem, 'values', []);
 
-                // Need to maintain two copies of valCtx request - with locale coalesce and without locale coalesce for entity get
-                // This is needed because: While updating any value update query will not have "localeCoalesce" flag inside it, so on response of update it will cache only valCtx where localeCoalesce is not there and
-                // as soon as update happens it will go for get with "localeCoalesce" flag and will get old value not the updated value.
-                let localeCoalesceValCtxKey = falcorUtil.createCtxKey({ 'source': source, 'localeCoalesce': true, 'locale': locale });
-                let localeCoalesceValCtxItem = falcorUtil.getOrCreate(valCtxItems, localeCoalesceValCtxKey, {});
-                let localeCoalesceValues = falcorUtil.getOrCreate(localeCoalesceValCtxItem, 'values', []);
-
                 //RDF has started sending values in actual data type
                 //like boolean as true/false instead of 'true'/'false' and 0 instead of '0'
                 //UI is not ready for this yet probably because of if(value) kind of checks
@@ -137,7 +128,6 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
                     val.value = val.value.toString();
                 }
                 values.push(val);
-                localeCoalesceValues.push(val);
             }
 
             for (let valCtxKey in valCtxItems) {
@@ -183,7 +173,6 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
                 for (let item of attr.group) {
                     let source = item.source || undefined;
                     let locale = item.locale || undefined;
-                    let localeCoalesce = undefined;
 
                     let valCtxKey = falcorUtil.createCtxKey({ 'source': source, 'locale': locale });
                     let valCtxItem = falcorUtil.getOrCreate(valCtxItems, valCtxKey, {});
@@ -194,12 +183,7 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
                         continue;
                     }
 
-                    let localeCoalesceValCtxKey = falcorUtil.createCtxKey({ 'source': source, 'localeCoalesce': true, 'locale': locale });
-                    let localeCoalesceValCtxItem = falcorUtil.getOrCreate(valCtxItems, localeCoalesceValCtxKey, {});
-                    let localeCoalescegroup = falcorUtil.getOrCreate(localeCoalesceValCtxItem, 'group', []);
-
                     group.push(item);
-                    localeCoalescegroup.push(item);
                 }
             }
 
