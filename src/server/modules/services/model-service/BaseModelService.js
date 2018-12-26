@@ -229,8 +229,9 @@ BaseModelService.prototype = {
             entity.id = model.id;
             entity.name = model.name;
             entity.type = model.type;
+            entity.domain = model.domain;
             entity.properties = model.properties;
-            if(falcorUtil.isValidObjectPath(entity, "properties") && !entity.properties.name){
+            if(falcorUtil.isValidObjectPath(entity, "properties") && entity.properties && !entity.properties.name){
                 entity.properties.name = model.name;
             }
             entity.data = {};
