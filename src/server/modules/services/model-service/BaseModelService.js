@@ -368,6 +368,20 @@ BaseModelService.prototype = {
         return response;
     },
 
+    _updateDisplayType: function (transformedModel) {
+        let attributeModels = falcorUtil.cloneObject(transformedModel);
+        if (falcorUtil.isValidObjectPath(attributeModels, "data.attributes")) {
+            let attributes = attributeModels.data.attributes;
+            for (let key in attributes) {
+                let attribute = attributes[key];
+                if(attribute && attribute.properties && attribute.properties.displayType) {
+                    attribute.properties.displayType = attribute.properties.displayType.toLowerCase();
+                }
+            }
+        }
+        return attributeModels;
+    },
+
     _processEntityTypeModel: async function (request, action) {
         let transformedModel, dataOperationResults = [];
 
@@ -386,7 +400,7 @@ BaseModelService.prototype = {
 
             if (transformedModel) {
                 model = this._prepareEntityTypeModel(transformedModel);
-                compositeModels = this._prepareCompositeModels(transformedModel, compositeAttributeModel, request.entityModel);
+                compositeModels = this._prepareCompositeModels(this._updateDisplayType(transformedModel), compositeAttributeModel, request.entityModel);
             }
 
             if (!isEmpty(model)) {
