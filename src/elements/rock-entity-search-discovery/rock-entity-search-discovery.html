@@ -563,6 +563,10 @@
                     },
                     maxAllowedValuesForSearch: {
                         type: Number
+                    },
+                    _isSearchFilterChanged:{
+                        type:Boolean,
+                        value:false
                     }
                 }
             }
@@ -932,11 +936,6 @@
                 this._searchBarElement.query = "";
                 this._searchBarElement.setAttribute("placeholder", "");
 
-                // Clear SavedSearch
-                if (this._savedSearchButton) {
-                    this._savedSearchButton.buttonText = "Load Saved Search";
-                    this.savedSearchId = "";
-                }
 
                 // Clear SearchFilter
                 this.tags = []; // Todo
@@ -957,16 +956,21 @@
                     this.set("_workflowCriterion", new Object());
                 }
                 this.set("_governDataCriterion", new Object());
+                this._isSearchFilterChanged = false;
 
                 let queryBuilder = this.shadowRoot.querySelector("#queryBuilder");
                 if (queryBuilder) {
                     queryBuilder.resetQueryBuilder();
                 }
-
-                this._buildQueryString();
+                
+                if(this.savedSearchId){
+                    this._savedSeachesChanged(true, false);
+                }else{
+                    this._buildQueryString();
+                }
+                
 
             }
-
 
             // Saved Search
             _onSavedSearchTap(e) {
@@ -1051,10 +1055,14 @@
 
             _loadSavedSearch(e, detail, sender) {
                 if (detail) {
-                    //this.savedSearchId = detail.id;
-                    ComponentHelper.setQueryParams({
-                        "_savedSearchId": detail.id
-                    });
+                    if(this.savedSearchId && (this.savedSearchId == detail.id)){
+                        this._resetSearch();
+                        this._savedSearchPopoverElement.close();
+                    }else{
+                        ComponentHelper.setQueryParams({
+                            "_savedSearchId": detail.id
+                        });
+                    }
                 }
             }
 
@@ -1065,10 +1073,9 @@
                         if (savedSearch) {
                             this._savedSearch = savedSearch;
                             if (!_.isEmpty(savedSearch.dimensions)) {
-                                this.selectedDimensions = savedSearch.dimensions;
-                            } else {
-                                this._processSavedSearch(savedSearch);
-                            }
+                                this.selectedDimensions = DataHelper.cloneObject(savedSearch.dimensions);
+                            } 
+                            this._processSavedSearch(savedSearch);
                         }
                     }
                 }
@@ -1079,10 +1086,14 @@
                 this._isSavedSearchLoad = true;
                 this._savedSearchButton.buttonText = savedSearch.name;
                 this._governDataCriterion = savedSearch.governData;
-
+                
                 let displayQuery = savedSearch.displayQuery;
                 let internalQuery = savedSearch.internalQuery;
 
+                if(this._isSearchFilterChanged){
+                    displayQuery = this._searchBarElement.placeholder;
+                    internalQuery = this._searchBarElement.internalQuery;
+                }
                 this._displayQuery(displayQuery, internalQuery);
                 this._parseQuery(internalQuery);
             }
@@ -1458,7 +1469,7 @@
                 }
             }
             reload() {
-                if (this.savedSearchId && !_.isEmpty(this.savedSearches)) {
+                if (this.savedSearchId && !_.isEmpty(this.savedSearches)){
                     let savedSearch = this._getSavedSearches(this.savedSearches, this.savedSearchId);
                     if (savedSearch) {
                         this._processSavedSearch(savedSearch);
@@ -1658,6 +1669,7 @@
             _onSearchFiltersChange(e, detail) {
                 this._entityTypes = detail.typesCriterion;
                 this._searchFilters = detail;
+                this._isSearchFilterChanged = true;
                 //this.shadowRoot.querySelector("#entityTypeFilterPopover").close();
                 this._updateProperties(this._searchFilters);
             }
