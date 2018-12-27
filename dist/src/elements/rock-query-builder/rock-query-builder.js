@@ -11,6 +11,7 @@ import '../bedrock-app-context-behavior/bedrock-app-context-behavior.js';
 import '../bedrock-component-context-behavior/bedrock-component-context-behavior.js';
 import '../bedrock-ui-behavior/bedrock-ui-behavior.js';
 import '../bedrock-query-builder-behavior/bedrock-query-builder-behavior.js';
+import EntityTypeManager from '../bedrock-managers/entity-type-manager.js'
 import '../liquid-entity-model-get/liquid-entity-model-get.js';
 import '../pebble-button/pebble-button.js';
 import '../pebble-popover/pebble-popover.js';
@@ -19,6 +20,7 @@ import '../pebble-textarea/pebble-textarea.js';
 import '../pebble-icon/pebble-icon.js';
 import '../pebble-textbox/pebble-textbox.js';
 import '../pebble-lov/pebble-lov.js';
+import DataTableRow from '../pebble-data-table/data-table-row.js'
 import '../pebble-data-table/pebble-data-table.js';
 import '../rock-attribute-model-lov/rock-attribute-model-lov.js';
 import '../rock-entity-type-model-lov/rock-entity-type-model-lov.js';
@@ -1088,7 +1090,10 @@ class RockQueryBuilder extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehavi
   _onModelReceived(e){
       let response = e.detail.response;
       let relationshipModels = DataTransformHelper.transformRelationshipModels(response.content.entityModels[0], this.contextData);
-      let entityType = response.content.entityModels[0].name;
+      let entityType = "";
+      if(!_.isEmpty(response.content.entityModels)) {
+        entityType = response.content.entityModels[0].name;
+      }
 
       if(DataHelper.isValidObjectPath(response, 'content.entityModels.0.id')){
           entityType = response.content.entityModels[0].id.split("_entityCompositeModel")[0];
