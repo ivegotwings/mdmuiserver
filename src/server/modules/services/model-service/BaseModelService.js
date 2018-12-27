@@ -1287,33 +1287,16 @@ BaseModelService.prototype = {
         }
     },
 
-    _updateModelProperties: function (transformedAttributeModels) {
-        let attributeModels = falcorUtil.cloneObject(transformedAttributeModels);
-        if (falcorUtil.isValidObjectPath(attributeModels, "data.attributes")) {
-            let attributes = attributeModels.data.attributes;
-            this._updateDisplayType(attributes);
-        }
-        return attributeModels;
-    },
-
-    _updateDisplayType: function (attributes) {
-        for (let key in attributes) {
-            let attribute = attributes[key];
-            if (attribute && attribute.properties) {
-                if (attribute.properties.displayType) {
-                    attribute.properties.displayType = attribute.properties.displayType.toLowerCase();
-                }
-                if (attribute.properties.dataType == "nested" && !isEmpty(attribute.group)) {
-                    this._updateDisplayType(attribute.group[0]);
-                }
-            }
+    //Currently used only for displayType casing
+    _updateAttributeProperties: function (attribute) {
+        if (attribute.properties && attribute.properties.displayType) {
+            attribute.properties.displayType = attribute.properties.displayType.toLowerCase();
         }
     },
 
-    _prepareCompositeModels: function (transformedAttributeModels, compositeAttributeModel, entityTypeModel, isIdEntityIdentifier) {
+    _prepareCompositeModels: function (attributeModels, compositeAttributeModel, entityTypeModel, isIdEntityIdentifier) {
         let compositeModels = [];
         let compositeAttributeModelList = this._fetchListOfAttributesBasedOnGroup(compositeAttributeModel);
-        let attributeModels = this._updateModelProperties(transformedAttributeModels); // Update model properties to convert displayType to lower case
 
         if (!isEmpty(attributeModels) && !isEmpty(compositeAttributeModelList)) {
             for (let compModel of compositeModelTypes) {
@@ -1337,6 +1320,7 @@ BaseModelService.prototype = {
                             let attr = attribuetModelData.attributes[attrKey];
 
                             if (attr) {
+                                this._updateAttributeProperties(attr);
                                 let clonedAttr = falcorUtil.cloneObject(attr);
                                 compositeModelData.attributes[attrKey] = clonedAttr;
                                 compositeModelData.attributes[attrKey].properties = _.pick(attr.properties, compositeAttributeModelList[compModel]);
@@ -1349,6 +1333,7 @@ BaseModelService.prototype = {
                                             let grpAttr = grp[grpAttrKey];
 
                                             if (grpAttr) {
+                                                this._updateAttributeProperties(grpAttr);
                                                 let clonedGrpAttr = falcorUtil.cloneObject(grpAttr);
                                                 compGrp[grpAttrKey] = clonedGrpAttr;
                                                 compGrp[grpAttrKey].properties = _.pick(grpAttr.properties, compositeAttributeModelList[compModel]);
