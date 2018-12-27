@@ -283,3 +283,4 @@ class DataTableRow extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalMut
   }
 }
 customElements.define(DataTableRow.is, DataTableRow);
+export default DataTableRow
