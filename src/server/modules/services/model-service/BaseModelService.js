@@ -1320,10 +1320,10 @@ BaseModelService.prototype = {
                             let attr = attribuetModelData.attributes[attrKey];
 
                             if (attr) {
-                                this._updateAttributeProperties(attr);
                                 let clonedAttr = falcorUtil.cloneObject(attr);
                                 compositeModelData.attributes[attrKey] = clonedAttr;
                                 compositeModelData.attributes[attrKey].properties = _.pick(attr.properties, compositeAttributeModelList[compModel]);
+                                this._updateAttributeProperties(compositeModelData.attributes[attrKey]);
 
                                 if (attr.group) {
                                     compositeModelData.attributes[attrKey].group = [];
@@ -1333,10 +1333,10 @@ BaseModelService.prototype = {
                                             let grpAttr = grp[grpAttrKey];
 
                                             if (grpAttr) {
-                                                this._updateAttributeProperties(grpAttr);
                                                 let clonedGrpAttr = falcorUtil.cloneObject(grpAttr);
                                                 compGrp[grpAttrKey] = clonedGrpAttr;
                                                 compGrp[grpAttrKey].properties = _.pick(grpAttr.properties, compositeAttributeModelList[compModel]);
+                                                this._updateAttributeProperties(compGrp[grpAttrKey]);
                                             }
                                         }
                                         compositeModelData.attributes[attrKey].group.push(compGrp);
@@ -1376,6 +1376,7 @@ BaseModelService.prototype = {
                                         for (let relAttr in rel.attributes) {
                                             compositeModelData.relationships[relType][0].attributes[relAttr] = rel.attributes[relAttr];
                                             compositeModelData.relationships[relType][0].attributes[relAttr].properties = _.pick(rel.attributes[relAttr].properties, compositeAttributeModelList[compModel]);
+                                            this._updateAttributeProperties(compositeModelData.relationships[relType][0].attributes[relAttr]);
                                         }
                                     }
                                 }
