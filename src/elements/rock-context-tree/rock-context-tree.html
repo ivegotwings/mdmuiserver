@@ -68,6 +68,15 @@
                 font-weight: var(--font-medium);
             }
 
+            .modified-status-text {
+                margin-left: 0px !important;
+            }
+
+            #newContextText:hover, #removedContextText:hover {
+                color: var(--dropdown-selected-font, #036bc3);
+                cursor: pointer;
+            }
+
             .resetsearch pebble-button {
                 height: auto;
 
@@ -140,16 +149,18 @@
                     </div>
                     <bedrock-pubsub event-name="rock-search" handler="_onSearch" target-id="searchBar"></bedrock-pubsub>
                 </div>
-                <p id="selectedContextsText" class="status-text" hidden$=[[!showContextText]] on-mouseover="_openPopover" on-mouseout="_closePopover">[[selectedContextText]]</p>
+                <template is="dom-if" if="[[showContextText]]">
+                    <p class="status-text">[[selectedContextText]]</p><p id="newContextText" class="status-text modified-status-text" on-mouseover="_openPopover" on-mouseout="_closePopover">[[newContextText]]</p><p id="removedContextText" class="status-text modified-status-text" on-mouseover="_openPopover" on-mouseout="_closePopover">[[removedContextText]]</p>
+                </template>
             </div>
             <div hidden$="[[_contextsDataFound]]" class="status-error">No Contexts Found</div>
             <div class="base-grid-structure-child-2">
                 <pebble-tree id="contextTree" class="contextTree" data="{{contextsData}}" check-child-nodes="[[checkChildNodes]]" default-child-depth="10" selected-items="{{selectedItems}}" selected-item="{{_selectedItem}}" multi-select="[[multiSelect]]" disable-child-node="[[disableChildNode]]" check-parent-nodes="[[checkParentNodes]]" select-parent-item="[[selectParentItem]]" leaf-node-only="[[leafNodeOnly]]" show-warning-on-unselect="[[showWarningOnUnselect]]"></pebble-tree>
             </div>
         </div>
-        <pebble-popover id="selectedContextsPopover" for="selectedContextsText" no-overlap>
-            <template is="dom-repeat" items="[[selectedItems]]" as="item">
-                <div class="context-item">[[item.text]]</div>
+        <pebble-popover id="selectedContextsPopover" no-overlap>
+            <template is="dom-repeat" items="[[modifiedContexts]]" as="item">
+                <div class="context-item">[[item]]</div>
             </template>
         </pebble-popover>
         <pebble-dialog id="dirtyCheckDialog" dialog-title="Confirmation" button-ok-text="Yes" button-cancel-text="Cancel" modal alert-box show-cancel show-ok no-cancel-on-outside-click
@@ -266,6 +277,14 @@
                         type: String,
                         value: ""
                     },
+                    newContextText: {
+                        type: String,
+                        value: ""
+                    },
+                    removedContextText: {
+                        type: String,
+                        value: ""
+                    },
                     currentEntityContexts: {
                         type: Array,
                         value: []
@@ -291,6 +310,24 @@
                     _searchKeyWord: {
                         type: String,
                         value: ''
+                    },
+                    newContexts: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    removedContexts: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    modifiedContexts: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
                     }
                 }
             }
@@ -400,6 +437,11 @@
                     let contextsCount = 0;
                     let newContextsCount = 0;
                     let removedContextsCount = 0;
+                    let newlyAddedContexts = [];
+                    let remainingExistingContexts = [];
+                    let removedContexts = [];
+                    this.newContextText = "";
+                    this.removedContextText = "";
 
                     let itemExistCount = 0;
                     
@@ -408,17 +450,31 @@
                         let value = currentSelectedItems[i].value;
                         if (preSelectedItems.indexOf(value) == -1) {
                             newContextsCount++;
+                            if(newlyAddedContexts.indexOf(value) == -1) {
+                                newlyAddedContexts.push(value);
+                            }
                         } else {
                             itemExistCount++;
+                            if(remainingExistingContexts.indexOf(value) == -1) {
+                                remainingExistingContexts.push(value);
+                            }
                         }
                     }
                     removedContextsCount = (preSelectedItems.length - itemExistCount);
+                    removedContexts = preSelectedItems.reduce(function(prev, next) {
+                        if(remainingExistingContexts.indexOf(next) == -1) {
+                            prev.push(next);
+                        }
+                        return prev;
+                    }, removedContexts);
                     let _selectedContextText = currentSelectedItems.length + " contexts selected";
-                    if (newContextsCount > 0) {
-                        _selectedContextText += " ( " + newContextsCount + " new )"
+                    if (newContextsCount > 0 && !_.isEmpty(newlyAddedContexts)) {
+                        this.newContexts = newlyAddedContexts.sort();
+                        this.newContextText += " ( " + newContextsCount + " new )";
                     }
-                    if (removedContextsCount > 0) {
-                        _selectedContextText += " ( " + removedContextsCount + " removed )"
+                    if (removedContextsCount > 0 && !_.isEmpty(removedContexts)) {
+                        this.removedContexts = removedContexts.sort();
+                        this.removedContextText += " ( " + removedContextsCount + " removed )"
                     }
                     this.selectedContextText = _selectedContextText;
                 }
@@ -763,6 +819,7 @@
                     let externalNameAttr = EntityHelper.getAttribute(entity, externalAttrName);
                     let externamName = AttributeHelper.getFirstAttributeValue(externalNameAttr);
                     let entityTypeExternalName = entity.typeExternalName || entity.type;
+                    nodeData.typeExternalName = entityTypeExternalName;
                     nodeData.text = (externamName || entity.name) + " (" + entityTypeExternalName + ")";
                     nodeData.value = externamName || entity.name;
 
@@ -890,21 +947,30 @@
                 if(currentNode) {
                     let node = currentNode.shadowRoot.getElementById(currentNode.nodeData.id);
                     if(node) {
-                        node.innerHTML = "( " + parentNodeData.value + " )";
+                        let parentNodeDataType = parentNodeData.typeExternalName || parentNodeData.type;
+                        node.innerHTML = "( " + parentNodeDataType + " : " + parentNodeData.value + " )";
                     }
                 }
             }
 
-            _openPopover() {
+            _openPopover(e) {
                 let popOver = this.shadowRoot.querySelector("#selectedContextsPopover");
                 if(popOver) {
+                    popOver.for = e.currentTarget.id;
+                    if(e.currentTarget.id === "newContextText") {
+                        this.modifiedContexts = this.newContexts;
+                    }
+                    if(e.currentTarget.id === "removedContextText") {
+                        this.modifiedContexts = this.removedContexts;
+                    }
                     popOver.show();
                 }
             }
 
-            _closePopover() {
+            _closePopover(e) {
                 let popOver = this.shadowRoot.querySelector("#selectedContextsPopover");
                 if(popOver) {
+                    this.modifiedContexts = [];
                     popOver.close();
                 }
             }
