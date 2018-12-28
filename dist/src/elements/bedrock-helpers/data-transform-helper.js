@@ -11,6 +11,8 @@ import './attribute-helper.js';
 import './context-helper.js';
 import './data-merge-helper.js';
 import './entity-helper.js';
+import EntityTypeManager from '../bedrock-managers/entity-type-manager.js' 
+
 window.DataTransformHelper = window.DataTransformHelper || {};
 
 DataTransformHelper.transformAttributeModels = function (compositeModel, contextData, editPermission) {
@@ -31,6 +33,7 @@ DataTransformHelper.transformAttributeModels = function (compositeModel, context
     }
     return mergedAttributeModels;
 };
+
 DataTransformHelper._getAttributeModelsBasedOnContext = function (compositeModel, firstDataContext) {
     let mergedAttributeModels = {};
     if (!_.isEmpty(firstDataContext)) {
@@ -221,7 +224,6 @@ DataTransformHelper.transformAttributes = function (entity, attributeModels, con
 };
 
 //Sort related functions - Start
-
 DataTransformHelper.sortAttributeModels = function (attributeModels) {
     //convert object to array
     let modelArray = _.map(attributeModels, function (value, index) { return value; });
@@ -301,7 +303,6 @@ DataTransformHelper._assignDefaultDisplaySequence = function (attributeModels) {
         }
     }
 };
-
 //Sort related functions - End
 
 DataTransformHelper.transformEntitiesToGridFormat = async function (entities, attributeModels, contextData, columns) {
@@ -507,7 +508,7 @@ DataTransformHelper.prepareEntityForRelationshipSave = async function (originalE
 
     relationships.length = 0;
     relationships.push(relationship);
-
+    
     let attributes = {};
     for (let i = 0; i < relationshipAttributesJSON.length; i++) {
         let relationshipAttributeJSON = relationshipAttributesJSON[i];
