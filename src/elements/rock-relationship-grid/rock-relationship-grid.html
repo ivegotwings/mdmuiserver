@@ -18,8 +18,9 @@
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-buttons.html">
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-padding-margin.html">
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-grid-layout.html">
-<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-tooltip.html">
+ 
 <link rel="import" href="../bedrock-toast-behavior/bedrock-toast-behavior.html">
+<link rel="import" href="../bedrock-navigation-behavior/bedrock-navigation-behavior.html">
 
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 <link rel="import" href="../liquid-entity-data-save/liquid-entity-data-save.html">
@@ -217,7 +218,7 @@ The following JSON object is a sample of data which binds the grid.
 -->
 <dom-module id="rock-relationship-grid">
   <template>
-    <style include="bedrock-style-common bedrock-style-tooltip bedrock-style-grid-layout bedrock-style-padding-margin bedrock-style-buttons">
+    <style include="bedrock-style-common bedrock-style-grid-layout bedrock-style-padding-margin bedrock-style-buttons">
       :host {
         display: block;
         height: 100%;
@@ -253,7 +254,7 @@ The following JSON object is a sample of data which binds the grid.
       }
 
       pebble-horizontal-divider {
-        --pebble-horizontal-divider-color: var(--tooltip-bg-color, rgba(25, 32, 39, 1));
+        --pebble-horizontal-divider-color:rgba(25, 32, 39, 1);
       }
 
       pebble-lov {
@@ -379,7 +380,8 @@ The following JSON object is a sample of data which binds the grid.
                             </template>
               
                         <template is="dom-if" if="[[relationshipGridConfig.copyActionConfig]]">
-                          <pebble-button class="btn btn-primary tooltip-bottom m-l-5" id="copy_btn" data-tooltip$="[[_clipboardTooltip]]" button-text="Copy ID(s)"
+                          <pebble-button class="btn btn-primary m-l-5" id="copy_btn" title$="[[_clipboardTooltip]]" button-text="Copy ID(s)"
+
                             on-tap="_onTapCopyAction" on-mouseout="_onMouseoutCopyAction"></pebble-button>
                         </template>
                         <template is="dom-if" if="[[relationshipGridConfig.addRelationConfig]]">
@@ -416,7 +418,7 @@ The following JSON object is a sample of data which binds the grid.
                         r-data-source-id="datasource_[[relationship]]" config="{{relationshipGridConfig.gridConfig}}" attribute-models="[[_getRelationshipAttributeModels(relationship)]]"
                         grid-data-size="{{size}}" current-record-size="{{currentRecordSize}}" max-configured-count="[[maxConfiguredCount]]"
                         row-drag-drop-enabled="[[_getRowDragDropEnabled()]]" on-row-drop-event-raised="_onRowDropEventRaised"
-                        result-record-size="{{resultRecordSize}}" total-count="{{totalCount}}" page-size="[[pageSize]]" apply-context-coalesce="[[relationshipGridConfig.gridConfig.applyContextCoalesce]]">
+                        result-record-size="{{resultRecordSize}}" total-count="{{totalCount}}" page-size="[[pageSize]]" apply-context-coalesce="[[relationshipGridConfig.gridConfig.applyContextCoalesce]]" inline-edit-validation-enabled>
                         <rock-entity-relationship-search-result-actions slot="toolbar" id="gridActions" context-data="[[contextData]]" has-write-permissions="[[_hasWritePermissions(relationshipGridConfig.gridConfig)]]" relationship="[[relationship]]"></rock-entity-relationship-search-result-actions>
                       </rock-grid>
                     </div>
@@ -429,7 +431,8 @@ The following JSON object is a sample of data which binds the grid.
                   <bedrock-pubsub event-name="grid-bulk-edit-items" handler="_onBulkEdit" target-id="[[relationship]]"></bedrock-pubsub>
                   <bedrock-pubsub event-name="grid-bulk-relationship-edit-items" handler="_onBulkRelationshipEdit" target-id="[[relationship]]"></bedrock-pubsub>
                   <bedrock-pubsub event-name="grid-custom-toolbar-event" handler="_onCustomToolbarEvent" target-id="[[relationship]]"></bedrock-pubsub>
-
+                  <bedrock-pubsub event-name="grid-link-clicked" handler="_onRelationshipLinkClicked"></bedrock-pubsub>
+        
                 </div>
                 <template is="dom-if" if="[[_quickManageEnabled]]">
 
@@ -503,7 +506,8 @@ The following JSON object is a sample of data which binds the grid.
         RUFBehaviors.AppBehavior,
         RUFBehaviors.ComponentContextBehavior,
         RUFBehaviors.ToastBehavior,
-        RUFBehaviors.LoggerBehavior
+        RUFBehaviors.LoggerBehavior,
+        RUFBehaviors.NavigationBehavior
       ], Polymer.OptionalMutableData(Polymer.Element)) {
       static get is() { return 'rock-relationship-grid' }
 
@@ -773,6 +777,12 @@ The following JSON object is a sample of data which binds the grid.
           isCollapsed: {
             type: Boolean,
             notify: true
+          },
+          navigationData: {
+            type: Object,
+            value: function () {
+                return {};
+            }
           }
         }
       }
@@ -821,7 +831,7 @@ The following JSON object is a sample of data which binds the grid.
         if (!_.isEmpty(firstItemContext)) {
           this.excludedIds.push(firstItemContext.id);
         }
-
+            
         let compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
         this.set("_relationshipModelRequest", compositeModelGetRequest);
         let liquidModelGet = this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
@@ -2526,9 +2536,23 @@ The following JSON object is a sample of data which binds the grid.
 
             this._savedRelationshipItems[relationship] = savedRelationshipItems;
             relationshipLov.selectedItems = savedRelationshipItems;
-          }
+          }        
         }
       }
+
+      _onRelationshipLinkClicked(e) {
+        if(e && e.detail && e.detail.link && e.detail.link.indexOf("entity-manage") > -1 && e.detail.id) {
+          if (!_.isEmpty(this.contextData)) {
+              let navContextArr = this.contextData[ContextHelper.CONTEXT_TYPE_NAVIGATION];
+              if(!_.isEmpty(navContextArr) && navContextArr[0]["rock-context-selector"]){
+                  this.navigationData = navContextArr[0]["rock-context-selector"];
+              }
+          }
+          if(!_.isEmpty(this.navigationData)){
+              this.setNavigationData("rock-context-selector", this.navigationData, null ,"entity-manage",e.detail.id);
+          }
+        }
+      }      
     }
     customElements.define(RockRelationshipGrid.is, RockRelationshipGrid)
   </script>

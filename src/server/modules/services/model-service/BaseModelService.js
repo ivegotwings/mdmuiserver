@@ -163,12 +163,49 @@ BaseModelService.prototype = {
             transformedModel = await this._transFormAttributeModelForSave(compositeAttributeModel, request.entityModel);
         }
 
+        let clonedRequest = falcorUtil.cloneObject(request);
+        delete clonedRequest.clientState;
+
+        let parentAttrExternalName;
+
         if (transformedModel) {
+            parentAttrExternalName = transformedModel.externalName ? transformedModel.externalName : transformedModel.name;
+            delete transformedModel.externalName;
+            
+
             modelId = transformedModel.id;
             request[request.dataIndex] = transformedModel;
         }
-
         dataOperationResult = await dataObjectManageService.process(request, action);
+        if(falcorUtil.isValidObjectPath(clonedRequest[clonedRequest.dataIndex], "data.relationships.haschildattributes")){
+            let childAttributes = clonedRequest[clonedRequest.dataIndex].data.relationships.haschildattributes;
+            let parentAttrName = modelId.substr(0, modelId.indexOf("_attributeModel"));
+            if(childAttributes.length){
+                for (let attrIndex = 0; attrIndex < childAttributes.length; attrIndex++) {
+                    const childAttr = childAttributes[attrIndex];
+                    if(childAttr.relTo){
+                        let relTo = childAttr.relTo;
+                        if(relTo.id && relTo.type && relTo.externalName){
+                            let childAttrName = relTo.id.substr(0, relTo.id.indexOf("_attributeModel"));
+                            let childAttrModel = {
+                                id:relTo.id,
+                                type:relTo.type,
+                                properties:{
+                                    parentAttributeName:parentAttrName,
+                                    parentAttributeExternalName:parentAttrExternalName,
+                                    attributeNamePath:parentAttrName+'.'+childAttrName,
+                                    attributeExternalNamePath:parentAttrExternalName+'.'+relTo.externalName
+                                }
+                            }
+                            let childAttrModelRequest = falcorUtil.cloneObject(clonedRequest);
+                            childAttrModelRequest[childAttrModelRequest.dataIndex] = childAttrModel;
+                            await dataObjectManageService.process(childAttrModelRequest, action);
+                        }
+                    }
+                    
+                }
+            }
+        }
 
         if (modelCacheEnabled && !isEmpty(modelId)) {
             let cacheKey = modelGetManager.getModelCacheKey("attributeModel");
@@ -192,7 +229,11 @@ BaseModelService.prototype = {
             entity.id = model.id;
             entity.name = model.name;
             entity.type = model.type;
+            entity.domain = model.domain;
             entity.properties = model.properties;
+            if(falcorUtil.isValidObjectPath(entity, "properties") && entity.properties && !entity.properties.name){
+                entity.properties.name = model.name;
+            }
             entity.data = {};
 
             if (compositeModel.data) {
@@ -293,6 +334,10 @@ BaseModelService.prototype = {
                             let deletedAttrEntities = childAttributeRels.map(v => v.action && v.action == "delete" ? v.relTo.id.replace("_" + relEntityType, "") : undefined);
                             if (deletedAttrEntities) {
                                 properties.childAttributes = properties.childAttributes.filter(v => deletedAttrEntities.indexOf(v) == -1);
+                            }
+                            //add external name
+                            if(existingAttrModel.properties && existingAttrModel.properties.externalName){
+                                transformedModel.externalName = existingAttrModel.properties.externalName;
                             }
                         }
                     }
@@ -1242,6 +1287,13 @@ BaseModelService.prototype = {
         }
     },
 
+    //Currently used only for displayType casing
+    _updateAttributeProperties: function (attribute) {
+        if (attribute.properties && attribute.properties.displayType) {
+            attribute.properties.displayType = attribute.properties.displayType.toLowerCase();
+        }
+    },
+
     _prepareCompositeModels: function (attributeModels, compositeAttributeModel, entityTypeModel, isIdEntityIdentifier) {
         let compositeModels = [];
         let compositeAttributeModelList = this._fetchListOfAttributesBasedOnGroup(compositeAttributeModel);
@@ -1271,6 +1323,7 @@ BaseModelService.prototype = {
                                 let clonedAttr = falcorUtil.cloneObject(attr);
                                 compositeModelData.attributes[attrKey] = clonedAttr;
                                 compositeModelData.attributes[attrKey].properties = _.pick(attr.properties, compositeAttributeModelList[compModel]);
+                                this._updateAttributeProperties(compositeModelData.attributes[attrKey]);
 
                                 if (attr.group) {
                                     compositeModelData.attributes[attrKey].group = [];
@@ -1283,6 +1336,7 @@ BaseModelService.prototype = {
                                                 let clonedGrpAttr = falcorUtil.cloneObject(grpAttr);
                                                 compGrp[grpAttrKey] = clonedGrpAttr;
                                                 compGrp[grpAttrKey].properties = _.pick(grpAttr.properties, compositeAttributeModelList[compModel]);
+                                                this._updateAttributeProperties(compGrp[grpAttrKey]);
                                             }
                                         }
                                         compositeModelData.attributes[attrKey].group.push(compGrp);
@@ -1322,6 +1376,7 @@ BaseModelService.prototype = {
                                         for (let relAttr in rel.attributes) {
                                             compositeModelData.relationships[relType][0].attributes[relAttr] = rel.attributes[relAttr];
                                             compositeModelData.relationships[relType][0].attributes[relAttr].properties = _.pick(rel.attributes[relAttr].properties, compositeAttributeModelList[compModel]);
+                                            this._updateAttributeProperties(compositeModelData.relationships[relType][0].attributes[relAttr]);
                                         }
                                     }
                                 }

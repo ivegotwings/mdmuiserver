@@ -563,6 +563,10 @@
                     },
                     maxAllowedValuesForSearch: {
                         type: Number
+                    },
+                    _isSearchFilterChanged:{
+                        type:Boolean,
+                        value:false
                     }
                 }
             }
@@ -932,11 +936,6 @@
                 this._searchBarElement.query = "";
                 this._searchBarElement.setAttribute("placeholder", "");
 
-                // Clear SavedSearch
-                if (this._savedSearchButton) {
-                    this._savedSearchButton.buttonText = "Load Saved Search";
-                    this.savedSearchId = "";
-                }
 
                 // Clear SearchFilter
                 this.tags = []; // Todo
@@ -957,16 +956,21 @@
                     this.set("_workflowCriterion", new Object());
                 }
                 this.set("_governDataCriterion", new Object());
+                this._isSearchFilterChanged = false;
 
                 let queryBuilder = this.shadowRoot.querySelector("#queryBuilder");
                 if (queryBuilder) {
                     queryBuilder.resetQueryBuilder();
                 }
-
-                this._buildQueryString();
+                
+                if(this.savedSearchId){
+                    this._savedSeachesChanged(true, false);
+                }else{
+                    this._buildQueryString();
+                }
+                
 
             }
-
 
             // Saved Search
             _onSavedSearchTap(e) {
@@ -1051,10 +1055,14 @@
 
             _loadSavedSearch(e, detail, sender) {
                 if (detail) {
-                    //this.savedSearchId = detail.id;
-                    ComponentHelper.setQueryParams({
-                        "_savedSearchId": detail.id
-                    });
+                    if(this.savedSearchId && (this.savedSearchId == detail.id)){
+                        this._resetSearch();
+                        this._savedSearchPopoverElement.close();
+                    }else{
+                        ComponentHelper.setQueryParams({
+                            "_savedSearchId": detail.id
+                        });
+                    }
                 }
             }
 
@@ -1065,10 +1073,9 @@
                         if (savedSearch) {
                             this._savedSearch = savedSearch;
                             if (!_.isEmpty(savedSearch.dimensions)) {
-                                this.selectedDimensions = savedSearch.dimensions;
-                            } else {
-                                this._processSavedSearch(savedSearch);
-                            }
+                                this.selectedDimensions = DataHelper.cloneObject(savedSearch.dimensions);
+                            } 
+                            this._processSavedSearch(savedSearch);
                         }
                     }
                 }
@@ -1079,10 +1086,14 @@
                 this._isSavedSearchLoad = true;
                 this._savedSearchButton.buttonText = savedSearch.name;
                 this._governDataCriterion = savedSearch.governData;
-
+                
                 let displayQuery = savedSearch.displayQuery;
                 let internalQuery = savedSearch.internalQuery;
 
+                if(this._isSearchFilterChanged){
+                    displayQuery = this._searchBarElement.placeholder;
+                    internalQuery = this._searchBarElement.internalQuery;
+                }
                 this._displayQuery(displayQuery, internalQuery);
                 this._parseQuery(internalQuery);
             }
@@ -1208,15 +1219,16 @@
             // Quick Manage
             _onSelectingGridItem(e, detail, sender) {
                 if (this._quickManageEnabled) {
-                    this._selectedEntity = detail.item;
-
-                    if (!DataHelper.isEmptyObject(this._selectedEntity)) {
+                    
+                    let selectedEntityItem = detail.item;
+                    if (!DataHelper.isEmptyObject(selectedEntityItem)) {
                         let itemContext = {
-                            'id': this._selectedEntity.id,
-                            'type': this._selectedEntity.type
+                            'id': selectedEntityItem.id,
+                            'type': selectedEntityItem.type
                         };
 
                         this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+                        this._selectedEntity = selectedEntityItem;
 
                         this._searchGridElement.clearSelection();
                         Polymer.Async.microTask.run(() => {
@@ -1250,7 +1262,6 @@
                 }
                 if (this._quickManageEnabled) {
                     let selectedItem = selectedCount[selectedCount.length - 1];
-                    this._selectedEntity = selectedItem;
 
                     if (!DataHelper.isEmptyObject(selectedItem)) {
                         let itemContext = {
@@ -1259,6 +1270,7 @@
                         };
 
                         this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+                        this._selectedEntity = selectedItem;
 
                         this._searchGridElement.clearSelection(); //Clear current selection
                         this._searchGridElement.selectItem(selectedItem); //Select item
@@ -1301,15 +1313,16 @@
 
                     if (gridData.length > 0 && index < this._gridFullLength) {
                         if (gridData[index].attributes) {
-                            this._selectedEntity = gridData[index];
+                            let selectedGridItem = gridData[index];
 
                             let itemContext = {
-                                'id': this._selectedEntity.id,
-                                'type': this._selectedEntity.type
+                                'id': selectedGridItem.id,
+                                'type': selectedGridItem.type
                             };
 
                             this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
 
+                            this._selectedEntity = selectedGridItem;
                             this._currentIndex = index;
                             this._searchGridElement.clearSelection();
                             this._searchGridElement.selectItem(gridData[index]);
@@ -1456,7 +1469,7 @@
                 }
             }
             reload() {
-                if (this.savedSearchId && !_.isEmpty(this.savedSearches)) {
+                if (this.savedSearchId && !_.isEmpty(this.savedSearches)){
                     let savedSearch = this._getSavedSearches(this.savedSearches, this.savedSearchId);
                     if (savedSearch) {
                         this._processSavedSearch(savedSearch);
@@ -1656,6 +1669,7 @@
             _onSearchFiltersChange(e, detail) {
                 this._entityTypes = detail.typesCriterion;
                 this._searchFilters = detail;
+                this._isSearchFilterChanged = true;
                 //this.shadowRoot.querySelector("#entityTypeFilterPopover").close();
                 this._updateProperties(this._searchFilters);
             }
