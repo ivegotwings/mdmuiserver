@@ -1,6 +1,9 @@
 import '../bedrock-component-context-behavior/bedrock-component-context-behavior.js';
 import '../bedrock-ui-behavior/bedrock-ui-behavior.js';
 import '../bedrock-helpers/context-helper.js';
+import ContextDataManager from '../bedrock-managers/context-data-manager.js';
+import ContextModelManager from '../bedrock-managers/context-model-manager.js';
+
 /***
 * `RUFBehaviors.SplitScreenBehavior` provides common behavior for rock-relationship-split-screen and rock-attribute-split-screen
 *

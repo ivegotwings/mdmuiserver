@@ -7,6 +7,7 @@ import '../bedrock-business-function-behavior/bedrock-component-business-functio
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
 import '../bedrock-style-manager/styles/bedrock-style-grid-layout.js';
+import EntityCompositeModelManager from '../bedrock-managers/entity-composite-model-manager.js';
 import '../liquid-rest/liquid-rest.js';
 import '../liquid-entity-data-get/liquid-entity-data-get.js';
 import '../liquid-entity-model-composite-get/liquid-entity-model-composite-get.js';
