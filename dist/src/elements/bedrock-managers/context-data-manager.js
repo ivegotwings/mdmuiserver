@@ -9,6 +9,7 @@ class ContextDataManager extends mixinBehaviors([RUFBehaviors.LoggerBehavior], P
     static get is() {
         return "context-data-manager";
     }
+    
     constructor() {
         super();
         this.mappedDataContextLocale;
@@ -20,6 +21,7 @@ class ContextDataManager extends mixinBehaviors([RUFBehaviors.LoggerBehavior], P
         }
         return RUFUtilities.contextDataManager;
     }
+
     static getInstance() {
         if (!RUFUtilities.contextDataManager) {
             RUFUtilities.contextDataManager = new ContextDataManager();;
@@ -100,11 +102,13 @@ class ContextDataManager extends mixinBehaviors([RUFBehaviors.LoggerBehavior], P
             resolve();
         }
     }
+
     _triggerRequest() {
         return new Promise((resolve, reject) => {
             this._initSearch(resolve);
         })
     }
+
     async getMappedLocales(contextTypes, mappedValueContextsRelationship) {
         if (!_.isEmpty(this.mappedDataContextLocale)) {
             return this.mappedDataContextLocale;
@@ -124,6 +128,7 @@ class ContextDataManager extends mixinBehaviors([RUFBehaviors.LoggerBehavior], P
             return this.getContextMappedLocales(mappedValueContextsRelationship);
         }
     }
+
     getContextMappedLocales(mappedValueContextsRelationship) {
         if (!_.isEmpty(this.contextEntities) && !_.isEmpty(mappedValueContextsRelationship)) {
             let _mappedLocale = {};
@@ -151,3 +156,4 @@ class ContextDataManager extends mixinBehaviors([RUFBehaviors.LoggerBehavior], P
 }
 
 customElements.define(ContextDataManager.is, ContextDataManager);
+export default ContextDataManager

@@ -19,6 +19,7 @@ import '../bedrock-helpers/entity-helper.js';
 import '../bedrock-helpers/attribute-helper.js';
 import '../bedrock-helpers/element-helper.js';
 import '../bedrock-style-manager/styles/bedrock-style-scroll-bar.js';
+import ContextModelManager from '../bedrock-managers/context-model-manager.js';
 import '../liquid-entity-data-get/liquid-entity-data-get.js';
 import '../pebble-spinner/pebble-spinner.js';
 import '../pebble-tree/pebble-tree.js';
