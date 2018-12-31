@@ -57,26 +57,31 @@ It is responsible to "get" and "save" the attributes.
             #errorsDialog {
                 --popup-header-color: var(--palette-pinkish-red, #ee204c);
             }
+            .buttonContainer-top-right {
+                text-align: right;
+                padding-top: 10px;
+            }
 
             #rock-attribute-list-container {
                 height: 100%;
                 overflow-y: auto;
                 overflow-x: hidden;
             }
-
-            /* IE edge specific fix for button-siblings */
-
-            _:-ms-lang(x),
-            _:-webkit-full-screen,
-            .button-siblings {
-                height: calc(100% - 50px) !important;
+            .error-list{
+                overflow: auto;
+                max-height: 200px;
             }
+            .buttons{
+                text-align: center;
+            }
+
+            
         </style>
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
         <pebble-dialog id="errorsDialog" modal small vertical-offset=1 50 horizontal-align="auto" vertical-align="auto" no-cancel-on-outside-click
             no-cancel-on-esc-key dialog-title="Errors on page">
             <p>Found below errors in entity details: </p>
-            <ul>
+            <ul class="error-list">
                 <template is="dom-repeat" items="[[_syncValidationErrors]]">
                     <li>[[item.attributeExternalName]] with error: [[item.message]]</li>
                 </template>
@@ -111,11 +116,16 @@ It is responsible to "get" and "save" the attributes.
         <liquid-rest id="entityMatchService" url="/data/pass-through/matchservice/search" method="POST" request-data={{_entityMatchRequest}}
             on-liquid-response="_onMatchSuccess" on-liquid-error="_onMatchFailure">
         </liquid-rest>
-        <div class="base-grid-structure button-siblings">
-            <div class="base-grid-structure-child-1">
-                <template is="dom-if" if="[[_showNoAttributeMessage]]">
-                    <div align="center">[[_attributesMessage]]</div>
-                </template>
+        <div class="base-grid-structure">
+            <div id="buttonContainer" class="buttonContainer-top-right base-grid-structure-child-1" align="center">
+                    <template is="dom-if" if="[[_showNoAttributeMessage]]">
+                            <div align="center">[[_attributesMessage]]</div>
+                    </template>
+        
+                    <template is="dom-if" if="[[!isPartOfBusinessFunction]]">
+                        <pebble-button class="action-button btn btn-secondary m-l-5" id="cancel" button-text="Cancel" raised on-tap="_openCancelDialog"></pebble-button>
+                    </template>
+                    <pebble-button class="action-button-focus dropdownText btn btn-success m-l-5" id="next" button-text="[[_saveButtonText]]" raised on-tap="_save"></pebble-button>
             </div>
             <div class="base-grid-structure-child-2">
                 <template is="dom-if" if="{{hasComponentErrored(isComponentErrored)}}">
@@ -127,19 +137,19 @@ It is responsible to "get" and "save" the attributes.
                 </template>
             </div>
         </div>
-        <div id="buttonContainer" align="center" class="buttonContainer-static">
-            <pebble-button id="cancel" class="btn btn-secondary m-r-5" button-text="Cancel" on-tap="_openCancelDialog" elevation=1 raised></pebble-button>
-            <pebble-button id="save" disabled="[[readonly]]" class="focus btn btn-success" button-text="Save" on-tap="_save" elevation=1
-                raised></pebble-button>
-        </div>
-
         <liquid-entity-data-get name="relatedEntityGet" operation="getbyids" on-response="_relatedEntityGetResponse" exclude-in-progress></liquid-entity-data-get>
 
         <bedrock-pubsub event-name="global-edit" handler="_onGlobalEdit"></bedrock-pubsub>
         <bedrock-pubsub event-name="source-info-open" handler="_onSourceInfoOpen"></bedrock-pubsub>
     </template>
     <script>
-        class RockAttributeManage extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.ComponentContextBehavior],
+        class RockAttributeManage extends Polymer.mixinBehaviors(
+            [
+                RUFBehaviors.UIBehavior,
+                RUFBehaviors.ComponentContextBehavior,
+                RUFBehaviors.ComponentBusinessFunctionBehavior,
+                RUFBehaviors.ComponentConfigBehavior
+            ],
             Polymer.OptionalMutableData(Polymer.Element)) {
             static get is() {
                 return "rock-attribute-manage";
@@ -194,6 +204,14 @@ It is responsible to "get" and "save" the attributes.
                     allowSaveOnError: {
                         type: Boolean,
                         value: false
+                    },
+                    isPartOfBusinessFunction: {
+                        type: Boolean,
+                        value: false
+                    },                    
+                    _saveButtonText: {
+                        type: String,
+                        value: "Save"
                     },
                     /**
                      * <b><i>Content development is under progress... </b></i> 
@@ -455,8 +473,14 @@ It is responsible to "get" and "save" the attributes.
             _modeChanged(mode, updateList) {
                 if (!mode) return;
                 this.mode = mode;
-                let setAttributeValue =  mode === 'edit' ? "true" : "false";
-                this.$.buttonContainer.setAttribute("show",setAttributeValue);
+                if(!this.isPartOfBusinessFunction) {
+                    let setAttributeValue =  mode === 'edit' ? "true" : "false";
+                    this.$.buttonContainer.setAttribute("show",setAttributeValue);
+                } else {
+                    //always keep in edit mode for business function dialog
+                    this.set('mode', "edit");
+                    this.$.buttonContainer.setAttribute("show", true);
+                }
 
                 if (updateList && this.attributeList) {
                     this.attributeList.mode = mode;
@@ -506,8 +530,25 @@ It is responsible to "get" and "save" the attributes.
                         }
                     }
 
-                    this._getEntityData();
-                }
+                    if(this.isPartOfBusinessFunction) {
+                        let context = DataHelper.cloneObject(this.contextData);
+                        //App specific
+                        let appName = "";
+                        appName = ComponentHelper.getCurrentActiveAppName(this);
+                        if (appName) {
+                            context[ContextHelper.CONTEXT_TYPE_APP] = [{
+                                "app": appName
+                            }];
+                        }
+                        this.requestConfig(this.nodeName.toLowerCase(), context);
+                    } else {
+                        this._getEntityData();
+                    }
+                }                
+            }
+
+            onConfigLoaded(componentConfig) {
+                this._getEntityData();
             }
 
             async _getCompositeModel(compositeModelGetRequest) {
