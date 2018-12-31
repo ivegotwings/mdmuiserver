@@ -152,7 +152,7 @@ let SERVICE_CONFIG = {
         "configurationservice/get": {
             "url": "/configurationservice/get",
             "mode": "online",
-            "baseConfigMode":"online",
+            "baseConfigMode":"offline",
             "offlineSettings": {
                 "operation": "get",
                 "requestPathToSelectDataFile": "params.query.filters.typesCriterion",
