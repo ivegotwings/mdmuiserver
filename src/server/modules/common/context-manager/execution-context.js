@@ -85,7 +85,7 @@ function readSecurityHeaders(req) {
         fullName = uid;
     }
 
-    console.log('ownership data header', JSON.stringify(req.headers));
+    //console.log('ownership data header', JSON.stringify(req.headers));
     let securityContext = {
         'user': uid,
         'tenantId': tid,
