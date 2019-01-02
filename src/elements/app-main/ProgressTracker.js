@@ -4,15 +4,15 @@ ProgressTracker = function () {
 
     function addNewWorkUnit () {
         if(ProgressTracker.progressBar) {
-            requestCount++;
-            handleProgress();
+            //requestCount++;
+            //handleProgress();
         }
     }
 
     function markWorkUnitDone () {
         if(ProgressTracker.progressBar) {
-            responseCount++;
-            handleProgress();
+            //responseCount++;
+            //handleProgress();
         }
     }
 
