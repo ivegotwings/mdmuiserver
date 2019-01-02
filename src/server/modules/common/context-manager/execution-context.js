@@ -92,8 +92,8 @@ function readSecurityHeaders(req) {
         'clientAuthKey': clientAuthKey ? clientAuthKey : "",
         'headers': {
             "clientId": clientId ? clientId : "",
-            "ownershipData": JSON.parse(req.headers["x-rdp-ownershipdata"]) || userDefaults.ownershipData,
-            "ownershipEditData": JSON.parse(req.headers["x-rdp-ownershipeditdata"]) || userDefaults.ownershipEditData,
+            "ownershipData": req.headers["x-rdp-ownershipdata"] ? JSON.parse(req.headers["x-rdp-ownershipdata"]) : userDefaults.ownershipData,
+            "ownershipEditData": req.headers["x-rdp-ownershipeditdata"] ? JSON.parse(req.headers["x-rdp-ownershipeditdata"]) : userDefaults.ownershipEditData,
             "userId": uid,
             "firstName": firstName,
             "lastName": lastName,
