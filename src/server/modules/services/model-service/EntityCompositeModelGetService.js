@@ -33,9 +33,12 @@ EntityCompositeModelGetService.prototype = {
         //Get other models...
         let types = ['entityManageModel', 'entityValidationModel', 'entityDefaultValuesModel', 'entityDisplayModel', 'authorizationModel'];
         let internalRequest = this._cloneAndPrepareRequestObject(request, types);
+
+        //console.log('composite model get call to RDF ', JSON.stringify(internalRequest));
+
         let res = await this.post(serviceUrl, internalRequest);
 
-        //console.log('composite model get RDF ', JSON.stringify(res));
+        //console.log('composite model get response from RDF ', JSON.stringify(res));
 
         let compositeModel = this._getModelWithPermissions(request, res);
 
