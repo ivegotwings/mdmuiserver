@@ -909,7 +909,7 @@ BaseModelService.prototype = {
                         }
                     } else {
                         // create normal attribute for key value properties based on composite attribute model.
-                        entityAttributes[attrModelName] = this._prepareAttributeValue(attributeProperties[attrModelName], undefined, defaultValContext, attributeModels[attrModelName]);
+                        entityAttributes[attrModelName] = this._prepareAttributeValue(attributeProperties[attrModelName], attributeModels[attrModelName], defaultValContext);
                         entityAttributes[attrModelName].properties = { "isProperty": true }
                     }
                 }
@@ -1256,25 +1256,24 @@ BaseModelService.prototype = {
         return relAttributes;
     },
 
-    _prepareAttributeValue: function (attrValue, attrModelObj, defaultValContext, modelProperties) {
+    _prepareAttributeValue: function (attrValue, attrModelObj, defaultValContext) {
         let values = [], value = {}, properties = {};
 
+        value.locale = defaultValContext.locale;
+        value.source = defaultValContext.source;
+        value.value = attrValue ? attrValue : "";
         if (attrModelObj) {
             let refEntityInfo = falcorUtil.isValidObjectPath(attrModelObj, "properties.referenceEntityInfo.0") ? attrModelObj.properties.referenceEntityInfo[0] : {};
 
             if (!isEmpty(refEntityInfo)) {
                 properties.referenceData = refEntityInfo.refEntityType + "/" + attrValue + "_" + refEntityInfo.refEntityType;
             }
-        }
-        value.locale = defaultValContext.locale;
-        value.source = defaultValContext.source;
-        value.value = attrValue ? attrValue : "";
-        if(falcorUtil.isValidObjectPath(modelProperties, "properties.dataType")){
-            let _dataType = modelProperties.properties.dataType;
+            let _dataType = falcorUtil.isValidObjectPath(attrModelObj, "properties.dataType") ? attrModelObj.properties.dataType : '';
             if(_dataType == "boolean"){
                 value.value = attrValue;
             }
         }
+        
         if (!isEmpty(properties)) {
             value.properties = properties;
         }
