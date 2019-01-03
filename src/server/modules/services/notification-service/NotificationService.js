@@ -37,6 +37,13 @@ class NotificationService {
                 if (!isEmpty(notificationInfo)) {
                     notificationInfo.tenantId = tenantId;
 
+                    // While entity import if govern fails, notification will be send to all the users for specific tenant
+                    // It will keep on increase badge count of notification bell icon.
+                    // To avoid this behavior below condition is required.
+                    if(isEmpty(notificationInfo.userId) && notificationInfo.action == enums.actions.GovernFail) {
+                        return;
+                    }
+
                     // On model import complete Or any model change notification, module version has to be updated to maintain local storage in sync.
                     if (notificationInfo.action == enums.actions.ModelImportComplete || notificationInfo.action == enums.actions.ModelSaveComplete) {
                         (async () => {
