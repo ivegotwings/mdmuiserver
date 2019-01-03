@@ -88,7 +88,13 @@ BinaryStreamObjectService.prototype = {
                 binaryStreamRequest.binaryStreamObject.properties = {"objectKey": binaryStreamRequest.binaryStreamObject.id};
 
                 //console.log('binary stream object for download ', JSON.stringify(binaryStreamRequest))
-                let res = await this.post(prepareDownloadURL, binaryStreamRequest);
+                let res = "";
+                if(binaryStreamRequest.binaryStreamObject.type == "seedDataStream"){
+                    res = await this.post(prepareDownloadURL, binaryStreamRequest, "dataplatform");
+                } else {
+                    res = await this.post(prepareDownloadURL, binaryStreamRequest);
+                }
+                
                 
                 //Collect successfull responses...
                 if(res && res.response && res.response.status && res.response.status.toLowerCase() == "success") {
