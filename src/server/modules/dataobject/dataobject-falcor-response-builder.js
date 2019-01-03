@@ -543,6 +543,10 @@ function buildResponse(dataObject, reqData, paths) {
             for (let contextItem of data.contexts) {
                 let currContext = contextItem.context;
 
+                if (!isEmpty(reqData.coalesceOptions)) {
+                    currContext.coalesceOptions = reqData.coalesceOptions;
+                }
+
                 let ctxKey = falcorUtil.createCtxKey(currContext);
                 let currentDataContextJson = dataContextsJson[ctxKey] = {}; //TODO:: Is there possibility of duplicate contexts?
                 let currentContextBasePath;
