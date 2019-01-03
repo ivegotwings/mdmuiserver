@@ -889,7 +889,7 @@ BaseModelService.prototype = {
         let entityAttributes = {};
         if (!isEmpty(attributeProperties) && !isEmpty(attributeModels)) {
             for (let attrModelName in attributeModels) {
-                if (attributeProperties[attrModelName]) {
+                if (attributeProperties.hasOwnProperty(attrModelName)) {
                     if (attributeModels[attrModelName].group) {
                         // create nested attribute for key object properties based on composite attribute model.
                         entityAttributes[attrModelName] = {}
@@ -909,7 +909,7 @@ BaseModelService.prototype = {
                         }
                     } else {
                         // create normal attribute for key value properties based on composite attribute model.
-                        entityAttributes[attrModelName] = this._prepareAttributeValue(attributeProperties[attrModelName], undefined, defaultValContext);
+                        entityAttributes[attrModelName] = this._prepareAttributeValue(attributeProperties[attrModelName], undefined, defaultValContext, attributeModels[attrModelName]);
                         entityAttributes[attrModelName].properties = { "isProperty": true }
                     }
                 }
@@ -1256,7 +1256,7 @@ BaseModelService.prototype = {
         return relAttributes;
     },
 
-    _prepareAttributeValue: function (attrValue, attrModelObj, defaultValContext) {
+    _prepareAttributeValue: function (attrValue, attrModelObj, defaultValContext, modelProperties) {
         let values = [], value = {}, properties = {};
 
         if (attrModelObj) {
@@ -1269,7 +1269,12 @@ BaseModelService.prototype = {
         value.locale = defaultValContext.locale;
         value.source = defaultValContext.source;
         value.value = attrValue ? attrValue : "";
-
+        if(falcorUtil.isValidObjectPath(modelProperties, "properties.dataType")){
+            let _dataType = modelProperties.properties.dataType;
+            if(_dataType == "boolean"){
+                value.value = attrValue;
+            }
+        }
         if (!isEmpty(properties)) {
             value.properties = properties;
         }
