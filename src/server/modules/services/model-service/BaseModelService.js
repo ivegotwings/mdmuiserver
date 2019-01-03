@@ -889,7 +889,7 @@ BaseModelService.prototype = {
         let entityAttributes = {};
         if (!isEmpty(attributeProperties) && !isEmpty(attributeModels)) {
             for (let attrModelName in attributeModels) {
-                if (attributeProperties[attrModelName]) {
+                if (attributeProperties.hasOwnProperty(attrModelName)) {
                     if (attributeModels[attrModelName].group) {
                         // create nested attribute for key object properties based on composite attribute model.
                         entityAttributes[attrModelName] = {}
@@ -909,7 +909,7 @@ BaseModelService.prototype = {
                         }
                     } else {
                         // create normal attribute for key value properties based on composite attribute model.
-                        entityAttributes[attrModelName] = this._prepareAttributeValue(attributeProperties[attrModelName], undefined, defaultValContext);
+                        entityAttributes[attrModelName] = this._prepareAttributeValue(attributeProperties[attrModelName], attributeModels[attrModelName], defaultValContext);
                         entityAttributes[attrModelName].properties = { "isProperty": true }
                     }
                 }
@@ -1259,17 +1259,21 @@ BaseModelService.prototype = {
     _prepareAttributeValue: function (attrValue, attrModelObj, defaultValContext) {
         let values = [], value = {}, properties = {};
 
+        value.locale = defaultValContext.locale;
+        value.source = defaultValContext.source;
+        value.value = attrValue ? attrValue : "";
         if (attrModelObj) {
             let refEntityInfo = falcorUtil.isValidObjectPath(attrModelObj, "properties.referenceEntityInfo.0") ? attrModelObj.properties.referenceEntityInfo[0] : {};
 
             if (!isEmpty(refEntityInfo)) {
                 properties.referenceData = refEntityInfo.refEntityType + "/" + attrValue + "_" + refEntityInfo.refEntityType;
             }
+            let _dataType = falcorUtil.isValidObjectPath(attrModelObj, "properties.dataType") ? attrModelObj.properties.dataType : '';
+            if(_dataType == "boolean"){
+                value.value = attrValue;
+            }
         }
-        value.locale = defaultValContext.locale;
-        value.source = defaultValContext.source;
-        value.value = attrValue ? attrValue : "";
-
+        
         if (!isEmpty(properties)) {
             value.properties = properties;
         }
