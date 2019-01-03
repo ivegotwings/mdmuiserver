@@ -375,6 +375,9 @@ BaseModelService.prototype = {
                         entityTypeModel.name = entityTypeEntity.name;
                         entityTypeModel.domain = entityTypeEntity.domain;
                         entityTypeModel.properties = entityTypeEntity.properties;
+                        if(!entityTypeModel.properties.name){
+                            entityTypeModel.properties.name = entityTypeEntity.name;
+                        }
                     }
                 }
 
@@ -569,6 +572,9 @@ BaseModelService.prototype = {
                 entity.properties = model.properties;
                 entity.domain = model.domain;
                 entity.data = {};
+                if(!entity.properties.name){
+                    entity.properties.name = model.name;
+                }
 
                 if (compositeModel.data) {
                     let compositeModelData = compositeModel.data;
