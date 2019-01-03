@@ -39,7 +39,7 @@ class NotificationService {
 
                     // While entity import if govern fails, notification will be send to all the users for specific tenant
                     // It will keep on increase badge count of notification bell icon.
-                    // To avoid this behavior below condition is required.
+                    // To avoid this behaviour below condition is required.
                     if(isEmpty(notificationInfo.userId) && notificationInfo.action == enums.actions.GovernFail) {
                         return;
                     }
