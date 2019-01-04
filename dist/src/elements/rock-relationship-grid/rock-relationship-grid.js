@@ -85,7 +85,7 @@ The following JSON object is a sample of data which binds the grid.
     "createdBy": "jim",
     "createdDate": "2016-07-16T18:10:52.412-07:00",
     "modifiedByService": "entityservice",
-	"modifiedBy": "user",
+  "modifiedBy": "user",
     "modifiedDate": "2016-07-16T18:33:52.412-07:00"
   },
   "tags": [
@@ -195,7 +195,7 @@ import '../bedrock-style-manager/styles/bedrock-style-buttons.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
 import '../bedrock-style-manager/styles/bedrock-style-grid-layout.js';
 import '../bedrock-toast-behavior/bedrock-toast-behavior.js';
-import '../bedrock-navigation-behavior/bedrock-navigation-behavior.js';
+import EntityTypeManager from '../bedrock-managers/entity-type-manager.js'
 import '../liquid-entity-data-get/liquid-entity-data-get.js';
 import '../liquid-entity-data-save/liquid-entity-data-save.js';
 import '../liquid-rest/liquid-rest.js';
@@ -214,6 +214,7 @@ import '../rock-grid-data-sources/entity-relationship-grid-datasource.js';
 import '../rock-entity-relationship-search-result-actions/rock-entity-relationship-search-result-actions.js';
 import { dom } from '@polymer/polymer/lib/legacy/polymer.dom.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
+
 class RockRelationshipGrid
   extends mixinBehaviors([
     RUFBehaviors.AppBehavior,
@@ -776,11 +777,11 @@ class RockRelationshipGrid
     super.disconnectedCallback();
     this.removeEventListener("editMode", this._onEditMode);
   }
+
   connectedCallback() {
     super.connectedCallback();
     this.addEventListener("editMode", this._onEditMode);
   }
-
 
   get getDownloadUrlLiq() {
     this._getDownloadUrl = this._getDownloadUrl || this.shadowRoot.querySelector("#getDownloadUrl");
@@ -801,6 +802,7 @@ class RockRelationshipGrid
     }
     return "grid-wrap-container";
   }
+
   ready() {
     super.ready()
     this._currentSelectedLov = null;
@@ -818,12 +820,15 @@ class RockRelationshipGrid
       liquidModelGet.generateRequest();
     }
   }
+
   _hasWritePermissions(gridConfig) {
     return gridConfig["hasWritePermission"];
   }
+
   _getRelationshipGrid() {
     return this.shadowRoot.querySelector("rock-grid");
   }
+
   _getRowDragDropEnabled() {
     let isOrderAvailable = false;
     let isRowDragDropEnabled = false;
@@ -860,6 +865,7 @@ class RockRelationshipGrid
     }
     return dragDropEnable;
   }
+
   _onSelectingGridItem(e, detail, sender) {
     if (this._quickManageEnabled) {
       let grid = this._getRelationshipGrid();
@@ -877,28 +883,33 @@ class RockRelationshipGrid
     }
     this._reloadQuickManage();
   }
+
   _reloadQuickManage() {
     const entityQuickManage = this.shadowRoot.querySelector("#entityQuickManage");
     if (entityQuickManage) {
       entityQuickManage.reload();
     }
   }
+
   _onDeSelectingGridItem(e, detail, sender) {
     if (this._quickManageEnabled) {
       this._selectedEntity = {};
     }
   }
+
   _onClickPrevious(e, detail, sender) {
     if (this._currentIndex > 0) {
       this._selectRelationship(this._currentIndex - 1);
     }
   }
+
   _onClickNext(e, detail, sender) {
     let currentIndex = this._currentIndex + 1;
     if (currentIndex < this.currentRecordSize) {
       this._selectRelationship(currentIndex);
     }
   }
+
   _selectRelationship(index, nav) {
     if (!(index < 0)) {
       let grid = this._getRelationshipGrid();
@@ -952,11 +963,13 @@ class RockRelationshipGrid
     }
     this._reloadQuickManage();
   }
+
   _getAttributeList() {
     if (this.relationshipGridConfig) {
       return this.relationshipGridConfig.relationshipTypeAndAttributes;
     }
   }
+
   _getRelatedEntityAttributeList() {
     let attributes = this._getAttributeList();
     let relatedEntityAttributes = [];
@@ -965,6 +978,7 @@ class RockRelationshipGrid
     }
     return relatedEntityAttributes;
   }
+
   _getRelationshipTypeTitle() {
     if (this.relationshipGridConfig) {
       let config = this.relationshipGridConfig.gridConfig;
@@ -974,9 +988,11 @@ class RockRelationshipGrid
     }
     return this.relationship;
   }
+
   _getQuickManageConfig(configName) {
     return this.relationshipGridConfig.quickManageConfig[configName];
   }
+
   _getRelationshipGridRequest(relationshipTypeName) {
     let req = DataHelper.cloneObject(this.relReq);
     DataRequestHelper.addDefaultContext(req);
@@ -993,6 +1009,7 @@ class RockRelationshipGrid
     }
     return req;
   }
+
   _getRelationshipAttributeModels() {
     let config = this.relationshipGridConfig;
     let attrModels = {};
@@ -1005,6 +1022,7 @@ class RockRelationshipGrid
     }
     return attrModels;
   }
+
   _getRelationshipModel() {
     let config = this.relationshipGridConfig;
     let relModel = {};
@@ -1013,6 +1031,7 @@ class RockRelationshipGrid
     }
     return relModel;
   }
+
   _getRelatedEntityContexts() {
     let config = this.relationshipGridConfig;
     let relatedEntityContexts;
@@ -1021,6 +1040,7 @@ class RockRelationshipGrid
     }
     return relatedEntityContexts;
   }
+
   _populateDataForGrid(respData, event) {
     let data = [];
     if (respData) {
@@ -1265,9 +1285,11 @@ class RockRelationshipGrid
     }
     return dataType;
   }
+
   _onMouseoutCopyAction() {
     this.set("_clipboardTooltip", "Copy to clipboard.");
   }
+
   _onTapCopyAction(ev) {
     let grid = this._getRelationshipGrid();
     if (grid) {
@@ -1301,6 +1323,7 @@ class RockRelationshipGrid
       }
     }
   }
+
   _onAddRelClick(e) {
     if (e.currentTarget.disabled == true) {
       return;
@@ -1336,6 +1359,7 @@ class RockRelationshipGrid
       }, sharedData);
     }
   }
+
   _convertIntoEntityLovList(entitiesResponse) {
     if (entitiesResponse) {
       let items = [];
@@ -1370,6 +1394,7 @@ class RockRelationshipGrid
       }
     }
   }
+
   _onLovConfirmButtonTapped(event) {
     if (event.detail) {
 
@@ -1402,6 +1427,7 @@ class RockRelationshipGrid
       this._addRelatedEntity(relType, newItemIds);
     }
   }
+  
   _onLovCloseButtonTapped(event) {
     if (event.detail) {
       let id = event.detail.data.id.replace("lov_", "");
@@ -1412,6 +1438,7 @@ class RockRelationshipGrid
       }
     }
   }
+
   _addRelatedEntity(relationshipType, entityIds) {
     if (entityIds && entityIds.length > 0) {
       let popover = this.shadowRoot.querySelector("pebble-popover[for=button_" + relationshipType + "]");
@@ -1463,6 +1490,7 @@ class RockRelationshipGrid
       popover.hide();
     }
   }
+
   _addRelationship() {
     if (this.relEntitiesResponse) {
       let relGrid = this.shadowRoot.querySelector('rock-grid[id=' + this.relationship + ']');
@@ -1495,9 +1523,11 @@ class RockRelationshipGrid
       }
     }
   }
+
   _onEditMode(e) {
     this.showActionButtons = true;
   }
+
   async _save(e) {
     if (e.currentTarget.disabled == true) {
       return;
@@ -1722,14 +1752,17 @@ class RockRelationshipGrid
       this.logError("AttributeManageValidationFail:- There is a problem in validation service.", e.detail);
     }
   }
+
   _onEntityGovernFailed(e) {
     this.logError("AttributeManageValidationFail:- There is a problem in validation service.", e.detail);
   }
+
   _skipErrors() {
     this._fixErrors();
 
     this._saveEntity();
   }
+
   _fixErrors() {
     let errorDialog = this.shadowRoot.querySelector('#errorsDialog');
     if (errorDialog) {
@@ -1742,12 +1775,14 @@ class RockRelationshipGrid
       }
     }
   }
+
   _saveEntity() {
     let liquidSave = this.shadowRoot.querySelector("[name=attributeSaveDataService]");
     if (liquidSave) {
       liquidSave.generateRequest();
     }
   }
+
   _onSaveResponse() {
     //TO-DO will get changed
     RUFUtilities.appCommon.toastText = "Relationships saved successfully.";
@@ -1786,6 +1821,7 @@ class RockRelationshipGrid
     }
     this.dataFunctionComplete(data, eventDetails);
   }
+
   _onRevertDialogOk(e) {
     let currentRel = e.target.__dataHost.parentModel.relationship; //e.model.relationship;
     let currentRelGrid = this.shadowRoot.querySelector('rock-grid[id=' + currentRel + ']');
@@ -1800,6 +1836,7 @@ class RockRelationshipGrid
       this._resetAddLoVSelection(currentRelGrid);
     }
   }
+
   _revertAll(e) {
     let currentRel = this.relationship; //e.model.relationship;
     let relationshipTitle = currentRel;
@@ -1844,6 +1881,7 @@ class RockRelationshipGrid
     }
     return false;
   }
+
   getControlIsDirty() {
     let quickManageControlDirty = false;
     let relGridControlDirty = false;
@@ -1996,6 +2034,7 @@ class RockRelationshipGrid
       this.showActionButtons = false;
     }
   }
+
   _requestForAddRelationshipList(relationship) {
     let relatedEntityContexts = this._getRelatedEntityContexts();
     let attributes = this._getRelatedEntityAttributeList();
@@ -2054,6 +2093,7 @@ class RockRelationshipGrid
       this._isMessageAvailable = true;
     }
   }
+
   _prepareFilterRules() {
     let contextObj = {};
     let filterobj = {};
@@ -2101,12 +2141,14 @@ class RockRelationshipGrid
 
     return filterobj;
   }
+
   _onRelationshipsGet(event) {
     if (!_.isEmpty(event.detail.attributes) && !_.isEmpty(event.detail.attributes[this.filterAttribute])) {
       this.filterAttributeValue = AttributeHelper.getAttributeValues(event.detail.attributes[this.filterAttribute].values)
     }
     this._loadLovEntities = true;
   }
+
   _getIdField() {
     let idField = "";
     if (this.relationshipGridConfig) {
@@ -2117,6 +2159,7 @@ class RockRelationshipGrid
     }
     return idField;
   }
+
   _getImageIdField() {
     let imageIdField = "";
     if (this.relationshipGridConfig) {
@@ -2127,6 +2170,7 @@ class RockRelationshipGrid
     }
     return imageIdField;
   }
+
   _getTitlePattern() {
     let titlePattern = "";
     if (this.relationshipGridConfig) {
@@ -2137,6 +2181,7 @@ class RockRelationshipGrid
     }
     return titlePattern;
   }
+
   _getSubTitlePattern() {
     let subTitlePattern = "";
     if (this.relationshipGridConfig) {
@@ -2147,6 +2192,7 @@ class RockRelationshipGrid
     }
     return subTitlePattern;
   }
+
   _getSavedRelationshipItems(relationship, savedRelationships) {
     let savedRelationshipItems = [];
     let clonedSavedRelationshipItems = DataHelper.cloneObject(savedRelationships);
@@ -2155,6 +2201,7 @@ class RockRelationshipGrid
     }
     return savedRelationshipItems;
   }
+
   _onRefreshRelationshipGridEvent(e, detail) {
     this.fireBedrockEvent("refresh-entity-thumbnail", {}, { "ignoreId": true });
     let rel = detail.relationshipType;
@@ -2162,6 +2209,7 @@ class RockRelationshipGrid
     this._entityRelations = [];
     if (grid) grid.reRenderGrid();
   }
+
   //Download asset functions
   _onOriginalAssetDownloadAction(e, detail) {
     if (!this.getDownloadUrlLiq || !detail) return;
@@ -2179,15 +2227,18 @@ class RockRelationshipGrid
       this.getDownloadUrlLiq.generateRequest();
     }
   }
+
   _onGetDownloadUrlResponse(e) {
     LiquidResponseHelper.downloadURLResponseMapper(e, downloadURL => {
       window.open(downloadURL, "_blank");
     });
   }
+
   openGridMsgDialog(msg) {
     this.shadowRoot.querySelector('#msgDialog').innerText = msg;
     this.shadowRoot.querySelector('#gridMsgDialog').open();
   }
+
   _onDeleteEntityRelationshipAction(e, detail) {
     // deleting newly added record and reload reloadRelationshipLov.
     if (detail.isNewlyAddedDataRowDelete) {
@@ -2197,6 +2248,7 @@ class RockRelationshipGrid
     this._modifiedEntityRelationship = { event: e, detail: detail, action: "delete" };
     this.openGridMsgDialog("Are you sure you want to delete?");
   }
+
   _onRelationsSaveResponse(e, detail) {
     let relGrid = this.shadowRoot.querySelector('rock-grid[id=' + this.relationship + ']');
     if (relGrid) {
@@ -2209,6 +2261,7 @@ class RockRelationshipGrid
     this._relationshipDeleteItems = {};
     this.logError("Unable to delete the entity relationship, contact administrator.", e.detail);
   }
+
   _onCustomToolbarEvent(e, detail) {
     if (detail && detail.name == "delete") {
       let grid = this._getRelationshipGrid();
@@ -2240,6 +2293,7 @@ class RockRelationshipGrid
       }
     }
   }
+  
   _onRowDropEventRaised(e, detail) {
     let gridData = detail && detail.dragDropItems && detail.dragDropItems[0] ? detail.dragDropItems[0] : [];
     let item, updatedId, getOrderPosition, rockAttr;
@@ -2277,6 +2331,7 @@ class RockRelationshipGrid
       grid.updateGridData(data, detail);
     }
   }
+
   _onBulkEdit(e, detail) {
     let grid = this._getRelationshipGrid();
     let selectedItems = grid.getSelectedItems();
@@ -2367,11 +2422,22 @@ class RockRelationshipGrid
       this.showInformationToast("Select at least one entity from grid to edit.");
     }
   }
+
+  _getGridClass() {
+    let _gridWithActionButtons;
+    let _showAccordion;
+    let gridClass
+    _showAccordion = !this.showAccordion ? "expanded" : "";
+    _gridWithActionButtons = this.showActionButtons ? "button-siblings" : "";
+    gridClass = _gridWithActionButtons + " " + _showAccordion;
+    this.set("getwrapClass", gridClass);
+  }
+
   _onGlobalEdit(e) {
     const relGrid = this.$$(`rock-grid`);
-
     relGrid.changeToEditMode();
   }
+
   _onCompositeModelGetResponse(e) {
     let itemContext = this.getFirstItemContext();
     if (e && e.detail && DataHelper.validateGetModelsResponse(e.detail.response)) {
@@ -2397,9 +2463,11 @@ class RockRelationshipGrid
       this.logError("Composite get model request failed", e.detail);
     }
   }
+
   _hasContextCoalescedValue(item) {
     return !_.isEmpty(item.contextCoalescePaths);
   }
+
   _onAddNewRelClick(item) {
 
     const { relatedEntityTypes } = this.relationshipGridConfig;
@@ -2423,6 +2491,7 @@ class RockRelationshipGrid
       "title": title
     }, sharedData);
   }
+
   _onEntityCreated(e) {
     this._createRelationshipsDown(e.detail);
   }
@@ -2457,6 +2526,7 @@ class RockRelationshipGrid
     }
 
   }
+
   _addClientStatus() {
     let clientState = {};
     clientState.notificationInfo = {};
@@ -2491,6 +2561,7 @@ class RockRelationshipGrid
       relationshipLov.selectedItems = relationshipLovSelectedItems;
     }
   }
+
   _displayAddNewRelationship(relationshipGridConfig) {
     if (relationshipGridConfig && relationshipGridConfig.addNewRelationConfig) {
       if (this.domain && this.domain != "digitalAsset") {

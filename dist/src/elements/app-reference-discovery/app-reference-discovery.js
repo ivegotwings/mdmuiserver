@@ -7,8 +7,14 @@ import '../bedrock-query-builder-behavior/bedrock-query-builder-behavior.js';
 import '../bedrock-logger-behavior/bedrock-logger-behavior.js';
 import '../bedrock-toast-behavior/bedrock-toast-behavior.js';
 import '../bedrock-navigation-behavior/bedrock-navigation-behavior.js';
+import '../bedrock-style-manager/styles/bedrock-style-common.js';
+import '../bedrock-style-manager/styles/bedrock-style-flex-layout.js';
+import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
+import '../bedrock-style-manager/styles/bedrock-style-icons.js';
+import EntityTypeManager from '../bedrock-managers/entity-type-manager.js' 
 import '../liquid-rest/liquid-rest.js';
 import '../liquid-entity-model-composite-get/liquid-entity-model-composite-get.js';
+import LiquidDataObjectUtils from '../liquid-dataobject-utils/liquid-dataobject-utils.js';
 import '../pebble-actions/pebble-actions.js';
 import '../pebble-button/pebble-button.js';
 import '../pebble-icon/pebble-icon.js';
@@ -25,10 +31,6 @@ import '../rock-entity-search-filter/rock-entity-search-filter.js';
 import '../rock-entity-quick-manage/rock-entity-quick-manage.js';
 import '../rock-entity-type-model-lov/rock-entity-type-model-lov.js';
 import '../rock-search-query-parser/rock-search-query-parser.js';
-import '../bedrock-style-manager/styles/bedrock-style-common.js';
-import '../bedrock-style-manager/styles/bedrock-style-flex-layout.js';
-import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
-import '../bedrock-style-manager/styles/bedrock-style-icons.js';
 import '../rock-component-config-behavior/rock-component-config-behavior.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class AppReferenceDiscovery
@@ -284,815 +286,827 @@ class AppReferenceDiscovery
 `;
   }
 
-  static get is() { return 'app-reference-discovery' }
+    static get is() { return 'app-reference-discovery' }
 
-  static get properties() {
+    static get properties() {
       return {
-          contextData: {
-              type: Object,
-              value: function () {
-                  return {};
-              }
-          },
-          domain: {
-              type: String,
-              value: "referenceData"
-          },
-          appConfig: {
-              type: Object,
-              value: function () {
-                  return {};
-              }
-          },
-          publish: {
-              type: Boolean,
-              value: false
-          },
-          lovSelectedItem:{
-              type: Object,
-              value: function () {
-                  return {};
-              }
-          },
-          _searchResultResponse: {
-              type: Object,
-              value: function () {
-                  return {};
-              },
-              notify: true
-          },
-          _gridAttributes: {
-              type: Array,
-              value: function () {
-                  return [];
-              }
-          },
-          _multiSelect: {
-              type: Boolean,
-              value: false
-          },
-          _currentIndex: {
-              type: Number,
-              value: -1
-          },
-          _gridFullLength: {
-              type: Number,
-              value: 0
-          },
-          _mainTitle: {
-              type: String,
-              value: "Select Reference Type"
-          },
-          _showExpandIcon: {
-              type: Boolean,
-              value: false
-          },
-          /**
+            contextData: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
+            domain: {
+                type: String,
+                value: "referenceData"
+            },
+            appConfig: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
+            publish: {
+                type: Boolean,
+                value: false
+            },
+            _searchResultResponse: {
+                type: Object,
+                value: function () {
+                    return {};
+                },
+                notify: true
+            },
+            _gridAttributes: {
+                type: Array,
+                value: function () {
+                    return [];
+                }
+            },
+            _multiSelect: {
+                type: Boolean,
+                value: false
+            },
+            _currentIndex: {
+                type: Number,
+                value: -1
+            },
+            _gridFullLength: {
+                type: Number,
+                value: 0
+            },
+            _mainTitle: {
+                type: String,
+                value: "Select Reference Type"
+            },
+            _showExpandIcon: {
+                type: Boolean,
+                value: false
+            },
+            /**
             * Indicates selected item
             */
-          _selectedEntity: {
-              type: Object,
-              value: function () {
-                  return {};
-              }
-          },
-          _searchQuery: {
-              type: String,
-              notify: true,
-              value: ""
-          },
-          _rockEntitySearchFilter: {
-              type: Object
-          },
-          _rockSearchFilter: {
-              type: Object
-          },
-          _rockSavedSearch: {
-              type: Object
-          },
-          _currentWorkflowAction: {
-              type: String
-          },
-          _currentEntityIndex: {
-              type: Number,
-              value: 0
-          },
-          _selectedEntities: {
-              type: Array,
-              value: function () {
-                  return [];
-              }
-          },
-          _failedEntities: {
-              type: Number,
-              value: 0
-          },
-          _doneEntities: {
-              type: Number,
-              value: 0
-          },
-          _selectedSearchFilters: {
-              type: Array,
-              value: function () {
-                  return [];
-              }
-          },
-          _typesCriterion: {
-              type: Array,
-              value: function () {
-                  return [];
-              }
-          },
-          _resetSearchEnabled: {
-              type: Boolean,
-              value: false
-          },
-          _failedEntityTypes: {
-              type: Array,
-              value: function () {
-                  return [];
-              }
-          },
-          /**
-          * Indicates the request object that is passed to the data element to retrive attribute model data.
-            Sample: {
+            _selectedEntity: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
+            _searchQuery: {
+                type: String,
+                notify: true,
+                value: ""
+            },
+            _rockEntitySearchFilter: {
+                type: Object
+            },
+            _rockSearchFilter: {
+                type: Object
+            },
+            _rockSavedSearch: {
+                type: Object
+            },
+            _currentWorkflowAction: {
+                type: String
+            },
+            _currentEntityIndex: {
+                type: Number,
+                value: 0
+            },
+            _selectedEntities: {
+                type: Array,
+                value: function () {
+                    return [];
+                }
+            },
+            _failedEntities: {
+                type: Number,
+                value: 0
+            },
+            _doneEntities: {
+                type: Number,
+                value: 0
+            },
+            _selectedSearchFilters: {
+                type: Array,
+                value: function () {
+                    return [];
+                }
+            },
+            _typesCriterion: {
+                type: Array,
+                value: function () {
+                    return [];
+                }
+            },
+            _resetSearchEnabled: {
+                type: Boolean,
+                value: false
+            },
+            _failedEntityTypes: {
+                type: Array,
+                value: function () {
+                    return [];
+                }
+            },
+            /**
+             * Indicates the request object that is passed to the data element to retrive attribute model data.
+                Sample: {
+                        }
+            */
+            _attributeModelRequest: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
+            _selectedReferenceType: {
+                type: String,
+                value: ""
+            },
+            _quickManageEnabled: {
+                type: Boolean,
+                value: false
+            },
+            inputQueryString: {
+                type: String,
+                value: ""
+            },
+            _attributeListArray: {
+                type: Array,
+                value: function () {
+                    return [];
+                }
+            },
+            _searchBarElement: {
+                type: Element
+            },
+            _entitySearchFilterElement: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
+            _quickManageContextData: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
+            isContextLoaded: {
+                type: Boolean,
+                value: false
+            },
+            configData: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
+            _processTemplate: {
+                type: Boolean,
+                value: false
+            },
+            showAddNew: {
+                type: Boolean,
+                value: false
+            },
+            _selectedDimensions: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
+            navigationData: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            }
+        }
+    }
+
+    ready() {
+        super.ready();
+        if (this._searchBarElement) {
+            this._searchBarElement.searchInput = [];
+        }
+        //get saved search id from query string
+        this._searchQuery = DataHelper.getParamValue("searchtext") || "";
+    }
+
+    constructor() {
+        super();
+        let userContext = {
+            "roles": this.roles,
+            "user": this.userId,
+            "tenant": this.tenantId,
+            "defaultRole": this.defaultRole
+        };
+        this.contextData[ContextHelper.CONTEXT_TYPE_USER] = [userContext];               
+    }
+
+    disconnectedCallback() {
+        super.disconnectedCallback();
+    }
+
+    connectedCallback() {
+        super.connectedCallback();
+        if (!_.isEmpty(this.contextData)) {
+            let navContextArr = this.contextData[ContextHelper.CONTEXT_TYPE_NAVIGATION];
+            if(!_.isEmpty(navContextArr) && navContextArr[0]["rock-context-selector"]){
+                this.navigationData = navContextArr[0]["rock-context-selector"];
+            }
+        }
+    }
+
+    _onContextDataChange() {
+        if (!_.isEmpty(this.contextData)) {
+            this._quickManageContextData = DataHelper.cloneObject(this.contextData);
+
+            this.requestConfig("rock-reference-discovery", this._quickManageContextData);
+        }
+    }
+
+    onConfigLoaded(componentConfig) {
+        if (componentConfig && componentConfig.config) {
+
+            this.configData = componentConfig.config;
+            this._processTemplate = true;
+            this._initializeComponent();
+            let defaultReferenceType = componentConfig.config.defaultReferenceType;
+            //get saved search id from query string
+            if (!DataHelper.isEmptyObject(this._searchQuery) && this._searchBarElement) {
+                this._searchBarElement.query = this._searchQuery;
+            }
+            if(defaultReferenceType){
+                this._typesCriterion =[defaultReferenceType];
+            }
+            this.publish = componentConfig.config.showPublish;
+            this.showAddNew = componentConfig.config.showAddNew;
+            this._buildQueryString();
+        }
+        //this._prepareContext();
+    }
+
+    _onBusinessActionItemTap(e) {
+        if (e && "detail" in e) {
+            let data = "data" in e.detail && e.detail.data;
+            if (!_.isEmpty(data)) {
+                if (data.eventName == "action-re-publish") {
+                    this._rePublish(data.subComponentName);
+                }
+            }
+        }
+    }
+
+    _rePublish(subComponentName) {
+        let selectedItems = this._searchGridElement.getSelectedItems();
+        let selectionMode = this._searchGridElement.getSelectionMode();
+        let selectionQuery = this._searchGridElement.getSelectedItemsAsQuery();
+
+        let asyncAvailable = false;
+
+        if (!asyncAvailable || (asyncAvailable && selectionMode == "count")) {
+            if (DataHelper.isEmptyObject(selectedItems)) {
+                this.showWarningToast("Select atleast one entity for which you want to perform this action.");
+                return;
+            }
+        }
+        const maxSelectedItems = 200;
+        if (!DataHelper.isEmptyObject(selectedItems) && selectedItems.length > maxSelectedItems) {
+            this.showWarningToast("Maximum " + maxSelectedItems + " entities can be selected.");
+            return;
+        }
+        if (!DataHelper.isEmptyObject(selectedItems)) {
+            this._selectedEntities = selectedItems;
+        }
+
+        const sharedData = {
+            "context-data": this._quickManageContextData,
+            "selected-entities": this._selectedEntities,
+            "selection-query": selectionQuery,
+            "selection-mode": selectionMode
+        };
+
+        this.openBusinessFunctionDialog({ name: "rock-wizard-re-publish", subName: subComponentName }, sharedData);
+    }
+
+    _showToastMessage(msgObject) {
+        if (msgObject) {
+            if (msgObject.type == "error") {
+                let messageCode = "10000";
+                this.logError(msgObject.message, messageCode);
+            } else if (msgObject.type == "success") {
+                this.showSuccessToast(msgObject.message, ConstantHelper.MILLISECONDS_10000);
+            }
+        }
+    }
+
+    _initializeComponent() {
+        this._rockLayout = this.shadowRoot.querySelector("rock-layout");
+        this._entityTypeModelLov = this.shadowRoot.querySelector("#referenceDataLov");
+        this._searchGridElement = this.shadowRoot.querySelector("#entitySearchGrid");
+        this._searchBarElement = this.shadowRoot.querySelector("#searchBar");
+        this._entitySearchFilterElement = this.shadowRoot.querySelector("#searchFilter");
+        this._popover = this.shadowRoot.querySelector("#actionsPopover");
+        this._grid = this.shadowRoot.querySelector("rock-entity-search-result");
+        this._parserPubsub = this.shadowRoot.querySelector("#parser-event");
+        this._queryParser = this.shadowRoot.querySelector("#queryParser");
+    }
+
+    _onReferenceDataChange(e, detail) {
+        let selectedItem = detail.data.id;
+        this.set("_typesCriterion", [selectedItem]);
+        /***
+         * TODO: Need to discuss this. There is/are existing attribute filter(s), when reference entity
+         * type changed, what should we do with the existing attribute filter tag(s). Keep them or remove?
+         * For now removing the existing filters.
+         * */
+        this._selectedSearchFilters = [];
+        let searchFilterElement = this.shadowRoot.querySelector("#searchFilter");
+        if(searchFilterElement){
+            searchFilterElement.clearSearchFilters();
+        }
+        //this._prepareContext();
+        this._buildQueryString();
+
+        if (this._popover) {
+            this._popover.hide();
+        }
+    }
+
+    async _prepareContext() {
+        if (!_.isEmpty(this.contextData)) {
+            if (this._typesCriterion) {
+                let typeExternalName = await EntityTypeManager.getInstance().getTypeExternalNameByIdAsync(this._typesCriterion[0]);
+                this._mainTitle = typeExternalName;
+
+                this._selectedReferenceType = this._typesCriterion[0];
+                let itemContext = {};
+                itemContext.type = this._typesCriterion[0];
+                itemContext.attributeNames = ["_ALL"];
+                this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+                let compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
+
+                this._liquidModelGet = this._liquidModelGet || this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
+                if (this._liquidModelGet) {
+                    this._liquidModelGet.requestData = compositeModelGetRequest;
+                    this._liquidModelGet.generateRequest();
+                }
+            }
+        }
+    }
+
+    _onCompositeModelGetResponse(e) {
+        let _attributeModelResponse = e.detail.response || {};
+        let entityId = this._selectedEntity.id;
+
+        this.logInfo("CompositeModelResponse", "_attributeModelResponse", _attributeModelResponse, "entityId", entityId);
+
+        if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
+
+            let attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response
+                .content.entityModels[0], this.contextData);
+
+            let attributeNames = Object.keys(attributeModels);
+
+            if (attributeNames && attributeNames.length > 0) {
+
+                let itemContext = ContextHelper.getFirstItemContext(this.contextData);
+                itemContext.attributeNames = attributeNames;
+                this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+                this._quickManageContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+
+                let columns = {};
+                for (let attrNameIndex = 0; attrNameIndex < attributeNames.length; attrNameIndex++) {
+                    let linkTemplate = "";
+                    //Set the first item of the grid as a link to the entity manage screen
+                    if (attrNameIndex == 0) {
+                        linkTemplate = "entity-manage?id={id}&type={type}";
                     }
-          */
-          _attributeModelRequest: {
-              type: Object,
-              value: function () {
-                  return {};
-              }
-          },
-          _selectedReferenceType: {
-              type: String,
-              value: ""
-          },
-          _quickManageEnabled: {
-              type: Boolean,
-              value: false
-          },
-          inputQueryString: {
-              type: String,
-              value: ""
-          },
-          _attributeListArray: {
-              type: Array,
-              value: function () {
-                  return [];
-              }
-          },
-          _searchBarElement: {
-              type: Element
-          },
-          _entitySearchFilterElement: {
-              type: Object,
-              value: function () {
-                  return {};
-              }
-          },
-          _quickManageContextData: {
-              type: Object,
-              value: function () {
-                  return {};
-              }
-          },
-          isContextLoaded: {
-              type: Boolean,
-              value: false
-          },
-          configData: {
-              type: Object,
-              value: function () {
-                  return {};
-              }
-          },
-          _processTemplate: {
-              type: Boolean,
-              value: false
-          },
-          showAddNew: {
-              type: Boolean,
-              value: false
-          },
-          _selectedDimensions: {
-              type: Object,
-              value: function () {
-                  return {};
-              }
-          },
-          navigationData: {
-              type: Object,
-              value: function () {
-                  return {};
-              }
-          }
-      }
-  }
-
-
-
-  ready() {
-      super.ready();
-      if (this._searchBarElement) {
-          this._searchBarElement.searchInput = [];
-      }
-      //get saved search id from query string
-      this._searchQuery = DataHelper.getParamValue("searchtext") || "";
-  }
-
-  constructor() {
-      super();
-      let userContext = {
-          "roles": this.roles,
-          "user": this.userId,
-          "tenant": this.tenantId,
-          "defaultRole": this.defaultRole
-      };
-      this.contextData[ContextHelper.CONTEXT_TYPE_USER] = [userContext];               
-  }
-
-  disconnectedCallback() {
-      super.disconnectedCallback();
-  }
-
-  connectedCallback() {
-      super.connectedCallback();
-      if (!_.isEmpty(this.contextData)) {
-          let navContextArr = this.contextData[ContextHelper.CONTEXT_TYPE_NAVIGATION];
-          if(!_.isEmpty(navContextArr) && navContextArr[0]["rock-context-selector"]){
-              this.navigationData = navContextArr[0]["rock-context-selector"];
-          }
-      }
-  }
-  _onContextDataChange() {
-      if (!_.isEmpty(this.contextData)) {
-          this._quickManageContextData = DataHelper.cloneObject(this.contextData);
-
-          this.requestConfig("rock-reference-discovery", this._quickManageContextData);
-      }
-  }
-
-  onConfigLoaded(componentConfig) {
-      if (componentConfig && componentConfig.config) {
-
-          this.configData = componentConfig.config;
-          this._processTemplate = true;
-          this._initializeComponent();
-          let defaultReferenceType = componentConfig.config.defaultReferenceType;
-          //get saved search id from query string
-          if (!DataHelper.isEmptyObject(this._searchQuery) && this._searchBarElement) {
-              this._searchBarElement.query = this._searchQuery;
-          }
-          if(defaultReferenceType){
-              this._typesCriterion =[defaultReferenceType];
-          }
-          this.publish = componentConfig.config.showPublish;
-          this.showAddNew = componentConfig.config.showAddNew;
-          this._buildQueryString();
-      }
-      //this._prepareContext();
-  }
-
-  _onBusinessActionItemTap(e) {
-      if (e && "detail" in e) {
-          let data = "data" in e.detail && e.detail.data;
-          if (!_.isEmpty(data)) {
-              if (data.eventName == "action-re-publish") {
-                  this._rePublish(data.subComponentName);
-              }
-          }
-      }
-  }
-
-  _rePublish(subComponentName) {
-      let selectedItems = this._searchGridElement.getSelectedItems();
-      let selectionMode = this._searchGridElement.getSelectionMode();
-      let selectionQuery = this._searchGridElement.getSelectedItemsAsQuery();
-
-      let asyncAvailable = false;
-
-      if (!asyncAvailable || (asyncAvailable && selectionMode == "count")) {
-          if (DataHelper.isEmptyObject(selectedItems)) {
-              this.showWarningToast("Select at least one entity for which you want to perform this action.");
-              return;
-          }
-      }
-      const maxSelectedItems = 200;
-      if (!DataHelper.isEmptyObject(selectedItems) && selectedItems.length > maxSelectedItems) {
-          this.showWarningToast("Maximum " + maxSelectedItems + " entities can be selected.");
-          return;
-      }
-      if (!DataHelper.isEmptyObject(selectedItems)) {
-          this._selectedEntities = selectedItems;
-      }
-
-      const sharedData = {
-          "context-data": this._quickManageContextData,
-          "selected-entities": this._selectedEntities,
-          "selection-query": selectionQuery,
-          "selection-mode": selectionMode
-      };
-
-      this.openBusinessFunctionDialog({ name: "rock-wizard-re-publish", subName: subComponentName }, sharedData);
-  }
-  _showToastMessage(msgObject) {
-      if (msgObject) {
-          if (msgObject.type == "error") {
-              let messageCode = "10000";
-              this.logError(msgObject.message, messageCode);
-          } else if (msgObject.type == "success") {
-              this.showSuccessToast(msgObject.message, ConstantHelper.MILLISECONDS_10000);
-          }
-      }
-  }
-
-  _initializeComponent() {
-      this._rockLayout = this.shadowRoot.querySelector("rock-layout");
-      this._entityTypeModelLov = this.shadowRoot.querySelector("#referenceDataLov");
-      this._searchGridElement = this.shadowRoot.querySelector("#entitySearchGrid");
-      this._searchBarElement = this.shadowRoot.querySelector("#searchBar");
-      this._entitySearchFilterElement = this.shadowRoot.querySelector("#searchFilter");
-      this._popover = this.shadowRoot.querySelector("#actionsPopover");
-      this._grid = this.shadowRoot.querySelector("rock-entity-search-result");
-      this._parserPubsub = this.shadowRoot.querySelector("#parser-event");
-      this._queryParser = this.shadowRoot.querySelector("#queryParser");
-  }
-  _onReferenceDataChange(e, detail) {
-      let selectedItem = detail.data.id;
-      this.set("_typesCriterion", [selectedItem]);
-      /***
-       * TODO: Need to discuss this. There is/are existing attribute filter(s), when reference entity
-       * type changed, what should we do with the existing attribute filter tag(s). Keep them or remove?
-       * For now removing the existing filters.
-       * */
-      this._selectedSearchFilters = [];
-      let searchFilterElement = this.shadowRoot.querySelector("#searchFilter");
-      if(searchFilterElement){
-          searchFilterElement.clearSearchFilters();
-      }
-      //this._prepareContext();
-      this._buildQueryString();
-
-      if (this._popover) {
-          this._popover.hide();
-      }
-  }
-
-  async _prepareContext() {
-      if (!_.isEmpty(this.contextData)) {
-          if (this._typesCriterion) {
-              let typeExternalName = await EntityTypeManager.getInstance().getTypeExternalNameByIdAsync(this._typesCriterion[0]);
-              this._mainTitle = typeExternalName;
-
-              this._selectedReferenceType = this._typesCriterion[0];
-              if(_.isEmpty(this.lovSelectedItem)){
-                  this.lovSelectedItem = {
-                      title: this._mainTitle,
-                      id: this._selectedReferenceType
-                  }
-              }
-              let itemContext = {};
-              itemContext.type = this._typesCriterion[0];
-              itemContext.attributeNames = ["_ALL"];
-              this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
-              let compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
-
-              this._liquidModelGet = this._liquidModelGet || this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
-              if (this._liquidModelGet) {
-                  this._liquidModelGet.requestData = compositeModelGetRequest;
-                  this._liquidModelGet.generateRequest();
-              }
-          }
-      }
-  }
-
-  _onCompositeModelGetResponse(e) {
-      let _attributeModelResponse = e.detail.response || {};
-      let entityId = this._selectedEntity.id;
-
-      if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
-
-          let attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response
-              .content.entityModels[0], this.contextData);
-
-          let attributeNames = Object.keys(attributeModels);
-
-          if (attributeNames && attributeNames.length > 0) {
-
-              let itemContext = ContextHelper.getFirstItemContext(this.contextData);
-              itemContext.attributeNames = attributeNames;
-              this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
-              this._quickManageContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
-
-              let columns = {};
-              for (let attrNameIndex = 0; attrNameIndex < attributeNames.length; attrNameIndex++) {
-                  let linkTemplate = "";
-                  //Set the first item of the grid as a link to the entity manage screen
-                  if (attrNameIndex == 0) {
-                      linkTemplate = "entity-manage?id={id}&type={type}";
-                  }
-                  let model = attributeModels[attributeNames[attrNameIndex]];
-                  columns[model.name] = {
-                      "header": model.externalName,
-                      "name": model.name,
-                      "sortable": true,
-                      "linkTemplate": linkTemplate
-                  };
-              }
-
-              this._gridAttributes = attributeNames;
-              this._dynamicFields = columns; //Fields are prepared based on reference type change
-              this._refreshGrid();
-          }
-      }
-  }
-  _onSearch(e, detail) {
-      if (!_.isEmpty(detail)) {
-          this._searchQuery = detail.query;
-          this._buildQueryString();
-      }
-  }
-  _resetSearch() {
-      this._searchQuery = "";
-      this.tags = [];
-
-      if (this._searchBarElement) {
-          this._searchBarElement.query = "";
-          this._searchBarElement.searchText = "";
-          //TODO: Temperory fix to show keyword in search bar. Will be removed once advanced search implemented here
-          this._searchBarElement.setAttribute("placeholder", "Enter Search text");
-      }
-
-      this.inputQueryString = "";
-      this._attributeListArray = [];
-      this._selectedSearchFilters = [];
-      if (this.shadowRoot.querySelector("#searchFilter")) {
-          this.shadowRoot.querySelector("#searchFilter").clearSearchFilters();
-      }
-
-      this._resetSearchEnabled = false;
-      //this._refreshGrid();
-      this._buildQueryString();
-  }
-  _getSearchGrid() {
-      return ElementHelper.getElement(this, "#entitySearchGrid");
-  }
-  _onSelectingGridItem(e, detail) {
-      if (this._quickManageEnabled) {
-          this._selectedEntity = detail.item;
-          if (!_.isEmpty(this._selectedEntity)) {
-              let itemContext = {
-                  "id": this._selectedEntity.id,
-                  "type": this._selectedEntity.type,
-                  "attributeNames": this._gridAttributes
-              };
-
-              this._quickManageContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
-
-              this._getSearchGrid().clearSelection();
-              microTask.run(() => {
-                  this._currentIndex = this._getSearchGrid().getSelectedItemIndex();
-                  this._refreshQuickManage();
-              });
-          }
-      }
-  }
-  _onDeSelectingGridItem() {
-      if (this._quickManageEnabled) {
-          this._selectedEntity = {};
-      }
-  }
-  _onRefreshGrid(event) {
-      if (event.detail.invalidateEntityCache) {
-          if (this._typesCriterion && this._typesCriterion[0]) {
-              let entity = {
-                  "type": this._typesCriterion[0]
-              };
-              LiquidDataObjectUtils.invalidateDataObjectCache(entity);
-          }
-          if (this._quickManageEnabled) {
-              this._quickManageEnabled = false;
-              this._selectedEntity = {};
-              //this._getSearchGrid().notifyResize();
-          }
-      }
-  }
-
-  _onAttributeSave() {
-      //Reseting the context to load the updated grid
-      let itemContext = {
-          "id": "",
-          "type": this._selectedReferenceType,
-          "attributeNames": this._gridAttributes
-      };
-      this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
-
-      //Changing the row style of the updated record
-      let searchGrid = this._getSearchGrid();
-      if (searchGrid) {
-          let selectedRow = searchGrid.getSelectedGridRow();
-          if (selectedRow) {
-              selectedRow.classList.add("font-italic");
-          }
-      }
-  }
-
-  _onClickPrevious() {
-      if (this._currentIndex > 0) {
-          this._selectEntity(this._currentIndex - 1, "previous");
-      }
-  }
-  _onClickNext() {
-      let currentIndex = this._currentIndex + 1;
-      if (currentIndex < this._gridFullLength) {
-          this._selectEntity(currentIndex);
-      }
-  }
-  _selectEntity(index, nav) {
-      if (!(index < 0)) {
-          let grid = this._getSearchGrid();
-          let gridData = grid.getData();
-
-          if (gridData.length > 0 && index < this._gridFullLength) {
-              if (gridData[index].attributes) {
-                  this._selectedEntity = gridData[index];
-
-                  let itemContext = {
-                      "id": this._selectedEntity.id,
-                      "type": this._selectedEntity.type,
-                      "attributeNames": this._gridAttributes
-                  };
-                  this._quickManageContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
-
-                  this._currentIndex = index;
-                  grid.clearSelection();
-                  grid.selectItem(gridData[index]);
-
-                  //On previous click already data got loaded, so directly we can set scroll index
-                  //but for next, data will loaded as per page size, so scroll as per allow scroll
-                  if (nav == "previous" || this._isAllowedToScroll()) {
-                      grid.scrollToIndex(this._currentIndex);
-                  }
-              } else {
-                  let nextScrollIndex = grid.currentRecordSize + grid.pageSize;
-                  // Todo: nextScrollIndex will be based on the grid total count
-                  grid.scrollToIndex(nextScrollIndex);
-
-                  setTimeout(() => {
-                      this._selectEntity(index);
-                  }, ConstantHelper.MILLISECONDS_10);
-              }
-          }
-
-          this._refreshQuickManage();
-      }
-  }
-  _isAllowedToScroll() {
-      let grid = this._getSearchGrid();
-
-      if (((this._currentIndex) % grid.pageSize) == 0) {
-          return true;
-      }
-
-      return false;
-  }
-  _onActionsTap() {
-      this._popover.show();
-  }
-  _refreshGrid() {
-      let grid = this._getSearchGrid();
-      if (grid) {
-          grid.refresh();
-      }
-  }
-  _refreshComponent() {
-      this._refreshQuickManage();
-      this._refreshGrid();
-  }
-
-  _refreshQuickManage() {
-      this._quickManage = this._quickManage || this.shadowRoot.querySelector("#entityQuickManage");
-      if (this._quickManage) {
-          this._quickManage.reload();
-      }
-  }
-
-  _showResetSearch() {
-      let rockSearchFilter = undefined;
-      if (!_.isEmpty(this._entitySearchFilterElement)) {
-          rockSearchFilter = this._entitySearchFilterElement.$$("rock-search-filter");
-      }
-      let query = "";
-      let tags = [];
-
-      if (!_.isEmpty(this._searchBarElement)) {
-          query = this._searchBarElement.query;
-      }
-
-      if (rockSearchFilter) {
-          tags = rockSearchFilter.tags;
-      }
-
-      if (!_.isEmpty(query) || tags.length > 0 || this.inputQueryString != "") {
-          this._resetSearchEnabled = true;
-      }
-  }
-  _onQuickManageAdd() {
-      if (!this._selectedReferenceType || _.isEmpty(this._gridAttributes)) {
-          this.logError("Missing reference type for the process");
-          return;
-      }
-      this._quickManageEnabled = true;
-      let itemContext = {
-          "id": "-1",
-          "type": this._selectedReferenceType,
-          "attributeNames": this._gridAttributes
-      };
-      let contextData = DataHelper.cloneObject(this._quickManageContextData);
-      contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
-      this._quickManageContextData = {};
-      this.set("_quickManageContextData", contextData);
-      this._refreshQuickManage();
-
-      this._getSearchGrid().clearSelection();
-  }
-  _onTapManage() {
-      if (!_.isEmpty(this._selectedReferenceType)) {
-          this._quickManageEnabled = !this._quickManageEnabled;
-          let grid = this._getSearchGrid();
-          let selectedCount = grid.getSelectedItems();
-          if (selectedCount.length > 1) {
-              this.showWarningToast("Cannot use multiple records for Quick Manage");
-          }
-
-          if (this._quickManageEnabled) {
-              let selectedItem = grid.selectedItem;
-              this._selectedEntity = selectedItem;
-
-              if (!_.isEmpty(selectedItem)) {
-
-                  let itemContext = {
-                      "id": selectedItem.id,
-                      "type": selectedItem.type
-                  };
-
-                  this._quickManageContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
-
-                  grid.clearSelection(); //Clear current selection
-                  grid.selectItem(selectedItem); //Select item
-                  this._currentIndex = this._getSearchGrid().getSelectedItemIndex();
-                  grid.scrollToIndex(this._currentIndex);
-              }
-
-              this._refreshQuickManage();
-          } else {
-              this._currentIndex = -1;
-          }
-
-          //grid.notifyResize();
-      } else {
-          this.showInformationToast("Select reference type to manage.");
-      }
-  }
-  _applyClass(quickManageEnabled) {
-      if (quickManageEnabled) {
-          return "grid-quick-manage-container";
-      }
-
-      return "container";
-  }
-  _onContextsChanged(e) {
-      let newDimensions = e.detail.dimensions;
-      newDimensions["app"] = ["app-reference-discovery"];
-      if(e.detail && e.detail.selectedDimensionsDetail) {
-          let selectedDimensionsDetail = e.detail.selectedDimensionsDetail;
-          this.setNavigationData("rock-context-selector", selectedDimensionsDetail);
-          this.navigationData = selectedDimensionsDetail;
-      }
-      if (this.domain) {
-          newDimensions["domain"] = [this.domain];
-      }
-
-      // Created seperate copy of context data for action functionality who needs selected entity info.
-      // May be need to correct it in proper way.
-      ContextHelper.updateContextData(this.contextData, newDimensions);
-      ContextHelper.updateContextData(this._quickManageContextData, newDimensions);
-      if (this.isContextLoaded) {
-          this._refreshComponent();
-      } else {
-          this.set("isContextLoaded", true);
-          this._onContextDataChange();
-      }
-  }
-  _isTypesCriterionAvailable(typesCriterion) {
-      if (!_.isEmpty(typesCriterion)) {
-          return true;
-      }
-      return false;
-  }
-  async _buildQueryString(e, detail) {
-      //Closing the quick manage to enable search if it is opened when search query is built
-      if (this._quickManageEnabled) {
-          this._onTapManage();
-      }
-      this._queryBuilder = this._queryBuilder || this.shadowRoot.querySelector("#queryBuilder");
-      let queryBuilderData = {};
-      if (this._queryBuilder) {
-          queryBuilderData = this._queryBuilder.getQueryBuilderData();
-      }
-      //User has input some keyword search criteria
-      let keywordSearchStr = "";
-      if (this._searchQuery) {
-          keywordSearchStr = this._searchQuery;
-      }
-
-      let attributeListArray = [];
-      if (detail) {
-          let attributeList = detail;
-
-          for (let attrIndex = 0; attrIndex < attributeList.length; attrIndex++) {
-              let newItem = {
-                  name: attributeList[attrIndex].longName,
-                  value: (attributeList[attrIndex].displayValue).replace(/"|'/g, ""),
-                  attributeModel: attributeList[attrIndex].options
-              };
-              attributeListArray.push(newItem);
-          }
-      }
-
-      this.set("_attributeListArray", attributeListArray);
-      //show externalName in placeholder
-      if (this._typesCriterion.length > 0) {
-          await EntityTypeManager.getInstance().getTypeExternalNameByIdAsync(this._typesCriterion[0]);
-      }
-      //this binding not working it returns null
-      //hardbinding directly to behavior
-      let queryString = RUFBehaviors.QueryBuilderBehavior.buildQuery(this._typesCriterion, this._attributeListArray, queryBuilderData, false, keywordSearchStr);
-      //this binding not working it returns null
-      //hardbinding directly to behavior
-      let parsableString = RUFBehaviors.QueryBuilderBehavior.buildQuery(this._typesCriterion, this._attributeListArray, queryBuilderData, true, keywordSearchStr);
-
-      this._displayQuery(queryString, parsableString);
-      this._parseQuery(parsableString);
-  }
-  /**
-  * Function to display the query on the search bar
-  */
-  _displayQuery(queryStr, parsableQueryStr) {
-      this.inputQueryString = queryStr;
-
-      if (this._searchBarElement) {
-          this._searchBarElement.searchInput = [];
-          if (queryStr) {
-              this._searchBarElement.query = this._searchQuery;
-              this._searchBarElement.searchText = this._searchQuery;
-              this._searchBarElement.setAttribute("placeholder", "");
-              if (queryStr.indexOf("!%&") > -1) {
-                  queryStr = queryStr.replace(/!%&|=/g, "");
-              }
-              this._searchBarElement.setAttribute("placeholder", queryStr);
-          }
-          if (parsableQueryStr) {
-              this._searchBarElement.internalQuery = parsableQueryStr;
-          }
-      }
-
-      this._showResetSearch();
-  }
-  /**
-  * Function to parse the query
-  */
-  _parseQuery(query) {
-      if(this._parserPubsub){
-          this._parserPubsub.registerEvent();
-      }
-      if(this._queryParser){
-          this._queryParser.parseQueryToFilters(query);
-      }
-  }
-  _onSearchFiltersChange(e, detail) {
-      this._updateProperties(detail);
-  }
-  _updateProperties(searchFilters) {
-      let typesCriterion = searchFilters.typesCriterion;
-      let selectedSearchFilters = searchFilters.attributesCriterion;
-      let searchQuery = searchFilters.searchQuery ? searchFilters.searchQuery : "";
-      this.set("_typesCriterion", typesCriterion);
-      this.set("_selectedSearchFilters", selectedSearchFilters);
-      this.set("_searchQuery", searchQuery);
-      this._entitySearchFilterElement = this.shadowRoot.querySelector("#searchFilter");
-      if (this._entitySearchFilterElement && this._entitySearchFilterElement.refresh) {
-          this._entitySearchFilterElement.refresh();
-      }
-      this._prepareContext();
-  }
-  _getComponentSettings(componentName) {
-      if (typeof (this.configData) == "object") {
-          if (this.configData.componentSettings) {
-              return this.configData.componentSettings[componentName];
-          }
-      }
-  }
+                    let model = attributeModels[attributeNames[attrNameIndex]];
+                    columns[model.name] = {
+                        "header": model.externalName,
+                        "name": model.name,
+                        "sortable": true,
+                        "linkTemplate": linkTemplate
+                    };
+                }
+
+                this._gridAttributes = attributeNames;
+                this._dynamicFields = columns; //Fields are prepared based on reference type change
+                this._refreshGrid();
+            }
+        }
+    }
+
+    _onSearch(e, detail) {
+        if (!_.isEmpty(detail)) {
+            this._searchQuery = detail.query;
+            this._buildQueryString();
+        }
+    }
+
+    _resetSearch() {
+        this._searchQuery = "";
+        this.tags = [];
+
+        if (this._searchBarElement) {
+            this._searchBarElement.query = "";
+            this._searchBarElement.searchText = "";
+            //TODO: Temperory fix to show keyword in search bar. Will be removed once advanced search implemented here
+            this._searchBarElement.setAttribute("placeholder", "Enter Search text");
+        }
+
+        this.inputQueryString = "";
+        this._attributeListArray = [];
+        this._selectedSearchFilters = [];
+        if (this.shadowRoot.querySelector("#searchFilter")) {
+            this.shadowRoot.querySelector("#searchFilter").clearSearchFilters();
+        }
+
+        this._resetSearchEnabled = false;
+        //this._refreshGrid();
+        this._buildQueryString();
+    }
+
+    _getSearchGrid() {
+        return ElementHelper.getElement(this, "#entitySearchGrid");
+    }
+
+    _onSelectingGridItem(e, detail) {
+        if (this._quickManageEnabled) {
+            this._selectedEntity = detail.item;
+            if (!_.isEmpty(this._selectedEntity)) {
+                let itemContext = {
+                    "id": this._selectedEntity.id,
+                    "type": this._selectedEntity.type,
+                    "attributeNames": this._gridAttributes
+                };
+
+                this._quickManageContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+
+                this._getSearchGrid().clearSelection();
+                microTask.run(() => {
+                    this._currentIndex = this._getSearchGrid().getSelectedItemIndex();
+                    this._refreshQuickManage();
+                });
+            }
+        }
+    }
+
+    _onDeSelectingGridItem() {
+        if (this._quickManageEnabled) {
+            this._selectedEntity = {};
+        }
+    }
+
+    _onRefreshGrid(event) {
+        if (event.detail.invalidateEntityCache) {
+            if (this._typesCriterion && this._typesCriterion[0]) {
+                let entity = {
+                    "type": this._typesCriterion[0]
+                };
+                LiquidDataObjectUtils.invalidateDataObjectCache(entity);
+            }
+            if (this._quickManageEnabled) {
+                this._quickManageEnabled = false;
+                this._selectedEntity = {};
+                //this._getSearchGrid().notifyResize();
+            }
+        }
+    }
+
+    _onAttributeSave() {
+        //Reseting the context to load the updated grid
+        let itemContext = {
+            "id": "",
+            "type": this._selectedReferenceType,
+            "attributeNames": this._gridAttributes
+        };
+        this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+
+        //Changing the row style of the updated record
+        let searchGrid = this._getSearchGrid();
+        if (searchGrid) {
+            let selectedRow = searchGrid.getSelectedGridRow();
+            if (selectedRow) {
+                selectedRow.classList.add("font-italic");
+            }
+        }
+    }
+
+    _onClickPrevious() {
+        if (this._currentIndex > 0) {
+            this._selectEntity(this._currentIndex - 1, "previous");
+        }
+    }
+
+    _onClickNext() {
+        let currentIndex = this._currentIndex + 1;
+        if (currentIndex < this._gridFullLength) {
+            this._selectEntity(currentIndex);
+        }
+    }
+
+    _selectEntity(index, nav) {
+        if (!(index < 0)) {
+            let grid = this._getSearchGrid();
+            let gridData = grid.getData();
+
+            if (gridData.length > 0 && index < this._gridFullLength) {
+                if (gridData[index].attributes) {
+                    this._selectedEntity = gridData[index];
+
+                    let itemContext = {
+                        "id": this._selectedEntity.id,
+                        "type": this._selectedEntity.type,
+                        "attributeNames": this._gridAttributes
+                    };
+                    this._quickManageContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+
+                    this._currentIndex = index;
+                    grid.clearSelection();
+                    grid.selectItem(gridData[index]);
+
+                    //On previous click already data got loaded, so directly we can set scroll index
+                    //but for next, data will loaded as per page size, so scroll as per allow scroll
+                    if (nav == "previous" || this._isAllowedToScroll()) {
+                        grid.scrollToIndex(this._currentIndex);
+                    }
+                } else {
+                    let nextScrollIndex = grid.currentRecordSize + grid.pageSize;
+                    // Todo: nextScrollIndex will be based on the grid total count
+                    grid.scrollToIndex(nextScrollIndex);
+
+                    setTimeout(() => {
+                        this._selectEntity(index);
+                    }, ConstantHelper.MILLISECONDS_10);
+                }
+            }
+
+            this._refreshQuickManage();
+        }
+    }
+
+    _isAllowedToScroll() {
+        let grid = this._getSearchGrid();
+
+        if (((this._currentIndex) % grid.pageSize) == 0) {
+            return true;
+        }
+
+        return false;
+    }
+
+    _onActionsTap() {
+        this._popover.show();
+    }
+
+    _refreshGrid() {
+        let grid = this._getSearchGrid();
+        if (grid) {
+            grid.refresh();
+        }
+    }
+
+    _refreshComponent() {
+        this._refreshQuickManage();
+        this._refreshGrid();
+    }
+
+    _refreshQuickManage() {
+        this._quickManage = this._quickManage || this.shadowRoot.querySelector("#entityQuickManage");
+        if (this._quickManage) {
+            this._quickManage.reload();
+        }
+    }
+
+    _showResetSearch() {
+        let rockSearchFilter = undefined;
+        if (!_.isEmpty(this._entitySearchFilterElement)) {
+            rockSearchFilter = this._entitySearchFilterElement.$$("rock-search-filter");
+        }
+        let query = "";
+        let tags = [];
+
+        if (!_.isEmpty(this._searchBarElement)) {
+            query = this._searchBarElement.query;
+        }
+
+        if (rockSearchFilter) {
+            tags = rockSearchFilter.tags;
+        }
+
+        if (!_.isEmpty(query) || tags.length > 0 || this.inputQueryString != "") {
+            this._resetSearchEnabled = true;
+        }
+    }
+
+    _onQuickManageAdd() {
+        if (!this._selectedReferenceType || _.isEmpty(this._gridAttributes)) {
+            this.logError("Missing reference type for the process");
+            return;
+        }
+        this._quickManageEnabled = true;
+        let itemContext = {
+            "id": "-1",
+            "type": this._selectedReferenceType,
+            "attributeNames": this._gridAttributes
+        };
+        this._quickManageContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+        this._refreshQuickManage();
+
+        this._getSearchGrid().clearSelection();
+    }
+
+    _onTapManage() {
+        if (!_.isEmpty(this._selectedReferenceType)) {
+            this._quickManageEnabled = !this._quickManageEnabled;
+            let grid = this._getSearchGrid();
+            let selectedCount = grid.getSelectedItems();
+            if (selectedCount.length > 1) {
+                this.showWarningToast("Cannot use multiple records for Quick Manage");
+            }
+
+            if (this._quickManageEnabled) {
+                let selectedItem = grid.selectedItem;
+                this._selectedEntity = selectedItem;
+
+                if (!_.isEmpty(selectedItem)) {
+
+                    let itemContext = {
+                        "id": selectedItem.id,
+                        "type": selectedItem.type
+                    };
+
+                    this._quickManageContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+
+                    grid.clearSelection(); //Clear current selection
+                    grid.selectItem(selectedItem); //Select item
+                    this._currentIndex = this._getSearchGrid().getSelectedItemIndex();
+                    grid.scrollToIndex(this._currentIndex);
+                }
+
+                this._refreshQuickManage();
+            } else {
+                this._currentIndex = -1;
+            }
+
+            //grid.notifyResize();
+        } else {
+            this.showInformationToast("Select reference type to manage.");
+        }
+    }
+
+    _applyClass() {
+        if (this._quickManageEnabled) {
+            return "grid-quick-manage-container";
+        }
+
+        return "container";
+    }
+
+    _onContextsChanged(e) {
+        let newDimensions = e.detail.dimensions;
+        newDimensions["app"] = ["app-reference-discovery"];
+        if(e.detail && e.detail.selectedDimensionsDetail) {
+            let selectedDimensionsDetail = e.detail.selectedDimensionsDetail;
+            this.setNavigationData("rock-context-selector", selectedDimensionsDetail);
+            this.navigationData = selectedDimensionsDetail;
+        }
+        if (this.domain) {
+            newDimensions["domain"] = [this.domain];
+        }
+
+        // Created seperate copy of context data for action functionality who needs selected entity info.
+        // May be need to correct it in proper way.
+        ContextHelper.updateContextData(this.contextData, newDimensions);
+        ContextHelper.updateContextData(this._quickManageContextData, newDimensions);
+        if (this.isContextLoaded) {
+            this._refreshComponent();
+        } else {
+            this.set("isContextLoaded", true);
+            this._onContextDataChange();
+        }
+    }
+
+    _isTypesCriterionAvailable(typesCriterion) {
+        if (!_.isEmpty(typesCriterion)) {
+            return true;
+        }
+        return false;
+    }
+
+    async _buildQueryString(e, detail) {
+        //Closing the quick manage to enable search if it is opened when search query is built
+        if (this._quickManageEnabled) {
+            this._onTapManage();
+        }
+        this._queryBuilder = this._queryBuilder || this.shadowRoot.querySelector("#queryBuilder");
+        let queryBuilderData = {};
+        if (this._queryBuilder) {
+            queryBuilderData = this._queryBuilder.getQueryBuilderData();
+        }
+        //User has input some keyword search criteria
+        let keywordSearchStr = "";
+        if (this._searchQuery) {
+            keywordSearchStr = this._searchQuery;
+        }
+
+        let attributeListArray = [];
+        if (detail) {
+            let attributeList = detail;
+
+            for (let attrIndex = 0; attrIndex < attributeList.length; attrIndex++) {
+                let newItem = {
+                    name: attributeList[attrIndex].longName,
+                    value: (attributeList[attrIndex].displayValue).replace(/"|'/g, ""),
+                    attributeModel: attributeList[attrIndex].options
+                };
+                attributeListArray.push(newItem);
+            }
+        }
+
+        this.set("_attributeListArray", attributeListArray);
+        //show externalName in placeholder
+        if (this._typesCriterion.length > 0) {
+            await EntityTypeManager.getInstance().getTypeExternalNameByIdAsync(this._typesCriterion[0]);
+        }
+        //this binding not working it returns null
+        //hardbinding directly to behavior
+        let queryString = RUFBehaviors.QueryBuilderBehavior.buildQuery(this._typesCriterion, this._attributeListArray, queryBuilderData, false, keywordSearchStr);
+        //this binding not working it returns null
+        //hardbinding directly to behavior
+        let parsableString = RUFBehaviors.QueryBuilderBehavior.buildQuery(this._typesCriterion, this._attributeListArray, queryBuilderData, true, keywordSearchStr);
+
+        this._displayQuery(queryString, parsableString);
+        this._parseQuery(parsableString);
+    }
+
+    /**
+     * Function to display the query on the search bar
+     */
+    _displayQuery(queryStr, parsableQueryStr) {
+        this.inputQueryString = queryStr;
+
+        if (this._searchBarElement) {
+            this._searchBarElement.searchInput = [];
+            if (queryStr) {
+                this._searchBarElement.query = this._searchQuery;
+                this._searchBarElement.searchText = this._searchQuery;
+                this._searchBarElement.setAttribute("placeholder", "");
+                if (queryStr.indexOf("!%&") > -1) {
+                    queryStr = queryStr.replace(/!%&|=/g, "");
+                }
+                this._searchBarElement.setAttribute("placeholder", queryStr);
+            }
+            if (parsableQueryStr) {
+                this._searchBarElement.internalQuery = parsableQueryStr;
+            }
+        }
+
+        this._showResetSearch();
+    }
+
+    /**
+     * Function to parse the query
+     */
+    _parseQuery(query) {
+        if(this._parserPubsub){
+            this._parserPubsub.registerEvent();
+        }
+        if(this._queryParser){
+            this._queryParser.parseQueryToFilters(query);
+        }
+    }
+
+    _onSearchFiltersChange(e, detail) {
+        this._updateProperties(detail);
+    }
+
+    _updateProperties(searchFilters) {
+        let typesCriterion = searchFilters.typesCriterion;
+        let selectedSearchFilters = searchFilters.attributesCriterion;
+        let searchQuery = searchFilters.searchQuery ? searchFilters.searchQuery : "";
+        this.set("_typesCriterion", typesCriterion);
+        this.set("_selectedSearchFilters", selectedSearchFilters);
+        this.set("_searchQuery", searchQuery);
+        this._entitySearchFilterElement = this.shadowRoot.querySelector("#searchFilter");
+        if (this._entitySearchFilterElement && this._entitySearchFilterElement.refresh) {
+            this._entitySearchFilterElement.refresh();
+        }
+        this._prepareContext();
+    }
+
+    _getComponentSettings(componentName) {
+        if (typeof (this.configData) == "object") {
+            if (this.configData.componentSettings) {
+                return this.configData.componentSettings[componentName];
+            }
+        }
+    }
+
 }
 customElements.define(AppReferenceDiscovery.is, AppReferenceDiscovery)
