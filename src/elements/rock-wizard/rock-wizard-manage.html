@@ -124,8 +124,9 @@ based on the given configuration.
             <bedrock-pubsub event-name="on-buttonok-clicked" handler="_onDiscardConfirm" target-id="confirmationDialog"></bedrock-pubsub>
             <bedrock-pubsub event-name="on-buttoncancel-clicked" handler="_onDiscardCancel" target-id="confirmationDialog"></bedrock-pubsub>
         </div>
-        <bedrock-pubsub event-name="onNext" handler="_onFinalStep"></bedrock-pubsub>
+        <bedrock-pubsub event-name="business-function-finish-step" handler="_onFinishStep"></bedrock-pubsub>
         <bedrock-pubsub event-name="business-function-step-complete" handler="_onBusinessFunctionStepComplete"></bedrock-pubsub>
+        <bedrock-pubsub event-name="business-function-close" handler="_onBusinessFunctionClose"></bedrock-pubsub>
     </template>
 
     <script>
@@ -511,15 +512,16 @@ based on the given configuration.
                 return componentStatusData;
             }
 
-            //This function closes the business function from the last step and redirect to the new route
-            _onFinalStep(e, detail, sender) {
-                if (this._currentStepIndex == this.config.steps.length - 1) {
-                    if (!detail) {
-                        detail = {};
-                    }
-                    detail.closeBusinessFunction = true;
-                    this.dispatchEvent(new CustomEvent('next-step', { detail: detail, bubbles: true, composed: true }));
+            _onFinishStep(e, detail) {
+                this._triggerComponentEvent(detail, detail.closeBusinessFunction || false);
+            }
+
+            _triggerComponentEvent(detail, closeBusinessFunction = false) {
+                if (!detail) {
+                    detail = {};
                 }
+                detail.closeBusinessFunction = closeBusinessFunction;
+                this.dispatchEvent(new CustomEvent('next-step', { detail: detail, bubbles: true, composed: true }));
             }
 
             //handler function for step complete
@@ -529,6 +531,19 @@ based on the given configuration.
                 if (currentStepConfig.isMandatory) {
                     //Once operation is completed, then enable next button for mandatory step
                     this.set('disableNext', false);
+                }
+                //Trigger events
+                if (detail && !_.isEmpty(detail.eventDetails)) {
+                    detail.eventDetails.forEach(eventDetail => {
+                        this._triggerComponentEvent(eventDetail);
+                    });
+                }
+            }
+
+            _onBusinessFunctionClose(e, detail) {
+                if ((this._currentStepIndex == this.config.steps.length - 1) ||
+                    (detail && detail.forceClose)) {
+                    this.fire("cancel-event");
                 }
             }
 
