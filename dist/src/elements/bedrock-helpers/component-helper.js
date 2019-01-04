@@ -113,7 +113,13 @@ ComponentHelper.loadContent = function (contentElement, component, element, call
     } else {
         if(component.path.indexOf('html') !== -1)
             component.path = component.path.replace(/html$/g,'js')
-        import(component.path).then(function (e) {
+            import( /* webpackInclude: /\.js$/ */
+                /* webpackExclude: /\.noimport\.js$/ */
+                /* webpackChunkName: "my-chunk-name" */
+                /* webpackMode: "lazy" */
+                /* webpackPrefetch: true */ 
+                /* webpackPreload: true */
+            `../dynamic-fragments/${component.name}`).then(function (e) {
             let cElement = customElements.get(component.name);
             createComponent(cElement);
         }, function (e) {
