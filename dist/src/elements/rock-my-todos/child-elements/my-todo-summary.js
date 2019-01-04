@@ -15,6 +15,7 @@ import '../../bedrock-component-context-behavior/bedrock-component-context-behav
 import '../../bedrock-helpers/data-helper.js';
 import '../../bedrock-helpers/context-helper.js';
 import '../../bedrock-helpers/data-request-helper.js';
+import EntityTypeManager from '../../bedrock-managers/entity-type-manager.js'
 import '../../pebble-button/pebble-button.js';
 import '../../liquid-entity-model-get/liquid-entity-model-get.js';
 import '../../liquid-entity-govern-data-get/liquid-entity-govern-data-get.js';
