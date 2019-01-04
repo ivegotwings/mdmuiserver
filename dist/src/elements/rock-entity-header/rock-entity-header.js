@@ -61,6 +61,8 @@ import './progress-icons.js';
 import { Debouncer } from '@polymer/polymer/lib/utils/debounce.js';
 import { timeOut } from '@polymer/polymer/lib/utils/async.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
+import LiquidDataObjectUtils from '../liquid-dataobject-utils/liquid-dataobject-utils.js';
+
 class RockEntityHeader
         extends mixinBehaviors([
             RUFBehaviors.ComponentContextBehavior,
@@ -369,757 +371,772 @@ class RockEntityHeader
   static get is() { return 'rock-entity-header' }
 
   static get properties() {
-      return {
-          contextData: {
-              type: Object,
-              value: function () {
-                  return {};
-              },
-              observer: '_onContextDataChange'
-          },
-          /**
-           * If set as true , it indicates the component is in read only mode
-           */
-          readonly: {
-              type: Boolean,
-              value: false
-          },
-          /**
-           * Indicates the attributes that gets displayed in the header section.
-           */
-          headerConfig: {
-              type: Array,
-              value: []
-          },
+        return {
+            contextData: {
+                type: Object,
+                value: function () {
+                    return {};
+                },
+                observer: '_onContextDataChange'
+            },
+            /**
+             * If set as true , it indicates the component is in read only mode
+             */
+            readonly: {
+                type: Boolean,
+                value: false
+            },
+            /**
+             * Indicates the attributes that gets displayed in the header section.
+             */
+            headerConfig: {
+                type: Array,
+                value: []
+            },
 
-          /**
-           * Indicates the data of all missing or invalid fields, errors, and warnings of the loaded entity.
-           */
-          toFixData: {
-              type: Object,
-              value: function () {
-                  return {};
-              }
-          },
-          /**
-           * Indicates the request object that is passed to the data element to retrieve the attribute data.
-           Sample: {
-                      action: "getAttributes"
-                      }
-           */
-          headerAttributeRequest: {
-              type: Object,
-              value: function () {
-                  return {};
-              }
-          },
-          /**
-           * Indicates the request object that is passed to the data element to retrieve the attribute model data.
-           Sample: {
-                      action: "getAttributeModels"
-                      }
-           */
-          headerAttributeModelRequest: {
-              type: Object,
-              value: function () {
-                  return {
-                  };
-              }
-          },
-          _entityDataOperation: {
-              type: String,
-              value: 'update'
-          },
-          _currentAttributeInEdit: {
-              type: String,
-              value: 'update'
-          },
-          _saveResponse: {
-              type: Object,
-              value: function () {
-                  return {};
-              }
-          },
-          _saveRequest: {
-              type: Object,
-              value: function () {
-                  return {};
-              }
-          },
-          _headerAttributeValues: {
-              type: Array,
-              value: function () {
-                  return [];
-              }
-          },
-          _headerAttributeModels: {
-              type: Object,
-              value: function () {
-                  return {};
-              }
-          },
-          /**
-           * Specifies whether or not to write the logs.
-           */
-          verbose: {
-              type: Boolean,
-              value: false
-          },
-          _entityAttributes: {
-              type: Array,
-              value: function () {
-                  return [];
-              }
-          },
-          _referenceAttributeModels: {
-              type: Array,
-              value: function () {
-                  return [];
-              }
-          },
-          _messageAttribute: {
-              type: String,
-              value: null
-          },
-          _messageAttributeValue: {
-              type: String,
-              value: null
-          },
-          collapse: {
-              type: Boolean,
-              value: false
-          },
-          collapsable: {
-              type: Boolean,
-              value: false
-          },
-          workflowInfo: {
-              type: Object,
-              value: function () {
-                  return {};
-              }
-          },
-          _headerAttributesGetResponse: {
-              type: Object,
-              value: function () {
-                  return {};
-              }
-          },
+            /**
+             * Indicates the data of all missing or invalid fields, errors, and warnings of the loaded entity.
+             */
+            toFixData: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
+            /**
+             * Indicates the request object that is passed to the data element to retrieve the attribute data.
+             Sample: {
+                    action: "getAttributes"
+                 }
+            */
+            headerAttributeRequest: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
+            /**
+             * Indicates the request object that is passed to the data element to retrieve the attribute model data.
+             Sample: {
+                    action: "getAttributeModels"
+                }
+            */
+            headerAttributeModelRequest: {
+                type: Object,
+                value: function () {
+                    return {
+                    };
+                }
+            },
+            _entityDataOperation: {
+                type: String,
+                value: 'update'
+            },
+            _currentAttributeInEdit: {
+                type: String,
+                value: 'update'
+            },
+            _saveResponse: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
+            _saveRequest: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
+            _headerAttributeValues: {
+                type: Array,
+                value: function () {
+                    return [];
+                }
+            },
+            _headerAttributeModels: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
+            /**
+             * Specifies whether or not to write the logs.
+             */
+            verbose: {
+                type: Boolean,
+                value: false
+            },
+            _entityAttributes: {
+                type: Array,
+                value: function () {
+                    return [];
+                }
+            },
+            _referenceAttributeModels: {
+                type: Array,
+                value: function () {
+                    return [];
+                }
+            },
+            _messageAttribute: {
+                type: String,
+                value: null
+            },
+            _messageAttributeValue: {
+                type: String,
+                value: null
+            },
+            collapse: {
+                type: Boolean,
+                value: false
+            },
+            collapsable: {
+                type: Boolean,
+                value: false
+            },
+            workflowInfo: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
+            _headerAttributesGetResponse: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
+            dataIndex: {
+                type: String,
+                value: "entityData"
+            },
+            writePermission: {
+                type: Boolean,
+                value: false
+            },
+            _currentTab: {
+                type: String,
+                value: ""
+            },
+            rootNodeExternalName: {
+                type: String,
+                value: ""
+            }
+        }
+    }
 
-          dataIndex: {
-              type: String,
-              value: "entityData"
-          },
-          writePermission: {
-              type: Boolean,
-              value: false
-          },
-          _currentTab: {
-              type: String,
-              value: ""
-          },
-          rootNodeExternalName: {
-              type: String,
-              value: ""
-          }
-      }
-  }
-  static get observers() {
-      return [
-          '_setHeaderValuesAsPerConfig(_headerAttributeValues)'
-      ]
-  }
-  ready() {
-      super.ready();
-      this.logInfo("EntityHeaderReady");
-  }
-  _getDescriptionInfo(item) {
-      return this._headerAttributeModels[item.name] && this._headerAttributeModels[item.name].properties || {};
-  }
+    static get observers() {
+        return [
+            '_setHeaderValuesAsPerConfig(_headerAttributeValues)'
+        ]
+    }
 
-  _onContextDataChange() {
-      if (!_.isEmpty(this.contextData)) {
-          let context = DataHelper.cloneObject(this.contextData);
-          this._setWritePermission();
-          //App specific
-          let appName = ComponentHelper.getCurrentActiveAppName();
-          if (appName) {
-              context[ContextHelper.CONTEXT_TYPE_APP] = [{
-                  "app": appName
-              }];
-          }
+    ready() {
+        super.ready();
+        this.logInfo("EntityHeaderReady");
+    }
 
-          //Updating the navigation state
-          let navContextObj = this.contextData[ContextHelper.CONTEXT_TYPE_NAVIGATION];
-          if(!_.isEmpty(navContextObj)){
-              let navCtxObj = navContextObj[0][RockEntityHeader.is];
-              if(navCtxObj && navCtxObj.headerCollapse){
-                  let headerCollapse = navCtxObj.headerCollapse;
-                  if(headerCollapse) {
-                      let headerSection = this.shadowRoot.querySelector('#headerSection');
-                      if(headerSection) {
-                          headerSection.classList.remove('header-collapse');
-                          this._toggleCollapse();
-                      }
-                  }
-              }
-          }
+    _getDescriptionInfo(item) {
+        return this._headerAttributeModels[item.name] && this._headerAttributeModels[item.name].properties || {};
+    }
 
-          if (this.contextData.DomainContexts &&
-              this.contextData.DomainContexts.length !== 0) {
-              this.requestConfig('rock-entity-header', context);
-          }
-      }
-  }
+    _onContextDataChange() {
+        if (!_.isEmpty(this.contextData)) {
+            let context = DataHelper.cloneObject(this.contextData);
+            this._setWritePermission();
+            //App specific
+            let appName = ComponentHelper.getCurrentActiveAppName();
+            if (appName) {
+                context[ContextHelper.CONTEXT_TYPE_APP] = [{
+                    "app": appName
+                }];
+            }
 
-  _isPathAttributeAndHasWritePermission(item) {
-      if (!_.isEmpty(this._headerAttributeModels) &&
-          this._headerAttributeModels.hasOwnProperty(item.name)) {
-          let attrModel = this._headerAttributeModels[item.name];
-          return attrModel.displayType === "path" && attrModel.hasWritePermission;
-      }
-      return false;
-  }
+            //Updating the navigation state
+            let navContextObj = this.contextData[ContextHelper.CONTEXT_TYPE_NAVIGATION];
+            if(!_.isEmpty(navContextObj)){
+                let navCtxObj = navContextObj[0][RockEntityHeader.is];
+                if(navCtxObj && navCtxObj.headerCollapse){
+                    let headerCollapse = navCtxObj.headerCollapse;
+                    if(headerCollapse) {
+                        let headerSection = this.shadowRoot.querySelector('#headerSection');
+                        if(headerSection) {
+                            headerSection.classList.remove('header-collapse');
+                            this._toggleCollapse();
+                        }
+                    }
+                }
+            }
 
-  onConfigLoaded(componentConfig) {
-      if (componentConfig && componentConfig.config) {
-          this.headerConfig = DataHelper.convertObjectToArray(componentConfig.config.headerConfig);
-          this.thumbnailConfig = componentConfig.config.thumbnailConfig;
-          this.businessActionsConfig = componentConfig.config.businessActionsConfig;
-          //Set the data-index and data-sub-index for liquid-entity-model-get call using liquid-entity-data-get
-          if (componentConfig.config["dataIndex"]) {
-              this.dataIndex = componentConfig.config["dataIndex"];
-          }
+            if (this.contextData.DomainContexts &&
+                this.contextData.DomainContexts.length !== 0) {
+                this.requestConfig('rock-entity-header', context);
+            }
+        }
+    }
 
-          this._debouncer = Debouncer.debounce(this._debouncer, timeOut.after(100), () => {
-              this.refresh(false);
-          });
-      }
-  }
+    _isPathAttributeAndHasWritePermission(item) {
+        if (!_.isEmpty(this._headerAttributeModels) &&
+            this._headerAttributeModels.hasOwnProperty(item.name)) {
+            let attrModel = this._headerAttributeModels[item.name];
+            return attrModel.displayType === "path" && attrModel.hasWritePermission;
+        }
+        return false;
+    }
 
-  _setHeaderValuesAsPerConfig() {
-      if (this._headerAttributeValues && this._headerAttributeValues.length > 0 && this._messageAttribute) {
-          for (let i = 0; i < this._headerAttributeValues.length; i++) {
-              if (this._headerAttributeValues[i].name == this._messageAttribute) {
-                  let configItem = this._getConfigItem(this.headerConfig, this._headerAttributeValues[i].name);
-                  this._messageAttributeValue = this._headerAttributeValues[i].value;
+    onConfigLoaded(componentConfig) {
+        if (componentConfig && componentConfig.config) {
+            this.headerConfig = DataHelper.convertObjectToArray(componentConfig.config.headerConfig);
+            this.thumbnailConfig = componentConfig.config.thumbnailConfig;
+            this.businessActionsConfig = componentConfig.config.businessActionsConfig;
+            //Set the data-index and data-sub-index for liquid-entity-model-get call using liquid-entity-data-get
+            if (componentConfig.config["dataIndex"]) {
+                this.dataIndex = componentConfig.config["dataIndex"];
+            }
 
-                  //Remove if attribute not for header
-                  if (!configItem) {
-                      this._headerAttributeValues.splice(i, 1);
-                  }
+            this._debouncer = Debouncer.debounce(this._debouncer, timeOut.after(100), () => {
+                this.refresh(false);
+            });
+        }
+    }
 
-                  break;
-              }
-          }
-      }
-  }
-  _getCollapseClass() {
-      if (this.collapsable && this.collapse) {
-          return "header-collapse";
-      } else {
-          return "";
-      }
-  }
-  _toggleCollapse() {
-      let headerSection = this.shadowRoot.querySelector('#headerSection');
-      let mainApp = RUFUtilities.mainApp;
-      let windowInnerHeight;
-      let headerCollapse = false;
-      if (headerSection.classList.contains('header-collapse')) {
-          headerSection.classList.remove('header-collapse');
-          if (!(window.navigator.userAgent.indexOf("Edge") > -1)) {
-              windowInnerHeight = window.innerHeight;
-              mainApp.updateStyles({
-                  '--window-inner-height': windowInnerHeight + 'px'
-              });
-          }
-      } else {
-          headerSection.classList.add('header-collapse');
-          headerCollapse = true;
-          if (!(window.navigator.userAgent.indexOf("Edge") > -1)) {
-              windowInnerHeight = window.innerHeight + 50;
-              mainApp.updateStyles({
-                  '--window-inner-height': windowInnerHeight + 'px'
-              });
-          }
-      }
+    _setHeaderValuesAsPerConfig() {
+        if (this._headerAttributeValues && this._headerAttributeValues.length > 0 && this._messageAttribute) {
+            for (let i = 0; i < this._headerAttributeValues.length; i++) {
+                if (this._headerAttributeValues[i].name == this._messageAttribute) {
+                    let configItem = this._getConfigItem(this.headerConfig, this._headerAttributeValues[i].name);
+                    this._messageAttributeValue = this._headerAttributeValues[i].value;
 
-      //Set navigationContext
-      let eventDetail = {
-          "parentElement" : RockEntityHeader.is,
-          "properties" : {"headerCollapse": headerCollapse}
-      }
-      this.fireBedrockEvent("navigation-change", eventDetail , { ignoreId: true });
-  }
-  /**
-   * <b><i>Content development is under progress... </b></i>
-   */
-  refresh(invalidateEntityCache = true) {
+                    //Remove if attribute not for header
+                    if (!configItem) {
+                        this._headerAttributeValues.splice(i, 1);
+                    }
 
-      if (invalidateEntityCache) {
-          //Invalidate entity cache
-          let entity = this._getEntityObject();
-          LiquidDataObjectUtils.invalidateDataObjectCache(entity, this.dataIndex);
-      }
+                    break;
+                }
+            }
+        }
+    }
 
-      //refreshing rock-business-actions
-      let rockBusinessActions = this.shadowRoot.querySelector('#businessActions');
+    _getCollapseClass() {
+        if (this.collapsable && this.collapse) {
+            return "header-collapse";
+        } else {
+            return "";
+        }
+    }
 
-      if(rockBusinessActions) {
-          rockBusinessActions.reloadComponent();
-      }
+    _toggleCollapse() {
+        let headerSection = this.shadowRoot.querySelector('#headerSection');
+        let mainApp = RUFUtilities.mainApp;
+        let windowInnerHeight;
+        let headerCollapse = false;
+        if (headerSection.classList.contains('header-collapse')) {
+            headerSection.classList.remove('header-collapse');
+            if (!(window.navigator.userAgent.indexOf("Edge") > -1)) {
+                windowInnerHeight = window.innerHeight;
+                mainApp.updateStyles({
+                    '--window-inner-height': windowInnerHeight + 'px'
+                });
+            }
+        } else {
+            headerSection.classList.add('header-collapse');
+            headerCollapse = true;
+            if (!(window.navigator.userAgent.indexOf("Edge") > -1)) {
+                windowInnerHeight = window.innerHeight + 50;
+                mainApp.updateStyles({
+                    '--window-inner-height': windowInnerHeight + 'px'
+                });
+            }
+        }
 
-      // ContextHelper.isValidContext(itemContext.type, dataContext, valueContext, valid, invalid);
-      this._startDataLoad();
-      this._refreshEntityThumbnail();
-  }
-  _refreshEntityThumbnail() {
-      let entityThumbnailComp = this.shadowRoot.querySelector("rock-entity-thumbnail");
-      if (entityThumbnailComp) {
-          entityThumbnailComp.contextData = this.contextData;
-      }
-  }
-  _onToolbarEvent(e, detail) {
-      this.fireBedrockEvent("toolbar-button-event", detail);
-  }
-  _startDataLoad() {
-      let headerConfig = this.headerConfig;
-      this.logInfo("EntityHeadDataLoad", "config", headerConfig);
+        //Set navigationContext
+        let eventDetail = {
+            "parentElement" : RockEntityHeader.is,
+            "properties" : {"headerCollapse": headerCollapse}
+        }
+        this.fireBedrockEvent("navigation-change", eventDetail , { ignoreId: true });
+    }
 
-      if (headerConfig && headerConfig.length > 0 && this.contextData) {
-          let attributeNames = [];
+    /**
+     * <b><i>Content development is under progress... </b></i>
+     */
+    refresh(invalidateEntityCache = true) {
 
-          for (let i = 0; i < headerConfig.length; i++) {
-              if (headerConfig[i].attributeName) {
-                  attributeNames.push(headerConfig[i].attributeName);
-              }
-          }
+        if (invalidateEntityCache) {
+            //Invalidate entity cache
+            let entity = this._getEntityObject();
+            LiquidDataObjectUtils.invalidateDataObjectCache(entity, this.dataIndex);
+        }
 
-          //Add messageAttribute if not available in the request attributes list
-          if (this.businessActionsConfig && this.businessActionsConfig.messageAttribute) {
-              this._messageAttribute = this.businessActionsConfig.messageAttribute;
-              if (attributeNames.indexOf(this._messageAttribute) == -1) {
-                  attributeNames.push(this._messageAttribute);
-              }
-          }
+        //refreshing rock-business-actions
+        let rockBusinessActions = this.shadowRoot.querySelector('#businessActions');
 
-          let itemContext = this.getFirstItemContext();
-          //add attribute names in item context
-          itemContext.attributeNames = attributeNames;
+        if(rockBusinessActions) {
+            rockBusinessActions.reloadComponent();
+        }
 
-          let compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
-          // adding enhancer attribute names fromcontextModel call.
-          this.set("headerAttributeModelRequest", compositeModelGetRequest);
-          let liquidModelGet = this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
-          if (liquidModelGet) {
-              liquidModelGet.generateRequest();
-          }
-      }
-  }
-  _onCompositeModelGetResponse(e) {
-      // this.logInfo("EntityHeaderModelResponse", "response", JSON.stringify(e, null, 2));
+        // ContextHelper.isValidContext(itemContext.type, dataContext, valueContext, valid, invalid);
+        this._startDataLoad();
+        this._refreshEntityThumbnail();
+    }
 
-      if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
-          let entityModel = e.detail.response.content.entityModels[0];
-          let properties = entityModel.properties;
-          if (properties.hasOwnProperty("defaultThumbnailId")) {
-              this._defaultThumbnailId = properties.defaultThumbnailId;
-          }
-          this._headerAttributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], this.contextData, this.writePermission);
+    _refreshEntityThumbnail() {
+        let entityThumbnailComp = this.shadowRoot.querySelector("rock-entity-thumbnail");
+        if (entityThumbnailComp) {
+            entityThumbnailComp.contextData = this.contextData;
+        }
+    }
 
-          let clonedContextData = DataHelper.cloneObject(this.contextData);
-          let attributeNames = Object.keys(this._headerAttributeModels);
+    _onToolbarEvent(e, detail) {
+        this.fireBedrockEvent("toolbar-button-event", detail);
+    }
 
-          if (clonedContextData) {
-              //add attribute names in item context
-              let itemContext = this.getFirstItemContext();
-              itemContext.attributeNames = attributeNames;
-              clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
-              this.set("headerAttributeRequest", DataRequestHelper.createEntityGetRequest(clonedContextData, true));
-              this.shadowRoot.querySelector("liquid-entity-data-get").generateRequest();
-          }
-      } else {
-          let attrContainer = this.$$('#attributePanel');
-          let attrErrorContainer = this.$$('#attributeErrorPanel');
-          attrContainer.hidden = true;
-          attrErrorContainer.hidden = false;
-          this.logError("rock-entity-header - Header attribute models get response error", e.detail, true, "", attrErrorContainer);
-      }
-  }
-  async _onHeaderAttributesGetResponse(e) {
-      let headerAttributeResponse = e.detail.response;
+    _startDataLoad() {
+        let headerConfig = this.headerConfig;
+        this.logInfo("EntityHeadDataLoad", "config", headerConfig);
 
-      this.logInfo("EntityHeaderAttributeResponse", "response", headerAttributeResponse);
+        if (headerConfig && headerConfig.length > 0 && this.contextData) {
+            let attributeNames = [];
 
-      let attributesData = [];
-      if (DataHelper.validateGetEntitiesResponse(headerAttributeResponse) && this._headerAttributeModels) {
-          let entity = headerAttributeResponse.content.entities[0];
+            for (let i = 0; i < headerConfig.length; i++) {
+                if (headerConfig[i].attributeName) {
+                    attributeNames.push(headerConfig[i].attributeName);
+                }
+            }
 
-          if (entity) {
-              attributesData = DataTransformHelper.transformAttributes(entity, this._headerAttributeModels, this.contextData, "array", false);
-              this._entityAttributes = attributesData;
+            //Add messageAttribute if not available in the request attributes list
+            if (this.businessActionsConfig && this.businessActionsConfig.messageAttribute) {
+                this._messageAttribute = this.businessActionsConfig.messageAttribute;
+                if (attributeNames.indexOf(this._messageAttribute) == -1) {
+                    attributeNames.push(this._messageAttribute);
+                }
+            }
 
-              let self = this;
-              //Find the date attributes and change the values from ISO
-              Object.keys(this._headerAttributeModels).map(function (attributeModel) {
-                  if (self._headerAttributeModels[attributeModel].dataType == "datetime" ||
-                      self._headerAttributeModels[attributeModel].dataType == "date") {
-                      let datatype = self._headerAttributeModels[attributeModel].dataType;
-                      for (let i = 0; i < attributesData.length; i++) {
-                          if (self._headerAttributeModels[attributeModel].name == attributesData[i].name) {
-                              attributesData[i].value = FormatHelper.convertFromISODateTime(attributesData[i].value, datatype);
-                              break;
-                          }
-                      }
-                  }
-              });
+            let itemContext = this.getFirstItemContext();
+            //add attribute names in item context
+            itemContext.attributeNames = attributeNames;
 
-              this._setMetadataAttributes(entity);
-              this.set("_headerAttributeValues", this._entityAttributes);
-              this.$.headerAttributes.render();
-          }
-      } else {
-          let attrContainer = this.$$('#attributePanel');
-          let attrErrorContainer = this.$$('#attributeErrorPanel');
-          attrContainer.hidden = true;
-          attrErrorContainer.hidden = false;
-          this.logError("rock-entity-header - Header attributes get response error", e.detail, true, "", attrErrorContainer);
-      }
-  }
+            let compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
+            // adding enhancer attribute names fromcontextModel call.
+            this.set("headerAttributeModelRequest", compositeModelGetRequest);
+            let liquidModelGet = this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
+            if (liquidModelGet) {
+                liquidModelGet.generateRequest();
+            }
+        }
+    }
 
-  _setMetadataAttributes(entity) {
-      if (this.headerConfig && this.headerConfig.length > 0) {
-          for (let i = 0; i < this.headerConfig.length; i++) {
-              if (this.headerConfig[i].isMetadataAttribute) {
-                  let attrObj = {
-                      "name": this.headerConfig[i].attributeName,
-                      "value": entity[this.headerConfig[i].attributeName]
-                  };
-                  this._entityAttributes.push(attrObj);
-              }
-          }
-      }
-  }
+    _onCompositeModelGetResponse(e) {
+        // this.logInfo("EntityHeaderModelResponse", "response", JSON.stringify(e, null, 2));
 
-  _getAttributeLabel(attributeItem) {
-      let configItem = this._getConfigItem(this.headerConfig, attributeItem.name);
+        if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
+            let entityModel = e.detail.response.content.entityModels[0];
+            let properties = entityModel.properties;
+            if (properties.hasOwnProperty("defaultThumbnailId")) {
+                this._defaultThumbnailId = properties.defaultThumbnailId;
+            }
+            this._headerAttributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], this.contextData, this.writePermission);
 
-      if (configItem && configItem.label) {
-          return configItem.label;
-      }
+            let clonedContextData = DataHelper.cloneObject(this.contextData);
+            let attributeNames = Object.keys(this._headerAttributeModels);
 
-      let attributeModel = this._headerAttributeModels[attributeItem.name];
+            if (clonedContextData) {
+                //add attribute names in item context
+                let itemContext = this.getFirstItemContext();
+                itemContext.attributeNames = attributeNames;
+                clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+                this.set("headerAttributeRequest", DataRequestHelper.createEntityGetRequest(clonedContextData, true));
+                this.shadowRoot.querySelector("liquid-entity-data-get").generateRequest();
+            }
+        } else {
+            let attrContainer = this.$$('#attributePanel');
+            let attrErrorContainer = this.$$('#attributeErrorPanel');
+            attrContainer.hidden = true;
+            attrErrorContainer.hidden = false;
+            this.logError("rock-entity-header - Header attribute models get response error", e.detail, true, "", attrErrorContainer);
+        }
+    }
 
-      if (attributeModel && attributeModel.properties && attributeModel.properties.externalName) {
-          return attributeModel.properties.externalName;
-      }
-  }
-  _getAttributeValue(values, configItem) {
-      let attrValue = "";
-      for (let i = 0; i < values.length; i++) {
-          let attributes = values[i].attributes;
-          for (let j = 0; j < attributes.length; j++) {
-              if (attributes[j].name == configItem.attributeName) {
-                  attrValue = attributes[j].value;
-              }
-          }
-      }
-  }
-  _onPathAttributeEdit(e) {
-      let attributeName = e.currentTarget.attributeName;
-      this._currentAttributeInEdit = attributeName;
-      let attrEditDialog = this.$.attributeEditDialog;
+    async _onHeaderAttributesGetResponse(e) {
+        let headerAttributeResponse = e.detail.response;
 
-      if (this._headerAttributeModels[attributeName].displayType === "path") {
-          // path type attribute Edit
-          if (attrEditDialog) {
-              let classificationDialog = this.shadowRoot.querySelector("#classification-contextTree");
-              let selectedClassifications = [];
-              let contextTree = this.shadowRoot.querySelector("#classification-contextTree");
-              let pathSeperatorElement;
-              if(contextTree) {
-                  if (DataHelper.isValidObjectPath(this._headerAttributeModels[attributeName], 'properties.pathEntityInfo.0')) {
-                      let properties = this._headerAttributeModels[attributeName].properties;
-                      let { pathEntityType, pathRelationshipName, rootNode, pathSeperator } = properties.pathEntityInfo[0];
-                      pathSeperatorElement = pathSeperator;
-                      contextTree.pathEntityType = pathEntityType;
-                      contextTree.pathRelationshipName = pathRelationshipName;
-                      contextTree.rootNode = rootNode;
-                      contextTree.multiSelect = properties.isCollection;
-                      contextTree.leafNodeOnly = properties.isCollection;
-                  }
-                  //setting pebble-dialog title
-                  let classificationElements;
-                  attrEditDialog.dialogTitle = "Edit" + " " + pathSeperatorElement + " " + this._headerAttributeModels[attributeName].externalName; 
-                      if(!_.isEmpty(this._headerAttributeValues)) {
-                          this._headerAttributeValues.forEach(valueObject=> {
-                              if (valueObject.name === this._currentAttributeInEdit) {
-                                  classificationElements = _.isArray(valueObject.value) ? valueObject.value : [valueObject.value];
-                              }
-                          })
-                      }
-                      if (!_.isEmpty(classificationElements)) {
-                          classificationElements.forEach(classificationElement=> {
-                              let classificationTags = classificationElement.split(pathSeperatorElement);
-                              classificationTags.shift();
-                              selectedClassifications.push(classificationTags);
-                          })
-                      }
-                      contextTree.selectedClassifications = selectedClassifications;
-                      contextTree.generateRequest();
-                      contextTree.clearSelectedItems();
+        this.logInfo("EntityHeaderAttributeResponse", "response", headerAttributeResponse);
 
-                      attrEditDialog.open();
-              } else {
-                  this.logError("Cannot find rock-classification-selector in DOM");
-              }
+        let attributesData = [];
+        if (DataHelper.validateGetEntitiesResponse(headerAttributeResponse) && this._headerAttributeModels) {
+            let entity = headerAttributeResponse.content.entities[0];
 
-          }
-      }
-  }
+            if (entity) {
+                attributesData = DataTransformHelper.transformAttributes(entity, this._headerAttributeModels, this.contextData, "array", false);
+                this._entityAttributes = attributesData;
 
-  _isDirtyCheck(pathTypeAttributeValues) {
-      let selectedAttributeValues;
-      if(DataHelper.isValidObjectPath(pathTypeAttributeValues, 'values.0')) {
-          selectedAttributeValues = pathTypeAttributeValues.values.map(valueObject=>{
-          return valueObject.value;
-      });
-      }
-      let headerAttributeValues = this._headerAttributeValues;
+                let self = this;
+                //Find the date attributes and change the values from ISO
+                Object.keys(this._headerAttributeModels).map(function (attributeModel) {
+                    if (self._headerAttributeModels[attributeModel].dataType == "datetime" ||
+                        self._headerAttributeModels[attributeModel].dataType == "date") {
+                        let datatype = self._headerAttributeModels[attributeModel].dataType;
+                        for (let i = 0; i < attributesData.length; i++) {
+                            if (self._headerAttributeModels[attributeModel].name == attributesData[i].name) {
+                                attributesData[i].value = FormatHelper.convertFromISODateTime(attributesData[i].value, datatype);
+                                break;
+                            }
+                        }
+                    }
+                });
 
-      for (let i=0; i<headerAttributeValues.length; i++) {
-          if(headerAttributeValues[i].name === this._currentAttributeInEdit) {
-              if(DataHelper.compareObjects(headerAttributeValues[i].value, selectedAttributeValues)) {
-                  return false;
-              }
-          }
-      }
-      return true;
-  }
+                this._setMetadataAttributes(entity);
+                this.set("_headerAttributeValues", this._entityAttributes);
+                this.$.headerAttributes.render();
+            }
+        } else {
+            let attrContainer = this.$$('#attributePanel');
+            let attrErrorContainer = this.$$('#attributeErrorPanel');
+            attrContainer.hidden = true;
+            attrErrorContainer.hidden = false;
+            this.logError("rock-entity-header - Header attributes get response error", e.detail, true, "", attrErrorContainer);
+        }
+    }
 
-  _onSaveHeaderAttribute() {
-      if(DataHelper.isValidObjectPath(this._headerAttributesGetResponse, 'content.entities.0.data.attributes')) {
-          let classificationTree = this.shadowRoot.querySelector('#classification-contextTree');
-          let selectedItems;
-          if (!this.rootNodeExternalName) {
-              this.logError("Classification root node extenal name missing, cannot process save.");
-              return;
-          }
-          if(classificationTree) {
-              selectedItems =  classificationTree.selectedClassifications;
-              let classificationPaths = selectedItems.map(elm => {
-                  return elm.valuePath;
-              });
-              let attributeForSave = this._currentAttributeInEdit;
-              let headerAttributeModel = this._headerAttributeModels[attributeForSave];
-              if (headerAttributeModel && headerAttributeModel.displayType === "path") {
-                  let pathTypeAttributeValues;
-                  pathTypeAttributeValues = this._getFormattedPathTypeObject(classificationPaths, headerAttributeModel.isLocalizable);
-                  let isDelete = false;
-                  if(_.isEmpty(classificationPaths)) {
-                      /**
-                       * If classificationPaths are empty, either none are selected or
-                       * all selected paths are unselected. If none are selected, we show 
-                       * No changes toast message. If all selected paths are un selected
-                       * then we need to send action delete flag for each path in update request
-                       * in respective context.
-                       * **/
-                      isDelete = true;
-                  }
-                  let isDirty = this._isDirtyCheck(pathTypeAttributeValues);
-                  if(!isDirty) {
-                      this.showInformationToast('No changes to save');
-                      return;
-                  }
-                  let entityForSave = DataHelper.cloneObject(this._headerAttributesGetResponse);
-                  let firstDataContext = this.getFirstDataContext();
-                  let data = entityForSave.content.entities[0].data;
-                  // contextual save
-                  if(!_.isEmpty(firstDataContext)) {
-                      if(isDelete && !_.isEmpty(data.contexts)) {
-                          data.contexts.forEach(contextItem => {
-                              if (_.isEqual(firstDataContext, contextItem.context)) {
-                                  this._setDeleteFlagForValues(contextItem.attributes, attributeForSave);
-                              }
-                          })
-                      } else {
-                          data.contexts = [];
-                          let attributes = {};
-                          attributes[attributeForSave] = pathTypeAttributeValues;
-                          let ctxObj = {
-                              "context": firstDataContext,
-                              "attributes": attributes
-                          }
-                          data.contexts.push(ctxObj);
-                      }
-                  } else {
-                      if(isDelete) {
-                          this._setDeleteFlagForValues(data.attributes, attributeForSave);
-                      } else {
-                          data.attributes = {}
-                          data.attributes[attributeForSave] = pathTypeAttributeValues;
-                      }
+    _setMetadataAttributes(entity) {
+        if (this.headerConfig && this.headerConfig.length > 0) {
+            for (let i = 0; i < this.headerConfig.length; i++) {
+                if (this.headerConfig[i].isMetadataAttribute) {
+                    let attrObj = {
+                        "name": this.headerConfig[i].attributeName,
+                        "value": entity[this.headerConfig[i].attributeName]
+                    };
+                    this._entityAttributes.push(attrObj);
+                }
+            }
+        }
+    }
 
-                  }
-                  this._saveRequest = {
-                      "entities": entityForSave.content.entities
-                  };
-                  this._saveAttribute();
-              } else {
-                  //Save logic for all non-path type attributes goes here
-              }
-          } else {
-              this.logError('Cannot find rock-classification-tree element in dom');
-          }
-      }
-  }
+    _getAttributeLabel(attributeItem) {
+        let configItem = this._getConfigItem(this.headerConfig, attributeItem.name);
 
-  /**
-   * Update all the values of the path attribte with action: delete
-   * flag to delete the values.
-   * **/
-  _setDeleteFlagForValues(attributes, attributeForSave) {
-      let attribute = attributes[attributeForSave];
-      if(attribute && !_.isEmpty(attribute.values)) {
-          attribute.values.forEach((value) => {
-              value.action = "delete";
-          });
-      }
-  }
+        if (configItem && configItem.label) {
+            return configItem.label;
+        }
 
-  _getFormattedValuePath(path) {
-      let pathSeperator;
-      if(DataHelper.isValidObjectPath(this._headerAttributeModels[this._currentAttributeInEdit], 'properties.pathEntityInfo.0.pathSeperator')) {
-          pathSeperator = this._headerAttributeModels[this._currentAttributeInEdit].properties.pathEntityInfo[0].pathSeperator;
-      }
-      path = this.rootNodeExternalName + pathSeperator + path;
-      return path.replace(/#@#/g, pathSeperator);
-  }
+        let attributeModel = this._headerAttributeModels[attributeItem.name];
 
-  _getFormattedPathTypeObject(classificationPaths, isLocalizable) {
-      let pathTypeAttributeValues = {
-          values:[]
-      }
+        if (attributeModel && attributeModel.properties && attributeModel.properties.externalName) {
+            return attributeModel.properties.externalName;
+        }
+    }
 
-      let firstValueContext = isLocalizable ? ContextHelper.getFirstValueContext(this.contextData) : DataHelper.getDefaultValContext();
-      if(!_.isEmpty(classificationPaths)) {
-          classificationPaths.forEach(path=> {
-          let valueObject = {
-              value: this._getFormattedValuePath(path)
-          }
-          AttributeHelper.populateValueContext(valueObject, firstValueContext);
+    _getAttributeValue(values, configItem) {
+        let attrValue = "";
+        for (let i = 0; i < values.length; i++) {
+            let attributes = values[i].attributes;
+            for (let j = 0; j < attributes.length; j++) {
+                if (attributes[j].name == configItem.attributeName) {
+                    attrValue = attributes[j].value;
+                }
+            }
+        }
+    }
 
-          pathTypeAttributeValues.values.push(valueObject);
-      })
-      } else {
-          let valueObject = {
-              value: ""
-          }
-          AttributeHelper.populateValueContext(valueObject, firstValueContext);
-          pathTypeAttributeValues.values.push(valueObject);
-      }
-      return pathTypeAttributeValues;
+    _onPathAttributeEdit(e) {
+        let attributeName = e.currentTarget.attributeName;
+        this._currentAttributeInEdit = attributeName;
+        let attrEditDialog = this.$.attributeEditDialog;
 
-  }
+        if (this._headerAttributeModels[attributeName].displayType === "path") {
+            // path type attribute Edit
+            if (attrEditDialog) {
+                let classificationDialog = this.shadowRoot.querySelector("#classification-contextTree");
+                let selectedClassifications = [];
+                let contextTree = this.shadowRoot.querySelector("#classification-contextTree");
+                let pathSeperatorElement;
+                if(contextTree) {
+                    if (DataHelper.isValidObjectPath(this._headerAttributeModels[attributeName], 'properties.pathEntityInfo.0')) {
+                        let properties = this._headerAttributeModels[attributeName].properties;
+                        let { pathEntityType, pathRelationshipName, rootNode, pathSeperator } = properties.pathEntityInfo[0];
+                        pathSeperatorElement = pathSeperator;
+                        contextTree.pathEntityType = pathEntityType;
+                        contextTree.pathRelationshipName = pathRelationshipName;
+                        contextTree.rootNode = rootNode;
+                        contextTree.multiSelect = properties.isCollection;
+                        contextTree.leafNodeOnly = properties.isCollection;
+                    }
+                    //setting pebble-dialog title
+                    let classificationElements;
+                    attrEditDialog.dialogTitle = "Edit" + " " + pathSeperatorElement + " " + this._headerAttributeModels[attributeName].externalName; 
+                        if(!_.isEmpty(this._headerAttributeValues)) {
+                            this._headerAttributeValues.forEach(valueObject=> {
+                                if (valueObject.name === this._currentAttributeInEdit) {
+                                    classificationElements = _.isArray(valueObject.value) ? valueObject.value : [valueObject.value];
+                                }
+                            })
+                        }
+                        if (!_.isEmpty(classificationElements)) {
+                            classificationElements.forEach(classificationElement=> {
+                                let classificationTags = classificationElement.split(pathSeperatorElement);
+                                classificationTags.shift();
+                                selectedClassifications.push(classificationTags);
+                            })
+                        }
+                        contextTree.selectedClassifications = selectedClassifications;
+                        contextTree.generateRequest();
+                        contextTree.clearSelectedItems();
 
-  _saveAttribute() {
-      let liquidSave = this.shadowRoot.querySelector(
-          "[name=attributeSaveDataService]");
-      if (liquidSave) {
-          liquidSave.generateRequest();
-      } else {
-          this.logError(
-              "Save failed: Not able to access attributeSaveDataService liquid");
-      }
-  }
+                        attrEditDialog.open();
+                } else {
+                    this.logError("Cannot find rock-classification-selector in DOM");
+                }
 
-  _onSaveResponse(e, detail) {
-      if(e.detail.response.status == "success") {
-          this.showSuccessToast(detail.response.content.msg);
-          let attrEditDialog = this.$.attributeEditDialog;
-          if (attrEditDialog) {
-              attrEditDialog.close();
-          }
-          this.refresh(true);
-      } else {
-          this.showWarningToast("Attribute save failed");
-          this.logError("Attribute save failed. Response status is error", e.detail);
-      }
-  }
+            }
+        }
+    }
 
-  _onCancelHeaderSave() {
-      let attrEditDialog = this.$.attributeEditDialog;
-      if (attrEditDialog) {
-          attrEditDialog.close();
-      }
-  }
-  _computeIcon(percentage) {
-      let per = Math.round(percentage / 10) * 10;
-      return "pebble-icon:percentage-circle";
-  }
-  _openPopover() {
-      this.$.tofixPopover.show();
-  }
-  _getConfigItem(headerConfig, attributeName) {
-      if (!headerConfig) {
-          return;
-      }
+    _isDirtyCheck(pathTypeAttributeValues) {
+        let selectedAttributeValues;
+        if(DataHelper.isValidObjectPath(pathTypeAttributeValues, 'values.0')) {
+            selectedAttributeValues = pathTypeAttributeValues.values.map(valueObject=>{
+            return valueObject.value;
+        });
+        }
+        let headerAttributeValues = this._headerAttributeValues;
 
-      for (let i = 0; i < headerConfig.length; i++) {
-          if (headerConfig[i].attributeName == attributeName) {
-              return headerConfig[i];
-          }
-      }
-  }
+        for (let i=0; i<headerAttributeValues.length; i++) {
+            if(headerAttributeValues[i].name === this._currentAttributeInEdit) {
+                if(DataHelper.compareObjects(headerAttributeValues[i].value, selectedAttributeValues)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
 
-  _getEntityObject() {
-      let itemCtx = ContextHelper.getFirstItemContext(this.contextData);
-      let entity = {
-          "id": itemCtx.id,
-          "type": itemCtx.type
-      };
-      return entity;
-  }
+    _onSaveHeaderAttribute() {
+        if(DataHelper.isValidObjectPath(this._headerAttributesGetResponse, 'content.entities.0.data.attributes')) {
+            let classificationTree = this.shadowRoot.querySelector('#classification-contextTree');
+            let selectedItems;
+            if (!this.rootNodeExternalName) {
+                this.logError("Classification root node extenal name missing, cannot process save.");
+                return;
+            }
+            if(classificationTree) {
+                selectedItems =  classificationTree.selectedClassifications;
+                let classificationPaths = selectedItems.map(elm => {
+                    return elm.valuePath;
+                });
+                let attributeForSave = this._currentAttributeInEdit;
+                let headerAttributeModel = this._headerAttributeModels[attributeForSave];
+                if (headerAttributeModel && headerAttributeModel.displayType === "path") {
+                    let pathTypeAttributeValues;
+                    pathTypeAttributeValues = this._getFormattedPathTypeObject(classificationPaths, headerAttributeModel.isLocalizable);
+                    let isDelete = false;
+                    if(_.isEmpty(classificationPaths)) {
+                        /**
+                         * If classificationPaths are empty, either none are selected or
+                         * all selected paths are unselected. If none are selected, we show 
+                         * No changes toast message. If all selected paths are un selected
+                         * then we need to send action delete flag for each path in update request
+                         * in respective context.
+                         * **/
+                        isDelete = true;
+                    }
+                    let isDirty = this._isDirtyCheck(pathTypeAttributeValues);
+                    if(!isDirty) {
+                        this.showInformationToast('No changes to save');
+                        return;
+                    }
+                    let entityForSave = DataHelper.cloneObject(this._headerAttributesGetResponse);
+                    let firstDataContext = this.getFirstDataContext();
+                    let data = entityForSave.content.entities[0].data;
+                    // contextual save
+                    if(!_.isEmpty(firstDataContext)) {
+                        if(isDelete && !_.isEmpty(data.contexts)) {
+                            data.contexts.forEach(contextItem => {
+                                if (_.isEqual(firstDataContext, contextItem.context)) {
+                                    this._setDeleteFlagForValues(contextItem.attributes, attributeForSave);
+                                }
+                            })
+                        } else {
+                            data.contexts = [];
+                            let attributes = {};
+                            attributes[attributeForSave] = pathTypeAttributeValues;
+                            let ctxObj = {
+                                "context": firstDataContext,
+                                "attributes": attributes
+                            }
+                            data.contexts.push(ctxObj);
+                        }
+                    } else {
+                        if(isDelete) {
+                            this._setDeleteFlagForValues(data.attributes, attributeForSave);
+                        } else {
+                            data.attributes = {}
+                            data.attributes[attributeForSave] = pathTypeAttributeValues;
+                        }
 
-  _onTabsChange(event) {
-      if (event && event.detail) {
-          let ignoreList = ["workflow", "recentActivity"];
-          if (ignoreList.indexOf(event.detail) != -1) {
-              return;
-          }
-          this._currentTab = event.detail;
-          this._resetToolbarButtons();
-      }
-  }
+                    }
+                    this._saveRequest = {
+                        "entities": entityForSave.content.entities
+                    };
+                    this._saveAttribute();
+                } else {
+                    //Save logic for all non-path type attributes goes here
+                }
+            } else {
+                this.logError('Cannot find rock-classification-tree element in dom');
+            }
+        }
+    }
 
-  _resetToolbarButtons(event) {
-      let hideButton = false;
-      if (this._currentTab == 'summary' || this._currentTab == 'entity-graph') {
-          hideButton = true;
-      }
+    /**
+     * Update all the values of the path attribte with action: delete
+     * flag to delete the values.
+     * **/
+    _setDeleteFlagForValues(attributes, attributeForSave) {
+        let attribute = attributes[attributeForSave];
+        if(attribute && !_.isEmpty(attribute.values)) {
+            attribute.values.forEach((value) => {
+                value.action = "delete";
+            });
+        }
+    }
 
-      let toolbar = this.shadowRoot.querySelector('#entityActions');
-      if (toolbar) {
-          toolbar.setAttributeToToolbarButton("edit", "hidden", hideButton);
-      }
-  }
+    _getFormattedValuePath(path) {
+        let pathSeperator;
+        if(DataHelper.isValidObjectPath(this._headerAttributeModels[this._currentAttributeInEdit], 'properties.pathEntityInfo.0.pathSeperator')) {
+            pathSeperator = this._headerAttributeModels[this._currentAttributeInEdit].properties.pathEntityInfo[0].pathSeperator;
+        }
+        path = this.rootNodeExternalName + pathSeperator + path;
+        return path.replace(/#@#/g, pathSeperator);
+    }
 
-  refreshThumbnail() {
-      let entityThumbnail = this.shadowRoot.querySelector('#entityThumbnail');
-      if (entityThumbnail) {
-          entityThumbnail.refreshThumbnail();
-      }
-  }
+    _getFormattedPathTypeObject(classificationPaths, isLocalizable) {
+        let pathTypeAttributeValues = {
+            values:[]
+        }
 
-  _setWritePermission() {
-      let writePermission = true;
-      let itemContext = this.getFirstItemContext();
-      if (DataHelper.isValidObjectPath(itemContext, "permissionContext.writePermission")) {
-          writePermission = itemContext.permissionContext.writePermission;
-      }
+        let firstValueContext = isLocalizable ? ContextHelper.getFirstValueContext(this.contextData) : DataHelper.getDefaultValContext();
+        if(!_.isEmpty(classificationPaths)) {
+            classificationPaths.forEach(path=> {
+            let valueObject = {
+                value: this._getFormattedValuePath(path)
+            }
+            AttributeHelper.populateValueContext(valueObject, firstValueContext);
 
-      this.set("writePermission", writePermission);
-  }
+            pathTypeAttributeValues.values.push(valueObject);
+        })
+        } else {
+            let valueObject = {
+                value: ""
+            }
+            AttributeHelper.populateValueContext(valueObject, firstValueContext);
+            pathTypeAttributeValues.values.push(valueObject);
+        }
+        return pathTypeAttributeValues;
+
+    }
+
+    _saveAttribute() {
+        let liquidSave = this.shadowRoot.querySelector(
+            "[name=attributeSaveDataService]");
+        if (liquidSave) {
+            liquidSave.generateRequest();
+        } else {
+            this.logError(
+                "Save failed: Not able to access attributeSaveDataService liquid");
+        }
+    }
+
+    _onSaveResponse(e, detail) {
+        if(e.detail.response.status == "success") {
+            this.showSuccessToast(detail.response.content.msg);
+            let attrEditDialog = this.$.attributeEditDialog;
+            if (attrEditDialog) {
+                attrEditDialog.close();
+            }
+            this.refresh(true);
+        } else {
+            this.showWarningToast("Attribute save failed");
+            this.logError("Attribute save failed. Response status is error", e.detail);
+        }
+    }
+
+    _onCancelHeaderSave() {
+        let attrEditDialog = this.$.attributeEditDialog;
+        if (attrEditDialog) {
+            attrEditDialog.close();
+        }
+    }
+
+    _computeIcon(percentage) {
+        let per = Math.round(percentage / 10) * 10;
+        return "pebble-icon:percentage-circle";
+    }
+
+    _openPopover() {
+        this.$.tofixPopover.show();
+    }
+
+    _getConfigItem(headerConfig, attributeName) {
+        if (!headerConfig) {
+            return;
+        }
+
+        for (let i = 0; i < headerConfig.length; i++) {
+            if (headerConfig[i].attributeName == attributeName) {
+                return headerConfig[i];
+            }
+        }
+    }
+
+    _getEntityObject() {
+        let itemCtx = ContextHelper.getFirstItemContext(this.contextData);
+        let entity = {
+            "id": itemCtx.id,
+            "type": itemCtx.type
+        };
+        return entity;
+    }
+
+    _onTabsChange(event) {
+        if (event && event.detail) {
+            let ignoreList = ["workflow", "recentActivity"];
+            if (ignoreList.indexOf(event.detail) != -1) {
+                return;
+            }
+            this._currentTab = event.detail;
+            this._resetToolbarButtons();
+        }
+    }
+
+    _resetToolbarButtons(event) {
+        let hideButton = false;
+        if (this._currentTab == 'summary' || this._currentTab == 'entity-graph') {
+            hideButton = true;
+        }
+
+        let toolbar = this.shadowRoot.querySelector('#entityActions');
+        if (toolbar) {
+            toolbar.setAttributeToToolbarButton("edit", "hidden", hideButton);
+        }
+    }
+
+    refreshThumbnail() {
+        let entityThumbnail = this.shadowRoot.querySelector('#entityThumbnail');
+        if (entityThumbnail) {
+            entityThumbnail.refreshThumbnail();
+        }
+    }
+
+    _setWritePermission() {
+        let writePermission = true;
+        let itemContext = this.getFirstItemContext();
+        if (DataHelper.isValidObjectPath(itemContext, "permissionContext.writePermission")) {
+            writePermission = itemContext.permissionContext.writePermission;
+        }
+
+        this.set("writePermission", writePermission);
+    }
 }
 customElements.define(RockEntityHeader.is, RockEntityHeader)
