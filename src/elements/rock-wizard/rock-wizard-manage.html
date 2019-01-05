@@ -40,14 +40,15 @@ based on the given configuration.
                 display: flex;
                 justify-content: flex-end;
                 z-index: 1;
+                @apply --navigation-buttons-wizard;
             }
 
-            #step-container {
+            #step-container-manage {
                 height: 100%;
                 overflow-y: auto;
                 overflow-x: hidden;
                 margin: 0px 50px;
-                @apply --step-container;
+                @apply --step-container-manage;
             }
 
             #stepper {
@@ -61,10 +62,14 @@ based on the given configuration.
                 align-items: center;
                 justify-content: center;
                 flex-direction: column;
-                position: relative;
+                position: relative;                
                 background: var(--palette-pale-grey-four, #eff4f8);
                 border-bottom: 1px solid var(--default-border-color, #c1cad4);
                 border-top: 1px solid var(--default-border-color, #c1cad4);
+                @apply --stepper-wrapper;
+            }
+            .overflow-dialog-content{
+                @apply --overflow-dialog-content;
             }
 
             .stepper-style {
@@ -77,8 +82,8 @@ based on the given configuration.
         </style>
         <div id="wizard-container" class="base-grid-structure">
             <div class="base-grid-structure-child-1">
-                <div class="stepper-wrapper">
-                    <div id="stepper" hidden$="[[_computeStepper(hideStepper)]]">
+                <div class="stepper-wrapper" hidden$="[[_computeStepper(hideStepper)]]">
+                    <div id="stepper">
                         <!-- place stepper here -->
                         <pebble-stepper id="pebbleStepper" horizontal horizontal-line-width="[[_stepperConnectorLineWidth]]" stepper-config="[[_stepperConfig]]">
                             <template is="dom-repeat" id="steps-template" items="[[_stepperConfig.items]]" as="item">
@@ -92,21 +97,21 @@ based on the given configuration.
                     </div>
                     <template is="dom-if" if="[[showNavigationButtons]]">
                         <div id="content-actions" class="navigation-buttons" align="center">
-                            <pebble-button class="action-button btn btn-outline-primary m-r-5" id="back" hidden$="[[hideBack]]" button-text="Back" raised on-tap="_onBackTap"></pebble-button>
-                            <pebble-button class="action-button-focus dropdownText btn btn-outline-primary" id="next" hidden$="[[hideNext]]" disabled$="[[disableNext]]" button-text="Next" raised on-tap="_onNextTap"></pebble-button>
+                            <pebble-button class="action-button btn btn-outline-primary m-l-5" id="back" hidden$="[[hideBack]]" button-text="Back" raised on-tap="_onBackTap"></pebble-button>
+                            <pebble-button class="action-button-focus dropdownText btn btn-outline-primary m-l-5" id="next" hidden$="[[hideNext]]" disabled$="[[disableNext]]" button-text="Next" raised on-tap="_onNextTap"></pebble-button>
                         </div>
                     </template>
                 </div>
             </div>
             <div class="base-grid-structure-child-2">
-                <div class="base-grid-structure">
+                <div class="base-grid-structure overflow-dialog-content">
                     <div class="base-grid-structure-child-1">
                         <div id="message-container" hidden$="[[!noSteps]]">
                             <div class="default-message">[[noDataMessage]]</div>
                         </div>
                     </div>
                     <div class="base-grid-structure-child-2">
-                        <div id="step-container" class="button-siblings">
+                        <div id="step-container-manage" class="button-siblings">
                             <!-- step component should be loaded here -->
                         </div>
                     </div>
@@ -119,8 +124,9 @@ based on the given configuration.
             <bedrock-pubsub event-name="on-buttonok-clicked" handler="_onDiscardConfirm" target-id="confirmationDialog"></bedrock-pubsub>
             <bedrock-pubsub event-name="on-buttoncancel-clicked" handler="_onDiscardCancel" target-id="confirmationDialog"></bedrock-pubsub>
         </div>
-        <bedrock-pubsub event-name="onNext" handler="_onFinalStep"></bedrock-pubsub>
+        <bedrock-pubsub event-name="onNext" handler="_onFinishStep"></bedrock-pubsub>
         <bedrock-pubsub event-name="business-function-step-complete" handler="_onBusinessFunctionStepComplete"></bedrock-pubsub>
+        <bedrock-pubsub event-name="business-function-close" handler="_onBusinessFunctionClose"></bedrock-pubsub>
     </template>
 
     <script>
@@ -244,7 +250,7 @@ based on the given configuration.
             }
 
             get stepContainer() {
-                this._stepContainer = this._stepContainer || this.shadowRoot.querySelector('#step-container');
+                this._stepContainer = this._stepContainer || this.shadowRoot.querySelector('#step-container-manage');
                 return this._stepContainer;
             }
 
@@ -258,8 +264,13 @@ based on the given configuration.
 
             _configChanged(config) {
                 if (config && config.steps && config.steps.length > 0) {
+                    if(config.steps.length == 1){
+                        this.hideStepper = true;
+                    }
                     let stepper = this.shadowRoot.querySelector('#pebbleStepper');
-                    stepper.selected = null;
+                    if(stepper){
+                        stepper.selected = null;
+                    }
                     let stepperConfig = {};
                     stepperConfig.items = []
                     for (let i = 0; i < config.steps.length; i++) {
@@ -501,16 +512,16 @@ based on the given configuration.
                 return componentStatusData;
             }
 
-            //This function closes the business function from the last step and redirect to the new route
-            _onFinalStep(e, detail, sender) {
-                let data = detail.data;
-                if (this._currentStepIndex == this.config.steps.length - 1) {
-                    if (!detail) {
-                        detail = {};
-                    }
-                    detail.closeBusinessFunction = true;
-                    this.dispatchEvent(new CustomEvent('next-step', { detail: detail, bubbles: true, composed: true }));
+            _onFinishStep(e, detail) {
+                this._triggerComponentEvent(detail, detail.closeBusinessFunction || false);
+            }
+
+            _triggerComponentEvent(detail, closeBusinessFunction = false) {
+                if (!detail) {
+                    detail = {};
                 }
+                detail.closeBusinessFunction = closeBusinessFunction;
+                this.dispatchEvent(new CustomEvent('next-step', { detail: detail, bubbles: true, composed: true }));
             }
 
             //handler function for step complete
@@ -520,6 +531,19 @@ based on the given configuration.
                 if (currentStepConfig.isMandatory) {
                     //Once operation is completed, then enable next button for mandatory step
                     this.set('disableNext', false);
+                }
+                //Trigger events
+                if (detail && !_.isEmpty(detail.eventDetails)) {
+                    detail.eventDetails.forEach(eventDetail => {
+                        this._triggerComponentEvent(eventDetail);
+                    });
+                }
+            }
+
+            _onBusinessFunctionClose(e, detail) {
+                if ((this._currentStepIndex == this.config.steps.length - 1) ||
+                    (detail && detail.forceClose)) {
+                    this.fire("cancel-event");
                 }
             }
 

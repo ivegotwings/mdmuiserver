@@ -39,11 +39,10 @@ LoggerService.prototype = {
       calleeServiceName: calleeServiceName ? calleeServiceName : 'none',
       config: moduleLogConfig.default
     };
-    
-    if(calleeServiceName && moduleLogConfig[calleeServiceName]) {
+
+    if (calleeServiceName && moduleLogConfig[calleeServiceName]) {
       setting.config = moduleLogConfig[calleeServiceName];
-    }
-    else if(callerModuleName && moduleLogConfig[callerModuleName]) {
+    } else if (callerModuleName && moduleLogConfig[callerModuleName]) {
       setting.config = moduleLogConfig[callerModuleName];
     }
 
@@ -71,7 +70,7 @@ LoggerService.prototype = {
     if (moduleSetting.callerModuleName) {
       formattedObj["callerServiceName"] = moduleSetting.callerModuleName;
     }
-    
+
     //Callee service name
     if (moduleSetting.calleeServiceName) {
       formattedObj["calleeServiceName"] = moduleSetting.calleeServiceName;
@@ -100,7 +99,6 @@ LoggerService.prototype = {
     if (detail) {
       finalMessage += "[Detail - " + JSON.stringify(detail) + "] ";
     }
-    else (obj)
 
     formattedObj["logMessage"] = finalMessage;
 
@@ -113,7 +111,7 @@ LoggerService.prototype = {
 
     let moduleSetting = await this._getModuleLogConfig(callerModuleName, calleeServiceName);
 
-    if(isEmpty(moduleSetting) || isEmpty(moduleSetting.config)) {
+    if (isEmpty(moduleSetting) || isEmpty(moduleSetting.config)) {
       console.error('Module setting not found...No logging would happen in system');
       return;
     }
@@ -182,7 +180,10 @@ LoggerService.prototype = {
         }
       },
       categories: {
-        default: { appenders: ['everything'], level: 'error' }
+        default: {
+          appenders: ['everything'],
+          level: 'error'
+        }
       }
     });
 
@@ -262,20 +263,18 @@ LoggerService.prototype = {
     };
     this.fatal("RDF_CALL_EXCEPTION", exceptionJson, "df-rest-service", serviceName);
   },
-  logResponseCompletedInfo: function (internalRequestId, serviceName, hrstart) {
-    let hrend = process.hrtime(hrstart);
-    let taken = hrend[1] / 1000000;
-    let responseLog = {
-      "requestId": internalRequestId,
-      "service": serviceName,
-      "taken": taken
-    };
+  logResponseCompletedInfo: function (internalRequestId, serviceName, takenInMilliseconds) {
 
-    if(taken > 500) {
-    //  this.warn("RDXXXX", responseLog, )
+    if (takenInMilliseconds > 500) {
+      let responseLog = {
+        "requestId": internalRequestId,
+        "service": serviceName,
+        "taken": takenInMilliseconds
+      };
+
       this.warn("RDF_SLOW_RESPONSE_RECEIVED", responseLog, "df-rest-service", serviceName);
     }
-    
+
   },
   logResponse: function (internalRequestId, serviceName, response) {
     let responseLog = {

@@ -345,8 +345,33 @@ function createGetRequest(reqData) {
 
     let query = {};
 
+    let coalesceOptions = {};
+
     if (!isEmpty(contexts)) {
-        query.contexts = contexts;
+        let finalContexts = [];
+        let isSelfContextCoalesceOptions = false;
+        for (let ctxIndex = 0; ctxIndex < contexts.length; ctxIndex++) {
+            let context = contexts[ctxIndex];
+
+            if (context && !isEmpty(context.coalesceOptions)) {
+                if (isEmpty(coalesceOptions) || isSelfContextCoalesceOptions) {
+                    coalesceOptions = context.coalesceOptions;
+                    isSelfContextCoalesceOptions = context.selfContext ? true : false;
+                }
+                
+                delete context.coalesceOptions;
+            }
+
+            if (!context.selfContext) {
+                finalContexts.push(context);
+            }
+        }
+
+        query.contexts = finalContexts;
+    }
+
+    if(!isEmpty(coalesceOptions)) {
+        options.coalesceOptions = reqData.coalesceOptions = coalesceOptions;
     }
 
     if (!isEmpty(valContexts)) {
@@ -369,6 +394,8 @@ function createGetRequest(reqData) {
         fields: fields,
         options: options
     };
+    
+    params.authorizationType = "accommodate";
 
     if (reqData.dataIndex === "entityData") {
         params.intent = "write";
@@ -418,7 +445,7 @@ async function get(dataObjectIds, reqData) {
 
         let service = _getService(reqData.dataObjectType, false, reqData.dataIndex);
         let request = createGetRequest(reqData);
-
+        
         if (reqData.dataObjectType == "classification") {
             if (!isEmpty(reqData.relAttrNames) && reqData.relAttrNames[0] == "lineagepath") {
                 service = dataObjectLineageService;
@@ -426,7 +453,7 @@ async function get(dataObjectIds, reqData) {
         }
 
         if (request.dataIndex == "entityModel" && reqData.dataObjectType == 'entityCompositeModel') {
-            if (!isEmpty(request.params.query.contexts)) {
+            if (!isEmpty(request.params.query.contexts) || !isEmpty(reqData.coalesceOptions)) {
                 isCoalesceGet = true;
             }
         }
