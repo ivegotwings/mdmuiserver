@@ -11,7 +11,7 @@ import '@polymer/app-route/app-route.js';
 import '@polymer/app-route/app-location.js';
 import { timeOut } from '@polymer/polymer/lib/utils/async.js';
 import { Debouncer } from '@polymer/polymer/lib/utils/debounce.js';
-import 'web-animations-js/web-animations-next-lite.min.js';
+// import 'web-animations-js/web-animations-next-lite.min.js';
 import '@polymer/polymer/lib/elements/dom-if.js';
 import '../bedrock-managers/bedrock-managers.js';
 import LocaleManager from '../bedrock-managers/locale-manager.js';

@@ -18,7 +18,7 @@ import { IronButtonState } from '@polymer/iron-behaviors/iron-button-state.js';
 import { IronControlState } from '@polymer/iron-behaviors/iron-control-state.js';
 import { PaperRippleBehavior } from '@polymer/paper-behaviors/paper-ripple-behavior.js';
 import '@polymer/iron-dropdown/iron-dropdown.js';
-import '@polymer/paper-menu/paper-menu.js';
+// import '@polymer/paper-menu/paper-menu.js';
 import '@polymer/paper-item/paper-item.js';
 import '../bedrock-style-manager/styles/bedrock-style-icons.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';

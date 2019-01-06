@@ -189,3 +189,5 @@ saulis.DataTableTemplatizerBehaviorImpl = {
 
 /** @polymerBehavior */
 saulis.DataTableTemplatizerBehavior = [Templatizer, saulis.DataTableTemplatizerBehaviorImpl];
+
+export default saulis

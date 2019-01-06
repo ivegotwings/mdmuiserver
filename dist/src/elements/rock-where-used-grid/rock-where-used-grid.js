@@ -205,7 +205,7 @@ import '../bedrock-style-manager/styles/bedrock-style-buttons.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
 import '../bedrock-style-manager/styles/bedrock-style-icons.js';
 import '../bedrock-style-manager/styles/bedrock-style-grid-layout.js';
-import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
+// import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 import EntityTypeManager from '../bedrock-managers/entity-type-manager.js'
 import '../pebble-accordion/pebble-accordion.js';
 import '../pebble-toggle-button/pebble-toggle-button.js';
