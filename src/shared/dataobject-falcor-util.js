@@ -286,7 +286,6 @@ DataObjectFalcorUtil.getPathKeys = function () {
             }
         }
     };
-
 };
 
 DataObjectFalcorUtil.getDataIndexDomainMappings = function () {
@@ -299,15 +298,11 @@ DataObjectFalcorUtil.getDataIndexDomainMappings = function () {
     };
 };
 
-const pathKeys = DataObjectFalcorUtil.getPathKeys();
-
 DataObjectFalcorUtil.getSelfCtx = function () {
     return {
         'selfContext': true
     };
 };
-
-const selfCtx = DataObjectFalcorUtil.getSelfCtx();
 
 DataObjectFalcorUtil.createSelfCtxKey = function () {
     return DataObjectFalcorUtil.createCtxKey(DataObjectFalcorUtil.getSelfCtx());

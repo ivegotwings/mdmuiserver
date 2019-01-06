@@ -136,7 +136,7 @@ Parsed query json after stage4 looks like:
 }
 */
 
-let queryParser = {};
+let queryParser = function () {};
 
 queryParser.options = {};
 queryParser.options["startsWith"] = "!%&show&%!";
