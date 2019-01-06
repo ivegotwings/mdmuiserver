@@ -16,6 +16,7 @@ import '../bedrock-pubsub/bedrock-pubsub.js';
 import '../bedrock-helpers/data-request-helper.js';
 import '../bedrock-ui-behavior/bedrock-ui-behavior.js';
 import '../bedrock-component-context-behavior/bedrock-component-context-behavior.js';
+import '../bedrock-business-function-behavior/bedrock-component-business-function-behavior.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../bedrock-style-manager/styles/bedrock-style-flex-layout.js';
 import '../bedrock-style-manager/styles/bedrock-style-buttons.js';
@@ -37,7 +38,8 @@ import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockRelationshipAdd
     extends mixinBehaviors([
         RUFBehaviors.UIBehavior,
-        RUFBehaviors.ComponentContextBehavior
+        RUFBehaviors.ComponentContextBehavior,
+        RUFBehaviors.ComponentConfigBehavior
     ], OptionalMutableData(PolymerElement)) {
   static get template() {
     return html`
@@ -78,6 +80,13 @@ class RockRelationshipAdd
                     margin-right: 5px;
                 }
             }
+            .buttonContainer-top-right {
+                text-align: right;
+                padding-top: 10px;
+                padding-bottom: 10px;
+                margin-bottom: 0px;
+                margin-top: 0px;
+            }
 
             .search-container {
                 position: relative;
@@ -90,6 +99,14 @@ class RockRelationshipAdd
         </style>
         <div class="base-grid-structure">
             <div class="base-grid-structure-child-1">
+            <div id="buttonContainer" class="buttonContainer-top-right base-grid-structure-child-1" align="center">
+             <template is="dom-if" if="[[showActionButtons]]">
+                    <!-- <template is="dom-if" if="[[!isPartOfBusinessFunction]]"> -->
+                        <pebble-button class="action-button btn btn-secondary m-l-5" id="cancel" button-text="Cancel" raised="" on-tap="_onCancelTap"></pebble-button>
+                    <!-- </template> -->
+                    <pebble-button class="action-button-focus dropdownText btn btn-success m-l-5" id="next" button-text="Save" raised="" on-tap="_onSaveTap"></pebble-button>
+            </template>
+            </div>
                 <h3 class="heading" align="center" hidden\$="[[!_isheading()]]">[[heading]] </h3>
                 <div class="layout horizontal">
                     <div class="flex">
@@ -122,15 +139,10 @@ class RockRelationshipAdd
                     </template>
                 </div>
                 <pebble-spinner active="[[_loading]]"></pebble-spinner>
-                <template is="dom-if" if="[[showActionButtons]]">
-                    <div id="actionButtons" align="center" class="buttonContainer-static">
-                        <pebble-button class="action-button btn btn-secondary m-r-5" id="skip" button-text="Cancel" raised="" on-tap="_onCancelTap"></pebble-button>
-                        <pebble-button class="action-button-focus dropdownText btn btn-success " id="next" button-text="Save" raised="" on-tap="_onSaveTap"></pebble-button>
-                    </div>
-                </template>
                 <liquid-entity-data-save name="entitySaveService" data-index="[[dataIndex]]" request-data="{{_saveRequest}}" last-response="{{_saveResponse}}" on-response="_onSaveResponse" on-error="_onSaveError">
                 </liquid-entity-data-save>
                 <rock-search-query-parser id="queryParser" context-data="[[contextData]]"></rock-search-query-parser>
+                <bedrock-pubsub id="parser-event" event-name="on-search-filters" handler="_onSearchFiltersChange" target-id="queryParser"></bedrock-pubsub>
                 <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{_attributeModelRequest}}" on-entity-model-composite-get-response="_onCompositeModelGetResponse">
                 </liquid-entity-model-composite-get>
             </div>
@@ -352,6 +364,7 @@ class RockRelationshipAdd
           this._searchQuery = detail.query;
       }
       this._searchTimeStamp = new Date().toLocaleString();
+      this._buildQueryString();
       this._refreshGrid();
   }
 
@@ -411,26 +424,21 @@ class RockRelationshipAdd
   }
   _onSaveResponse(e, detail) {
       this._loading = false;
-      let eventName = "onSave";
-      let eventDetail = {
-          name: eventName,
+      let data = {};
+      let eventDetails = [{
           "action": {
               "name": "refresh-relationship-grid",
               "relationshipType": this.relationshipType
           }
-      };
-      this.fireBedrockEvent(eventName, eventDetail, {
-          ignoreId: true
-      });
+      }];
+      this.dataFunctionComplete(data, eventDetails, true);
   }
   _onCancelTap() {
-      let eventName = "onSkip";
-      this.fireBedrockEvent(eventName, {}, {
-          ignoreId: true
-      });
+      this.fire("cancel-event");
   }
   _onSaveError(e, detail) {
       this._loading = false;
+      this.showErrorToast("Relationships save request failed.");
       this.logError("Unable to add relationship now, contact administrator.", e.detail);
       console.warn(e);
   }
@@ -455,7 +463,9 @@ class RockRelationshipAdd
                       "type": _targetList[i].type
                   }
               };
-
+              if(_targetList[i].type == "attributeModel"){
+                  rel.relTo.externalName = (_targetList[i].properties && _targetList[i].properties.externalName) ? _targetList[i].properties.externalName :  _targetList[i].name;
+              }
               _relationshipList.push(rel);
           }
           let upRelationshipRequests = [];
@@ -532,7 +542,7 @@ class RockRelationshipAdd
       if (grid) {
           let selectedItems = grid.getSelectedItems();
           if (!selectedItems.length) {
-              this.showInformationToast("Select atleast 1 entity to link.");
+              this.showInformationToast("Select at least 1 entity to link.");
               return false;
           }
           
@@ -562,13 +572,16 @@ class RockRelationshipAdd
           }
       }
       this.set('_selectedSearchFilters', _selectedSearchFilters);
-      this._refreshGrid();
+      //this._refreshGrid();
       this._buildQueryString(tags);
   }
 
   _buildQueryString(attributeList) {
       let attributeListArray = [];
       let keywordSearchStr = "";
+      if (this._searchQuery) {
+          keywordSearchStr = this._searchQuery;
+      }
 
       if (attributeList) {
           let displayValue = "";
@@ -595,7 +608,11 @@ class RockRelationshipAdd
       }
 
       let queryString = RUFBehaviors.QueryBuilderBehavior.buildQuery(this.typesCriterion, attributeListArray, {}, false, keywordSearchStr);
-      this._displayQuery(queryString);
+      
+      let parsableString = RUFBehaviors.QueryBuilderBehavior.buildQuery(this.typesCriterion, attributeListArray, {}, true, keywordSearchStr);
+
+      this._displayQuery(queryString, parsableString);
+      this._parseQuery(parsableString);
   }
 
   _displayQuery(queryStr, parsableQueryStr) {
@@ -613,6 +630,19 @@ class RockRelationshipAdd
       }
   }
 
+  _parseQuery(query) {
+      let queryParser = this.shadowRoot.querySelector("[id=queryParser]");
+      if (queryParser) {
+          queryParser.parseQueryToFilters(query);
+      }
+  }
+
+  _onSearchFiltersChange(e, detail) {
+      if(detail && detail.attributesCriterion){
+          this.set('_selectedSearchFilters', detail.attributesCriterion);
+      }
+      this._refreshGrid();
+  }
 
   _refreshGrid() {
       microTask.run(() => {

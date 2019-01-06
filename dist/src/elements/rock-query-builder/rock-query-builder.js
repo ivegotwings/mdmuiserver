@@ -1421,7 +1421,7 @@ class RockQueryBuilder extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehavi
   _onSelectedEntityTypesChange(e){
 
       if(this.selectedEntityTypes && this.selectedEntityTypes.length <= 0){
-          this.showWarningToast("Select atleast one Entity Type");
+          this.showWarningToast("Select at least one Entity Type");
           return;
       }
       this.disableHasRelationshipExistSearchToggle = false;

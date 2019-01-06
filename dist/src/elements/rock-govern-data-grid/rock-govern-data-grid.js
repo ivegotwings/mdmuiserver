@@ -9,7 +9,6 @@ import '../bedrock-pubsub/bedrock-pubsub.js';
 import '../bedrock-ui-behavior/bedrock-ui-behavior.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../bedrock-style-manager/styles/bedrock-style-icons.js';
-import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 import '../bedrock-style-manager/styles/bedrock-style-floating.js';
 import '../pebble-button/pebble-button.js';
 import '../pebble-icon/pebble-icon.js';
@@ -87,35 +86,35 @@ class RockGovernDataGrid
                 <data-table-column name="Entity Name" slot="column-slot">
                     <template>
                         <a href\$="[[_getLink(item)]]" slot="cell-slot-content">
-                            <div index="[[index]]" class="cell tooltip-bottom" data-tooltip\$="[[item.entityName]]">
+                            <div index="[[index]]" class="cell" title\$="[[item.entityName]]">
                                 <div class="text-ellipsis">[[item.entityName]]</div>
                             </div>
                         </a>
                     </template>
                 </data-table-column>
-                <data-table-column name="Workflow Name" slot="column-slot" data-tooltip\$="Workflow Name" class="tooltip-bottom">
+                <data-table-column name="Workflow Name" slot="column-slot" title="Workflow Name">
                     <template>
-                        <div slot="cell-slot-content" index="[[index]]" class="cell tooltip-bottom" data-tooltip\$="[[item.workflowLongName]]">
+                        <div slot="cell-slot-content" index="[[index]]" class="cell" title\$="[[item.workflowLongName]]">
                             <div class="text-ellipsis">[[item.workflowLongName]]</div>                            
                         </div>
                     </template>
                 </data-table-column>
-                <data-table-column name="Activity Name" slot="column-slot" data-tooltip\$="Activity Name" class="tooltip-bottom">
+                <data-table-column name="Activity Name" slot="column-slot" title="Activity Name">
                     <template>
                         <div slot="cell-slot-content" index="[[index]]" class="cell">[[item.activityLongName]]</div>
                     </template>
                 </data-table-column>
-                <data-table-column name="Assigned To" slot="column-slot" data-tooltip\$="Assigned To" class="tooltip-bottom">
+                <data-table-column name="Assigned To" slot="column-slot" title="Assigned To">
                     <template>
                         <div slot="cell-slot-content" index="[[index]]" class="cell">[[item.assignedUser]]</div>
                     </template>
                 </data-table-column>
-                <data-table-column name="Previous Step Comments" slot="column-slot" data-tooltip\$="Previous Step Comments" class="tooltip-bottom">
+                <data-table-column name="Previous Step Comments" slot="column-slot" title="Previous Step Comments">
                     <template>
                         <div slot="cell-slot-content" index="[[index]]" class="cell">[[item.previousStepComments]]</div>
                     </template>
                 </data-table-column>
-                <data-table-column name="Actions" slot="column-slot" data-tooltip\$="Actions" class="tooltip-bottom">
+                <data-table-column name="Actions" slot="column-slot" title="Actions">
                     <template>
                         <template is="dom-repeat" items="[[item.actions]]" as="action">
                             <pebble-button slot="cell-slot-content" class="action-button btn btn-secondary" index="[[index]]" raised="" button-text="[[action.actionText]]" on-tap="_onWfActionTap" disabled="[[_isDisabled(item)]]"></pebble-button>
@@ -123,7 +122,7 @@ class RockGovernDataGrid
                     </template>
                 </data-table-column>
                 <template is="dom-repeat" id="columns-template" items="[[headerData]]" as="businessCondition" index-as="colIndex">
-                    <data-table-column name="[[businessCondition.name]]" slot="column-slot" class="tooltip-bottom" data-tooltip\$="[[businessCondition.name]]" column-object="[[businessCondition]]" column-index="{{colIndex}}">
+                    <data-table-column name="[[businessCondition.name]]" slot="column-slot" title\$="[[businessCondition.name]]" column-object="[[businessCondition]]" column-index="{{colIndex}}">
                         <template>
                             <div class="entity-icon-outer" slot="cell-slot-content">
                                 <pebble-icon icon="[[_getIconByType(item, column.columnObject)]]" class="pebble-icon-size-14"></pebble-icon>

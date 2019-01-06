@@ -48,10 +48,8 @@ import '../pebble-button/pebble-button.js';
 import '../pebble-icon/pebble-icon.js';
 import '../pebble-image-viewer/pebble-image-viewer.js';
 import '../pebble-toolbar/pebble-toolbar.js';
-import '../pebble-popover/pebble-popover.js';
 import '../pebble-horizontal-divider/pebble-horizontal-divider.js';
 import '../pebble-info-icon/pebble-info-icon.js';
-import '../rock-entity-tofix/rock-entity-tofix.js';
 import '../rock-entity-thumbnail/rock-entity-thumbnail.js';
 import '../rock-business-actions/rock-business-actions.js';
 import '../rock-entity-actions/rock-entity-actions.js';
@@ -64,11 +62,11 @@ import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 import LiquidDataObjectUtils from '../liquid-dataobject-utils/liquid-dataobject-utils.js';
 
 class RockEntityHeader
-        extends mixinBehaviors([
-            RUFBehaviors.ComponentContextBehavior,
-            RUFBehaviors.UIBehavior,
-            RUFBehaviors.ComponentConfigBehavior
-        ], PolymerElement) {
+extends mixinBehaviors([
+    RUFBehaviors.ComponentContextBehavior,
+    RUFBehaviors.UIBehavior,
+    RUFBehaviors.ComponentConfigBehavior
+], PolymerElement) {
   static get template() {
     return html`
         <style include="bedrock-style-common bedrock-style-icons bedrock-style-grid-layout bedrock-style-padding-margin bedrock-style-buttons">
@@ -83,9 +81,7 @@ class RockEntityHeader
                 padding-bottom: 10px;
                 padding-left: 0;
                 box-sizing: border-box;
-                --pebble-popover: {
-                    margin-top: 5px;
-                }
+
                 --paper-menu-background-color: #ffffff;
                 --pebble-horizontal-divider-color: #616161;
             }
@@ -145,21 +141,26 @@ class RockEntityHeader
                 -o-transition: all 0.4s;
                 transition: all 0.4s;
                 padding-bottom: 10px;
-            }            
-            .attribute pebble-icon{
+            }
+
+            .attribute pebble-icon {
                 display: none;
             }
-            .attribute:hover pebble-icon:hover{
+
+            .attribute:hover pebble-icon:hover {
                 cursor: pointer;
+
                 --pebble-icon-color: {
                     fill: var(--primary-icon-color, #75808b);
                 }
             }
-            .attribute:hover pebble-icon{
+
+            .attribute:hover pebble-icon {
                 display: block;
                 transition: all 0.3s;
                 -webkit-transition: all 0.3s;
-                -ms-transition:all 0.3s;
+                -ms-transition: all 0.3s;
+
                 --pebble-icon-color: {
                     fill: var(--secondary-icon-color, #c1cad4);
                 }
@@ -167,19 +168,19 @@ class RockEntityHeader
 
             #attrName {
                 font-family: var(--default-font-family);
-                font-size:13px;
+                font-size: var(--font-size-sm, 12px);
                 font-weight: normal;
                 font-style: normal;
                 font-stretch: normal;
                 color: var(--attribute-name-color, #839cb1);
                 display: flex;
             }
-            
 
-           
+
+
 
             #attrVal {
-                font-size: var(--default-font-size, 14px);
+                font-size: 13px;
                 font-weight: normal;
                 color: var(--text-primary-color, #364653);
                 display: flex;
@@ -190,13 +191,14 @@ class RockEntityHeader
                 display: flex;
                 display: -webkit-flex;
                 position: relative;
-                width:30%;
+                width: 30%;
                 justify-self: flex-end;
-                justify-content:flex-end;
+                justify-content: flex-end;
                 transition: all 0.3s;
                 -webkit-transition: all 0.3s;
-                -ms-transition:all 0.3s;                
+                -ms-transition: all 0.3s;
             }
+
             rock-entity-thumbnail {
                 width: 90px;
                 height: 60px;
@@ -212,17 +214,20 @@ class RockEntityHeader
                 height: 50px;
                 padding: 0 20px;
             }
-            .header-collapse #buttonPanel{
-                margin-top:10px;
+
+            .header-collapse #buttonPanel {
+                margin-top: 10px;
             }
+
             .header-collapse #attributePanel {
                 padding-top: 12px;
             }
-            .info-icon{
+
+            .info-icon {
                 margin-left: 3px;
                 margin-top: -2px;
             }
-          
+
             .header-collapse rock-entity-thumbnail {
                 width: 40px;
                 height: 30px;
@@ -262,7 +267,8 @@ class RockEntityHeader
                 width: 12px;
                 margin: 1px auto;
             }
-            .attr-item--value{
+
+            .attr-item--value {
                 max-width: calc(100% - 20px);
             }
 
@@ -276,30 +282,37 @@ class RockEntityHeader
 
             .icon-wrapper pebble-icon {
                 text-align: center;
-            }            
+            }
+
             @supports (-ms-ime-align:auto) {
-                #headerSection,.attribute,rock-entity-thumbnail,#attributePanel,#attributeErrorPanel{
+
+                #headerSection,
+                .attribute,
+                rock-entity-thumbnail,
+                #attributePanel,
+                #attributeErrorPanel {
                     transition: initial;
                 }
             }
-            .header-right-panel{
+
+            .header-right-panel {
                 display: flex;
-                width:calc(100% - 90px);
+                width: calc(100% - 90px);
                 align-items: center;
                 -webkit-transition: all 0.3s;
                 -moz-transition: all 0.3s;
                 -o-transition: all 0.3s;
                 transition: all 0.3s;
             }
-            .header-collapse  .header-right-panel{
-                width:calc(100% - 40px);
+
+            .header-collapse .header-right-panel {
+                width: calc(100% - 40px);
             }
-            rock-entity-actions{
+
+            rock-entity-actions {
                 display: flex;
                 align-items: center;
             }
-           
-
         </style>
         <div id="headerSection" class\$="[[_getCollapseClass()]]">
             <template is="dom-if" if="[[collapsable]]">
@@ -310,43 +323,40 @@ class RockEntityHeader
                         </div>
                     </div>
                 </div>
-            </template>            
+            </template>
             <rock-entity-thumbnail id="entityThumbnail" config="[[thumbnailConfig]]" default-thumbnail-id="[[_defaultThumbnailId]]"></rock-entity-thumbnail>
             <div class="header-right-panel">
-            <div id="attributePanel">
-                <template id="headerAttributes" is="dom-repeat" items="[[_headerAttributeValues]]">
-                    <div id="attribute" class="attribute">
-                        <div id="attrName">
-                            <span class="text-ellipsis">[[_getAttributeLabel(item)]]</span>
-                            <template is="dom-if" if="[[_getDescriptionInfo(item)]]">  
-                                <pebble-info-icon description-object="[[_getDescriptionInfo(item)]]" class="info-icon"></pebble-info-icon>
-                            </template>  
+                <div id="attributePanel">
+                    <template id="headerAttributes" is="dom-repeat" items="[[_headerAttributeValues]]">
+                        <div id="attribute" class="attribute">
+                            <div id="attrName">
+                                <span class="text-ellipsis">[[_getAttributeLabel(item)]]</span>
+                                <template is="dom-if" if="[[_getDescriptionInfo(item)]]">
+                                    <pebble-info-icon description-object="[[_getDescriptionInfo(item)]]" class="info-icon"></pebble-info-icon>
+                                </template>
+                            </div>
+                            <div id="attrVal" title="[[item.value]]">
+                                <div class="attr-item--value text-ellipsis">[[item.value]]</div>
+                                <template is="dom-if" if="[[_isPathAttributeAndHasWritePermission(item)]]">
+                                    <pebble-icon icon="pebble-icon:Open-window" class="pebble-icon-size-14 m-l-5" on-tap="_onPathAttributeEdit" attribute-name="[[item.name]]"></pebble-icon>
+                                </template>
+                            </div>
                         </div>
-                        <div id="attrVal" title="[[item.value]]">
-                            <div class="attr-item--value text-ellipsis">[[item.value]]</div>
-                            <template is="dom-if" if="[[_isPathAttributeAndHasWritePermission(item)]]">
-                              <pebble-icon icon="pebble-icon:Open-window" class="pebble-icon-size-14 m-l-5" on-tap="_onPathAttributeEdit" attribute-name="[[item.name]]"></pebble-icon>
-                            </template>
-                        </div>
-                    </div>
-                </template>
-            </div>
-            <div id="attributeErrorPanel" hidden=""></div>
-            <div id="buttonPanel">
-                <template is="dom-if" if="[[writePermission]]">
-                    <template is="dom-if" if="[[businessActionsConfig.showActions]]">
-                        <rock-business-actions id="businessActions" context-data="[[contextData]]" workflow-info="[[workflowInfo]]" show-workflow-actions="" is-single-entity-process=""></rock-business-actions>
                     </template>
-                </template>
-                <pebble-popover id="tofixPopover" for="pebbleButton" horizontal-align="right" no-overlap="">
-                    <rock-entity-tofix data="[[toFixData]]"></rock-entity-tofix>
-                </pebble-popover>
-                <rock-entity-actions id="entityActions" context-data="[[contextData]]"></rock-entity-actions>
-                <bedrock-pubsub event-name="rock-toolbar-button-event" handler="_onToolbarEvent" target-id="entityActions"></bedrock-pubsub>
-                <bedrock-pubsub event-name="rock-toolbar-reset" handler="_resetToolbarButtons" target-id="entityActions"></bedrock-pubsub>
-                <bedrock-pubsub event-name="tabs-change" handler="_onTabsChange"></bedrock-pubsub>
+                </div>
+                <div id="attributeErrorPanel" hidden=""></div>
+                <div id="buttonPanel">
+                    <template is="dom-if" if="[[writePermission]]">
+                        <template is="dom-if" if="[[businessActionsConfig.showActions]]">
+                            <rock-business-actions id="businessActions" context-data="[[contextData]]" workflow-info="[[workflowInfo]]" show-workflow-actions="" is-single-entity-process=""></rock-business-actions>
+                        </template>
+                    </template>
+                    <rock-entity-actions id="entityActions" context-data="[[contextData]]"></rock-entity-actions>
+                    <bedrock-pubsub event-name="rock-toolbar-button-event" handler="_onToolbarEvent" target-id="entityActions"></bedrock-pubsub>
+                    <bedrock-pubsub event-name="rock-toolbar-reset" handler="_resetToolbarButtons" target-id="entityActions"></bedrock-pubsub>
+                    <bedrock-pubsub event-name="tabs-change" handler="_onTabsChange"></bedrock-pubsub>
+                </div>
             </div>
-        </div>
 
             <pebble-dialog id="attributeEditDialog" modal="" show-close-icon="" no-cancel-on-outside-click="" no-cancel-on-esc-key="">
                 <div id="classificationContent" style="height:85vh">
@@ -368,7 +378,9 @@ class RockEntityHeader
 `;
   }
 
-  static get is() { return 'rock-entity-header' }
+  static get is() {
+      return 'rock-entity-header'
+  }
 
   static get properties() {
         return {

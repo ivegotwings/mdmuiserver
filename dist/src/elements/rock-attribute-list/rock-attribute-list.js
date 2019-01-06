@@ -458,7 +458,7 @@ class RockAttributeList extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehav
           n = 1;
       }
       if(displayType === "nestedgrid"){
-          n += " nested-attribute";
+          n = 1;
       }
       return "attribute-box attribute-box-" + n;
   }

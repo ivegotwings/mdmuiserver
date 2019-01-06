@@ -50,10 +50,21 @@ class rockRelationshipAttributeManage
             #errorsDialog {
                 --popup-header-color: var(--palette-pinkish-red, #ee204c);
             }
+            .buttonContainer-top-right {
+                text-align: right;
+                padding-top: 10px;
+            }            
+            .error-list{
+                overflow: auto;
+                max-height: 200px;
+            }
+            .buttons{
+                text-align: center;
+            }
         </style>
         <pebble-dialog id="errorsDialog" modal="" small="" vertical-offset="1" 50="" horizontal-align="auto" vertical-align="auto" no-cancel-on-outside-click="" no-cancel-on-esc-key="" dialog-title="Errors on page">
             <p>Found below errors in entity details: </p>
-            <ul>
+            <ul class="error-list">
                 <template is="dom-repeat" items="[[_syncValidationErrors]]">
                     <li>
                         <template is="dom-if" if="[[item.attributeExternalName]]">
@@ -89,12 +100,16 @@ class rockRelationshipAttributeManage
                 </template>
             </div>
             <div class="base-grid-structure-child-2">
-                <div class="button-siblings">
-                    <rock-attribute-list context-data="[[contextData]]" readonly="[[readonly]]" show-group-name\$="[[showGroupName]]" group-name="[[groupName]]" attribute-values="[[_attributeValues]]" attribute-models="[[relationshipAttributeModels]]" dependent-attribute-values="[[_attributeValues]]" dependent-attribute-models="[[relationshipAttributeModels]]" no-of-columns="[[noOfColumns]]" mode="[[mode]]" attribute-messages="[[_attributeMessages]]" on-list-mode-changed="_onListModeChanged" need-attributes-grouping=""></rock-attribute-list>
-                </div>
-                <div id="buttonContainer" hidden="" align="center" class="buttonContainer-static">
-                    <pebble-button id="cancel" class="btn btn-secondary m-r-5" button-text="Cancel" on-tap="_openCancelDialog" elevation="1" raised=""></pebble-button>
-                    <pebble-button id="save" class="focus btn btn-success" disabled="[[readonly]]" button-text="Save" on-tap="_save" elevation="1" raised=""></pebble-button>
+                <div class="base-grid-structure">
+                    <div class="base-grid-structure-child-1">
+                        <div id="buttonContainer" align="center" class="buttonContainer-top-right">
+                            <pebble-button id="cancel" class="btn btn-secondary m-r-5" button-text="Cancel" on-tap="_openCancelDialog" elevation="1" raised=""></pebble-button>
+                            <pebble-button id="save" class="focus btn btn-success" disabled="[[readonly]]" button-text="Save" on-tap="_save" elevation="1" raised=""></pebble-button>
+                        </div>
+                    </div>
+                    <div class="base-grid-structure-child-2">
+                        <rock-attribute-list context-data="[[contextData]]" readonly="[[readonly]]" show-group-name\$="[[showGroupName]]" group-name="[[groupName]]" attribute-values="[[_attributeValues]]" attribute-models="[[relationshipAttributeModels]]" dependent-attribute-values="[[_attributeValues]]" dependent-attribute-models="[[relationshipAttributeModels]]" no-of-columns="[[noOfColumns]]" mode="[[mode]]" attribute-messages="[[_attributeMessages]]" on-list-mode-changed="_onListModeChanged" need-attributes-grouping=""></rock-attribute-list>
+                    </div>
                 </div>
             </div>
         </div>
@@ -339,11 +354,6 @@ class rockRelationshipAttributeManage
           '_modeChanged(mode)'
       ]
   }
-  connectedCallBack() {
-      super.connectedCallBack();
-      this.logInfo("RelationshipAttributeManageAttached");
-  }
-
   _onListModeChanged(e) {
       this._modeChanged(e.detail.mode);
   }
@@ -356,7 +366,6 @@ class rockRelationshipAttributeManage
       this.$.buttonContainer.hidden = mode !== 'edit';
   }
   _contextChanged(valueContexts) {
-      this.logInfo("AttributeManageContextChange", "contextData", this.contextData);
 
       if (_.isEmpty(valueContexts) || _.isEmpty(this.contextData)) {
           return;
@@ -475,7 +484,6 @@ class rockRelationshipAttributeManage
       this.logError("RelationshipAttributeManageGetFail", e);
   }
   async _attributeResponseChanged(_attributeResponse) {
-      this.logInfo("RelationshipAttributeManageResponseChange", "response", _attributeResponse);
 
       let attributes = [];
 
@@ -553,7 +561,6 @@ class rockRelationshipAttributeManage
 
       let relationshipAttributesJSON = this.extractAttributes(changedAttributeElements);
 
-      this.logInfo("AttributeManageSave", "attributes", relationshipAttributesJSON);
       let firstValueContext = this.getFirstValueContext();
       let newEntity = {};
       if (this._attributeResponse && this._attributeResponse.content && this._attributeResponse.content.entities && this._attributeResponse.content.entities.length > 0) {
@@ -633,7 +640,7 @@ class rockRelationshipAttributeManage
       }
 
       let message = this.successMessage ? this.successMessage : "Attribute save request is submitted successfully!!";
-      this.showSuccessToast(message, 10000);
+      this.showSuccessToast(message, 5000);
 
       //Raise event on attributes save
       this.fireBedrockEvent("on-attribute-save", null, { ignoreId: true });
@@ -644,6 +651,10 @@ class rockRelationshipAttributeManage
           };
           this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
       }
+      if (this.functionalMode == "quickManage") {
+          this.fireBedrockEvent("on-attribute-save-quickmanage", null, { ignoreId: true }); 
+      }
+          
   }
   _onSaveError(e) {
       this.logError("Failed to update entity", e.detail);

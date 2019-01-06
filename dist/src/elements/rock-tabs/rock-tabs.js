@@ -13,7 +13,7 @@ It makes it easy to explore and switch between different views or functional asp
 import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '@polymer/iron-pages/iron-pages.js';
-// import '@polymer/paper-menu/paper-menu.js'; //to do replace with listbox
+// import '@polymer/paper-menu/paper-menu.js';
 import '@polymer/paper-item/paper-item.js';
 import '@polymer/paper-listbox/paper-listbox.js';
 import '../bedrock-ui-behavior/bedrock-ui-behavior.js';
@@ -34,18 +34,17 @@ import '../pebble-spinner/pebble-spinner.js';
 import { flush } from '@polymer/polymer/lib/legacy/polymer.dom.js';
 import { microTask, timeOut } from '@polymer/polymer/lib/utils/async.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
-
 class RockTabs
-    extends mixinBehaviors([
-        RUFBehaviors.UIBehavior
-    ], PolymerElement) {
+extends mixinBehaviors([
+    RUFBehaviors.UIBehavior
+], PolymerElement) {
   static get template() {
     return html`
         <style include="bedrock-style-common bedrock-style-scroll-bar bedrock-style-grid-layout bedrock-style-icons bedrock-style-paper-listbox">
             :host {
-                 display:block;
-                 height:100%;
-             }
+                display: block;
+                height: 100%;
+            }
 
             pebble-horizontal-divider {
                 --pebble-horizontal-divider-color: var(--border-black, #000);
@@ -98,17 +97,19 @@ class RockTabs
                 @apply --common-popup;
                 margin-top: var(--default-tab-height, 38px);
             }
+
             .tab-title {
                 font-size: var(--default-font-size);
                 font-weight: var(--font-medium);
                 color: var(--palette-dark);
             }
+
             .iron-selected .tab-title {
                 color: var(--palette-cerulean);
             }
 
             .tab-subtitle {
-                font-size: var(--font-size-sm, 12px);	
+                font-size: var(--font-size-sm, 12px);
                 font-weight: var(--font-bold, bold);
                 position: absolute;
                 top: var(--subtitle-abs-position, -4px);
@@ -131,6 +132,7 @@ class RockTabs
                 /* this can be moved if paper item is moved inside the pebble tab*/
                 --paper-item-min-height: 30px;
                 --paper-item-selected-weight: bold;
+
                 --paper-item: {
                     font-size: var(--default-font-size, 14px);
                     color: var(--color-steal-grey, #75808b);
@@ -138,7 +140,7 @@ class RockTabs
             }
 
             .tab-content {
-                height:100%;
+                height: 100%;
                 overflow: auto;
                 @apply --rock-tab-content;
                 @apply --rock-tab-content-height;
@@ -147,8 +149,9 @@ class RockTabs
                 -o-transition: height 0.3s;
                 transition: height 0.3s;
             }
+
             @supports (-ms-ime-align:auto) {
-                .tab-content{
+                .tab-content {
                     transition: initial;
                 }
             }
@@ -187,62 +190,63 @@ class RockTabs
                 padding-bottom: 20px;
                 padding-left: 20px;
             }
-            
         </style>
-		<div class="base-grid-structure">
+        <div class="base-grid-structure">
             <div class="base-grid-structure-child-1">
-		        <div id="menuProviders" hidden=""></div>
-		        <pebble-tab-group id\$="{{id}}" selected="{{selectedTabIndex}}" on-iron-select="_onIronSelect" on-iron-deselect="_onIronDeselect" noink="">
-		            <template is="dom-repeat" items="[[_calculatedTabItems]]" as="tabItem">
-		                <pebble-tab id="[[tabItem.name]]" display-menu="[[arrayItem(_calculatedTabItems.*, index, 'enableDropdownMenu')]]" tab-config="{{tabItem}}">
-		                    <div class="tab-title-content" slot="tab-title-content">
-		                        <div class="tab-subtitle" slot="tab-subtitle">
-		                            <span class="tab-subtitle-content">[[tabItem.subtitle]]</span>
-		                        </div>
-		                        <div class="tab-badge" slot="tab-badge">
-		                            <pebble-badge hidden=""></pebble-badge>
-		                        </div>
-		                        <div class="tab-title" slot="tab-title">
-		                            <template is="dom-if" if="[[tabItem.icon]]">
-		                                <pebble-icon class="pebble-icon-size-18" icon="[[tabItem.icon]]"></pebble-icon>
-		                            </template>
-		                            <span>[[_temp(tabItem.title)]]</span>
-		                        </div>
-		                    </div>
+                <div id="menuProviders" hidden=""></div>
+                <pebble-tab-group id\$="{{id}}" selected="{{selectedTabIndex}}" on-iron-select="_onIronSelect" on-iron-deselect="_onIronDeselect" noink="">
+                    <template is="dom-repeat" items="[[_calculatedTabItems]]" as="tabItem">
+                        <pebble-tab id="[[tabItem.name]]" display-menu="[[arrayItem(_calculatedTabItems.*, index, 'enableDropdownMenu')]]" tab-config="{{tabItem}}">
+                            <div class="tab-title-content" slot="tab-title-content">
+                                <div class="tab-subtitle" slot="tab-subtitle">
+                                    <span class="tab-subtitle-content">[[tabItem.subtitle]]</span>
+                                </div>
+                                <div class="tab-badge" slot="tab-badge">
+                                    <pebble-badge hidden=""></pebble-badge>
+                                </div>
+                                <div class="tab-title" slot="tab-title">
+                                    <template is="dom-if" if="[[tabItem.icon]]">
+                                        <pebble-icon class="pebble-icon-size-18" icon="[[tabItem.icon]]"></pebble-icon>
+                                    </template>
+                                    <span>[[_temp(tabItem.title)]]</span>
+                                </div>
+                            </div>
 
-		                    <paper-listbox slot="list" class="dropdown-content">
-		                        <template is="dom-repeat" items="[[arrayItem(_calculatedTabItems.*, index, 'menuItems')]]" as="menuItem">
-		                            <template is="dom-if" if="[[!_isDivider(menuItem)]]">
-		                                <paper-item class="list-content" id="[[tabItem.name]]-[[menuItem.name]]" tab-config="[[tabItem]]" menu-item-config="[[menuItem]]">
-		                                    <!--<pebble-icon icon="[[menuItem.icon]]"></pebble-icon>-->
-		                                    [[menuItem.title]]
-		                                </paper-item>
-		                            </template>
-		                            <template is="dom-if" if="[[_isDivider(menuItem)]]">
-		                                <pebble-horizontal-divider></pebble-horizontal-divider>
-		                            </template>
-		                        </template>
-		                    </paper-listbox>
-		                </pebble-tab>
-		            </template>
-		        </pebble-tab-group>
-		        <pebble-spinner active="[[showLoadingSpinner]]"></pebble-spinner>
-			</div>
-			<div class="base-grid-structure-child-2">
+                            <paper-listbox slot="list" class="dropdown-content">
+                                <template is="dom-repeat" items="[[arrayItem(_calculatedTabItems.*, index, 'menuItems')]]" as="menuItem">
+                                    <template is="dom-if" if="[[!_isDivider(menuItem)]]">
+                                        <paper-item class="list-content" id="[[tabItem.name]]-[[menuItem.name]]" tab-config="[[tabItem]]" menu-item-config="[[menuItem]]">
+                                            <!--<pebble-icon icon="[[menuItem.icon]]"></pebble-icon>-->
+                                            [[menuItem.title]]
+                                        </paper-item>
+                                    </template>
+                                    <template is="dom-if" if="[[_isDivider(menuItem)]]">
+                                        <pebble-horizontal-divider></pebble-horizontal-divider>
+                                    </template>
+                                </template>
+                            </paper-listbox>
+                        </pebble-tab>
+                    </template>
+                </pebble-tab-group>
+                <pebble-spinner active="[[showLoadingSpinner]]"></pebble-spinner>
+            </div>
+            <div class="base-grid-structure-child-2">
                 <template is="dom-if" if="{{hasComponentErrored(isComponentErrored)}}">
                     <div id="error-container"></div>
                 </template>
-                
+
                 <template is="dom-if" if="{{!hasComponentErrored(isComponentErrored)}}">
                     <div id="tab-content" hidden="" class="tab-content"></div>
                 </template>
-		        <bedrock-pubsub event-name="selection-changed" handler="_onSelectionChange" target-id=""></bedrock-pubsub>
-			</div>
+                <bedrock-pubsub event-name="selection-changed" handler="_onSelectionChange" target-id=""></bedrock-pubsub>
+            </div>
         </div>
 `;
   }
 
-  static get is() { return 'rock-tabs' }
+  static get is() {
+      return 'rock-tabs'
+  }
   static get properties() {
       return {
           id: {
@@ -340,40 +344,32 @@ class RockTabs
       }
   }
 
-
-  /**
-   * Indicates the unique identification string of an `element`.
-   */
-
   constructor() {
       super();
       this.showLoadingSpinner = false;
   }
-  /*
-   * Can be used to get the value of a badge for the `tab-name` that the user specified.
-   */
-  connectedCallback () {
+
+  connectedCallback() {
       super.connectedCallback();
       this._isReadyToRender = !this.deferredRender;
-      
   }
 
-  getTabByName (tabName) {
+  getTabByName(tabName) {
       let pebbleTabGroup = this.shadowRoot.querySelector("#" + this.id);
       if (pebbleTabGroup) {
           return pebbleTabGroup.querySelector("#" + tabName);
       }
   }
 
-  _tabChange (activeTab) {
+  _tabChange(activeTab) {
       if (activeTab) {
-          ComponentHelper.fireBedrockEvent("tabs-change", activeTab, { ignoreId: true });
+          ComponentHelper.fireBedrockEvent("tabs-change", activeTab, {
+              ignoreId: true
+          });
       }
   }
-  /*
-   * Can be used to set the value of a badge for the `tab-name` that the user specified.
-   */
-  setBadgeValue (tabName, value) {
+
+  setBadgeValue(tabName, value) {
       let tab = this.shadowRoot.querySelector("#" + this.id).querySelector("#" + tabName);
       if (tab) {
           let badge = tab.querySelector("pebble-badge");
@@ -388,14 +384,11 @@ class RockTabs
       }
   }
 
-  _getTabGroup () {
+  _getTabGroup() {
       return this.shadowRoot.querySelector("#" + this.id);
   }
 
-  /*
-   * Can be used to return the value of a badge for the `tab-name` that the user specified.
-   */
-  getBadgeValue (tabName) {
+  getBadgeValue(tabName) {
       let pebbleTabGroup = this._getTabGroup();
       if (pebbleTabGroup) {
           let tab = pebbleTabGroup.querySelector("#" + tabName);
@@ -410,10 +403,7 @@ class RockTabs
       }
   }
 
-  /*
-   * Can be used to toggle the display value of the badge element.
-   */
-  toggleBadge (tab, showHide) {
+  toggleBadge(tab, showHide) {
       if (tab) {
           let badge = tab.querySelector("pebble-badge");
           if (badge) {
@@ -430,7 +420,7 @@ class RockTabs
       }
   }
 
-  _configChanged (config) {
+  _configChanged(config) {
       if (_.isEmpty(config)) return;
 
       if (config.tabItems) {
@@ -449,12 +439,12 @@ class RockTabs
           this._calculatedTabItems = DataHelper.cloneObject(tabItems);
           for (let tabItemIndex in this._calculatedTabItems) {
               let tabItem = this._calculatedTabItems[tabItemIndex];
-              if(tabItem.enableDropdownMenu) {
+              if (tabItem.enableDropdownMenu) {
                   this._fillMenuItems(tabItem);
-              } else if(_.isEmpty(this.selectedTab) || (this.selectedTab.index === tabItemIndex && tabItemIndex === this.selectedTabIndex)) {
+              } else if (_.isEmpty(this.selectedTab) || (this.selectedTab.index === tabItemIndex && tabItemIndex === this.selectedTabIndex)) {
                   setTimeout(() => {
                       this.reloadCurrentTab();
-                  }, 2000);
+                  }, 1000);
               }
           }
 
@@ -471,7 +461,7 @@ class RockTabs
       }
   }
 
-  _fillMenuItems (tabItem) {
+  _fillMenuItems(tabItem) {
       let menuProviders = this.$.menuProviders;
       if (tabItem.menuProviderComponent) {
           Object.keys(tabItem.component.properties).map(function (tabComponentProperty) {
@@ -486,12 +476,14 @@ class RockTabs
                       this._setSelectedMenuItem(tabItem);
                   }
                   this.reloadCurrentTab();
+              } else {
+                  // console.warn("tab is not yet selected", tabItem.selected, tabItem.name, this.selectedTab);
               }
-          }, 2000);
+          }, 1000);
       }
   }
 
-  _menuProviderCreated (tabItem, menuProviderElement) {
+  _menuProviderCreated(tabItem, menuProviderElement) {
       if (menuProviderElement) {
           if (tabItem && menuProviderElement.getMenu) {
               microTask.run(() =>
@@ -501,7 +493,7 @@ class RockTabs
       }
   }
 
-  _menuProviderCallback (tabItem, menuItems) {
+  _menuProviderCallback(tabItem, menuItems) {
       if (!tabItem) return;
 
       this.set('_calculatedTabItems.' + tabItem.index, tabItem);
@@ -529,12 +521,11 @@ class RockTabs
       }
   }
 
-  _isDivider (item) {
+  _isDivider(item) {
       return item.name == "divider";
   }
 
-  //Clear tab errors on de-select
-  _onIronDeselect (e) {
+  _onIronDeselect(e) {
       let tabName = e.detail.item.tabConfig.name;
       let currentItem = this._getTabGroup().querySelector("#" + tabName);
       if (currentItem) {
@@ -544,20 +535,20 @@ class RockTabs
       }
   }
 
-  _onIronSelect (e, retryCount) {
+  _onIronSelect(e, retryCount) {
       //Dirty check while new tab menu item is selected
       let isDirty = this.getIsDirty();
       if (isDirty) {
-          let cancelClicked = this._showWarning(e);  
-          if(cancelClicked){
+          let cancelClicked = this._showWarning(e);
+          if (cancelClicked) {
               let tabGrpObj = this.shadowRoot.querySelector("pebble-tab-group");
-              tabGrpObj.resetSelection(); 
+              tabGrpObj.resetSelection();
               return;
-          }                      
+          }
       }
 
       this._currentTabErrorLength = 0; //reset errors
-      if(isNaN(retryCount)){
+      if (isNaN(retryCount)) {
           retryCount = 1;
       }
 
@@ -567,14 +558,14 @@ class RockTabs
       if (this.viewMode) {
           setnavConfig = false;
           let tab = this.getTabByName(this.viewMode);
-          if(!tab) {
+          if (!tab) {
               return;
           }
           e.detail.item = tab;
           //Handle scenario for opening submenu item from the rock-tab dropdown
-          if(this.viewModeSubMenu) {
-              let menuItems = e.detail.item.tabConfig.menuItems; 
-              if(!_.isEmpty(menuItems)) {
+          if (this.viewModeSubMenu) {
+              let menuItems = e.detail.item.tabConfig.menuItems;
+              if (!_.isEmpty(menuItems)) {
                   let menuItemConfig = menuItems.filter(item => item.title === this.viewModeSubMenu);
                   e.detail.item.menuItemConfig = menuItemConfig[0];
                   e.detail.item.tabConfig.subtitle = this.viewModeSubMenu;
@@ -586,21 +577,22 @@ class RockTabs
                   //Handle the scenario where menuItems might not yet be loaded. For ex : User navigating from discovery page and loading a rock-tabs submenu directly
                   const maxRetryCount = 50;
                   timeOut.after(ConstantHelper.MILLISECONDS_100).run(() => {
-                      if(_.isEmpty(menuItems)) {
-                          if (retryCount < maxRetryCount) { 
-                              this._onIronSelect(e,++retryCount);
+                      if (_.isEmpty(menuItems)) {
+                          if (retryCount < maxRetryCount) {
+                              this._onIronSelect(e, ++retryCount);
                               return;
                           } else {
                               this.logError("rock-tabs - The menu-items did not load");
                           }
-                      } 
-                  }); 
-              }                                                  
+                      }
+                  });
+              }
           } else {
               this.viewMode = "";
               setnavConfig = true;
-          }                        
+          }
       }
+
       if (!e || !e.detail || !e.detail.item) return;
 
       let tabGroup = this._getTabGroup();
@@ -617,12 +609,18 @@ class RockTabs
       };
 
       //update the navigationContext object to render accordingly after refresh
-      if(!subTitle && menuItemConfig) {
+      if (!subTitle && menuItemConfig) {
           subTitle = menuItemConfig.title;
       }
 
-      if(setnavConfig) {
-          ComponentHelper.fireBedrockEvent("tab-nav-change", {"viewMode": tabConfig.name, "viewModeSubMenu":subTitle, "targetId": this.id}, { ignoreId: true });
+      if (setnavConfig) {
+          ComponentHelper.fireBedrockEvent("tab-nav-change", {
+              "viewMode": tabConfig.name,
+              "viewModeSubMenu": subTitle,
+              "targetId": this.id
+          }, {
+              ignoreId: true
+          });
       } else {
           return;
       }
@@ -651,7 +649,7 @@ class RockTabs
       tabGroup.highlightTabWithoutSelection(tabConfig.index);
   }
 
-  _resetSubTitles (currentTabConfig, subtitle) {
+  _resetSubTitles(currentTabConfig, subtitle) {
       let tabsConfig = this.config.tabItems;
       let pebbleTabGroup = this._getTabGroup();
 
@@ -678,7 +676,7 @@ class RockTabs
       }
   }
 
-  _loadContent (config, tabName, reload) {
+  _loadContent(config, tabName, reload) {
       if (!this._isReadyToRender) return;
 
       if (!config || !config.component) {
@@ -702,7 +700,7 @@ class RockTabs
           return;
       };
 
-      const contentElement = this._tabContent|| this.shadowRoot.querySelector("#tab-content");
+      const contentElement = this._tabContent || this.shadowRoot.querySelector("#tab-content");
 
       ComponentHelper.displayNode(contentElement, false);
 
@@ -711,8 +709,8 @@ class RockTabs
 
       this._tabChange(viewName);
 
-      if(this.loadContentTimeoutId) clearTimeout(this.loadContentTimeoutId);
-      
+      if (this.loadContentTimeoutId) clearTimeout(this.loadContentTimeoutId);
+
       //Timeout needs to postpone the rendering until tab-animation has finished
       this.loadContentTimeoutId = setTimeout(() => {
           ComponentHelper.loadContent(contentElement, config.component, this, (content) => {
@@ -724,7 +722,7 @@ class RockTabs
       }, 500);
   }
 
-  _applyMargin (tabName, apply) {
+  _applyMargin(tabName, apply) {
       let tab = this.getTabByName(tabName);
 
       if (!tab) return;
@@ -736,11 +734,11 @@ class RockTabs
       }
   }
 
-  readyToRender (renderReady) {
+  readyToRender(renderReady) {
       this._isReadyToRender = renderReady;
   }
 
-  refresh (options) {
+  refresh(options) {
       if (this._currentTabName) {
           let content = this._tabContent;
           if (content && content.firstChild) {
@@ -748,7 +746,8 @@ class RockTabs
           }
       }
   }
-  editCurrentTab () {
+
+  editCurrentTab() {
       if (!this.shadowRoot) {
           return;
       }
@@ -766,14 +765,15 @@ class RockTabs
 
           let menu = currentItem.querySelector('paper-listbox');
           let currentMenuItem;
-          
+
           if (menu) {
               currentMenuItem = menu.selectedItem;
           }
           if (currentMenuItem) {
               currentTabMenuConfig = currentMenuItem.menuItemConfig;
           }
-          if (currentTabConfig.name !== this._selectedTabConfig.tabConfig.name) {
+          if (currentTabConfig && this._selectedTabConfig && this._selectedTabConfig.tabConfig &&
+              currentTabConfig.name !== this._selectedTabConfig.tabConfig.name) {
               currentTabConfig = this._selectedTabConfig.tabConfig;
               currentTabMenuConfig = this._selectedTabConfig.menuItemConfig;
           }
@@ -786,7 +786,8 @@ class RockTabs
       }
 
   }
-  _editContent (config, tabName) {
+
+  _editContent(config, tabName) {
       if (config) {
           let viewName = config.name;
           viewName = tabName ? tabName + '-' + viewName : viewName;
@@ -796,10 +797,8 @@ class RockTabs
           }
       }
   }
-  /**
-  * Can be used to reload the current tab content.
-  */
-  reloadCurrentTab (isReloadByConfig) {
+
+  reloadCurrentTab(isReloadByConfig) {
       //to reload the current selected tab after any changes to tabItemConfig
       //no inputs to this method. Find out the current selected tab and call _loadContent()
       if (!this.shadowRoot) {
@@ -819,8 +818,7 @@ class RockTabs
       if (isReloadByConfig && this._selectedTabConfig.tabConfig) {
           currentTabConfig = this._selectedTabConfig.tabConfig;
           currentTabMenuConfig = this._selectedTabConfig.menuItemConfig;
-      }
-      else if (currentItem) {
+      } else if (currentItem) {
           currentTabConfig = currentItem.tabConfig;
           let menu = currentItem.querySelector('paper-listbox');
           let currentMenuItem;
@@ -833,17 +831,18 @@ class RockTabs
 
           // Work Around: When user is reloading tab but currentMenuItem is not mataching
           //              with the one which is displayed to the user
-          if (currentTabConfig.name !== this._selectedTabConfig.tabConfig.name) {
+          if (currentTabConfig && this._selectedTabConfig && this._selectedTabConfig.tabConfig &&
+              currentTabConfig.name !== this._selectedTabConfig.tabConfig.name) {
               currentTabConfig = this._selectedTabConfig.tabConfig;
               currentTabMenuConfig = this._selectedTabConfig.menuItemConfig;
 
               // whenever a reload is happening, if current tabitem/menuitem config changes,
               // getting it from calculatedtabitems and assigning to currenttab and selected tab too
               let selectedTabConfig = this._calculatedTabItems.find(obj => obj.index === this._selectedTabConfig.tabConfig.index);
-              if(selectedTabConfig) {
-                  let menuItemConfig = !_.isEmpty(selectedTabConfig.menuItems) && this._selectedTabConfig.menuItemConfig? selectedTabConfig.menuItems.find(obj=> obj.name === this._selectedTabConfig.menuItemConfig.name) : undefined;
+              if (selectedTabConfig) {
+                  let menuItemConfig = !_.isEmpty(selectedTabConfig.menuItems) && this._selectedTabConfig.menuItemConfig ? selectedTabConfig.menuItems.find(obj => obj.name === this._selectedTabConfig.menuItemConfig.name) : undefined;
                   currentTabConfig = this._selectedTabConfig.tabConfig = selectedTabConfig;
-                  if(menuItemConfig) {
+                  if (menuItemConfig) {
                       currentTabMenuConfig = this._selectedTabConfig.menuItemConfig = menuItemConfig;
                   }
               }
@@ -856,10 +855,8 @@ class RockTabs
           this._loadContent(currentTabConfig, null, true);
       }
   }
-  /**
-  * Can be used to reload all tabs of a component.
-  */
-  reloadTabs () {
+
+  reloadTabs() {
       if (this.config && this.config.tabItems && this.config.tabItems.length > 0) {
           let tabItems = DataHelper.cloneObject(this.config.tabItems);
           for (let i = 0; i < tabItems.length; i++) {
@@ -874,14 +871,16 @@ class RockTabs
       }
       this.reloadCurrentTab();
   }
-  reset () {
+
+  reset() {
       this.set("_calculatedTabItems", []);
       this.selectedTabIndex = null;
   }
-  _onSelectionChange (e, detail, sender) {
+
+  _onSelectionChange(e, detail, sender) {
       this.viewMode = "";
       this.viewModeSubMenu = "";
-      if(detail && (detail.defaultTab || detail.defaultSubMenu)){
+      if (detail && (detail.defaultTab || detail.defaultSubMenu)) {
           this.viewMode = detail.defaultTab;
           this.viewModeSubMenu = detail.defaultSubMenu;
           this._onIronSelect(e);
@@ -891,10 +890,8 @@ class RockTabs
           this._showWarning(e);
       }
   }
-  /**
-  * Can be used to get whether the current tab content is dirty or not.
-  */
-  getIsDirty () {
+
+  getIsDirty() {
       if (this._currentTabName) {
           let content = this._tabContent;
           if (content && content.firstChild && content.firstChild.getIsDirty) {
@@ -903,10 +900,8 @@ class RockTabs
           }
       }
   }
-  /**
-  * Can be used to get whether the current tab controls are dirty or not.
-  */
-  getControlIsDirty () {
+
+  getControlIsDirty() {
       if (this._currentTabName) {
           let content = this._tabContent;
           if (content && content.firstChild && content.firstChild.getControlIsDirty) {
@@ -921,19 +916,22 @@ class RockTabs
       if (tabView)
           tabView.readonly = this.readonly;
   }
-  _showWarning (event) {
+
+  _showWarning(event) {
       if (!window.confirm(
-          "There are unsaved changes. Do you want to discard the changes?")) {
-          event.preventDefault(); 
-          return true;                        
-      } 
+              "There are unsaved changes. Do you want to discard the changes?")) {
+          event.preventDefault();
+          return true;
+      }
   }
-  _getCurrentSelectedItem () {
+
+  _getCurrentSelectedItem() {
       let tabGroup = this._getTabGroup();
       if (!tabGroup) return;
       return tabGroup.querySelector("#" + this._currentTabName);
   }
-  _errorLengthChanged (errorLength) {
+
+  _errorLengthChanged(errorLength) {
       let currentItem = this._getCurrentSelectedItem();
       if (!currentItem) return;
 
@@ -946,7 +944,8 @@ class RockTabs
       }
       this._updateErrorVis(errorLength);
   }
-  _updateErrorVis (errorLength = 0) {
+
+  _updateErrorVis(errorLength = 0) {
       let currentItem = this._getCurrentSelectedItem();
       if (!currentItem) return;
       let errorCircle = currentItem.shadowRoot.querySelector(".error-circle");
@@ -958,13 +957,16 @@ class RockTabs
           errorCircle.textContent = "";
       }
   }
-  _temp (x) {
+
+  _temp(x) {
       return x;
   }
-  arrayItem (change, index, path) {
+
+  arrayItem(change, index, path) {
       return this.get(path, change.base[index]);
   }
-  _setSelectedMenuItem (tabItem) {
+
+  _setSelectedMenuItem(tabItem) {
       let currentTab = this.shadowRoot.querySelector("#" + tabItem.name);
       if (!currentTab) return;
 
@@ -983,7 +985,7 @@ class RockTabs
       }
   }
 
-  _getTabSelectedMenuIndex (tabItem) {
+  _getTabSelectedMenuIndex(tabItem) {
       if (typeof tabItem.selectedMenuIndex != "undefined" && tabItem.selectedMenuIndex >= 0)
           return tabItem.selectedMenuIndex;
 

@@ -203,7 +203,7 @@ extends mixinBehaviors([
            */
           placeHolder: {
               type: String,
-              value: "Search MDMCenter"
+              value: "Search your data"
           },
 
           /*
@@ -281,15 +281,15 @@ extends mixinBehaviors([
   /*
    * Can be used to open a global search page.
    */
-  _search() {
+  _search() {                
       if (this._selectedSearchOption && !_.isEmpty(this._selectedSearchOption)) {
           ComponentHelper.appRoute(this._selectedSearchOption.route, {
               "searchtext": this.inputValue
-          });
+          },true);
       } else {
           ComponentHelper.appRoute("search-thing", {
               "searchtext": this.inputValue
-          }); //Fallback
+          },true); //Fallback
       }
 
       this.inputValue = '';

@@ -66,7 +66,7 @@ class RockApiHealthcheckStatusItem
       <div id="descriptionRow" hidden\$="{{!collapse}}"> 
           <div><strong>Url: </strong>{{url}}</div>                  
           <div><strong>Message: </strong>{{message}}</div> 
-          <pebble-button raised="" noink="" on-click="_handleModalOpen" class="btn btn-success m-t-15" button-text="View technical detail"></pebble-button>
+          <pebble-button raised="" noink="" on-click="_handleModalOpen" class="btn btn-success m-t-15" button-text="View technical details"></pebble-button>
           <pebble-dialog id="pebbleDialog" show-close-icon="" show-ok="" button-ok-text="Ok" dialog-title="Technical detail" modal="">
             <div class="healthcheck-dialog">
                 <pre>{{detail}}</pre>

@@ -162,10 +162,6 @@ $_documentContainer.innerHTML = `<dom-module id="bedrock-style-variables">
                 /* Pebble - TreeNode */
                 --treenode-bgcolor: #e8f3f9;
 
-                /* tooltip variables */
-                --tooltip-bg-color: rgba(25, 32, 39, 1);
-                --tooltip-text-color: #ffffff;
-
                 /* DropDown Variables */
                 --dropdown-selection-bg: #eaf3fc;
                 --dropdown-selection-left-bar: #139de6;

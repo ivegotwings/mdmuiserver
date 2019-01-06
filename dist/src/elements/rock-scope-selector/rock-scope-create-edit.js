@@ -20,7 +20,6 @@ import '../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../bedrock-style-manager/styles/bedrock-style-text-alignment.js';
 import '../bedrock-style-manager/styles/bedrock-style-fonts.js';
 import '../bedrock-style-manager/styles/bedrock-style-icons.js';
-import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockScopeCreateEdit extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerElement) {
   static get template() {
@@ -112,7 +111,7 @@ class RockScopeCreateEdit extends mixinBehaviors([RUFBehaviors.UIBehavior], Poly
         <div class="veritical layout container">
             <div class="p-0">
                 <div class="revert">
-                    <pebble-icon name="revert" class="pebble-icon-size-16 m-l-5 tooltip-bottom" icon="pebble-icon:revert" data-tooltip="Revert" on-tap="_onRevertClick" tabindex="-1"></pebble-icon>
+                    <pebble-icon name="revert" class="pebble-icon-size-16 m-l-5" icon="pebble-icon:revert" title="Revert" on-tap="_onRevertClick" tabindex="-1"></pebble-icon>
                 </div>
                 <pebble-dropdown id="scopesDropdown" noink="" label="EDIT SCOPE" items="{{_scopeItems}}"></pebble-dropdown>
                 <bedrock-pubsub on-bedrock-event-dropdown-value-change="onDropdownValueChange" name="bedrock-event-dropdown-value-change"></bedrock-pubsub>

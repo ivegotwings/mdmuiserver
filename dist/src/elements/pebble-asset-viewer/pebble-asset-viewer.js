@@ -1,7 +1,6 @@
 import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import { OptionalMutableData } from '@polymer/polymer/lib/mixins/mutable-data.js';
 import '@polymer/paper-fab/paper-fab.js';
-import '@polymer/paper-tooltip/paper-tooltip.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
 import '../bedrock-style-manager/styles/bedrock-style-icons.js';
@@ -17,6 +16,9 @@ class PebbleAssetViewer extends OptionalMutableData(PolymerElement) {
         <style include="bedrock-style-common bedrock-style-scroll-bar bedrock-style-icons bedrock-style-padding-margin"></style>
         <template is="dom-if" if="[[assetUrl]]">
             <style>
+                :host *{
+                    user-select: none;
+                }
                 .asset-render {
                     height: 80vh;
                     position: relative;
@@ -37,7 +39,7 @@ class PebbleAssetViewer extends OptionalMutableData(PolymerElement) {
                     top: 50%;
                 }
 
-                header {
+                .pdf-navaigation {
                     position: fixed;
                     bottom: 10%;
                     z-index: 1;
@@ -45,13 +47,16 @@ class PebbleAssetViewer extends OptionalMutableData(PolymerElement) {
                     transform: translateX(-50%);
                 }
 
-                header paper-fab {
+                .pdf-navaigation pebble-icon {
                     display: inline-block;
-                    background: #cbcbcb;
                 }
 
-                header div {
+                .pdf-navaigation .nav-text {
                     display: inline-block;
+                    font-size: 12px;
+                }
+                pdf-viewer{
+                    height:calc(100% + 20px);
                 }
 
                 .download {
@@ -109,13 +114,13 @@ class PebbleAssetViewer extends OptionalMutableData(PolymerElement) {
                     </template>
                     <template is="dom-if" if="[[!assetError]]">
                         <a href\$="[[assetUrl]]" class="download">
-                            <pebble-icon icon="pebble-icon:download-asset" class="download-icon"></pebble-icon> Download
+                            <pebble-icon icon="pebble-icon:download-asset" class="download-icon pebble-icon-size-16 pebble-icon-color-white m-r-5"></pebble-icon> Download
                         </a>
-                        <header>
-                            <paper-fab mini="" icon="pebble-icon:action-scope-release-selection" action="previous" on-tap="_performDocumentAction"></paper-fab>
-                            <div>[[documentPage]]/[[documentPages]]</div>
-                            <paper-fab mini="" icon="pebble-icon:action-scope-take-selection" action="next" on-tap="_performDocumentAction"></paper-fab>
-                        </header>
+                        <div class="pdf-navaigation">
+                            <pebble-icon icon="pebble-icon:navigation-action-forward" action="previous" on-tap="_performDocumentAction" class="pebble-icon-size-20 pebble-icon-color-grey m-r-5"></pebble-icon>
+                            <div class="nav-text">[[documentPage]]&nbsp;/&nbsp;[[documentPages]]</div>
+                            <pebble-icon icon="pebble-icon:navigation-action-back" action="next" on-tap="_performDocumentAction" class="pebble-icon-size-20 pebble-icon-color-grey m-l-5"></pebble-icon>
+                        </div>
                     </template>
                 </template>
                 <template is="dom-if" if="[[isAudioView(assetType)]]">

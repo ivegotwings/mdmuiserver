@@ -6,7 +6,6 @@ import '../bedrock-helpers/component-helper.js';
 import '../bedrock-helpers/context-helper.js';
 import '../bedrock-style-manager/styles/bedrock-style-grid-layout.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
-import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 import '../bedrock-style-manager/styles/bedrock-style-gridsystem.js';
 import '../bedrock-logger-behavior/bedrock-logger-behavior.js';
 import '../bedrock-toast-behavior/bedrock-toast-behavior.js';
@@ -62,7 +61,7 @@ class RockModelIntegration
             </template>
           </div>
           <div class="col-8">
-            <pebble-button class="btn dropdown-success downloadButton tooltip-bottom" icon="pebble-icon:download-asset" button-text="Download" data-tooltip="Download Model" on-click="_onModelDownloadClick"></pebble-button>
+            <pebble-button class="btn dropdown-success downloadButton" icon="pebble-icon:download-asset" button-text="Download" title="Download Model" on-click="_onModelDownloadClick"></pebble-button>
             <rock-model-download id="modelDownload" context-data="[[contextData]]" enable-async-download="[[enableAsyncDownload]]"></rock-model-download>
           </div>
         </div>

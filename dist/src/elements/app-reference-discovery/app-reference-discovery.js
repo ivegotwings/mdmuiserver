@@ -216,7 +216,7 @@ class AppReferenceDiscovery
                                 <div>
                                     <pebble-button id="actions" class="dropdownText btn dropdown-outline-primary m-r-5" button-text="{{_mainTitle}}" noink="" dropdown-icon="" on-tap="_onActionsTap"></pebble-button>
                                     <pebble-popover id="actionsPopover" for="actions" no-overlap="" horizontal-align="left">
-                                        <rock-entity-type-model-lov multi-select="{{_multiSelect}}" domain="[[domain]]" id="referenceDataLov" sort-field="externalName"></rock-entity-type-model-lov>
+                                        <rock-entity-type-model-lov multi-select="{{_multiSelect}}" domain="[[domain]]" id="referenceDataLov" sort-field="externalName" selected-item="[[lovSelectedItem]]"></rock-entity-type-model-lov>
                                     </pebble-popover>
                                     <bedrock-pubsub event-name="entity-type-selection-changed" handler="_onReferenceDataChange" target-id="referenceDataLov"></bedrock-pubsub>
                                 </div>
@@ -271,7 +271,7 @@ class AppReferenceDiscovery
                             <pebble-vertical-divider></pebble-vertical-divider>
                         </div>
                         <div class="quick-manage-container p-l-15">
-                            <rock-entity-quick-manage id="entityQuickManage" show-expand-icon="{{_showExpandIcon}}" no-header="" context-data="[[_quickManageContextData]]" current-index="{{_currentIndex}}" current-record-size="[[_gridFullLength]]" selected-entity="[[_selectedEntity]]"></rock-entity-quick-manage>
+                            <rock-entity-quick-manage id="entityQuickManage" show-expand-icon="{{_showExpandIcon}}" no-header="" context-data="[[_quickManageContextData]]" current-index="{{_currentIndex}}" current-record-size="[[_gridFullLength]]" selected-entity="[[_selectedEntity]]" quick-manage-enabled="{{_quickManageEnabled}}"></rock-entity-quick-manage>
                             <bedrock-pubsub event-name="on-attribute-save" handler="_onAttributeSave"></bedrock-pubsub>
                             <bedrock-pubsub target-id="entityQuickManage" event-name="on-tap-previous" handler="_onClickPrevious"></bedrock-pubsub>
                             <bedrock-pubsub target-id="entityQuickManage" event-name="on-tap-next" handler="_onClickNext"></bedrock-pubsub>

@@ -9,11 +9,11 @@ import EntityTypeManager from '../bedrock-managers/entity-type-manager.js';
  */
 window.RUFBehaviors = window.RUFBehaviors || {};
 RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
-    
+
     attached: function () {},
-    
+
     ready: function () {},
-    
+
     properties: {
         /**
          * Content is not appearing - Content development is under progress.
@@ -39,7 +39,7 @@ RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
             }
         }
     },
-    
+
     _executeRequest: function (model, request) {
         let op = request.operation,
             reqData = request.requestData;
@@ -69,7 +69,7 @@ RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
             throw "exception: operation " + op + " is not supported in " + this.is + " element.";
         }
     },
-    
+
     _correctRequestForDeletedObjectTypes: function (requestData) {
         if (requestData && requestData.params && requestData.params.query) {
             let dataObjectName = requestData.params.query.name;
@@ -82,57 +82,57 @@ RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
             }
         }
     },
-    
-    _formatResponse: async function (request, rawResponsePkg) {
-            let op = request.operation;
-            let pathKeys = this._pathKeys;
-            let dataIndex = this.dataIndex;
-            let dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
-            let includeTypeExternalName = request.requestData ? request.requestData.includeTypeExternalName : false;
 
-            if (this.returnObjectsCollectionName == "Unknown") {
-                this.returnObjectsCollectionName = dataIndexInfo.collectionName;
+    _formatResponse: async function (request, rawResponsePkg) {
+        let op = request.operation;
+        let pathKeys = this._pathKeys;
+        let dataIndex = this.dataIndex;
+        let dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
+        let includeTypeExternalName = request.requestData ? request.requestData.includeTypeExternalName : false;
+
+        if (this.returnObjectsCollectionName == "Unknown") {
+            this.returnObjectsCollectionName = dataIndexInfo.collectionName;
+        }
+
+        if (op === "initiatesearch" || op === "initiatesearchandgetcount") {
+            let resSearchResults = rawResponsePkg.json[pathKeys.root][dataIndex][pathKeys.searchResults];
+
+            if (!_.isEmpty(resSearchResults)) {
+                let resSearchResultId = Object.keys(resSearchResults)[0];
+                return this._formatInitiateSearchResponse(resSearchResults[resSearchResultId]);
+            }
+        } else if (op === "getsearchresultdetail" || op === "searchandget") {
+            let formattedDataObjects = [];
+            if (rawResponsePkg != undefined && rawResponsePkg.json && rawResponsePkg.json[pathKeys.root]) {
+                let dataObjects = this._getDataObjects(rawResponsePkg, dataIndex, request);
+                formattedDataObjects = await this._formatData(dataIndex, dataObjects, includeTypeExternalName);
             }
 
-            if (op === "initiatesearch" || op === "initiatesearchandgetcount") {
-                let resSearchResults = rawResponsePkg.json[pathKeys.root][dataIndex][pathKeys.searchResults];
+            let searchResultDetailResponse = {};
+            searchResultDetailResponse[this.returnObjectsCollectionName] = formattedDataObjects;
+            return searchResultDetailResponse;
+        } else if (op === "getbyids") {
+            let formattedDataObjects = [];
+            if (rawResponsePkg !== undefined && rawResponsePkg.json && rawResponsePkg.json[pathKeys.root]) {
+                let dataObjects = this._getDataObjects(rawResponsePkg, dataIndex, request);
+                formattedDataObjects = await this._formatData(dataIndex, dataObjects, includeTypeExternalName);
 
-                if (!_.isEmpty(resSearchResults)) {
-                    let resSearchResultId = Object.keys(resSearchResults)[0];
-                    return this._formatInitiateSearchResponse(resSearchResults[resSearchResultId]);
-                }
-            } else if (op === "getsearchresultdetail" || op === "searchandget") {
-                let formattedDataObjects = [];
-                if (rawResponsePkg != undefined && rawResponsePkg.json && rawResponsePkg.json[pathKeys.root]) {
-                    let dataObjects = this._getDataObjects(rawResponsePkg, dataIndex, request);
-                    formattedDataObjects = await this._formatData(dataIndex, dataObjects, includeTypeExternalName);
-                }
-
-                let searchResultDetailResponse = {};
-                searchResultDetailResponse[this.returnObjectsCollectionName] = formattedDataObjects;
-                return searchResultDetailResponse;
-            } else if (op === "getbyids") {
-                let formattedDataObjects = [];
-                if (rawResponsePkg !== undefined && rawResponsePkg.json && rawResponsePkg.json[pathKeys.root]) {
-                    let dataObjects = this._getDataObjects(rawResponsePkg, dataIndex, request);
-                    formattedDataObjects = await this._formatData(dataIndex, dataObjects, includeTypeExternalName);
-
-                    if (formattedDataObjects && this._relIdsCountOfRelGetRequest && !_.isEmpty(this._relIdsCountOfRelGetRequest)) {
-                        for (let dataObject of formattedDataObjects) {
-                            let relTotalCounts = this._relIdsCountOfRelGetRequest[dataObject.id];
-                            if (!_.isEmpty(relTotalCounts)) {
-                                dataObject["relationshipsTotalCount"] = relTotalCounts;
-                            }
+                if (formattedDataObjects && this._relIdsCountOfRelGetRequest && !_.isEmpty(this._relIdsCountOfRelGetRequest)) {
+                    for (let dataObject of formattedDataObjects) {
+                        let relTotalCounts = this._relIdsCountOfRelGetRequest[dataObject.id];
+                        if (!_.isEmpty(relTotalCounts)) {
+                            dataObject["relationshipsTotalCount"] = relTotalCounts;
                         }
                     }
                 }
-
-                let getByIdsResponse = {};
-                getByIdsResponse[this.returnObjectsCollectionName] = formattedDataObjects;
-                return getByIdsResponse;
             }
-        },
-    
+
+            let getByIdsResponse = {};
+            getByIdsResponse[this.returnObjectsCollectionName] = formattedDataObjects;
+            return getByIdsResponse;
+        }
+    },
+
     _validateAutoTriggerChanges: function (requestData, operation) {
         if ((operation === "initiatesearch" || operation === "searchandget" || operation === "initiatesearchandgetcount") && (requestData.path == "requestData.params.fields" || requestData.path == "requestData.params.options")) {
             return false;
@@ -140,7 +140,7 @@ RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
 
         return true;
     },
-    
+
     _validateRequest: function (request) {
         let requestData = request.requestData;
         let operation = request.operation;
@@ -204,6 +204,24 @@ RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
             }
         }
 
+        if (requestData && requestData.params && requestData.params.query && requestData.params.query.valueContexts && requestData.params.query.valueContexts.length > 0) {
+            let valContexts = requestData.params.query.valueContexts;
+            for (let valContext of valContexts) {
+                if (!valContext.source) {
+                    console.warn(mainMessage.format(": source is mandatory in value context"));
+                }
+
+                if (!valContext.locale) {
+                    console.warn(mainMessage.format(": locale is mandatory in value context"));
+                }
+            }
+        } else {
+            if (this.dataIndex == "entityModel" || this.dataIndex == "entityData") {
+                //todo: Fix all calls and then enable this warning..
+                //console.warn(mainMessage.format(": valueContexts is missing"));
+            }
+        }
+
         // Fill if someone does not pass fields
         if (requestData.params && !requestData.params.fields) {
             requestData.params.fields = {};
@@ -211,7 +229,7 @@ RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
 
         return true;
     },
-    
+
     _checkLoadAllFlags: function (reqData) {
         let result = {};
 
@@ -241,7 +259,7 @@ RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
 
         return result;
     },
-    
+
     _callGetByIds: function (model, request, basePath) {
         let reqData = request.requestData;
 
@@ -272,7 +290,7 @@ RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
 
         return {};
     },
-    
+
     _callGetPaths: function (model, request, basePath) {
 
         let reqData = request.requestData;
@@ -321,7 +339,7 @@ RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
             return this._handleModelResponse(request, getResponsePromise);
         }
     },
-    
+
     _callObjectKeysGet: function (model, request, basePath, loadAllFlags, ctxKeys) {
         let utils = SharedUtils.DataObjectFalcorUtil;
         let paths = [];
@@ -351,7 +369,7 @@ RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
 
         return undefined;
     },
-    
+
     _callInitiateSearch: function (model, reqData) {
         let pathKeys = this._pathKeys;
         let utils = SharedUtils.DataObjectFalcorUtil;
@@ -359,24 +377,22 @@ RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
         let checkCachedQuery = false;
 
         let self = this;
-        
+
         if (checkCachedQuery) {
             let cachedQueryResponse = this._callCachedSearchQuery(model, reqData);
             cachedQueryResponse.then(function (rawResponsePkg) {
                 if (utils.isValidObjectPath(rawResponsePkg, "json." + pathKeys.root + "." + this.dataIndex + "." + pathKeys.searchResults + ".0")) {
                     return self._handleModelResponse(cachedQueryResponse);
-                }
-                else {
+                } else {
                     let getResponsePromise = model.call(functionPath, [reqData], [], []);
                     return self._handleModelResponse(getResponsePromise);
                 }
             });
-        }
-        else {
+        } else {
             return model.call(functionPath, [reqData], [], []);
         }
     },
-    
+
     _callCachedSearchQuery: function (model, reqData) {
         let pathKeys = this._pathKeys;
         let queryAsJsonString = JSON.stringify(reqData);
@@ -392,7 +408,7 @@ RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
         let pathKeys = this._pathKeys;
         return model.call([pathKeys.root, this.dataIndex, pathKeys.searchResults, "create"], [reqData], [], []);
     },
-    
+
     _callSearchResultDetail: function (model, request) {
         let self = this,
             reqId = request.requestId === undefined ? "" : request.requestId,
@@ -455,7 +471,7 @@ RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
             }
         });
     },
-    
+
     _callSearchAndGet: function (model, request) {
         let pathKeys = this._pathKeys;
         let dataIndex = this.dataIndex;
@@ -477,7 +493,7 @@ RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
             }
         });
     },
-    
+
     _callSearchResultSizeGet: function (model, reqId) {
         let pathKeys = this._pathKeys;
 
@@ -485,7 +501,7 @@ RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
 
         return model.get(functionPath);
     },
-    
+
     _callSearchResultDataObjectIdsGet: function (model, reqId, from, to) {
         let pathKeys = this._pathKeys;
 
@@ -496,7 +512,7 @@ RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
 
         return model.get(functionPath);
     },
-    
+
     _callGetRelationships: function (model, paths, request, basePath, ctxKeys, valCtxKeys, relTypes) {
         let reqData = request.requestData;
         let utils = SharedUtils.DataObjectFalcorUtil;
@@ -548,7 +564,7 @@ RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
 
         return {};
     },
-    
+
     _formatInitiateSearchResponse: function (rawResponsePkg) {
         let pathKeys = this._pathKeys;
         let searchResultItemsKey = pathKeys.searchResultItems;
@@ -584,7 +600,7 @@ RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
 
         return output;
     },
-    
+
     _formatData: async function (dataIndex, dataObjects, includeTypeExternalName) {
         let utils = SharedUtils.DataObjectFalcorUtil;
         let formattedDataObjects = [];
@@ -607,7 +623,7 @@ RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
 
         return formattedDataObjects;
     },
-    
+
     _appendObjectKeysToRequest: function (responsePkg, loadAllFlags, ctxKeys, reqData, request, basePath) { // eslint-disable-line no-unused-vars
         let allAttrNames = [];
         let allRelTypes = [];
@@ -672,7 +688,7 @@ RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
 
         return reqData;
     },
-    
+
     _getDataObjectBasePath: function (reqData, basePath) {
         let dataObjectIds = [];
 
@@ -720,11 +736,17 @@ RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
 
         return basePath;
     },
-    
+
     _getCtxKeys: function (reqData) {
         let clonedContexts = [];
 
         let utils = SharedUtils.DataObjectFalcorUtil;
+
+        let coalesceOptions = undefined;
+        if (reqData.params && reqData.params.options && reqData.params.options.coalesceOptions &&
+            reqData.params.options.coalesceOptions.enhancerAttributes && reqData.params.options.coalesceOptions.enhancerAttributes.length > 0) {
+            coalesceOptions = reqData.params.options.coalesceOptions;
+        }
 
         if (reqData.params && reqData.params.query && reqData.params.query.contexts && reqData.params.query.contexts.length > 0) {
             for (let ctxIndex = 0; ctxIndex < reqData.params.query.contexts.length; ctxIndex++) {
@@ -732,15 +754,37 @@ RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
                 if (_.isEmpty(context)) {
                     continue;
                 }
-                clonedContexts.push(utils.cloneObject(context));
+
+                let clonedContext = utils.cloneObject(context);
+
+                if (coalesceOptions) {
+                    clonedContext["coalesceOptions"] = utils.cloneObject(coalesceOptions);
+                }
+
+                clonedContexts.push(clonedContext);
             }
         }
 
-        clonedContexts.push(utils.getSelfCtx());
+        let selfContext = utils.getSelfCtx();
+
+        if (coalesceOptions) {
+            let selfCoalescedOptions = utils.cloneObject(coalesceOptions);
+            if (selfCoalescedOptions.enhancerAttributes) {
+                for (let enhancerAttribute of selfCoalescedOptions.enhancerAttributes) {
+                    if (enhancerAttribute && enhancerAttribute.contexts) {
+                        delete enhancerAttribute.contexts;
+                    }
+                }
+            }
+
+            selfContext["coalesceOptions"] = selfCoalescedOptions;
+        }
+
+        clonedContexts.push(selfContext);
 
         return utils.createCtxKeys(clonedContexts);
     },
-    
+
     _getAttributesPath: function (reqData, basePath, ctxKeys, valCtxKeys) {
 
         let utils = SharedUtils.DataObjectFalcorUtil;
@@ -766,7 +810,7 @@ RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
 
         return attributesPath;
     },
-    
+
     _getJsonDataPath: function (reqData, basePath, ctxKeys) {
         if (reqData.params.fields.jsonData) {
             return SharedUtils.DataObjectFalcorUtil.mergePathSets(basePath, ["data", "contexts", ctxKeys], ["jsonData"]);
@@ -774,11 +818,11 @@ RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
             return undefined;
         }
     },
-    
+
     _getAttributeDetailPath: function (valCtxKeys) {
         return ["valContexts", valCtxKeys, ["values", "group", "properties"]];
     },
-    
+
     _getRelationshipDetailPaths: function (relIdsResponsePkg, self, reqData, basePath, ctxKeys, valCtxKeys, relTypes, relAttrsPath, relToObjectPath_Fields, relToObjectPath_Attrs, request) {
         let relDetailGetPaths = [];
 
@@ -805,17 +849,17 @@ RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
                             continue;
                         }
                         /**
-                        * As all the relationships from self will come coalesced into the 
-                        * selected context, no need to concat all self relationships with
-                        * context relationships. We can consider only relationships came 
-                        * under selected context be it coalesced data or normal data.
-                        * TODO: If there are multiple contexts? Never came across this scenario.
-                        * Need to figure out a way in case we come across this.
-                        * Context-v3: Need to verify bug 320078 post this change.
-                        * For the 320078, in governance model we dont have taxonomy/classification
-                        * dimensions anymore. So it shouldn't be affected.
-                        **/
-                        if(!(ctxKeys.length > 1 && ctxKey.indexOf("selfContext") > -1)) {
+                         * As all the relationships from self will come coalesced into the 
+                         * selected context, no need to concat all self relationships with
+                         * context relationships. We can consider only relationships came 
+                         * under selected context be it coalesced data or normal data.
+                         * TODO: If there are multiple contexts? Never came across this scenario.
+                         * Need to figure out a way in case we come across this.
+                         * Context-v3: Need to verify bug 320078 post this change.
+                         * For the 320078, in governance model we dont have taxonomy/classification
+                         * dimensions anymore. So it shouldn't be affected.
+                         **/
+                        if (!(ctxKeys.length > 1 && ctxKey.indexOf("selfContext") > -1)) {
                             totalRelIds = totalRelIds.concat(relIds);
                         }
                         let from = reqData.params.options && reqData.params.options.from !== undefined ? reqData.params.options.from : 0;
@@ -870,7 +914,7 @@ RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
 
         return relDetailGetPaths;
     },
-    
+
     _getDataObjectTypes: function (reqData) {
         let dataObjectTypes = [];
         if (reqData && reqData.params && reqData.params.query &&
@@ -885,7 +929,7 @@ RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
 
         return dataObjectTypes;
     },
-    
+
     _getDataObjects: function (rawResponsePkg, dataIndex, request) {
         let pathKeys = this._pathKeys;
         let dataObjects = {};
@@ -906,7 +950,7 @@ RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
 
         return dataObjects;
     },
-    
+
     _makeFalcorGetCall: function (model, paths, noCache) {
         if (noCache && paths) {
             for (let pathIndex = 0; pathIndex < paths.length; pathIndex++) {
@@ -917,11 +961,11 @@ RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
 
         return model.get.apply(model, paths);
     },
-    
+
     _getPathKeys: function () {
         return SharedUtils.DataObjectFalcorUtil.getPathKeys();
     },
-    
+
     log: function () {
         let a = arguments;
 

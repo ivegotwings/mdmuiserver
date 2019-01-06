@@ -51,7 +51,7 @@ AttributeHelper.getCurrentValue = function (values, valueContext, model) {
         return this.getCurrentValues(values, valueContext, model);
     }
 
-    if(model.dataType === "nested" && !_.isEmpty(values)) {
+    if (model.dataType === "nested" && !_.isEmpty(values)) {
         return values.filter(item => item.locale === valueContext.locale);
     }
 
@@ -61,7 +61,11 @@ AttributeHelper.getCurrentValue = function (values, valueContext, model) {
         for (let i = 0; i < values.length; i++) {
             let currentValue = values[i];
             if (!currentValue.action && currentValue.action !== "delete" && currentValue.locale === currentLocale) {
+                if (model.dataType.toLowerCase() == "integer" || model.dataType.toLowerCase() == "decimal") {
+                    currentValue.value = currentValue.value.toString();
+                }
                 value = DataHelper.cloneObject(currentValue);
+
                 break;
             }
         }
@@ -173,8 +177,8 @@ AttributeHelper.getAtributeValueForGrid = function (attribute, model) {
             }
         } else {
             val = "";
-            if(attribute.values && attribute.values.length) {
-                if(attribute.values[0].action == "delete") {
+            if (attribute.values && attribute.values.length) {
+                if (attribute.values[0].action == "delete") {
                     val = "delete"
                 } else {
                     val = attribute.values[0].value
@@ -200,7 +204,7 @@ AttributeHelper.getPropertyTypeByName = function (propertyName) {
                 break;
             case "order":
                 dataType = 'integer';
-            break;
+                break;
 
             default:
                 break;
@@ -210,12 +214,12 @@ AttributeHelper.getPropertyTypeByName = function (propertyName) {
 };
 
 AttributeHelper.getLocaleCoalescePath = function (attribute, type) {
-    if(attribute) {
+    if (attribute) {
         let clonedAttribute = DataHelper.cloneObject(attribute);
 
-        if(clonedAttribute.values && clonedAttribute.values.length > 0) {
+        if (clonedAttribute.values && clonedAttribute.values.length > 0) {
             return AttributeHelper.getLocaleCoalescePathFromValues(clonedAttribute.values, type);
-        } else if(clonedAttribute.group && clonedAttribute.group.length > 0) {
+        } else if (clonedAttribute.group && clonedAttribute.group.length > 0) {
             return AttributeHelper.getLocaleCoalescePathFromValues(clonedAttribute.group, type);
         }
     }
@@ -223,9 +227,9 @@ AttributeHelper.getLocaleCoalescePath = function (attribute, type) {
     return undefined;
 };
 
-AttributeHelper.getLocaleCoalescePathFromValues = function(values, type) {
+AttributeHelper.getLocaleCoalescePathFromValues = function (values, type) {
     let firstValue = undefined;
-    if(values.length > 1) {
+    if (values.length > 1) {
         values.sort(function (a, b) {
             let aCoalescePaths = a.properties ? DataHelper.getFallbackPathsFromCoalescePath(a.properties.localeCoalescePath) : [];
             let bCoalescePaths = b.properties ? DataHelper.getFallbackPathsFromCoalescePath(b.properties.localeCoalescePath) : [];
@@ -239,7 +243,7 @@ AttributeHelper.getLocaleCoalescePathFromValues = function(values, type) {
     }
 
     if (firstValue && firstValue.properties && firstValue.properties.localeCoalescePath) {
-        if(type === "localeCoalescePathExternalName") {
+        if (type === "localeCoalescePathExternalName") {
             return firstValue.properties.localeCoalescePathExternalName;
         } else {
             return firstValue.properties.localeCoalescePath;

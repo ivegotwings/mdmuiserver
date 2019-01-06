@@ -309,3 +309,12 @@ EntityHelper.getContextsFromEntities = function (entities, noOfRowsToRead) {
     }
     return contexts;
 };
+
+EntityHelper.isAllEntitiesOfSameType = function (entities, type) {
+    if (_.isEmpty(entities) || !type) {
+        return false;
+    }
+    return _.every(entities, function (entity) {
+        return entity.type == type;
+    })
+};

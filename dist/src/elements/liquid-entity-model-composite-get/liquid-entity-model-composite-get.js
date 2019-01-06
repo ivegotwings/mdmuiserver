@@ -8,101 +8,109 @@
   then delete this comment!
 */
 import '@polymer/polymer/polymer-legacy.js';
-
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '../liquid-base-behavior/liquid-base-behavior.js';
 import '../liquid-entity-model-get/liquid-entity-model-get.js';
-import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
-import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
+import { Polymer as Polymer$0 } from '@polymer/polymer/lib/legacy/polymer-fn.js';
 
-class LiquidEntityModelCompositeGet
-    extends mixinBehaviors([
-        RUFBehaviors.LiquidBaseBehavior
-    ], PolymerElement) {
+Polymer$0({
+  _template: html`
+        <liquid-entity-model-get id="liquidEntityModelGet" \$verbose="[[verbose]]" operation="getbyids" on-response="_onResponse" on-error="_onError"></liquid-entity-model-get>
+`,
 
-    static get template() {
-        return html`
-            <liquid-entity-model-get id="liquidEntityModelGet" \$verbose="[[verbose]]" operation="getbyids" on-response="_onResponse" on-error="_onError"></liquid-entity-model-get>
-        `;
-    }
-    static get is() { return 'liquid-entity-model-composite-get' }
+  is: "liquid-entity-model-composite-get",
+  behaviors: [RUFBehaviors.LiquidBaseBehavior],
 
-    constructor() {
-      super();
-    }
+  /**
+* Content is not appearing - Content development is under progress.
+*/
+  attached: function () {
+  },
 
-    static get properties() {
-        return {
-            dataIndex: {
-                type: String,
-                value: "entityModel"
-            },
-            liquidEntityModelGet: {
-                type: Object,
-                value: function () {
-                    if(this.shadowRoot){
-                        return this.shadowRoot.querySelector("#liquidEntityModelGet");
-                    }else{
-                        return null;
-                    }
-                }
-            },
-            requestData:{
-                type:Object
-            }
-        }
+  /**
+* Content is not appearing - Content development is under progress.
+*/
+  ready: function () {
+  },
+
+  properties: {
+      /**
+* <b><i>Content development is under progress... </b></i>
+*/
+      dataIndex: {
+          type: String,
+          value: "entityModel"
+      },
+      /**
+* <b><i>Content development is under progress... </b></i>
+*/
+      liquidEntityModelGet: {
+          type: Object,
+          value: function () {
+              if(this.shadowRoot){
+                  return this.shadowRoot.querySelector("#liquidEntityModelGet");
+              }else{
+                  return null;
+              }
+          }
+      },
+      requestData:{
+          type:Object
+      }
+  },
+
+  /**
+* <b><i>Content development is under progress... </b></i>
+*/
+  generateRequest: function () {
+      if (!this._validate(this.requestData)) {
+          return;
       }
 
-      generateRequest() {
-        if (!this._validate(this.requestData)) {
-            return;
-        }
+      let internalRequestData = this.requestData;
 
-        let internalRequestData = this.requestData;
+      if (internalRequestData.params && internalRequestData.params.query) {
+          let query = internalRequestData.params.query;
 
-        if (internalRequestData.params && internalRequestData.params.query) {
-            let query = internalRequestData.params.query;
+          if (!query.contexts) {
+              query.contexts = [];
+          }
 
-            if (!query.contexts) {
-                query.contexts = [];
-            }
+          // if (query.locale) {
+          //     var localeCtx = { "locale": query.locale };
+          //     this.localeCtx = localeCtx;
+          //     query.contexts.push(localeCtx);
+          // }
+          if (!query.filters) {
+              query.filters = {};
+          }
+          query.filters.typesCriterion = ["entityCompositeModel"];
+      }
 
-            // if (query.locale) {
-            //     var localeCtx = { "locale": query.locale };
-            //     this.localeCtx = localeCtx;
-            //     query.contexts.push(localeCtx);
-            // }
-            if (!query.filters) {
-                query.filters = {};
-            }
-            query.filters.typesCriterion = ["entityCompositeModel"];
-        }
+      if(!this.shadowRoot) {
+          return;
+      }
 
-        if(!this.shadowRoot) {
-            return;
-        }
+      const liqModelGet = this.shadowRoot.querySelector("#liquidEntityModelGet");
 
-        const liqModelGet = this.shadowRoot.querySelector("#liquidEntityModelGet");
+      liqModelGet.requestData = internalRequestData;
+      liqModelGet.bubbles = false;
+      liqModelGet.generateRequest();
+  },
 
-        liqModelGet.requestData = internalRequestData;
-        liqModelGet.bubbles = false;
-        liqModelGet.generateRequest();
-    }
+  _validate: function (reqData) { //eslint-disable-line no-unused-vars
+      return true;
+  },
 
-    _validate(reqData) { //eslint-disable-line no-unused-vars
-        return true;
-    }
+  _onResponse: function (e) {
+      let eventDetail = e.detail;
+      this.dispatchEvent(new CustomEvent("entity-model-composite-get-response", { detail:eventDetail, bubbles: this.bubbles, composed:true }));
+      this.dispatchEvent(new CustomEvent("liquid-entity-model-composite-get-response", { detail:eventDetail, bubbles: this.bubbles, composed:true }));
+  },
 
-    _onResponse(e) {
-        let eventDetail = e.detail;
-        this.dispatchEvent(new CustomEvent("entity-model-composite-get-response", { detail:eventDetail, bubbles: this.bubbles, composed:true }));
-        this.dispatchEvent(new CustomEvent("liquid-entity-model-composite-get-response", { detail:eventDetail, bubbles: this.bubbles, composed:true }));
-    }
-
-  _onError(e) {
+  _onError: function (e) {
       let eventDetail = e.detail;
       this.dispatchEvent(new CustomEvent("error", { detail:eventDetail, bubbles: this.bubbles, composed:true }));
       this.dispatchEvent(new CustomEvent("liquid-error", { detail:eventDetail, bubbles: this.bubbles, composed:true }));
-    }
-}
-
-customElements.define(LiquidEntityModelCompositeGet.is, LiquidEntityModelCompositeGet);
+  }
+});

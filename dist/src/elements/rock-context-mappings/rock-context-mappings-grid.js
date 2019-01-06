@@ -36,7 +36,6 @@ import '../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
 import '../bedrock-style-manager/styles/bedrock-style-icons.js';
 import '../bedrock-style-manager/styles/bedrock-style-grid-layout.js';
-import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 import '../bedrock-style-manager/styles/bedrock-style-floating.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockContextMappingsGrid extends 
@@ -151,8 +150,8 @@ class RockContextMappingsGrid extends
                 <div id="gridManage">
                     <span class="gridCountMsg">[[_getGridRecordsCountMessage(_gridData)]]</span>
                     <span class="pull-right">
-                        <pebble-icon class="pebble-icon-size-16 tooltip-bottom m-r-10" id="add" icon="pebble-icon:action-add" data-tooltip="Add" raised="" on-tap="_onAddTap"></pebble-icon>
-                        <pebble-icon class="pebble-icon-size-16 tooltip-bottom" id="delete" icon="pebble-icon:action-delete" data-tooltip="Delete" raised="" on-tap="_onDeleteTap"></pebble-icon>
+                        <pebble-icon class="pebble-icon-size-16 m-r-10" id="add" icon="pebble-icon:action-add" title="Add" raised="" on-tap="_onAddTap"></pebble-icon>
+                        <pebble-icon class="pebble-icon-size-16" id="delete" icon="pebble-icon:action-delete" title="Delete" raised="" on-tap="_onDeleteTap"></pebble-icon>
                     </span>
                 </div>
             </div>
@@ -161,7 +160,7 @@ class RockContextMappingsGrid extends
                     <pebble-data-table id="mapping-grid" items="{{_gridData}}" multi-selection="">
                         <data-table-column slot="column-slot" name="Context">
                             <template>
-                                <div id="inputContextDiv" slot="cell-slot-content" index="[[index]]" class="tooltip-bottom" data-tooltip\$="[[item.context]]">
+                                <div id="inputContextDiv" slot="cell-slot-content" index="[[index]]" title\$="[[item.context]]">
                                     <pebble-textbox readonly="" class="column-text" id="context_[[index]]" row-id="[[index]]" value="{{item.context}}"></pebble-textbox>
                                 </div>
                                 <div id="iconContextDiv" slot="cell-slot-content">
@@ -171,14 +170,14 @@ class RockContextMappingsGrid extends
                         </data-table-column>
                         <data-table-column slot="column-slot" name="Excel Column">
                             <template>
-                                <div id="inputExcelDiv" slot="cell-slot-content" index="[[index]]" class="tooltip-bottom" data-tooltip\$="[[item.excelColumn]]">
+                                <div id="inputExcelDiv" slot="cell-slot-content" index="[[index]]" title\$="[[item.excelColumn]]">
                                     <pebble-textbox readonly="" class="column-text" id="excelColumn_[[index]]" row-id="[[index]]" value="[[item.excelColumn]]"></pebble-textbox>
                                 </div>
                                 <div id="iconExcelDiv" slot="cell-slot-content">
                                     <pebble-icon class="dropdown-icon pebble-icon-size-10" id="dropdownExcelIcon__[[index]]" row-id="[[index]]" icon="pebble-icon:navigation-action-down" on-tap="_showExcelLOV"></pebble-icon>
                                 </div>
                                 <div id="buttonDiv" slot="cell-slot-content">
-                                    <pebble-icon class="action-button-focus pebble-icon-size-16 tooltip-right m-l-20" data-tooltip="Build Path" icon="pebble-icon:build-path" id="btnBuildPath_[[index]]" row-id="[[index]]" raised="" on-tap="_onTapBuildPath" hidden\$="[[!item.isPath]]"></pebble-icon>
+                                    <pebble-icon class="action-button-focus pebble-icon-size-16 m-l-20" title="Build Path" icon="pebble-icon:build-path" id="btnBuildPath_[[index]]" row-id="[[index]]" raised="" on-tap="_onTapBuildPath" hidden\$="[[!item.isPath]]"></pebble-icon>
                                 </div>
                             </template>
                         </data-table-column>
@@ -381,7 +380,7 @@ class RockContextMappingsGrid extends
       let types = ["contextmapping"];
       let req = DataRequestHelper.createMappingsGetRequest(this.contextData, this.copContext, selectedContexts, types, this.selectedOptions);
       req.params.rsconnect.headers.entities = this.mappingData.headerFields;
-      req.params.query.contexts[0].ownershipdata = this.selectedOptions.ownershipData;
+      req.params.query.contexts[0].ownershipdata = Array.isArray(this.selectedOptions.ownershipData) ? this.selectedOptions.ownershipData[0] : this.selectedOptions.ownershipData;;
       this.set("_getMappingsRequest", req);
       let getMappings = this.shadowRoot.querySelector("#getMappings");
       if (getMappings) {
@@ -559,7 +558,7 @@ class RockContextMappingsGrid extends
                       }
                       let rowParentDiv = columnTxtbox.parentElement;
                       if(rowParentDiv){
-                          rowParentDiv.setAttribute("data-tooltip", detail.item.title);
+                          rowParentDiv.setAttribute("title", detail.item.title);
                       }
                       columnTxtbox.value = detail.item.title;
                   }
@@ -612,7 +611,7 @@ class RockContextMappingsGrid extends
           let saveRequest = DataRequestHelper.createMappingsSaveRequest(this.contextData, this.copContext, selectedContexts, "contextmapping", this.selectedOptions);
           if (!_.isEmpty(saveRequest)) {
               saveRequest.entity.data.contexts[0].attributes = mappings;
-              saveRequest.entity.data.contexts[0].context.ownershipdata = this.selectedOptions.ownershipData;
+              saveRequest.entity.data.contexts[0].context.ownershipdata = Array.isArray(this.selectedOptions.ownershipData) ? this.selectedOptions.ownershipData[0] : this.selectedOptions.ownershipData;
               saveRequest.entity.data.contexts[0].context.format = this.fileFormat;
               this.set("_saveMappingsRequest", saveRequest);
               let saveMappings = this.shadowRoot.querySelector("#saveMappings");

@@ -12,6 +12,8 @@ import '../rock-layout/rock-header/rock-header.js';
 import '../rock-entity-search-discovery/rock-entity-search-discovery.js';
 import '../rock-component-config-behavior/rock-component-config-behavior.js';
 import { afterNextRender } from '@polymer/polymer/lib/utils/render-status.js';
+import { Debouncer } from '@polymer/polymer/lib/utils/debounce.js';
+import { timeOut } from '@polymer/polymer/lib/utils/async.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class AppEntityDiscovery
     extends mixinBehaviors([
@@ -123,11 +125,13 @@ class AppEntityDiscovery
           }
       }
   }
+
   static get observers() {
       return [
           '_onContextDataChange(contextData,domain)'
       ]
   }
+
   ready() {
       super.ready();
       let domain = this.getProp("domain");
@@ -197,6 +201,7 @@ class AppEntityDiscovery
           this.titlebarHeader = componentConfig.config.title;
       }
   }
+
   constructor() {
       super();
       let userContext = {
@@ -217,9 +222,11 @@ class AppEntityDiscovery
           import("../app-entity-manage/app-entity-manage.js");
       });
   }
+
   disconnectedCallback() {
       super.disconnectedCallback();
   }
+
   connectedCallback() {
       super.connectedCallback();
       this._searchTimeStamp = new Date().toLocaleString();
@@ -251,9 +258,7 @@ class AppEntityDiscovery
 
       return preSelectedContexts;
   }
-  /**
-   * Function to display the left nav info
-   */
+
   getAppCurrentStatus(customArgs) {
       if (customArgs && customArgs.queryParams) {
           this.queryParams = customArgs.queryParams;
@@ -262,13 +267,11 @@ class AppEntityDiscovery
           title: "Search & Refine",
           subTitle: "Last Opened",
           subTitleValue: this._searchTimeStamp ? this._searchTimeStamp : new Date().toLocaleString(),
-          queryParams: this.queryParams
+          queryParams: this.queryParams,
+          appId: this.appId
       };
   }
 
-  /**
-   *  After the page has loaded, update the title to display on the left nav
-   */
   updateAppCurrentStatus(e, customArgs) {
       let appStatus = this.getAppCurrentStatus();
       appStatus.title = customArgs.title;
@@ -282,6 +285,7 @@ class AppEntityDiscovery
           composed: true
       }));
   }
+
   _onContextDataChanged() {
       /***TODO: Discuss why we had to reset the whole context data here?
           In contextData change obesrver, we have only config get request which is solely
@@ -290,17 +294,21 @@ class AppEntityDiscovery
       // var contextData = this.contextData;
       // this.contextData = {}; // To notify
       // this.contextData = contextData;
-
-      this._searchDiscoveryEl = this._searchDiscoveryEl || this.shadowRoot.querySelector("#entitySearchDiscoveryGrid");
-
-      if (this.isElementLoaded && this._searchDiscoveryEl) {
-          this._searchDiscoveryEl.reload();
-      }
-
       this.isElementLoaded = true;
+      this._searchDiscoveryEl = this._searchDiscoveryEl || this.shadowRoot.querySelector("#entitySearchDiscoveryGrid");
+      if(this._searchDiscoveryEl){
+          this._searchDiscoveryEl.reload();
+      }else{
+          Debouncer.debounce(this._debouncer, timeOut.after(200), () => {
+              if (this.isElementLoaded && this._searchDiscoveryEl) {
+                  this._searchDiscoveryEl.reload();
+              }
+          });
+      }
   }
+
   _onContextsChanged(e) {
-      let newDimensions = e.detail.dimensions;
+      let newDimensions = DataHelper.cloneObject(e.detail.dimensions);
       newDimensions["app"] = ["app-entity-discovery"];
       if(e.detail && e.detail.selectedDimensionsDetail) {
           let selectedDimensionsDetail = e.detail.selectedDimensionsDetail;
@@ -316,10 +324,6 @@ class AppEntityDiscovery
       this._onContextDataChanged();
   }
 
-  /**
-   * Function to set the navigationContext of discovery page to entity-manage
-   *  - Retaining the user selected context-selector values from the entity-discovery in the entity-manage page
-   */
   _onEntitySearchDiscoveryLinkClicked(e){
       if(e && e.detail && e.detail.link && e.detail.link.indexOf("entity-manage") > -1 && e.detail.id && !_.isEmpty(this.navigationData)){
           this.setNavigationData("rock-context-selector", this.navigationData, null ,"entity-manage",e.detail.id);

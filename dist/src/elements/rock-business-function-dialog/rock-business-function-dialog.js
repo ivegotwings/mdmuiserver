@@ -19,6 +19,7 @@ import '../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../bedrock-style-manager/styles/bedrock-style-grid-layout.js';
 import '../bedrock-style-manager/styles/bedrock-style-scroll-bar.js';
 import '../rock-wizard/rock-wizard.js';
+import '../rock-wizard/rock-wizard-manage.js';
 import '../rock-layout/rock-layout.js';
 import '../rock-component-config-behavior/rock-component-config-behavior.js';
 import '../bedrock-pubsub/bedrock-pubsub.js';
@@ -48,21 +49,32 @@ class RockBusinessFunctionDialog extends mixinBehaviors([RUFBehaviors.UIBehavior
             }
             .businessFunctionDialog-content{
                 height:85vh;
-                overflow-y: auto;
-                overflow-x:hidden;
+                --overflow-dialog-content:{
+                    overflow-y: auto;
+                    overflow-x:hidden;
+                }
+                --stepper-wrapper:{
+                    margin: 0 -20px;
+                }
             }
         </style>
         <div id="stepProviders"></div>
-        <pebble-dialog id="businessFunctionDialog" modal="" horizontal-align="auto" vertical-align="auto" show-close-icon="" no-cancel-on-outside-click="" no-cancel-on-esc-key="" dialog-title="[[title]]">
+        <pebble-dialog id="businessFunctionDialog" is-part-of-business-function="" modal="" horizontal-align="auto" vertical-align="auto" show-close-icon="" no-cancel-on-outside-click="" no-cancel-on-esc-key="" dialog-title="[[title]]">
             <div class="businessFunctionDialog-content">
                 <div class="full-height">
                     <template is="dom-if" if="{{isConfigLoaded(config)}}" restamp="">
-                        <rock-wizard config="{{wizardConfig}}" readonly="[[readonly]]" shared-data="{{sharedData}}" on-first-step-cancelled="_onFirstStepCancelled" on-next-step="_onNextStep" on-cancel-event="_onCancel" hide-stepper="[[hideStepper]]" no-steps="[[noSteps]]" no-data-message="[[noDataMessage]]"></rock-wizard>
+                        <template is="dom-if" if="[[!isBFV2Flow]]">
+                            <rock-wizard id="rockWizard" config="{{wizardConfig}}" readonly="[[readonly]]" shared-data="{{sharedData}}" on-first-step-cancelled="_onFirstStepCancelled" on-next-step="_onNextStep" on-cancel-event="_onCancel" hide-stepper="[[hideStepper]]" no-steps="[[noSteps]]" no-data-message="[[noDataMessage]]"></rock-wizard>
+                        </template>
+                        <template is="dom-if" if="[[isBFV2Flow]]">
+                                <rock-wizard-manage id="rockWizardManage" config="{{wizardConfig}}" readonly="[[readonly]]" shared-data="{{sharedData}}" on-first-step-cancelled="_onFirstStepCancelled" on-next-step="_onNextStep" on-cancel-event="_onCancel" hide-stepper="[[hideStepper]]" no-steps="[[noSteps]]" no-data-message="[[noDataMessage]]"></rock-wizard-manage>
+                            </template>
                     </template>
                 </div>
             </div>
         </pebble-dialog>
         <bedrock-pubsub on-bedrock-event-business-dialog-opened="_onOpenBusinessFunctionDialog" name="bedrock-event-business-dialog-opened"></bedrock-pubsub>
+        <bedrock-pubsub event-name="on-buttonclose-clicked" handler="_closeDialog"></bedrock-pubsub>
 `;
   }
 
@@ -105,6 +117,10 @@ class RockBusinessFunctionDialog extends mixinBehaviors([RUFBehaviors.UIBehavior
 
           hideStepper: {
               type: Boolean
+          },
+          isBFV2Flow: {
+              type: Boolean,
+              value: false
           }
       };
   }
@@ -144,9 +160,8 @@ class RockBusinessFunctionDialog extends mixinBehaviors([RUFBehaviors.UIBehavior
       if (componentConfig && componentConfig.config) {
           let config = componentConfig.config;
           this.set("noSteps", false);
-          if (config.hideStepper) {
-              this.hideStepper = config.hideStepper;
-          }
+          this.isBFV2Flow = !!(config && config.isBFV2Flow);
+          this.hideStepper = !!(config.hideStepper);
 
           if (this.subName) {
               if (config[this.subName]) {
@@ -181,8 +196,15 @@ class RockBusinessFunctionDialog extends mixinBehaviors([RUFBehaviors.UIBehavior
   }
 
   _closeDialog() {
-      this.config = {};
-      this.dialog.close();
+      if(this.getIsDirty()) {
+          if (window.confirm("There are unsaved changes. Do you want to discard the changes?")) {
+              this.config = {};
+              this.dialog.close(); 
+          }
+      } else {
+          this.config = {};
+          this.dialog.close();
+      }
   }
 
   _onFirstStepCancelled() {
@@ -223,6 +245,13 @@ class RockBusinessFunctionDialog extends mixinBehaviors([RUFBehaviors.UIBehavior
       if (dialog && dialog.getControlIsDirty) {
           return dialog.getControlIsDirty();
       }
+  }
+  getIsDirty() {
+      let wizard = this.isBFV2Flow? this.shadowRoot.querySelector("#rockWizardManage") : this.shadowRoot.querySelector("#rockWizard");
+      if (wizard && wizard.getIsDirty) {
+          return wizard.getIsDirty();
+      }
+      return false;
   }
 
   _setLabelAsTitle() {

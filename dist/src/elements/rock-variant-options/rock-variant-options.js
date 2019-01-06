@@ -14,7 +14,6 @@ import '../bedrock-style-manager/styles/bedrock-style-grid-layout.js';
 import '../liquid-config-get/liquid-config-get.js';
 import '../liquid-entity-data-get/liquid-entity-data-get.js';
 import '../liquid-rest/liquid-rest.js';
-import '../liquid-entity-model-composite-get/liquid-entity-model-composite-get.js';
 import '../rock-component-config-behavior/rock-component-config-behavior.js';
 import '../rock-grid/rock-grid.js';
 import '../pebble-button/pebble-button.js';
@@ -87,7 +86,6 @@ class RockVariantOptions
 
         <liquid-rest id="variantOptions" url="/data/pass-through/entityappservice/generatevariants" method="POST" on-liquid-response="_onVariantOptionsReceivedSuccess" on-liquid-error="_onVariantOptionsReceivedFailure"></liquid-rest>        
         <liquid-entity-data-save id="syncEntityCreate" operation="[[_entityDataOperation]]" on-response="_onSyncEntityCreateSuccess" on-error="_onSyncEntityCreateError"></liquid-entity-data-save>
-        <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{attributeModelRequest}}" on-entity-model-composite-get-response="_onCompositeModelGetResponse"></liquid-entity-model-composite-get>
         <bedrock-pubsub event-name="grid-data-loaded" handler="_onVariantGridLoaded" target-id="variantOptionsGrid"></bedrock-pubsub>
 `;
   }

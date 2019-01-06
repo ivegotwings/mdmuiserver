@@ -194,7 +194,6 @@ import '../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../bedrock-style-manager/styles/bedrock-style-buttons.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
 import '../bedrock-style-manager/styles/bedrock-style-grid-layout.js';
-import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 import '../bedrock-toast-behavior/bedrock-toast-behavior.js';
 import EntityTypeManager from '../bedrock-managers/entity-type-manager.js'
 import '../liquid-entity-data-get/liquid-entity-data-get.js';
@@ -221,7 +220,9 @@ class RockRelationshipGrid
     RUFBehaviors.AppBehavior,
     RUFBehaviors.ComponentContextBehavior,
     RUFBehaviors.ToastBehavior,
-    RUFBehaviors.LoggerBehavior
+    RUFBehaviors.LoggerBehavior,
+    RUFBehaviors.NavigationBehavior,
+    RUFBehaviors.ComponentBusinessFunctionBehavior
   ], OptionalMutableData(PolymerElement)) {
   static get template() {
     return html`
@@ -247,14 +248,21 @@ class RockRelationshipGrid
         @apply --accordion-grid-container;
       }
 
+      .buttonContainer-top-right {
+        text-align: right;
+        padding-top: 10px;
+        margin-bottom: 0px;
+        margin-top: 0px;
+      }
+
       .relation-name-container {
         display: flex;
         flex-direction: row-reverse;
-        padding: 10px;
+        padding: 10px 0px;
       }
 
       pebble-horizontal-divider {
-        --pebble-horizontal-divider-color: var(--tooltip-bg-color, rgba(25, 32, 39, 1));
+        --pebble-horizontal-divider-color:rgba(25, 32, 39, 1);
       }
 
       pebble-lov {
@@ -347,6 +355,13 @@ class RockRelationshipGrid
           left: 0px;
           height: 100%;
       }
+      .error-list{
+        overflow: auto;
+        max-height: 200px;
+      }
+      .buttons{
+          text-align: center;
+      }
     </style>
 
     <template is="dom-if" if="[[!_isMessageAvailable]]">
@@ -369,16 +384,27 @@ class RockRelationshipGrid
                   <div class="base-grid-structure">
                     <div class="relation-name-container accordion-grid-header-row-item base-grid-structure-child-1">
                       <template is="dom-if" if="[[relationshipGridConfig.gridConfig.hasWritePermission]]">
+                         
+
+                           <template is="dom-if" if="[[showActionButtons]]">
+                                <pebble-button class="action-button-focus dropdownText btn btn-success m-l-5" id="next" button-text="Save" raised="" on-tap="_save"></pebble-button>
+                            </template>
+              
                         <template is="dom-if" if="[[relationshipGridConfig.copyActionConfig]]">
-                          <pebble-button class="btn btn-primary tooltip-bottom" id="copy_btn" data-tooltip\$="[[_clipboardTooltip]]" button-text="Copy ID(s)" on-tap="_onTapCopyAction" on-mouseout="_onMouseoutCopyAction"></pebble-button>
+                          <pebble-button class="btn btn-primary m-l-5" id="copy_btn" title\$="[[_clipboardTooltip]]" button-text="Copy ID(s)" on-tap="_onTapCopyAction" on-mouseout="_onMouseoutCopyAction"></pebble-button>
                         </template>
                         <template is="dom-if" if="[[relationshipGridConfig.addRelationConfig]]">
-                          <pebble-button icon="pebble-icon:action-add" disabled="[[readonly]]" id="button_[[relationship]]" relationship="[[relationship]]" class="btn btn-primary m-r-10 auto-width addbutton" button-text="Add" on-tap="_onAddRelClick"></pebble-button>
+                          <pebble-button icon="pebble-icon:action-add" disabled="[[readonly]]" id="button_[[relationship]]" relationship="[[relationship]]" class="btn btn-primary auto-width addbutton m-l-5" button-text="Add" on-tap="_onAddRelClick"></pebble-button>
                         </template>
                         <template is="dom-if" if="[[_displayAddNewRelationship(relationshipGridConfig)]]">
-                          <pebble-button icon="pebble-icon:action-add" disabled="[[readonly]]" id="addnewbutton_[[relationship]]" relationship="[[relationship]]" class="btn btn-primary m-r-10 auto-width addbutton" button-text="Add New" on-tap="_onAddNewRelClick"></pebble-button>
-                          <bedrock-pubsub id="entityCreatePubsub" event-name="entity-created" handler="_onEntityCreated"></bedrock-pubsub>
+                          <pebble-button icon="pebble-icon:action-add" disabled="[[readonly]]" id="addnewbutton_[[relationship]]" relationship="[[relationship]]" class="btn btn-primary auto-width addbutton m-l-5" button-text="Add New" on-tap="_onAddNewRelClick"></pebble-button>
+                          <bedrock-pubsub event-name="entity-created" handler="_onEntityCreated"></bedrock-pubsub>
                         </template>
+                        <template is="dom-if" if="[[showActionButtons]]">
+                            <template is="dom-if" if="[[!isPartOfBusinessFunction]]">
+                              <pebble-button class="action-button btn btn-secondary m-l-5" id="cancel" button-text="Cancel" raised="" on-tap="_revertAll"></pebble-button>
+                            </template>
+                           </template>
                       </template>
                       <template is="dom-if" if="[[_loadLovEntities]]">
                         <pebble-popover for\$="button_[[relationship]]" vertical-align="auto" horizontal-align="auto" no-overlap="">
@@ -391,15 +417,9 @@ class RockRelationshipGrid
                       <bedrock-pubsub event-name="entity-lov-close-button-tap" handler="_onLovCloseButtonTapped" target-id="lov_[[relationship]]"></bedrock-pubsub>
                     </div>
                     <div class="base-grid-structure-child-2">
-                      <rock-grid id\$="[[relationship]]" class\$="[[getwrapClass]]" readonly="[[readonly]]" context-data="[[contextData]]" r-data-source="{{rDataSource}}" r-data-source-id="datasource_[[relationship]]" config="{{relationshipGridConfig.gridConfig}}" attribute-models="[[_getRelationshipAttributeModels(relationship)]]" grid-data-size="{{size}}" current-record-size="{{currentRecordSize}}" max-configured-count="[[maxConfiguredCount]]" row-drag-drop-enabled="[[_getRowDragDropEnabled()]]" on-row-drop-event-raised="_onRowDropEventRaised" result-record-size="{{resultRecordSize}}" total-count="{{totalCount}}" page-size="[[pageSize]]" apply-context-coalesce="[[relationshipGridConfig.gridConfig.applyContextCoalesce]]">
+                      <rock-grid id\$="[[relationship]]" class\$="[[getwrapClass]]" readonly="[[readonly]]" context-data="[[contextData]]" r-data-source="{{rDataSource}}" r-data-source-id="datasource_[[relationship]]" config="{{relationshipGridConfig.gridConfig}}" attribute-models="[[_getRelationshipAttributeModels(relationship)]]" grid-data-size="{{size}}" current-record-size="{{currentRecordSize}}" max-configured-count="[[maxConfiguredCount]]" row-drag-drop-enabled="[[_getRowDragDropEnabled()]]" on-row-drop-event-raised="_onRowDropEventRaised" result-record-size="{{resultRecordSize}}" total-count="{{totalCount}}" page-size="[[pageSize]]" apply-context-coalesce="[[relationshipGridConfig.gridConfig.applyContextCoalesce]]" inline-edit-validation-enabled="">
                         <rock-entity-relationship-search-result-actions slot="toolbar" id="gridActions" context-data="[[contextData]]" has-write-permissions="[[_hasWritePermissions(relationshipGridConfig.gridConfig)]]" relationship="[[relationship]]"></rock-entity-relationship-search-result-actions>
                       </rock-grid>
-                      <template is="dom-if" if="[[showActionButtons]]">
-                        <div id="buttonContainer" align="center" class="buttonContainer-static">
-                          <pebble-button id="cancel" class="button btn btn-secondary m-r-5" button-text="Cancel" on-tap="_revertAll" elevation="1" raised=""></pebble-button>
-                          <pebble-button id="save" class="focus btn btn-success" disabled="[[readonly]]" button-text="Save" on-tap="_save" elevation="1" raised=""></pebble-button>
-                        </div>
-                      </template>
                     </div>
                   </div>
                   <bedrock-pubsub event-name="grid-selecting-item" handler="_onSelectingGridItem" target-id="[[relationship]]"></bedrock-pubsub>
@@ -410,7 +430,8 @@ class RockRelationshipGrid
                   <bedrock-pubsub event-name="grid-bulk-edit-items" handler="_onBulkEdit" target-id="[[relationship]]"></bedrock-pubsub>
                   <bedrock-pubsub event-name="grid-bulk-relationship-edit-items" handler="_onBulkRelationshipEdit" target-id="[[relationship]]"></bedrock-pubsub>
                   <bedrock-pubsub event-name="grid-custom-toolbar-event" handler="_onCustomToolbarEvent" target-id="[[relationship]]"></bedrock-pubsub>
-
+                  <bedrock-pubsub event-name="grid-link-clicked" handler="_onRelationshipLinkClicked"></bedrock-pubsub>
+        
                 </div>
                 <template is="dom-if" if="[[_quickManageEnabled]]">
 
@@ -418,8 +439,8 @@ class RockRelationshipGrid
                     <div class="divider-wrapper">
                       <pebble-vertical-divider></pebble-vertical-divider>
                     </div>
-                    <rock-entity-quick-manage id="entityQuickManage" readonly="[[readonly]]" data-object-type="relationship" no-header="" context-data="[[contextData]]" current-index="{{_currentIndex}}" current-record-size="[[currentRecordSize]]" selected-entity="[[_selectedEntity]]" relationship="[[relationship]]"></rock-entity-quick-manage>
-                    <bedrock-pubsub event-name="on-attribute-save" handler="_onAttributeSave"></bedrock-pubsub>
+                    <rock-entity-quick-manage id="entityQuickManage" readonly="[[readonly]]" data-object-type="relationship" no-header="" context-data="[[contextData]]" current-index="{{_currentIndex}}" current-record-size="[[currentRecordSize]]" selected-entity="[[_selectedEntity]]" relationship="[[relationship]]" quick-manage-enabled="{{_quickManageEnabled}}"></rock-entity-quick-manage>
+                      <bedrock-pubsub event-name="on-attribute-save-quickmanage" handler="_onAttributeSave"></bedrock-pubsub>
                     <bedrock-pubsub target-id="entityQuickManage" event-name="on-tap-previous" handler="_onClickPrevious"></bedrock-pubsub>
                     <bedrock-pubsub target-id="entityQuickManage" event-name="on-tap-next" handler="_onClickNext"></bedrock-pubsub>
                   </div>
@@ -442,7 +463,7 @@ class RockRelationshipGrid
       </liquid-entity-data-save>
       <pebble-dialog id="errorsDialog" dialog-title="Errors on page" modal="" small="">
         <p>Found below errors in entity details: </p>
-        <ul>
+        <ul class="error-list">
           <template is="dom-repeat" items="[[_errorMessages]]">
             <li>[[item.relationshipRelToId]] with error:[[item.message]]</li>
           </template>
@@ -490,7 +511,7 @@ class RockRelationshipGrid
       readonly: {
         type: Boolean,
         value: false
-      },
+      },      
       /*
        *	Indicates the transformed relationship data for the grid.
        */
@@ -736,23 +757,24 @@ class RockRelationshipGrid
       isCollapsed: {
         type: Boolean,
         notify: true
+      },
+      navigationData: {
+        type: Object,
+        value: function () {
+            return {};
+        }
       }
     }
   }
   static get observers() {
     return [
       '_convertIntoEntityLovList(searchResultResponse)',
-      '_addRelationship(relEntitiesResponse)',
-      '_getGridClass(showActionButtons)'
+      '_addRelationship(relEntitiesResponse)'
     ]
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
-    let entityCreatePubsub = this.shadowRoot.querySelector("#entityCreatePubsub");
-    if(entityCreatePubsub){
-      entityCreatePubsub.removeEvent();
-    }
     this.removeEventListener("editMode", this._onEditMode);
   }
 
@@ -774,8 +796,8 @@ class RockRelationshipGrid
     return this._entityName || "";
   }
 
-  _applyClass() {
-    if (this._quickManageEnabled) {
+  _applyClass(quickManageEnabled) {
+    if (quickManageEnabled) {
       return "grid-wrap-container grid-quick-manage-container col-8-4-grid";
     }
     return "grid-wrap-container";
@@ -785,13 +807,12 @@ class RockRelationshipGrid
     super.ready()
     this._currentSelectedLov = null;
     this._currentLovItems = null;
-    this._getGridClass();
 
     let firstItemContext = ContextHelper.getFirstItemContext(this.contextData);
     if (!_.isEmpty(firstItemContext)) {
       this.excludedIds.push(firstItemContext.id);
     }
-
+        
     let compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
     this.set("_relationshipModelRequest", compositeModelGetRequest);
     let liquidModelGet = this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
@@ -1786,20 +1807,19 @@ class RockRelationshipGrid
       }
     });
     this._savedRelationshipItems[this.relationship] = DataHelper.cloneObject(savedRelationshipItems);
-
+    let data = {"savedRelationships": this._savedRelationshipItems};
+    let eventDetails = [];
     if (this.functionalMode == "dataFunction") {
-      let eventName = "onSave";
-      let eventDetail = {
-        name: eventName,
+      eventDetails.push({
         "action": {
           "name": "business-condition-save-request"
         }
-      };
-      this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+      });
     } else if (currentRelGrid) {
       this._changeRelationshipToReadMode();
       currentRelGrid.changeToReadMode();
     }
+    this.dataFunctionComplete(data, eventDetails);
   }
 
   _onRevertDialogOk(e) {
@@ -1818,7 +1838,11 @@ class RockRelationshipGrid
   }
 
   _revertAll(e) {
-    let currentRel = e.target.__dataHost.parentModel.relationship; //e.model.relationship;
+    let currentRel = this.relationship; //e.model.relationship;
+    let relationshipTitle = currentRel;
+    if(DataHelper.isValidObjectPath(this.relationshipGridConfig, 'relationshipModel.properties.externalName')){
+      relationshipTitle = this.relationshipGridConfig.relationshipModel.properties.externalName;
+    }
     let currentRelGrid = this.shadowRoot.querySelector('rock-grid[id=' + currentRel + ']');
     if (this.functionalMode == "dataFunction") {
       let eventName = "onSkip";
@@ -1828,7 +1852,7 @@ class RockRelationshipGrid
       this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
     } else if (currentRelGrid) {
       if (currentRelGrid.getIsDirty()) {
-        currentRelGrid.openGridMsgDialog(currentRel +
+        currentRelGrid.openGridMsgDialog(relationshipTitle +
           " relationship has unsaved changes. Do you wants to revert those ?");
       } else {
         currentRelGrid.changeToReadMode();
@@ -2565,7 +2589,28 @@ class RockRelationshipGrid
 
         this._savedRelationshipItems[relationship] = savedRelationshipItems;
         relationshipLov.selectedItems = savedRelationshipItems;
+      }        
+    }
+  }
+
+  _onRelationshipLinkClicked(e) {
+    if(e && e.detail && e.detail.link && e.detail.link.indexOf("entity-manage") > -1 && e.detail.id) {
+      if (!_.isEmpty(this.contextData)) {
+          let navContextArr = this.contextData[ContextHelper.CONTEXT_TYPE_NAVIGATION];
+          if(!_.isEmpty(navContextArr) && navContextArr[0]["rock-context-selector"]){
+              this.navigationData = navContextArr[0]["rock-context-selector"];
+          }
       }
+      if(!_.isEmpty(this.navigationData)){
+          this.setNavigationData("rock-context-selector", this.navigationData, null ,"entity-manage",e.detail.id);
+      }
+    }
+  }
+
+  _onAttributeSave(){
+    let grid = this._getRelationshipGrid();
+    if (grid) {
+      grid.resetControlDirty();
     }
   }
 }

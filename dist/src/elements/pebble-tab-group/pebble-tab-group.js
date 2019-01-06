@@ -31,11 +31,11 @@ import '../pebble-icon/pebble-icon.js';
 import { dom } from '@polymer/polymer/lib/legacy/polymer.dom.js';
 import { IronMenuBehaviorImpl } from '@polymer/iron-menu-behavior/iron-menu-behavior.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
-class PebbleTabGroup extends mixinBehaviors([RUFBehaviors.UIBehavior,IronResizableBehavior,IronMenubarBehavior], PolymerElement) {
+class PebbleTabGroup extends mixinBehaviors([RUFBehaviors.UIBehavior, IronResizableBehavior, IronMenubarBehavior], PolymerElement) {
   static get template() {
     return html`
         <style include="bedrock-style-common bedrock-style-icons bedrock-style-padding-margin">
-             :host {
+            :host {
                 @apply --layout;
                 @apply --layout-center;
                 height: var(--default-tab-height);
@@ -55,7 +55,7 @@ class PebbleTabGroup extends mixinBehaviors([RUFBehaviors.UIBehavior,IronResizab
                 margin-top: 5px;
             }
 
-             :host-context([dir=rtl]) {
+            :host-context([dir=rtl]) {
                 @apply --layout-horizontal-reverse;
             }
 
@@ -85,7 +85,7 @@ class PebbleTabGroup extends mixinBehaviors([RUFBehaviors.UIBehavior,IronResizab
             #tabsContent.scrollable.fit-container {
                 @apply --layout-horizontal;
             }
-            
+
             #tabsContent.scrollable.fit-container {
                 min-width: 100%;
             }
@@ -105,6 +105,7 @@ class PebbleTabGroup extends mixinBehaviors([RUFBehaviors.UIBehavior,IronResizab
                 opacity: 0;
                 cursor: default;
             }
+
             pebble-tab paper-menu paper-item {
                 padding: 0 10px;
             }
@@ -149,7 +150,6 @@ class PebbleTabGroup extends mixinBehaviors([RUFBehaviors.UIBehavior,IronResizab
             /* #tabsContent> ::slotted(*) {
                 height: 100%;
             } */
-          
         </style>
         <pebble-icon icon="pebble-icon:action-scope-release-selection" class\$="[[_computeScrollButtonClass(_leftHidden, scrollable, hideScrollButtons)]] pebble-icon-size-16 m-r-15 m-l-5" on-up="_onScrollButtonUp" on-down="_onLeftScrollButtonDown" tabindex="-1" noink=""></pebble-icon>
 
@@ -159,7 +159,7 @@ class PebbleTabGroup extends mixinBehaviors([RUFBehaviors.UIBehavior,IronResizab
                 <slot></slot>
             </div>
         </div>
-        
+
         <pebble-icon icon="pebble-icon:action-scope-take-selection" class\$="[[_computeScrollButtonClass(_rightHidden, scrollable, hideScrollButtons)]] pebble-icon-size-16 m-r-5 m-l-15" on-up="_onScrollButtonUp" on-down="_onRightScrollButtonDown" tabindex="-1" noink=""></pebble-icon>
 `;
   }
@@ -338,7 +338,7 @@ class PebbleTabGroup extends mixinBehaviors([RUFBehaviors.UIBehavior,IronResizab
   }
   get keyBindings() {
       return {
-      'left:keyup right:keyup': '_onArrowKeyup'
+          'left:keyup right:keyup': '_onArrowKeyup'
       };
   }
   _noinkChanged(noink) {
@@ -358,23 +358,23 @@ class PebbleTabGroup extends mixinBehaviors([RUFBehaviors.UIBehavior,IronResizab
    * Function to compute 'transition end' and call the handler to handle it.
    * Note : Edge browser does'nt listen to the "transition end" event all times by default
    */
-  _computeTransitionEnd(){
+  _computeTransitionEnd() {
       let transitions = {
-          'transition':'transitionend',
-          'OTransition':'oTransitionEnd',
-          'MozTransition':'transitionend',
-          'WebkitTransition':'webkitTransitionEnd'
+          'transition': 'transitionend',
+          'OTransition': 'oTransitionEnd',
+          'MozTransition': 'transitionend',
+          'WebkitTransition': 'webkitTransitionEnd'
       }
 
       let transitionEnd = false;
-      for(let t in transitions){
-          if( this.$.selectionBar.style[t] !== undefined ){
+      for (let t in transitions) {
+          if (this.$.selectionBar.style[t] !== undefined) {
               transitionEnd = true;
               break;
           }
       }
-      
-      if(transitionEnd) {
+
+      if (transitionEnd) {
           this._onBarTransitionEnd();
       }
   }
@@ -408,21 +408,21 @@ class PebbleTabGroup extends mixinBehaviors([RUFBehaviors.UIBehavior,IronResizab
   }
 
   _onTabSizingChanged() {
-          this._debouncer = Debouncer.debounce(this._debouncer, timeOut.after(10), () => {
+      this._debouncer = Debouncer.debounce(this._debouncer, timeOut.after(10), () => {
           this._scroll();
           this._tabChanged(this.selectedItem);
 
           let tabGroupRect = this.getBoundingClientRect();
           let tabs = this.querySelectorAll("pebble-tab");
-          if(tabs && tabs.length > 0) {
+          if (tabs && tabs.length > 0) {
               let totalWidth = 0;
-              for(let i = 0; i < tabs.length; i++) {
+              for (let i = 0; i < tabs.length; i++) {
                   let tab = tabs[i.toString()];
-                  if(tab) {
+                  if (tab) {
                       totalWidth += tab.getBoundingClientRect().width;
                   }
               }
-              if(totalWidth <= tabGroupRect.width) {
+              if (totalWidth <= tabGroupRect.width) {
                   this.hideScrollButtons = true;
               }
           }
@@ -432,32 +432,32 @@ class PebbleTabGroup extends mixinBehaviors([RUFBehaviors.UIBehavior,IronResizab
   /**
    * Function to reset the current tab selection
    */
-  resetSelection(){
-      this.clearSelection = true;                        
+  resetSelection() {
+      this.clearSelection = true;
   }
 
   /**
    * Function to reset the current tab menu selection
    */
-  resetSelectedTabIndex(selectedTabIndex){
-      let selectedTab = this.querySelectorAll('pebble-tab')[selectedTabIndex];    
+  resetSelectedTabIndex(selectedTabIndex) {
+      let selectedTab = this.querySelectorAll('pebble-tab')[selectedTabIndex];
       if (selectedTab) {
           let menu = selectedTab.querySelector("paper-listbox");
           if (menu && menu.selected >= 0) {
               menu.selected = -1;
           }
-      }    
+      }
   }
 
   _onIronSelect(event) {
       let tab;
-      
+
       //Handling scenario when the current tab menu selection is reset
-      if(this.clearSelection){
+      if (this.clearSelection) {
           this.clearSelection = false;
           this.resetSelectedTabIndex(this._previousTabIndex);
           this._previousTab.closeMenu();
-          return;                                   
+          return;
       }
 
       // Note: More Info. available in Select method
@@ -479,13 +479,13 @@ class PebbleTabGroup extends mixinBehaviors([RUFBehaviors.UIBehavior,IronResizab
       this._tabChanged(tab, this._previousTab);
       this._previousTab = tab;
       this._previousTabIndex = tab.tabConfig.index;
-      if(this._debouncer && this._debouncer.cancel) {
+      if (this._debouncer && this._debouncer.cancel) {
           this._debouncer.cancel();
       }
   }
 
   _onIronDeselect(event) {
-      if(event.detail.item.nodeName !== "PAPER-ITEM") {
+      if (event.detail.item.nodeName !== "PAPER-ITEM") {
           this._debouncer = Debouncer.debounce(this._debouncer, timeOut.after(1), () => {
               this._tabChanged(null, this._previousTab);
               this._previousTab = null;
@@ -503,7 +503,7 @@ class PebbleTabGroup extends mixinBehaviors([RUFBehaviors.UIBehavior,IronResizab
 
   _scheduleActivation(item, delay) {
       this._pendingActivationItem = item;
-      this._pendingActivationTimeout = setTimeout(() =>{
+      this._pendingActivationTimeout = setTimeout(() => {
           this._bindDelayedActivationHandler, delay
       });
   }
@@ -559,7 +559,7 @@ class PebbleTabGroup extends mixinBehaviors([RUFBehaviors.UIBehavior,IronResizab
   _down(e) {
       // go one beat async to defeat IronMenuBehavior
       // autorefocus-on-no-selection timeout
-      setTimeout(() =>{
+      setTimeout(() => {
           if (this._defaultFocusAsync) {
               this.cancelAsync(this._defaultFocusAsync);
               this._defaultFocusAsync = null;
@@ -589,8 +589,8 @@ class PebbleTabGroup extends mixinBehaviors([RUFBehaviors.UIBehavior,IronResizab
   }
 
   _clearHoldJobInterval() {
-      if(!this._holdJob) return;
-      
+      if (!this._holdJob) return;
+
       clearInterval(this._holdJob);
       this._holdJob = null;
   }
@@ -649,23 +649,19 @@ class PebbleTabGroup extends mixinBehaviors([RUFBehaviors.UIBehavior,IronResizab
       }
 
       if (moveRight) {
-          this._positionBar(this._calcPercent(tabRect.left + tabRect.width - oldRect.left,
-                  w) - m,
-              this._left);
+          this._positionBar(this._calcPercent(tabRect.left + tabRect.width - oldRect.left, w) - m, this._left);
       } else {
-          this._positionBar(this._calcPercent(oldRect.left + oldRect.width - tabRect.left,
-                  w) - m,
-              this._calcPercent(tabOffsetLeft, w) + m);
-      }                   
+          this._positionBar(this._calcPercent(oldRect.left + oldRect.width - tabRect.left, w) - m, this._calcPercent(tabOffsetLeft, w) + m);
+      }
 
       if (this.scrollable) {
           this._scrollToSelectedIfNeeded(tabRect.width, tabOffsetLeft);
       }
 
       //Compute transition end for Edge browser as the browser does'nt listen to the "transition end" event all times
-      if(DataHelper.checkBrowser('edge')) {
+      if (DataHelper.checkBrowser('edge')) {
           this._computeTransitionEnd();
-      }                    
+      }
   }
 
   _scrollToSelectedIfNeeded(tabWidth, tabOffsetLeft) {
@@ -706,6 +702,10 @@ class PebbleTabGroup extends mixinBehaviors([RUFBehaviors.UIBehavior,IronResizab
       } else if (cl.contains('contract')) {
           cl.remove('contract');
       }
+
+      if (!e && DataHelper.checkBrowser('edge')) {
+          cl.remove('contract');
+      }
   }
   /**
    * Can be used to override the method from Polymer.IronSelectionBehavior.
@@ -726,6 +726,7 @@ class PebbleTabGroup extends mixinBehaviors([RUFBehaviors.UIBehavior,IronResizab
           this._selectTab(selectedTabIndex);
       }
   }
+
   _selectTab(selectedTabIndex) {
       /*
           Issue 1: If a user has loaded some content of a menuitem and
@@ -763,8 +764,7 @@ class PebbleTabGroup extends mixinBehaviors([RUFBehaviors.UIBehavior,IronResizab
   }
 
   _closeDropdownMenus(tabId) {
-      let tabs =  FlattenedNodesObserver.getFlattenedNodes(this._tabsContent)
-              .filter(n => n.nodeType === Node.ELEMENT_NODE);
+      let tabs = FlattenedNodesObserver.getFlattenedNodes(this._tabsContent).filter(n => n.nodeType === Node.ELEMENT_NODE);
       if (tabs) {
           for (let index in tabs) {
               let tab = tabs[index];

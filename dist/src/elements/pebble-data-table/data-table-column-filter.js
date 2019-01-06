@@ -7,7 +7,6 @@ import '../pebble-icon/pebble-icon.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
 import '../bedrock-style-manager/styles/bedrock-style-icons.js';
-import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 class DataTableColumnFilter extends PolymerElement {
   static get template() {
     return html`
@@ -106,7 +105,7 @@ class DataTableColumnFilter extends PolymerElement {
         width: 100%;
       }
     </style>
-    <div class="tooltip-bottom" data-tooltip\$="[[label]]">
+    <div title\$="[[label]]">
       <label>[[label]]</label>
     </div>
     <template is="dom-if" if="[[!_isCheckBoxFilter(filterType)]]">

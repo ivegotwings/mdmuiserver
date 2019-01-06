@@ -29,7 +29,8 @@ class RockEntityGraph
                 RUFBehaviors.ComponentContextBehavior,
                 RUFBehaviors.UIBehavior,
                 RUFBehaviors.ComponentConfigBehavior,
-                RUFBehaviors.AppBehavior
+                RUFBehaviors.AppBehavior,
+                RUFBehaviors.NavigationBehavior
             ], OptionalMutableData(PolymerElement)) {
   static get template() {
     return html`
@@ -167,6 +168,11 @@ class RockEntityGraph
                 min-height: 0px;
                 min-width: 0px;
             }
+            rock-relationship-detail-tabs{
+                --rock-tab-content-height: {
+                    height:100%;
+                }
+            }
            
         </style>
         <div class="graph-container">
@@ -185,7 +191,7 @@ class RockEntityGraph
                             <rock-classification-tree id="classificationTree" is-model-tree="[[isModelTree]]" context-data="[[contextData]]" multi-select="[[multiSelect]]" leaf-node-only="[[leafNodeOnly]]" enable-node-click="true" hide-leaf-node-checkbox="[[hideLeafNodeCheckbox]]" root-node-data="{{_rootNodeData}}" root-node="[[_rootNode]]" path-entity-type="[[_rootEntityType]]" path-relationship-name="[[_rootRelationshipName]]"></rock-classification-tree>
                         </template>
                         <template is="dom-if" if="[[!_isClassificationTree(_graphTreeConfig)]]">
-                            <rock-entity-graph-tree id="graphTree" tree-config="[[_graphTreeConfig]]" context-data="[[contextData]]" item-data="{{selectedItem}}"></rock-entity-graph-tree> 
+                            <rock-entity-graph-tree id="graphTree" tree-config="[[_graphTreeConfig]]" context-data="[[contextData]]" item-data="{{selectedItem}}" enable-node-click=""></rock-entity-graph-tree> 
                         </template>
                     </div>
                     <div class="right-panel" panel-width="70%">
@@ -357,6 +363,10 @@ class RockEntityGraph
           excludeNonContextual: {
               type: Boolean,
               value: false
+          },
+          _valuePathRegEx: {
+              type: String,
+              value: /#@#|>>/
           }
       }
   }
@@ -477,6 +487,7 @@ class RockEntityGraph
               this.set("_rootNodeData", rootNodeData);
               const contextTree = this.shadowRoot.querySelector("#classificationTree");
               if (contextTree) {
+                  contextTree.selectedClassifications = this.getGraphItemsFromNavigationData("rock-entity-graph");
                   contextTree.generateRequest();
               }
           })
@@ -486,6 +497,18 @@ class RockEntityGraph
   }
   _onRootNodeGetError(e) {
       this.logError("Root node get failed.", e);
+  }
+  getGraphItemsFromNavigationData(componentName) {
+      let graphItems = [];
+      let navigationData = this.getNavigationData(componentName);
+      if (!_.isEmpty(navigationData) && navigationData.valuePath) {
+          let pathList = navigationData.valuePath.split(this._valuePathRegEx);
+          graphItems.push(pathList);
+      }
+      return graphItems;
+  }
+  setGraphNavigationData(componentName, data) {
+      this.setNavigationData(componentName, data);
   }
   _getNodeTitle(entity, attribute){
       let _title = "";
@@ -522,6 +545,7 @@ class RockEntityGraph
               let clonedClassification = DataHelper.cloneObject(selectedNode.nodeData);
               clonedClassification.viewMode = "GRID";
               this.set("selectedItem", clonedClassification);
+              this.setGraphNavigationData("rock-entity-graph", this.selectedItem);
           }
       }
   }

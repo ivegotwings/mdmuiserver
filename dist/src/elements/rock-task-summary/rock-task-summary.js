@@ -5,7 +5,6 @@ import '../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../bedrock-style-manager/styles/bedrock-style-list.js';
 import '../bedrock-style-manager/styles/bedrock-style-text-alignment.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
-import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 import '../bedrock-style-manager/styles/bedrock-style-floating.js';
 import '../bedrock-style-manager/styles/bedrock-style-gridsystem.js';
 import '../rock-multiple-file-download/rock-multiple-file-download.js';
@@ -171,7 +170,7 @@ class RockTaskSummary extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerE
                 <template is="dom-if" if="[[_showTaskName]]">
                     <div class="attribute">
                         <div class="attribute-label">Task Name</div>
-                        <div class="tooltip-bottom" data-tooltip\$="[[taskDetails.taskName]]">
+                        <div title\$="[[taskDetails.taskName]]">
                             <div class="attribute-value text-ellipsis">[[taskDetails.taskName]]</div>
                         </div>
                     </div>
@@ -185,7 +184,7 @@ class RockTaskSummary extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerE
                         </template>
                         
                         <template is="dom-if" if="[[!_isMultipleDownloadFilesAvailable()]]">
-                            <div class="tooltip-bottom" data-tooltip\$="[[taskDetails.fileName]]">
+                            <div title\$="[[taskDetails.fileName]]">
                                 <template is="dom-if" if="[[_isDownloadAvailable(taskDetails.fileId)]]">
                                     <div class="attribute-value text-ellipsis">
                                         <a href="#" class="btn-link" on-tap="_onDownloadClick">[[taskDetails.fileName]]</a>
@@ -201,49 +200,49 @@ class RockTaskSummary extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerE
 
                 <div id="attribute" class="attribute">
                     <div class="attribute-label">Task ID</div>
-                    <div class="tooltip-bottom" data-tooltip\$="[[taskDetails.taskId]]">
+                    <div title\$="[[taskDetails.taskId]]">
                         <div class="attribute-value text-ellipsis" title="[[taskDetails.taskId]]">[[taskDetails.taskId]]</div>
                     </div>
                 </div>
 
                 <div id="attribute" class="attribute">
                     <div class="attribute-label">Task Type</div>
-                    <div class="tooltip-bottom" data-tooltip\$="[[taskDetails.taskType]]">
+                    <div title\$="[[taskDetails.taskType]]">
                         <div class="attribute-value text-ellipsis" title="[[taskDetails.taskType]]">[[taskDetails.taskType]]</div>
                     </div>
                 </div>
 
                 <div id="attribute" class="attribute">
                     <div class="attribute-label">Task Status</div>
-                    <div class="tooltip-bottom" data-tooltip\$="[[taskDetails.taskStatus]]">
+                    <div title\$="[[taskDetails.taskStatus]]">
                         <div class\$="attribute-value text-ellipsis [[_getStatusClass(taskDetails.taskStatus)]]" title="[[taskDetails.taskStatus]]">[[taskDetails.taskStatus]]</div>
                     </div>
                 </div>
 
                 <div id="attribute" class="attribute">
                     <div class="attribute-label">Start Time</div>
-                    <div class="tooltip-bottom" data-tooltip\$="[[taskDetails.startTime]]">
+                    <div title\$="[[taskDetails.startTime]]">
                         <div class="attribute-value text-ellipsis" title="[[taskDetails.startTime]]">[[taskDetails.startTime]]</div>
                     </div>
                 </div>
 
                 <div id="attribute" class="attribute">
                     <div class="attribute-label">End Time</div>
-                    <div class="tooltip-bottom" data-tooltip\$="[[taskDetails.endTime]]">
+                    <div title\$="[[taskDetails.endTime]]">
                         <div class="attribute-value text-ellipsis" title="[[taskDetails.endTime]]">[[taskDetails.endTime]]</div>
                     </div>
                 </div>
 
                 <div id="attribute" class="attribute">
                     <div class="attribute-label">Submitted By</div>
-                    <div class="tooltip-bottom" data-tooltip\$="[[taskDetails.submittedBy]]">
+                    <div title\$="[[taskDetails.submittedBy]]">
                         <div class="attribute-value text-ellipsis" title="[[taskDetails.submittedBy]]">[[taskDetails.submittedBy]]</div>
                     </div>
                 </div>
 
                 <div id="attribute" class="attribute">
                     <div class="attribute-label">Total Records</div>
-                    <div class="tooltip-bottom" data-tooltip\$="[[_totalRecordsMessage]]">
+                    <div title\$="[[_totalRecordsMessage]]">
                         <div class="attribute-value text-ellipsis">[[_totalRecordsMessage]]</div>
                     </div>
                 </div>
@@ -251,7 +250,7 @@ class RockTaskSummary extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerE
             </div>
             <div id="processingDetails" class="col-3 text-center">
                 <div class="card">
-                    <div class="card-title">Processing details</div>
+                    <div class="card-title">Processing Details</div>
                     <div class="graph-details-wrap">
                         <ul class="graph-details">
                             <li class="success">Success</li>
@@ -270,7 +269,7 @@ class RockTaskSummary extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerE
             <template is="dom-if" if="[[_showProcessingSubDetailsGraph]]">
                 <div class="col-3 text-center">
                     <div class="card">
-                        <div class="card-title">Sub details</div>
+                        <div class="card-title">Sub-details</div>
                         <div class="graph-details-wrap">
                             <ul class="graph-details">
                                 <li class="create-records">Create</li>
@@ -460,7 +459,12 @@ class RockTaskSummary extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerE
   _onDownloadClick(taskDetails) {
       this._downloadInProgress = true;
       let fileDownloadManager = FileDownloadManager.getInstance();
-      fileDownloadManager.downloadFile(this.taskDetails,this.isParentTask,this);               
+      let isSeedDataStreamType = false;
+      if (this.taskDetails.taskType.toLowerCase().indexOf("tenant seed imports") >= 0){
+          this.isParentTask = true;
+          isSeedDataStreamType = true;
+      }
+      fileDownloadManager.downloadFile(this.taskDetails,this.isParentTask,this,isSeedDataStreamType);               
   }
 
   /**

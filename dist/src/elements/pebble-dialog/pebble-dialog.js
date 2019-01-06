@@ -53,6 +53,12 @@ class PebbleDialog extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerElem
                 --pebble-data-table: {                    
                     @apply --rock-entity-compare-dialog;
                 }
+                --step-container-manage:{
+                    margin:0px 0px;
+                }
+                --navigation-buttons-wizard:{
+                    margin:0px 20px;
+                }
             }
 
             #dialog {
@@ -140,7 +146,7 @@ class PebbleDialog extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerElem
                     <!-- Close Dialog -->
                     <template is="dom-if" if="[[showCloseIcon]]">
                         <div id="closeIcon">
-                            <pebble-icon id="close" name="close" icon="pebble-icon:window-action-close" title="Close" on-tap="_close" class="icon pebble-icon-color-white pebble-icon-size-12" role="button" tabindex="0" aria-disabled="false"></pebble-icon>
+                            <pebble-icon id="close" name="close" icon="pebble-icon:window-action-close" title="Close" on-tap="_onCloseClickHandler" class="icon pebble-icon-color-white pebble-icon-size-12" role="button" tabindex="0" aria-disabled="false"></pebble-icon>
                         </div>
                     </template>
                 </h2>
@@ -216,6 +222,10 @@ class PebbleDialog extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerElem
            */
           dynamicAlign: {
               type: Boolean,
+          },
+          isPartOfBusinessFunction: {
+              type: Boolean,
+              value: false
           },
 
 
@@ -397,6 +407,7 @@ class PebbleDialog extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerElem
       this._dialog = this._dialog || this.shadowRoot.querySelector('#dialog');
       return this._dialog;
   }
+
   _close() {
       this._isVisible = false;
       if (this.modal) {
@@ -432,6 +443,15 @@ class PebbleDialog extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerElem
           bubbles: true,
           composed: true
       }));
+  }
+  _onCloseClickHandler(ev){
+      if(this.isPartOfBusinessFunction) {
+          ComponentHelper.fireBedrockEvent("on-buttonclose-clicked", ev.detail, {
+          ignoreId: true
+          });
+      } else {
+          this._close();
+      }
   }
 }
 customElements.define(PebbleDialog.is, PebbleDialog);

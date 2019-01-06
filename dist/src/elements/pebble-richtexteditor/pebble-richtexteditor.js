@@ -4,7 +4,6 @@ import { Debouncer } from '@polymer/polymer/lib/utils/debounce.js';
 import '../bedrock-externalref-polymerquill/bedrock-externalref-polymerquill.js';
 import '../bedrock-validator/bedrock-validator.js';
 import '../bedrock-style-manager/styles/bedrock-style-scroll-bar.js';
-import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 import '../pebble-info-icon/pebble-info-icon.js';
 import { timeOut } from '@polymer/polymer/lib/utils/async.js';
 class PebbleRichtexteditor extends PolymerElement {
@@ -12,7 +11,7 @@ class PebbleRichtexteditor extends PolymerElement {
     return html`
         <style include="quill-core quill-snow bedrock-style-common bedrock-style-scroll-bar bedrock-style-tooltip">
             label {
-                font-size: var(--default-font-size, 12px) !important;
+                font-size: var(--font-size-sm, 12px) !important;
                 color: var(--input-label-color, #96b0c6);
                 line-height: 17px;
                 margin-top: 17px;
@@ -24,7 +23,7 @@ class PebbleRichtexteditor extends PolymerElement {
             .ql-editor {
                 border: 1px solid #c1c1c1!important;
                 border-top: 0;
-                font-size: var(--default-font-size, 14px)!important;
+                font-size: var(--font-size-sm, 12px)!important;
                 color: var(--attrpanel-color-text, #1a2028);
                 max-height:200px;
             }
@@ -33,7 +32,7 @@ class PebbleRichtexteditor extends PolymerElement {
             }
 
             .ql-container.pebble-richtexteditor {
-                font-size: var(--default-font-size, 14px);
+                font-size: var(--font-size-sm, 12px);
                 border: 1px solid #ccc;
                 padding: 10px;
             }
@@ -211,6 +210,7 @@ class PebbleRichtexteditor extends PolymerElement {
             }
 
             .ql-select-size .value {
+                font-size: var(--font-size-sm, 12px);
                 pointer-events: none;
                 padding: 2px 2px 2px 8px;
                 font-weight: bold;
@@ -366,7 +366,7 @@ class PebbleRichtexteditor extends PolymerElement {
             <div id="content">
                 <div id="toolbar">
 
-                    <div class="ql-select tooltip-top" data-tooltip="Size">
+                    <div class="ql-select" title="Size">
                         <select class="ql-size" id="qlNativeSelectSize">
                             <template is="dom-repeat" items="{{fontSizes}}">
                                 <option value="{{item}}"></option>
@@ -386,20 +386,20 @@ class PebbleRichtexteditor extends PolymerElement {
                         <array-selector id="fontSizeSelector" items="{{fontSizes}}" selected="{{selectedFontSize}}" toggle=""></array-selector>
                     </div>
 
-                    <button type="button" class="ql-list tooltip-bottom" data-tooltip="Bulleted List" value="bullet"></button>
-                    <button type="button" class="ql-list tooltip-bottom" data-tooltip="Ordered List" value="ordered"></button>
+                    <button type="button" class="ql-list" title="Bulleted List" value="bullet"></button>
+                    <button type="button" class="ql-list" title="Ordered List" value="ordered"></button>
 
-                    <button type="button" class="ql-indent tooltip-bottom" data-tooltip="Decrease Indent" value="-1"></button>
-                    <button type="button" class="ql-indent tooltip-bottom" data-tooltip="Increase Indent" value="+1"></button>
+                    <button type="button" class="ql-indent" title="Decrease Indent" value="-1"></button>
+                    <button type="button" class="ql-indent" title="Increase Indent" value="+1"></button>
 
-                    <button type="button" class="ql-bold tooltip-bottom" data-tooltip="Bold"></button>
-                    <button type="button" class="ql-italic tooltip-bottom" data-tooltip="Italic"></button>
-                    <button type="button" class="ql-underline tooltip-bottom" data-tooltip="Underline"></button>
-                    <button type="button" class="ql-strike tooltip-bottom" data-tooltip="Strike"></button>
-                    <button type="button" class="ql-script tooltip-bottom" data-tooltip="Subscript" value="sub"></button>
-                    <button type="button" class="ql-script tooltip-bottom" data-tooltip="Superscript" value="super"></button>
+                    <button type="button" class="ql-bold" title="Bold"></button>
+                    <button type="button" class="ql-italic" title="Italic"></button>
+                    <button type="button" class="ql-underline" title="Underline"></button>
+                    <button type="button" class="ql-strike" title="Strike"></button>
+                    <button type="button" class="ql-script" title="Subscript" value="sub"></button>
+                    <button type="button" class="ql-script" title="Superscript" value="super"></button>
 
-                    <div class="ql-select tooltip-top" data-tooltip="Background color">
+                    <div class="ql-select" title="Background color">
                         <select class="ql-background" id="qlNativeSelectBackground">
                             <template is="dom-repeat" items="{{backgroundColors}}">
                                 <option value="{{item}}"></option>
@@ -417,7 +417,7 @@ class PebbleRichtexteditor extends PolymerElement {
                         <array-selector id="backgroundColorSelector" items="{{backgroundColors}}" selected="{{selectedBackgroundColor}}" toggle=""></array-selector>
                     </div>
 
-                    <div class="ql-select tooltip-top" data-tooltip="Color">
+                    <div class="ql-select" title="Color">
                         <select class="ql-color" id="qlNativeSelectColor">
                             <template is="dom-repeat" items="{{colors}}">
                                 <option value="{{item}}"></option>
@@ -435,10 +435,10 @@ class PebbleRichtexteditor extends PolymerElement {
                         <array-selector id="colorSelector" items="{{colors}}" selected="{{selectedColor}}" toggle=""></array-selector>
                     </div>
 
-                    <button class="ql-header tooltip-bottom" value="1" data-tooltip="Header Big"></button>
-                    <button class="ql-header tooltip-bottom" value="2" data-tooltip="Header Medium"></button>
+                    <button class="ql-header " value="1" title="Header Big"></button>
+                    <button class="ql-header " value="2" title="Header Medium"></button>
 
-                    <div class="ql-select tooltip-top" data-tooltip="Align">
+                    <div class="ql-select" title="Align">
                         <select class="ql-align" id="qlNativeSelectAlign">
                             <template is="dom-repeat" items="{{aligns}}">
                                 <option value="{{item}}"></option>
@@ -456,8 +456,8 @@ class PebbleRichtexteditor extends PolymerElement {
                         <array-selector id="alignSelector" items="{{aligns}}" selected="{{selectedAlign}}" toggle=""></array-selector>
                     </div>
 
-                    <button type="button" class="ql-link tooltip-bottom" data-tooltip="Link"></button>
-                    <button type="button" class="ql-clean tooltip-bottom" data-tooltip="Clean"></button>
+                    <button type="button" class="ql-link" title="Link"></button>
+                    <button type="button" class="ql-clean" title="Clean"></button>
 
                 </div>
                 <div id="editor"></div>

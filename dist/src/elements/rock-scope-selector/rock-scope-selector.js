@@ -19,7 +19,6 @@ import '../bedrock-helpers/data-request-helper.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
 import '../bedrock-style-manager/styles/bedrock-style-icons.js';
-import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 import '../bedrock-style-manager/styles/bedrock-style-floating.js';
 import '../liquid-config-get/liquid-config-get.js';
 import '../liquid-config-save/liquid-config-save.js';
@@ -148,7 +147,7 @@ class RockScopeSelector extends mixinBehaviors([RUFBehaviors.UIBehavior], Option
                 <div class="scopeLabel">[[title]]</div>
             </template>
             <template is="dom-if" if="[[showSettings]]">
-                <pebble-icon id="refreshButton" icon="pebble-icon:refresh" data-tooltip="Refresh" class="pebble-icon-color-blue pebble-icon-size-16 pull-right tooltip-bottom" on-tap="refresh"></pebble-icon>
+                <pebble-icon id="refreshButton" icon="pebble-icon:refresh" title="Refresh" class="pebble-icon-color-blue pebble-icon-size-16 pull-right" on-tap="refresh"></pebble-icon>
             </template>
             <template is="dom-if" if="[[allowManageScope]]">
                 <pebble-button id="manageScope" icon="pebble-icon:action-add" button-text="Create or Edit Scope Selection" noink="" class="createEditSavedSearch icon" on-tap="_onManageScopeTap"></pebble-button>

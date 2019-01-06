@@ -62,7 +62,7 @@ class RockMyTodos
         </template>
         <div class="base-grid-structure">
             <div class="base-grid-structure-child-1">
-                <div class="default-message" id="noWorkflows">You don't have any Workflow yet</div>
+                <div class="default-message" id="noWorkflows">You don't have any workflows yet.</div>
             </div>
             <div class="base-grid-structure-child-2">
                 <template is="dom-if" if="[[_load]]">
@@ -166,7 +166,7 @@ class RockMyTodos
               timeOut.after(10).run(() => {
                   let workflowDefinitionMappingsGet = this.shadowRoot.querySelector('#workflowDefinitionMappingsGet');
                   if (!workflowDefinitionMappingsGet) {
-                      this.logError("Dashboard-My To Do's - Workflowmappings get liquid is not found");
+                      this.logError("Dashboard-My To-Do's - Workflowmappings get liquid is not found");
                       return;
                   }   
                   workflowDefinitionMappingsGet.requestData = DataRequestHelper.createWorkflowDefinitionMappingGetRequest();
@@ -213,7 +213,7 @@ class RockMyTodos
               showMessage = true;
           }
       } else {
-          this.logError("Dashboard-My To Do's - Some problem in Workflow mappings Get Response", e.detail);
+          this.logError("Dashboard-My To-Do's - Some problem in Workflow mappings Get Response", e.detail);
           showMessage = true;
       }
       this.setNoWorkflowMessageVisibility(showMessage);
@@ -237,7 +237,7 @@ class RockMyTodos
   }
 
   _onWorkflowDefinitionMappingsGetError (e) {
-      this.logError("Dashboard-My To Do's - Workflow Mappings Get Exception", e.detail);
+      this.logError("Dashboard-My To-Do's - Workflow Mappings Get Exception", e.detail);
       this.setNoWorkflowMessageVisibility(true);
   }
 
@@ -254,7 +254,7 @@ class RockMyTodos
           let initWorkflowDefinitionsGet = this.shadowRoot.querySelector('#initWorkflowDefinitionsGet');
 
           if (!initWorkflowDefinitionsGet) {
-              this.logError("Dashboard-My To Do's - Init workflow defintions get liquid not found");
+              this.logError("Dashboard-My To-Do's - Init workflow defintions get liquid not found");
               return;
           }
 
@@ -282,7 +282,7 @@ class RockMyTodos
       let workflowDefinitionsGet = this.shadowRoot.querySelector('#workflowDefinitionsGet');
 
       if (!workflowDefinitionsGet) {
-         this.logError("Dashboard-My To Do's - Workflow defintions get liquid not found");
+         this.logError("Dashboard-My To-Do's - Workflow defintions get liquid not found");
           return;
       }
 
@@ -291,7 +291,7 @@ class RockMyTodos
   }
 
   _onInitWorkflowDefinitionsGetError (e) {
-      this.logError("Dashboard-My To Do's - Init Workflow Definitions Get Exception", e.detail);
+      this.logError("Dashboard-My To-Do's - Init Workflow Definitions Get Exception", e.detail);
       this.setNoWorkflowMessageVisibility(true);
   }
 
@@ -381,15 +381,14 @@ class RockMyTodos
               rockTabs.readyToRender(true);
               rockTabs.config = tabConfig;
           });
-          this.logInfo("TodoSummaryList", "lists", this.lists);
       } else {
-          this.logError("Dashboard-My To Do's - There is some problem with workflow definition response", e.detail);
+          this.logError("Dashboard-My To-Do's - There is some problem with workflow definition response", e.detail);
           this.setNoWorkflowMessageVisibility(true);
       }
   }
 
   _onWorkflowDefinitionsGetError (e) {
-      this.logError("Dashboard-My To Do's - Workflow Definitions Get Exception", e.detail);
+      this.logError("Dashboard-My To-Do's - Workflow Definitions Get Exception", e.detail);
       this.setNoWorkflowMessageVisibility(true);
   }
 

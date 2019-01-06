@@ -25,11 +25,11 @@ class EntityCompositeModelManager
 
     _triggerRequest(requestData, coalesceOptions) {
         return new Promise((resolve, reject) => {
-            if(_.isEmpty(coalesceOptions)) {
+            //if(_.isEmpty(coalesceOptions)) {
                 this._generateModelGetRequest(resolve, requestData);
-            } else {
-                this._generateModelRestRequest(resolve, requestData);
-            }
+            //} else {
+                //this._generateModelRestRequest(resolve, requestData);
+            //}
         }, this)
     }
 

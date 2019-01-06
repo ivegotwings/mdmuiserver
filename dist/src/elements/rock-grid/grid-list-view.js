@@ -17,7 +17,6 @@ import '../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../bedrock-style-manager/styles/bedrock-style-list.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
 import '../bedrock-style-manager/styles/bedrock-style-icons.js';
-import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 import '../pebble-popover/pebble-popover.js';
 import '../pebble-button/pebble-button.js';
 import '../pebble-checkbox/pebble-checkbox.js';
@@ -346,7 +345,7 @@ class GridListView
                         <rock-image-viewer alt="Product image." id="image-container" src="{{_computeImage(item,listItems.image)}}" thumbnail-id="{{_computeValue(item,listItems.thumbnailId)}}" asset-details="[[item]]"></rock-image-viewer>
                     </div>
                     <div class="details-wrap">
-                        <div class="title tooltip-bottom" data-tooltip\$="[[_computeTitle(item,listItems.title)]]">
+                        <div class="title" title\$="[[_computeTitle(item,listItems.title)]]">
                             <template is="dom-if" if="[[_hasLinkTemplate(listItems)]]">
                                 <a href\$="[[_getLink(item)]]" class\$="[[_getStyleClass(item)]] text-ellipsis block">[[_computeTitle(item,listItems.title)]]</a>
                             </template>
@@ -357,7 +356,7 @@ class GridListView
                         <div class\$="list-content subtitle [[_getStyleClass(item)]]">[[_computeTitle(item,listItems.subtitle)]]</div>
                         <template is="dom-repeat" items="{{_firstColFields}}" as="field">
                             <div class="list-content">
-                                <div class\$="{{_computeClass(field.noTrim)}} tooltip-bottom" data-tooltip\$="[[_computeValue(item,field.name)]]">{{_getDisplayName(field.header)}}
+                                <div class\$="{{_computeClass(field.noTrim)}}" title\$="[[_computeValue(item,field.name)]]">{{_getDisplayName(field.header)}}
                                     <template is="dom-if" if="[[_hasLinkTemplate(field)]]">
                                         <a class\$="block-text firstCol{{index}} [[_getStyleClass(item)]] block text-ellipsis" href\$="[[_getLink(item,field.linkTemplate)]]">[[_computeValue(item,field.name)]]</a>
                                     </template>
@@ -371,7 +370,7 @@ class GridListView
                     <div class="status-wrap">
                         <template is="dom-repeat" items="{{_secColFields}}" as="field">
                             <div class="list-content">
-                                <div class\$="{{_computeClass(field.noTrim)}} tooltip-bottom" data-tooltip\$="[[_computeValue(item,field.name)]]">{{_getDisplayName(field.label)}}
+                                <div class\$="{{_computeClass(field.noTrim)}}" title\$="[[_computeValue(item,field.name)]]">{{_getDisplayName(field.label)}}
                                     <template is="dom-if" if="[[_getAttributeModel(field)]]">
                                         <pebble-info-icon description-object="[[_getAttributeModel(field)]]" icon-size="small"></pebble-info-icon>
                                     </template>
@@ -388,7 +387,7 @@ class GridListView
                     <div class="result-wrap">
                         <template is="dom-repeat" items="{{_thirdColFields}}" as="field">
                             <div class="list-content">
-                                <div class\$="{{_computeClass(field.noTrim)}} tooltip-bottom" data-tooltip\$="[[_computeValue(item,field.name)]]">{{_getDisplayName(field.label)}}
+                                <div class\$="{{_computeClass(field.noTrim)}}" title\$="[[_computeValue(item,field.name)]]">{{_getDisplayName(field.label)}}
                                     <template is="dom-if" if="[[_hasLinkTemplate(field)]]">
                                         <a class\$="block-text thirdCol{{index}} [[_getStyleClass(item)]] block text-ellipsis" href\$="[[_getLink(item,field.linkTemplate)]]">[[_computeValue(item,field.name)]]</a>
                                     </template>
@@ -401,7 +400,7 @@ class GridListView
                         </template>
                     </div>
                     <template is="dom-if" if="[[_hasCoalescedValue(item)]]">
-                        <pebble-icon id="action_[[item.id]]_sourceInfo" data-tooltip="View source information" class="actionButton pebble-icon-size-16 m-r-5 m-l-5 tooltip-bottom" icon="pebble-icon:hierarchy" on-tap="_onSourceInformationClick" item="[[item]]" index="[[index]]" action-index="[[colIndex]]"></pebble-icon>
+                        <pebble-icon id="action_[[item.id]]_sourceInfo" title="View source information" class="actionButton pebble-icon-size-16 m-r-5 m-l-5 " icon="pebble-icon:hierarchy" on-tap="_onSourceInformationClick" item="[[item]]" index="[[index]]" action-index="[[colIndex]]"></pebble-icon>
                         <pebble-popover class="view-source-information-popover" id="action_[[item.id]]_sourceInfo-popover" for="action_[[item.id]]_sourceInfo">
                             <div class="attributes-description">
                                 <div class="source-information-header">Source Information</div>
@@ -434,12 +433,12 @@ class GridListView
                     </template>
                     <template is="dom-if" if="[[_actionsPresent]]">
                         <div class="right">
-                            <pebble-icon id="actions_container_{{item.id}}" class="dropdown-trigger tooltip-bottom pebble-icon-size-16" name="more" icon="pebble-icon:actions-more-vertical" data-tooltip="More options" on-tap="_onActionsTap"></pebble-icon>
+                            <pebble-icon id="actions_container_{{item.id}}" class="dropdown-trigger pebble-icon-size-16" name="more" icon="pebble-icon:actions-more-vertical" title="More options" on-tap="_onActionsTap"></pebble-icon>
                                 
                             <pebble-popover id\$="action_list_{{item.id}}" class="actionsPopover" for="actions_container_{{item.id}}" no-overlap="" horizontal-align="right">
 
                                 <template is="dom-repeat" items="[[_getActions(item)]]" as="action">
-                                    <paper-item id="action_[[item.id]]_[[action.name]]" on-tap="_onActionItemTap" action="[[action]]" item="[[item]]" class="tooltip-bottom" data-tooltip\$="[[action.tooltip]]">
+                                    <paper-item id="action_[[item.id]]_[[action.name]]" on-tap="_onActionItemTap" action="[[action]]" item="[[item]]" title\$="[[action.tooltip]]">
                                         <div>
                                             <template is="dom-if" if="[[action.icon]]">
                                                 <pebble-icon icon="[[action.icon]]"></pebble-icon>
@@ -568,9 +567,7 @@ class GridListView
       let hasActions = actions && actions.length > 0;
       return hasActions;
   }
-  _selectedItemsChanged () {
-      this.logInfo("Constants", "value", this.selectedItems);
-  }
+
   _isMultiSelectEnabled () {
       return this.enableMultiSelection;
   }

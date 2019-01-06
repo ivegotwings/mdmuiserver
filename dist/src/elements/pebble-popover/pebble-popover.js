@@ -94,6 +94,7 @@ class PebblePopover extends mixinBehaviors([RUFBehaviors.UIBehavior, IronOverlay
   static get is() {
     return "pebble-popover";
   }
+
   static get properties() {
     return {
       /**
@@ -169,17 +170,20 @@ class PebblePopover extends mixinBehaviors([RUFBehaviors.UIBehavior, IronOverlay
       }
     }
   }
+
   connectedCallback() {
     super.connectedCallback();
     this.addEventListener('iron-overlay-opened', this._popoverOpened);
     this.addEventListener('iron-overlay-closed', this._popoverClosed);
     this._closePopover = this._closePopover.bind(this);
   }
+
   disconnectedCallback() {
     super.disconnectedCallback();
     this.removeEventListener('iron-overlay-opened', this._popoverOpened);
     this.removeEventListener('iron-overlay-closed', this._popoverClosed);
   }
+
   _closePopover(event) {
     let popoverFound = false;
     let path = event.path || event.composedPath();
@@ -196,6 +200,7 @@ class PebblePopover extends mixinBehaviors([RUFBehaviors.UIBehavior, IronOverlay
       this.close();
     }
   }
+
   _fixPopoverOnScrollAndResize() {
     if (currentPopover == null) {
       return;
@@ -203,6 +208,7 @@ class PebblePopover extends mixinBehaviors([RUFBehaviors.UIBehavior, IronOverlay
 
     currentPopover.refitPopover();
   }
+
   show(doNotSetTarget) {
     this._isVisible = true;
     this.open(); //IronOverlayBehavior to display popover
@@ -213,16 +219,19 @@ class PebblePopover extends mixinBehaviors([RUFBehaviors.UIBehavior, IronOverlay
     }
     this._updateAlign();
   }
+
   hide() {
     this._isVisible = false;
     this.close();
   }
+
   /*
    *  Update alignment based on properties
    */
   _updateAlign(e) {
     this.refitPopover();
   }
+
   /*
    *  Can be used to reset the position of the popover and arrow.
    */
@@ -233,6 +242,7 @@ class PebblePopover extends mixinBehaviors([RUFBehaviors.UIBehavior, IronOverlay
       this._fitArrowPosition();
     }
   }
+
   /*
    * Raised when popover opens, initial arrow position will be set from here
    */
@@ -254,17 +264,22 @@ class PebblePopover extends mixinBehaviors([RUFBehaviors.UIBehavior, IronOverlay
     this.fireBedrockEvent("on-popover-open", null, {
       ignoreId: true
     });
+    ComponentHelper.fireBedrockEvent("on-popover-open-focus", null, {
+      ignoreId: true
+    });
 
     window.addEventListener('scroll', this._fixPopoverOnScrollAndResize, true);
     window.addEventListener('resize', this._fixPopoverOnScrollAndResize, true);
     document.addEventListener('down', this._closePopover, true);
   }
+
   getControlIsDirty() {
     if (this._isVisible == true) {
       return true;
     }
     return false;
   }
+
   _popoverClosed() {
     //If popover opened, then do NOT make it to null and just return back
     if (currentPopover && currentPopover.opened) {
@@ -274,9 +289,9 @@ class PebblePopover extends mixinBehaviors([RUFBehaviors.UIBehavior, IronOverlay
     if (currentPopover) {
       IronDropdownScrollManager.removeScrollLock(currentPopover);
     }
-    
+
     currentPopover = null;
-    
+
     this.fireBedrockEvent("on-popover-close", null, {
       ignoreId: true
     });
@@ -284,6 +299,7 @@ class PebblePopover extends mixinBehaviors([RUFBehaviors.UIBehavior, IronOverlay
     window.removeEventListener('resize', this._fixPopoverOnScrollAndResize, true);
     document.removeEventListener('down', this._closePopover, true);
   }
+
   _fitArrowPosition() {
     if (!this.showCaret) {
       return;
@@ -373,6 +389,7 @@ class PebblePopover extends mixinBehaviors([RUFBehaviors.UIBehavior, IronOverlay
       '--arrow-margin-bottom': arrowMarginBottom + 'px'
     });
   }
+
   _enableArrow(type) {
     let upArrow = '';
     let downArrow = '';

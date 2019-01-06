@@ -18,7 +18,6 @@ import '../bedrock-style-manager/styles/bedrock-style-list.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
 import '../bedrock-style-manager/styles/bedrock-style-icons.js';
 import '../bedrock-style-manager/styles/bedrock-style-grid-layout.js';
-import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 import '../bedrock-style-manager/styles/bedrock-style-floating.js';
 import '../pebble-popover/pebble-popover.js';
 import '../pebble-button/pebble-button.js';
@@ -31,9 +30,9 @@ import './grid-item-view-behavior.js';
 import { afterNextRender } from '@polymer/polymer/lib/utils/render-status.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class GridTileView
-    extends mixinBehaviors([
-        RUFBehaviors.GridItemViewBehavior
-    ], PolymerElement) {
+extends mixinBehaviors([
+    RUFBehaviors.GridItemViewBehavior
+], PolymerElement) {
   static get template() {
     return html`
         <style include="bedrock-style-common bedrock-style-scroll-bar bedrock-style-tooltip bedrock-style-grid-layout bedrock-style-floating bedrock-style-icons bedrock-style-padding-margin bedrock-style-list">
@@ -41,14 +40,16 @@ class GridTileView
                 display: block;		
                 height:100%;
             }
+
             iron-list {
                 height: auto;
                 display: block;
-                min-height: 0px;            
+                min-height: 0px;
                 -webkit-overflow-scrolling: touch;
                 overflow-y: auto;
                 overflow-x: hidden;
                 width: 100%;
+
                 --iron-list-items-container: {
                     width: 100%;
                 }
@@ -81,7 +82,7 @@ class GridTileView
                 display: flex;
                 height: 21px;
             }
-            
+
             .key-title {
                 max-width: 60%;
                 display: -ms-flexbox;
@@ -97,13 +98,14 @@ class GridTileView
                 display: flex;
                 min-width: 0;
             }
+
             .subtitle {
                 margin-bottom: 10px;
                 font-size: var(--font-size-sm, 12px);
                 color: var(--palette-steel-grey, #75808b);
                 max-width: 100%;
                 display: -webkit-box;
-                height:34px;
+                height: 34px;
                 -webkit-box-orient: vertical;
                 overflow: hidden;
                 text-overflow: ellipsis;
@@ -157,25 +159,25 @@ class GridTileView
 
             @media (min-width: 1600px) {
                 .item-container {
-                    width: calc(99.9% / (8/var(--grid-tile-col-length,1)));
+                    width: calc(99.9% / (8/var(--grid-tile-col-length, 1)));
                 }
             }
 
             @media (max-width: 1600px) {
                 .item-container {
-                    width: calc(99.9% / (6/var(--grid-tile-col-length,1)));
+                    width: calc(99.9% / (6/var(--grid-tile-col-length, 1)));
                 }
             }
 
             @media (max-width: 1024px) {
                 .item-container {
-                    width: calc(99.9% / (5/var(--grid-tile-col-length,1)));
+                    width: calc(99.9% / (5/var(--grid-tile-col-length, 1)));
                 }
             }
 
             @media (max-width: 768px) {
                 .item-container {
-                    width: calc(99.9% / (4/var(--grid-tile-col-length,1)));
+                    width: calc(99.9% / (4/var(--grid-tile-col-length, 1)));
                 }
             }
 
@@ -195,7 +197,7 @@ class GridTileView
 
             .center {
                 text-align: center;
-                color: var( --palette-water-blue, #139de6);
+                color: var(--palette-water-blue, #139de6);
             }
 
             .top {
@@ -239,7 +241,8 @@ class GridTileView
 
             pebble-popover paper-item[disabled] {
                 cursor: no-drop;
-                pointer-events: visible!important;
+                pointer-events: visible !important;
+
                 --pebble-icon-container: {
                     opacity: 0.5;
                 }
@@ -275,16 +278,18 @@ class GridTileView
                 flex: 1 0 auto;
                 font-size: var(--default-font-size, 14px);
                 color: var(--palette-steel-grey, #75808b);
-                max-width:100%;
+                max-width: 100%;
             }
 
             #gridSelectionPopover {
                 cursor: pointer;
                 width: 20px;
+
                 --popover-position: {
                     margin-top: -3px;
                     margin-left: 3px;
                 }
+
                 ;
             }
 
@@ -365,13 +370,16 @@ class GridTileView
             .source-information-path .path-item:last-of-type::after {
                 content: "";
             }
-
+            a {
+                text-decoration: none;
+            }
             li {
                 text-align: inherit;
             }
+
             .full-height {
-                height:calc(100% - 20px);
-            } 
+                height: calc(100% - 20px);
+            }
         </style>
         <div class="base-grid-structure">
             <div class="base-grid-structure-child-1">
@@ -382,7 +390,7 @@ class GridTileView
                     </template>
                 </div>
             </div>
-            
+
             <div class="base-grid-structure-child-2">
                 <iron-list id="list" as="item" items="[[items]]" grid="" class="full-height">
                     <template>
@@ -391,7 +399,7 @@ class GridTileView
                                 <pebble-checkbox on-tap="_tapEvent" class="button-container" checked="[[_isSelected(item,selectedItems, selectedItems.*)]]" noink="" disabled\$="[[_disableGridCheckBox]]"></pebble-checkbox>
                                 <div class="right">
                                     <template is="dom-if" if="[[_hasCoalescedValue(item)]]">
-                                        <pebble-icon id="action_[[item.id]]_sourceInfo" data-tooltip="View source information" class="actionButton pebble-icon-size-16 m-r-5 m-l-5 tooltip-bottom" icon="pebble-icon:hierarchy" on-tap="_onSourceInformationClick" item="[[item]]" index="[[index]]" action-index="[[colIndex]]"></pebble-icon>
+                                        <pebble-icon id="action_[[item.id]]_sourceInfo" title="View source information" class="actionButton pebble-icon-size-16 m-r-5 m-l-5" icon="pebble-icon:hierarchy" on-tap="_onSourceInformationClick" item="[[item]]" index="[[index]]" action-index="[[colIndex]]"></pebble-icon>
                                         <pebble-popover class="view-source-information-popover" id="action_[[item.id]]_sourceInfo-popover" for="action_[[item.id]]_sourceInfo">
                                             <div class="attributes-description">
                                                 <div class="source-information-header">Source Information</div>
@@ -414,18 +422,18 @@ class GridTileView
                                                         </template>
                                                         <template is="dom-if" if="[[_isRelatedEntityRecieved]]">
                                                             <a href="[[_relatedEntityLink]]">
-                                                            [[_relatedEntityName]]
-                                                        </a>
+                                                                [[_relatedEntityName]]
+                                                            </a>
                                                         </template>
                                                     </ul>
                                                 </template>
                                             </div>
                                         </pebble-popover>
                                     </template>
-                                    <pebble-icon id="actions_container_{{item.id}}" class="dropdown-trigger pebble-icon-size-16 tooltip-bottom" name="more" icon="pebble-icon:actions-more-vertical" data-tooltip="More options" on-tap="_onActionsTap" noink=""></pebble-icon>
+                                    <pebble-icon id="actions_container_{{item.id}}" class="dropdown-trigger pebble-icon-size-16" name="more" icon="pebble-icon:actions-more-vertical" title="More options" on-tap="_onActionsTap" noink=""></pebble-icon>
                                     <pebble-popover id\$="action_list_{{item.id}}" class="actionsPopover p-r-20 p-l-20" for="actions_container_{{item.id}}" no-overlap="" horizontal-align="right">
                                         <template is="dom-repeat" items="[[_getActions(item)]]" as="action">
-                                            <paper-item id="action_[[item.id]]_[[action.name]]" class="tooltip-bottom" data-tooltip\$="[[action.tooltip]]" item="[[item]]" disabled\$="[[action.disabled]]">
+                                            <paper-item id="action_[[item.id]]_[[action.name]]" title\$="[[action.tooltip]]" item="[[item]]" disabled\$="[[action.disabled]]">
                                                 <div class="action-container" action="[[action]]" on-tap="_onActionItemTap">
                                                     <div>
                                                         <template is="dom-if" if="[[action.icon]]">
@@ -446,19 +454,25 @@ class GridTileView
                                 </rock-image-viewer>
                                 <div class="clearfix"></div>
                                 <div class="text">
-                                    <div class="title block-text tooltip-bottom" data-tooltip\$="[[_computeTitle(item,tileItems.title,titlePattern)]]">
-                                        <div class\$="text-ellipsis [[_getStyleClass(item)]]">[[_computeTitle(item,tileItems.title,titlePattern)]]</div>
+                                    <div class="title block-text" title\$="[[_computeTitle(item,tileItems.title,titlePattern)]]">
+                                    <template is="dom-if" if="[[_hasLinkTemplate(tileItems)]]">
+                                            <a href\$="[[_getLink(item)]]" class\$="text-ellipsis [[_getStyleClass(item)]]">[[_computeTitle(item,tileItems.title,titlePattern)]]</a>
+                                        </template>
+                                        <template is="dom-if" if="[[!_hasLinkTemplate(tileItems)]]">
+                                            <div class\$="text-ellipsis [[_getStyleClass(item)]]">[[_computeTitle(item,tileItems.title,titlePattern)]]</div>
+                                        </template>
+                                       
                                     </div>
                                     <div class="clearfix"></div>
-                                    <div class="tooltip-bottom " data-tooltip\$="[[_computeSubTitle(item,tileItems.subtitle,tileItems.fields,subTitlePattern)]]">
+                                    <div title\$="[[_computeSubTitle(item,tileItems.subtitle,tileItems.fields,subTitlePattern)]]">
                                         <div class\$="text-ellipsis [[_getStyleClass(item)]] subtitle">[[_computeSubTitle(item,tileItems.subtitle,tileItems.fields,subTitlePattern)]]</div>
-                                    </div>                                   
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </template>
                 </iron-list>
-            
+
             </div>
         </div>
         <template is="dom-if" if="{{loading}}">
@@ -467,7 +481,9 @@ class GridTileView
 `;
   }
 
-  static get is() { return 'grid-tile-view' }
+  static get is() {
+      return 'grid-tile-view'
+  }
   static get properties() {
       return {
           resultRecordSize: {
@@ -512,11 +528,6 @@ class GridTileView
       }
   }
 
-  constructor() {
-      super();
-      //this.notifyResize = _.debounce(this._notifyResize.bind(this), 500);
-  }
-
   connectedCallback() {
       super.connectedCallback();
       afterNextRender(this, this._loadMoreData.bind(this));
@@ -526,13 +537,13 @@ class GridTileView
       //this.$.list.notifyResize();
   }
 
-  _onPopoverSelectionChange (e) {
+  _onPopoverSelectionChange(e) {
       this._disableGridCheckBox = false;
       if (RUFBehaviors.GridItemViewBehavior._onPopoverSelectionChange.call(this, e)) {
           this._disableGridCheckBox = true;
       }
   }
-  _loadMoreData () {
+  _loadMoreData() {
       //load more data only when - items are more than current page can hold
       if (this.items && ((this.items.length < this.page * this.pageSize) || (this.resultRecordSize && this.items.length == this.resultRecordSize))) {
           return;
@@ -542,7 +553,7 @@ class GridTileView
   /**
    * <b><i>Content development is under progress... </b></i>
    */
-  reloadData () {
+  reloadData() {
       if (!this.loading) {
           this.page = -1;
           this.items = [];
@@ -551,7 +562,7 @@ class GridTileView
 
   }
 
-  _resetAdvanceSelection () {
+  _resetAdvanceSelection() {
       const successReset = RUFBehaviors.GridItemViewBehavior._resetAdvanceSelection.call(this);
 
       if (successReset) {
@@ -562,7 +573,7 @@ class GridTileView
    * This is an internal function to handle the tap event. It fires event 'deselecting-item' if an item was already selected.
    *  It fires event 'selecting-item' if an item was not selected. The data of the event fired is the data of the item.
    */
-  _tapEvent (e) {
+  _tapEvent(e) {
       if (this.selectionInfo && this.selectionInfo.mode == "query") {
           return;
       }
@@ -571,7 +582,7 @@ class GridTileView
   /**
    * This is an internal function, used to compute the image url based on the config.
    */
-  _computeImage (item, image) {
+  _computeImage(item, image) {
       if (item) {
           return item[image];
       }
@@ -579,22 +590,20 @@ class GridTileView
   /**
    * This is an internal function, used to compute the title based on the config.
    */
-  _computeTitle(item,title, titlePattern) {
+  _computeTitle(item, title, titlePattern) {
       if (item) {
           if (!_.isEmpty(titlePattern)) {
               return DataHelper.prepareTitleByPattern(item, titlePattern);
-          }
-          else {
+          } else {
               return item[title]
           }
       }
   }
-  _computeSubTitle(item, subtitle, fieldsinObj,subTitlePattern) {
+  _computeSubTitle(item, subtitle, fieldsinObj, subTitlePattern) {
       if (item) {
           if (!_.isEmpty(subTitlePattern)) {
               return DataHelper.prepareTitleByPattern(item, subTitlePattern);
-          }
-          else {
+          } else {
               let subTitle = item ? item[subtitle] || "" : "";
               let fields = this._getArrayFromObject(fieldsinObj);
               (fields || []).forEach(function (field) {
@@ -610,8 +619,8 @@ class GridTileView
   /**
    * Check for the field type and display the item details accordingly
    */
-  _isItemFieldEnabled (item, field) {
-      if(this.tileItems.title == field.name) return '';
+  _isItemFieldEnabled(item, field) {
+      if (this.tileItems.title == field.name) return '';
       if (field.type && item) {
           let fieldTypes = field.type.toString();
           return (field.type == "All" || fieldTypes.indexOf(item.type) > -1);
@@ -622,7 +631,7 @@ class GridTileView
   /**
    * This is an internal function, used to compute the value of the attribute to be displayed.
    */
-  _computeValue (item, field) {
+  _computeValue(item, field) {
       if (item) {
           return item[field];
       }
@@ -631,19 +640,19 @@ class GridTileView
   /*
    * Can be used to select all the items in the list.
    */
-  selectAll () {
+  selectAll() {
       this.set('selectedItems', []);
       this.set('selectedItems.inverted', true);
   }
   /**
    * Can be used to clear the current selection state.
    */
-  clearSelection () {
+  clearSelection() {
       this.set('selectedItems', []);
       RUFBehaviors.GridItemViewBehavior._clearSelection.call(this);
   }
 
-  _computePrimaryClass (item) {
+  _computePrimaryClass(item) {
       if (item.isprimary) {
           if (item.isprimary == "true") {
               return "photoContent isPrimary"
@@ -651,7 +660,6 @@ class GridTileView
       }
       return "photoContent";
   }
-
   _getActions (item) {
       let actions = DataHelper.cloneObject(this.actions);
       if (this._addSourceInfoAction(actions, item)) {
@@ -662,8 +670,22 @@ class GridTileView
               }
           });
       }
-
       return actions;
+  }
+  _hasLinkTemplate (tileItems) {
+      return !!tileItems.linkTemplate;
+  }
+  _getLink (item) {
+      let linkTemplate;
+      if(item && item.disableLink){
+          return;
+      }
+      linkTemplate = this.tileItems.linkTemplate;
+      return "/" + DataHelper.getTenantId() + "/" + linkTemplate.replace(/\{\S+?\}/g,
+          function (match) {
+              let attrName = match.replace("{", "").replace("}", "");
+              return item[attrName];
+      });                    
   }
 
   _hasCoalescedValue(item) {
@@ -682,7 +704,7 @@ class GridTileView
   }
 
   _getStyleClass(item) {
-      if(this._hasCoalescedValue(item)) {
+      if (this._hasCoalescedValue(item)) {
           return "coalesced-value";
       }
   }

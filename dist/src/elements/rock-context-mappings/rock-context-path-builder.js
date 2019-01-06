@@ -28,7 +28,6 @@ import '../bedrock-style-manager/styles/bedrock-style-buttons.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
 import '../bedrock-style-manager/styles/bedrock-style-icons.js';
 import '../bedrock-style-manager/styles/bedrock-style-grid-layout.js';
-import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 import '../bedrock-style-manager/styles/bedrock-style-floating.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockContextPathBuilder extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.ComponentContextBehavior], OptionalMutableData(PolymerElement)) {
@@ -129,8 +128,8 @@ class RockContextPathBuilder extends mixinBehaviors([RUFBehaviors.UIBehavior, RU
         <div id="gridManage">
             <span class="gridCountMsg">[[_getGridRecordsCountMessage(_gridData)]]</span>
             <span class="pull-right">
-                <pebble-icon class="pebble-icon-size-16 tooltip-bottom m-r-10" id="add" icon="pebble-icon:action-add" data-tooltip="Add" raised="" on-tap="_onAddTap"></pebble-icon>
-                <pebble-icon class="pebble-icon-size-16 tooltip-bottom" id="delete" icon="pebble-icon:action-delete" data-tooltip="Delete" raised="" on-tap="_onDeleteTap"></pebble-icon>
+                <pebble-icon class="pebble-icon-size-16 m-r-10" id="add" icon="pebble-icon:action-add" title="Add" raised="" on-tap="_onAddTap"></pebble-icon>
+                <pebble-icon class="pebble-icon-size-16" id="delete" icon="pebble-icon:action-delete" title="Delete" raised="" on-tap="_onDeleteTap"></pebble-icon>
             </span>
         </div>
         <div id="grid-container" class="button-siblings">

@@ -146,7 +146,7 @@ class MyTodoSummaryList
 
           if (typeof (workflowDefinitionsGet) === "undefined" ||
               workflowDefinitionsGet == null) {
-                  this.logError("Dashboard-My To Do's Summary - Init workflow defintions get liquid not found");
+                  this.logError("Dashboard-My To-Do's Summary - Init workflow defintions get liquid not found");
               return;
           }
 
@@ -177,7 +177,7 @@ class MyTodoSummaryList
 
       let currentUserRoles = DataHelper.getUserRoles();
       if (typeof (currentUserRoles) === "undefined") {
-          this.logError("Dashboard-My To Do's Summary List - Current user roles not found");
+          this.logError("Dashboard-My To-Do's Summary List - Current user roles not found");
       }
 
       if (responseContent) {
@@ -248,17 +248,14 @@ class MyTodoSummaryList
 
           if (this.lists.length > 0) {
               this._isWorkflowDefinitionAvailable = true;
-          }
-
-          this.logInfo("TodoSummaryList","lists", this.lists);
-          
+          }                        
       } else {
-          this.logError("Dashboard-My To Do's Summary List - There is some problem with workflow definition response", e.detail);
+          this.logError("Dashboard-My To-Do's Summary List - There is some problem with workflow definition response", e.detail);
       }
   }
 
   _onWorkflowDefinitionsGetError (e) {
-      this.logError("Dashboard-My To Do's Summary List - Workflow Definitions Get Exception", e.detail);
+      this.logError("Dashboard-My To-Do's Summary List - Workflow Definitions Get Exception", e.detail);
   }
   _getBusinessCondition(){
       let businessConditionLiquid = this.shadowRoot.querySelector("#initBusinessConditionsGet");
@@ -271,7 +268,7 @@ class MyTodoSummaryList
   _onInitBusinessConditionsGetResponse (e) {
       let businessConditionsGet = this.shadowRoot.querySelector('#businessConditionsGet');
       if (typeof (businessConditionsGet) === "undefined" || businessConditionsGet == null) {
-          this.logError("Dashboard-My To Do's Summary List - Business conditions get liquid is not found");
+          this.logError("Dashboard-My To-Do's Summary List - Business conditions get liquid is not found");
           return;
       }
 
@@ -282,14 +279,14 @@ class MyTodoSummaryList
           this.businessConditions = e.detail.response.content.entityModels;
           this._isBusinessConditionsAvailable = true;
       } else {
-          this.logError("Dashboard-My To Do's Summary List - Some problem in Business Conditions Get Response", e.detail);
+          this.logError("Dashboard-My To-Do's Summary List - Some problem in Business Conditions Get Response", e.detail);
       }
   }
   _onInitBusinessConditionsGetError (e) {
-      this.logError("Dashboard-My To Do's Summary List - Init Business Conditions Get Exception", e.detail);
+      this.logError("Dashboard-My To-Do's Summary List - Init Business Conditions Get Exception", e.detail);
   }
   _onBusinessConditionsGetError (e) {
-      this.logError("Dashboard-My To Do's Summary List - Business Conditions Get Exception", e.detail);
+      this.logError("Dashboard-My To-Do's Summary List - Business Conditions Get Exception", e.detail);
   }
 
   _getLists () {

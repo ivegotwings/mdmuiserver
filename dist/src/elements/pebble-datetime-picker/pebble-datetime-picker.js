@@ -455,22 +455,24 @@ class PebbleDatetimePicker extends PolymerElement {
           this._datetimePickerTextBox = this.shadowRoot.querySelector("#datetimePickerText");
           if (this._datetimePickerTextBox) {
               let inputElement = this._datetimePickerTextBox.getInputElement();
-              if (!_.isEmpty(strDiff)) {
-                  if (!this.updateInProgress) {
-                      this.updateInProgress = true;
-                      if ("AMP".indexOf(strDiff.text) > -1) {
-                          this.timePattern = "";
-                      } else if (":/".indexOf(strDiff.text) > -1) {
-                          this.cursorStartPosition = inputElement.selectionStart - 2;
-                          this.text = this.text.slice(0, strDiff.index - 1) + this.text.slice(strDiff.index, this.text.length)
-                      } else if (" ".indexOf(strDiff.text) > -1) {
-                          this.cursorStartPosition = inputElement.selectionStart - 1;
-                          this.text = this.text.slice(0, strDiff.index - 1) + this.text.slice(strDiff.index, this.text.length)
+              if(inputElement){
+                  if (!_.isEmpty(strDiff)) {
+                      if (!this.updateInProgress) {
+                          this.updateInProgress = true;
+                          if ("AMP".indexOf(strDiff.text) > -1) {
+                              this.timePattern = "";
+                          } else if (":/".indexOf(strDiff.text) > -1) {
+                              this.cursorStartPosition = inputElement.selectionStart - 2;
+                              this.text = this.text.slice(0, strDiff.index - 1) + this.text.slice(strDiff.index, this.text.length)
+                          } else if (" ".indexOf(strDiff.text) > -1) {
+                              this.cursorStartPosition = inputElement.selectionStart - 1;
+                              this.text = this.text.slice(0, strDiff.index - 1) + this.text.slice(strDiff.index, this.text.length)
+                          }
+                          this.cursorStartPosition = inputElement.selectionStart
                       }
+                  } else {
                       this.cursorStartPosition = inputElement.selectionStart
                   }
-              } else {
-                  this.cursorStartPosition = inputElement.selectionStart
               }
           }
       let isoDateFromText = moment(this.text, _format, true).format(isoFormat);
@@ -501,8 +503,8 @@ class PebbleDatetimePicker extends PolymerElement {
               this.autoCompleteTime = true;
           }
       }
-
-      if (this.text && this._datetimePickerTextBox) {
+      
+      if (this.text && this._datetimePickerTextBox && this._datetimePickerTextBox.getInputElement()) {
           let currentValue = this.text;
           let currentPatternIndex = 0;
           let currentPattern = this.dateFormat;

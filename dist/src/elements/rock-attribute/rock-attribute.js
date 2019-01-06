@@ -31,7 +31,6 @@ import '../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../bedrock-style-manager/styles/bedrock-style-list.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
 import '../bedrock-style-manager/styles/bedrock-style-icons.js';
-import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 import '../bedrock-style-manager/styles/bedrock-style-floating.js';
 import '../bedrock-style-manager/styles/bedrock-style-scroll-bar.js';
 import '../pebble-icons/pebble-icons.js';
@@ -410,21 +409,12 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
             .source-information-path .path-item:last-of-type::after {
                 content: "";
             }
-            .tooltip-top:after,
-            .tooltip-bottom:after,
-            .tooltip-top:before,
-            .tooltip-bottom:before {
-                top: 80%;
-            }
+            
 
             li {
                 text-align: inherit;
             }
-            .attribute {
-                --after-before-tooltip-top:{
-                    top:80%
-                }
-            }
+            
         </style>
         <div class\$="attribute [[functionalMode]]">
             <div class\$="attribute-main [[_getCoalescedLabelClass()]]">
@@ -432,26 +422,26 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
                     <div class="attribute-icons" hidden\$="[[_isGridType]]">
                         <template is="dom-if" if="[[!_isEditMode(mode)]]">
                             <template is="dom-if" if="[[_isAttributeEditable(attributeModelObject)]]">
-                                <pebble-icon disabled\$="[[readonly]]" name="edit" class="pebble-icon-size-16 m-r-5 m-l-5 tooltip-bottom" icon="pebble-icon:action-edit" data-tooltip="Edit" on-tap="_onEditClick" tabindex="-1"></pebble-icon>
+                                <pebble-icon disabled\$="[[readonly]]" name="edit" class="pebble-icon-size-16 m-r-5 m-l-5" icon="pebble-icon:action-edit" title="Edit" on-tap="_onEditClick" tabindex="-1"></pebble-icon>
                             </template>
                         </template>
                         <template is="dom-if" if="[[_isComponentEditable(mode, attributeModelObject)]]">
                             <template is="dom-if" if="[[_hasValue(attributeObject)]]">
-                                <pebble-icon name="clear" class="pebble-icon-size-12 m-l-5 tooltip-bottom close-item" icon="pebble-icon:window-action-close" data-tooltip="Clear value" on-tap="_onClearClick" tabindex="-1"></pebble-icon>
+                                <pebble-icon name="clear" class="pebble-icon-size-12 m-l-5 close-item" icon="pebble-icon:window-action-close" title="Clear value" on-tap="_onClearClick" tabindex="-1"></pebble-icon>
                             </template>
                         </template>
                         <template is="dom-if" if="[[_isComponentEditable(mode, attributeModelObject)]]">
                             <template is="dom-if" if="[[showDeleteIcon]]">
-                                <pebble-icon name="delete" class="pebble-icon-size-16 m-l-5 tooltip-left delete-item" icon="pebble-icon:action-delete" data-tooltip="Remove Attribute" on-tap="_onDeleteClick" tabindex="-1"></pebble-icon>
+                                <pebble-icon name="delete" class="pebble-icon-size-16 m-l-5 delete-item" icon="pebble-icon:action-delete" title="Remove Attribute" on-tap="_onDeleteClick" tabindex="-1"></pebble-icon>
                             </template>
                             <template is="dom-if" if="[[_isValueChanged]]">
-                                <pebble-icon name="revert" class="pebble-icon-size-16 m-l-5 tooltip-bottom" icon="pebble-icon:revert" data-tooltip="Revert" on-tap="_onRevertClick" tabindex="-1" hidden\$="[[hideRevert]]"></pebble-icon>
+                                <pebble-icon name="revert" class="pebble-icon-size-16 m-l-5" icon="pebble-icon:revert" title="Revert" on-tap="_onRevertClick" tabindex="-1" hidden\$="[[hideRevert]]"></pebble-icon>
                             </template>
                         </template>
 
 
                         <template is="dom-if" if="[[_sourceInfoVisible]]">
-                            <pebble-icon name="owner" class="pebble-icon-size-16 m-r-5 m-l-5 tooltip-bottom" icon="pebble-icon:hierarchy" id="view-source-information" data-tooltip="View source information" on-tap="_onSourceInformationClick" tabindex="-1"></pebble-icon>
+                            <pebble-icon name="owner" class="pebble-icon-size-16 m-r-5 m-l-5" icon="pebble-icon:hierarchy" id="view-source-information" title="View source information" on-tap="_onSourceInformationClick" tabindex="-1"></pebble-icon>
 
                             <pebble-popover id="view-source-information-popover" for="view-source-information">
                                 <div class="attributes-description">
@@ -494,12 +484,12 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
                         </template>
                         <template is="dom-if" if="[[_isEditMode(mode)]]">
                             <template is="dom-if" if="[[_isAttributeEditable(attributeModelObject)]]">
-                                <pebble-icon name="saveasnull" class="pebble-icon-size-16 m-r-5 m-l-5 tooltip-bottom" icon="pebble-icon:save-as-null" data-tooltip="Set as Null" on-tap="_onTapSaveAsNull" tabindex="-1" hidden\$="[[hideSaveAsNull]]"></pebble-icon>
+                                <pebble-icon name="saveasnull" class="pebble-icon-size-16 m-r-5 m-l-5" icon="pebble-icon:save-as-null" title="Set as Null" on-tap="_onTapSaveAsNull" tabindex="-1" hidden\$="[[hideSaveAsNull]]"></pebble-icon>
                             </template>
                         </template>
-                        <pebble-icon name="time" class="pebble-icon-size-16 m-r-5 m-l-5 tooltip-bottom" icon="pebble-icon:time" data-tooltip="Manage historical data" on-tap="_onTimeClick" tabindex="-1" hidden\$="[[hideHistory]]"></pebble-icon>
+                        <pebble-icon name="time" class="pebble-icon-size-16 m-r-5 m-l-5" icon="pebble-icon:time" title="Manage historical data" on-tap="_onTimeClick" tabindex="-1" hidden\$="[[hideHistory]]"></pebble-icon>
                         
-                        <pebble-icon name="locale" hidden="" class="pebble-icon-size-16 m-r-5 tooltip-bottom pebble-icon-color-blue" icon="pebble-icon:globe" data-tooltip="Manage in multiple locales" on-tap="_onLocaleClick" tabindex="-1"></pebble-icon>
+                        <pebble-icon name="locale" hidden="" class="pebble-icon-size-16 m-r-5 pebble-icon-color-blue" icon="pebble-icon:globe" title="Manage in multiple locales" on-tap="_onLocaleClick" tabindex="-1"></pebble-icon>
                         <div class="clearfix"></div>
                     </div>
 
@@ -553,7 +543,7 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
 
                 <template is="dom-if" if="[[!_isComponentEditable(mode, attributeModelObject)]]">
                     <template is="dom-if" if="[[_useDefaultReadMode(attributeModelObject)]]">
-                        <div class\$="attribute-view [[functionalMode]] tooltip-bottom" data-tooltip\$="{{_formatValue(attributeModelObject, attributeObject)}}">
+                        <div class\$="attribute-view [[functionalMode]]" title\$="{{_formatValue(attributeModelObject, attributeObject)}}">
                             <span hidden="[[_isGridType]]">
                                 <span class="attribute-view-label">{{attributeModelObject.externalName}} </span>
                                 <template is="dom-if" if="[[_getDescriptionObject()]]">
@@ -917,7 +907,9 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
           },
           attributeDisplayValue: {
               type: Object,
-              notify: true
+              value: function () {
+                  return {};
+              }
           },
           hideSaveAsNull: {
               type: Boolean,
@@ -1072,7 +1064,7 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
       return model.isCollection;
   }
   _isLeafNodeOnly(model) {
-      return model.isCollection;
+      return model.isLeafNodeOnly;
   }
   _isGridOrNested(model) {
       return (this._isNested(model) || this._isGridType);
@@ -1125,7 +1117,10 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
       /*This block executes when we change rock attribute and then it updates the attributeObject value
       No need to set attribute object value save null is clicked, because attribute object value
       will be empty or _NULL that time. */
-      if(value && !this.tappedSaveAsNull){
+      /*For nested grid we need to update attributeObject for empty 
+      value too otherwise it will save the row with previous value*/
+
+      if(!this.tappedSaveAsNull || this.attributeModelObject && this.attributeModelObject.isNestedChild){
           this.set("attributeObject.value", value);
       }
   }
@@ -1133,8 +1128,14 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
       let value = this.attributeObject.value;
       /*if its a collection or nested attribute and both the display object and attribute 
       object is not same, then set the value for the display object empty array or value */
-      if(_.isArray(value) && !DataHelper.areEqualArrays(value, this.attributeDisplayValue)){
-          this.set('attributeDisplayValue', value[0] == ConstantHelper.NULL_VALUE ? [] : value);
+      if(_.isArray(value)){
+          /**
+          * when value is an array type, value and attributeDisplayValue are equal arrays, then it will go
+          * to else if block. Hence moving array comparision inside.
+          * */
+          if(!DataHelper.areEqualArrays(value, this.attributeDisplayValue)) {
+              this.set('attributeDisplayValue', value[0] == ConstantHelper.NULL_VALUE ? [] : value);
+          }
       }
       else if(value != this.attributeDisplayValue){
           this.set('attributeDisplayValue', value == ConstantHelper.NULL_VALUE ? "" : value);

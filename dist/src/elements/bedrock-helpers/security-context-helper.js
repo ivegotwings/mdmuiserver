@@ -9,7 +9,7 @@ SecurityContextHelper.logout = function () {
         });
     //need delay to logout from sisense first.
     timeOut.after(1000).run(() => {
-        window.history.pushState('', 'Riversand MDMCenter', '/logout');
+        window.history.pushState('', 'Riversand Platform', '/logout');
         window.location.reload(true)                    
     });
 };

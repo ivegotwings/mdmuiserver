@@ -191,9 +191,6 @@ RUFBehaviors.LovBehavior
       this._prepareAttributeMaps();
       this._keywordsCriterionBuilder = this._prepareKeywordsCriteria.bind(this);
       this._dataFormatter = this._getAttributeFormattedData.bind(this);
-
-      // Todo..  Id may not be available every time
-      this.logInfo("AttributeModelReady", "id", this.idField, "requestData", this.requestData);
   }
   _prepareAttributes(idField, titlePattern, subTitlePattern, imageField, colorField,
       valueField) {

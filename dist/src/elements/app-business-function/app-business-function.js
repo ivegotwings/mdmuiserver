@@ -166,7 +166,8 @@ class AppBusinessFunction
           title: titleStr,
           subTitle: "Last Opened",
           subTitleValue: this._searchTimeStamp ? this._searchTimeStamp : new Date().toLocaleString(),
-          queryParams: queryParams
+          queryParams: queryParams,
+          appId: this.appId
       };
   }
   _onFirstStepCancelled() {

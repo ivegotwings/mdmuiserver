@@ -124,11 +124,18 @@ class RockVariantConfigurator
             .w-80{
                 width:80%;
             }
+            .error-list{
+                overflow: auto;
+                max-height: 200px;
+            }
+            .buttons{
+                text-align: center;
+            }
         </style>
 
         <pebble-dialog id="errorsDialog" modal="" small="" vertical-offset="1" 50="" horizontal-align="auto" vertical-align="auto" no-cancel-on-outside-click="" no-cancel-on-esc-key="" dialog-title="Errors on page">
             <p>Found below errors in entity details: </p>
-            <ul>
+            <ul class="error-list">
                 <template is="dom-repeat" items="[[_syncValidationErrors]]">
                     <li>[[item.attributeExternalName]] with error: [[item.message]]</li>
                 </template>

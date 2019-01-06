@@ -96,7 +96,7 @@ class RockClassificationTree extends mixinBehaviors([RUFBehaviors.UIBehavior], O
                 </div>
             </div>
             <div hidden\$="[[_classificationsFound]]" class="status-error">No Classifications Found</div>
-            <div class="base-grid-structure-child-2">
+            <div class="base-grid-structure-child-2" hidden\$="[[!_classificationsFound]]">
                 <pebble-tree id="contextTree" class="contextTree" leaf-node-only="[[leafNodeOnly]]" data="{{classifications}}" check-child-nodes="[[checkChildNodes]]" default-child-depth="10" selected-items="{{_selectedItems}}" selected-item="{{_selectedItem}}" multi-select="[[multiSelect]]" disable-child-node="[[disableChildNode]]" hide-leaf-node-checkbox="[[hideLeafNodeCheckbox]]" check-parent-nodes="[[checkParentNodes]]"></pebble-tree>
             </div>
         </div>
@@ -335,10 +335,11 @@ class RockClassificationTree extends mixinBehaviors([RUFBehaviors.UIBehavior], O
   _onSelectedItemsChange(selectedItems, _selectedItem) {
       //Set the output
       if(this._searchClicked) return;
-      
+
       if (selectedItems != undefined || _selectedItem != undefined) {
           if (this.multiSelect) {
-              this.selectedClassifications = DataHelper.cloneObject(this._selectedItems);
+              let classificationTreeEl = this.shadowRoot.querySelector("#contextTree");
+              this.selectedClassifications = classificationTreeEl ? classificationTreeEl.getSelectedItems() : DataHelper.cloneObject(this._selectedItems);
           } else {
               this.selectedClassifications = !_.isEmpty(this._selectedItem) ? [this._selectedItem] : [];
           }
@@ -392,6 +393,7 @@ class RockClassificationTree extends mixinBehaviors([RUFBehaviors.UIBehavior], O
       if(this._searchBarElement && this._searchBarElement.$.input.value != ""){
           this._searchBarElement.clear();
           this._searchBarElement.$.input.value = "";
+          this._isSearchMode = false;
       }
       this._getClassificationManageModel();
   }
@@ -476,14 +478,31 @@ class RockClassificationTree extends mixinBehaviors([RUFBehaviors.UIBehavior], O
       itemContext.relationshipsCriterion = [classificationCriteria];
       contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
       contextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
-      
-      if (searchKeyword) {	
-          delete itemContext.relationshipsCriterion;	
+
+      if (searchKeyword) {
+          delete itemContext.relationshipsCriterion;
       }
 
       let req = DataRequestHelper.createEntityGetRequest(contextData);
       if (searchKeyword) {
-          req.params.query.filters.keywordsCriterion = { "operator": "_AND", "keywords": searchKeyword };
+          let attributesCriterion = [];
+          //To avaoid other rootNode classifcations search
+          attributesCriterion.push({
+              "rootexternalname": {
+                  "eq": this.rootNodeExternalName,
+                  "type": "_STRING"
+              }
+          });
+          //externalName search
+          if (this._classificationExtNameAttr) {
+              let attrObj = {};
+              attrObj[this._classificationExtNameAttr] = {
+                  "contains": searchKeyword,
+                  "type": "_STRING"
+              }
+              attributesCriterion.push(attrObj);
+          }
+          req.params.query.filters.attributesCriterion = attributesCriterion;
       }
       delete req.params.options;
 
@@ -573,7 +592,11 @@ class RockClassificationTree extends mixinBehaviors([RUFBehaviors.UIBehavior], O
       if (this._currentIndex == 0) {
           this._currentNode = this.shadowRoot.querySelector("#contextTree").getElementNodeByPath(name);
       } else if (this._currentIndex == this._currentClassification.length) {
-          this._currentNode.selectItem();
+          if (this.enableNodeClick) {
+              this._currentNode.triggerNodeClick();
+          } else {
+              this._currentNode.selectItem(true);
+          }
           this._classificationIndex++;
           this._currentIndex = 0;
           this._checkForSelectedClassification();

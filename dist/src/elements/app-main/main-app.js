@@ -11,6 +11,7 @@ import '@polymer/app-route/app-route.js';
 import '@polymer/app-route/app-location.js';
 import { timeOut } from '@polymer/polymer/lib/utils/async.js';
 import { Debouncer } from '@polymer/polymer/lib/utils/debounce.js';
+// import 'web-animations-js/web-animations-next-lite.min.js';
 import '@polymer/polymer/lib/elements/dom-if.js';
 import '../bedrock-managers/bedrock-managers.js';
 import LocaleManager from '../bedrock-managers/locale-manager.js';
@@ -315,7 +316,7 @@ extends mixinBehaviors([
           }
 
           if (this.route.path == "/" || (location.href.indexOf("logout") !== -1)) {
-              window.history.pushState("", "Riversand MDMCenter", "/" + this.tenantId);
+              window.history.pushState("", "Riversand Platform", "/" + this.tenantId);
               this.shadowRoot.querySelector("#tenantRoute").set("route.prefix", this.tenantId);
           }
 
@@ -487,9 +488,9 @@ extends mixinBehaviors([
                   if (entityTypeManager) {
                       entityTypeManager.preload();
                   }
-                  if (ContextModelManager && ContextModelManager.preload) {
-                      ContextModelManager.preload();
-                  }
+                  // if (ContextModelManager && ContextModelManager.preload) {
+                  //     ContextModelManager.preload();
+                  // }
               });
           });
       }
@@ -556,8 +557,7 @@ extends mixinBehaviors([
                               ComponentHelper.setQueryParamsWithoutEncode(queryParams);
                               contentViewManager.openView(page, that.appRepository[page], that.queryParams, that.openAction);
                           }
-                      });
-                      ComponentHelper.emptyDeleteQueue();
+                      }, null, true);
                   } else {
                       if (!_.isEmpty(pageurl)) {
                           this.logError("Requested app '" + this.page + "' is not available in app repository.");

@@ -219,7 +219,7 @@ class RockUserSelector extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehav
               ignoreId: true
           });
       } else{
-          this.showWarningToast("Select atleast one user.");
+          this.showWarningToast("Select at least one user.");
       }
   }
 

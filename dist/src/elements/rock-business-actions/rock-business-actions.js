@@ -134,6 +134,22 @@ extends mixinBehaviors([
           contextModelType: {
               type: String,
               value: ""
+          },
+          asyncActions: {
+              type: Array,
+              value: function () {
+                  return [
+                      "action-takeTask",
+                      "action-releaseTask",
+                      "action-wfTransitions",
+                      "action-add-context",
+                      "action-reassignTask",
+                      "action-view-snapshot",
+                      "action-copy",
+                      "action-paste",
+                      "action-re-publish"
+                  ];
+              }
           }
       }
   }
@@ -168,7 +184,6 @@ extends mixinBehaviors([
   onConfigLoaded(componentConfig) {
       if (componentConfig && componentConfig.config) {
           let actionGroups = [];
-
           if (componentConfig.config.actionGroups) {
               for (let key in componentConfig.config.actionGroups) {
                   let group = componentConfig.config.actionGroups[key];
@@ -244,15 +259,12 @@ extends mixinBehaviors([
 
       this._workflowCriterion = workflowCriterion || {};
 
-      const asyncAvailable = eventName == "action-takeTask" || eventName == "action-releaseTask" ||
-          eventName == "action-wfTransitions" || eventName == "action-add-context" || eventName ==
-          "action-reassignTask" || eventName == "action-view-snapshot" || eventName == "action-copy" ||
-          eventName == "action-paste";
+      const asyncAvailable = (this.asyncActions.indexOf(eventName) != -1);
 
       if (!asyncAvailable || (asyncAvailable && selectionMode == "count")) {
           if (DataHelper.isEmptyObject(selectedItems)) {
               this.showWarningToast(
-                  "Select atleast one entity for which you want to perform this action."
+                  "Select at least one entity for which you want to perform this action."
               );
               return;
           }
@@ -577,7 +589,7 @@ extends mixinBehaviors([
       }
 
       if(this._selectedItems.length<1) {
-          this.showWarningToast("Select atleast one entity for paste");
+          this.showWarningToast("Select at least one entity for paste");
           return false;
       }
 

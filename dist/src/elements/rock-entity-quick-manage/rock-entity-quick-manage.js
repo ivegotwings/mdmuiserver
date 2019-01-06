@@ -23,7 +23,6 @@ import '../bedrock-style-manager/styles/bedrock-style-flex-layout.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
 import '../bedrock-style-manager/styles/bedrock-style-icons.js';
 import '../bedrock-style-manager/styles/bedrock-style-grid-layout.js';
-import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 import '../pebble-button/pebble-button.js';
 import '../pebble-dialog/pebble-dialog.js';
 import '../pebble-icons/pebble-icons.js';
@@ -31,7 +30,6 @@ import '../pebble-icon/pebble-icon.js';
 import '../pebble-image-viewer/pebble-image-viewer.js';
 import '../pebble-vertical-divider/pebble-vertical-divider.js';
 import '../pebble-toolbar/pebble-toolbar.js';
-import '../pebble-popover/pebble-popover.js';
 import '../pebble-horizontal-divider/pebble-horizontal-divider.js';
 import '../rock-entity-quick-manage-elements/rock-entity-quick-manage-elements.js';
 import '../rock-tabs/rock-tabs.js';
@@ -122,10 +120,6 @@ class RockEntityQuickManage extends mixinBehaviors([RUFBehaviors.UIBehavior,
                 height: 100%;
             }
 
-            #tofixPopover {
-                padding: 5px 0px;
-            }
-
             #previous {
                 padding: 0px 5px;
             }
@@ -213,6 +207,12 @@ class RockEntityQuickManage extends mixinBehaviors([RUFBehaviors.UIBehavior,
                 display: flex;
                 max-width: 250px;
             }
+            pebble-toolbar{
+                --pebble-button-icon-dimension:{
+                    width: 14px;
+                    height: 14px;
+                }
+            }
         </style>
         <div class="base-grid-structure">
             <template is="dom-if" if="[[_showComponent(selectedEntity,_entityId)]]">
@@ -236,11 +236,11 @@ class RockEntityQuickManage extends mixinBehaviors([RUFBehaviors.UIBehavior,
 
                                 <template is="dom-if" if="[[showExpandIcon]]">
                                     <span id="maximize">
-                                        <pebble-icon icon="pebble-icon:window-action-expand" class="tooltip-bottom pebble-icon-size-14" data-tooltip="Expand" on-tap="_onTapMaximize"></pebble-icon>
+                                        <pebble-icon icon="pebble-icon:window-action-expand" class="pebble-icon-size-14" title="Expand" on-tap="_onTapMaximize"></pebble-icon>
                                     </span>
                                 </template>
                             </div>
-                            <div id="buttonPanel">
+                            <div id="buttonPanel" class="m-r-5">
                                 <pebble-toolbar id="quickManageToolbar" config-data="[[toolbarConfig]]"></pebble-toolbar>
                                 <bedrock-pubsub event-name="toolbar-button-event" handler="_onToolbarEvent" target-id="quickManageToolbar"></bedrock-pubsub>
                             </div>
@@ -429,6 +429,10 @@ class RockEntityQuickManage extends mixinBehaviors([RUFBehaviors.UIBehavior,
                   return []
               }
           },
+          quickManageEnabled:{
+              type: Boolean,
+              notify:true
+          },
           itemThumbnailId: {
               type: String,
               value: ""
@@ -477,6 +481,13 @@ class RockEntityQuickManage extends mixinBehaviors([RUFBehaviors.UIBehavior,
                   }
               }
               config = "rock-entity-relationship-quick-manage";
+          }
+
+          if(this._entityType){
+              let itemContext = ContextHelper.getFirstItemContext(context);
+              if(itemContext && (itemContext.type == this._entityType)){
+                  return;
+              }
           }
 
           this.requestConfig(config, context);
@@ -573,6 +584,9 @@ class RockEntityQuickManage extends mixinBehaviors([RUFBehaviors.UIBehavior,
           case "cut":
               this._cutEvent(e, detail);
               break;
+          case "close":
+              this._closeEvent(e, detail);
+              break;
           case "edit":
               this._editEvent(e, detail);
               break;
@@ -605,10 +619,6 @@ class RockEntityQuickManage extends mixinBehaviors([RUFBehaviors.UIBehavior,
   _computeIcon(percentage) {
       let per = Math.round(percentage / 10) * 10;
       return "pebble-icon:percentage-circle";
-  }
-
-  _openPopover() {
-      this.$.tofixPopover.show();
   }
 
   _onTapNavigation(e) {
@@ -791,6 +801,7 @@ class RockEntityQuickManage extends mixinBehaviors([RUFBehaviors.UIBehavior,
   async _onSelectedEntityChange(entity, showThumbnailAndHeader) {
       //show the thumbnail and header if its enabled from configuration
       if (!_.isEmpty(entity) && showThumbnailAndHeader) {
+          this._onContextDataChange();
           let compositeModel = await this._getCompositeModel();
           if (compositeModel) {
               let clonedContextData = DataHelper.cloneObject(this.contextData);
@@ -836,6 +847,9 @@ class RockEntityQuickManage extends mixinBehaviors([RUFBehaviors.UIBehavior,
   }
   _getDescriptionInfo(item) {
       return !_.isEmpty(item) && item.description;
+  }
+  _closeEvent(){
+      this.quickManageEnabled = false;
   }
 }
 

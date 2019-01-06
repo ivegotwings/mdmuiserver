@@ -87,7 +87,6 @@ class RockBulkEditGrid
   ready () {
       super.ready();
       this._dataFormatter = this._getAttributeFormattedData.bind(this);
-      this.logInfo("AttributeModelReady", "id", this.idField, "requestData", this.requestData);
   }
   _getAttributeModelGrid () {
       return ElementHelper.getElement(this, "#attributeModelGrid");

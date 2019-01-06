@@ -338,6 +338,10 @@ DataObjectFalcorUtil.transformToExternal = function (dataObject) {
 
                 let transContext = DataObjectFalcorUtil.createCtxItem(ctxKey);
 
+                if(transContext.coalesceOptions) {
+                    delete transContext.coalesceOptions;
+                }
+
                 transContextsItem.context = transContext;
 
                 let enContextData = dataObject.data.contexts[ctxKey];
@@ -702,11 +706,6 @@ DataObjectFalcorUtil.createCtxItems = function (ctxKeys) {
     for (let i = 0; i < ctxKeys.length; i++) {
         let ctxKey = ctxKeys[i];
         let ctxItem = DataObjectFalcorUtil.createCtxItem(ctxKey);
-
-        //skip self contexts..
-        if (ctxItem.selfContext) {
-            continue;
-        }
 
         if (isEmpty(ctxItem)) {
             continue;

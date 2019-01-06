@@ -95,7 +95,7 @@ class PebbleCollectionContainer extends
 
             .text-collection-container .tags-container {
                 position: relative;
-                z-index: 9;
+                z-index: 1;
                 min-height: 26px;
                 margin-right: 15px;
                 display: block;

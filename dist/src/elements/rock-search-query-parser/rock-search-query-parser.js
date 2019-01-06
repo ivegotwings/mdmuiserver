@@ -830,8 +830,8 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                 }
 
                 let operator;
-                let splitQueryByAnd = val.toLowerCase().split(' and ');
-                let splitQueryByOr = val.toLowerCase().split(' or ');
+                let splitQueryByAnd = val.toLowerCase().split("' and '");
+                let splitQueryByOr = val.toLowerCase().split("' or '");
                 let containsStr = val;
 
                 if (splitQueryByAnd.length > 1) {
@@ -867,8 +867,8 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                   }
                   else if (displayType === "referencelist" || displayType === "textbox") {
                     if (key === "equals") {
-                      let valSplitByOr = val.split(' or ');
-                      let valSplitByAnd = val.split(' and ');
+                      let valSplitByOr = val.split("' or '");
+                      let valSplitByAnd = val.split("' and '");
 
                       if (valSplitByAnd.length > 1) {
                         attrVal["exacts"] = valSplitByAnd;
@@ -883,8 +883,8 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                     }
                   } else if (displayType === "numeric") {
                     if (key === "equals") {
-                      let valSplitByOr = val.split(' or ');
-                      let valSplitByAnd = val.split(' and ');
+                      let valSplitByOr = val.split("' or '");
+                      let valSplitByAnd = val.split("' and '");
 
                       if (valSplitByAnd.length > 1) {
                         attrVal["eq"] = valSplitByAnd;
@@ -1079,22 +1079,23 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
   }
 
   formatValue(value) {
-    let valSplitByOr = value.split(' or ');
-    let valSplitByAnd = value.split(' and ');
+    if(value){
+      let valSplitByOr = value.split("' or '");
+      let valSplitByAnd = value.split("' and '");
 
-    let values = valSplitByAnd.length > 1 ? valSplitByAnd : valSplitByOr.length > 1 ? valSplitByOr : [];
+      let values = valSplitByAnd.length > 1 ? valSplitByAnd : valSplitByOr.length > 1 ? valSplitByOr : [];
 
-    if (!_.isEmpty(values)) {
-      for (let i = 0; i < values.length; i++) {
-        values[i] = this._formatValue(values[i]);
+      if (!_.isEmpty(values)) {
+        for (let i = 0; i < values.length; i++) {
+          values[i] = this._formatValue(values[i]);
+        }
+
+        value = valSplitByAnd.length > 1 ? values.join("' and '") : valSplitByOr.length > 1 ? values.join("' or '") :
+          value;
+      } else {
+        value = this._formatValue(value);
       }
-
-      value = valSplitByAnd.length > 1 ? values.join(' and ') : valSplitByOr.length > 1 ? values.join(' or ') :
-        value;
-    } else {
-      value = this._formatValue(value);
     }
-
     return value;
   }
 

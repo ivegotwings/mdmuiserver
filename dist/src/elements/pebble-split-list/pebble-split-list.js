@@ -25,7 +25,6 @@ import '../pebble-icon/pebble-icon.js';
 import '../pebble-checkbox/pebble-checkbox.js';
 import '../pebble-data-table/pebble-data-table.js';
 import '../pebble-data-table/data-table-column.js';
-import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class PebbleSplitList extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerElement) {
   static get template() {
@@ -168,7 +167,7 @@ class PebbleSplitList extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerE
                                 <template is="dom-repeat" items="[[config.tabular.fields]]" as="col" index-as="colIndex">
                                     <data-table-column slot="column-slot" name="[[col.header]]" column-index="{{colIndex}}" filter-by="[[_isFilterEnabled(col)]]" sort-by="[[_isSortable(col)]]" icon="pebble-icon:action-edit" class="pebble-icon-size-16" column-object="[[col]]">
                                         <template>
-                                            <div slot="cell-slot-content" class="cell tooltip-bottom" data-tooltip\$="[[_columnValue(item,colIndex)]]">
+                                            <div slot="cell-slot-content" class="cell" title\$="[[_columnValue(item,colIndex)]]">
                                                 <span>[[_columnValue(item, colIndex)]]</span>
                                             </div>
                                         </template>
@@ -194,7 +193,7 @@ class PebbleSplitList extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerE
                                 <template is="dom-repeat" items="[[config.tabular.fields]]" as="col" index-as="colIndex">
                                     <data-table-column slot="column-slot" name="[[col.header]]" column-index="{{colIndex}}" filter-by="[[_isFilterEnabled(col)]]" sort-by="[[_isSortable(col)]]" icon="pebble-icon:action-edit" class="pebble-icon-size-16" column-object="[[col]]">
                                         <template>
-                                            <div slot="cell-slot-content" class="cell tooltip-bottom" data-tooltip\$="[[_columnValue(item,colIndex)]]">
+                                            <div slot="cell-slot-content" class="cell" title\$="[[_columnValue(item,colIndex)]]">
                                                 <span>[[_columnValue(item, colIndex)]]</span>
                                             </div>
                                         </template>

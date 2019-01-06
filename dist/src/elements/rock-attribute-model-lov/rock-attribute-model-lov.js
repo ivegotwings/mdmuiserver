@@ -262,8 +262,6 @@ class RockAttributeModelLov extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
       this._keywordsCriterionBuilder = this._prepareKeywordsCriteria.bind(this);
       this._prepareAttributeMaps();
 
-      //this.logInfo("AttributeModelReady","id",this.idField,"requestData",JSON.stringify(this.requestData));
-
       if (!_.isEmpty(this.mode)) {
           if (this.mode === "all") {
               this._dataFormatter = this._getAttributeFormattedData.bind(this);
@@ -563,8 +561,15 @@ class RockAttributeModelLov extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                   }
               }
           } else {
+              if(!_.isEmpty(currentItem.attributeExternalNamePath)){
+                  currentItem.title = currentItem.attributeExternalNamePath;
+                  currentItem.externalName = currentItem.attributeExternalNamePath;
+              }
               filteredCurrentItems.push(currentItem);
           }
+      }
+      if(!_.isEmpty(filteredCurrentItems)){
+          filteredCurrentItems = _.uniq(filteredCurrentItems, (attr) => { return attr.id; } );
       }
 
       if(DataHelper.isValidObjectPath(this.requestData, 'params.query.filters.keywordsCriterion.keywords')){
@@ -659,6 +664,13 @@ class RockAttributeModelLov extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
 
   refresh() {
       this._getAttributeModels(this.contextData, this.sortDetails);
+  }
+
+  clearSelectedItem(){
+      let modelLOV = this.shadowRoot.querySelector('#attributeModelLov');
+      if (modelLOV) {
+          modelLOV.selectedItem = [];
+      }
   }
 
   reset() {

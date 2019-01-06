@@ -36,7 +36,7 @@ import '../bedrock-style-manager/styles/bedrock-style-buttons.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
 import '../bedrock-style-manager/styles/bedrock-style-icons.js';
 import '../bedrock-style-manager/styles/bedrock-style-grid-layout.js';
-import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
+import '../bedrock-style-manager/styles/bedrock-style-floating.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockValueMappingsGrid
     extends mixinBehaviors([
@@ -72,8 +72,8 @@ class RockValueMappingsGrid
                 <div id="gridManage">
                     <span class="gridCountMsg">[[_getGridRecordsCountMessage(_gridData)]]</span>
                     <span class="pull-right">
-                        <pebble-icon class="pebble-icon-size-16 tooltip-bottom m-r-10" id="add" icon="pebble-icon:action-add" data-tooltip="Add" raised="" on-tap="_onAddTap"></pebble-icon>
-                        <pebble-icon class="pebble-icon-size-16 tooltip-bottom" id="delete" icon="pebble-icon:action-delete" data-tooltip="Delete" raised="" on-tap="_onDeleteTap"></pebble-icon>
+                        <pebble-icon class="pebble-icon-size-16 m-r-10" id="add" icon="pebble-icon:action-add" title="Add" raised="" on-tap="_onAddTap"></pebble-icon>
+                        <pebble-icon class="pebble-icon-size-16" id="delete" icon="pebble-icon:action-delete" title="Delete" raised="" on-tap="_onDeleteTap"></pebble-icon>
                     </span>
                 </div>
             </div>
@@ -351,7 +351,7 @@ class RockValueMappingsGrid
       let types = [this.mappingData.valueMappingTypeName];
 
       let req = DataRequestHelper.createMappingsGetRequest(this.contextData, this.copContext, this.selectedContexts, types, this.selectedOptions, "valueMapping");
-      req.params.query.contexts[0]["Ownership Data"] = this.selectedOptions.ownershipData;
+      req.params.query.contexts[0]["Ownership Data"] = Array.isArray(this.selectedOptions.ownershipData) ? this.selectedOptions.ownershipData[0] : this.selectedOptions.ownershipData;;
       delete req.params.query.contexts[0].service;
 
       this._sendMappingRequest(req);
@@ -564,7 +564,7 @@ class RockValueMappingsGrid
           for (let key in mappings) {
               let saveRequest = DataRequestHelper.createMappingsSaveRequest(this.contextData, this.copContext, this.selectedContexts, this.mappingData.valueMappingTypeName, this.selectedOptions, "valueMapping");
               saveRequest.entity.data.contexts[0].attributes = mappings[key];
-              saveRequest.entity.data.contexts[0].context["Ownership Data"] = this.selectedOptions.ownershipData;
+              saveRequest.entity.data.contexts[0].context["Ownership Data"] = Array.isArray(this.selectedOptions.ownershipData) ? this.selectedOptions.ownershipData[0] : this.selectedOptions.ownershipData;;
               delete saveRequest.entity.data.contexts[0].context.service;
 
               if (mappings[key].action == "delete") {

@@ -14,7 +14,6 @@
 import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import { OptionalMutableData } from '@polymer/polymer/lib/mixins/mutable-data.js';
-import '@polymer/paper-tooltip/paper-tooltip.js';
 import '../bedrock-ui-behavior/bedrock-ui-behavior.js';
 import '../bedrock-pubsub/bedrock-pubsub.js';
 import '../bedrock-helpers/format-helper.js';
@@ -159,7 +158,7 @@ class RockTaskList extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors
 
                                 <div class="item">
                                     <template is="dom-if" if="{{durationFilterVisibility}}">
-                                        <pebble-dropdown class="dropdown" label="Show tasks of last" items="[[durationFilters]]" selected-index="{{selectedIndexDurationFilter}}" selected-value="{{selectedDurationFilter}}"></pebble-dropdown>
+                                        <pebble-dropdown class="dropdown" label="Show Tasks From Last" items="[[durationFilters]]" selected-index="{{selectedIndexDurationFilter}}" selected-value="{{selectedDurationFilter}}"></pebble-dropdown>
                                     </template>
                                 </div>
 

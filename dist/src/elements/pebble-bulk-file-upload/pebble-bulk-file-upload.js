@@ -379,8 +379,8 @@ class PebbleBulkFileUpload
         value: function () {
           return {
             dropFiles: {
-              one: 'Drop file here',
-              many: 'Drop files here'
+              one: 'Drag & Drop files here',
+              many: 'Drag & Drop files here'
             },
             addFiles: {
               one: 'Upload File',
@@ -916,6 +916,7 @@ class PebbleBulkFileUpload
     this.files = [];
     this.succeededFiles = [];
     this.loadCompleteFilesCount = 0;
+    this.validFilesCount = 0;
 
     this.set('error', false);
     this.set('complete', false);

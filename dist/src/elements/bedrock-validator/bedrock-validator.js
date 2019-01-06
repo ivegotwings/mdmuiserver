@@ -219,7 +219,7 @@ class BedrockValidator extends PolymerElement {
             if (this.pattern) {
                 if (!ValidationHelper.regexValidator(input, this.pattern)) {
                     this.invalid = true;
-                    let msg = "Text doesn't match the required pattern.";
+                    let msg = "Text does not match required pattern.";
                     if (this.allowedInput) {
                         msg += " Allowed values are - " + this.allowedInput;
                     }
@@ -229,7 +229,7 @@ class BedrockValidator extends PolymerElement {
             if (inputDataType == "decimal" && this.precision) {
                 if (!ValidationHelper.decimalPrecisionValidator(input, this.precision)) {
                     this.invalid = true;
-                    this.push('validationErrors', "Value should have a decimal precision of " + this.precision);
+                    this.push('validationErrors', "Value should have a precision of " + this.precision);
                 }
             }
             if (inputDataType == "date" || inputDataType == "datetime") {
@@ -263,7 +263,7 @@ class BedrockValidator extends PolymerElement {
             if (this.minLength) {
                 let validateInput = ValidationHelper.minLengthValidator(input, this.minLength);
                 if (!validateInput || Array.isArray(validateInput)) {
-                    let errorMessage = "Length shouldn't be smaller than " + this.minLength
+                    let errorMessage = "Length should not be smaller than " + this.minLength
                     this.invalid = true;
                     if (Array.isArray(input)) {
                         errorMessage += " for values at position " + validateInput.join(" , ");
@@ -274,7 +274,7 @@ class BedrockValidator extends PolymerElement {
             if (this.maxLength) {
                 let validateInput = ValidationHelper.maxLengthValidator(input, this.maxLength);
                 if (!validateInput || Array.isArray(validateInput)) {
-                    let errorMessage = "Length shouldn't be greater than " + this.maxLength
+                    let errorMessage = "Length should not be greater than " + this.maxLength
                     this.invalid = true;
                     if (Array.isArray(input)) {
                         errorMessage += " for values at position " + validateInput.join(" , ");
@@ -347,15 +347,15 @@ class BedrockValidator extends PolymerElement {
     }
 
     _refreshValidationMessages() {
-        //Errors
-        let errors = this.validationErrors;
-        this.validationErrors = [];
-        this.validationErrors = errors;
-
         //Warnings
         let warnings = this.validationWarnings;
         this.validationWarnings = [];
         this.validationWarnings = warnings;
+
+        //Errors
+        let errors = this.validationErrors;
+        this.validationErrors = [];
+        this.validationErrors = errors;
     }
 
     _validationErrorsChanged() {

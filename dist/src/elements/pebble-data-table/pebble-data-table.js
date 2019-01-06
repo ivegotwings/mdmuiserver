@@ -8,7 +8,6 @@ import { Debouncer } from '@polymer/polymer/lib/utils/debounce.js';
 import { FlattenedNodesObserver } from '@polymer/polymer/lib/utils/flattened-nodes-observer.js';
 import '../pebble-spinner/pebble-spinner.js';
 import '../bedrock-style-manager/styles/bedrock-style-scroll-bar.js';
-import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
 import '../bedrock-style-manager/styles/bedrock-style-icons.js';
 import '../bedrock-ui-behavior/bedrock-ui-behavior.js';
@@ -232,7 +231,7 @@ IronScrollTargetBehavior
 
       data-table-row data-table-cell.check-filter {
         padding: 0 !important;
-        flex-basis: 48px !important;
+        flex-basis: 40px !important;
         flex-grow: 0;
         -webkit-box-orient: horizontal;
         -moz-box-orient: horizontal;
@@ -375,7 +374,7 @@ IronScrollTargetBehavior
                       <pebble-checkbox id="cb_[[column.columnObject.name]]" value\$="[[column.columnObject.name]]" disabled\$="[[column.columnObject.selectable.disable]]" on-change="_onColumnSelectionChanged"></pebble-checkbox>
                     </template>
                     <template is="dom-if" if="[[column.columnObject.selectable.actionIcon]]">
-                      <pebble-icon id="columnSelectionIcon" class="pebble-icon-size-16 tooltip-bottom m-l-20" data-tooltip\$="[[column.columnObject.selectable.actionIconTooltip]]" icon="[[column.columnObject.selectable.actionIcon]]" value\$="[[column.columnObject.name]]" hidden\$="[[column.columnObject.selectable.disable]]" on-tap="_onColumnSelectionChanged"></pebble-icon>
+                      <pebble-icon id="columnSelectionIcon" class="pebble-icon-size-16 m-l-20" title\$="[[column.columnObject.selectable.actionIconTooltip]]" icon="[[column.columnObject.selectable.actionIcon]]" value\$="[[column.columnObject.name]]" hidden\$="[[column.columnObject.selectable.disable]]" on-tap="_onColumnSelectionChanged"></pebble-icon>
                     </template>
                   </template>
                 </div>
@@ -1116,7 +1115,6 @@ IronScrollTargetBehavior
 
     if (columns) {
       columns.forEach(function (column) {
-        column.table = this;
         this.listen(column, 'filter-value-changed', '_onColumnFilterChanged');
       }.bind(this));
     }

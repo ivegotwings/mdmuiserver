@@ -18,7 +18,6 @@ import '../bedrock-pubsub/bedrock-pubsub.js';
 import '../bedrock-helpers/data-helper.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../bedrock-style-manager/styles/bedrock-style-icons.js';
-import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 import '../bedrock-style-manager/styles/bedrock-style-floating.js';
 import '../liquid-config-get/liquid-config-get.js';
 import '../liquid-config-save/liquid-config-save.js';
@@ -122,7 +121,7 @@ class RockSavedSearches
                 <div class="savedSearchLabel">Saved Searches</div>
             </template>
             <template is="dom-if" if="[[showSettings]]">
-                <pebble-icon id="refreshButton" icon="pebble-icon:refresh" data-tooltip="Refresh" class="pebble-icon-color-blue pebble-icon-size-16 pull-right tooltip-bottom" on-tap="refresh"></pebble-icon>
+                <pebble-icon id="refreshButton" icon="pebble-icon:refresh" title="Refresh" class="pebble-icon-color-blue pebble-icon-size-16 pull-right" on-tap="refresh"></pebble-icon>
             </template>
             <template is="dom-if" if="[[allowCreateEditSearch]]">
                 <pebble-button id="createEditSavedSearch" icon="pebble-icon:action-add" button-text="Create or Edit Saved Search" noink="" class="createEditSavedSearch pebble-icon-color-blue icon" on-tap="_onCreateEditSavedSearchTap"></pebble-button>

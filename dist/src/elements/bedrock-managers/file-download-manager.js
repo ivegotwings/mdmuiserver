@@ -37,7 +37,7 @@ class FileDownloadManager
     /**
      * Function to download a file 
      */ 
-    downloadFile(fileDetails,downloadFromBlobStorage,parentObj){
+    downloadFile(fileDetails,downloadFromBlobStorage,parentObj,isSeedDataStreamType){
         this.parentObj = {};
         if(parentObj) {
             this.parentObj = parentObj;
@@ -82,21 +82,26 @@ class FileDownloadManager
                 }.bind(_this)
             });
         } else {
-            this._downloadFileFromBlobStorage(fileId);
+            this._downloadFileFromBlobStorage(fileId,isSeedDataStreamType);
         }
     }
     
     /**
      * Function to trigger a request to download large file 
      */ 
-     _downloadFileFromBlobStorage(fileId){
+     _downloadFileFromBlobStorage(fileId,isSeedDataStreamType){
         this.requestData = {};
         let binaryStreamObjects = [];
+        let type = "importDataStream";
+
+        if(isSeedDataStreamType){
+            type = "seedDataStream";
+        }
         if (fileId) {
             binaryStreamObjects.push({
                 "binaryStreamObject": {
                     "id": fileId,
-                    "type": "importDataStream",
+                    "type": type,
                     "data": {}
                 }
             })
@@ -132,7 +137,6 @@ class FileDownloadManager
      * Function to handle file download success
      */ 
     _onSuccess(){
-        this.logInfo('File download success'); 
         if(this.parentObj && this.parentObj.onFileDownloadSuccess) {
             this.parentObj.onFileDownloadSuccess(); 
         }

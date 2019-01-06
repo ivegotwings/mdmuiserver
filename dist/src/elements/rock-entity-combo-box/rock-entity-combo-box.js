@@ -21,7 +21,7 @@ import '../pebble-combo-box/pebble-combo-box.js';
 import '../rock-entity-lov/entity-lov-datasource.js';
 import '../rock-image-source-provider/rock-image-source-provider.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
-class RockEntityComboBox extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehaviors.LovBehavior],OptionalMutableData(PolymerElement)){
+class RockEntityComboBox extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.LovBehavior], OptionalMutableData(PolymerElement)) {
   static get template() {
     return html`
         <liquid-entity-model-get id="getReferenceModels" operation="getbyids" request-data="[[_getRefModelsRequest]]" on-response="_onRefModelsReceived" on-error="_onRefModelsGetFailed"></liquid-entity-model-get>
@@ -271,10 +271,10 @@ class RockEntityComboBox extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBeha
               value: "view",
               notify: true
           },
-          _tabIndex:{
-              type:Number,
-              value:0,
-              notify:true
+          _tabIndex: {
+              type: Number,
+              value: 0,
+              notify: true
           },
           hasWritePermission: {
               type: Boolean,
@@ -282,9 +282,9 @@ class RockEntityComboBox extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBeha
           }
       }
   }
-  static get observers(){
+  static get observers() {
       return [
-      '_prepareAttributes(idField,imageIdField, titlePattern, subTitlePattern, imageField, colorField, valueField, typeField, requestData)'
+          '_prepareAttributes(idField,imageIdField, titlePattern, subTitlePattern, imageField, colorField, valueField, typeField, requestData)'
       ]
   }
 
@@ -292,12 +292,12 @@ class RockEntityComboBox extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBeha
    * <b><i>Content development is under progress... </b></i> 
    */
   selectedValueChanged() {
-     // we cannot reset the selectedid in any case. Re-setting id means updating attribute object data which causes unnecessary observer calls
-     // and update parent attribute control changed mode. Even though attribute not updated by user, it still reflects as changed control.
-     let selectedId = this.selectedId;
-     this.set("selectedId", "");
-     this.selectedId = selectedId;
- }
+      // we cannot reset the selectedid in any case. Re-setting id means updating attribute object data which causes unnecessary observer calls
+      // and update parent attribute control changed mode. Even though attribute not updated by user, it still reflects as changed control.
+      let selectedId = this.selectedId;
+      this.set("selectedId", "");
+      this.selectedId = selectedId;
+  }
   ready() {
       super.ready();
       this._keywordsCriterionBuilder = this._prepareKeywordsCriteria.bind(this);
@@ -405,26 +405,30 @@ class RockEntityComboBox extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBeha
       if (this._lovColumnMap.title && this._lovColumnMap.title !== "") {
           this._attributes.push(this._lovColumnMap.title);
           this._prepareRequest();
-      } else {
-          this._setLovTitleField();
       }
   }
 
   _onFocusCombo(e) {
       // adding mode here to check before opening popover. Even though attribute mode is view, because of the focus
       // popover is getting opened on load/click.
-      if (this.mode === "edit" && this.pebbleComboBox && this.pebbleCollectionContainer && 
-      this.hasWritePermission) {
-          this.pebbleCollectionContainer.openPopover();
+      if (this.mode === "edit" && this.hasWritePermission) {
+          if (_.isEmpty(this._lovColumnMap.title)) {
+              this._setLovTitleField();
+          } else {
+              if (this.pebbleCollectionContainer) {
+                  this.pebbleCollectionContainer.openPopover();
+              }
+          }
+
           e.stopPropagation();
       }
-      
+
       this._tabIndex = -1;
   }
   _onBlurCombo(e) {
       this._tabIndex = 0;
   }
-  _getTabIndex(){
+  _getTabIndex() {
       return this._tabIndex;
   }
   _setLovTitleField() {
@@ -478,8 +482,11 @@ class RockEntityComboBox extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBeha
       if (this.applyContextCoalescedStyle) {
           this._lovColumnMap.fontStyle = this.valueField;
       }
-
       this._prepareRequest();
+
+      if (this.pebbleCollectionContainer) {
+          this.pebbleCollectionContainer.openPopover();
+      }
   }
 
   _onRefModelsGetFailed(e) {
@@ -552,7 +559,7 @@ class RockEntityComboBox extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBeha
           sortAttribute[this.titlePattern] = "_ASC";
           sortAttribute["sortType"] = (this.titlePatternDataType) ? "_" + this.titlePatternDataType : "_STRING";
           sortAttributes.push(sortAttribute);
-          
+
           let sortCriterion;
           if (domain && domain == "baseModel") {
               sortCriterion = {

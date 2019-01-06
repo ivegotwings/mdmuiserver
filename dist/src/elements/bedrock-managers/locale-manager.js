@@ -19,7 +19,7 @@ class LocaleManager {
         };
         this.relationshipType = "fallbacklocale";
         this.relationshipAttribute = "fallbacksequence";
-        this.localesJson = [];
+        this.setLocalesJson([]);
         this.fallbackLocalesThreshold = 3;
         this.promiseResolve;
     }
@@ -71,9 +71,11 @@ class LocaleManager {
             if (res && res.content && res.content.entities && res.content.entities.length > 0) {
                 let entities = res.content.entities;
                 let formattedEntities = DataTransformHelper.transformLocaleEntitiesToLocalesJson(entities, this.localeColumnMapCollection, this.relationshipType, this.relationshipAttribute, this.fallbackLocalesThreshold);
-                this.localesJson = formattedEntities;
+                this.setLocalesJson(formattedEntities);
+                performance.mark("localeloadstop");
+                performance.measure("localeloadtimings", "localeloadstart", "localeloadstop");
             } else {
-                this.localesJson = [];
+                this.setLocalesJson([]);
                 console.error("locale-manager - Locales get response error", e.detail);
             }
 
@@ -97,7 +99,7 @@ class LocaleManager {
     }
 
     _onError(detail, resolve) {
-        this.localesJson = [];
+        this.setLocalesJson([]);
         console.error("locale-manager - Locales get exception", detail);
         if (resolve) {
             resolve();
@@ -142,15 +144,16 @@ class LocaleManager {
         if (!_.isEmpty(this.localesJson)) {
             locales = this._getByProp(propName, propValue);
         } else {
-            let callLiquid = await this._getDataFromLiquid(propValue);
+            //console.error('locales are not yet preloaded');
+            await this.preload();
             locales = this._getByProp(propName, propValue);
         }
 
         return locales;
     }
 
-    async preload() {
-        return await this._getDataFromLiquid();
+    async preload(skipLocalStorage) {
+        return await this._getDataFromLiquid(skipLocalStorage);
     }
 
     _getByProp(propName, propValue) {
@@ -159,10 +162,40 @@ class LocaleManager {
         }
     }
 
-    _getDataFromLiquid(data) {
+    _getDataFromLiquid(skipLocalStorage = false) {
         return new Promise((resolve, reject) => {
-            this._initSearch(resolve);
+            performance.mark("localeloadstart");
+            if (isEmpty(this.localesJson) && !skipLocalStorage) {
+                let localStorageData = localStorage.getItem(this.getLocalStorageCacheKey());
+                if (!_.isEmpty(localStorageData)) {
+                    let localesJson = JSON.parse(localStorageData);
+                    this.localesJson = localesJson;
+                    performance.mark("localeloadstop");
+                    performance.measure("localeloadtimings", "localeloadstart", "localeloadstop");
+                    if (resolve) {
+                        resolve();
+                    }
+                } 
+            }
+
+            if (isEmpty(this.localesJson)) {
+                this._initSearch(resolve);
+            }
         });
+    }
+
+    setLocalesJson(localesJson) {
+        this.localesJson = localesJson;
+        
+        if(!_.isEmpty(localesJson)) {
+            localStorage.setItem(this.getLocalStorageCacheKey(), JSON.stringify(localesJson));
+        }
+    }
+
+    getLocalStorageCacheKey() {
+        let rv = SharedUtils.RuntimeVersionManager.getVersion();
+        let tenantId = DataHelper.getTenantId();
+        return "".concat("data:locales-master#@#tenant:", tenantId, "#@#runtime-version:", rv);
     }
 }
 

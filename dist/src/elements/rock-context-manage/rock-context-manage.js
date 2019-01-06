@@ -76,7 +76,7 @@ extends mixinBehaviors([
                     <p class="status-error status-text" hidden\$="[[allowSaveClassifications]]">Do not have permissions to edit/save Contexts, contact administrator.</p>
                 </div>
                 <div class="base-grid-structure-child-2">
-                        <rock-context-tree id="contextTree" selected-contexts-data="{{_selectedItems}}" context-data="[[contextData]]" multi-select="[[multiSelect]]" check-child-nodes="[[checkChildNodes]]" disable-child-node="[[disableChildNode]]" check-parent-nodes="[[checkParentNodes]]" leaf-node-only="[[leafNodeOnly]]" loading="[[showLoading]]"></rock-context-tree>
+                    <rock-context-tree id="contextTree" selected-contexts-data="{{_selectedItems}}" context-data="[[contextData]]" multi-select="[[multiSelect]]" check-child-nodes="[[checkChildNodes]]" disable-child-node="[[disableChildNode]]" check-parent-nodes="[[checkParentNodes]]" leaf-node-only="[[leafNodeOnly]]" loading="[[showLoading]]"></rock-context-tree>
                 </div>
             </div>
         </div>
@@ -560,7 +560,7 @@ extends mixinBehaviors([
       } else {
           let contextTree = this.shadowRoot.querySelector("#contextTree");
           if (contextTree) {
-              contextTree.selectedContextsData = items;
+              contextTree.entityCurrentContexts = items;
           }
           if (!this.multiSelect && this._selectedItems.length > 1) {
               this.logError("UI is configured for single context but there are " + this._selectedItems.length + " selected contexts for the entity");
@@ -612,13 +612,12 @@ extends mixinBehaviors([
           }
 
           if (this.selectionMode == "query" || (this.selectionMode == "count" && this.selectedEntities.length > this.syncThreshold)) {
-               // if (!this.selectionQuery || _.isEmpty(this.selectionQuery)) {
-              //     this.showWarningToast("Selection query not available for the process");
-              //     return;
-              // }
-              this.showWarningToast("Add Conetxt not allowed for more than 20 entities");
+              if (_.isEmpty(this.selectionQuery)) {
+                  this.showWarningToast("Selection query not available for the process");
+                  return;
+              }
 
-              // this._triggerAsyncUpdateContexts(); //Trigger async process for 20+ entities OR query selection//Trigger async process for 20+ entities OR query selection
+              this._triggerAsyncUpdateContexts(); //Trigger async process for 20+ entities OR query selection//Trigger async process for 20+ entities OR query selection
           } else {
               //this._prepareGetContextRequest(); //Trigger bulk process based on selected entities context
               //Triggering bulk process based on selected classification
@@ -765,7 +764,7 @@ extends mixinBehaviors([
               let toastMessage = "It's taking longer than expected, we will let you know when done";
               this.showLoading = false;
               clearInterval(notificationWaitTimer);
-              this._triggerFinishStep(null,null,toastMessage);
+              this._triggerFinishStep(null, false, null, toastMessage);
           }
       }.bind(this), 1000);
   }
@@ -782,7 +781,7 @@ extends mixinBehaviors([
   }
 
   _selectNewlyAddedContext(){
-      this._triggerFinishStep(null,this.newlyAddedContexts);
+      this._triggerFinishStep(null, false, this.newlyAddedContexts);
   }
 
   _onSaveResponse(e, detail) {
@@ -841,15 +840,13 @@ extends mixinBehaviors([
       }
   }
 
-  _triggerFinishStep(isJob,newlyAddedContexts,ErrorToastMessage) {
+  _triggerFinishStep(isJob, isTriggeredForBulk = true, newlyAddedContexts, ErrorToastMessage) {
       //Single entity reclassification
       if (!this.isBulkProcess) {
-          let eventName = "onSave";
           let eventDetail = {
-              name: eventName,
               "action": {
                   "name": "refresh-context-selector"
-              },
+              }
           };
           //After save, updated initialContexts to latest
           this._updateInitialContexts();
@@ -862,16 +859,18 @@ extends mixinBehaviors([
               }
               this.showSuccessToast(toastMessage);
           }
-          if (eventName && this.functionalMode == "dataFunction") {
-              eventName.action = "business-condition-save-request";
+          if (this.functionalMode == "dataFunction") {
+              eventDetail.action.name = "business-condition-save-request";
           };
-          this.fireBedrockEvent(eventName, eventDetail, {
-              ignoreId: true
-          });
           let itemCtx = ContextHelper.getFirstItemContext(this.contextData) || {};
-          this.dataFunctionComplete({"id": itemCtx.id, "type": itemCtx.type});
+          this.dataFunctionComplete({"id": itemCtx.id, "type": itemCtx.type}, [eventDetail]);
 
           return;
+      } else {
+          //It is bulk operation and not triggered the finish from bulk response
+          if (!isTriggeredForBulk) {
+              return;
+          }
       }
 
       //Bulk reclassification final step starts from here

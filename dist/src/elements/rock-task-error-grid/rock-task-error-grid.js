@@ -218,7 +218,10 @@ class RockTaskErrorGrid extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBeha
    * <b><i>Content development is under progress... </b></i> 
    */
   scrollToIndex(index) {
-      this._getErrorGrid().scrollToIndex(index);
+      let _getEntityGrid = this._getEntityGrid();
+      if (_getEntityGrid) {
+          _getEntityGrid.scrollToIndex(index);
+      }
   }
   /**
    *  Can be used to select an item.

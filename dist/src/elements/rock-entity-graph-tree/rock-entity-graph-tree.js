@@ -66,9 +66,10 @@ class RockEntityGraphTree
         <liquid-entity-data-get id="titleAttributeGet" operation="getbyids" request-data="[[_titleRequest]]" on-response="_onTitleAttributesGetResponse"></liquid-entity-data-get>
 
         <entity-graph-tree-datasource where-used-request="{{_whereUsedRequest}}" where-used-data-source="{{_whereUsedDataSource}}" owned-relationships-request="{{_ownedRelationshipsRequest}}" owned-data-source="{{_ownedDataSource}}"></entity-graph-tree-datasource>
-        
+
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
         <pebble-tree id="tree" leaf-node-only="[[leafNodeOnly]]" data="{{_graphs}}" default-child-depth="10" multi-select="[[multiSelect]]" expand-collapse-icon-object="[[_expandCollapseIconObject]]"></pebble-tree>
+        <bedrock-pubsub event-name="tree-node-child-list-refreshed" handler="_childListRefreshed"></bedrock-pubsub>
 `;
   }
 

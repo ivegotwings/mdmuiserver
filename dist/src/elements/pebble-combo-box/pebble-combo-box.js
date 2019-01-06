@@ -459,6 +459,7 @@ class PebbleComboBox extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
           }
 
           let selectedItems = [];
+          let tempSelectedItems = [];
 
           if (this._lovSelectedItems) {
               selectedItems = DataHelper.cloneObject(this._lovSelectedItems);
@@ -468,16 +469,14 @@ class PebbleComboBox extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
               for (let i = 0; i < this.selectedValues.length; i++) {
                   // Assumption: Values and Ids are in Seq.
                   let selectedItem = !_.isEmpty(selectedItems) ? selectedItems.find(obj => obj.id === this.selectedIds[i]) : undefined;
-                  let color = undefined;
-                  let fontStyle = undefined;
+                  let color = this.selectedValuesColor;
+                  let fontStyle = this.selectedValuesFontStyle;
 
                   if (!_.isEmpty(selectedItem)) {
                       color = selectedItem.textColor;
                       fontStyle = selectedItem.fontStyle;
-                  } else if (!_.isEmpty(this.selectedValuesColor)) {
-                      color = this.selectedValuesColor;
-                      fontStyle = this.selectedValueFontStyle;
                   }
+
                   this.add({
                       "name": this.selectedValues[i],
                       "longName": this.selectedValues[i],
@@ -488,21 +487,19 @@ class PebbleComboBox extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
                           "referenceDataId": this.selectedIds[i]
                       }
                   });
-              }
-          }
 
-          if (this.selectedIds) {
-              let tempSelectedItems = [];
-
-              for (let i = 0; i < this.selectedIds.length; i++) {
                   tempSelectedItems.push({
                       "id": this.selectedIds[i],
-                      "title": this.selectedValues[i]
+                      "title": this.selectedValues[i],
+                      "textColor": color,
+                      "fontStyle": fontStyle,
                   });
-                  this._lovSelectedItems = [];
-                  this._lovSelectedItems = tempSelectedItems;
+
               }
           }
+
+          this._lovSelectedItems = [];
+          this._lovSelectedItems = tempSelectedItems;
       }
   }
 
@@ -519,16 +516,14 @@ class PebbleComboBox extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
               this.set('_lovSelectedItem', {});
           }
           if (this.selectedValue && this.selectedValue != ConstantHelper.NULL_VALUE) {
-              let color = undefined;
-              let fontStyle = undefined;
-
+              let color = this.selectedValuesColor;;
+              let fontStyle = this.selectedValuesFontStyle;;
+              
               if (!_.isEmpty(selectedItem)) {
                   color = selectedItem.textColor;
                   fontStyle = selectedItem.fontStyle;
-              } else if (!_.isEmpty(this.selectedValuesColor)) {
-                  color = this.selectedValuesColor;
-                  fontStyle = this.selectedValueFontStyle;
               }
+
               this.add({
                   "name": this.selectedValue,
                   "longName": this.selectedValue,
@@ -539,13 +534,15 @@ class PebbleComboBox extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
                       "referenceDataId": this.selectedId
                   }
               });
-          }
 
-          if (this.selectedId) {
-              this.set('_lovSelectedItem', {
-                  "id": this.selectedId,
-                  "title": this.selectedValue
-              });
+              if (this.selectedId) {
+                  this.set('_lovSelectedItem', {
+                      "id": this.selectedId,
+                      "title": this.selectedValue,
+                      "textColor": color,
+                      "fontStyle": fontStyle,
+                  });
+              }
           }
       }
   }
@@ -594,9 +591,26 @@ class PebbleComboBox extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
   }
 
   _selectedValueStyleChange() {
-      for (let i = 0; i < this.values.length; i++) {
-          this.values[i].textColor = this.selectedValuesColor;
-          this.values[i].fontStyle = this.selectedValuesFontStyle;
+      /**
+      * Most dirty way to change text styles of tags but no other alternative when it comes to nested child.
+      * In case of nested when mode is changed, text styles changing rapidly but due to some lag in adding tags
+      * latest styles are not being reflected on tags.
+      * There will not be many tags for any given attribute in most of the cases. resetting ids which in turn 
+      * remove and add tags with latest styles.
+      * */
+      if(!_.isEmpty(this.values)) {
+          if(!_.isEmpty(this._lovSelectedItem)) {
+              this._lovSelectedItem.textColor = this.selectedValuesColor;
+              this._lovSelectedItem.fontStyle = this.selectedValuesFontStyle;
+          }
+          if(!_.isEmpty(this._lovSelectedItems)) {
+              this._lovSelectedItems.forEach((item)=> {
+                  item.textColor = this.selectedValuesColor;
+                  item.fontStyle = this.selectedValuesFontStyle;
+              }, this);
+          }
+          this._onSelectedIdChange();
+          this._onSelectedIdsChange();
       }
   }
 }

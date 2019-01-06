@@ -38,7 +38,13 @@ import '../rock-attribute-list/rock-attribute-list.js';
 import EntityCompositeModelManager from '../bedrock-managers/entity-composite-model-manager.js';
 import { timeOut } from '@polymer/polymer/lib/utils/async.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
-class RockAttributeManage extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.ComponentContextBehavior],
+class RockAttributeManage extends mixinBehaviors(
+    [
+        RUFBehaviors.UIBehavior,
+        RUFBehaviors.ComponentContextBehavior,
+        RUFBehaviors.ComponentBusinessFunctionBehavior,
+        RUFBehaviors.ComponentConfigBehavior
+    ],
     OptionalMutableData(PolymerElement)) {
   static get template() {
     return html`
@@ -63,25 +69,30 @@ class RockAttributeManage extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBe
             #errorsDialog {
                 --popup-header-color: var(--palette-pinkish-red, #ee204c);
             }
+            .buttonContainer-top-right {
+                text-align: right;
+                padding-top: 10px;
+            }
 
             #rock-attribute-list-container {
                 height: 100%;
                 overflow-y: auto;
                 overflow-x: hidden;
             }
-
-            /* IE edge specific fix for button-siblings */
-
-            _:-ms-lang(x),
-            _:-webkit-full-screen,
-            .button-siblings {
-                height: calc(100% - 50px) !important;
+            .error-list{
+                overflow: auto;
+                max-height: 200px;
             }
+            .buttons{
+                text-align: center;
+            }
+
+            
         </style>
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
         <pebble-dialog id="errorsDialog" modal="" small="" vertical-offset="1" 50="" horizontal-align="auto" vertical-align="auto" no-cancel-on-outside-click="" no-cancel-on-esc-key="" dialog-title="Errors on page">
             <p>Found below errors in entity details: </p>
-            <ul>
+            <ul class="error-list">
                 <template is="dom-repeat" items="[[_syncValidationErrors]]">
                     <li>[[item.attributeExternalName]] with error: [[item.message]]</li>
                 </template>
@@ -108,12 +119,19 @@ class RockAttributeManage extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBe
         </liquid-rest>
         <liquid-rest id="entityMatchService" url="/data/pass-through/matchservice/search" method="POST" request-data="{{_entityMatchRequest}}" on-liquid-response="_onMatchSuccess" on-liquid-error="_onMatchFailure">
         </liquid-rest>
-        <div class="base-grid-structure button-siblings">
+        <div class="base-grid-structure">
             <div class="base-grid-structure-child-1">
-                <template is="dom-if" if="[[_showNoAttributeMessage]]">
-                    <div align="center">[[_attributesMessage]]</div>
-                </template>
-            </div>
+                <div id="buttonContainer" class="buttonContainer-top-right" align="center">
+                        <template is="dom-if" if="[[_showNoAttributeMessage]]">
+                                <div align="center">[[_attributesMessage]]</div>
+                        </template>
+            
+                        <template is="dom-if" if="[[!isPartOfBusinessFunction]]">
+                            <pebble-button class="action-button btn btn-secondary m-l-5" id="cancel" button-text="Cancel" raised="" on-tap="_openCancelDialog"></pebble-button>
+                        </template>
+                        <pebble-button class="action-button-focus dropdownText btn btn-success m-l-5" id="next" button-text="[[_saveButtonText]]" raised="" on-tap="_save"></pebble-button>
+                </div>
+            </div> 
             <div class="base-grid-structure-child-2">
                 <template is="dom-if" if="{{hasComponentErrored(isComponentErrored)}}">
                     <div id="error-container"></div>
@@ -124,11 +142,6 @@ class RockAttributeManage extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBe
                 </template>
             </div>
         </div>
-        <div id="buttonContainer" align="center" class="buttonContainer-static">
-            <pebble-button id="cancel" class="btn btn-secondary m-r-5" button-text="Cancel" on-tap="_openCancelDialog" elevation="1" raised=""></pebble-button>
-            <pebble-button id="save" disabled="[[readonly]]" class="focus btn btn-success" button-text="Save" on-tap="_save" elevation="1" raised=""></pebble-button>
-        </div>
-
         <liquid-entity-data-get name="relatedEntityGet" operation="getbyids" on-response="_relatedEntityGetResponse" exclude-in-progress=""></liquid-entity-data-get>
 
         <bedrock-pubsub event-name="global-edit" handler="_onGlobalEdit"></bedrock-pubsub>
@@ -189,6 +202,14 @@ class RockAttributeManage extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBe
           allowSaveOnError: {
               type: Boolean,
               value: false
+          },
+          isPartOfBusinessFunction: {
+              type: Boolean,
+              value: false
+          },                    
+          _saveButtonText: {
+              type: String,
+              value: "Save"
           },
           /**
            * <b><i>Content development is under progress... </b></i> 
@@ -367,7 +388,7 @@ class RockAttributeManage extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBe
           },
           _loading: {
               type: Boolean,
-              value: false
+              value: true
           },
           hideRevert: {
               type: Boolean,
@@ -418,7 +439,6 @@ class RockAttributeManage extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBe
   }
   connectedCallback() {
       super.connectedCallback();
-      this.logInfo("AttributeManageAttached");
       this._cancelDialog = this.shadowRoot.querySelector("#cancelDialog");
   }
   disconnectedCallback() {
@@ -433,7 +453,6 @@ class RockAttributeManage extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBe
       ]
   }
   refresh() {
-      //this._configContextChanged(this.getFirstValueContext());
       this._contextChanged(this.contextData.ValContexts);
   }
   _getButtonsClass(functionalMode) {
@@ -452,8 +471,14 @@ class RockAttributeManage extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBe
   _modeChanged(mode, updateList) {
       if (!mode) return;
       this.mode = mode;
-      let setAttributeValue =  mode === 'edit' ? "true" : "false";
-      this.$.buttonContainer.setAttribute("show",setAttributeValue);
+      if(!this.isPartOfBusinessFunction) {
+          let setAttributeValue =  mode === 'edit' ? "true" : "false";
+          this.$.buttonContainer.setAttribute("show",setAttributeValue);
+      } else {
+          //always keep in edit mode for business function dialog
+          this.set('mode', "edit");
+          this.$.buttonContainer.setAttribute("show", true);
+      }
 
       if (updateList && this.attributeList) {
           this.attributeList.mode = mode;
@@ -461,7 +486,6 @@ class RockAttributeManage extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBe
   }
   async _contextChanged(valueContexts) {
       if (valueContexts != undefined) {
-          this.logInfo("AttributeManageContextChange", "contextData", this.contextData);
 
           if (_.isEmpty(valueContexts) || _.isEmpty(this.contextData)) {
               return;
@@ -504,8 +528,25 @@ class RockAttributeManage extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBe
               }
           }
 
-          this._getEntityData();
-      }
+          if(this.isPartOfBusinessFunction) {
+              let context = DataHelper.cloneObject(this.contextData);
+              //App specific
+              let appName = "";
+              appName = ComponentHelper.getCurrentActiveAppName(this);
+              if (appName) {
+                  context[ContextHelper.CONTEXT_TYPE_APP] = [{
+                      "app": appName
+                  }];
+              }
+              this.requestConfig(this.nodeName.toLowerCase(), context);
+          } else {
+              this._getEntityData();
+          }
+      }                
+  }
+
+  onConfigLoaded(componentConfig) {
+      this._getEntityData();
   }
 
   async _getCompositeModel(compositeModelGetRequest) {
@@ -654,8 +695,6 @@ class RockAttributeManage extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBe
   }
   async _attributeResponseChanged(_attributeResponse) {
       if (_.isEmpty(_attributeResponse)) return;
-
-      this.logInfo("AttributeManageResponseChange", "response", _attributeResponse);
 
       let attributes = [];
       let dependentAttributes = [];
@@ -941,13 +980,15 @@ class RockAttributeManage extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBe
           changedAttributeElements = this._setAllRangeFieldsInChangeAttributes(changedAttributeElements);
       }
 
+      //Show the spinner
+      this._loading = true;
+
       //TODO: Temporary, need to send all the attributes for save as API is not supporting delta comparion within entity content and replacing complete entity object...
       //changedAttributeElements = attributeList.root.querySelectorAll('rock-attribute');
       //validate - if error then return operationResult, else proceed
       //prepare attribute JSON from changed attributes
       let attributesJSON = this.extractAttributes(changedAttributeElements);
 
-      this.logInfo("AttributeManageSave", "attributes", attributesJSON);
       let newEntity = {};
       if (this.responseHasEntities()) {
           newEntity = await this.updateEntity(attributesJSON);
@@ -961,6 +1002,7 @@ class RockAttributeManage extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBe
       if (liquidSave) {
           liquidSave.generateRequest();
       } else {
+          this._loading = false;
           this.logError(
               "Save failed: Not able to access attributeSaveDataService liquid");
       }
@@ -1013,32 +1055,36 @@ class RockAttributeManage extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBe
 
           let message = this.successMessage ? this.successMessage :
               "Attribute save request is submitted successfully!!";
-          this.showSuccessToast(message, 10000);
+          this.showSuccessToast(message, 5000);
           this.mode = "view";
 
           //Raise event on attributes save
           this.fireBedrockEvent("on-attribute-save", null, {
               ignoreId: true
           });
+
+          let itemCtx = this.getFirstItemContext();
+          let data = {};
+          if (itemCtx) {
+              data = { "id": itemCtx.id, "type": itemCtx.type };
+          }
+          let eventDetails = [];
           if (this.functionalMode == "dataFunction") {
-              let eventName = "onSave";
-              let eventDetail = {
-                  name: eventName,
+              eventDetails.push({
                   "action": {
                       "name": "business-condition-save-request"
                   }
-              };
-              this.fireBedrockEvent(eventName, eventDetail, {
-                  ignoreId: true
               });
           }
-
+          this.dataFunctionComplete(data, eventDetails);
       } else {
+          this._loading = false;
           this.showWarningToast("Attribute save failed");
           this.logError("Attribute save failed. Response status is error", e.detail);
       }
   }
   _onSaveError(e) {
+      this._loading = false;
       this.logError("entity update failed", e.detail);
       this.showWarningToast("Attribute save failed");
   }
@@ -1209,22 +1255,26 @@ class RockAttributeManage extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBe
               this._saveEntity();
           }
       } else {
+          this._loading = false;
           this.logError(
               "AttributeManageValidationFail:- There is a problem in validation service.",
               e.detail);
       }
   }
   _onGovernFailed(e) {
+      this._loading = false;
       this.logError(
           "AttributeManageGovernFail:- There is a problem in validation service.",
           e.detail);
   }
   _onEntityModelCompositeGetFailed(e) {
+      this._loading = false;
       this.logError(
           "EntityModelCompositeGetFail:- There is a problem with entity data service (EntityModelCompositeGet).",
           "", true);
   }
   _onEntityDataGetFailed(e) {
+      this._loading = false;
       this.logError(
           "EntityDataGetFailed:- There is a problem in entity data service. Received empty response.",
           e.detail, true);
@@ -1234,6 +1284,7 @@ class RockAttributeManage extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBe
           response
       } = e.detail;
       if (response.content && !response.content.entities.length) {
+          this._loading = false;
           this._onEntityDataGetFailed(e);
       }
   }
@@ -1245,6 +1296,7 @@ class RockAttributeManage extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBe
       this._saveEntity();
   }
   _fixServerErrors() {
+      this._loading = false;
       this._closeErrorsDialog();
       let newAttributeMessages = {};
       if (this._syncValidationErrors) {
@@ -1295,6 +1347,7 @@ class RockAttributeManage extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBe
           let response = detail.response.response;
 
           if (this._hasErrors(detail)) {
+              this._loading = false;
               this.logError("Failed to request match service with error:", detail);
               return;
           }
@@ -1309,6 +1362,7 @@ class RockAttributeManage extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBe
                       if (itemContext) {
                           itemContext.id = -1;
                       }
+                      this._loading = false;
                       return;
                   }
               } else {
@@ -1329,6 +1383,7 @@ class RockAttributeManage extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBe
       }
   }
   _onMatchFailure(e, detail) {
+      this._loading = false;
       this.logError("There is a problem in match service.", detail);
   }
 

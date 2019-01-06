@@ -14,7 +14,6 @@ import '../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../bedrock-style-manager/styles/bedrock-style-buttons.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
 import '../bedrock-style-manager/styles/bedrock-style-icons.js';
-import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockUserContextSelector extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.ComponentContextBehavior], PolymerElement) {
   static get template() {
@@ -64,7 +63,7 @@ class RockUserContextSelector extends mixinBehaviors([RUFBehaviors.UIBehavior, R
         <div class="lov-wrapper">
             <div class="lov-container">
                 <template is="dom-if" if="[[_isRoleModelRequestPrepared(_roleModelRequestData)]]">
-                    <div id="roleDiv" class="input tooltip-bottom" hidden\$="[[_isHidden('role-selection')]]" data-tooltip\$="[[selectedRole.title]]">
+                    <div id="roleDiv" class="input" hidden\$="[[_isHidden('role-selection')]]" title\$="[[selectedRole.title]]">
                         <pebble-textbox readonly="" class="role-text" on-tap="_showLOV" data-args="role" id="roleTextBox" label="Select Role" no-label-float="" value="[[selectedRole.title]]" disabled\$="[[_isDisable('role-selection')]]">
                             <pebble-icon slot="suffix" class="pebble-icon-size-10 m-r-5" id="roleDropdownIcon" icon="pebble-icon:navigation-action-down" disabled\$="[[_isDisable('role-selection')]]"></pebble-icon>
                         </pebble-textbox>

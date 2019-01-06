@@ -40,7 +40,6 @@ import '../bedrock-ui-behavior/bedrock-ui-behavior.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
 import '../bedrock-style-manager/styles/bedrock-style-icons.js';
-import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 import '../bedrock-style-manager/styles/bedrock-style-floating.js';
 import '../pebble-icons/pebble-icons.js';
 import '../pebble-icon/pebble-icon.js';
@@ -102,17 +101,12 @@ class PebbleTagItem extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerEle
                 bottom: 0px;
                 right: 4px;
             }
-            .tooltip-top:after,
-            .tooltip-bottom:after,
-            .tooltip-top:before,
-            .tooltip-bottom:before {
-                @apply --after-before-tooltip-top;
-            }
+          
             .cursor-pointer {
                 cursor: pointer;
             }
         </style>
-        <div id="pebble-tag" class="tag-item-container border tooltip-bottom" data-tooltip\$="[[_getNameValueTile(longName,_displayValue)]]">
+        <div id="pebble-tag" class="tag-item-container border" title\$="[[_getNameValueTile(longName,_displayValue)]]">
             <template is="dom-if" if="{{_displayIcon(showIcon)}}">
                 <pebble-icon id="icon" src="[[src]]" icon="[[icon]]"></pebble-icon>
             </template>

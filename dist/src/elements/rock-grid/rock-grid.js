@@ -200,7 +200,6 @@ import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import { OptionalMutableData } from '@polymer/polymer/lib/mixins/mutable-data.js';
 import '@polymer/paper-input/paper-input.js';
-import '@polymer/paper-tooltip/paper-tooltip.js';
 import '@polymer/paper-input/paper-textarea.js';
 import '@polymer/paper-dropdown-menu/paper-dropdown-menu.js';
 import '@polymer/paper-radio-button/paper-radio-button.js';
@@ -218,7 +217,6 @@ import '../bedrock-style-manager/styles/bedrock-style-buttons.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
 import '../bedrock-style-manager/styles/bedrock-style-icons.js';
 import '../bedrock-style-manager/styles/bedrock-style-grid-layout.js';
-import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 import '../bedrock-style-manager/styles/bedrock-style-gridsystem.js';
 import '../pebble-data-table/pebble-data-table.js';
 import '../pebble-data-table/data-table-column.js';
@@ -1281,7 +1279,7 @@ class RockGrid
 
             minFilterLength: {
                 type: Number,
-                value: 2
+                value: 1
             },
             isWorkflowCriterion: {
                 type: Boolean,
@@ -1409,6 +1407,10 @@ class RockGrid
                 type: Element
             },
             applyGraphCoalescedStyle: {
+                type: Boolean,
+                value: false
+            },
+            controlDirty: {
                 type: Boolean,
                 value: false
             }
@@ -1670,8 +1672,7 @@ class RockGrid
     getControlIsDirty() {
 				//To-do Need to have logic to check whether selected Item attr is updated in quick manage
 				// Currently allowing selectedItems is only one.. assuming that one item is selected and page is not dirty.
-				let controlDirty = this.getSelectedItems().length > 1;
-
+				
 				let editMode = this.get('config.mode') === "edit";
 
 				let rockAttributeObj = dom(this.root).querySelectorAll('rock-attribute');
@@ -1680,7 +1681,7 @@ class RockGrid
             rockAttributeDirty = rockAttributeObj.getControlIsDirty();
 				}
 
-				return controlDirty || rockAttributeDirty || editMode;
+				return this.controlDirty || rockAttributeDirty || editMode;
     }
     getItemFromData(item) {
 				if (item.id && item.type) {
@@ -1728,8 +1729,9 @@ class RockGrid
 				//Resetting preSelectItem
 				this.preSelectedItems = []
 				let _isRefresh = true;
+
 				if (options && options.partialRefresh) {
-            _isRefresh = false;
+            //_isRefresh = false;
             if (this.selectedItem && this.selectedItem.id && this.selectedItem.type) {
                 if (options.selectedItem && options.selectedItem.id && options.selectedItem.type) {
                     if ((this.selectedItem.id == options.selectedItem.id) &&
@@ -1741,10 +1743,11 @@ class RockGrid
                     }
                 }
             }
-            if (!_isRefresh && options.toastData) {
-                let notificationObj = RUFUtilities.mainApp.$$('bedrock-dataobject-notification-handler');
-                notificationObj.showToast(options.toastData);
-            }
+            //if (!_isRefresh && options.toastData) {
+                //let notificationObj = RUFUtilities.mainApp.$$('bedrock-dataobject-notification-handler');
+                //notificationObj.showToast(options.toastData);
+            //}
+            
 				}
 				if (_isRefresh) {
             this._onRefresh();
@@ -1858,7 +1861,9 @@ class RockGrid
 				if (!this.config) {
             return;
 				}
-				this._inlineValidationEnabled = this.inlineReadValidationEnabled;
+				if (this.config.mode.toLowerCase() == "read") {
+            this._inlineValidationEnabled = this.inlineReadValidationEnabled;
+				}
 				let dropdown = this.shadowRoot.querySelector("#viewMode");
 				if (dropdown) {
             dropdown.disabled = false;
@@ -2549,16 +2554,24 @@ class RockGrid
 				let view = this.shadowRoot.querySelector("#" + elementId)
 				return ElementHelper.getElement(view, "iron-list");
     }
+
+    resetControlDirty(){
+				this.controlDirty = false;
+    }
     _onSelectingItem(e) {
+				this.controlDirty = true;
 				this.fireBedrockEvent("grid-selecting-item", e.detail);
     }
     _onDeselectingItem(e) {
+				this.controlDirty = true;
 				this.fireBedrockEvent("grid-deselecting-item", e.detail);
     }
     _onSelectingAllItems(e) {
+				this.controlDirty = true;
 				this.fireBedrockEvent("grid-selecting-all-items", e.detail);
     }
     _onDeselectingAllItems(e) {
+				this.controlDirty = true;
 				this.fireBedrockEvent("grid-deselecting-all-items", e.detail);
     }
     _onExpandingItem(e) {
@@ -2732,6 +2745,7 @@ class RockGrid
             let row = this._getParentRow(e.currentTarget);
             //delete data row added newly else mark data row status as deleted
             if (this._isNewlyAddedDataRow(row)) {
+                this._markRowAsDelete(row);
                 this._deleteNewRowById(row.__data.item.id);
                 detail.isNewlyAddedDataRowDelete = true;
             } else {
@@ -2845,6 +2859,14 @@ class RockGrid
 				let warnings = [];
 				for (let i = 0; i < this._fields.length; i++) {
             let attr = this.shadowRoot.querySelector("#row" + index + "col" + i);
+            if(attr){
+                if(!_.isEmpty(item.duplicateValidationError) && item.duplicateKeysName.indexOf(attr.attributeModelObject.externalName) > -1){
+                    attr.classList.add("value-duplicated")
+                }else{
+                    attr.classList.remove("value-duplicated")
+                }
+            }
+            
             if (attr && attr.errors.length > 0) {
                 let errorObj = {};
                 errorObj.name = this._fields[i].name;
@@ -2863,6 +2885,9 @@ class RockGrid
                 warningObj.index = index;
                 warnings.push(warningObj);
             }
+				}
+				if(!_.isEmpty(item.duplicateValidationError)){
+            errors = errors.concat(item.duplicateValidationError)
 				}
 				item.errors = (item.governanceErrors && item.governanceErrors.length) ? errors.concat(item.governanceErrors) : errors;
 				item.warnings = warnings;
@@ -2948,7 +2973,7 @@ class RockGrid
                     sortData['fields'] = field;
                 };
                 if (gridData && !_.isEmpty(sortData)) {
-                    gridData = gridData.sort(new DataHelper.sortingFunction(sortData).sort);
+                    gridData = gridData.sort(new DataHelper.sortingFunction(sortData, this.attributeModels).sort);
                     this.set("data", gridData);
                 }
             }
@@ -3398,7 +3423,11 @@ class RockGrid
                     }));
                 });
             }
-            if (this.data) {
+            if(this.rDataSourceId){
+                if (this._getIronDataTable()) {
+                    this._getIronDataTable()._resetData(this.rDataSource);
+                }
+            }else if (this.data) {
                 this.gridDataSize = this.currentRecordSize = this.data.length;
             } else {
                 this.gridDataSize = 0;
@@ -3648,7 +3677,7 @@ class RockGrid
 				let ironDataTable = this._getIronDataTable();
 				if (id) {
             ironDataTable._cachedItems = ironDataTable._cachedItems.filter(function (dataItem) {
-                return dataItem.id != id;
+                return dataItem.id != id;				
             });
 				}
 				this.set("data", "");

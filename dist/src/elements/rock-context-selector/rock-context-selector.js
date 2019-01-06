@@ -8,7 +8,6 @@ import '../bedrock-ui-behavior/bedrock-ui-behavior.js';
 import '../bedrock-component-context-behavior/bedrock-component-context-behavior.js';
 import '../rock-component-config-behavior/rock-component-config-behavior.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
-import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 import '../rock-entity-lov/rock-entity-lov.js';
 import '../liquid-config-get/liquid-config-get.js';
 import '../liquid-config-save/liquid-config-save.js';
@@ -96,7 +95,7 @@ class RockContextSelector
             <template is="dom-repeat" items="[[_contextToBeRendered]]" as="ctx">
                 <div id="[[ctx.id]]" hidden\$="[[ctx.hidden]]" class="widget-item-wrap">
                     <div>
-                        <pebble-button id="[[ctx.id]]-toggle-button" popover="[[ctx.id]]-popover" lov="[[ctx.id]]-lov" icon="[[ctx.icon]]" button-text="[[ctx.title]]" class="dropdownText dropdownIcon btn dropdown tooltip-bottom" noink="" raised="" no-overlap="" vertical-offset="-211" horizontal-offset="11" dropdown-icon="" on-tap="_onToggleButtonTap" disabled\$="[[ctx.readonly]]">
+                        <pebble-button id="[[ctx.id]]-toggle-button" popover="[[ctx.id]]-popover" lov="[[ctx.id]]-lov" icon="[[ctx.icon]]" button-text="[[ctx.title]]" class="dropdownText dropdownIcon btn dropdown " noink="" raised="" no-overlap="" vertical-offset="-211" horizontal-offset="11" dropdown-icon="" on-tap="_onToggleButtonTap" disabled\$="[[ctx.readonly]]">
                         </pebble-button>
                     </div>
                     <pebble-popover title="[[ctx.title]]" id="[[ctx.id]]-popover" for="[[ctx.id]]-toggle-button" no-overlap="" horizontal-align="[[horizontalAlign]]">
@@ -409,9 +408,9 @@ class RockContextSelector
               configData = this._prepareConfigForDynamicDimensions(configData);
           }
           let localeManager = ComponentHelper.getLocaleManager();
-          let defaultLocale = DataHelper.getDefaultValContext();
-          if (defaultLocale && defaultLocale.locale) {
-              await localeManager.getByNameAsync(defaultLocale.locale);
+          let defaultValContext = DataHelper.getDefaultValContext();
+          if (defaultValContext && defaultValContext.locale) {
+              await localeManager.getByNameAsync(defaultValContext.locale);
           }
           this.configData = {};
           this.set('configData', configData);
@@ -879,7 +878,7 @@ class RockContextSelector
   }
 
   _updateSelectedDimensions() {
-      Debouncer.debounce(this._debouncer, timeOut.after(100), () => {
+      Debouncer.debounce(this._debouncer, timeOut.after(500), () => {
           this._setSelectedDimensions();
           this._updateCurrentContextState();
       });
@@ -921,6 +920,14 @@ class RockContextSelector
                                   let selectedItem = !_.isEmpty(rockLov.selectedItem) ? rockLov.selectedItem : undefined;
                                   let selectedItems = !_.isEmpty(rockLov.selectedItems) ? rockLov.selectedItems : undefined;
                                   if (selectedItems) {
+                                      if (!_.isEmpty(configDataItem.selectedItem)) {
+                                          let defaultSelectedItem = selectedItems.find(v => v.id == configDataItem.selectedItem.id);
+
+                                          if (!_.isEmpty(defaultSelectedItem)) {
+                                              defaultSelectedItem.entityId = configDataItem.selectedItem.entityId;
+                                              rockLov.selectedItems = selectedItems;
+                                          }
+                                      }
                                       rockLov.selectedItem = selectedItem ? selectedItem : selectedItems[0];
                                   }
 
@@ -1050,7 +1057,7 @@ class RockContextSelector
           }
 
           currentDimensionButton.buttonText = toolTip;
-          currentDimensionButton.setAttribute("data-tooltip", toolTip);
+          currentDimensionButton.setAttribute("title", toolTip);
       }
   }
 
@@ -1068,10 +1075,10 @@ class RockContextSelector
               if (lovElement && lovElement.rData) {
                   let ctxData = lovElement.rData;
                   let ctxTypes = ctxData.dataMappings.type;
-                  if(ctxData && ctxData.contextType == "data") {
-                      if(this._entityContextsModified) {
+                  if (ctxData && ctxData.contextType == "data") {
+                      if (this._entityContextsModified) {
                           let parsedContext = !_.isEmpty(this._contextToBeRendered) ? this._contextToBeRendered.find(obj => obj.id === ctxKey) : undefined;
-                          if(parsedContext && !_.isEmpty(parsedContext.dataRequest)) {
+                          if (parsedContext && !_.isEmpty(parsedContext.dataRequest)) {
                               lovElement.requestData = parsedContext.dataRequest;
                               lovElement.reset();
                           }
@@ -1081,10 +1088,8 @@ class RockContextSelector
                           let ctxType = ctxTypes[i];
                           let itemIdx = this._contextHierarchy.indexOf(ctxType);
 
-                          let selectedItems = lovElement.selectedItems;
-                          if (_.isEmpty(selectedItems) && !_.isEmpty(lovElement.selectedItem)) {
-                              selectedItems = [lovElement.selectedItem];
-                          }
+                          let selectedItems = lovElement.multiSelect ? lovElement.selectedItems : lovElement.selectedItem ? [lovElement.selectedItem] : [];
+
                           if (!_.isEmpty(selectedItems)) {
                               let ids = [];
                               selectedItems.forEach((selectedItem) => {
@@ -1232,7 +1237,7 @@ class RockContextSelector
                       }
 
 
-                      let reqData = ctxData.dataRequest;
+                      let reqData = lovElement.requestData;
                       if (DataHelper.isValidObjectPath(reqData, "params.query")) {
                           if (!DataHelper.areEqualArrays(reqData.params.query.ids, dependentLovRelationships[ctxType])) {
                               reqData.params.query.ids = dependentLovRelationships[ctxType];
@@ -1268,14 +1273,16 @@ class RockContextSelector
               let _selectedDim = this.selectedDimensions[rootCtxType];
               this._previousRootCtxValue = this._previousRootCtxValue || {};
               if (_selectedDim) {
-                  if (this._previousRootCtxValue[rootCtxType] && _selectedDim.length == this._previousRootCtxValue[rootCtxType].length) {
-                      _selectedDim.forEach(function (val) {
-                          if (this._previousRootCtxValue[rootCtxType].indexOf(val) < 0) {
-                              isRootCtxhanged = true;
-                          }
-                      }, this);
-                  } else {
-                      isRootCtxhanged = true;
+                  if (typeof this._previousRootCtxValue[rootCtxType] != 'undefined') {
+                      if (_selectedDim.length == this._previousRootCtxValue[rootCtxType].length) {
+                          _selectedDim.forEach(function (val) {
+                              if (this._previousRootCtxValue[rootCtxType].indexOf(val) < 0) {
+                                  isRootCtxhanged = true;
+                              }
+                          }, this);
+                      } else {
+                          isRootCtxhanged = true;
+                      }
                   }
                   this._previousRootCtxValue[rootCtxType] = DataHelper.cloneObject(_selectedDim);
               }
@@ -1320,52 +1327,98 @@ class RockContextSelector
               // If entity has dependent relationship then check for "isDefault" relationship attribute to get preselected dependent value for current entity.
               let _domHost = _rData ? this : this.domHost;
 
-              if (elementInfo.contextType.toLowerCase() == "value" && DataHelper.isValidObjectPath(this.requestData, "params.query.ids.0")) {
-                  let selectedItemIds = this.selectedItems.map(v => v.id);
-                  let selectedItems = [];
-                  if (selectedItemIds) {
-                      formattedData.forEach(function (item) {
-                          if (selectedItemIds.indexOf(item.id) > -1) {
-                              selectedItems.push(item);
-                          }
-                      }, this);
-
-                      let preSelectedItems;
-                      if (_domHost._rootContextChanged) {
-                          preSelectedItems = _domHost.selectedDimensionsDetail["PreSelectedItems"] && _domHost.selectedDimensionsDetail["PreSelectedItems"][ctxType];
-                      }
-                      if (!_.isEmpty(preSelectedItems)) {
-                          //var preselctedItem = data.find(v => v.id == preSelectedItemId);
-                          let preselctedItem = data.find(v => preSelectedItems.find(u => u === v.id));
-
-                          if (preselctedItem) {
-                              let name;
-                              let path = "data.attributes." + elementInfo.externalAttrName + ".values.0.value";
-                              if (DataHelper.isValidObjectPath(preselctedItem, path)) {
-                                  name = preselctedItem.data.attributes[elementInfo.externalAttrName].values[0].value;
-                              } else {
-                                  name = preselctedItem.name;
+              if (elementInfo.contextType.toLowerCase() == "value") {
+                  if (DataHelper.isValidObjectPath(this.requestData, "params.query.ids.0")) {
+                      let selectedItemIds = this.selectedItems.map(v => v.id);
+                      let selectedItems = [];
+                      if (selectedItemIds) {
+                          formattedData.forEach(function (item) {
+                              if (selectedItemIds.indexOf(item.id) > -1) {
+                                  selectedItems.push(item);
                               }
-                              let item = formattedData.find(v => v.title == name);
+                          }, this);
 
-                              if (item) {
+                          let preSelectedItems;
+
+                          if (_domHost._rootContextChanged) {
+                              let contextHierarchyInfo = _domHost._contextHierarchyInfo;
+                              let noOfSelectedCtxs = 0;
+                              if (!_.isEmpty(contextHierarchyInfo)) {
+                                  contextHierarchyInfo.forEach((item) => {
+                                      if (!_.isEmpty(_domHost.selectedDimensionsDetail[item.contextKey])) {
+                                          noOfSelectedCtxs = noOfSelectedCtxs + _domHost.selectedDimensionsDetail[item.contextKey].length;
+                                          return;
+                                      }
+                                  });
+                              }
+
+                              if (noOfSelectedCtxs > 1) {
+                                  if (_.isEmpty(selectedItems)) {
+                                      preSelectedItems = _domHost.selectedDimensionsDetail["PreSelectedItems"] && _domHost.selectedDimensionsDetail["PreSelectedItems"][ctxType];
+                                  }
+                              } else {
+                                  preSelectedItems = _domHost.selectedDimensionsDetail["PreSelectedItems"] && _domHost.selectedDimensionsDetail["PreSelectedItems"][ctxType];
+                              }
+                          }
+                          if (!_.isEmpty(preSelectedItems)) {
+                              //var preselctedItem = data.find(v => v.id == preSelectedItemId);
+                              let preselctedItem = data.find(v => preSelectedItems.find(u => u === v.id));
+
+                              if (preselctedItem) {
+                                  let name;
+                                  let path = "data.attributes." + elementInfo.externalAttrName + ".values.0.value";
+                                  if (DataHelper.isValidObjectPath(preselctedItem, path)) {
+                                      name = preselctedItem.data.attributes[elementInfo.externalAttrName].values[0].value;
+                                  } else {
+                                      name = preselctedItem.name;
+                                  }
+                                  let item = formattedData.find(v => v.title == name);
+
+                                  if (item) {
+                                      this.selectedItem = item;
+                                      this.selectedItems = [item];
+                                      _domHost._setSelectedDimensions();
+                                  }
+                              }
+                          } else if (!_.isEmpty(selectedItems)) {
+                              if (!DataHelper.areEqualArrays(this.selectedItems, selectedItems)) {
+                                  this.selectedItems = selectedItems;
+                                  _domHost._setSelectedDimensions();
+                              }
+                          } else {
+                              this.selectedItems = !_.isEmpty(_domHost.selectedDimensionsDetail[ctxType]) ? _domHost.selectedDimensionsDetail[ctxType] : [];
+                              _domHost._setSelectedDimensions();
+                          }
+                      }
+                  } else {
+                      let contextHierarchyInfo = _domHost._contextHierarchyInfo;
+                      if (!_.isEmpty(contextHierarchyInfo) && _domHost._rootContextChanged) {
+                          let isGlobalContext = true;
+                          contextHierarchyInfo.forEach((item) => {
+                              if (!_.isEmpty(_domHost.selectedDimensionsDetail[item.contextKey])) {
+                                  isGlobalContext = false;
+                                  return;
+                              }
+                          });
+
+                          if (ctxType == "locale" && isGlobalContext) {
+                              let defaultLocale = ComponentHelper.getLocaleManager().getByName(DataHelper.getDefaultLocale());
+                              if (!_.isEmpty(defaultLocale)) {
+                                  let item = {
+                                      "entityId": defaultLocale.id,
+                                      "id": defaultLocale.name,
+                                      "title": defaultLocale.externalName,
+                                      "type": ctxType
+                                  };
+
                                   this.selectedItem = item;
                                   this.selectedItems = [item];
                                   _domHost._setSelectedDimensions();
                               }
                           }
-                      } else if (!_.isEmpty(selectedItems)) {
-                          if (!DataHelper.areEqualArrays(this.selectedItems, selectedItems)) {
-                              this.selectedItems = selectedItems;
-                              _domHost._setSelectedDimensions();
-                          }
-                      } else {
-                          this.selectedItems = !_.isEmpty(_domHost.selectedDimensionsDetail[ctxType]) ? _domHost.selectedDimensionsDetail[ctxType] : [];
-                          _domHost._setSelectedDimensions();
                       }
                   }
               }
-
               if (!_.isEmpty(_domHost.favouriteContexts) && elementInfo.contextType.toLowerCase() == "data") {
                   formattedData.forEach(function (item) {
                       if (_domHost.favouriteContexts.find(ctx => ctx[item.type] === item.title)) {
@@ -1461,12 +1514,12 @@ class RockContextSelector
                       configDataItem.dataRequest = undefined
                   } else if (DataHelper.isValidObjectPath(configDataItem, "dataMappings.title") &&
                       configDataItem.dataMappings.title) {
-                          if(_.isEmpty(configDataItem.dataRequest)) {
-                              let itemContexts = [{"type": configDataItem.dataMappings.type}];
-                              let contextData = {"ItemContexts": itemContexts};
-                              let reqData = DataRequestHelper.createEntityGetRequest(contextData, true);
-                              configDataItem.dataRequest = reqData;
-                          }
+                      if (_.isEmpty(configDataItem.dataRequest)) {
+                          let itemContexts = [{ "type": configDataItem.dataMappings.type }];
+                          let contextData = { "ItemContexts": itemContexts };
+                          let reqData = DataRequestHelper.createEntityGetRequest(contextData, true);
+                          configDataItem.dataRequest = reqData;
+                      }
 
                       /**
                       * If entity has contexts, request should be sent to get only entity current contexts

@@ -8,32 +8,34 @@
   then delete this comment!
 */
 import '@polymer/polymer/polymer-legacy.js';
-import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
-import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
+
 import '../liquid-dataobject-get-behavior/liquid-dataobject-get-behavior.js';
+import { Polymer as Polymer$0 } from '@polymer/polymer/lib/legacy/polymer-fn.js';
 
-class LiquidEntityGovernDataGet
-    extends mixinBehaviors([
-      RUFBehaviors.LiquidDataObjectGetBehavior
-    ], PolymerElement) {
-  static get template() {
-    return html`
-    `;
-  }
-  static get is() { return 'liquid-entity-govern-data-get' }
+Polymer$0({
 
-  constructor() {
-    super();
-  }
+  is: "liquid-entity-govern-data-get",
+  behaviors: [RUFBehaviors.LiquidDataObjectGetBehavior],
 
-  static get properties() {
-    return {
-        dataIndex: {
+  /**
+* Content is not appearing - Content development is under progress.
+*/
+  attached: function () {
+  },
+
+  /**
+* Content is not appearing - Content development is under progress.
+*/
+  ready: function () {
+  },
+
+  properties: {
+      /**
+* <b><i>Content development is under progress... </b></i>
+*/
+      dataIndex: {
           type: String,
           value: "entityGovernData"
       }
-    }
   }
-}
-
-customElements.define(LiquidEntityGovernDataGet.is, LiquidEntityGovernDataGet);
+});

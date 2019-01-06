@@ -308,7 +308,10 @@ class RockAssetsSearchGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUF
    * Can be used to set scroll position dynamically.
    */
   scrollToIndex(index) {
-      this._getEntityGrid().scrollToIndex(index);
+      let _getEntityGrid = this._getEntityGrid();
+      if (_getEntityGrid) {
+          _getEntityGrid.scrollToIndex(index);
+      }
   }
 
   /**

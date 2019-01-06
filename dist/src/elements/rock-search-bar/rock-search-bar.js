@@ -14,7 +14,6 @@ import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '@polymer/iron-input/iron-input.js';
 import '../bedrock-ui-behavior/bedrock-ui-behavior.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
-import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 import '../pebble-button/pebble-button.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 
@@ -95,7 +94,7 @@ class RockSearchBar
             }
         </style>
 
-        <div class="input-panel tooltip-bottom" data-tooltip\$="[[placeholder]]">
+        <div class="input-panel" title\$="[[placeholder]]">
             <input is="iron-input" id="input" value="{{query::input}}" placeholder\$="[[placeholder]]" on-keyup="searchOnEnter" on-paste="_onPaste" on-focus="_onInutFocus" on-focusout="_onInputFocusout">
             <!-- <pebble-textbox id="input" value="{{query::input}}" placeholder\$="[[placeholder]]" 
                     on-keyup="searchOnEnter" on-paste='_onPaste'

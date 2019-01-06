@@ -81,10 +81,11 @@ RUFBehaviors.ComponentBusinessFunctionBehaviorImpl = {
         return this.isComponentDirty;
     },
 
-    dataFunctionComplete: function (data) {
+    dataFunctionComplete: function (data, eventDetails, closeBusinessFunction = false) {
         this.isComponentDirty = false;
         this.componentResult = {
-            "status": "completed"
+            "status": "completed",
+            "eventDetails": eventDetails || []
         }
         if (!_.isEmpty(data)) {
             for (let key in data) {
@@ -92,6 +93,13 @@ RUFBehaviors.ComponentBusinessFunctionBehaviorImpl = {
             }
         }
         ComponentHelper.fireBedrockEvent("business-function-step-complete", this.componentResult, { ignoreId: true });
+        if (closeBusinessFunction) {
+            this.dataFunctionClose();
+        }
+    },
+
+    dataFunctionClose: function (detail) {
+        ComponentHelper.fireBedrockEvent("business-function-close", detail, { ignoreId: true });
     },
 
     getDataFunctionProperties: function () {

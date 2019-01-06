@@ -1,7 +1,6 @@
 import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
-import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 import '../bedrock-style-manager/styles/bedrock-style-variables.js';
 import '../rock-component-config-behavior/rock-component-config-behavior.js';
 import '../pebble-toggle-button/pebble-toggle-button.js';
@@ -32,7 +31,7 @@ class RockHotlineSettings
             }
         </style>
         <template is="dom-if" if="[[_isHotlineAllowed(hotlineSettings)]]">
-            <pebble-toggle-button class="tooltip-bottom m-l-5" data-tooltip="Hotline" checked="{{hotlineModeEnabled}}"></pebble-toggle-button>
+            <pebble-toggle-button class="m-l-5" title="Hotline" checked="{{hotlineModeEnabled}}"></pebble-toggle-button>
         </template>
         <pebble-dialog id="hotlineDialog" small="" horizontal-align="auto" show-close-icon="" vertical-align="auto" no-cancel-on-outside-click="" no-cancel-on-esc-key="" dialog-title="Hotline">
             <p>Hotline mode timer is about to expire! Click 'Continue' to keep working in Hotline mode or 'Cancel' if you are

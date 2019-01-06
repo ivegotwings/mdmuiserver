@@ -58,11 +58,11 @@ class RockEntityRelationshipSearchResult
                 <template is="dom-if" if="{{!hasComponentErrored(isComponentErrored)}}">
                     <template is="dom-if" if="{{_isRelGridConfigAvailable(relGridConfig)}}">
                         <template is="dom-if" if="{{!_isUpdirection(relationship)}}">
-                            <rock-relationship-grid id="entityRelationshipGrid_[[relationship]]" is-collapsed="{{isCollapsed}}" readonly="[[readonly]]" show-accordion="[[showAccordion]]" relationship="[[relationship]]" add-relationship-mode="[[_getRelationshipMode(_relConfig.addRelationConfig)]]" relationship-type="[[configContext.relationshipType]]" relationship-title="[[configContext.relationshipTitle]]" rel-req="[[requestObj]]" relationship-grid-config="[[relGridConfig]]" page-size="[[pageSize]]" domain="[[configContext.domain]]" context-data="[[contextData]]" do-sync-validation="[[doSyncValidation]]" functional-mode="[[functionalMode]]" type-thumbnail-mapping="[[_typeThumbnailMapping]]" global-edit="{{globalEdit}}" add-relationship-grid-config="[[addRelationshipGridConfig]]" load-govern-data\$="[[loadGovernData]]" data-index\$="[[dataIndex]]">
+                            <rock-relationship-grid id="entityRelationshipGrid_[[relationship]]" is-collapsed="{{isCollapsed}}" readonly="[[readonly]]" show-accordion="[[showAccordion]]" relationship="[[relationship]]" add-relationship-mode="[[_getRelationshipMode(_relConfig.addRelationConfig)]]" relationship-type="[[configContext.relationshipType]]" relationship-title="[[configContext.relationshipTitle]]" rel-req="[[requestObj]]" relationship-grid-config="[[relGridConfig]]" page-size="[[pageSize]]" domain="[[_getDomain(configContext, domain)]]" context-data="[[contextData]]" do-sync-validation="[[doSyncValidation]]" functional-mode="[[functionalMode]]" type-thumbnail-mapping="[[_typeThumbnailMapping]]" global-edit="{{globalEdit}}" add-relationship-grid-config="[[addRelationshipGridConfig]]" load-govern-data\$="[[loadGovernData]]" data-index\$="[[dataIndex]]" is-part-of-business-function="[[isPartOfBusinessFunction]]">
                             </rock-relationship-grid>
                         </template>
                         <template is="dom-if" if="{{_isUpdirection(relationship)}}">
-                            <rock-where-used-grid id="entityRelationshipGrid_[[relationship]]" is-collapsed="{{isCollapsed}}" readonly="[[readonly]]" relationship="[[relationship]]" relationship-title="[[configContext.relationshipTitle]]" add-relationship-mode="[[_getRelationshipMode(_relConfig.addRelationConfig)]]" rel-req="[[requestObj]]" relationship-grid-config="[[relGridConfig]]" page-size="[[pageSize]]" context-data="[[contextData]]" do-sync-validation="[[doSyncValidation]]" global-edit="{{globalEdit}}" load-govern-data\$="[[loadGovernData]]" data-index\$="[[dataIndex]]" exclude-non-contextual="[[excludeNonContextual]]" show-accordion="[[showAccordion]]">
+                            <rock-where-used-grid id="entityRelationshipGrid_[[relationship]]" is-collapsed="{{isCollapsed}}" readonly="[[readonly]]" relationship="[[relationship]]" relationship-title="[[configContext.relationshipTitle]]" add-relationship-mode="[[_getRelationshipMode(_relConfig.addRelationConfig)]]" rel-req="[[requestObj]]" relationship-grid-config="[[relGridConfig]]" page-size="[[pageSize]]" context-data="[[contextData]]" do-sync-validation="[[doSyncValidation]]" global-edit="{{globalEdit}}" load-govern-data\$="[[loadGovernData]]" data-index\$="[[dataIndex]]" exclude-non-contextual="[[excludeNonContextual]]" show-accordion="[[showAccordion]]" is-part-of-business-function="[[isPartOfBusinessFunction]]">
                             </rock-where-used-grid>
                             <bedrock-pubsub event-name="govern-grid-action-click" handler="_onWorkflowActionTap" target-id="entityRelationshipGrid_[[relationship]]"></bedrock-pubsub>
                         </template>
@@ -89,6 +89,10 @@ class RockEntityRelationshipSearchResult
               value: false
           },
           relationship: {
+              type: String,
+              value: null
+          },
+          domain: {
               type: String,
               value: null
           },
@@ -273,6 +277,13 @@ class RockEntityRelationshipSearchResult
           this._showMessage("Relationships are not configured for current entity type");
           this._loading = false;
           return;
+      }
+  }
+  _getDomain() {
+      if(!_.isEmpty(this.configContext) && this.configContext.domain) {
+          return this.configContext.domain;
+      } else {
+          return this.domain;
       }
   }
   _showMessage(message) {
@@ -707,7 +718,7 @@ class RockEntityRelationshipSearchResult
 
       //SelectedItems should not be blank, because using count
       if (_.isEmpty(selectedItems)) {
-          this.showWarningToast("Select atleast one entity for which you want to perform this action.");
+          this.showWarningToast("Select at least one entity for which you want to perform this action.");
           return;
       }
 

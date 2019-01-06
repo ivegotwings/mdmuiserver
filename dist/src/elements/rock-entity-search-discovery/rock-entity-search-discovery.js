@@ -225,7 +225,7 @@ extends mixinBehaviors([
                                 </div>
                                 <template is="dom-if" if="[[_getVisibility('rock-query-builder')]]">
                                     <div class="advancedsearch">
-                                        <pebble-button class="btn-link underline pebble-icon-color-blue" on-tap="_showQueryBuilder" dropdown-icon="" button-text="Advance Search"></pebble-button>
+                                        <pebble-button class="btn-link underline pebble-icon-color-blue" on-tap="_showQueryBuilder" dropdown-icon="" button-text="Advanced Search"></pebble-button>
                                         <template is="dom-if" if="[[_queryBuilderEnabled]]">
                                             <rock-query-builder id="queryBuilder" domain="[[domain]]" context-data="[[contextData]]" allowed-entity-types="{{allowedEntityTypes}}" selected-entity-types="{{_currentEntityTypes}}" input-query-string="{{inputQueryString}}" attribute-grid-data="{{attributeGridData}}" relationship-name="{{relationshipName}}" workflow-criterion="[[_workflowCriterion]]" relationships-data="[[_relationshipsData]]" rel-entity-data="[[_relEntityData]]" search-query="{{searchQuery}}" lov-settings="[[_getComponentSettings('rock-entity-type-model-lov')]]" entity-type-filter-text="[[entityTypeFilterText]]" settings="[[_getComponentSettings('rock-query-builder')]]" relationship-exists-search-criterion-data="[[relationshipExistsSearchCriterionData]]" max-allowed-values-for-search="[[maxAllowedValuesForSearch]]">
                                             </rock-query-builder>
@@ -278,7 +278,7 @@ extends mixinBehaviors([
                 <div class="base-grid-structure-child-2">
                     <div class="row-wrap p-relative grid-min-height full-height">
                         <div id="entityTypeMsg" class="default-message" hidden\$="[[_isEntityTypeSelected(_typesCriterion)]]"> Select entity type </div>
-                        <div id="entityGridInfo" class="default-message"> No results found for the given criteria </div>
+                        <div id="entityGridInfo" class="default-message"> No results found for the given criteria.</div>
                         <div id="entityGridComponents" class="full-height" hidden\$="[[!_isEntityTypeSelected(_typesCriterion)]]">
                             <template is="dom-if" if="[[_getVisibility('rock-entity-search-result')]]">
                                 <div class\$="[[_applyClass(_quickManageEnabled)]]">
@@ -301,7 +301,7 @@ extends mixinBehaviors([
                                         </pebble-vertical-divider>
                                     </div>
                                     <div class="quick-manage-container">
-                                        <rock-entity-quick-manage id="entityQuickManage" context-data="[[contextData]]" current-index="{{_currentIndex}}" current-record-size="[[_gridFullLength]]" selected-entity="[[_selectedEntity]]"></rock-entity-quick-manage>
+                                        <rock-entity-quick-manage id="entityQuickManage" context-data="[[contextData]]" current-index="{{_currentIndex}}" current-record-size="[[_gridFullLength]]" selected-entity="[[_selectedEntity]]" quick-manage-enabled="{{_quickManageEnabled}}"></rock-entity-quick-manage>
                                         <bedrock-pubsub event-name="on-attribute-save" handler="_onAttributeSave"></bedrock-pubsub>
                                         <bedrock-pubsub event-name="on-tap-previous" handler="_onClickPrevious" target-id="entityQuickManage"></bedrock-pubsub>
                                         <bedrock-pubsub event-name="on-tap-next" handler="_onClickNext" target-id="entityQuickManage"></bedrock-pubsub>
@@ -562,6 +562,10 @@ extends mixinBehaviors([
           },
           maxAllowedValuesForSearch: {
               type: Number
+          },
+          _isSearchFilterChanged:{
+              type:Boolean,
+              value:false
           }
       }
   }
@@ -929,11 +933,6 @@ extends mixinBehaviors([
       this._searchBarElement.query = "";
       this._searchBarElement.setAttribute("placeholder", "");
 
-      // Clear SavedSearch
-      if (this._savedSearchButton) {
-          this._savedSearchButton.buttonText = "Load Saved Search";
-          this.savedSearchId = "";
-      }
 
       // Clear SearchFilter
       this.tags = []; // Todo
@@ -954,16 +953,21 @@ extends mixinBehaviors([
           this.set("_workflowCriterion", new Object());
       }
       this.set("_governDataCriterion", new Object());
+      this._isSearchFilterChanged = false;
 
       let queryBuilder = this.shadowRoot.querySelector("#queryBuilder");
       if (queryBuilder) {
           queryBuilder.resetQueryBuilder();
       }
-
-      this._buildQueryString();
+      
+      if(this.savedSearchId){
+          this._savedSeachesChanged(true, false);
+      }else{
+          this._buildQueryString();
+      }
+      
 
   }
-
 
   // Saved Search
   _onSavedSearchTap(e) {
@@ -1048,10 +1052,14 @@ extends mixinBehaviors([
 
   _loadSavedSearch(e, detail, sender) {
       if (detail) {
-          //this.savedSearchId = detail.id;
-          ComponentHelper.setQueryParams({
-              "_savedSearchId": detail.id
-          });
+          if(this.savedSearchId && (this.savedSearchId == detail.id)){
+              this._resetSearch();
+              this._savedSearchPopoverElement.close();
+          }else{
+              ComponentHelper.setQueryParams({
+                  "_savedSearchId": detail.id
+              });
+          }
       }
   }
 
@@ -1062,10 +1070,9 @@ extends mixinBehaviors([
               if (savedSearch) {
                   this._savedSearch = savedSearch;
                   if (!_.isEmpty(savedSearch.dimensions)) {
-                      this.selectedDimensions = savedSearch.dimensions;
-                  } else {
-                      this._processSavedSearch(savedSearch);
-                  }
+                      this.selectedDimensions = DataHelper.cloneObject(savedSearch.dimensions);
+                  } 
+                  this._processSavedSearch(savedSearch);
               }
           }
       }
@@ -1076,10 +1083,14 @@ extends mixinBehaviors([
       this._isSavedSearchLoad = true;
       this._savedSearchButton.buttonText = savedSearch.name;
       this._governDataCriterion = savedSearch.governData;
-
+      
       let displayQuery = savedSearch.displayQuery;
       let internalQuery = savedSearch.internalQuery;
 
+      if(this._isSearchFilterChanged){
+          displayQuery = this._searchBarElement.placeholder;
+          internalQuery = this._searchBarElement.internalQuery;
+      }
       this._displayQuery(displayQuery, internalQuery);
       this._parseQuery(internalQuery);
   }
@@ -1205,15 +1216,16 @@ extends mixinBehaviors([
   // Quick Manage
   _onSelectingGridItem(e, detail, sender) {
       if (this._quickManageEnabled) {
-          this._selectedEntity = detail.item;
-
-          if (!DataHelper.isEmptyObject(this._selectedEntity)) {
+          
+          let selectedEntityItem = detail.item;
+          if (!DataHelper.isEmptyObject(selectedEntityItem)) {
               let itemContext = {
-                  'id': this._selectedEntity.id,
-                  'type': this._selectedEntity.type
+                  'id': selectedEntityItem.id,
+                  'type': selectedEntityItem.type
               };
 
               this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+              this._selectedEntity = selectedEntityItem;
 
               this._searchGridElement.clearSelection();
               microTask.run(() => {
@@ -1247,7 +1259,6 @@ extends mixinBehaviors([
       }
       if (this._quickManageEnabled) {
           let selectedItem = selectedCount[selectedCount.length - 1];
-          this._selectedEntity = selectedItem;
 
           if (!DataHelper.isEmptyObject(selectedItem)) {
               let itemContext = {
@@ -1256,6 +1267,7 @@ extends mixinBehaviors([
               };
 
               this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+              this._selectedEntity = selectedItem;
 
               this._searchGridElement.clearSelection(); //Clear current selection
               this._searchGridElement.selectItem(selectedItem); //Select item
@@ -1266,22 +1278,31 @@ extends mixinBehaviors([
                   entityQuickManage.contextData = this.contextData;
               }
 
-              //Grid need to wait for sometime to quickmanage container to fit, because
-              //the grid is relative to quick manage container.After quick manage rendered,
-              //we can move to the specified index.
-              this.async(function () {
-                  this._searchGridElement.scrollToIndex(this._currentIndex);
-              }, 1000);
+              
           }
       } else {
-          this._currentIndex = -1;
+          this._currentIndex = this._searchGridElement.getSelectedItemIndex();
       }
+      //Grid need to wait for sometime to quickmanage container to fit, because
+      //the grid is relative to quick manage container.After quick manage rendered,
+      //we can move to the specified index.
+     // this._gridRePosition()
 
       // this._searchGridElement.notifyResize();
   }
 
-  _applyClass() {
-      if (this._quickManageEnabled) {
+  _gridRePosition(){
+      if(this._currentIndex < 0){
+          this._currentIndex = 0
+      }
+      this.async(function () {
+          this._searchGridElement.scrollToIndex(this._currentIndex);
+      }, 500);
+  }
+
+  _applyClass(quickManageEnabled) {
+      this._gridRePosition();
+      if (quickManageEnabled) {
           return "col-8";
       }
 
@@ -1294,15 +1315,16 @@ extends mixinBehaviors([
 
           if (gridData.length > 0 && index < this._gridFullLength) {
               if (gridData[index].attributes) {
-                  this._selectedEntity = gridData[index];
+                  let selectedGridItem = gridData[index];
 
                   let itemContext = {
-                      'id': this._selectedEntity.id,
-                      'type': this._selectedEntity.type
+                      'id': selectedGridItem.id,
+                      'type': selectedGridItem.type
                   };
 
                   this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
 
+                  this._selectedEntity = selectedGridItem;
                   this._currentIndex = index;
                   this._searchGridElement.clearSelection();
                   this._searchGridElement.selectItem(gridData[index]);
@@ -1449,7 +1471,7 @@ extends mixinBehaviors([
       }
   }
   reload() {
-      if (this.savedSearchId && !_.isEmpty(this.savedSearches)) {
+      if (this.savedSearchId && !_.isEmpty(this.savedSearches)){
           let savedSearch = this._getSavedSearches(this.savedSearches, this.savedSearchId);
           if (savedSearch) {
               this._processSavedSearch(savedSearch);
@@ -1649,6 +1671,7 @@ extends mixinBehaviors([
   _onSearchFiltersChange(e, detail) {
       this._entityTypes = detail.typesCriterion;
       this._searchFilters = detail;
+      this._isSearchFilterChanged = true;
       //this.shadowRoot.querySelector("#entityTypeFilterPopover").close();
       this._updateProperties(this._searchFilters);
   }

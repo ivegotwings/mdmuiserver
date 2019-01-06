@@ -198,7 +198,7 @@ RUFBehaviors.QueryBuilderBehavior = {
                             queryStr =  queryStr + gridData[i].name + gridData[i].value + " and ";                                
                         } else if((displayType=="numeric" || displayType=="datetime" || displayType=="date") && gridData[i].value.indexOf("-") > -1) {
                             let tempvalue = gridData[i].value.split("-");
-                            queryStr =  queryStr + gridData[i].name + " > "+ tempvalue[0] + " and " + gridData[i].name + " < " + tempvalue[1] + " and ";
+                            queryStr =  queryStr + gridData[i].name + " >= "+ tempvalue[0] + " and " + gridData[i].name + " <= " + tempvalue[1] + " and ";
                         } else {
                             let seperator = gridData[i].value.indexOf("!%&") > -1 ? " " : " = "
                             queryStr =  queryStr + gridData[i].name + seperator + gridData[i].value + " and "; 

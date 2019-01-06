@@ -77,7 +77,7 @@ class RockCompareEntities extends mixinBehaviors([
         </style>
         <template is="dom-if" if="[[showActionButtons]]">
             <div id="content-actions" class="buttonContainer-top-right" align="center">
-                <!-- <pebble-button class="action-button btn btn-secondary m-r-5" id="back" button-text="Back" raised on-tap="_onBackTap"></pebble-button> -->
+                <pebble-button class="action-button btn btn-secondary m-r-5" id="back" button-text="Change Data" raised="" on-tap="_onBackTap"></pebble-button>
                 <template is="dom-if" if="[[_allowCreate(compareEntitiesContext, showCreateButton)]]">
                     <pebble-button class="action-button btn btn-primary m-r-5" id="create" button-text="Create" raised="" on-tap="_onCreateTap"></pebble-button>
                 </template>
@@ -973,7 +973,7 @@ class RockCompareEntities extends mixinBehaviors([
                   currAttrDataType = row.dataType;
                   currAttrDisplayType = row.displayType;
                   if(currAttrDisplayType === "richtexteditor") {
-                      var el = document.createElement( 'p' );
+                      let el = document.createElement( 'p' );
                       el.innerHTML = attributes[row.name].value
                       attributes[row.name].value = el.innerText;
                   }
@@ -1240,8 +1240,6 @@ class RockCompareEntities extends mixinBehaviors([
           if (firstItemContext) {
               firstItemContext.type = this._entityTypes;
           }
-          ContextHelper.addDefaultValContext(this.contextData);
-          ContextHelper.addDefaultValContext(this._contextData);
           let req = DataRequestHelper.createEntityGetRequest(this._contextData);
 
           this._contexts = ContextHelper.getDataContexts(this.contextData);

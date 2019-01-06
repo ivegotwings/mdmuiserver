@@ -20,7 +20,6 @@ import '../pebble-button/pebble-button.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../bedrock-style-manager/styles/bedrock-style-buttons.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
-import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 import '../bedrock-style-manager/styles/bedrock-style-grid-layout.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockBulkActionResult
@@ -113,7 +112,7 @@ class RockBulkActionResult
 
 			data-table-row:not([header]) data-table-cell {
 				min-height: 40px!important;
-				height: 48px !important;
+				height: 40px !important;
 				z-index:auto !important;
 			}
             .cell {
@@ -163,7 +162,7 @@ class RockBulkActionResult
                         <template is="dom-repeat" items="[[_gridColumns]]" as="column">
                             <data-table-column slot="column-slot" name="[[column]]">
                                 <template>
-                                    <div slot="cell-slot-content" class="cell tooltip-bottom" data-tooltip\$="[[_itemValue(item, column)]]"><span>[[_itemValue(item, column)]]</span></div>
+                                    <div slot="cell-slot-content" class="cell" title\$="[[_itemValue(item, column)]]"><span>[[_itemValue(item, column)]]</span></div>
                                 </template>
                             </data-table-column>
                         </template>

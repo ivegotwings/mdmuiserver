@@ -166,7 +166,7 @@ class AppTaskDetail
 
           _defaultMessage: {
               type: String,
-              value: "No details available currently"
+              value: "No details available."
           },
           entityIdList: {
               type: Array,
@@ -247,7 +247,8 @@ class AppTaskDetail
           title: "Task Details",
           subTitle: "Last Searched",
           subTitleValue: this._searchTimeStamp ? this._searchTimeStamp : new Date().toLocaleString(),
-          queryParams: this.queryParams
+          queryParams: this.queryParams,
+          appId: this.appId
       };
   }
 

@@ -26,10 +26,10 @@ import { timeOut } from '@polymer/polymer/lib/utils/async.js';
 import { dom } from '@polymer/polymer/lib/legacy/polymer.dom.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockWidget
-    extends mixinBehaviors([
+extends mixinBehaviors([
     RUFBehaviors.UIBehavior,
     RUFBehaviors.ComponentContextBehavior
-    ], PolymerElement) {
+], PolymerElement) {
   static get template() {
     return html`
         <style include="bedrock-style-common bedrock-style-grid-layout">
@@ -37,6 +37,7 @@ class RockWidget
                 display: block;
                 height: 100%;
             }
+
             pebble-card {
                 --pebble-card-widget-box: {
                     height: 100%;
@@ -68,7 +69,9 @@ class RockWidget
 `;
   }
 
-  static get is() { return 'rock-widget' }
+  static get is() {
+      return 'rock-widget'
+  }
   static get properties() {
       return {
           config: {
@@ -87,8 +90,8 @@ class RockWidget
               observer: '_onReadonly'
           },
           /**
-          * <b><i>Content development is under progress... </b></i> 
-          */
+           * <b><i>Content development is under progress... </b></i> 
+           */
           contextData: {
               type: Object,
               value: function () {
@@ -203,21 +206,24 @@ class RockWidget
       super.ready();
       afterNextRender(this, () => {
           this.dispatchEvent(new CustomEvent("rock-widget-loaded", {
-              detail: { widgetId: this.widgetId, config: this.config },
+              detail: {
+                  widgetId: this.widgetId,
+                  config: this.config
+              },
               bubbles: true,
               composed: true
           }));
       });
   }
 
-  getControlIsDirty () {
+  getControlIsDirty() {
       let component = this.$$('#content').firstElementChild;
       if (component && component.getControlIsDirty) {
           return component.getControlIsDirty();
       }
   }
 
-  _onIconButtonClick (e, detail) {
+  _onIconButtonClick(e, detail) {
       let currentComponent = this.shadowRoot.querySelector(this._component.name);
       let componentRefreshMethod = currentComponent ? typeof (currentComponent.refresh) : undefined;
       if (componentRefreshMethod == "function") {
@@ -227,18 +233,17 @@ class RockWidget
       }
   }
 
-  _renderComponent () {
-      timeOut.after(500).run(() => {
+  _renderComponent() {
+      timeOut.after(100).run(() => {
           let content = this.shadowRoot.querySelector("#content");
           if (!this.isComponentErrored && this._component && this._component.path) {
-          ComponentHelper.loadContent(content, this._component, this);
-      }
+              ComponentHelper.loadContent(content, this._component, this);
+          }
           this._loading = false;
       });
-
   }
 
-  _renderButtons () {
+  _renderButtons() {
       if (this._buttons && this._buttons.length > 0) {
           const fragment = document.createDocumentFragment();
           for (let i = 0; i < this._buttons.length; i++) {
@@ -255,7 +260,7 @@ class RockWidget
       }
   }
 
-  _componentChanged () {
+  _componentChanged() {
       if (_.isEmpty(this._component))
           return;
 
@@ -263,12 +268,12 @@ class RockWidget
       this._renderComponent();
   }
 
-  _buttonsChanged () {
+  _buttonsChanged() {
       ComponentHelper.clearNode(this.$.actions);
       this._renderButtons();
   }
 
-  _configChanged () {
+  _configChanged() {
       //setting all data before rendering.
       //this will prevent the observer being trigged multiple times
       let curcomponent = this.config.component;
@@ -288,7 +293,7 @@ class RockWidget
       }
   }
 
-  _onButtonClick (e) {
+  _onButtonClick(e) {
       if (e.target && e.target) {
           let clickHandler = e.target.getAttribute("click-handler");
           if (clickHandler) {
@@ -306,18 +311,18 @@ class RockWidget
       }
   }
 
-  _isHideButtons (buttons) {
+  _isHideButtons(buttons) {
       return !(buttons && buttons.length);
   }
   /**
-    * <b><i>Content development is under progress... </b></i> 
-    */
-  refresh () {
+   * <b><i>Content development is under progress... </b></i> 
+   */
+  refresh() {
       this._loading = true;
       this._renderComponent();
   }
 
-  _onReadonly () {
+  _onReadonly() {
       let content = this.shadowRoot.querySelector('#content');
       if (content && content.firstElementChild) {
           content.firstElementChild.readonly = this.readonly;

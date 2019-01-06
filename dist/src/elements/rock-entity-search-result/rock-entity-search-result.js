@@ -521,7 +521,7 @@ class RockEntitySearchResult extends mixinBehaviors([RUFBehaviors.AppBehavior,
               });
               gridConfig.itemConfig.fields = this.dynamicFields;
           }
-          
+
           this.pageSize = gridConfig.pageSize ? gridConfig.pageSize : this.pageSize;
           this.maxRecordsSize = gridConfig.maxRecordsSize ? gridConfig.maxRecordsSize : this.maxConfiguredCount;
 
@@ -599,8 +599,11 @@ class RockEntitySearchResult extends mixinBehaviors([RUFBehaviors.AppBehavior,
    * Can be used to set the "scroll position" dynamically.
    */
   scrollToIndex(index) {
-      this._getEntityGrid().scrollToIndex(index);
-  }
+     let _getEntityGrid = this._getEntityGrid();
+     if (_getEntityGrid) {
+         _getEntityGrid.scrollToIndex(index);
+     }
+ }
 
   /**
    * Can be used to reset the grid size.
@@ -905,7 +908,28 @@ class RockEntitySearchResult extends mixinBehaviors([RUFBehaviors.AppBehavior,
           }
       }
 
-      return formattedEntities;
+      return this._sortGridData(formattedEntities);
+  }
+
+  _sortGridData(gridData) {
+      if (DataHelper.isValidObjectPath(this.gridConfig, "itemConfig.sort.default")) {
+          let sortConfig = DataHelper.cloneObject(this.gridConfig.itemConfig.sort.default);
+          if (!_.isEmpty(sortConfig)) {
+              let primarySort = sortConfig[0];
+              sortConfig.shift(); //Remove primary to get addtional sort
+              let additionalSort = sortConfig.map(sortItem => { return { "name": sortItem.field, "dataType": this._getAttributeType(sortItem.field) }});
+              gridData = DataHelper.sort(gridData, primarySort.field, this._getAttributeType(primarySort.field), primarySort.sortType, additionalSort);
+          }
+      }
+      return gridData;
+  }
+
+  _getAttributeType(attributeName) {
+      let type = "string";
+      if(!_.isEmpty(this.attributeModels) && this.attributeModels[attributeName]) {
+          type = this.attributeModels[attributeName].dataType || type;
+      }
+      return type;
   }
 
   _getGridColumns() {

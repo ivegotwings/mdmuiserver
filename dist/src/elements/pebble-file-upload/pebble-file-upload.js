@@ -112,9 +112,10 @@ class PebbleFileUpload extends mixinBehaviors([RUFBehaviors.UIBehavior], Polymer
         <div id="main" class="layout vertical">
             <section id="dropSection" hidden\$="[[hasFile]]" class\$="[[_dropSectionClass]]">
                 <pebble-icon icon="pebble-icon:download-asset" class="download-icon pebble-icon-size-30 m-b-10"></pebble-icon>
-                <h3 class="drag-drop m-0">Drag &amp; Drop</h3>
-                <span class="title">Your files to assets, or
-                    <a href="#" class="btn-link" on-tap="_selectFile">browse</a>
+                <h3 class="drag-drop m-0">Drag &amp; Drop files here</h3>
+                <span class="title">or</span>
+                <span class="title">
+                    <a href="#" class="btn-link" on-tap="_selectFile">Upload files</a>
                 </span>
                 <input type="file" id="file" on-change="_manualSelected" multiple\$="[[multiple]]" accept\$="[[accept]]">
             </section>
@@ -517,7 +518,6 @@ class PebbleFileUpload extends mixinBehaviors([RUFBehaviors.UIBehavior], Polymer
    */
   _cancelUpload(e) {
       e.preventDefault();
-      this.logInfo("UploadCancel");
       if (this.file.xhr) {
           this.file.xhr.abort();
       }

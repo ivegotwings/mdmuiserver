@@ -188,6 +188,7 @@ import '../bedrock-pubsub/bedrock-pubsub.js';
 import '../bedrock-logger-behavior/bedrock-logger-behavior.js';
 import '../bedrock-toast-behavior/bedrock-toast-behavior.js';
 import '../bedrock-app-behavior/bedrock-app-behavior.js';
+import '../bedrock-navigation-behavior/bedrock-navigation-behavior.js';
 import '../liquid-entity-data-get/liquid-entity-data-get.js';
 import '../liquid-rest/liquid-rest.js';
 import '../liquid-dataobject-utils/liquid-dataobject-utils.js';
@@ -204,7 +205,7 @@ import '../bedrock-style-manager/styles/bedrock-style-buttons.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
 import '../bedrock-style-manager/styles/bedrock-style-icons.js';
 import '../bedrock-style-manager/styles/bedrock-style-grid-layout.js';
-import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
+// import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 import EntityTypeManager from '../bedrock-managers/entity-type-manager.js'
 import '../pebble-accordion/pebble-accordion.js';
 import '../pebble-toggle-button/pebble-toggle-button.js';
@@ -216,11 +217,11 @@ import '../rock-grid-data-sources/entity-search-grid-datasource.js';
 import '../rock-govern-data-grid/rock-govern-data-grid.js';
 import '../rock-entity-relationship-search-result-actions/rock-entity-relationship-search-result-actions.js';
 import '../rock-business-actions/rock-business-actions.js';
-import { dom } from '@polymer/polymer/lib/legacy/polymer.dom.js';
 import { microTask } from '@polymer/polymer/lib/utils/async.js';
+import { dom } from '@polymer/polymer/lib/legacy/polymer.dom.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBehaviors.ComponentContextBehavior,
-    RUFBehaviors.LoggerBehavior, RUFBehaviors.ToastBehavior
+    RUFBehaviors.LoggerBehavior, RUFBehaviors.ToastBehavior,  RUFBehaviors.NavigationBehavior
   ],
   OptionalMutableData(PolymerElement)) {
   static get template() {
@@ -243,16 +244,12 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
       }
 
       pebble-horizontal-divider {
-        --pebble-horizontal-divider-color: var(--tooltip-bg-color, rgba(25, 32, 39, 1));
+        --pebble-horizontal-divider-color: var(rgba(25, 32, 39, 1));
       }
 
       pebble-lov {
         width: 300px !important;
         max-height: 350px !important;
-      }
-
-      #errorsDialog {
-        --popup-header-color: var(--palette-pinkish-red, #ee204c);
       }
 
       #messageCard {
@@ -287,8 +284,9 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
         margin: 22px 10px 0px 0px;
         cursor: pointer;
       }
-      .rock-grid-wrap{
-        width:100%;
+
+      .rock-grid-wrap {
+        width: 100%;
       }
 
       .header-button {
@@ -296,6 +294,7 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
         justify-content: flex-end;
         padding: 10px;
       }
+
       .col-8-4-grid {
         display: -ms-grid;
         display: grid;
@@ -307,24 +306,25 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
       }
 
       .col-8-4-grid .col-8-4-grid-child-1 {
-          -ms-grid-row: 1;
-          -ms-grid-column: 1;
-          height: auto;
-          min-height: 0px;
-          min-width: 0px;
+        -ms-grid-row: 1;
+        -ms-grid-column: 1;
+        height: auto;
+        min-height: 0px;
+        min-width: 0px;
       }
 
       .col-8-4-grid .col-8-4-grid-child-2 {
-          -ms-grid-row: 1;
-          -ms-grid-column: 2;
-          min-height: 0px;
-          min-width: 0px;
+        -ms-grid-row: 1;
+        -ms-grid-column: 2;
+        min-height: 0px;
+        min-width: 0px;
       }
+
       .divider-wrapper {
-          position: absolute;
-          top: 0px;
-          left: 0px;
-          height: 100%;
+        position: absolute;
+        top: 0px;
+        left: 0px;
+        height: 100%;
       }
     </style>
     <pebble-spinner active="[[_loading]]"></pebble-spinner>
@@ -332,15 +332,6 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
     <template is="dom-if" if="[[!_isMessageAvailable]]">
       <div id="relContainer_[[relationship]]" class="full-height">
         <pebble-accordion header-text="[[_getRelationshipTypeTitle(relationship)]]" is-collapsed="{{isCollapsed}}" show-accordion="[[showAccordion]]">
-          <!--<div class="relation-name-container">
-              <pebble-button icon="pebble-icon:action-add" id="[[relationship]]" class="btn btn-primary m-r-20" button-text="Add" on-click="_onAddPopoverClick"></pebble-button>              
-              <pebble-popover for\$="[[relationship]]" vertical-align="auto" horizontal-align="auto" no-overlap>
-                <rock-entity-lov id="[[relationship]]" request-data="[[_requestForAddRelationshipList(relationship)]]" id-field="[[_getIdField(relationship)]]"
-                  title-pattern="[[_getTitlePattern(relationship)]]" multi-select no-sub-title show-action-buttons></rock-entity-lov>
-              </pebble-popover>
-              <bedrock-pubsub event-name="entity-lov-confirm-button-tap" handler="_onLovConfirmButtonTapped" target-id="[[relationship]]"></bedrock-pubsub>
-              <bedrock-pubsub event-name="entity-lov-close-button-tap" handler="_onLovCloseButtonTapped" target-id="[[relationship]]"></bedrock-pubsub>
-            </div> -->
           <span slot="header-actions">
             <template is="dom-if" if="[[relationshipGridConfig.gridConfig]]">
               <pebble-info-icon description-object="[[relationshipGridConfig.gridConfig]]"></pebble-info-icon>
@@ -350,13 +341,20 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
             <div class="base-grid-structure">
               <div class="base-grid-structure-child-1">
                 <div class="header-button">
+
+                  <template is="dom-if" if="[[showActionButtons]]">
+                    <template is="dom-if" if="[[!isPartOfBusinessFunction]]">
+                        <pebble-button class="action-button btn btn-secondary m-r-5" id="cancel" button-text="Cancel" raised="" on-tap="_revertAll"></pebble-button>
+                    </template>
+                </template>
+    
                   <template is="dom-if" if="[[relationshipGridConfig.copyActionConfig]]">
                     <div>
-                      <pebble-button class="btn btn-primary m-r-10 tooltip-bottom" id="copy_btn" data-tooltip\$="[[_clipboardTooltip]]" button-text="Copy ID(s)" on-tap="_onTapCopyAction" on-mouseout="_onMouseoutCopyAction"></pebble-button>
+                      <pebble-button class="btn btn-primary m-r-5" id="copy_btn" title\$="[[_clipboardTooltip]]" button-text="Copy ID(s)" on-tap="_onTapCopyAction" on-mouseout="_onMouseoutCopyAction"></pebble-button>
                     </div>
                   </template>
                   <template is="dom-if" if="[[relationshipGridConfig.addRelationConfig]]">
-                    <pebble-button icon="pebble-icon:action-add" disabled="[[readonly]]" id="button_[[relationship]]" relationship="[[relationship]]" class="btn btn-primary m-r-10 auto-width addbutton" button-text="Add" on-tap="_onAddRelClick"></pebble-button>
+                    <pebble-button icon="pebble-icon:action-add" disabled="[[readonly]]" id="button_[[relationship]]" relationship="[[relationship]]" class="btn btn-primary m-r-5 auto-width addbutton" button-text="Add" on-tap="_onAddRelClick"></pebble-button>
                   </template>
                   <pebble-popover for\$="button_[[relationship]]" vertical-align="auto" horizontal-align="auto" no-overlap="">
                     <rock-entity-lov on-lov-confirm-button-tap="_onLovConfirmButtonTapped" id="lov_[[relationship]]" data-index\$="[[dataIndex]]" request-data="[[_requestForAddRelationshipList(relationship)]]" id-field="[[_getIdField(relationship)]]" sub-title-pattern="[[_getSubTitlePattern(relationship)]]" image-id-field="[[_getImageIdField()]]" title-pattern="[[_getTitlePattern(relationship)]]" selected-items="[[_getSavedRelationshipItems(relationship, _savedRelationshipItems)]]" excluded-ids="[[excludedIds]]" multi-select="" no-sub-title="" show-action-buttons=""></rock-entity-lov>
@@ -369,7 +367,7 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
                   <template is="dom-if" if="[[relationshipGridConfig.gridConfig.hasWritePermission]]">
                     <template is="dom-if" if="[[relationshipGridConfig.addNewRelationConfig]]">
                       <div>
-                        <pebble-button icon="pebble-icon:action-add" disabled="[[readonly]]" id="addnewbutton_[[relationship]]" relationship="[[relationship]]" class="btn btn-primary m-r-10 auto-width addbutton" button-text="Add New" on-tap="_onAddNewRelClick"></pebble-button>
+                        <pebble-button icon="pebble-icon:action-add" disabled="[[readonly]]" id="addnewbutton_[[relationship]]" relationship="[[relationship]]" class="btn btn-primary m-r-5 auto-width addbutton" button-text="Add New" on-tap="_onAddNewRelClick"></pebble-button>
                       </div>
                       <bedrock-pubsub event-name="entity-created" handler="_onEntityCreated"></bedrock-pubsub>
                     </template>
@@ -382,6 +380,10 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
                       <bedrock-pubsub event-name="business-actions-action-click" handler="_onGovernGridActionTap" target-id="businessActions"></bedrock-pubsub>
                     </template>
                   </template>
+
+                  <template is="dom-if" if="[[showActionButtons]]">
+                    <pebble-button class="action-button-focus dropdownText btn btn-success m-r-5" id="next" button-text="Save" raised="" on-tap="_save"></pebble-button>
+                  </template>
                 </div>
               </div>
               <div class="base-grid-structure-child-2">
@@ -389,16 +391,14 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
                   <div class="container col-8-4-grid-child-1 full-height">
                     <entity-search-grid-datasource id="datasource_[[relationship]]" request="[[_getRelationshipGridRequest(relationship)]]" r-data-source="{{rDataSource}}" r-data-formatter="{{rDataFormatter}}" buffer-record-size="{{size}}" current-record-size="{{currentRecordSize}}" result-record-size="{{resultRecordSize}}" total-count="{{totalCount}}" data-index\$="[[dataIndex]]" attribute-models="[[_getRelationshipAttributeModels(relationship)]]"></entity-search-grid-datasource>
                     <div class\$="[[_getEditModeClass(relationshipGridConfig.gridConfig.mode)]] rock-grid-wrap">
-                      <rock-grid hidden\$="[[_loadGovernData]]" readonly="[[readonly]]" id\$="[[relationship]]" r-data-source="{{rDataSource}}" r-data-source-id="datasource_[[relationship]]" config="{{relationshipGridConfig.gridConfig}}" attribute-models="[[_getRelationshipAttributeModels(relationship)]]" grid-data-size="{{size}}" current-record-size="{{currentRecordSize}}" result-record-size="{{resultRecordSize}}" max-configured-count="[[maxConfiguredCount]]" total-count="{{totalCount}}" page-size="50">
+                      <rock-grid hidden\$="[[_loadGovernData]]" readonly="[[readonly]]" id\$="[[relationship]]" r-data-source="{{rDataSource}}" r-data-source-id="datasource_[[relationship]]" config="{{relationshipGridConfig.gridConfig}}" attribute-models="[[_getRelationshipAttributeModels(relationship)]]" grid-data-size="{{size}}" current-record-size="{{currentRecordSize}}" result-record-size="{{resultRecordSize}}" max-configured-count="[[maxConfiguredCount]]" total-count="{{totalCount}}" page-size="50" inline-edit-validation-enabled="">
                         <rock-entity-relationship-search-result-actions slot="toolbar" id="gridActions" context-data="[[contextData]]" has-write-permissions="[[_hasWritePermissions(relationshipGridConfig.gridConfig)]]" relationship="[[relationship]]" direction="[[relationshipGridConfig.direction]]"></rock-entity-relationship-search-result-actions>
                       </rock-grid>
                     </div>
-                    <div id="buttonContainer" align="center" hidden="" class="buttonContainer-static">
-                      <pebble-button id="cancel" class="btn btn-secondary m-r-5" button-text="Cancel" on-tap="_revertAll" elevation="1" raised=""></pebble-button>
-                      <pebble-button id="save" class="btn btn-success" button-text="Save" on-tap="_save" elevation="1" raised=""></pebble-button>
-                    </div>
                     <bedrock-pubsub event-name="grid-bulk-relationship-edit-items" handler="_onBulkRelationshipEdit" target-id="[[relationship]]"></bedrock-pubsub>
                     <bedrock-pubsub event-name="grid-bulk-edit-items" handler="_onBulkEdit" target-id="[[relationship]]"></bedrock-pubsub>
+                    <bedrock-pubsub event-name="grid-link-clicked" handler="_onRelationshipLinkClicked"></bedrock-pubsub>
+
                     <template is="dom-if" if="[[_loadGovernData]]">
                       <rock-govern-data-grid id\$="[[relationship]]" context-data="[[contextData]]" request="[[_getRelationshipGridRequest(relationship)]]" entity-name-attribute="[[relationshipGridConfig.governGridConfig.entityNameAttribute]]"></rock-govern-data-grid>
                     </template>
@@ -410,8 +410,8 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
                       <div class="divider-wrapper">
                         <pebble-vertical-divider></pebble-vertical-divider>
                       </div>
-                      <rock-entity-quick-manage id="entityQuickManage" readonly="[[readonly]]" data-object-type="relationship" no-header="" context-data="[[contextData]]" current-index="{{_currentIndex}}" current-record-size="[[currentRecordSize]]" selected-entity="[[_selectedEntity]]" relationship="[[relationship]]"></rock-entity-quick-manage>
-                      <bedrock-pubsub event-name="on-attribute-save" handler="_onAttributeSave"></bedrock-pubsub>
+                      <rock-entity-quick-manage id="entityQuickManage" readonly="[[readonly]]" data-object-type="relationship" no-header="" context-data="[[contextData]]" current-index="{{_currentIndex}}" current-record-size="[[currentRecordSize]]" selected-entity="[[_selectedEntity]]" relationship="[[relationship]]" quick-manage-enabled="{{_quickManageEnabled}}"></rock-entity-quick-manage>
+                      <bedrock-pubsub event-name="on-attribute-save-quickmanage" handler="_onAttributeSave"></bedrock-pubsub>
                       <bedrock-pubsub target-id="entityQuickManage" event-name="on-tap-previous" handler="_onClickPrevious"></bedrock-pubsub>
                       <bedrock-pubsub target-id="entityQuickManage" event-name="on-tap-next" handler="_onClickNext"></bedrock-pubsub>
                     </div>
@@ -428,35 +428,19 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
 
             </div>
         
-        </div>
-        <liquid-entity-data-get id="entityGetData" data-index\$="[[dataIndex]]" name="entityGet" operation="getbyids" request-data="{{_entityGetRequest}}" last-response="{{entitiesResponse}}"></liquid-entity-data-get>
-        <liquid-entity-data-get id="entityGetAddData" data-index\$="[[dataIndex]]" name="entityGet" operation="getbyids" request-data="{{_entityGetAddRequest}}" last-response="{{relEntitiesResponse}}"></liquid-entity-data-get>
-        <liquid-entity-data-save name="entitySaveService" request-data="{{_saveRequest}}" last-response="{{_saveResponse}}" on-response="_onSaveResponse" on-error="_onSaveError">
-          <liquid-entity-data-save id="entityRelationsDeleteService" data-index\$="[[dataIndex]]" on-response="_onRelationsDeleteResponse" on-error="_onRelationsSaveError">
-            <liquid-entity-data-save name="attributeSaveDataService" data-index\$="[[dataIndex]]" operation="update" request-data="{{_saveRequest}}" last-response="{{_saveResponse}}" on-response="_onSaveResponse"></liquid-entity-data-save>
-            <!--<pebble-dialog id="errorsDialog" dialog-title="Errors on page" alert-box>
-        <p>Found below errors in entity details: </p>
-        <template is="dom-repeat" items="[[_errorMessages]]" as="error">
-          <p>In entity: [[error.fromEntity]]: </p>
-          <ul>
-            <template is="dom-repeat" items="[[_getAttrMessages(error)]]">
-              <li>[[item.attributeName]] with error: [[item.message]]</li>
-            </template>
-          </ul>
-        </template>
-        <p>Do you want to fix the errors or continue?</p>
-        <div class="buttons">
-          <pebble-button dialog-confirm class="btn btn-success" button-text="Fix"></pebble-button>
-          <pebble-button dialog-confirm class="btn btn-secondary" on-tap="_skipErrors" button-text="Skip & Continue"></pebble-button>
-        </div>
-      </pebble-dialog>-->
-
+      </div>
+      <liquid-entity-data-get id="entityGetData" data-index\$="[[dataIndex]]" name="entityGet" operation="getbyids" request-data="{{_entityGetRequest}}" last-response="{{entitiesResponse}}"></liquid-entity-data-get>
+      <liquid-entity-data-get id="entityGetAddData" data-index\$="[[dataIndex]]" name="entityGet" operation="getbyids" request-data="{{_entityGetAddRequest}}" last-response="{{relEntitiesResponse}}"></liquid-entity-data-get>
+      <liquid-entity-data-save name="entitySaveService" request-data="{{_saveRequest}}" last-response="{{_saveResponse}}" on-response="_onSaveResponse" on-error="_onSaveError">
+        <liquid-entity-data-save id="entityRelationsDeleteService" data-index\$="[[dataIndex]]" on-response="_onRelationsDeleteResponse" on-error="_onRelationsSaveError">
+          <liquid-entity-data-save name="attributeSaveDataService" data-index\$="[[dataIndex]]" operation="update" request-data="{{_saveRequest}}" last-response="{{_saveResponse}}" on-response="_onSaveResponse"></liquid-entity-data-save>
     </liquid-entity-data-save></liquid-entity-data-save></pebble-accordion></div></template>
     <pebble-dialog id="gridMsgDialog" dialog-title="Confirmation" show-ok="" show-cancel="" show-close-icon="" alert-box="" modal="">
       <p id="msgDialog"></p>
     </pebble-dialog>
     <div id="messageCard">
     </div>
+    <liquid-entity-data-get id="currentEntityGet" operation="getbyids" on-response="_currentEntityResponse"></liquid-entity-data-get>
     <bedrock-pubsub target-id="gridMsgDialog" event-name="on-buttonok-clicked" handler="_onDialogOk"></bedrock-pubsub>
     <bedrock-pubsub event-name="global-edit" handler="_onGlobalEdit"></bedrock-pubsub>
     <bedrock-pubsub event-name="quick-manage-event" handler="_onTapQuickManage"></bedrock-pubsub>
@@ -666,6 +650,28 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
       isCollapsed: {
         type: Boolean,
         notify: true
+      },
+      _currentEntity: {
+        type: Object,
+        value: function () {
+          return {};
+        }
+      },
+      showActionButtons: {
+        type: Boolean,
+        value: false
+      },
+      _additionalAttributes: {
+        type: Array,
+        value: function () {
+          return ["rootexternalname", "path", "externalnamepath"];
+        }
+      },
+      navigationData: {
+        type: Object,
+        value: function () {
+            return {};
+        }
       }
     }
   }
@@ -673,7 +679,8 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
   static get observers() {
     return [
       '_convertIntoEntityLovList(searchResultResponse)',
-      '_addRelationship(relEntitiesResponse)'
+      '_addRelationship(relEntitiesResponse)',
+      '_getCurrentEntity(contextData)'
     ]
   }
   constructor() {
@@ -687,7 +694,7 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
   }
   connectedCallback() {
     super.connectedCallback();
-    this.addEventListener('editMode', this._onEditMode);        
+    this.addEventListener('editMode', this._onEditMode);
   }
 
   _hasWritePermissions(gridConfig) {
@@ -697,6 +704,31 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
 
     return false;
   }
+
+  //This flow is needed only for classification type
+  _getCurrentEntity() {
+    if (_.isEmpty(this.contextData)) {
+      return;
+    }
+    let itemContext = ContextHelper.getFirstItemContext(this.contextData);
+    if (!itemContext || itemContext.type != "classification") {
+      return;
+    }
+    let currentEntityGetElement = this.shadowRoot.querySelector("#currentEntityGet");
+    if (currentEntityGetElement) {
+      let request = DataRequestHelper.createEntityGetRequest(this.contextData);
+      request.params.fields.attributes = this._additionalAttributes;
+      currentEntityGetElement.requestData = request;
+      currentEntityGetElement.generateRequest();
+    }
+  }
+
+  _currentEntityResponse(e, detail) {
+    if (detail && DataHelper.validateGetEntitiesResponse(detail.response)) {
+      this._currentEntity = detail.response.content.entities[0];
+    }
+  }
+
   _onBulkRelationshipEdit(e, detail) {
     let grid = this._getRelationshipGrid();
     let selectedItems = grid.getSelectedItems();
@@ -992,13 +1024,7 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
     return data;
   }
   _onEditMode(e) {
-    let relDiv = this.shadowRoot.querySelector('div[id=relContainer_' + this.relationship + ']');
-    if (relDiv) {
-      relDiv.hidden = false;
-
-      let buttonContainer = dom(relDiv).node.querySelector("div[id='buttonContainer']");
-      buttonContainer.hidden = false;
-    }
+    this.showActionButtons = true;
   }
   _save(e) {
     let currentRel = this.relationship;
@@ -1019,7 +1045,7 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
 
     if (currentRelGrid && relConfig) {
       let gridData = currentRelGrid.getModifiedData();
-      
+
       if (gridData && gridData.length > 0) {
         gridData.forEach(function (data) {
           let entity = data;
@@ -1048,8 +1074,9 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
       }
     }
 
+    let isAllClassificationEntities = EntityHelper.isAllEntitiesOfSameType(originalEntities, "classification");
     this._saveRequest = {
-      "entities": originalEntities
+      "entities": isAllClassificationEntities ? this._updateEntitiesWithAdditionalAttributes(originalEntities) : originalEntities
     };
 
     //TODO: Sync validation has been commited for now since ther is no BR on relationship attributes.
@@ -1074,6 +1101,48 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
     this._saveEntity();
 
   }
+
+  _updateEntitiesWithAdditionalAttributes(originalEntities) {
+    let pathSeperator = this.appSetting('dataDefaults').categoryPathSeparator || ">>";
+    let entities = DataHelper.cloneObject(originalEntities) || [];
+    let relEntities = [];
+
+    if (DataHelper.validateGetEntitiesResponse(this.relEntitiesResponse)) {
+      relEntities = this.relEntitiesResponse.content.entities;
+    }
+
+    if (DataHelper.isValidObjectPath(this._currentEntity, "data.attributes") && !_.isEmpty(entities)) {
+      entities.forEach(entity => {
+        entity.data.attributes = DataHelper.cloneObject(this._currentEntity.data.attributes);
+        //Update paths
+        if (entity.data.attributes.externalnamepath) {
+          entity.data.attributes.externalnamepath.values.forEach(item => {
+            item.value = item.value + pathSeperator + entity.externalName;
+          });
+        }
+        if (entity.data.attributes.path) {
+          entity.data.attributes.path.values.forEach(item => {
+            item.value = item.value + pathSeperator + entity.id;
+          });
+        }
+
+        //Delete existing relationships
+        let currentRelEntity = relEntities.find(e => {
+          return e.id == entity.id;
+        });
+        if (DataHelper.isValidObjectPath(currentRelEntity, "data.relationships") &&
+          currentRelEntity.data.relationships &&
+          currentRelEntity.data.relationships[this.relationship]) {
+          currentRelEntity.data.relationships[this.relationship].forEach(relObj => {
+            relObj.action = "delete";
+            entity.data.relationships[this.relationship].push(relObj);
+          })
+        }
+      })
+    }
+    return entities;
+  }
+
   _onTapQuickManage(e) {
     let relationship = this.relationship;
     if (e && e.detail && e.detail.enableQuickManage) {
@@ -1118,8 +1187,8 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
     }
     this._reloadQuickManage();
   }
-  _applyClass() {
-    if (this._quickManageEnabled) {
+  _applyClass(quickManageEnabled) {
+    if (quickManageEnabled) {
       return "grid-quick-manage-container col-8-4-grid";
     }
     return "";
@@ -1246,7 +1315,8 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
             }
           },
           "fields": {
-            "attributes": attributes
+            "attributes": attributes,
+            "relationships": [this.relationship]
           },
           "options": {
             "maxRecords": 10
@@ -1434,10 +1504,14 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
   }
   _revertAll(e) {
     let currentRel = this.relationship;
+    let relationshipTitle = currentRel;
+    if(DataHelper.isValidObjectPath(this.relationshipGridConfig, 'relationshipModel.properties.externalName')){
+      relationshipTitle = this.relationshipGridConfig.relationshipModel.properties.externalName;
+    }
     let currentRelGrid = this.shadowRoot.querySelector('rock-grid[id=' + currentRel + ']');
     if (currentRelGrid) {
       if (currentRelGrid.getIsDirty()) {
-        currentRelGrid.openGridMsgDialog(currentRel +
+        currentRelGrid.openGridMsgDialog(relationshipTitle +
           " relationship has unsaved changes. Do you wants to revert those ?");
       } else {
         currentRelGrid.changeToReadMode();
@@ -1477,6 +1551,7 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
     }
   }
   async _onDialogOk(e) {
+    this.showActionButtons = false;
     if (this._modifiedEntityRelationship && "action" in this._modifiedEntityRelationship) {
       if (this._modifiedEntityRelationship.action == "bulk-delete" || this._modifiedEntityRelationship.action ==
         "delete") {
@@ -1547,36 +1622,55 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
       let updateRequest;
       if (modifiedEntities) {
         modifiedEntities.forEach(modifiedEntity => {
-          modifiedEntityRelationships = modifiedEntity.data.relationships[this.relationship];
+          let currentDataContext = this.getFirstDataContext();
+
+          if (!_.isEmpty(currentDataContext)) {
+            let contextualRelaionship = EntityHelper.getRelationshipsBasedOnContext(modifiedEntity, currentDataContext);
+            modifiedEntityRelationships = contextualRelaionship[this.relationship];
+          } else {
+            modifiedEntityRelationships = modifiedEntity.data.relationships[this.relationship];
+          }
           modifiedEntityRelationships.forEach(modifiedEntityRelationship => {
             if (!_.isEmpty(modifiedEntityRelationship.relTo) && modifiedEntityRelationship.relTo.id ==
               entityId) {
-              let updateRequest = {
-                "data": {
-                  "relationships": {}
-                }
-              };
+              let updateRequest = DataRequestHelper.generateRelationshipProcessRequest(this.contextData);
               modifiedEntityRelationship.action = "delete";
               updateRequest.data.relationships[this.relationship] = [modifiedEntityRelationship];
               updateRequest["id"] = modifiedEntity.id;
-              updateRequest["type"] = modifiedEntity.type
+              updateRequest["type"] = modifiedEntity.type;
+              DataTransformHelper.prepareEntityForContextSave(updateRequest.data, {}, {}, this.contextData);
               updateRequests.push(updateRequest);
             }
           })
         });
       }
 
-      // DataTransformHelper.prepareEntityForContextSave(updateRequest.data, {}, this._relationshipModels, this.contextData);
-
       let entityDelLiquid = this.shadowRoot.querySelector("#entityRelationsDeleteService");
       if (entityDelLiquid) {
+        let isAllClassificationRequests = EntityHelper.isAllEntitiesOfSameType(updateRequests, "classification");
         entityDelLiquid.requestData = {
-          "entities": updateRequests
+          "entities": isAllClassificationRequests ? this._resetEntitiesAdditionalAttributes(updateRequests) : updateRequests
         };
         entityDelLiquid.operation = "update";
         entityDelLiquid.generateRequest();
       }
     }
+  }
+
+  _resetEntitiesAdditionalAttributes(updateRequests) {
+    let requests = DataHelper.cloneObject(updateRequests) || [];
+    let attributes = {};
+    for (let attributeName of this._additionalAttributes) {
+      attributes[attributeName] = {
+        "action": "delete"
+      }
+    }
+    if (!_.isEmpty(requests)) {
+      requests.forEach(request => {
+        request.data.attributes = attributes;
+      })
+    }
+    return requests;
   }
 
   _hasContextCoalescedValue(item) {
@@ -1614,12 +1708,7 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
   }
   _changeRelationshipToReadMode() {
     if (this.relationship) {
-      let relDiv = this.shadowRoot.querySelector('div[id=relContainer_' + this.relationship + ']');
-
-      if (relDiv) {
-        let buttonContainer = dom(relDiv).node.querySelector("div[id='buttonContainer']");
-        buttonContainer.hidden = true;
-      }
+      this.showActionButtons = false;
 
     }
   }
@@ -1809,23 +1898,27 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
         "relationships": {}
       }
     }
+    let itemContext = ContextHelper.getFirstItemContext(this.contextData) || {};
     let rel = {
       "direction": "both",
       "relationshipType": this.relationshipGridConfig.relationshipModel.properties.relationshipType,
       "relTo": {
-        "id": this.contextData.ItemContexts[0].id,
-        "type": this.contextData.ItemContexts[0].type
+        "id": itemContext.id,
+        "type": itemContext.type
       }
     };
     defaultEntity.data.relationships[this.relationship] = [rel];
     let domain = DataHelper.isValidObjectPath(this.contextData, "ItemContexts.0.domain") ? this.contextData.ItemContexts[0].domain : undefined;
-    let entityTypeManager=new EntityTypeManager()
+    let entityTypeManager = new EntityTypeManager()
     let fromEntityExternalName = entityTypeManager.getTypeExternalNameById(fromEntityTypes[0]);
     let title = DataHelper.concatValuesFromArray([
-    fromEntityExternalName ? `Add New ${fromEntityExternalName}` : 'Add New Related Entity',
-        ContextHelper.getDataContexts(this.contextData),
-        this.getEntityName()
-      ]);
+      fromEntityExternalName ? `Add New ${fromEntityExternalName}` : 'Add New Related Entity',
+      ContextHelper.getDataContexts(this.contextData),
+      this.getEntityName()
+    ]);
+    if (!_.isEmpty(this._currentEntity) && itemContext.type == "classification") {
+      defaultEntity.data.attributes = this._currentEntity.data.attributes;
+    }
     const sharedData = {
       "context-data": contextData,
       "entity-domain": domain,
@@ -1931,7 +2024,7 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
     if (addRelLovConfig) {
       subTitlePattern = addRelLovConfig.subTitlePattern;
     }
-    
+
     return subTitlePattern;
   }
   _getAttrMessages(error) {
@@ -1975,6 +2068,28 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
         this._savedRelationshipItems[relationship] = savedRelationshipItems;
         relationshipLov.selectedItems = savedRelationshipItems;
       }
+    }
+  }
+
+  _onRelationshipLinkClicked(e){
+
+    if(e && e.detail && e.detail.link && e.detail.link.indexOf("entity-manage") > -1 && e.detail.id) {
+      if (!_.isEmpty(this.contextData)) {
+        let navContextArr = this.contextData[ContextHelper.CONTEXT_TYPE_NAVIGATION];
+        if(!_.isEmpty(navContextArr) && navContextArr[0]["rock-context-selector"]){
+            this.navigationData = navContextArr[0]["rock-context-selector"];
+        }
+      }   
+      if(!_.isEmpty(this.navigationData)){
+          this.setNavigationData("rock-context-selector", this.navigationData, null ,"entity-manage",e.detail.id);
+      }
+    }
+  }
+
+  _onAttributeSave(){
+    let grid = this._getRelationshipGrid();
+    if (grid) {
+      grid.resetControlDirty();
     }
   }
 }

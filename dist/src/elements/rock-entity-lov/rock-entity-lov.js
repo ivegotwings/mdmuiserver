@@ -268,9 +268,6 @@ class RockEntityLov
       this._keywordsCriterionBuilder = DataHelper.getSearchCriteria.bind(this);
       this._sortCriterionBuilder = this._prepareSortCriterion.bind(this);
       this._dataFormatter = this._getAttributeFormattedData.bind(this);
-
-      // Todo..  Id may not be available every time
-      this.logInfo("AttributeModelReady", "id", this.idField, "requestData", this.requestData);
   }
 
   async _prepareAttributes(idField, titlePattern, subTitlePattern, imageField, imageIdField, colorField,
@@ -446,22 +443,7 @@ class RockEntityLov
   _getAttributeFormattedData(data) {
       let entities = undefined;
       //checking for selected Items and replace them with actual object from data.
-      if (!_.isEmpty(this.selectedItems)) {
-          let selectedItems = DataHelper.cloneObject(this.selectedItems);
-          selectedItems.forEach(selectedItem => {
-              data.content.entities.forEach(entity => {
-                  if (!selectedItem.hasOwnProperty('id') && entity.name === selectedItem) {
-                      //removing the string and replacing with entity obj
-                      let index = this.selectedItems.indexOf(selectedItem);
-                      if (index > -1) {
-                          this.selectedItems.splice(index, 1);
-                          this.selectedItems.push(entity);
-                      }
-                  }
-              });
-          });
-
-      }
+      
       if (data && data.content.entities) {
           entities = data.content.entities;
 
@@ -473,7 +455,21 @@ class RockEntityLov
               entities = this.externalDataFormatter(entities, data.content.entities);
           }
       }
-
+      if (!_.isEmpty(this.selectedItems) && !_.isEmpty(entities)) {
+          let selectedItems = DataHelper.cloneObject(this.selectedItems);
+          selectedItems.forEach(selectedItem => {
+              entities.forEach(entity => {
+                  if (!selectedItem.hasOwnProperty('id') && (entity.name === selectedItem || entity.value === selectedItem)) {
+                      //removing the string and replacing with entity obj
+                      let index = this.selectedItems.indexOf(selectedItem);
+                      if (index > -1) {
+                          this.selectedItems.splice(index, 1);
+                          this.selectedItems.push(entity);
+                      }
+                  }
+              });
+          });
+      }
       if (entities && this.excludedIds && this.excludedIds.length > 0) {
           entities = entities.filter(entity => {
               return this.excludedIds.indexOf(entity.id) == -1;

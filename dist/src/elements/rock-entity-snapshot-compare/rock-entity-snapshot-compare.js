@@ -329,7 +329,7 @@ class RockEntitySnapshotCompare extends mixinBehaviors([RUFBehaviors.UIBehavior,
       }
 
       if (_.isEmpty(selectedEntityId)) {
-          this.showWarningToast("Select atleast 1 snapshot for Rollback.");
+          this.showWarningToast("Select at least 1 snapshot for Rollback.");
           this._loading = false;
           return;
       }

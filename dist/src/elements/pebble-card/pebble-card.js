@@ -18,7 +18,6 @@ import '../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
 import '../bedrock-style-manager/styles/bedrock-style-icons.js';
 import '../bedrock-style-manager/styles/bedrock-style-grid-layout.js';
-import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 import '../bedrock-style-manager/styles/bedrock-style-gridsystem.js';
 import '../bedrock-helpers/element-helper.js';
 import '../pebble-icons/pebble-icons.js';
@@ -149,15 +148,15 @@ class PebbleCard extends PolymerElement {
                         <div class="card-icons">
                             <template is="dom-if" if="[[_cardIconButtons]]">
                                 <template is="dom-repeat" items="[[_cardIconButtons]]">
-                                    <pebble-icon name="[[item.name]]" class=" cursor-pointer pebble-icon-size-16 pebble-icon-color-grey tooltip-bottom" icon="[[item.icon]]" on-tap="_onIconButtonClick" data-tooltip="Refresh" noink="">
+                                    <pebble-icon name="[[item.name]]" class=" cursor-pointer pebble-icon-size-16 pebble-icon-color-grey" icon="[[item.icon]]" on-tap="_onIconButtonClick" title="Refresh" noink="">
                                     </pebble-icon>
                                 </template>
                             </template>
 
                             <template is="dom-if" if="[[!nonMaximizable]]">
-                                <pebble-icon id="maximize" class="minimize pebble-icon-size-16 pebble-icon-color-grey m-l-10 tooltip-bottom" name="maximize" icon="pebble-icon:window-action-expand" data-tooltip="Expand">
+                                <pebble-icon id="maximize" class="minimize pebble-icon-size-16 pebble-icon-color-grey m-l-10" name="maximize" icon="pebble-icon:window-action-expand" title="Expand">
                                 </pebble-icon>
-                                <pebble-icon id="settings" class="minimize pebble-icon-size-16 pebble-icon-color-grey m-l-10 tooltip-bottom" name="settings" icon="pebble-icon:settings" data-tooltip="Settings">
+                                <pebble-icon id="settings" class="minimize pebble-icon-size-16 pebble-icon-color-grey m-l-10" name="settings" icon="pebble-icon:settings" title="Settings">
                                 </pebble-icon>
                             </template>
 
@@ -166,7 +165,7 @@ class PebbleCard extends PolymerElement {
                             </pebble-icon></template>
 
                             <template is="dom-if" if="[[_isMoreButtonsAvailable(_moreIconButtons)]]">
-                                <pebble-icon id="actionButton" on-tap="_onActionsButtonTap" icon="pebble-icon:actions-more-vertical" class="cursor-pointer dropdown-trigger m-l-5 tooltip-bottom pebble-icon-size-12" noink="" data-tooltip="More">
+                                <pebble-icon id="actionButton" on-tap="_onActionsButtonTap" icon="pebble-icon:actions-more-vertical" class="cursor-pointer dropdown-trigger m-l-5 pebble-icon-size-12" noink="" title="More">
                                 </pebble-icon>
                                 <pebble-popover id="actionsPopover" for="actionButton" no-overlap="" horizontal-align="auto" allow-multiple="">
                                     <template is="dom-repeat" items="[[_moreIconButtons]]">
@@ -352,11 +351,11 @@ class PebbleCard extends PolymerElement {
                   let elem = e.target;
                   timeOut.after(300).run(() => {
                       elem.classList.add('icon-refresh-spin');
-                      elem.removeAttribute('data-tooltip');
+                      elem.removeAttribute('title');
                   })
                   timeOut.after(600).run(() => {
                       elem.classList.remove('icon-refresh-spin');
-                      elem.setAttribute('data-tooltip', 'refresh');
+                      elem.setAttribute('title', 'Refresh');
                   })
               }
               this.dispatchEvent(new CustomEvent("icon-button-click", { detail: this.iconButtons[i], bubbles: true, composed: true }));

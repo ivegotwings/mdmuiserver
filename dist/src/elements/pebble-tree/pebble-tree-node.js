@@ -213,6 +213,9 @@ class PebbleTreeNode extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
                 background: transparent;
                 animation: 3s 2 alternate detailborder
             }
+            .flex-grow-zero{
+                flex-grow: 0;
+            }
 
             @keyframes detailborder {
                 0% {
@@ -255,7 +258,7 @@ class PebbleTreeNode extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
                         <pebble-checkbox on-tap="_itemClick" disabled\$="[[_isDisabled(nodeData,selectedItems,selectedItems.*,selectedItem)]]" indeterminate="[[_isIndeterminate(nodeData,indeterminateItems,indeterminateItems.*)]]" checked="[[_isSelected(nodeData,selectedItems,selectedItems.*,selectedItem)]]"></pebble-checkbox>
                     </div>
                 </template>
-                <div class="flex">
+                <div class="flex flex-grow-zero">
                     <!--<div id="arrow" on-click="_toggle" hidden="[[multiSelect]]" class\$="[[_arrowClass(expanded)]] arrow"-->
                     <!--&gt;</div>-->
                     <pebble-icon src="[[nodeData.src]]" icon="[[nodeData.icon]]" hidden="[[!_iconPassed(nodeData)]]"></pebble-icon>
@@ -566,7 +569,8 @@ class PebbleTreeNode extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
   static get observers() {
       return [
           '_defaultExpandDepthChanged(defaultExpandDepth,itemPath)',
-          '_nodeDataExpandedChanged(nodeData.expanded)'
+          '_nodeDataExpandedChanged(nodeData.expanded)',
+          '_getDetailClass(nodeData,selectedItems,selectedItems.*)'
       ];
   }
 
@@ -685,7 +689,10 @@ class PebbleTreeNode extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
           Object.keys(detail).forEach(key => {
               if (this.nodeData.id === key) {
                   this.nodeData.valuePath = detail[key];
-                  this.$$('#' + this.nodeData.id).innerHTML = "( " + detail[key] + " )";
+                  let node = this.shadowRoot.getElementById(this.nodeData.id);
+                  if(node){
+                      node.innerHTML = "( " + detail[key] + " )";
+                  }
               }
           })
       }
@@ -696,14 +703,15 @@ class PebbleTreeNode extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
    *  If `checkChildNodes` is set to true, then make sure to 
    *  select the child nodes and make the parent node as indeterminate unless all the sibling nodes are also selected.
    */
-  selectItem() {
+  selectItem(isItemSelected = false) {
       if (!this.disabled) {
           let nodeData = this.nodeData;
           this.nodeData.valuePath = this.valuePath;
           if (!this.multiSelect) {
-              this.selectedItem = nodeData;
+              if (isItemSelected) {
+                  this.selectedItem = nodeData;
+              }
               this.selectedNode = this;
-              this.indeterminateItems = [];
               if (this.disableChildNode) {
                   this.push('selectedItems', nodeData);
                   if (this._hasChildren(nodeData)) {
@@ -722,6 +730,10 @@ class PebbleTreeNode extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
               }
           } else {
               if (this.selectedItems.indexOf(nodeData) == -1) {
+                  //Set the selected only when isItemSelected is true
+                  if (isItemSelected) {
+                      nodeData.selected = true;
+                  }
                   this.push('selectedItems', nodeData);
                   this.selectedNodes.push(this);
                   if (this.checkParentNodes && !this.selectParentItem) {
@@ -767,13 +779,19 @@ class PebbleTreeNode extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
           if (!this.multiSelect) {
               this.selectedItem = {};
               this.selectedNode = undefined;
+              this.selectedItems = [];
               if (this.checkParentNodes) {
                   this._changeParentDeterminateState();
               }
           } else {
-              let index = this.selectedItems.indexOf(this.nodeData);
-              if (index > -1) {
-                  this.splice('selectedItems', index, 1);
+              let items = this.selectedItems.filter(obj => obj.value === this.nodeData.value);
+              if(!_.isEmpty(items)) {
+                  items.forEach((item) => {
+                      let index = this.selectedItems.indexOf(item);
+                      if (index > -1) {
+                          this.splice('selectedItems', index, 1);
+                      }
+                  }, this);
               }
               let nodeIndex = this.selectedNodes.indexOf(this);
               if (nodeIndex > -1) {
@@ -818,6 +836,8 @@ class PebbleTreeNode extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
   unCheckAllChildNodes(nodeData) {
       let children = nodeData.children;
       for (let i = 0; i < children.length; i++) {
+          children[i]["isDisabled"] = false;
+          delete children[i]["selected"];
           let index = this.selectedItems.indexOf(children[i]);
           if (index > -1) {
               this.splice('selectedItems', index, 1);
@@ -871,6 +891,10 @@ class PebbleTreeNode extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
       return childNodes;
   }
 
+  triggerNodeClick() {
+      this._itemTextClick();
+  }
+
   /**
    * Fired when an item text is clicked.
    */
@@ -909,7 +933,7 @@ class PebbleTreeNode extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
       let nodeData = this.nodeData;
       if (this.multiSelect) {
           if (this.selectedItems.indexOf(nodeData) == -1) {
-              this.selectItem();
+              this.selectItem(true);
               this.dispatchEvent(new CustomEvent('item-selected', { detail: { data: this }, bubbles: true, composed: true }));
           } else {
               if(this.showWarningOnUnselect && this._hasChildren(this.nodeData)){
@@ -921,6 +945,7 @@ class PebbleTreeNode extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
               }else{
                   this.deSelectItem()
               }
+              this.dispatchEvent(new CustomEvent('item-de-selected', { detail: { data: this }, bubbles: true, composed: true }));
           }
       } else {
           if (this.disableChildNode && this.selectedItems.length > 0) {
@@ -937,10 +962,12 @@ class PebbleTreeNode extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
           if (this.selectedItem == nodeData) {
               this.deSelectItem();
           } else {
-              this.selectItem();
+              if (this.selectedNode) {
+                  this.selectedNode.detailClass = 'hidden';
+              }
+              this.selectItem(true);
           }
       }
-      this._getDetailClass(nodeData);
   }
 
   /**
@@ -1237,11 +1264,14 @@ class PebbleTreeNode extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
       this.set("nodeData.children", _children);
       this.shadowRoot.querySelector("#childList").render();
       if (_.isEmpty(_children)) {
+          if (!this.multiSelect && this.selectedNode) {
+              this.selectedNode.detailClass = 'hidden';
+              this.selectedNode.deSelectItem();
+          }
           if (this._isSelected(this.nodeData)) {
               this.deSelectItem();
           }
-          this.selectItem();
-          this._getDetailClass(this.nodeData);
+          this.selectItem(true);
       }
       this._loading = false;
       this.fireBedrockEvent('tree-node-child-list-refreshed', this, { "ignoreId": true });
@@ -1264,7 +1294,7 @@ class PebbleTreeNode extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
   }
 
   _computeValuePath(nodeData) {
-      return this.valuePath + "#@#" + nodeData.value;
+      return this.valuePath + "#@#" + (nodeData.value || nodeData.text);
   }
 
   _setParentTreeNode() {

@@ -25,7 +25,6 @@ import '../bedrock-style-manager/styles/bedrock-style-buttons.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
 import '../bedrock-style-manager/styles/bedrock-style-icons.js';
 import '../bedrock-style-manager/styles/bedrock-style-grid-layout.js';
-import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 import '../bedrock-style-manager/styles/bedrock-style-floating.js';
 import '../pebble-icons/pebble-icons.js';
 import '../pebble-icon/pebble-icon.js';
@@ -86,8 +85,8 @@ class RockAttributeMappingGrid
                         <div id="gridManage">
                             <span class="gridCountMsg">[[_getGridRecordsCountMessage(_gridData)]]</span>
                             <span class="pull-right">
-                                <pebble-icon class="iconButton pebble-icon-size-16 tooltip-bottom m-r-10" icon="pebble-icon:action-add" id="add" data-tooltip="Add" raised="" on-tap="_onAddTap"></pebble-icon>
-                                <pebble-icon class="iconButton pebble-icon-size-16 tooltip-bottom" icon="pebble-icon:action-delete" id="delete" data-tooltip="Delete" raised="" on-tap="_onDeleteTap"></pebble-icon>
+                                <pebble-icon class="iconButton pebble-icon-size-16 m-r-10" icon="pebble-icon:action-add" id="add" title="Add" raised="" on-tap="_onAddTap"></pebble-icon>
+                                <pebble-icon class="iconButton pebble-icon-size-16" icon="pebble-icon:action-delete" id="delete" title="Delete" raised="" on-tap="_onDeleteTap"></pebble-icon>
                             </span>
                         </div>
                     </div>
@@ -97,12 +96,12 @@ class RockAttributeMappingGrid
                                 <pebble-data-table id="mapping-grid" items="{{_gridData}}" multi-selection="" selected-item="{{selectedItem}}">
                                     <data-table-column slot="column-slot" name="Excel Column Name" filter-by="excelColumnName">
                                         <template>
-                                            <pebble-textbox slot="cell-slot-content" class="column-text tooltip-bottom" id="excelColumnName_[[index]]" no-label-float="" row-id="[[index]]" value="{{item.excelColumnName}}" on-change="_onRowChange" data-tooltip\$="[[item.excelColumnName]]"></pebble-textbox>
+                                            <pebble-textbox slot="cell-slot-content" class="column-text" id="excelColumnName_[[index]]" no-label-float="" row-id="[[index]]" value="{{item.excelColumnName}}" on-change="_onRowChange" title\$="[[item.excelColumnName]]"></pebble-textbox>
                                         </template>
                                     </data-table-column>
                                     <data-table-column slot="column-slot" name="Mapped System Attribute Name" filter-by="attributeModel.title">
                                         <template>
-                                            <div id="inputDiv" slot="cell-slot-content" on-tap="_onAttributeTap" index="[[index]]" class="tooltip-bottom" data-tooltip\$="[[item.attributeModel.title]]">
+                                            <div id="inputDiv" slot="cell-slot-content" on-tap="_onAttributeTap" index="[[index]]" title\$="[[item.attributeModel.title]]">
                                                 <pebble-textbox readonly="" class="attributes-text" id="attributes-text_[[index]]" row-id="[[index]]" no-label-float="" value="[[item.attributeModel.title]]"></pebble-textbox>
                                             </div>
                                             <div id="iconDiv" slot="cell-slot-content">
@@ -113,7 +112,7 @@ class RockAttributeMappingGrid
                                     <data-table-column slot="column-slot" name="Value Mappings" filter-type="checkbox" filter-by="supportsValueMapping">
                                         <template>
                                             <div id="buttonDiv" slot="cell-slot-content">
-                                                <pebble-icon class="action-button-focus pebble-icon-size-16 tooltip-right m-l-20" data-tooltip="Value Mapping" icon="pebble-icon:value-mapping" id="btnValueMappings_[[index]]" raised="" on-tap="_onTapValueMapping" data-args\$="[[item.attributeModel.id]]" hidden\$="[[!_isValueMappingsAvailable(item.attributeModel)]]"></pebble-icon>
+                                                <pebble-icon class="action-button-focus pebble-icon-size-16 m-l-20" title="Value Mapping" icon="pebble-icon:value-mapping" id="btnValueMappings_[[index]]" raised="" on-tap="_onTapValueMapping" data-args\$="[[item.attributeModel.id]]" hidden\$="[[!_isValueMappingsAvailable(item.attributeModel)]]"></pebble-icon>
                                             </div>
                                         </template>
                                     </data-table-column>
@@ -271,7 +270,7 @@ class RockAttributeMappingGrid
           this.selectedOptions = this.mappingData.selectedOptions;
           let req = DataRequestHelper.createMappingsGetRequest(this.contextData, this.copContext, this.selectedContexts, types, this.selectedOptions);
           req.params.rsconnect.headers.entities = this.mappingData.headerFields;
-          req.params.query.contexts[0].ownershipdata = this.selectedOptions.ownershipData;
+          req.params.query.contexts[0].ownershipdata = Array.isArray(this.selectedOptions.ownershipData) ? this.selectedOptions.ownershipData[0] : this.selectedOptions.ownershipData;
           req.params.query.contexts[0].format = this.fileFormat;
           if(_.isEmpty(this.modelContextData)) {
               this.modelContextData = DataHelper.cloneObject(this.contextData);
@@ -483,7 +482,7 @@ class RockAttributeMappingGrid
                       attributeTxtbox.value = detail.data.title;
                       let rowParentDiv = attributeTxtbox.parentElement;
                       if(rowParentDiv){
-                          rowParentDiv.setAttribute("data-tooltip", detail.data.title);
+                          rowParentDiv.setAttribute("title", detail.data.title);
                       }
                       this._setValueMappings(detail.data, rowId, row);
                       this._isMappingChanged = true;
@@ -601,7 +600,7 @@ class RockAttributeMappingGrid
       let saveRequest = DataRequestHelper.createMappingsSaveRequest(this.contextData, this.copContext, this.selectedContexts, "attributemapping", this.selectedOptions)
       if (!_.isEmpty(saveRequest)) {
           saveRequest.entity.data.contexts[0].attributes = mappings;
-          saveRequest.entity.data.contexts[0].context.ownershipdata = this.selectedOptions.ownershipData;
+          saveRequest.entity.data.contexts[0].context.ownershipdata = Array.isArray(this.selectedOptions.ownershipData) ? this.selectedOptions.ownershipData[0] : this.selectedOptions.ownershipData;
           saveRequest.entity.data.contexts[0].context.format = this.fileFormat;
           this.saveMappingsLiq.requestData = saveRequest;
           this.saveMappingsLiq.generateRequest();

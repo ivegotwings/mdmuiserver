@@ -41,7 +41,7 @@ DataTransformHelper._getAttributeModelsBasedOnContext = function (compositeModel
         let specificCtxAttributeModel;
         for (let attrKey in specificCtxAttributeModels) {
             specificCtxAttributeModel = specificCtxAttributeModels[attrKey];
-            if ("contextCoalesce" in specificCtxAttributeModel.properties && _.isEmpty(specificCtxAttributeModel.properties.instanceCoalesce)) {
+            if (specificCtxAttributeModel && "contextCoalesce" in specificCtxAttributeModel.properties && _.isEmpty(specificCtxAttributeModel.properties.instanceCoalesce)) {
                 specificCtxAttributeModel.selfContext = "self" in specificCtxAttributeModel.properties.contextCoalesce[0] && 1;
             }
         }
@@ -285,10 +285,10 @@ DataTransformHelper._sortArrayByExternalName = function (inputArray) {
         let name1 = '';
         let name2 = '';
         if (a && a.externalName) {
-            name1 = a.externalName.toLowerCase();
+            name1 = a.externalName.toString().toLowerCase();
         }
         if (b && b.externalName) {
-            name2 = b.externalName.toLowerCase();
+            name2 = b.externalName.toString().toLowerCase();
         }
         return name1 > name2 ? 1 : -1;
     }
@@ -812,8 +812,8 @@ DataTransformHelper._transformAttributes = function (attributes, attributeModels
     for (let attributeModelName in attributeModels) {
         let attributeJSON = {};
         let attributeModel = attributeModels[attributeModelName];
-
-        if (attributeModel.name) {
+        
+        if (attributeModel && attributeModel.name) {
             let attribute = attributes[attributeModel.name];
 
             if (attribute) {
@@ -1122,60 +1122,62 @@ DataTransformHelper._fillModels = function (attributeModelObjects, editPermissio
     for (let attributeName in attributeModelObjects) {
         let model = attributeModelObjects[attributeName];
         
-        model.isNestedChild = isNestedChild;
+        if(model) {
+            model.isNestedChild = isNestedChild;
 
-        if (editPermission === false) {
-            model.properties.hasWritePermission = false;
-        }
-
-        /**
-         * observed quite a few times that nested attribute model coming without
-         * isCollection flag. For a nested isCollection is must. So setting isCollection to true 
-         * by Default for all nested attributes.
-         * */
-        if(model.properties && model.properties.dataType && model.properties.dataType === "nested") {
-            model.properties["isCollection"] = true;
-        }
-
-        if (model.properties && model.properties.dataType !== "nested" && model.properties.dataType !== "string") {
-            model.properties.isLocalizable = false;
-        }
-
-        if(model.isNestedChild) {
-            model.properties.isLocalizable = isLocalizable ? true : false;
-        }
-
-        if (model.properties && model.properties.isReferenceType) {
-            model.properties.isLocalizable = true;
-        }
-
-        for (let prop in model.properties) {
-            model[prop] = model.properties[prop];
-        }
-
-        if (model.dataType === "nested" && model.group && model.group.length > 0) {
-            let childAttributeModels = model.group[0];
-            delete childAttributeModels.id;
-            this._fillModels(childAttributeModels, editPermission, true, model.isLocalizable);
-        }
-
-        if (!model.dataType) {
-            model.dataType = "string";
-        }
-        if (!model.displayType) {
-            model.displayType = AttributeHelper.getDisplayType(model.dataType);
-        }
-        if (model.displayType.toLowerCase() == 'referencelist') {
-            model.referenceEntityTypes = DataTransformHelper._getEntityTypesForLov(model);
-        }
-        if (model.dataType == "boolean") {
-            if (_.isEmpty(model.trueText) || _.isEmpty(model.falseText)) {
-                model.trueText = "TRUE";
-                model.falseText = "FALSE";
+            if (editPermission === false) {
+                model.properties.hasWritePermission = false;
             }
 
+            /**
+             * observed quite a few times that nested attribute model coming without
+             * isCollection flag. For a nested isCollection is must. So setting isCollection to true 
+             * by Default for all nested attributes.
+             * */
+            if(model.properties && model.properties.dataType && model.properties.dataType === "nested") {
+                model.properties["isCollection"] = true;
+            }
+
+            if (model.properties && model.properties.dataType !== "nested" && model.properties.dataType !== "string") {
+                model.properties.isLocalizable = false;
+            }
+
+            if(model.isNestedChild) {
+                model.properties.isLocalizable = isLocalizable ? true : false;
+            }
+
+            if (model.properties && model.properties.isReferenceType) {
+                model.properties.isLocalizable = true;
+            }
+
+            for (let prop in model.properties) {
+                model[prop] = model.properties[prop];
+            }
+
+            if (model.dataType === "nested" && model.group && model.group.length > 0) {
+                let childAttributeModels = model.group[0];
+                delete childAttributeModels.id;
+                this._fillModels(childAttributeModels, editPermission, true, model.isLocalizable);
+            }
+
+            if (!model.dataType) {
+                model.dataType = "string";
+            }
+            if (!model.displayType) {
+                model.displayType = AttributeHelper.getDisplayType(model.dataType);
+            }
+            if (model.displayType.toLowerCase() == 'referencelist') {
+                model.referenceEntityTypes = DataTransformHelper._getEntityTypesForLov(model);
+            }
+            if (model.dataType == "boolean") {
+                if (_.isEmpty(model.trueText) || _.isEmpty(model.falseText)) {
+                    model.trueText = "TRUE";
+                    model.falseText = "FALSE";
+                }
+
+            }
+            model.name = attributeName;
         }
-        model.name = attributeName;
     }
 };
 
@@ -1398,7 +1400,7 @@ DataTransformHelper.transformScopes = function (scopes, mappings, userContext, f
                     let isSharedSearch = false;
 
                     if (_searchData.accesstype.toUpperCase() == "_ROLE") {
-                        if (_searchData.ownershipData == undefined || _searchData.ownershipData == userContext.ownershipData) {
+                        if (_searchData.ownershipData == undefined || _searchData.ownershipData == userContext.ownershipData || (Array.isArray(userContext.ownershipData) && userContext.ownershipData.indexOf(_searchData.ownershipData) > -1) || (Array.isArray(_searchData.ownershipData) && _searchData.ownershipData.indexOf(userContext.ownershipData) > -1)) {
                             //Note::Undefined check is needed to support already defined saved searches which are not having ownershipData...
                             //This check needs to be removed in later releases.
                             isSharedSearch = true;
@@ -1446,7 +1448,7 @@ DataTransformHelper.transformScopes = function (scopes, mappings, userContext, f
                     let isSharedScope = false;
 
                     if (_scopeData.accesstype.toUpperCase() == "_ROLE") {
-                        if (_scopeData.ownershipData == undefined || _scopeData.ownershipData == userContext.ownershipData) {
+                        if (_scopeData.ownershipData == undefined || _scopeData.ownershipData == userContext.ownershipData || (Array.isArray(userContext.ownershipData) && userContext.ownershipData.indexOf(_scopeData.ownershipData) > -1) || (Array.isArray(_scopeData.ownershipData) && _scopeData.ownershipData.indexOf(userContext.ownershipData) > -1)) {
                             //Note::Undefined check is needed to support already defined scopes which are not having ownershipData...
                             //This check needs to be removed in later releases.
                             isSharedScope = true;

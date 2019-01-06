@@ -187,7 +187,7 @@ class BedrockDataobjectNotificationHandler
               this._prepareParamsForTaskDetailApp(data, "success");
               let description = "";
               if (data.taskId) {
-                  description = 'Model import task' + data.taskId + ' completed successfully.';
+                  description = 'Model import task ' + data.taskId + ' completed successfully.';
               } else {
                   description = 'Model import task is completed successfully.';
               }
@@ -402,7 +402,7 @@ class BedrockDataobjectNotificationHandler
               this._sendToast(data);
           } else {
               if (data.taskId) {
-                  description = 'Model import task' + data.taskId + ' completed successfully.';
+                  description = 'Model import task ' + data.taskId + ' completed successfully.';
               } else {
                   description = 'Model import task is completed successfully.';
               }
@@ -495,8 +495,8 @@ class BedrockDataobjectNotificationHandler
 
       let notificationElement, notificationLabelElement;
 
-      this._userNotificationsList = this._userNotificationsList || RUFUtilities.userNotificationsList
-      this._mdmUserNotifications = this._mdmUserNotifications || RUFUtilities.mdmUserNotifications
+      this._userNotificationsList = this._userNotificationsList || RUFUtilities.userNotificationsList;
+      this._mdmUserNotifications = this._mdmUserNotifications || RUFUtilities.mdmUserNotifications;
       notificationElement = this._userNotificationsList;
       notificationLabelElement = this._mdmUserNotifications;
 

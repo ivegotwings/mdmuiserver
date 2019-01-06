@@ -31,7 +31,8 @@ import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockRelationshipManage
     extends mixinBehaviors([
         RUFBehaviors.UIBehavior,
-        RUFBehaviors.ComponentContextBehavior
+        RUFBehaviors.ComponentContextBehavior,
+        RUFBehaviors.ComponentConfigBehavior
     ], PolymerElement) {
   static get template() {
     return html`
@@ -87,7 +88,7 @@ class RockRelationshipManage
                         <template is="dom-if" if="displayedRelationshipTypeListChunks.length">
                             <template is="dom-repeat" items="[[displayedRelationshipTypeListChunks]]" as="relationshipTypeList">
                                 <template is="dom-repeat" items="{{relationshipTypeList}}" as="relationship">
-                                    <rock-entity-relationship-search-result id="entityRelationshipSearchResult_[[relationship]]" relationship-items="[[relationshipTypeList]]" readonly="[[readonly]]" relationship="[[relationship]]" config-context="[[configContext]]" page-size="100" context-data="[[contextData]]" do-sync-validation="[[doSyncValidation]]" functional-mode="[[functionalMode]]" load-govern-data\$="[[loadGovernData]]" data-index\$="[[dataIndex]]" _ismessageavailable="{{_isMessageAvailable}}" exclude-non-contextual="[[excludeNonContextual]]">
+                                    <rock-entity-relationship-search-result id="entityRelationshipSearchResult_[[relationship]]" relationship-items="[[relationshipTypeList]]" readonly="[[readonly]]" relationship="[[relationship]]" config-context="[[configContext]]" page-size="100" context-data="[[contextData]]" do-sync-validation="[[doSyncValidation]]" functional-mode="[[functionalMode]]" load-govern-data\$="[[loadGovernData]]" data-index\$="[[dataIndex]]" _ismessageavailable="{{_isMessageAvailable}}" exclude-non-contextual="[[excludeNonContextual]]" is-part-of-business-function="[[isPartOfBusinessFunction]]" domain="[[domain]]">
                                     </rock-entity-relationship-search-result>
                                 </template>
                             </template>
@@ -114,7 +115,8 @@ class RockRelationshipManage
               type: Object,
               value: function () {
                   return {};
-              }
+              },
+              observer: "_onContextDataChange"
           },
           /**
            * If set as true , it indicates the component is in read only mode
@@ -122,6 +124,24 @@ class RockRelationshipManage
           readonly: {
               type: Boolean,
               value: false
+          },
+          relationshipTypeName: {
+              type: String,
+              value: ""
+          },
+          domain: {
+              type: String,
+              value: ""
+          },
+          addRelationshipMode: {
+              type: String,
+              value: ""
+          },
+          relationshipNames: {
+              type: Array,
+              value: function () {
+                  return [];
+              }
           },
           /**
             * <b><i>Content development is under progress... </b></i>
@@ -208,11 +228,33 @@ class RockRelationshipManage
 
   }
 
+  _onContextDataChange() {
+      if (this.isPartOfBusinessFunction && !_.isEmpty(this.contextData)) {
+          let context = DataHelper.cloneObject(this.contextData);
+          //App specific
+          let appName = "";
+          appName = ComponentHelper.getCurrentActiveAppName(this);
+          if (appName) {
+              context[ContextHelper.CONTEXT_TYPE_APP] = [{
+                  "app": appName
+              }];
+          }
+          this.requestConfig(this.nodeName.toLowerCase(), context);                    
+      }
+  }
+
+  onConfigLoaded(componentConfig) {
+  }
+
   _onConfigContextChange() {
-      const {
-          relationshipTypeName,
-          relationshipNames
-      } = this.configContext;
+      let relationshipTypeName, relationshipNames;
+      if(this.relationshipTypeName || !_.isEmpty(this.relationshipNames)) {
+          relationshipTypeName = this.relationshipTypeName;
+          relationshipNames = this.relationshipNames;
+      } else {
+          relationshipTypeName = this.configContext.relationshipTypeName;
+          relationshipNames = this.configContext.relationshipNames;
+      }
 
       const relationshipTypeList = relationshipTypeName ? [relationshipTypeName] : relationshipNames;
 

@@ -31,7 +31,6 @@ import '../../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
 import '../../bedrock-style-manager/styles/bedrock-style-fonts.js';
 import '../../bedrock-style-manager/styles/bedrock-style-icons.js';
-import '../../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 import '../../bedrock-style-manager/styles/bedrock-style-floating.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockToolbar
@@ -120,13 +119,13 @@ class RockToolbar
             </template>
             <div id="title">
                 <template is="dom-if" if="{{_isSubTitleDefined(subTitle, mainTitle)}}">
-                    <div id="subTitle" class="text-ellipsis font-12 font-w-100 tooltip-bottom" data-tooltip\$="{{subTitle}}">{{subTitle}}</div>
-                    <div data-tooltip\$="{{mainTitle}}" class="tooltip-bottom">
+                    <div id="subTitle" class="text-ellipsis font-12 font-w-100" title\$="{{subTitle}}">{{subTitle}}</div>
+                    <div title\$="{{mainTitle}}">
                         <div id="mainTitle" class="text-ellipsis font-w-500 font-14">{{mainTitle}}</div>
                     </div>
                 </template>
                 <template is="dom-if" if="{{!_isSubTitleDefined(subTitle, mainTitle)}}">
-                    <div data-tooltip\$="{{mainTitle}}" class="tooltip-bottom">
+                    <div title\$="{{mainTitle}}">
                         <div id="mainTitle" class="text-ellipsis font-w-500 font-14">{{mainTitle}}</div>
                     </div>
                 </template>
@@ -135,16 +134,16 @@ class RockToolbar
         <div class="context-selector-wrap"><slot></slot></div>
         <div class="pull-right">
             <template is="dom-if" if="[[noShare]]">
-                <pebble-icon id="share" class="minimize pebble-icon-color-blue pebble-icon-size-16 m-l-5 tooltip-bottom" data-tooltip="Share" name="share" icon="pebble-icon:share"></pebble-icon>
+                <pebble-icon id="share" class="minimize pebble-icon-color-blue pebble-icon-size-16 m-l-5" title="Share" name="share" icon="pebble-icon:share"></pebble-icon>
             </template>
             <template is="dom-if" if="[[noSettings]]">
-                <pebble-icon id="settings" class="minimize pebble-icon-color-blue pebble-icon-size-16 m-l-5 tooltip-bottom" name="settings" data-tooltip="Settings" icon="pebble-icon:settings"></pebble-icon>
+                <pebble-icon id="settings" class="minimize pebble-icon-color-blue pebble-icon-size-16 m-l-5" name="settings" title="Settings" icon="pebble-icon:settings"></pebble-icon>
             </template>
             <template is="dom-if" if="[[!nonMinimizable]]">
-                <pebble-icon id="minimize" class="minimize cursor-pointer pebble-icon-color-blue pebble-icon-size-12 m-l-5 tooltip-bottom" name="minimize" data-tooltip="Minimize" icon="pebble-icon:window-action-minimize" on-tap="_onMinimize"></pebble-icon>
+                <pebble-icon id="minimize" class="minimize cursor-pointer pebble-icon-color-blue pebble-icon-size-12 m-l-5" name="minimize" title="Minimize" icon="pebble-icon:window-action-minimize" on-tap="_onMinimize"></pebble-icon>
             </template>
             <template is="dom-if" if="[[!nonClosable]]">
-                <pebble-icon id="close" name="close" icon="pebble-icon:window-action-close" data-tooltip="Close" on-tap="_onClose" class="cursor-pointer pebble-icon-color-blue pebble-icon-size-12 m-l-5 tooltip-left"></pebble-icon>
+                <pebble-icon id="close" name="close" icon="pebble-icon:window-action-close" title="Close" on-tap="_onClose" class="cursor-pointer pebble-icon-color-blue pebble-icon-size-12 m-l-5"></pebble-icon>
             </template>
         </div>
     </div>

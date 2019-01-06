@@ -28,6 +28,7 @@ import { Debouncer } from '@polymer/polymer/lib/utils/debounce.js';
 import '../bedrock-helpers/element-helper.js';
 import '../bedrock-helpers/data-helper.js';
 import '../bedrock-lov-behavior/bedrock-lov-behavior.js';
+import '../bedrock-ui-behavior/bedrock-ui-behavior.js';
 import '../pebble-checkbox/pebble-checkbox.js';
 import '../pebble-button/pebble-button.js';
 import '../pebble-image-viewer/pebble-image-viewer.js';
@@ -46,7 +47,7 @@ import { IronA11yKeysBehavior } from '@polymer/iron-a11y-keys-behavior/iron-a11y
 import * as gestures from '@polymer/polymer/lib/utils/gestures.js';
 import * as  Settings  from '@polymer/polymer/lib/utils/settings.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
-class PebbleLov extends mixinBehaviors([RUFBehaviors.LovBehavior], OptionalMutableData(PolymerElement)) {
+class PebbleLov extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehaviors.LovBehavior], OptionalMutableData(PolymerElement)) {
   static get template() {
     return html`
         <style include="bedrock-style-common bedrock-style-scroll-bar bedrock-style-grid-layout bedrock-style-icons bedrock-style-padding-margin bedrock-style-text-alignment">
@@ -330,6 +331,9 @@ class PebbleLov extends mixinBehaviors([RUFBehaviors.LovBehavior], OptionalMutab
                 <pebble-button id="confirmButton" disabled="[[readonly]]" class="apply btn btn-success" button-text="Apply" noink="" elevation="2" on-tap="_onConfirm"></pebble-button>
             </div>
         </template>
+       
+    
+    <bedrock-pubsub event-name="on-popover-open-focus" handler="_onPopoverOpen"></bedrock-pubsub>
 `;
   }
 
@@ -705,13 +709,18 @@ class PebbleLov extends mixinBehaviors([RUFBehaviors.LovBehavior], OptionalMutab
           this._closePopover(self);
       });
   }
+  _onPopoverOpen(){
+      this.$.input.focus();
+  }
 
   _closePopover(self) {
       self = self || this;
       if (typeof self.parentNode.closePopover === 'function') {
           self.parentNode.closePopover();
       } else if (self.offsetParent && self.offsetParent.close && typeof self.offsetParent.close === 'function') {
-          self.offsetParent.close();
+          if(self.offsetParent.tagName == "PEBBLE-POPOVER"){
+              self.offsetParent.close();
+          } 
       }
   }
 
@@ -759,7 +768,7 @@ class PebbleLov extends mixinBehaviors([RUFBehaviors.LovBehavior], OptionalMutab
       if (this.items && ((this.items.length + this.deletedItemsCount) < this._page * this.pageSize)) {
           return;
       }
-      this._page++;
+      this._page++;                
   }
 
   _pageChanged(rDataSource, currentPage) {

@@ -118,7 +118,12 @@ RUFBehaviors.BusinessFunctionBehaviorImpl = {
             stepProviderElement.getSteps(this.sharedData, this._stepProviderCallback.bind(this));
         }
     },
-    _stepProviderCallback: function (steps) {
+    _stepProviderCallback: function (steps, dynamicDataForSteps) {
+        if(!_.isEmpty(dynamicDataForSteps)) {
+            for (let prop in dynamicDataForSteps) {
+                this.sharedData[prop] = dynamicDataForSteps[prop];
+            }
+        }
         if (!_.isEmpty(steps)) {
             let wizardConfig = DataHelper.cloneObject(this.config);
             wizardConfig.steps = steps;

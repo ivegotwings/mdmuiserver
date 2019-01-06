@@ -22,7 +22,9 @@ class RockNestedAttributeGrid
         <style include="bedrock-style-common bedrock-style-padding-margin">
             rock-grid {
                 --data-table-container-position: relative;
-
+                --nested-grid-font-size:{
+                    font-size:11px;
+                }
                 --list: {
                     @apply --nested-list;
                 }
@@ -58,10 +60,10 @@ class RockNestedAttributeGrid
             </template>
         </template>
         <div class="grid" hidden\$="[[!_showGrid]]">
-            <rock-grid id="attributesGrid" config="{{_gridConfig}}" data="{{_gridData}}" attribute-models="[[_attributeModels]]" no-header="" page-size="20" is-dirty="{{_isGridDirty}}" context-data="[[contextData]]" apply-locale-coalesce="[[applyLocaleCoalesce]]" apply-graph-coalesced-style\$="[[applyGraphCoalescedStyle]]" dependent-attribute-objects="[[dependentAttributeObjects]]" dependent-attribute-model-objects="[[dependentAttributeModelObjects]]" inline-edit-validation-enabled="">
+            <rock-grid id\$="[[attributeModelObject.name]]-attributesGrid" config="{{_gridConfig}}" data="{{_gridData}}" attribute-models="[[_attributeModels]]" no-header="" page-size="20" is-dirty="{{_isGridDirty}}" context-data="[[contextData]]" apply-locale-coalesce="[[applyLocaleCoalesce]]" apply-graph-coalesced-style\$="[[applyGraphCoalescedStyle]]" dependent-attribute-objects="[[dependentAttributeObjects]]" dependent-attribute-model-objects="[[dependentAttributeModelObjects]]" inline-edit-validation-enabled="">
             </rock-grid>
-            <bedrock-pubsub event-name="delete-item" handler="_onRowDelete" target-id="attributesGrid"></bedrock-pubsub>
-            <bedrock-pubsub event-name="refresh-grid" handler="_onRefreshGrid" target-id="attributesGrid"></bedrock-pubsub>
+            <bedrock-pubsub event-name="delete-item" handler="_onRowDelete" target-id="[[attributeModelObject.name]]-attributesGrid"></bedrock-pubsub>
+            <bedrock-pubsub event-name="refresh-grid" handler="_onRefreshGrid" target-id="[[attributeModelObject.name]]-attributesGrid"></bedrock-pubsub>
         </div>
 `;
   }
@@ -200,6 +202,10 @@ class RockNestedAttributeGrid
           _mode: {
               type: Boolean,
               value: "view"
+          },
+          nestedIdentifierKeys:{
+              type:Array,
+              value:[]
           }
       }
   }
@@ -214,7 +220,7 @@ class RockNestedAttributeGrid
 
 
   get attributesGrid() {
-      this._attributesGrid = this._attributesGrid || this.shadowRoot.querySelector("#attributesGrid");
+      this._attributesGrid = this._attributesGrid || this.shadowRoot.querySelector("#"+ this.attributeModelObject.name +"-attributesGrid");
       return this._attributesGrid;
   }
   _attributeModelObjectChanged(attributeModelObject) {
@@ -299,16 +305,24 @@ class RockNestedAttributeGrid
   }
 
   _prepareGridData(attributeObject) {
-      this._gridData = [];
+      let _gridData = [];
       this.async(function () {
           let hasErrorOrWarnings = false;
           let childAttrModels = this.attributeModelObject.group ? this.attributeModelObject.group[0] : [];
-
+          if(!_.isEmpty(childAttrModels)){
+              this.nestedIdentifierKeys = [];
+              for (let model in childAttrModels) {
+                  if(childAttrModels[model].isAttributeIdentifier && this.nestedIdentifierKeys.indexOf(model) == -1){
+                       this.push('nestedIdentifierKeys', model);
+                  }
+              }
+          }
+        
           if (attributeObject && attributeObject.value && attributeObject.value.length > 0 && !_.isEmpty(childAttrModels)) {
               let errors = attributeObject.errors && attributeObject.errors.length ? attributeObject.errors[0] : undefined;
               for (let i = 0; i < attributeObject.value.length; i++) {
                   let value = attributeObject.value[i];
-                  if (!this._gridData.find(obj => value["valueIdentifier"] && (obj.valueIdentifier ===
+                  if (!_gridData.find(obj => value["valueIdentifier"] && (obj.valueIdentifier ===
                       value["valueIdentifier"].value))) {
                       let rowData = {};
                       for (let attrName in value) {
@@ -323,7 +337,6 @@ class RockNestedAttributeGrid
                               } else {
                                   rowData[attrName] = value[attrName].value;
                               }
-
                               if (value[attrName].referenceDataId) {
                                   rowData[attrName + "_referenceDataId"] = value[attrName].referenceDataId;
                               }
@@ -345,10 +358,13 @@ class RockNestedAttributeGrid
                           rowData.governanceErrors = errors[value.valueIdentifier.value];
                           hasErrorOrWarnings = true;
                       }
-                      if (!this._isRowEmpty(rowData)) this._gridData.push(rowData);
+                      if (!this._isRowEmpty(rowData)){
+                          _gridData.push(rowData);
+                      } 
                   }
               }
           }
+          this._gridData = _gridData;
           if (this.attributesGrid && hasErrorOrWarnings) {
               this.attributesGrid.inlineReadValidationEnabled = hasErrorOrWarnings;
           };
@@ -423,7 +439,7 @@ class RockNestedAttributeGrid
                   if (this._isRowEmpty(rowData)) {
                       if (value) {
                           /***means user cleared all child attributes in this row. Hence update status to "delete".***/
-                          _status = "delete";
+                          _status = "delete";     
                       }
                   } else {
                       if (!value && !deletedValue) {
@@ -444,17 +460,25 @@ class RockNestedAttributeGrid
                           let index = this.attributeObject.value.indexOf(value);
                           if (index !== -1) {
                               if (deletedValue && value.valueIdentifier.value === deletedValue.valueIdentifier
-                                  .value) {
+                                  .value || rowData.isNewlyAddedDataRowDelete) {
                                   /***if value and deleted value both are present, user has edited child attribute with
                                    * with isAttributeIdentifier flag first and then cleared all child attributes or marked 
                                    * it delete. In this case to avoid duplicating the rows to be deleted.***/
                                   this.attributeObject.value.splice(index, 1);
+                                  let gridIndex = this._gridData.indexOf(rowData);
+                                  this._gridData.splice(gridIndex, 1)
+                                  if (this.attributesGrid) {
+                                      this.attributesGrid.reRenderGrid();
+                                  }
                               } else {
                                   if (originalVal) {
                                       /***replace the row data with original row data before marking the row with delete.***/
                                       this.attributeObject.value[index] = DataHelper.cloneObject(
                                           originalVal);
                                       this.attributeObject.value[index]["action"] = "delete";
+                                  }else{
+                                      /**update attributeObject with empty value ***/
+                                      this._updateRowDataWithValue(rowData, value);
                                   }
                               }
                           }
@@ -485,10 +509,49 @@ class RockNestedAttributeGrid
                   }
               }
           }
+          if(!_.isEmpty(this.nestedIdentifierKeys)){
+              this._checkforDuplicates();
+          }
+          this.attributeObject.value = DataHelper.cloneObject(this.attributeObject.value);
           this.notifyPath("attributeObject.value");
       } else if (this.changed === false) {
           this.attributeObject = DataHelper.cloneObject(this.originalAttributeObject);
       }
+  }
+
+  _checkforDuplicates(){
+      let gridData = this.attributesGrid.getData();
+      let nestedIdentifierObj = {};
+      let attributeModelObject = this.attributeModelObject;
+      if (attributeModelObject && attributeModelObject.group && attributeModelObject.group.length > 0 && gridData.length > 0) {
+          let childAttrModels = attributeModelObject.group[0];
+          for (let dataIndex = 0; dataIndex < gridData.length; dataIndex++) {
+              let nestedIdentifierValues = ""
+              let gridItem = gridData[dataIndex]
+              let externalNameKeyValueObj = {};
+              this.nestedIdentifierKeys.forEach((key) => {
+                  nestedIdentifierValues += gridItem[key];
+                  let attributeExternalName = childAttrModels[key].externalName;
+                  externalNameKeyValueObj[attributeExternalName] = gridItem[key];
+              })
+              gridItem["duplicateKeysName"] = [];
+              if(nestedIdentifierObj.hasOwnProperty(nestedIdentifierValues)){
+                  let errorMessage = "";
+
+                  for(let key in externalNameKeyValueObj){
+                      gridItem["duplicateKeysName"].push(key);
+                      gridData[nestedIdentifierObj[nestedIdentifierValues]]["duplicateKeysName"].push(key);
+                      errorMessage = !_.isEmpty(errorMessage) ? errorMessage + " , "+ key + " : " + externalNameKeyValueObj[key] : key + " : " + externalNameKeyValueObj[key];
+                  }
+                  gridItem["duplicateValidationError"] = ["Duplicate row with " + errorMessage];
+                  gridData[nestedIdentifierObj[nestedIdentifierValues]]["duplicateValidationError"] = ["Duplicate row with " + errorMessage];
+              }else{
+                  nestedIdentifierObj[nestedIdentifierValues] = dataIndex;
+                  gridItem["duplicateValidationError"] = [];
+              }
+          }
+      }
+      this.updateAttributeErrors();
   }
   _isRowEmpty(rowData) {
       let attributes = Object.keys(rowData);
@@ -545,7 +608,20 @@ class RockNestedAttributeGrid
       }
   }
   _onRowDelete(e, detail) {
-      this._notifyDirty();
+      if(detail.isNewlyAddedDataRowDelete && this._isRowEmpty(detail)){
+          /***when try to delete row which is empty, 
+           * no need to update attribute objetc, just remove that row from the grid***/
+          let gridIndex = this._gridData.indexOf(detail);
+          this._gridData.splice(gridIndex, 1)
+          if (this.attributesGrid) {
+              this.attributesGrid.reRenderGrid();
+          }
+          if(!_.isEmpty(this.nestedIdentifierKeys)){
+              this._checkforDuplicates();
+          }
+      }else{
+          this._notifyDirty();
+      }
   }
   _isEditMode(mode) {
       return mode === "edit";
@@ -568,6 +644,10 @@ class RockNestedAttributeGrid
       if (this.attributesGrid) {
           this.attributesGrid.addNewRecords([newRowItem]);
       }
+      if(!_.isEmpty(this.nestedIdentifierKeys)){
+          this._checkforDuplicates();
+      }
+
   }
   _notifyDirty() {
       let modifiedData;

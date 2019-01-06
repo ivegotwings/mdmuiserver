@@ -284,6 +284,14 @@ class RelationshipsTabMenuProvider
           req.params.query.contexts = [firstDataContext];
       }
 
+      let valContexts = this.getValueContexts();
+
+      if (_.isEmpty(valContexts) && _.isEmpty(valContexts[0])) {
+          valContexts = [DataHelper.getDefaultValContext()];
+      }
+      
+      req.params.query.valueContexts = valContexts;
+
       this._request = req;
   }
 }

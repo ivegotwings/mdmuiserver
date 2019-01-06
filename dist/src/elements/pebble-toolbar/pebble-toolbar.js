@@ -34,7 +34,6 @@ import '../bedrock-ui-behavior/bedrock-ui-behavior.js';
 import '../bedrock-pubsub/bedrock-pubsub.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
-import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 import '../pebble-button/pebble-button.js';
 import '../pebble-vertical-divider/pebble-vertical-divider.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
@@ -83,7 +82,12 @@ class PebbleToolbar extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerEle
                 }
             }
             .buttonGroup pebble-button{
-                height:auto;
+                height:auto;                
+                --pebble-icon-dimension: {
+                    width:16px;
+                    height:16px;
+                    @apply --pebble-button-icon-dimension;                    
+                }
             }
 
             pebble-vertical-divider {
@@ -95,17 +99,17 @@ class PebbleToolbar extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerEle
         </style>
             <template is="dom-repeat" items="[[configData.buttonItems]]" as="button">
                 <template is="dom-if" if="[[_computeIcon(button)]]">
-                    <pebble-button icon="[[button.icon]]" on-tap="_onTap" disabled="[[readonly]]" noink="" class="icon" data="[[button]]" data-tooltip\$="[[button.tooltip]]" id="[[button.name]]" slot="top">
+                    <pebble-button icon="[[button.icon]]" on-tap="_onTap" disabled="[[readonly]]" noink="" class="icon" data="[[button]]" title\$="[[button.tooltip]]" id="[[button.name]]" slot="top">
                     </pebble-button>
                 </template>
 
                 <template is="dom-if" if="[[_computeText(button)]]">
-                    <pebble-button button-text="[[button.text]]" on-tap="_onTap" disabled="[[readonly]]" noink="" class="text" data="[[button]]" data-tooltip\$="[[button.tooltip]]" id="[[button.name]]" slot="top">
+                    <pebble-button button-text="[[button.text]]" on-tap="_onTap" disabled="[[readonly]]" noink="" class="text" data="[[button]]" title\$="[[button.tooltip]]" id="[[button.name]]" slot="top">
                     </pebble-button>
                 </template>
 
                 <template is="dom-if" if="[[_computeIconText(button)]]">
-                    <pebble-button icon="[[button.icon]]" button-text="[[button.text]]" on-tap="_onTap" disabled="[[readonly]]" noink="" class="iconText" data="[[button]]" data-tooltip\$="[[button.tooltip]]" id="[[button.name]]" slot="top">
+                    <pebble-button icon="[[button.icon]]" button-text="[[button.text]]" on-tap="_onTap" disabled="[[readonly]]" noink="" class="iconText" data="[[button]]" title\$="[[button.tooltip]]" id="[[button.name]]" slot="top">
                     </pebble-button>
                 </template>
 
@@ -119,24 +123,24 @@ class PebbleToolbar extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerEle
                     <div class="buttonGroup">
                         <template is="dom-repeat" items="[[button.buttons]]" as="button">
                             <template is="dom-if" if="[[_computeIcon(button)]]" on-dom-change="_onToolbarChange">
-                                <pebble-button icon="[[button.icon]]" on-tap="_onTap" disabled="[[readonly]]" noink="" class="icon tooltip-bottom m-l-10" data="[[button]]" data-tooltip\$="[[button.tooltip]]" id="[[button.name]]">
+                                <pebble-button icon="[[button.icon]]" on-tap="_onTap" disabled="[[readonly]]" noink="" class="icon  m-l-10" data="[[button]]" title\$="[[button.tooltip]]" id="[[button.name]]">
                                 </pebble-button>
                             </template>
 
                             <template is="dom-if" if="[[_computeText(button)]]" on-dom-change="_onToolbarChange">
-                                <pebble-button button-text="[[button.text]]" on-tap="_onTap" disabled="[[readonly]]" noink="" class="buttonGroupText cursor-default tooltip-bottom m-l-10" data="[[button]]" data-tooltip\$="[[button.tooltip]]" id="[[button.name]]">
+                                <pebble-button button-text="[[button.text]]" on-tap="_onTap" disabled="[[readonly]]" noink="" class="buttonGroupText cursor-default  m-l-10" data="[[button]]" title\$="[[button.tooltip]]" id="[[button.name]]">
                                 </pebble-button>
 
                             </template>
 
                             <template is="dom-if" if="[[_computeIconText(button)]]" on-dom-change="_onToolbarChange">
-                                <pebble-button icon="[[button.icon]]" button-text="[[button.text]]" on-tap="_onTap" disabled="[[readonly]]" noink="" class="buttonGroupIconText" data="[[button]]" data-tooltip\$="[[button.tooltip]]" id="[[button.name]]">
+                                <pebble-button icon="[[button.icon]]" button-text="[[button.text]]" on-tap="_onTap" disabled="[[readonly]]" noink="" class="buttonGroupIconText" data="[[button]]" title\$="[[button.tooltip]]" id="[[button.name]]">
                                 </pebble-button>
 
                             </template>
 
                             <template is="dom-if" if="[[_computeMoreButtons(button)]]" on-dom-change="_onToolbarChange">
-                                <pebble-button icon="[[button.icon]]" button-text="[[button.text]]" disabled="[[readonly]]" noink="" menu-button="" class="menu tooltip-bottom m-l-10" item-data="[[_getMoreButtons(button)]]" vertical-offset="-70" horizontal-offset="-2" horizontal-align="[[horizontalAlign]]" vertical-align="[[verticalAlign]]" data-tooltip\$="[[button.tooltip]]">
+                                <pebble-button icon="[[button.icon]]" button-text="[[button.text]]" disabled="[[readonly]]" noink="" menu-button="" class="menu  m-l-10" item-data="[[_getMoreButtons(button)]]" vertical-offset="-70" horizontal-offset="-2" horizontal-align="[[horizontalAlign]]" vertical-align="[[verticalAlign]]" title\$="[[button.tooltip]]">
                                 </pebble-button>
                             </template>
                             <template is="dom-if" if="[[_isDivider(button)]]">

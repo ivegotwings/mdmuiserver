@@ -230,8 +230,13 @@ class RockWizard
   }
   _configChanged (config) {
       if (config && config.steps && config.steps.length > 0) {
+          if(config.steps.length == 1){
+              this.hideStepper = true;
+          }
           let stepper = this.shadowRoot.querySelector('#pebbleStepper');
-          stepper.selected = null;
+          if(stepper){
+              stepper.selected = null;
+          }
           let stepperConfig = {};
           stepperConfig.items = []
           for (let i = 0; i < config.steps.length; i++) {

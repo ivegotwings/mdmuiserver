@@ -222,7 +222,6 @@ class RockEntityTitlebar
 
   _onTitleAttributesGetResponse(e) {
       let titleAttributeResponse = e.detail.response;
-      this.logInfo("EntityTitleAttributeResponse", "response", titleAttributeResponse);
 
       let attributesData = [];
       if (DataHelper.validateGetEntitiesResponse(titleAttributeResponse)) {

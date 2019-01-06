@@ -32,10 +32,8 @@ import '../bedrock-style-manager/styles/bedrock-style-floating.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
 import '../bedrock-style-manager/styles/bedrock-style-icons.js';
-import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 import '../bedrock-init/bedrock-init.js';
 import { microTask } from '@polymer/polymer/lib/utils/async.js';
-import { flush } from '@polymer/polymer/lib/legacy/polymer.dom.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 import ProgressTracker from '../app-main/ProgressTracker.js';
 
@@ -310,16 +308,14 @@ extends mixinBehaviors([
                         <div class="quick-wrap">
                             <rock-quick-actions id="quick-actions" context-data="[[contextData]]" page-route="[[pageRoute]]"></rock-quick-actions>
                         </div>
-                        <pebble-icon icon="pebble-icon:help" class="icon-button pebble-icon-color-white pebble-icon-size-20 m-r-5 m-l-5 tooltip-bottom" onclick="window.open('/docportal')" data-tooltip="Help"></pebble-icon>
-                        <rock-notification id="mdmUserNotifications" label="0" on-click="showUserNotifications" class="tooltip-bottom" data-tooltip="Notifications"></rock-notification>
-                        <template is="dom-if" if="[[_popoverUserNotificationsDialog]]">
-                            <pebble-popover id="popoverUserNotifications" for="mdmUserNotifications" no-overlap="" display-arrow-as-per-target="" horizontal-align="right">
-                                <div class="popup-title p-b-5 p-r-20 p-l-20">Notifications</div>
-                                <pebble-horizontal-divider></pebble-horizontal-divider>
-                                <rock-notification-list id="userNotificationsList" show-line-index="1">
-                                </rock-notification-list>
-                            </pebble-popover>
-                        </template>
+                        <pebble-icon icon="pebble-icon:help" class="icon-button pebble-icon-color-white pebble-icon-size-20 m-r-5 m-l-5" onclick="window.open('/docportal')" title="Help"></pebble-icon>
+                        <rock-notification id="mdmUserNotifications" label="0" on-click="showUserNotifications" title="Notifications"></rock-notification>
+                        <pebble-popover id="popoverUserNotifications" for="mdmUserNotifications" no-overlap="" display-arrow-as-per-target="" horizontal-align="right">
+                            <div class="popup-title p-b-5 p-r-20 p-l-20">Notifications</div>
+                            <pebble-horizontal-divider></pebble-horizontal-divider>
+                            <rock-notification-list id="userNotificationsList" show-line-index="1">
+                            </rock-notification-list>
+                        </pebble-popover>
                         <rock-hotline-settings context-data="[[contextData]]"></rock-hotline-settings>
                     </div>
                 </div>
@@ -482,16 +478,17 @@ extends mixinBehaviors([
   }
 
   onMenuCloseClick(e, customArgs) {
-      this._clearEntityManagePagesRefs();
-      RUFUtilities.mainApp.contentViewManager.closeView(customArgs.item.data_route, customArgs.item.queryParams);
+      let appId = "";
+      if(DataHelper.isValidObjectPath(customArgs, "item.appStatus.appId")){
+          appId = customArgs.item.appStatus.appId;
+      }
+      this._clearEntityManagePagesRefs(appId);
+      RUFUtilities.mainApp.contentViewManager.closeView(customArgs.item.data_route, customArgs.item.queryParams, undefined, appId);
   }
   onRefreshClick() {
       location.reload();
   }
   showUserNotifications() {
-      this._popoverUserNotificationsDialog = true;
-      flush();
-
       this._popoverUserNotifications = this.shadowRoot.querySelector("#popoverUserNotifications");
       this._popoverUserNotifications.show();
       this._mdmUserNotifications.label = 0;
@@ -527,14 +524,19 @@ extends mixinBehaviors([
   getFunctionDialog() {
       return this.$.contextDialog;
   }
-  _clearEntityManagePagesRefs() {
-      let appsIdsToClose = Object.keys(RUFUtilities.pubsubEventNameRegistry).filter(appId =>
-          appId.indexOf("app-entity-manage-component-") > -1);
-
-      appsIdsToClose.forEach(appId => {
-          delete RUFUtilities.pubsubEventNameRegistry[appId];
-          delete RUFUtilities.pubsubListenerRegistry[appId];
-      });
+  _clearEntityManagePagesRefs(_appId) {
+      let appsIdsToClose = [];
+      if(_appId){
+          appsIdsToClose = [_appId];
+      }else{
+          appsIdsToClose = Object.keys(RUFUtilities.pubsubEventNameRegistry).filter(appId => appId.indexOf("app-entity-manage-component-") > -1);
+      }
+      if(!_.isEmpty(appsIdsToClose)){
+          appsIdsToClose.forEach(appId => {
+              delete RUFUtilities.pubsubEventNameRegistry[appId];
+              delete RUFUtilities.pubsubListenerRegistry[appId];
+          });
+      }
   }
   _editHtml() {
       let eventData = {

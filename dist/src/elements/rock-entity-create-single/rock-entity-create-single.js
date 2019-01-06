@@ -58,6 +58,13 @@ class RockEntityCreateSingle
                 margin-bottom: 0px;
                 margin-top: 0px;
             }
+            .error-list{
+                overflow: auto;
+                max-height: 200px;
+            }
+            .buttons{
+                text-align: center;
+            }
         </style>
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
         <liquid-rest id="entityMatchService" url="/data/pass-through/matchservice/search" method="POST" request-data="{{_entityMatchRequest}}" on-liquid-response="_onMatchSuccess" on-liquid-error="_onMatchFailure">
@@ -68,7 +75,7 @@ class RockEntityCreateSingle
         </liquid-rest>
         <pebble-dialog id="updateConfirmDialog" modal="" small="" vertical-offset="1" 50="" horizontal-align="auto" vertical-align="auto" no-cancel-on-outside-click="" no-cancel-on-esc-key="" dialog-title="Found Match">
             <p>Found the below matching entity in system: </p>
-            <ul>
+            <ul class="error-list">
                 <li>Entity Id: [[_matchedEntity.id]]</li>
                 <li>Entity Type: [[_matchedEntity.type]]</li>
             </ul>
@@ -80,7 +87,7 @@ class RockEntityCreateSingle
         </pebble-dialog>
         <pebble-dialog id="errorsDialog" modal="" small="" vertical-offset="1" 50="" horizontal-align="auto" vertical-align="auto" no-cancel-on-outside-click="" no-cancel-on-esc-key="" dialog-title="Errors on page">
             <p>Found below errors in entity details: </p>
-            <ul>
+            <ul class="error-list">
                 <template is="dom-repeat" items="[[_syncValidationErrors]]">
                     <li>[[item.attributeExternalName]] with error: [[item.message]]</li>
                 </template>
@@ -112,7 +119,7 @@ class RockEntityCreateSingle
         <bedrock-pubsub event-name="compare-entities-back" handler="_onCompareEntitiesBack" target-id="matchEntities"></bedrock-pubsub>
         <bedrock-pubsub event-name="compare-entities-create" handler="_onCompareEntitiesCreate" target-id="matchEntities"></bedrock-pubsub>
         <bedrock-pubsub event-name="compare-entities-merge" handler="_onCompareEntitiesMerge" target-id="matchEntities"></bedrock-pubsub>
-        <bedrock-pubsub event-name="entity-model-created" handler="_onEntityModelCreated" id="entityModelCreatePubsub"></bedrock-pubsub>
+        <bedrock-pubsub event-name="entity-model-created" handler="_onEntityModelCreated"></bedrock-pubsub>
     </liquid-entity-model-composite-get>
 `;
   }
@@ -276,10 +283,6 @@ class RockEntityCreateSingle
   }
   disconnectedCallback() {
       super.disconnectedCallback();
-      let entityCreatePubsub = this.shadowRoot.querySelector("#entityCreatePubsub");
-      if(entityCreatePubsub){
-          entityCreatePubsub.removeEvent();
-      }
   }
   _contextChanged(attributeNames, contextData) {
       if (attributeNames && attributeNames.length > 0 && !_.isEmpty(contextData)) {
@@ -403,6 +406,10 @@ class RockEntityCreateSingle
       ComponentHelper.getParentElement(this).onSaveContextChange = true;
       ComponentHelper.getParentElement(this).contextData = this.contextData;
 
+      if (newEntity.type == "classification") {
+          this._resetEntityAdditionalAttributes(newEntity);
+      }
+
       this._saveRequest = {
           "entities": [newEntity]
       };
@@ -440,6 +447,25 @@ class RockEntityCreateSingle
       }
   }
 
+  _resetEntityAdditionalAttributes(entity) {
+      if (!DataHelper.isValidObjectPath(entity, "data.attributes")) {
+          return;
+      }
+
+      let pathSeperator = this.appSetting('dataDefaults').categoryPathSeparator || ">>";
+      //Update path attributes
+      if (entity.data.attributes["externalnamepath"]) {
+          entity.data.attributes["externalnamepath"].values.forEach(item => {
+              item.value = item.value + pathSeperator + entity.name;
+          })
+      }
+      if (entity.data.attributes["path"]) {
+          entity.data.attributes["path"].values.forEach(item => {
+              item.value = item.value + pathSeperator + entity.id;
+          })
+      }
+  }
+
   _isEmptyValue(value) {
       if (typeof (value) === "string") {
           return value === "" || value.trim().length === 0;
@@ -451,7 +477,7 @@ class RockEntityCreateSingle
   _onMatchSuccess(e, detail) {
       if (detail.response) {
           let response = detail.response.response;
-          if ((response.dataObjectOperationResponse && response.dataObjectOperationResponse.status &&
+          if (!response || (response.dataObjectOperationResponse && response.dataObjectOperationResponse.status &&
               response.dataObjectOperationResponse.status.toLowerCase() == "error") ||
               (response.status && response.status.toLowerCase() == "error")) {
               this.logError("MatchServiceRequestFail", e.detail);

@@ -15,7 +15,6 @@ import '../../bedrock-component-context-behavior/bedrock-component-context-behav
 import '../../bedrock-helpers/data-request-helper.js';
 import '../../bedrock-ui-behavior/bedrock-ui-behavior.js';
 import '../../bedrock-style-manager/styles/bedrock-style-common.js';
-import '../../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 import '../../liquid-entity-data-get/liquid-entity-data-get.js';
 import '../../rock-grid-data-sources/entity-relationship-grid-datasource.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
@@ -107,7 +106,7 @@ class RockEntityRelationshipsSummaryItem
             </div>
         </div>
 
-        <div class="relationships-summary__item-description tooltip-top" data-tooltip\$="[[description]]"><div class="text-ellipsis">[[description]]</div></div>
+        <div class="relationships-summary__item-description" title\$="[[description]]"><div class="text-ellipsis">[[description]]</div></div>
 `;
   }
 

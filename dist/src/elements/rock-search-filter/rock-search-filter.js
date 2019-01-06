@@ -22,8 +22,6 @@ import '../bedrock-helpers/constant-helper.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../bedrock-style-manager/styles/bedrock-style-text-alignment.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
-import '../bedrock-style-manager/styles/bedrock-style-floating.js';
-import '../bedrock-style-manager/styles/bedrock-style-gridsystem.js';
 import '../pebble-icons/pebble-icons.js';
 import '../pebble-button/pebble-button.js';
 import '../pebble-popover/pebble-popover.js';
@@ -55,7 +53,6 @@ class RockSearchFilter
         display: -webkit-inline-flex;
         width: 100%;
       }
-
       pebble-tags {
         --tag-color: var(--top-header-background);
         --actions-icon-button: {
@@ -66,116 +63,57 @@ class RockSearchFilter
           padding-bottom: 0px;
           padding-left: 0px;
         }
-        ;
       }
-
       .tagContainer {
         min-width: 0px;
       }
 
       #filterPopover {
         margin-left: 50px;
-        min-width: 240px;
       }
-
-      pebble-textbox {
-        --paper-input-container: {
-          padding-top: 0px;
-          padding-right: 20px;
-          padding-bottom: 0px;
-          padding-left: 20px;
-        }
-      }
-
-      #filterPopover paper-item {
-        --paper-item: {
-          font-size: 12px;
-        }
-        --paper-item-min-height: 30px;
-      }
-
-      pebble-boolean {
-        --pebble-boolean: {
-          height: 30px;
-          line-height: 30px;
-          padding-right: 5px;
-          padding-left: 5px;
-          width: 100px;
-          font-size: var(--font-size-sm, 12px);
-        }
-        ;
-      }
-
       pebble-textarea {
-        --textarea-container: {
-          padding-top: 0px !important;
-          padding-right: 20px !important;
-          padding-bottom: 0px !important;
-          padding-left: 20px !important;
-        }
-        ;
-
         --autogrowtextarea: {
           max-height: 200px;
         }
-        ;
       }
-
       pebble-textarea .floated-label-placeholder {
         line-height: 0;
       }
-
       pebble-popover {
         --pebble-popover-max-width: 100%;
         --pebble-popover-width: 260px;
+        --popover:{
+          padding-left:20px;
+          padding-right:20px;
+          padding-top:20px;
+          padding-bottom:20px;
+        }
       }
-
-      
-
-      .dialogOptions paper-radio-button input {
-        width: 100px;
-        font-size: 15px;
-        padding: 0 4px;
-        line-height: 30px;
-      }
-
-      paper-input {
-        width: 90%;
-      }
-
-      .dialogOptions paper-radio-button {
-        display: block;
-      }
-
-      paper-radio-group {
-        width: 100%;
-      }
-
-      paper-radio-group paper-radio-button {
+      paper-radio-button {
         padding-top: 0;
         padding-bottom: 0;
+        padding-left:0px;
+        padding-right:0px;
+        display: block;
         --paper-radio-button-unchecked-color: var(--radio-button-border, #026bc3);
         --paper-radio-button-checked-color: var(--radio-button-selected, #026bc3);
+        --paper-radio-button-label:{
+          width:calc(100% - 16px);
+        }
       }
-
       pebble-textbox-collection {
         --tags-container: {
           min-height: 0px;
           margin-right: 0;
-          padding-left: 10px;
-          padding-right: 10px;
         }
-        ;
         --text-collection-container: {
           min-height: 0px;
           margin-top: 0px;
         }
-        ;
+        --text-collection-manage-tag-container:{
+          padding:0px;
+        }
       }
-      .dialogOptionsdialogOptions paper-radio-button {
-        @apply --popup-item;
-      }
-
       pebble-tags {
         --tag-item-container: {
           height: 26px;
@@ -185,34 +123,35 @@ class RockSearchFilter
           max-width: calc(100% - 20px);
         }
       }
-
-      #textNumericCollection {
-        --text-collection-manage-tag-container: {
-          width: 180px;
-        }
-      }
-
-      pebble-toggle-button {
+      pebble-toggle-button {        
         --pebble-toggle-button-checked-bar-color: var(--success-color, #4caf50);
         --pebble-toggle-button-checked-button-color: var(--success-color, #4caf50);
         --pebble-toggle-button-checked-ink-color: var(--success-color, #4caf50);
+        
       }
-      .searchSection{
-        width:90%;
+      .radiobuttons{
+        float: left;
+        width: 50%;
+        padding-right:5px;
       }
-      .min-width-0 {
-          min-width: 0px;
+      .radiobuttons:last-child{
+        padding-right:0px;
+        padding-left:5px;
+      }
+      .radiobutton-container{
+        display: flex;
+        width: calc(100% - 10px);
+      }
+      .non-searchmode-container{
+        min-width: 0px;
+        display: flex;
+      }
+      .full-width{
+        width:100%;
       }
     </style>
-
-    <template is="dom-if" if="{{searchMode}}">
-      <div class="container">
-        <rock-search-bar id="searchSection" class="searchSection" search-input="{{tags}}"></rock-search-bar>
-        <pebble-button icon="filter-list" class="button" on-tap="toggleMode" raised=""></pebble-button>
-      </div>
-    </template>
     <template is="dom-if" if="{{!searchMode}}">
-      <div class="row min-width-0">
+      <div class="non-searchmode-container">
         <template is="dom-if" if="{{!hideSearchTrigger}}">
           <pebble-button icon="search" class="button" on-tap="toggleMode" raised=""></pebble-button>
         </template>
@@ -243,14 +182,13 @@ class RockSearchFilter
         <!-- Refine popover starts here -->
         <pebble-popover id="filterPopover" for="pebble-tag" no-overlap="" vertical-align="auto" horizontal-align="right">
           <template is="dom-if" if="{{_isAttributeValuesExistsSearchEnabled}}">
-            <pebble-toggle-button class="m-l-20 m-b-10" checked="{{currentTag.options.hasValueChecked}}">[[_toggleButtonText]]</pebble-toggle-button>
+            <pebble-toggle-button class="m-b-10" checked="{{currentTag.options.hasValueChecked}}">[[_toggleButtonText]]</pebble-toggle-button>
           </template>
           <template is="dom-if" if="{{_showTagModifier('textbox', _trigger)}}">
-            <pebble-textbox-collection id="textCollection" values="{{_tagsCollection}}" max-allowed-values-for-search="[[maxAllowedValuesForSearch]]" no-popover="" textbox-label="Enter values to search" show-seperator="" seperator="or" text-collection-input="{{_tagInput}}" disabled="[[!currentTag.options.hasValueChecked]]"></pebble-textbox-collection>
+            <pebble-textbox-collection id="textCollection" class="full-width" values="{{_tagsCollection}}" max-allowed-values-for-search="[[maxAllowedValuesForSearch]]" no-popover="" textbox-label="Enter values to search" show-seperator="" seperator="or" text-collection-input="{{_tagInput}}" disabled="[[!currentTag.options.hasValueChecked]]"></pebble-textbox-collection>
             <div class="PebbleButtonPadding text-center m-t-15">
               <pebble-button class="btn btn-secondary m-r-5" on-tap="_dismissDialog" raised="" elevation="1" button-text="Close"></pebble-button>
               <pebble-button class="btn btn-success" button-text="Apply" raised="" elevation="1" on-tap="_onTextCollectionUpdate" disabled="{{_disableCollectionUpdate(_tagsCollection, _tagInput)}}"></pebble-button>
-              <div class="clearfix"></div>
             </div>
           </template>
           <template is="dom-if" if="{{_showTagModifier('textArea', _trigger)}}">
@@ -258,7 +196,6 @@ class RockSearchFilter
             <div class="PebbleButtonPadding text-center m-t-15">
               <pebble-button class="btn btn-secondary m-r-5" on-tap="_dismissDialog" raised="" elevation="1" button-text="Close"></pebble-button>
               <pebble-button class="btn btn-success" button-text="Apply" raised="" elevation="1" on-tap="_updateValue" disabled="{{_disableTextAreaUpdate(tav)}}"></pebble-button>
-              <div class="clearfix"></div>
             </div>
           </template>
           <template is="dom-if" if="{{_showTagModifier('richtexteditor', _trigger)}}">
@@ -266,7 +203,6 @@ class RockSearchFilter
             <div class="PebbleButtonPadding text-center m-t-15">
               <pebble-button class="btn btn-secondary m-r-5" on-tap="_dismissDialog" raised="" elevation="1" button-text="Close"></pebble-button>
               <pebble-button class="btn btn-success" button-text="Apply" raised="" elevation="1" on-tap="_updateValue"></pebble-button>
-              <div class="clearfix"></div>
             </div>
           </template>
           <template is="dom-if" if="{{_showTagModifier('referenceList', _trigger)}}">
@@ -283,21 +219,21 @@ class RockSearchFilter
           <template is="dom-if" if="{{_showTagModifier('numeric', _trigger)}}">
             <paper-radio-group aria-labelledby="{{longName}}" class="dialogOptions" on-paper-radio-group-changed="_onRadioGroupChange">
               <paper-radio-button name="range" disabled="{{!currentTag.options.hasValueChecked}}">
-                <div class="colspan-2 pull-left">
-                  <pebble-textbox label="Min" prevent-invalid-input="" allowed-pattern="[0-9.]" invalid="{{numericMinInvalid}}" show-error="" input-data-type="[[currentTag.options.dataType]]" value="{{gte}}">
-                  </pebble-textbox>
+                <div class="radiobutton-container">
+                  <div class="radiobuttons">
+                    <pebble-textbox label="Min" prevent-invalid-input="" allowed-pattern="[0-9.]" invalid="{{numericMinInvalid}}" show-error="" input-data-type="[[currentTag.options.dataType]]" value="{{gte}}">
+                    </pebble-textbox>
+                  </div>
+                  <div class="radiobuttons">
+                    <pebble-textbox label="Max" prevent-invalid-input="" allowed-pattern="[0-9.]" invalid="{{numericMaxInvalid}}" show-error="" input-data-type="[[currentTag.options.dataType]]" value="{{lte}}">
+                    </pebble-textbox>
+                  </div>
                 </div>
-                <div class="colspan-2 pull-left">
-                  <pebble-textbox label="Max" prevent-invalid-input="" allowed-pattern="[0-9.]" invalid="{{numericMaxInvalid}}" show-error="" input-data-type="[[currentTag.options.dataType]]" value="{{lte}}">
-                  </pebble-textbox>
-                </div>
-                <div class="clearfix"></div>
               </paper-radio-button>
               <paper-radio-button name="equalToData" disabled="{{!currentTag.options.hasValueChecked}}">
-                <div class="col-90 pull-left">
-                  <pebble-textbox-collection id="textNumericCollection" values="{{_tagsNumericCollection}}" no-popover="" textbox-label="Enter values to search" show-seperator="" seperator="or" allowed-pattern="[0-9.]" text-collection-input="{{_tagNumericInput}}" disabled="[[!currentTag.options.hasValueChecked]]"></pebble-textbox-collection>
+                <div class="radiobutton-container">
+                  <pebble-textbox-collection id="textNumericCollection" class="full-width" values="{{_tagsNumericCollection}}" no-popover="" textbox-label="Enter values to search" show-seperator="" seperator="or" allowed-pattern="[0-9.]" text-collection-input="{{_tagNumericInput}}" disabled="[[!currentTag.options.hasValueChecked]]"></pebble-textbox-collection>
                 </div>
-                <div class="clearfix"></div>
               </paper-radio-button>
             </paper-radio-group>
             <!-- </template> -->
@@ -614,6 +550,7 @@ class RockSearchFilter
     let modelLOV = this.shadowRoot.querySelector('#attributeModelLov');
     if (modelLOV) {
         modelLOV.reset();
+        modelLOV.clearSelectedItem();
     }
   }
 
@@ -942,7 +879,7 @@ class RockSearchFilter
             this._tagsNumericCollection = this.currentTag.value.contains.split(" ");
           } else {
             if (filterPopover.querySelector('paper-radio-group')) {
-              filterPopover.querySelector('paper-radio-group').selected = 'range';
+              filterPopover.querySelector('paper-radio-group').selected = 'equalToData';
             }
             this.gte = this.currentTag.value.gte || "";
             this.lte = this.currentTag.value.lte || "";
@@ -1431,8 +1368,8 @@ class RockSearchFilter
   _openFilterLov() {
     this._refineFilterPopoverDialog = true;
     flush();
-
-    this.shadowRoot.querySelector("#refineFilterPopover").open();
+    
+    this.shadowRoot.querySelector("#refineFilterPopover").open();        
   }
   _openEntityTypeFilterLov() {
     this.shadowRoot.querySelector("#entityTypeFilterPopover").open();

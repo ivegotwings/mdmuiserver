@@ -248,34 +248,6 @@ class RockNavmenu
                 }
             }
 
-            paper-tooltip {
-                overflow: inherit;
-                --paper-tooltip:{
-                    background-color: var(--tooltip-bg-color, rgba(25, 32, 39, 1));
-                    border-radius: 3px;                
-                    padding-top: 3px;
-                    padding-right: 5px; 
-                    padding-bottom: 3px;
-                    padding-left: 5px;               
-                    font-size: var(--font-size-sm, 12px);
-                    color: var(--tooltip-text-color, #ffffff);
-                    white-space: nowrap;                  
-                    opacity: 1;
-                };
-            }
-
-            paper-tooltip #tooltip:after{
-                position: absolute;
-                content: "";
-                left: -5px;
-                top: 4px;
-                width: 0; 
-                height: 0; 
-                border-top: 5px solid transparent;
-                border-bottom: 5px solid transparent;                 
-                border-right: 5px solid rgba(25, 32, 39, 1);
-            }
-            
             .closeAll {
                 opacity : 0;                   
             }
@@ -778,7 +750,7 @@ class RockNavmenu
       let isDirty = mainApp.getIsDirty();
       let drawer = RUFUtilities.appCommon.shadowRoot.querySelector("#drawerLayout");
       if (isDirty) {
-          if (window.confirm("Changes done so far are saved. Do you want to leave the page?")) {
+          if (window.confirm("There are unsaved changes. Do you want to discard the changes?")) {
               let contentViewManager = mainApp.contentViewManager;
               let currentViewName = contentViewManager.currentViewName;
               contentViewManager.currentViewName = "";

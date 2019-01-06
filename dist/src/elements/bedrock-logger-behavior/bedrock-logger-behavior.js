@@ -90,6 +90,7 @@ RUFBehaviors.LoggerBehaviorImpl = {
         let message = this.tagName + ":-" + arguments[0];
         let exceptionDetail = arguments[1] || {};
         let isCriticalError = arguments[2];
+
         /**
          * We need to make whole component errored only when the error is critical.
          * Not everytime logError is called.
@@ -97,6 +98,7 @@ RUFBehaviors.LoggerBehaviorImpl = {
         if (isCriticalError) {
             this.set('isComponentErrored', true);
         }
+        
         let errorGUID = DataHelper.generateUUID();
         exceptionDetail["id"] = errorGUID;
         RUFUtilities.Logger.error("RUF_UI_ERROR", exceptionDetail, "ui-platform");
@@ -118,7 +120,7 @@ RUFBehaviors.LoggerBehaviorImpl = {
             }
         }
 
-        console.error(message, exceptionDetail);
+        // console.error(message, exceptionDetail);
         
         if (isCriticalError && errorContainer) {
             let div = "<div class='default-message'>";
@@ -129,19 +131,6 @@ RUFBehaviors.LoggerBehaviorImpl = {
             }
             div = div + "</div>";
             errorContainer.innerHTML = div;
-        }
-    },
-
-    logInfo: function () {
-        // var translatedMessage = this.localize().apply(this, arguments);
-        let transformedMessage = {};
-        let logArguments = arguments;
-        let keys = Object.keys(logArguments);
-        if (!_.isEmpty(keys)) {
-            keys.forEach(elm => {
-                transformedMessage[elm] = logArguments[elm];
-            });
-            RUFUtilities.Logger.info(transformedMessage);
         }
     }
 };

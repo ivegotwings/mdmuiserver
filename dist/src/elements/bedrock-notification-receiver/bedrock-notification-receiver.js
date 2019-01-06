@@ -73,8 +73,7 @@ class BedrockNotificationReceiver extends mixinBehaviors([
           //console.log('initializing socket connection to the path ', JSON.stringify(socketServerUrl));
           self._clientSocket = io.connect(socketServerUrl, connectionOptions);
           //self._clientSocket = io.connect(socketServerUrl);
-
-
+          
           self._clientSocket.on('connect', function () {
               let userInfo = {
                   "userId": DataHelper.getUserId(),

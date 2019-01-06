@@ -47,7 +47,6 @@ import '../bedrock-externalref-underscore/bedrock-externalref-underscore.js';
 import '../bedrock-pubsub/bedrock-pubsub.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../bedrock-style-manager/styles/bedrock-style-icons.js';
-import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 import '../bedrock-style-manager/styles/bedrock-style-floating.js';
 import '../bedrock-style-manager/styles/bedrock-style-scroll-bar.js';
 import '../bedrock-logger-behavior/bedrock-logger-behavior.js';
@@ -146,7 +145,7 @@ RUFBehaviors.LoggerBehavior], PolymerElement) {
 
         <bedrock-pubsub event-name="business-condition-save-response" handler="_onBusinessConditionSaveResponse"></bedrock-pubsub>
 
-        <bedrock-pubsub event-name="business-condition-save-request" handler="_onBusinessConditionSaveRequest" target-id="businessConditionDialog"></bedrock-pubsub>
+        <bedrock-pubsub event-name="business-condition-save-request" handler="_onBusinessConditionSaveRequest"></bedrock-pubsub>
         <bedrock-pubsub event-name="workflow-panel-refreshed" handler="refresh"></bedrock-pubsub>
         <div class="tofix-data-container">
             <pebble-spinner active="[[!_isToFixDataExists]]"></pebble-spinner>
@@ -159,7 +158,7 @@ RUFBehaviors.LoggerBehavior], PolymerElement) {
                             <div class="entity-icon-outer">
                                 <pebble-icon icon="[[_getIconByType(businessCondition.status)]]" class="pebble-icon-size-30"></pebble-icon>
                             </div>
-                            <div class\$="entity-content tooltip-bottom [[businessCondition.status]]" data-tooltip\$="[[businessCondition.name]]">
+                            <div class\$="entity-content [[businessCondition.status]]" title\$="[[businessCondition.name]]">
                                 <div class="text-ellipsis">[[businessCondition.name]]</div>
                             </div>
                             <div class="clearfix"></div>

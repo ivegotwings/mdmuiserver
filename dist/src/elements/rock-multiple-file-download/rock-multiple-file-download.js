@@ -6,7 +6,6 @@ import '../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../bedrock-style-manager/styles/bedrock-style-list.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
 import '../bedrock-style-manager/styles/bedrock-style-grid-layout.js';
-import '../bedrock-style-manager/styles/bedrock-style-tooltip.js';
 import '../bedrock-style-manager/styles/bedrock-style-gridsystem.js';
 import '../bedrock-logger-behavior/bedrock-logger-behavior.js';
 import '../bedrock-toast-behavior/bedrock-toast-behavior.js';
@@ -44,7 +43,7 @@ class RockMultipleFileDownload
                 overflow: auto;
             }
         </style>
-        <div class="tooltip-bottom" data-tooltip\$="[[_getMultipleFileDownloadLinkLabel()]]">
+        <div title\$="[[_getMultipleFileDownloadLinkLabel()]]">
             <div class="attribute-value text-ellipsis">
                 <a href="#" class="btn-link" on-tap="_onMultipleFileDownloadLinkClick">[[_getMultipleFileDownloadLinkLabel()]]</a>
             </div>
@@ -53,14 +52,14 @@ class RockMultipleFileDownload
            <div class="multipleFileDownload-list-wrapper">
             <ul class="button-siblings overflow-auto p-l-15">                                   
                 <template is="dom-repeat" items="[[fileDetails.fileName]]" as="item">
-                    <li class="tooltip-bottom multipleFileDownload-list" data-tooltip\$="[[item]]">
+                    <li class="multipleFileDownload-list" title\$="[[item]]">
                         <div class="btn-link text-ellipsis" file-name\$="[[item]]" file-id\$="[[_getFileId(index)]]" on-tap="_onSelectedFileDownloadClick">[[item]]</div>
                     </li>
                 </template>                                    
             </ul>
             <div class="buttons">
                 <pebble-button id="close" class="close btn btn-secondary m-r-5" button-text="Close" on-tap="_onCloseMultipleFileDownloadDialog"></pebble-button>
-                <span class\$="[[_getDownloadAllClass(maxFilesCountForDownloadAll)]]" data-tooltip\$="[[_getDownloadAllTooltip(maxFilesCountForDownloadAll)]]">
+                <span class\$="[[_getDownloadAllClass(maxFilesCountForDownloadAll)]]" title\$="[[_getDownloadAllTooltip(maxFilesCountForDownloadAll)]]">
                     <pebble-button class="apply btn btn-success" disabled="[[_isMultipleDownloadAllFilesDisabled(maxFilesCountForDownloadAll)]]" on-tap="_onDownloadAll" button-text="Download All"></pebble-button>
                 </span>
             </div>
@@ -206,9 +205,9 @@ class RockMultipleFileDownload
    */
   _getDownloadAllClass(maxFilesCountForDownloadAll){
       if(this._isMultipleDownloadAllFilesDisabled(maxFilesCountForDownloadAll)){
-          return "tooltip-top not-allowed";
+          return "not-allowed";
       }
-      return "tooltip-top";
+      return "";
   }
 
   /**
@@ -270,9 +269,13 @@ class RockMultipleFileDownload
    * Function to handle the file download failure 
    */
   onFileDownloadFailure(e){
-      this.showErrorToast("Failed to download file, contact administrator.");
-      this.logError("Failed to download file.", e.detail || "");
       this._downloadInProgress = false;
+      this.showErrorToast("Failed to download file, contact administrator.");
+      let details = "";
+      if(e && e.details){
+          details = e.details;
+      }
+      this.logError("Failed to download file.", details);
   }
 }
 customElements.define(RockMultipleFileDownload.is, RockMultipleFileDownload)

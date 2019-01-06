@@ -14,7 +14,6 @@
 import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import { OptionalMutableData } from '@polymer/polymer/lib/mixins/mutable-data.js';
-import '@polymer/paper-tooltip/paper-tooltip.js';
 import '../bedrock-ui-behavior/bedrock-ui-behavior.js';
 import '../bedrock-pubsub/bedrock-pubsub.js';
 import '../bedrock-helpers/format-helper.js';
@@ -190,12 +189,10 @@ class RockLogServiceList
       }
   }
   _onEditMode() {
-      let buttonContainer = this.shadowRoot.querySelector('div[id=buttonContainer]');
-      if (buttonContainer) {
-          buttonContainer.hidden = false;
-      }
+      this.$.buttonContainer.hidden = false;
   }
   _cancelAction() {
+      this.$.buttonContainer.hidden = true;
       this.set("gridConfig.mode", "Read");
   }
   ready() {
@@ -240,6 +237,7 @@ class RockLogServiceList
           this.showInformationToast("No changes to save.");
       } else {
           //finalObj.globalSettings = {tenant: this.enableAccrossTenant, user: this.enableAccrossUsers};
+          this.$.buttonContainer.hidden = true;
           this.generateSaveRequest(finalObj, "update");
       }
   }

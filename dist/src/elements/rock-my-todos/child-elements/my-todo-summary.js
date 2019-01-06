@@ -375,7 +375,7 @@ class MyTodoSummary
                   this._numberOfTasks = totalRecords;
               }
           } else {
-              this.logError("Dashboard-My To Do's Summary - Some problem with Govern data Get response", e.detail);
+              this.logError("Dashboard-My To-Do's Summary - Some problem with Govern data Get response", e.detail);
           }
 
           this._setTaskLoadingIndicatorVisibility(false);
@@ -388,7 +388,7 @@ class MyTodoSummary
   }
 
   _onGovernDataError (e) {
-      this.logError("Dashboard-My To Do's Summary - Governdata Get Exception", e.detail);
+      this.logError("Dashboard-My To-Do's Summary - Governdata Get Exception", e.detail);
       this._setTaskLoadingIndicatorVisibility(false);
   }
 
@@ -444,7 +444,7 @@ class MyTodoSummary
 
       let businessConditionsMappingGet = this.shadowRoot.querySelector('#businessConditionsMappingGet');
       if (typeof (businessConditionsMappingGet) === "undefined" || businessConditionsMappingGet == null) {
-          this.logError("Dashboard-My To Do's Summary - BusinessConditions mappings liquid not found");
+          this.logError("Dashboard-My To-Do's Summary - BusinessConditions mappings liquid not found");
           return;
       }
 
@@ -555,12 +555,12 @@ class MyTodoSummary
               }
           }
       } else {
-          this.logError("Dashboard-My To Do's Summary - Some problem with businessConditions mapping Get response", e.detail);
+          this.logError("Dashboard-My To-Do's Summary - Some problem with businessConditions mapping Get response", e.detail);
       }
   }
 
   _onBusinessConditionsMappingGetError (e) {
-      this.logError("Dashboard-My To Do's Summary - BusinessConditions mapping Get Exception", e.detail);
+      this.logError("Dashboard-My To-Do's Summary - BusinessConditions mapping Get Exception", e.detail);
   }
 
   _prepareBusinessConditions (businessConditions) {
@@ -615,7 +615,7 @@ class MyTodoSummary
           let initBusinessConditionsMapingGet = this.shadowRoot.querySelector('#initBusinessConditionsMappingGet');
 
           if (typeof (initBusinessConditionsMapingGet) === "undefined" || initBusinessConditionsMapingGet == null) {
-              this.logError("Dashboard-My To Do's Summary - Init BusinessConditions mappings liquid not found");
+              this.logError("Dashboard-My To-Do's Summary - Init BusinessConditions mappings liquid not found");
               return;
           }
           this._businessConditionMappingRequest = req;
@@ -711,7 +711,7 @@ class MyTodoSummary
       if (e && e.currentTarget && e.detail) {
           let businessConditionButton = this.$$('pebble-button[id=passedBCButton]');
           if(!businessConditionButton) {
-              this.logError("Dashboard-My To Do's Summary - Passed BusinessCondition button notfound");
+              this.logError("Dashboard-My To-Do's Summary - Passed BusinessCondition button notfound");
               return;
           }
           let response = e.detail.response;
@@ -719,20 +719,20 @@ class MyTodoSummary
              this._addCountToBCButton(response,businessConditionButton);
           } else {
               businessConditionButton.iconUrl = ''
-              this.logError("Dashboard-My To Do's Summary - Some problem with passed BusinessCondition count response", e.detail);
+              this.logError("Dashboard-My To-Do's Summary - Some problem with passed BusinessCondition count response", e.detail);
           }
       }
   }
 
   _onGetPassedBusinessConditionsCountError (e) {
-      this.logError("Dashboard-My To Do's Summary - Get Passed BusinessConditions Get Exception", e.detail);
+      this.logError("Dashboard-My To-Do's Summary - Get Passed BusinessConditions Get Exception", e.detail);
   }
 
   _getBusinessConditionCountResponse (e) {
       if (e && e.currentTarget && e.detail) {
           let businessConditionButton = this.shadowRoot.querySelector('pebble-button[id=' + e.currentTarget.id + ']');
           if(!businessConditionButton) {
-              this.logError("Dashboard-My To Do's Summary - Passed BusinessCondition button notfound");
+              this.logError("Dashboard-My To-Do's Summary - Passed BusinessCondition button notfound");
               return;
           }
           let response = e.detail.response;
@@ -740,13 +740,13 @@ class MyTodoSummary
               this._addCountToBCButton(response,businessConditionButton);
           } else {
               businessConditionButton.iconUrl = ''
-              this.logError("Dashboard-My To Do's Summary - Some problem with BusinessCondition count response", e.detail);
+              this.logError("Dashboard-My To-Do's Summary - Some problem with BusinessCondition count response", e.detail);
           }
       }
   }
 
   _getBusinessConditionCountFailed (e) {
-      this.logError("Dashboard-My To Do's Summary - Get BusinessConditions count Exception", e.detail);
+      this.logError("Dashboard-My To-Do's Summary - Get BusinessConditions count Exception", e.detail);
   }
 
   _isBusinessConditionExist (businessConditionName, businessConditions) {

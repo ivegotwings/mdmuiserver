@@ -2,8 +2,6 @@ import './element-helper.js';
 // import { importHref } from '@polymer/polymer/lib/utils/import-href.js';
 window.ComponentHelper = window.ComponentHelper || {};
 
-ComponentHelper.deleteQueue = [];
-
 ComponentHelper.fireBedrockEvent = function (name, data, settings, element) {
     let returnVal;
     if (element) {
@@ -29,6 +27,7 @@ ComponentHelper.fireBedrockEvent = function (name, data, settings, element) {
         }
     });
 };
+
 ComponentHelper._fireBedrockEvent = function (name, data, settings, element) {
     if ((!settings || !settings.ignoreId) && element.id) {
         name = name + "-" + element.id;
@@ -66,18 +65,7 @@ ComponentHelper.clearNode = function (contentElement) {
 
 ComponentHelper.removeNode = function (node) {
     if (!(node instanceof HTMLElement) || !(node.parentNode)) return;
-
     node.parentNode.removeChild(node);
-};
-
-ComponentHelper.addToDeleteQueue = function (node) {
-    ComponentHelper.deleteQueue.push(node);
-};
-
-ComponentHelper.emptyDeleteQueue = function () {
-    let deleteNodes = ComponentHelper.deleteQueue.filter(n => !!n.parentNode);
-    deleteNodes.forEach(n => ComponentHelper.removeNode(n));
-    ComponentHelper.deleteQueue = [];
 };
 
 ComponentHelper.loadContent = function (contentElement, component, element, callback) {
@@ -107,8 +95,7 @@ ComponentHelper.loadContent = function (contentElement, component, element, call
             dynamicEl.contentViewManager = element.manager;
         }
         dynamicEl.setAttribute("id", component.name + "-component-" + ElementHelper.getRandomId());
-        dynamicEl.setAttribute("class", dynamicEl.getAttribute(
-            "class") + " view-component");
+        dynamicEl.setAttribute("class", dynamicEl.getAttribute("class") + " view-component");
 
         //remove any existing child elements
         this.clearNode(contentElement);
@@ -124,7 +111,7 @@ ComponentHelper.loadContent = function (contentElement, component, element, call
     if (cElement) {
         createComponent(cElement);
     } else {
-        if(component.path.indexOf('html') !== -1)  //to do fix needs to be in configs
+        if(component.path.indexOf('html') !== -1)
             component.path = component.path.replace(/html$/g,'js')
         import(component.path).then(function (e) {
             let cElement = customElements.get(component.name);
@@ -280,12 +267,16 @@ ComponentHelper.closeCurrentApp = function (action) {
     }
 };
 
-ComponentHelper.appRoute = function (appName, queryParams) {
+ComponentHelper.appRoute = function (appName, queryParams, encodeUrl) {
     let mainApp = RUFUtilities.mainApp;
 
     if (mainApp) {
         if (!_.isEmpty(queryParams)) {
-            ComponentHelper.setQueryParamsWithoutEncode(queryParams);
+            if(encodeUrl) {
+                ComponentHelper.setQueryParams(queryParams);
+            } else {
+                ComponentHelper.setQueryParamsWithoutEncode(queryParams);
+            }
         }
         mainApp.changePageRoutePath(appName);
     }

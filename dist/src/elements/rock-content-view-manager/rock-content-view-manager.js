@@ -196,15 +196,17 @@ class RockContentViewManager extends PolymerElement {
    * Can be used to close a view with the given name.
    * @param {string} viewName The name of the view to be opened.
    */
-  closeView(viewName, queryParams, action) {
+  closeView(viewName, queryParams, action, appId) {
     if (!viewName) return;
 
     viewName = ComponentHelper.getViewNameWithQueryParams(queryParams, viewName);
     let contentView = ComponentHelper.getContentViewByName(viewName);
 
     if (!contentView) return;
-
-    this._clearCurrentAppRefs();
+    
+    if(!appId){
+      this._clearCurrentAppRefs();
+    }
 
     //Where rendering is going on, there is an issue closing and opening next app. So, we are making sure that it is flushed
     flush();

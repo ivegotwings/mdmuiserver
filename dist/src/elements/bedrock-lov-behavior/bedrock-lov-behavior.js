@@ -122,7 +122,7 @@ RUFBehaviors.LovBehavior = {
         */
         pageSize: {
             type: Number,
-            value: 10
+            value: 50
         }
     }
 };
