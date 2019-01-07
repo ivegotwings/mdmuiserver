@@ -552,6 +552,7 @@ class AppEntityManage
         const _refresh = () => {
             this.contextSelector && this.contextSelector.refresh();
             this._reRenderOnDimensionChange();
+            this.detailTabs.reloadCurrentTab();
         };
 
         if (isDirty) {
@@ -575,7 +576,8 @@ class AppEntityManage
             title: this.entityTitleBar ? this.getNavbarTitle(this.entityTitleBar.mainTitle) : "",
             subTitle: this.getIsDirty() ? "Draft" : this._lastSavedTime && this._lastSavedTime != "" ? "Last Saved" : "Last Opened",
             subTitleValue: this._lastSavedTime && this._lastSavedTime != "" ? this._lastSavedTime : new Date().toLocaleString(),
-            queryParams: this.queryParams
+            queryParams: this.queryParams,
+            appId: this.appId
         };
     }
 

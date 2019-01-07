@@ -150,632 +150,629 @@ class RockRelationshipAdd
 `;
   }
 
-  static get is() { return 'rock-relationship-add' }
+    static get is() { return 'rock-relationship-add' }
 
-  static get properties() {
-      return {
-          /**
+    static get properties() {
+        return {
+            /**
             * <b><i>Content development is under progress... </b></i> 
             */
-          mode: {
-              type: String,
-              value: ""
-          },
-          /*
-           *  Indicates the context data.
-           */
-          contextData: {
-              type: Object,
-              value: function () {
-                  return {};
-              }
-          },
-          /**
+            mode: {
+                type: String,
+                value: ""
+            },
+            /*
+            *  Indicates the context data.
+            */
+            contextData: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
+            /**
             * <b><i>Content development is under progress... </b></i> 
             */
-          typesCriterion: {
-              type: Array,
-              value: function () { return []; }
-          },
-          /**
+            typesCriterion: {
+                type: Array,
+                value: function () { return []; }
+            },
+            /**
             * <b><i>Content development is under progress... </b></i> 
             */
-          config: {
-              type: Object,
-              value: function () { return {}; }
-          },
-          _searchQuery: {
-              type: String,
-              notify: true,
-              value: ''
-          },
-          _selectedSearchFilters: {
-              type: Array,
-              value: function () {
-                  return [];
-              }
-          },
-          _resetSearchEnabled: {
-              type: Boolean,
-              value: false
-          },
-          /**
+            config: {
+                type: Object,
+                value: function () { return {}; }
+            },
+            _searchQuery: {
+                type: String,
+                notify: true,
+                value: ''
+            },
+            _selectedSearchFilters: {
+                type: Array,
+                value: function () {
+                    return [];
+                }
+            },
+            _resetSearchEnabled: {
+                type: Boolean,
+                value: false
+            },
+            /**
             * <b><i>Content development is under progress... </b></i> 
             */
-          direction: {
-              type: String,
-              value: "up"
-          },
-          /**
+            direction: {
+                type: String,
+                value: "up"
+            },
+            /**
             * <b><i>Content development is under progress... </b></i> 
             */
-          title: {
-              type: String
-          },
-          /**
+            title: {
+                type: String
+            },
+            /**
             * <b><i>Content development is under progress... </b></i> 
             */
-          relationshipType: {
-              type: String
-          },
-          /**
+            relationshipType: {
+                type: String
+            },
+            /**
             * <b><i>Content development is under progress... </b></i> 
             */
-          selectedEntities: {
-              type: Array,
-              value: function () {
-                  return []
-              }
-          },
-          /**
+            selectedEntities: {
+                type: Array,
+                value: function () {
+                    return []
+                }
+            },
+            /**
             * <b><i>Content development is under progress... </b></i> 
             */
-          selfContext: {
-              type: Boolean,
-              value: false
-          },
-          _loading: {
-              type: Boolean,
-              value: false
-          },
-          showActionButtons: {
-              type: Boolean,
-              value: true
-          },
-          addRelationshipGridConfig: {
-              type: Object,
-              value: function () {
-                  return {};
-              }
-          },
-          _entityContextData: {
-              type: Object,
-              value: function () {
-                  return {};
-              }
-          },
-          _attributeModelRequest: {
-              type: Object,
-              value: function () {
-                  return {};
-              }
-          },
-          _relationshipModels: {
-              type: Object,
-              value: function () { return {}; }
-          },
-          isRelationshipsByContext: {
-              type: Boolean,
-              value: false
-          },
-          dataIndex: {
-              type: String,
-              value: "entityData"
-          },
-          preSelectedItems: {
-              type: Array,
-              value: []
-          },
-          filterRules: {
-              type: Object,
-              value: {}
-          },
-          _attributeModels: {
-              type: Object,
-              value: {}
+            selfContext: {
+                type: Boolean,
+                value: false
+            },
+            _loading: {
+                type: Boolean,
+                value: false
+            },
+            showActionButtons: {
+                type: Boolean,
+                value: true
+            },
+            addRelationshipGridConfig: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
+            _entityContextData: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
+            _attributeModelRequest: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
+            _relationshipModels: {
+                type: Object,
+                value: function () { return {}; }
+            },
+            isRelationshipsByContext: {
+                type: Boolean,
+                value: false
+            },
+            dataIndex: {
+                type: String,
+                value: "entityData"
+            },
+            preSelectedItems: {
+                type: Array,
+                value: []
+            },
+            filterRules: {
+                type: Object,
+                value: {}
+            },
+            _attributeModels: {
+                type: Object,
+                value: {}
 
-          }
-      }
-  }
-  static get observers() {
-      return [
-          '_contextDataChanged(contextData,typesCriterion,mode)'
-      ]
-  }
-  disconnectedCallback() {
-      super.disconnectedCallback();
-      this.removeEventListener("view-mode-changed", this.onViewModeChanged);
-  }
-  connectedCallback() {
-      super.connectedCallback();
-      this.addEventListener("view-mode-changed", this.onViewModeChanged);
-  }
-  /**
-    * <b><i>Content development is under progress... </b></i> 
-    */
-  ready() {
-      super.ready();
-      if (this.parentElement) {
-          //Grid config need to add for rock-relationship-add 
-          this.config = this.parentElement.__dataHost.config;
-          if (!_.isEmpty(this.config) && this.config.steps[0].component.properties.dataIndex) {
-              this.dataIndex = this.config.steps[0].component.properties.dataIndex;
-          }
-      }
+            }
+        }
+    }
+    static get observers() {
+        return [
+            '_contextDataChanged(contextData,typesCriterion,mode)'
+        ]
+    }
+    disconnectedCallback() {
+        super.disconnectedCallback();
+        this.removeEventListener("view-mode-changed", this.onViewModeChanged);
+    }
+    connectedCallback() {
+        super.connectedCallback();
+        this.addEventListener("view-mode-changed", this.onViewModeChanged);
+    }    
+    ready() {
+        super.ready();
+        if (this.parentElement) {
+            //Grid config need to add for rock-relationship-add 
+            this.config = this.parentElement.__dataHost.config;
+            if (!_.isEmpty(this.config) && this.config.steps[0].component.properties.dataIndex) {
+                this.dataIndex = this.config.steps[0].component.properties.dataIndex;
+            }
+        }
 
-  }
-  _isheading() {
-      return !!this.heading;
-  }
-  _getGridClass() {
-      let _gridWithActionButtons = "full-height"
-      if (this.showActionButtons) {
-          _gridWithActionButtons = "full-height button-siblings"
-      }
-      return _gridWithActionButtons;
-  }
-  _contextDataChanged() {
-      if (!_.isEmpty(this.contextData) && this.typesCriterion && this.typesCriterion.length) {
-          let itemContexts = [];
+    }
+    _isheading() {
+        return !!this.heading;
+    }
+    _getGridClass() {
+        let _gridWithActionButtons = "full-height"
+        if (this.showActionButtons) {
+            _gridWithActionButtons = "full-height button-siblings"
+        }
+        return _gridWithActionButtons;
+    }
+    _contextDataChanged() {
+        if (!_.isEmpty(this.contextData) && this.typesCriterion && this.typesCriterion.length) {
+            let itemContexts = [];
 
-          //Selected entity specific context data to search results
-          if (this.selectedEntities && this.selectedEntities.length > 0) {
-              let entityContextData = DataHelper.cloneObject(this.contextData);
-              entityContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [{
-                  'type': this.selectedEntities[0].type,
-                  'relationships': [this.relationshipType]
-              }];
+            //Selected entity specific context data to search results
+            if (this.selectedEntities && this.selectedEntities.length > 0) {
+                let entityContextData = DataHelper.cloneObject(this.contextData);
+                entityContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [{
+                    'type': this.selectedEntities[0].type,
+                    'relationships': [this.relationshipType]
+                }];
 
-              this._entityContextData = entityContextData;
-          }
+                this._entityContextData = entityContextData;
+            }
 
-          for (let i in this.typesCriterion) {
-              let itemContext = {
-                  'type': this.typesCriterion[i]
-              };
-              itemContexts.push(itemContext);
-          }
-          this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
-          this._refreshGrid();
-          this._buildQueryString();
-          let compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
-          if (DataHelper.isValidObjectPath(compositeModelGetRequest, 'params.fields.attributes')) {
-              compositeModelGetRequest.params.fields.attributes = "_ALL";
-          }
-          this.set("_attributeModelRequest", compositeModelGetRequest);
-          let liquidModelGet = this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
-          if (liquidModelGet && compositeModelGetRequest) {
-              liquidModelGet.generateRequest();
-          }
-      }
-  }
-  _onSearch(e, detail, sender) {
-      if (!_.isEmpty(detail)) {
-          this._searchQuery = detail.query;
-      }
-      this._searchTimeStamp = new Date().toLocaleString();
-      this._buildQueryString();
-      this._refreshGrid();
-  }
+            for (let i in this.typesCriterion) {
+                let itemContext = {
+                    'type': this.typesCriterion[i]
+                };
+                itemContexts.push(itemContext);
+            }
+            this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
+            this._refreshGrid();
+            this._buildQueryString();
+            let compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
+            if (DataHelper.isValidObjectPath(compositeModelGetRequest, 'params.fields.attributes')) {
+                compositeModelGetRequest.params.fields.attributes = "_ALL";
+            }
+            this.set("_attributeModelRequest", compositeModelGetRequest);
+            let liquidModelGet = this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
+            if (liquidModelGet && compositeModelGetRequest) {
+                liquidModelGet.generateRequest();
+            }
+        }
+    }
+    _onSearch(e, detail, sender) {
+        if (!_.isEmpty(detail)) {
+            this._searchQuery = detail.query;
+        }
+        this._searchTimeStamp = new Date().toLocaleString();
+        this._buildQueryString();
+        this._refreshGrid();
+    }
 
-  //Rock search clear
-  _resetSearch() {
-      let rockSearchBar = this.shadowRoot.querySelector('#searchBar');
-      if (rockSearchBar) {
-          rockSearchBar.query = "";
-          rockSearchBar.searchText = "";
-      }
-      this._searchQuery = '';
-      this._selectedSearchFilters = [];
-      this.$.searchFilter.clearSearchFilters();
-      this._resetSearchEnabled = false;
-      this._refreshGrid();
-  }
-  _showResetSearch(e) {
-      let rockSearchBar = this.shadowRoot.querySelector('#searchBar');
-      let rockSearchFilter = this._getElement('rockSearchFilter');
-      let query = '';
-      let tags = [];
+    //Rock search clear
+    _resetSearch() {
+        let rockSearchBar = this.shadowRoot.querySelector('#searchBar');
+        if (rockSearchBar) {
+            rockSearchBar.query = "";
+            rockSearchBar.searchText = "";
+        }
+        this._searchQuery = '';
+        this._selectedSearchFilters = [];
+        this.$.searchFilter.clearSearchFilters();
+        this._resetSearchEnabled = false;
+        this._refreshGrid();
+    }
+    _showResetSearch(e) {
+        let rockSearchBar = this.shadowRoot.querySelector('#searchBar');
+        let rockSearchFilter = this._getElement('rockSearchFilter');
+        let query = '';
+        let tags = [];
 
-      if (rockSearchBar) {
-          query = rockSearchBar.query;
-      }
+        if (rockSearchBar) {
+            query = rockSearchBar.query;
+        }
 
-      if (rockSearchFilter) {
-          tags = rockSearchFilter.tags;
-      }
+        if (rockSearchFilter) {
+            tags = rockSearchFilter.tags;
+        }
 
-      if (!_.isEmpty(query) || tags.length > 0) {
-          this._resetSearchEnabled = true;
-      }
-  }
-  _getElement(element) {
-      if (element == "rockEntitySearchFilter") {
-          if (!this._rockEntitySearchFilter) {
-              this._rockEntitySearchFilter = this.shadowRoot.querySelector("#searchFilter");
-          }
+        if (!_.isEmpty(query) || tags.length > 0) {
+            this._resetSearchEnabled = true;
+        }
+    }
+    _getElement(element) {
+        if (element == "rockEntitySearchFilter") {
+            if (!this._rockEntitySearchFilter) {
+                this._rockEntitySearchFilter = this.shadowRoot.querySelector("#searchFilter");
+            }
 
-          return this._rockEntitySearchFilter
-      }
+            return this._rockEntitySearchFilter
+        }
 
-      if (element == "rockSearchFilter") {
-          if (!this._rockSearchFilter) {
-              let entitySearchFilter = this._getElement("rockEntitySearchFilter");
-              if (entitySearchFilter && entitySearchFilter.shadowRoot) {
-                  this._rockSearchFilter = entitySearchFilter.shadowRoot.querySelector("rock-search-filter");
-              }
-          }
+        if (element == "rockSearchFilter") {
+            if (!this._rockSearchFilter) {
+                let entitySearchFilter = this._getElement("rockEntitySearchFilter");
+                if (entitySearchFilter && entitySearchFilter.shadowRoot) {
+                    this._rockSearchFilter = entitySearchFilter.shadowRoot.querySelector("rock-search-filter");
+                }
+            }
 
-          return this._rockSearchFilter
-      }
-  }
-  _isAssetMode(mode) {
-      return mode == "asset";
-  }
-  _onSaveResponse(e, detail) {
-      this._loading = false;
-      let data = {};
-      let eventDetails = [{
-          "action": {
-              "name": "refresh-relationship-grid",
-              "relationshipType": this.relationshipType
-          }
-      }];
-      this.dataFunctionComplete(data, eventDetails, true);
-  }
-  _onCancelTap() {
-      this.fire("cancel-event");
-  }
-  _onSaveError(e, detail) {
-      this._loading = false;
-      this.showErrorToast("Relationships save request failed.");
-      this.logError("Unable to add relationship now, contact administrator.", e.detail);
-      console.warn(e);
-  }
-  _getGrid() {
-      if (this.mode == "asset") {
-          return this.shadowRoot.querySelector("#assetsSearchGrid");
-      }
-      return this.shadowRoot.querySelector("#entitySearchGrid")
-  }
-  // lot-sku (isChildOf)
-  async _createRelationshipsUp(_targetList) {
-      let firstContextData = ContextHelper.getFirstDataContext(this.contextData);
-      let utils = SharedUtils.DataObjectFalcorUtil;
-      if (this.selectedEntities && this.selectedEntities.length > 0 && _targetList && _targetList.length > 0) {
-          let _relationshipList = [];
-          for (let i = 0; i < _targetList.length; i++) {
-              let rel = {
-                  "direction": "both",
-                  "relationshipType": this.relationshipType,
-                  "relTo": {
-                      "id": _targetList[i].id,
-                      "type": _targetList[i].type
-                  }
-              };
-              if(_targetList[i].type == "attributeModel"){
-                  rel.relTo.externalName = (_targetList[i].properties && _targetList[i].properties.externalName) ? _targetList[i].properties.externalName :  _targetList[i].name;
-              }
-              _relationshipList.push(rel);
-          }
-          let upRelationshipRequests = [];
-          for (let i = 0; i < this.selectedEntities.length; i++) {
-              let entity = this.selectedEntities[i];
-              let relationships = EntityHelper.getRelationshipByRelationshipType(entity, firstContextData, this.relationshipType);
-              relationships = _relationshipList.reduce(function (coll, item) {
-                  coll.push(item);
-                  return coll;
-              }, relationships);
+            return this._rockSearchFilter
+        }
+    }
+    _isAssetMode(mode) {
+        return mode == "asset";
+    }
+    _onSaveResponse(e, detail) {
+        this._loading = false;
+        let data = {};
+        let eventDetails = [{
+            "action": {
+                "name": "refresh-relationship-grid",
+                "relationshipType": this.relationshipType
+            }
+        }];
+        this.dataFunctionComplete(data, eventDetails, true);
+    }
+    _onCancelTap() {
+        this.fire("cancel-event");
+    }
+    _onSaveError(e, detail) {
+        this._loading = false;
+        this.showErrorToast("Relationships save request failed.");
+        this.logError("Unable to add relationship now, contact administrator.", e.detail);
+        console.warn(e);
+    }
+    _getGrid() {
+        if (this.mode == "asset") {
+            return this.shadowRoot.querySelector("#assetsSearchGrid");
+        }
+        return this.shadowRoot.querySelector("#entitySearchGrid")
+    }
+    // lot-sku (isChildOf)
+    async _createRelationshipsUp(_targetList) {
+        let firstContextData = ContextHelper.getFirstDataContext(this.contextData);
+        let utils = SharedUtils.DataObjectFalcorUtil;
+        if (this.selectedEntities && this.selectedEntities.length > 0 && _targetList && _targetList.length > 0) {
+            let _relationshipList = [];
+            for (let i = 0; i < _targetList.length; i++) {
+                let rel = {
+                    "direction": "both",
+                    "relationshipType": this.relationshipType,
+                    "relTo": {
+                        "id": _targetList[i].id,
+                        "type": _targetList[i].type
+                    }
+                };
+                if(_targetList[i].type == "attributeModel"){
+                    rel.relTo.externalName = (_targetList[i].properties && _targetList[i].properties.externalName) ? _targetList[i].properties.externalName :  _targetList[i].name;
+                }
+                _relationshipList.push(rel);
+            }
+            let upRelationshipRequests = [];
+            for (let i = 0; i < this.selectedEntities.length; i++) {
+                let entity = this.selectedEntities[i];
+                let relationships = EntityHelper.getRelationshipByRelationshipType(entity, firstContextData, this.relationshipType);
+                relationships = _relationshipList.reduce(function (coll, item) {
+                    coll.push(item);
+                    return coll;
+                }, relationships);
 
-              DataTransformHelper.prepareEntityForContextSave(entity.data, {}, this._relationshipModels, this._entityContextData);
+                DataTransformHelper.prepareEntityForContextSave(entity.data, {}, this._relationshipModels, this._entityContextData);
 
-              upRelationshipRequests.push(entity);
-          }
+                upRelationshipRequests.push(entity);
+            }
 
-          this._saveRequest = {
-              "entities": upRelationshipRequests
-          };
+            this._saveRequest = {
+                "entities": upRelationshipRequests
+            };
 
-          let liquidSave = this.shadowRoot.querySelector("[name=entitySaveService]");
-          if (liquidSave) {
-              liquidSave.operation = "update";
-              liquidSave.generateRequest();
-          }
-      }
-  }
+            let liquidSave = this.shadowRoot.querySelector("[name=entitySaveService]");
+            if (liquidSave) {
+                liquidSave.operation = "update";
+                liquidSave.generateRequest();
+            }
+        }
+    }
 
-  // ensembletopp
-  // productpresentationtolot
-  async _createRelationshipsDown(_targetList) {
-      let firstContextData = ContextHelper.getFirstDataContext(this.contextData);
-      let utils = SharedUtils.DataObjectFalcorUtil;
-      if (this.selectedEntities && this.selectedEntities.length > 0 && _targetList && _targetList.length > 0) {
-          let relationshipRequests = [];
-          let _relationshipList = [];
-          for (let i = 0; i < this.selectedEntities.length; i++) {
-              let rel = {
-                  "direction": "both",
-                  "relationshipType": this.relationshipType,
-                  "relTo": {
-                      "id": this.selectedEntities[i].id,
-                      "type": this.selectedEntities[i].type
-                  }
-              };
+    // ensembletopp
+    // productpresentationtolot
+    async _createRelationshipsDown(_targetList) {
+        let firstContextData = ContextHelper.getFirstDataContext(this.contextData);
+        let utils = SharedUtils.DataObjectFalcorUtil;
+        if (this.selectedEntities && this.selectedEntities.length > 0 && _targetList && _targetList.length > 0) {
+            let relationshipRequests = [];
+            let _relationshipList = [];
+            for (let i = 0; i < this.selectedEntities.length; i++) {
+                let rel = {
+                    "direction": "both",
+                    "relationshipType": this.relationshipType,
+                    "relTo": {
+                        "id": this.selectedEntities[i].id,
+                        "type": this.selectedEntities[i].type
+                    }
+                };
 
-              _relationshipList.push(rel);
-          }
+                _relationshipList.push(rel);
+            }
 
-          for (let i = 0; i < _targetList.length; i++) {
-              let entity = _targetList[i];
-              let relationships = EntityHelper.getRelationshipByRelationshipType(entity, firstContextData, this.relationshipType);
-              relationships = _relationshipList.reduce(function (coll, item) {
-                  coll.push(item);
-                  return coll;
-              }, relationships);
-              DataTransformHelper.prepareEntityForContextSave(entity.data, {}, this._relationshipModels, this._entityContextData);
-              relationshipRequests.push(entity);
-          }
+            for (let i = 0; i < _targetList.length; i++) {
+                let entity = _targetList[i];
+                let relationships = EntityHelper.getRelationshipByRelationshipType(entity, firstContextData, this.relationshipType);
+                relationships = _relationshipList.reduce(function (coll, item) {
+                    coll.push(item);
+                    return coll;
+                }, relationships);
+                DataTransformHelper.prepareEntityForContextSave(entity.data, {}, this._relationshipModels, this._entityContextData);
+                relationshipRequests.push(entity);
+            }
 
-          this._saveRequest = {
-              "entities": relationshipRequests
-          };
+            this._saveRequest = {
+                "entities": relationshipRequests
+            };
 
-          let liquidSave = this.shadowRoot.querySelector("[name=entitySaveService]");
-          if (liquidSave) {
-              liquidSave.operation = "update";
-              liquidSave.generateRequest();
-          }
-      }
-  }
-  _onSaveTap() {
-      let grid = this._getGrid();
-      if (grid) {
-          let selectedItems = grid.getSelectedItems();
-          if (!selectedItems.length) {
-              this.showInformationToast("Select at least 1 entity to link.");
-              return false;
-          }
-          
-          if (this.direction == "up") {
-              this._createRelationshipsUp(selectedItems);
-          } else {
-              this._createRelationshipsDown(selectedItems);
-          }
-      }
-      
-      this._loading = true;
-  }
+            let liquidSave = this.shadowRoot.querySelector("[name=entitySaveService]");
+            if (liquidSave) {
+                liquidSave.operation = "update";
+                liquidSave.generateRequest();
+            }
+        }
+    }
+    _onSaveTap() {
+        let grid = this._getGrid();
+        if (grid) {
+            let selectedItems = grid.getSelectedItems();
+            if (!selectedItems.length) {
+                this.showInformationToast("Select at least 1 entity to link.");
+                return false;
+            }
+            
+            if (this.direction == "up") {
+                this._createRelationshipsUp(selectedItems);
+            } else {
+                this._createRelationshipsDown(selectedItems);
+            }
+        }
+        
+        this._loading = true;
+    }
 
-  _searchFiltersChanged(e, detail) {
-      let tags = detail;
-      let _selectedSearchFilters = [];
-      if (tags && tags.length > 0) {
-          for (let i = 0; i < tags.length; i++) {
-              let tag = tags[i];
-              let attrCond = {};
-              if (tag.options && !tag.options.isLocalizable) {
-                  let defaultValCtx = DataHelper.getDefaultValContext();
-                  tag.value["valueContexts"] = [defaultValCtx];
-              }
-              attrCond[tag.name] = tag.value;
-              _selectedSearchFilters.push(attrCond);
-          }
-      }
-      this.set('_selectedSearchFilters', _selectedSearchFilters);
-      //this._refreshGrid();
-      this._buildQueryString(tags);
-  }
+    _searchFiltersChanged(e, detail) {
+        let tags = detail;
+        let _selectedSearchFilters = [];
+        if (tags && tags.length > 0) {
+            for (let i = 0; i < tags.length; i++) {
+                let tag = tags[i];
+                let attrCond = {};
+                if (tag.options && !tag.options.isLocalizable) {
+                    let defaultValCtx = DataHelper.getDefaultValContext();
+                    tag.value["valueContexts"] = [defaultValCtx];
+                }
+                attrCond[tag.name] = tag.value;
+                _selectedSearchFilters.push(attrCond);
+            }
+        }
+        this.set('_selectedSearchFilters', _selectedSearchFilters);
+        //this._refreshGrid();
+        this._buildQueryString(tags);
+    }
 
-  _buildQueryString(attributeList) {
-      let attributeListArray = [];
-      let keywordSearchStr = "";
-      if (this._searchQuery) {
-          keywordSearchStr = this._searchQuery;
-      }
+    _buildQueryString(attributeList) {
+        let attributeListArray = [];
+        let keywordSearchStr = "";
+        if (this._searchQuery) {
+            keywordSearchStr = this._searchQuery;
+        }
 
-      if (attributeList) {
-          let displayValue = "";
-          if (this._searchQuery) {
-              keywordSearchStr = this._searchQuery;
-          }
-          let queryParser = this.shadowRoot.querySelector("[id=queryParser]");
-          for (let i = 0; i < attributeList.length; i++) {
-              let value = attributeList[i].displayValue;
-              if ((DataHelper.isValidObjectPath(attributeList[i], 'options.dataType')) && attributeList[i].options.dataType == "boolean") {
-                  value = attributeList[i].booleanSearchValue;
-              }
-              if (queryParser) {
-                  value = queryParser.formatValue(value);
-              }
-              let newItem = {
-                  name: attributeList[i].longName,
-                  value: value,
-                  attributeModel: attributeList[i].options
-              }
-              attributeListArray.push(newItem);
-          }
-          this.attributeGridData = attributeListArray;
-      }
+        if (attributeList) {
+            let displayValue = "";
+            if (this._searchQuery) {
+                keywordSearchStr = this._searchQuery;
+            }
+            let queryParser = this.shadowRoot.querySelector("[id=queryParser]");
+            for (let i = 0; i < attributeList.length; i++) {
+                let value = attributeList[i].displayValue;
+                if ((DataHelper.isValidObjectPath(attributeList[i], 'options.dataType')) && attributeList[i].options.dataType == "boolean") {
+                    value = attributeList[i].booleanSearchValue;
+                }
+                if (queryParser) {
+                    value = queryParser.formatValue(value);
+                }
+                let newItem = {
+                    name: attributeList[i].longName,
+                    value: value,
+                    attributeModel: attributeList[i].options
+                }
+                attributeListArray.push(newItem);
+            }
+            this.attributeGridData = attributeListArray;
+        }
 
-      let queryString = RUFBehaviors.QueryBuilderBehavior.buildQuery(this.typesCriterion, attributeListArray, {}, false, keywordSearchStr);
-      
-      let parsableString = RUFBehaviors.QueryBuilderBehavior.buildQuery(this.typesCriterion, attributeListArray, {}, true, keywordSearchStr);
+        let queryString = RUFBehaviors.QueryBuilderBehavior.buildQuery(this.typesCriterion, attributeListArray, {}, false, keywordSearchStr);
+        
+        let parsableString = RUFBehaviors.QueryBuilderBehavior.buildQuery(this.typesCriterion, attributeListArray, {}, true, keywordSearchStr);
 
-      this._displayQuery(queryString, parsableString);
-      this._parseQuery(parsableString);
-  }
+        this._displayQuery(queryString, parsableString);
+        this._parseQuery(parsableString);
+    }
 
-  _displayQuery(queryStr, parsableQueryStr) {
-      let searchBarElement = this.shadowRoot.querySelector("#searchBar");
-      if (!searchBarElement) {
-          return;
-      }
-      if (queryStr) {
-          searchBarElement.searchText = this._searchQuery;
-          searchBarElement.setAttribute("placeholder", "");
-          if (queryStr.indexOf("!%&") > -1) {
-              queryStr = queryStr.replace(/!%&/g, "");
-          }
-          searchBarElement.setAttribute("placeholder", queryStr);
-      }
-  }
+    _displayQuery(queryStr, parsableQueryStr) {
+        let searchBarElement = this.shadowRoot.querySelector("#searchBar");
+        if (!searchBarElement) {
+            return;
+        }
+        if (queryStr) {
+            searchBarElement.searchText = this._searchQuery;
+            searchBarElement.setAttribute("placeholder", "");
+            if (queryStr.indexOf("!%&") > -1) {
+                queryStr = queryStr.replace(/!%&/g, "");
+            }
+            searchBarElement.setAttribute("placeholder", queryStr);
+        }
+    }
 
-  _parseQuery(query) {
-      let queryParser = this.shadowRoot.querySelector("[id=queryParser]");
-      if (queryParser) {
-          queryParser.parseQueryToFilters(query);
-      }
-  }
+    _parseQuery(query) {
+        let queryParser = this.shadowRoot.querySelector("[id=queryParser]");
+        if (queryParser) {
+            queryParser.parseQueryToFilters(query);
+        }
+    }
 
-  _onSearchFiltersChange(e, detail) {
-      if(detail && detail.attributesCriterion){
-          this.set('_selectedSearchFilters', detail.attributesCriterion);
-      }
-      this._refreshGrid();
-  }
+    _onSearchFiltersChange(e, detail) {
+        if(detail && detail.attributesCriterion){
+            this.set('_selectedSearchFilters', detail.attributesCriterion);
+        }
+        this._refreshGrid();
+    }
 
-  _refreshGrid() {
-      microTask.run(() => {
-          let grid = this._getGrid();
-          if (grid) {
-              grid.refresh();
-          }
-      });
-  }
-  onViewModeChanged(event) {
-      if (event && event.detail && event.detail.data) {
-          let mode = event.detail.data.toLowerCase();
-          if (this.config.assetGridConfig[mode] === undefined) {
-              this.showActionButtons = false;
-          }
-          else {
-              this.showActionButtons = true;
-          }
-      }
-  }
+    _refreshGrid() {
+        microTask.run(() => {
+            let grid = this._getGrid();
+            if (grid) {
+                grid.refresh();
+            }
+        });
+    }
 
-  _onCompositeModelGetResponse(e) {
-      let itemContext = this.getFirstItemContext();
-      if (e && e.detail && DataHelper.validateGetModelsResponse(e.detail.response)) {
-          let compositeModel = e.detail.response.content.entityModels[0];
-          if (compositeModel && compositeModel.data) {
-              this._attributeModels = DataTransformHelper.transformAttributeModels(compositeModel, this.contextData);
-              //354678 :If attribute models are not available at context level,fall back to self level.
-              let firstDataContext = ContextHelper.getFirstDataContext(this.contextData);
-              if(!_.isEmpty(firstDataContext) && _.isEmpty(this._attributeModels)){
-                  let clonedContextData = DataHelper.cloneObject(this.contextData);
-                  clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
-                  this._attributeModels = DataTransformHelper.transformAttributeModels(compositeModel, clonedContextData);
-              }
-              if (!_.isEmpty(this._attributeModels) && !_.isEmpty(this.filterRules) && !_.isEmpty(this.filterRules.filterAttributesCriterion[0])) {
-                  let filteredAttribute = Object.keys(this.filterRules.filterAttributesCriterion[0])[0];
-                  if(this._attributeModels.hasOwnProperty(filteredAttribute)){
-                      this._formatFilterRulesTags(this.filterRules.filterAttributesCriterion, this._attributeModels);
-                  }else{
-                      this.showWarningToast("Filter rule attribute missing - " + filteredAttribute);
-                  }
-              }
-              this._relationshipModels = DataTransformHelper.transformRelationshipModels(compositeModel, this._entityContextData);
-          }
-      }
-  }
+    onViewModeChanged(event) {
+        if (event && event.detail && event.detail.data) {
+            let mode = event.detail.data.toLowerCase();
+            if (this.config.assetGridConfig && this.config.assetGridConfig[mode] === undefined) {
+                this.showActionButtons = false;
+            } else {
+                this.showActionButtons = true;
+            }
+        }
+    }
 
-  _formatFilterRulesTags(searchFilters, attributeModels) {
-      let rockSearchFilter = this._getElement('rockSearchFilter');
-      let tags = [];
-      // searchFilters = this.getFilterValue(searchFilters);
-      for (let i = 0; i < searchFilters.length; i++) {
-          let filter = searchFilters[i];
-          if (!_.isEmpty(filter)) {
-              let tag = {};
-              for (let attrName in filter) {
-                  let keys = Object.keys(this.filterRules.filterAttributesCriterion[0]);
-                  let attrModel = attributeModels[keys[0]]
-                  let attribute = filter[attrName];
-                  if (attrModel) {
-                      if (attrModel.dataType.toLowerCase() == "integer" || attrModel.dataType.toLowerCase() == "decimal") {
-                          attrModel.displayType = "numeric";
-                      }
-                      tag.name = attrName;
-                      tag.longName = attrModel.externalName;
-                      tag.options = DataHelper.cloneObject(attrModel);
-                  }
-                  tag.value = attribute;
-                  if (attribute.hasvalue != undefined) {
-                      tag.displayValue = attribute.hasvalue ? "!%&has value!%&" : "!%&has no value!%&";
-                  } else if (attribute.type === "_STRING") {
-                      if (attribute.exacts) {
-                          tag.displayValue = rockSearchFilter.formatFilterCollectionDisplay(attribute.exacts);
-                      } else if (attribute.contains) {
-                          tag.displayValue = rockSearchFilter.formatFilterCollectionDisplay(attribute.contains.split(" "));
-                      } else if (attribute.exact) {
-                          tag.displayValue = attribute.exact;
-                      }
-                  } else if (attribute.type === "_DECIMAL" || attribute.type === "_INTEGER") {
-                      if (attribute.lte && attribute.gte) {
-                          tag.displayValue = attribute.gte + " - " + attribute.lte;
-                      } else if (attribute.contains) {
-                          tag.displayValue = rockSearchFilter.formatFilterCollectionDisplay(attribute.contains.split(" "));
-                      }
-                  } else if (attribute.type === "_BOOLEAN") {
-                      tag.displayValue = attribute.eq;
-                  } else if (attribute.type === "_DATETIME") {
-                      if (attribute.lte === attribute.gte) {
-                          tag.displayValue = FormatHelper.convertFromISODateTime(attribute.gte, tag.options.dataType);
-                      } else {
-                          tag.displayValue = FormatHelper.convertFromISODateTime(attribute.gte, tag.options.dataType) + " - " + FormatHelper.convertFromISODateTime(attribute.lte, tag.options.dataType);
-                      }
-                  }
-                  tag.value.hasvalue = true;
-              }
-              //Set no popover for saved searches
-              if (tag.options) {
-                  tag.options.noPopoverOnAttach = true;
-              } else {
-                  tag.options = { "noPopoverOnAttach": true };
-              }
+    _onCompositeModelGetResponse(e) {
+        let itemContext = this.getFirstItemContext();
+        if (e && e.detail && DataHelper.validateGetModelsResponse(e.detail.response)) {
+            let compositeModel = e.detail.response.content.entityModels[0];
+            if (compositeModel && compositeModel.data) {
+                this._attributeModels = DataTransformHelper.transformAttributeModels(compositeModel, this.contextData);
+                //354678 :If attribute models are not available at context level,fall back to self level.
+                let firstDataContext = ContextHelper.getFirstDataContext(this.contextData);
+                if(!_.isEmpty(firstDataContext) && _.isEmpty(this._attributeModels)){
+                    let clonedContextData = DataHelper.cloneObject(this.contextData);
+                    clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
+                    this._attributeModels = DataTransformHelper.transformAttributeModels(compositeModel, clonedContextData);
+                }
+                if (!_.isEmpty(this._attributeModels) && !_.isEmpty(this.filterRules) && !_.isEmpty(this.filterRules.filterAttributesCriterion[0])) {
+                    let filteredAttribute = Object.keys(this.filterRules.filterAttributesCriterion[0])[0];
+                    if(this._attributeModels.hasOwnProperty(filteredAttribute)){
+                        this._formatFilterRulesTags(this.filterRules.filterAttributesCriterion, this._attributeModels);
+                    }else{
+                        this.showWarningToast("Filter rule attribute missing - " + filteredAttribute);
+                    }
+                }
+                this._relationshipModels = DataTransformHelper.transformRelationshipModels(compositeModel, this._entityContextData);
+            }
+        }
+    }
 
-              tags.push(tag);
-          }
-      }
+    _formatFilterRulesTags(searchFilters, attributeModels) {
+        let rockSearchFilter = this._getElement('rockSearchFilter');
+        let tags = [];
+        // searchFilters = this.getFilterValue(searchFilters);
+        for (let i = 0; i < searchFilters.length; i++) {
+            let filter = searchFilters[i];
+            if (!_.isEmpty(filter)) {
+                let tag = {};
+                for (let attrName in filter) {
+                    let keys = Object.keys(this.filterRules.filterAttributesCriterion[0]);
+                    let attrModel = attributeModels[keys[0]]
+                    let attribute = filter[attrName];
+                    if (attrModel) {
+                        if (attrModel.dataType.toLowerCase() == "integer" || attrModel.dataType.toLowerCase() == "decimal") {
+                            attrModel.displayType = "numeric";
+                        }
+                        tag.name = attrName;
+                        tag.longName = attrModel.externalName;
+                        tag.options = DataHelper.cloneObject(attrModel);
+                    }
+                    tag.value = attribute;
+                    if (attribute.hasvalue != undefined) {
+                        tag.displayValue = attribute.hasvalue ? "!%&has value!%&" : "!%&has no value!%&";
+                    } else if (attribute.type === "_STRING") {
+                        if (attribute.exacts) {
+                            tag.displayValue = rockSearchFilter.formatFilterCollectionDisplay(attribute.exacts);
+                        } else if (attribute.contains) {
+                            tag.displayValue = rockSearchFilter.formatFilterCollectionDisplay(attribute.contains.split(" "));
+                        } else if (attribute.exact) {
+                            tag.displayValue = attribute.exact;
+                        }
+                    } else if (attribute.type === "_DECIMAL" || attribute.type === "_INTEGER") {
+                        if (attribute.lte && attribute.gte) {
+                            tag.displayValue = attribute.gte + " - " + attribute.lte;
+                        } else if (attribute.contains) {
+                            tag.displayValue = rockSearchFilter.formatFilterCollectionDisplay(attribute.contains.split(" "));
+                        }
+                    } else if (attribute.type === "_BOOLEAN") {
+                        tag.displayValue = attribute.eq;
+                    } else if (attribute.type === "_DATETIME") {
+                        if (attribute.lte === attribute.gte) {
+                            tag.displayValue = FormatHelper.convertFromISODateTime(attribute.gte, tag.options.dataType);
+                        } else {
+                            tag.displayValue = FormatHelper.convertFromISODateTime(attribute.gte, tag.options.dataType) + " - " + FormatHelper.convertFromISODateTime(attribute.lte, tag.options.dataType);
+                        }
+                    }
+                    tag.value.hasvalue = true;
+                }
+                //Set no popover for saved searches
+                if (tag.options) {
+                    tag.options.noPopoverOnAttach = true;
+                } else {
+                    tag.options = { "noPopoverOnAttach": true };
+                }
 
-      rockSearchFilter.tags = tags;
-      this._searchFiltersChanged(null, tags);
-  }
+                tags.push(tag);
+            }
+        }
 
-  _getFilterContextData(contextData, mode) {
-      if (mode && contextData) {
-          if (mode == "asset") {
-              let contextWithoutDataContext = DataHelper.cloneObject(contextData);
-              contextWithoutDataContext.Contexts = [];
-              return contextWithoutDataContext;
-          } else {
-              return contextData
-          }
-      }
-  }
+        rockSearchFilter.tags = tags;
+        this._searchFiltersChanged(null, tags);
+    }
 
-  _getContextData(contextData) {
-      if (this.isRelationshipsByContext) {
-          return contextData;
-      }
-      let contexts = [];
-      let clonedContextData = DataHelper.cloneObject(contextData);
-      if (!_.isEmpty(this.filterRules.filterContexts)) {
-          contexts.push(this.filterRules.filterContexts);
-      }
-      clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = contexts;
-      return clonedContextData;
-  }
+    _getFilterContextData(contextData, mode) {
+        if (mode && contextData) {
+            if (mode == "asset") {
+                let contextWithoutDataContext = DataHelper.cloneObject(contextData);
+                contextWithoutDataContext.Contexts = [];
+                return contextWithoutDataContext;
+            } else {
+                return contextData
+            }
+        }
+    }
+
+    _getContextData(contextData) {
+        if (this.isRelationshipsByContext) {
+            return contextData;
+        }
+        let contexts = [];
+        let clonedContextData = DataHelper.cloneObject(contextData);
+        if (!_.isEmpty(this.filterRules.filterContexts)) {
+            contexts.push(this.filterRules.filterContexts);
+        }
+        clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = contexts;
+        return clonedContextData;
+    }
 }
 customElements.define(RockRelationshipAdd.is, RockRelationshipAdd)

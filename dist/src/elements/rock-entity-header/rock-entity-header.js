@@ -405,16 +405,7 @@ extends mixinBehaviors([
                 type: Array,
                 value: []
             },
-
-            /**
-             * Indicates the data of all missing or invalid fields, errors, and warnings of the loaded entity.
-             */
-            toFixData: {
-                type: Object,
-                value: function () {
-                    return {};
-                }
-            },
+           
             /**
              * Indicates the request object that is passed to the data element to retrieve the attribute data.
              Sample: {
@@ -546,7 +537,6 @@ extends mixinBehaviors([
 
     ready() {
         super.ready();
-        this.logInfo("EntityHeaderReady");
     }
 
     _getDescriptionInfo(item) {
@@ -592,7 +582,7 @@ extends mixinBehaviors([
         if (!_.isEmpty(this._headerAttributeModels) &&
             this._headerAttributeModels.hasOwnProperty(item.name)) {
             let attrModel = this._headerAttributeModels[item.name];
-            return attrModel.displayType === "path" && attrModel.hasWritePermission;
+            return attrModel && attrModel.displayType === "path" && attrModel.hasWritePermission;
         }
         return false;
     }
@@ -707,8 +697,7 @@ extends mixinBehaviors([
 
     _startDataLoad() {
         let headerConfig = this.headerConfig;
-        this.logInfo("EntityHeadDataLoad", "config", headerConfig);
-
+        
         if (headerConfig && headerConfig.length > 0 && this.contextData) {
             let attributeNames = [];
 
@@ -741,19 +730,31 @@ extends mixinBehaviors([
     }
 
     _onCompositeModelGetResponse(e) {
-        // this.logInfo("EntityHeaderModelResponse", "response", JSON.stringify(e, null, 2));
-
         if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
             let entityModel = e.detail.response.content.entityModels[0];
             let properties = entityModel.properties;
+            let headerAttributeModels;
+            let headerAttributeSortByConfig = {};
+            let attributeNames = [];
             if (properties.hasOwnProperty("defaultThumbnailId")) {
                 this._defaultThumbnailId = properties.defaultThumbnailId;
             }
-            this._headerAttributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], this.contextData, this.writePermission);
-
+            headerAttributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], this.contextData, this.writePermission);
+            if (this.headerConfig && this.headerConfig.length > 0 && headerAttributeModels) {
+                let attributeName;
+                for (let i = 0; i < this.headerConfig.length; i++) {
+                    let attributeName = this.headerConfig[i].attributeName;
+                    if (attributeName && headerAttributeModels[attributeName]) {
+                        headerAttributeSortByConfig[attributeName] = headerAttributeModels[attributeName];
+                        attributeNames.push(attributeName);
+                    }
+                }
+                this._headerAttributeModels = headerAttributeSortByConfig;
+            } else {
+                this._headerAttributeModels = headerAttributeModels;
+            }
             let clonedContextData = DataHelper.cloneObject(this.contextData);
-            let attributeNames = Object.keys(this._headerAttributeModels);
-
+            
             if (clonedContextData) {
                 //add attribute names in item context
                 let itemContext = this.getFirstItemContext();
@@ -774,8 +775,6 @@ extends mixinBehaviors([
     async _onHeaderAttributesGetResponse(e) {
         let headerAttributeResponse = e.detail.response;
 
-        this.logInfo("EntityHeaderAttributeResponse", "response", headerAttributeResponse);
-
         let attributesData = [];
         if (DataHelper.validateGetEntitiesResponse(headerAttributeResponse) && this._headerAttributeModels) {
             let entity = headerAttributeResponse.content.entities[0];
@@ -787,8 +786,9 @@ extends mixinBehaviors([
                 let self = this;
                 //Find the date attributes and change the values from ISO
                 Object.keys(this._headerAttributeModels).map(function (attributeModel) {
-                    if (self._headerAttributeModels[attributeModel].dataType == "datetime" ||
-                        self._headerAttributeModels[attributeModel].dataType == "date") {
+                    if (self._headerAttributeModels[attributeModel] &&
+                        (self._headerAttributeModels[attributeModel].dataType == "datetime" ||
+                            self._headerAttributeModels[attributeModel].dataType == "date")) {
                         let datatype = self._headerAttributeModels[attributeModel].dataType;
                         for (let i = 0; i < attributesData.length; i++) {
                             if (self._headerAttributeModels[attributeModel].name == attributesData[i].name) {
@@ -873,20 +873,20 @@ extends mixinBehaviors([
                         contextTree.pathRelationshipName = pathRelationshipName;
                         contextTree.rootNode = rootNode;
                         contextTree.multiSelect = properties.isCollection;
-                        contextTree.leafNodeOnly = properties.isCollection;
+                        contextTree.leafNodeOnly = properties.isLeafNodeOnly;
                     }
                     //setting pebble-dialog title
                     let classificationElements;
                     attrEditDialog.dialogTitle = "Edit" + " " + pathSeperatorElement + " " + this._headerAttributeModels[attributeName].externalName; 
                         if(!_.isEmpty(this._headerAttributeValues)) {
-                            this._headerAttributeValues.forEach(valueObject=> {
+                            this._headerAttributeValues.forEach(valueObject => {
                                 if (valueObject.name === this._currentAttributeInEdit) {
                                     classificationElements = _.isArray(valueObject.value) ? valueObject.value : [valueObject.value];
                                 }
                             })
                         }
                         if (!_.isEmpty(classificationElements)) {
-                            classificationElements.forEach(classificationElement=> {
+                            classificationElements.forEach(classificationElement => {
                                 let classificationTags = classificationElement.split(pathSeperatorElement);
                                 classificationTags.shift();
                                 selectedClassifications.push(classificationTags);
@@ -1084,10 +1084,6 @@ extends mixinBehaviors([
     _computeIcon(percentage) {
         let per = Math.round(percentage / 10) * 10;
         return "pebble-icon:percentage-circle";
-    }
-
-    _openPopover() {
-        this.$.tofixPopover.show();
     }
 
     _getConfigItem(headerConfig, attributeName) {

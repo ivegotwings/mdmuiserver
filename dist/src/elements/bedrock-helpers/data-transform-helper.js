@@ -50,7 +50,9 @@ DataTransformHelper._getAttributeModelsBasedOnContext = function (compositeModel
         if ("attributes" in compositeModel.data) {
             mergedAttributeModels = compositeModel.data.attributes;
             for (let attrKey in mergedAttributeModels) {
-                mergedAttributeModels[attrKey].selfContext = 1;
+                if(mergedAttributeModels[attrKey]){
+                    mergedAttributeModels[attrKey].selfContext = 1;
+                }
             }
         }
     }

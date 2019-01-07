@@ -178,13 +178,6 @@ class RockVariantOptions
                 value: function () { return {}; }
             },
 
-            attributeModelRequest: {
-                type: Object,
-                value: function () {
-                    return {};
-                }
-            },
-
             isSpinnerActive:{
                 type: Boolean,
                 value: false
@@ -225,62 +218,22 @@ class RockVariantOptions
             this.config = componentConfig.config;
             this.maxThresholdForDisplay = componentConfig.config.maxVariantsForDisplay;
             this.maxThresholdForSyncCreate = componentConfig.config.maxThresholdForSyncCreate;
-            //Get the attributeModels
-            this._generateAttributeModels();
+            //load the variants
+            this._loadVariantOptions();
         } else {
             this.logWarning("Config not found for rock-variant-options", "response", componentConfig);
         }
     }
 
-    /**
-     *  Function to generate the attribute models of all the target entities
-     */
-    _generateAttributeModels() {
-        let contextData = this._getContextForTargetEntities();
-        let compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(contextData);
-        if (compositeModelGetRequest) {
-            this.set("attributeModelRequest", compositeModelGetRequest);
-            let liquidModelGet = this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
-            if (liquidModelGet) {
-                liquidModelGet.generateRequest();
-            }
-        }
-    }
-
-    /**
-     *  Function to context for target entities
-     */
-    _getContextForTargetEntities() {
-        let targetEntityTypes = this.businessFunctionData.targetEntities;
-        let itemContexts = [];
-        let targetEntityAttributes = [];
-        for (let i in targetEntityTypes) {
-            targetEntityAttributes = targetEntityAttributes.concat(targetEntityTypes[i].attributeNames);
-        }
-        
-        let lastIndex = targetEntityTypes.length == 1 ? 0 : targetEntityTypes.length - 1;
-        itemContexts.push({
-            "type": targetEntityTypes[lastIndex].targetEntity,
-            "attributeNames": targetEntityAttributes
-        });
-        let contextData = DataHelper.cloneObject(this.contextData);
-        contextData[this.CONTEXT_TYPE_ITEM] = itemContexts;
-        return contextData;
-    }
-
-    /**
-     *  Function to handle success of attribute models of all the target entities
-     */
-    _onCompositeModelGetResponse(e) {
-        if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
-            let contextData = this._getContextForTargetEntities();
-            this.attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], contextData);
-
+    _loadVariantOptions() {
+        if (!_.isEmpty(this.businessFunctionData.attributeModels)) {                        
+            this.attributeModels = this.businessFunctionData.attributeModels;
+            
             //Update the gridConfig with dynamic columns
             this._updateGridConfig();
 
             //generate a request to get the grid data 
-            this._showVariantOptions();
+            this._showVariantOptions();                        
         }
     }
 

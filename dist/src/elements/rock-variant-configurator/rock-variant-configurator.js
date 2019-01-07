@@ -508,12 +508,14 @@ class RockVariantConfigurator
             if (response.properties.levels.length > 0) {
                 this.dimentionAttributesList = this._getDimentionAttributeList(response);
                 let compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
+                this.variantModelObj.attributeModels = {};
                 if (compositeModelGetRequest) {
                     compositeModelGetRequest.params.fields.attributes = this.dimentionAttributesList;
                     let tempCompositeModel = await this._getCompositeModel(compositeModelGetRequest);
                     let compositeModel = this._getSortedCompositeModel(tempCompositeModel, this.dimentionAttributesList);
                     if (!_.isEmpty(compositeModel)) {
                         this._attributeModels = DataTransformHelper.transformAttributeModels(compositeModel, this.contextData);
+                        this.variantModelObj.attributeModels = this._attributeModels;
                         if (this._attributeModels && !_.isEmpty(this._attributeModels)) {
                             this.getVariantAttributesOptions(this.dimentionAttributesList);
                         }
@@ -801,6 +803,7 @@ class RockVariantConfigurator
     mandatoryAttributesCheck(isOriginalAttribute) {
         let mandatoryCheckFailed = false;
         this.mandatoryFields = [];
+        let mandatoryFieldExternalName = "";
         let rockAttributeObjList = this.shadowRoot.querySelectorAll(".variantAttributes");
         if (this.variantModelObj && this.variantModelObj.mandatoryAttributes.length > 0 &&
             rockAttributeObjList) {
@@ -809,10 +812,12 @@ class RockVariantConfigurator
                 for (let j = 0; j < this.variantModelObj.mandatoryAttributes.length; j++) {
                     let attributeName = this.variantModelObj.mandatoryAttributes[j];
                     if (isOriginalAttribute && this._attributes[attributeName]) {
+                        mandatoryFieldExternalName = "";
                         let count = this._attributes[attributeName].value.length;
                         if (count <= 0) {
                             mandatoryCheckFailed = true;
-                            this.mandatoryFields.push(attributeName);
+                            mandatoryFieldExternalName = this.variantModelObj.attributeModels[attributeName].externalName ? this.variantModelObj.attributeModels[attributeName].externalName : attributeName;
+                            this.mandatoryFields.push(mandatoryFieldExternalName);
                         }
                     }
                 }
@@ -820,11 +825,13 @@ class RockVariantConfigurator
                 for (let i = 0; i < rockAttributeObjList.length; i++) {
                     let temp = this.variantModelObj.mandatoryAttributes.find(item => item ==
                         rockAttributeObjList[i].attributeObject.name);
+                    mandatoryFieldExternalName = "";
                     if (temp) {
                         let count = rockAttributeObjList[i].attributeObject.value.length;
                         if (count <= 0) {
                             mandatoryCheckFailed = true;
-                            this.mandatoryFields.push(rockAttributeObjList[i].attributeObject.name);
+                            mandatoryFieldExternalName = this.variantModelObj.attributeModels[temp].externalName ? this.variantModelObj.attributeModels[temp].externalName : temp;
+                            this.mandatoryFields.push(mandatoryFieldExternalName);
                         }
                     }
                 }

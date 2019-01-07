@@ -223,14 +223,10 @@ class RockRelationshipSplitScreen
 
     connectedCallback() {
         super.connectedCallback();
-        this.logInfo("SplitScreenAttached");
         this.addEventListener('scroll', this._onScrollDebounce);
     }
     constructor() {
-        super();
-        if (this.verbose) {
-            this.logInfo("SplitScreenCreated");
-        }
+        super();        
         this._onScrollDebounce = _.debounce(this._onScroll.bind(this), 300);
     }
 
@@ -284,7 +280,7 @@ class RockRelationshipSplitScreen
     }
 
     refresh(options) {
-        let relManageList = this.$$("rock-relationship-manage");
+        let relManageList = this.shadowRoot.querySelectorAll("rock-relationship-manage");
         if (relManageList && relManageList.length) {
             for (let relMngIdx = 0; relMngIdx < relManageList.length; relMngIdx++) {
                 relManageList[relMngIdx].refresh(options);

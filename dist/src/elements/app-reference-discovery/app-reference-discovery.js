@@ -310,6 +310,12 @@ class AppReferenceDiscovery
                 type: Boolean,
                 value: false
             },
+            lovSelectedItem:{
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
             _searchResultResponse: {
                 type: Object,
                 value: function () {
@@ -569,7 +575,7 @@ class AppReferenceDiscovery
 
         if (!asyncAvailable || (asyncAvailable && selectionMode == "count")) {
             if (DataHelper.isEmptyObject(selectedItems)) {
-                this.showWarningToast("Select atleast one entity for which you want to perform this action.");
+                this.showWarningToast("Select at least one entity for which you want to perform this action.");
                 return;
             }
         }
@@ -643,6 +649,12 @@ class AppReferenceDiscovery
                 this._mainTitle = typeExternalName;
 
                 this._selectedReferenceType = this._typesCriterion[0];
+                if(_.isEmpty(this.lovSelectedItem)){
+                    this.lovSelectedItem = {
+                        title: this._mainTitle,
+                        id: this._selectedReferenceType
+                    }
+                }
                 let itemContext = {};
                 itemContext.type = this._typesCriterion[0];
                 itemContext.attributeNames = ["_ALL"];
@@ -915,7 +927,10 @@ class AppReferenceDiscovery
             "type": this._selectedReferenceType,
             "attributeNames": this._gridAttributes
         };
-        this._quickManageContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+        let contextData = DataHelper.cloneObject(this._quickManageContextData);
+        contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+        this._quickManageContextData = {};
+        this.set("_quickManageContextData", contextData);
         this._refreshQuickManage();
 
         this._getSearchGrid().clearSelection();
@@ -960,8 +975,8 @@ class AppReferenceDiscovery
         }
     }
 
-    _applyClass() {
-        if (this._quickManageEnabled) {
+    _applyClass(quickManageEnabled) {
+        if (quickManageEnabled) {
             return "grid-quick-manage-container";
         }
 
