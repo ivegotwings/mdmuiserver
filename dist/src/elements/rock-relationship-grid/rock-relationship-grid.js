@@ -195,6 +195,7 @@ import '../bedrock-style-manager/styles/bedrock-style-buttons.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
 import '../bedrock-style-manager/styles/bedrock-style-grid-layout.js';
 import '../bedrock-toast-behavior/bedrock-toast-behavior.js';
+import '../bedrock-navigation-behavior/bedrock-navigation-behavior.js';
 import EntityTypeManager from '../bedrock-managers/entity-type-manager.js'
 import '../liquid-entity-data-get/liquid-entity-data-get.js';
 import '../liquid-entity-data-save/liquid-entity-data-save.js';
@@ -2421,16 +2422,6 @@ class RockRelationshipGrid
     } else {
       this.showInformationToast("Select at least one entity from grid to edit.");
     }
-  }
-
-  _getGridClass() {
-    let _gridWithActionButtons;
-    let _showAccordion;
-    let gridClass
-    _showAccordion = !this.showAccordion ? "expanded" : "";
-    _gridWithActionButtons = this.showActionButtons ? "button-siblings" : "";
-    gridClass = _gridWithActionButtons + " " + _showAccordion;
-    this.set("getwrapClass", gridClass);
   }
 
   _onGlobalEdit(e) {

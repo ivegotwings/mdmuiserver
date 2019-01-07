@@ -241,26 +241,7 @@ static get is() { return 'rock-attribute-split-screen' }
 	 * <b><i>Content development is under progress... </b></i>
 	 */
 	constructor () {
-		super();
-		if (this.verbose) {
-			this.logInfo("SplitScreenCreated");
-		}
-	}
-
-	/**
-	 * <b><i>Content development is under progress... </b></i>
-	 */
-	connectedCallback () {
-		super.connectedCallback();
-		this.logInfo("SplitScreenAttached");
-	}
-
-	/**
-	 * <b><i>Content development is under progress... </b></i>
-	 */
-	ready () {
-		super.ready();
-		this.logInfo("SplitScreenReady");
+		super();		
 	}
 
 	/**
@@ -290,7 +271,7 @@ static get is() { return 'rock-attribute-split-screen' }
 	 * Can be used to get the elements if they are dirty.
 	 */
 	getIsDirty () {
-		let attributeManage = this.$$("rock-attribute-manage");
+		let attributeManage = this.shadowRoot.querySelector("rock-attribute-manage");
 		return this._getIsDirty(attributeManage);
 	}
 

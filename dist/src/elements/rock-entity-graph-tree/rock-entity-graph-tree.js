@@ -198,6 +198,30 @@ class RockEntityGraphTree
             excludeNonContextual: {
                 type: Boolean,
                 value: false
+            },
+            _selectedGraphPaths: {
+                type: Array,
+                value: function () {
+                    return [];
+                }
+            },
+            enableNodeClick: {
+                type: Boolean,
+                value: false
+            },
+            _currentGraphItem: {
+                type: Array,
+                value: function () {
+                    return [];
+                }
+            },
+            _graphIndex: {
+                type: Number,
+                value: 0
+            },
+            _currentIndex: {
+                type: Number,
+                value: 0
             }
         }
     }
@@ -245,7 +269,6 @@ class RockEntityGraphTree
         graphData.expanded = true;
         graphData.viewMode = "";
         graphData.value = _title;
-        graphData.highlightNode = true;
         graphData.children = graphData.relationships;
         graphData.dataLoaded = true;
         this._graphData = {};
@@ -253,6 +276,8 @@ class RockEntityGraphTree
         // this._currentNodeData = this._graphData;
         this._graphs = [this._graphData];
         this._loading = false;
+        this._selectedGraphPaths = this.domHost.getGraphItemsFromNavigationData("rock-entity-graph-tree");
+        this._checkForSelectedGraphItem();
     }
 
     _initiateTitleGet(){
@@ -290,16 +315,74 @@ class RockEntityGraphTree
                     }
                 }
             }
+        }        
+    }
+
+    _childListRefreshed() {
+        this._checkForSelectedGraphItem();
+    }
+
+    //If _selectedGraphPaths available, then only pre selection process triggers
+    _checkForSelectedGraphItem() {
+        if (_.isEmpty(this._graphs) || _.isEmpty(this._selectedGraphPaths) || this._graphIndex == this._selectedGraphPaths.length) {
+            return;
         }
-        
+        if (!this._currentGraphItem) {
+            this._graphIndex = 0;
+            this._currentIndex = 0;
+        }
+        this._currentGraphItem = this._selectedGraphPaths[this._graphIndex];
+        let name = this._currentGraphItem[this._currentIndex];
+        if (this._currentIndex == 0) {
+            this._currentNode = this.shadowRoot.querySelector("#tree").getElementNodeByPath(name);
+        } else if (this._currentIndex == this._currentGraphItem.length) {
+            if (this.enableNodeClick) {
+                this._currentNode.triggerNodeClick();
+            } else {
+                this._currentNode.selectItem();
+            }
+            this._graphIndex++;
+            this._currentIndex = 0;
+            this._checkForSelectedGraphItem();
+            return;
+        } else {
+            let childNodes = this._currentNode.getChildNodes();
+            let matchedChild;
+            for (let i in childNodes) {
+                if (childNodes[i].nodeData.text == name) {
+                    matchedChild = childNodes[i];
+                    break;
+                }
+            }
+            if (matchedChild) {
+                this._currentNode = matchedChild;
+            } else {
+                this._graphIndex++;
+                this._currentIndex = 0;
+                this._checkForSelectedGraphItem();
+                return;
+            }
+        }
+        this._currentIndex++;
+        if (this._currentNode) {
+            if (this._currentNode.expanded) {
+                this._checkForSelectedGraphItem();
+            } else {
+                this._currentNode.expand();
+            }
+        }
     }
 
     _treeNodeExpanded (e) {
         this._currentNode = e.detail;
         if (this._currentNode.nodeData && !this._currentNode.nodeData.dataLoaded) {
-            this._currentNodeData = this._currentNode.nodeData;
-            this._executeRequest();
-            this._currentNode.startLoading();
+            if (!this._currentNode.nodeData.dataLoaded) {
+                this._currentNodeData = this._currentNode.nodeData;
+                this._executeRequest();
+                this._currentNode.startLoading();
+            } else {
+                this._checkForSelectedGraphItem();
+            }
         }
     }
 
@@ -319,8 +402,9 @@ class RockEntityGraphTree
 
                 this.itemData = {};
                 this.itemData = node.nodeData;
-            }else{
-                this.itemData = {}
+                this.domHost.setGraphNavigationData("rock-entity-graph-tree", node.nodeData);
+            } else {
+                this.itemData = {};
             }
         }
         
