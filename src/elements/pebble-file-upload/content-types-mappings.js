@@ -2,8 +2,9 @@
 
     ContentTypeUtils = {};
 
-    let mimedb = 
-        {
+    ContentTypeUtils.PopulateMaps = function() {
+        
+        let mimedb = {
             "application/1d-interleaved-parityfec": {
                 "source": "iana"
             },
@@ -6755,7 +6756,6 @@
             }
         };
 
-    ContentTypeUtils.PopulateMaps = function() {
         // source preference (least -> most)
         let preference = ['nginx', 'apache', undefined, 'iana']
 
