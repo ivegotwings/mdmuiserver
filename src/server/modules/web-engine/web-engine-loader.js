@@ -140,6 +140,10 @@ versionRoute(app);
 
 logger.info('Web engine start - version routes are loaded');
 
+// app.use(express.static(buildPath + '/build-prod', {
+//     maxAge: "1s"
+// }));
+
 app.use(express.static(buildPath, {
     maxAge: "1s"
 }));
@@ -150,65 +154,64 @@ uiAppServiceRoute(app);
 logger.info('Web engine start - user info route is loaded');
 
 //register static file root ...index.html..
-app.get('*', function (req, res) {
-    let isES5;
-    let userDefaults = config.get("modules.userDefaults");
+// app.get('*', function (req, res) {
+//     let isES5;
+//     let userDefaults = config.get("modules.userDefaults");
 
-    let userId = req.header("x-rdp-userid") || userDefaults.userId;
-    let tenantId = req.header("x-rdp-tenantid") || userDefaults.tenantId;
-    if (req.headers && req.headers['user-agent']) {
-        isES5 = (req.headers['user-agent'].indexOf('rv:11') !== -1);
-    }
+//     let userId = req.header("x-rdp-userid") || userDefaults.userId;
+//     let tenantId = req.header("x-rdp-tenantid") || userDefaults.tenantId;
+//     if (req.headers && req.headers['user-agent']) {
+//         isES5 = (req.headers['user-agent'].indexOf('rv:11') !== -1);
+//     }
 
-    // console.log('* request', req.url, userId, tenantId);
-    if (tenantId && userId) {
-        let url = req.url;
-        let urlRedirected = false;
+//     // console.log('* request', req.url, userId, tenantId);
+//     if (tenantId && userId) {
+//         let url = req.url;
+//         let urlRedirected = false;
 
-        if (url.indexOf(tenantId) > -1) {
-            url = url.replace("/" + tenantId + "/", "");
-        }
+//         if (url.indexOf(tenantId) > -1) {
+//             url = url.replace("/" + tenantId + "/", "");
+//         }
 
-        if (isNodMonitorProcess && isES5) {
-            res.write("ES5 mode is not supported with local development run. Please execute production build using pm2");
-            res.sendStatus(402);
-            return;
-        }
+//         if (isNodMonitorProcess && isES5) {
+//             res.write("ES5 mode is not supported with local development run. Please execute production build using pm2");
+//             res.sendStatus(402);
+//             return;
+//         }
 
-        if (!isNodMonitorProcess) {
-            let staticPath = isES5 ? "/../static/es5-bundled" : "/../static/es6-bundled";
+//         if (!isNodMonitorProcess) {
+//             let staticPath = isES5 ? "/../static/es5-bundled" : "/../static/es6-bundled";
 
-            if (req.url.indexOf("/bower_components/") > -1) {
-                url = req.url.replace("/bower_components/", staticPath + "/bower_components/");
-                urlRedirected = true;
-            } else if (req.url.indexOf("/src/") > -1) {
-                url = req.url.replace("/src/", staticPath + "/src/");
-                urlRedirected = true;
-            } else if (req.url.indexOf("/service-worker.js") > -1) {
-                url = req.url.replace("/service-worker.js", staticPath + "/service-worker.js");
-                urlRedirected = true;
-            } else if (req.url.indexOf("/manifest.json") > -1) {
-                url = req.url.replace("/manifest.json", staticPath + "/manifest.json");
-                urlRedirected = true;
-            }
+//             if (req.url.indexOf("/bower_components/") > -1) {
+//                 url = req.url.replace("/bower_components/", staticPath + "/bower_components/");
+//                 urlRedirected = true;
+//             } else if (req.url.indexOf("/src/") > -1) {
+//                 url = req.url.replace("/src/", staticPath + "/src/");
+//                 urlRedirected = true;
+//             } else if (req.url.indexOf("/service-worker.js") > -1) {
+//                 url = req.url.replace("/service-worker.js", staticPath + "/service-worker.js");
+//                 urlRedirected = true;
+//             } else if (req.url.indexOf("/manifest.json") > -1) {
+//                 url = req.url.replace("/manifest.json", staticPath + "/manifest.json");
+//                 urlRedirected = true;
+//             }
 
-            //console.log('url prepared ', url);
-        }
+//             //console.log('url prepared ', url);
+//         }
 
-        //console.log('url requested ', url, urlRedirected);
+//         //console.log('url requested ', url, urlRedirected);
 
-        if (urlRedirected) {
-            //console.log('url requested ', url);
-            if (url.indexOf("?") > -1) {
-                url = url.split("?")[0];
-            }
-            res.sendFile(path.join(buildPath, url));
-            return;
-        }
-        
-        res.sendFile(path.join(buildPath, "index.html"));
-    }
-});
+//         if (urlRedirected) {
+//             //console.log('url requested ', url);
+//             if (url.indexOf("?") > -1) {
+//                 url = url.split("?")[0];
+//             }
+//             res.sendFile(path.join(buildPath, url));
+//             return;
+//         }
+//         res.sendFile(path.join(buildPath, "index.html"));
+//     }
+// });
 
 logger.info('Web engine start - base static file root route is loaded');
 
