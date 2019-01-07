@@ -817,7 +817,7 @@ The following JSON object is a config sample which configures the grid in all ab
 				</div>
 				<div id="pebbleGridContainer" class="base-grid-structure-child-2">
 					<template is="dom-if" if="{{_isTabularMode(config.viewMode)}}" restamp>
-						<div hidden="[[_configPresent('tabular')]]" class="msg default-message"> Config not present for Tabular view of the grid.</div>
+						<div hidden="[[_configPresent('tabular')]]" class="msg default-message">Tabular view of grid not configured.</div>
 						<template is="dom-if" if="[[_configPresent('tabular')]]">
 							<pebble-data-table id=[[id]] min-filter-length="[[minFilterLength]]" advance-selection-options="[[config.advanceSelectionOptions]]" advance-selection-enabled="[[config.advanceSelectionEnabled]]" selection-info="{{selectionInfo}}" page-size="[[pageSize]]" size="[[gridDataSize]]" selection-enabled="[[selectionEnabled]]" multi-selection="[[config.itemConfig.isMultiSelect]]" r-data-source="[[rDataSource]]" items="[[data]]" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" sort-order="{{sortOrder}}" disable-select-all="[[config.itemConfig.disableSelectAll]]" on-row-dbl-clicked="_rowDblClicked" rows="[[config.itemConfig.rows]]" on-row-drop-event="_onRowDropEvent" row-drag-drop-enabled="[[rowDragDropEnabled]]" enable-column-select="[[enableColumnSelect]]" enable-column-multi-select="[[enableColumnMultiSelect]]">
 
@@ -957,6 +957,7 @@ The following JSON object is a config sample which configures the grid in all ab
 										</template>
 									</template>
 								</template>
+
 								<template is="dom-if" if="[[!config.readOnly]]" restamp>
 									<template is="dom-repeat" items="[[_fields]]" as="col" index-as="colIndex">
 										<template is="dom-if" if="[[col.visible]]">
@@ -1002,21 +1003,22 @@ The following JSON object is a config sample which configures the grid in all ab
 							</pebble-data-table>
 						</template>
 
-						<pebble-popover id="errorPopover" no-overlap>
-							<pebble-error-list id="errorList"></pebble-error-list>
-						</pebble-popover>
-
-						<bedrock-pubsub target-id="errorList" event-name="fix-error" handler="_fixError"></bedrock-pubsub>
+						<template is="dom-if" if="[[_isReadyToShowMessagesPopover]]">
+							<pebble-popover id="errorPopover" no-overlap>
+								<pebble-error-list id="errorList"></pebble-error-list>
+							</pebble-popover>
+							<bedrock-pubsub target-id="errorList" event-name="fix-error" handler="_fixError"></bedrock-pubsub>
+						</template>
 					</template>
 					<template is="dom-if" if="{{_isTileMode(config.viewMode)}}" restamp>
-						<div hidden="[[_configPresent('tile')]]" class="msg default-message"> Config not present for Tile view of the grid.</div>
+						<div hidden="[[_configPresent('tile')]]" class="msg default-message">Tile view of grid not configured.</div>
 						<template is="dom-if" if="[[_configPresent('tile')]]">
 							<grid-tile-view show-select-all="[[config.itemConfig.isMultiSelect]]" result-record-size="{{resultRecordSize}}" attribute-model-object="[[attributeModels]]" id="gridTileView" advance-selection-options="[[config.advanceSelectionOptions]]" advance-selection-enabled="[[config.advanceSelectionEnabled]]" items="[[data]]" grid-item-data-source="{{rDataSource}}" page-size="[[pageSize]]" multi-selection="{{config.itemConfig.isMultiSelect}}" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" tile-items="{{config.itemConfig}}" actions="{{_getArrayFromObject(config.viewConfig.tile.settings.actions)}}" selection-info="{{selectionInfo}}" title-pattern={{config.viewConfig.tile.settings.titlePattern}} sub-title-pattern={{config.viewConfig.tile.settings.subTitlePattern}}>
 							</grid-tile-view>
 						</template>
 					</template>
 					<template is="dom-if" if="{{_isListMode(config.viewMode)}}" restamp>
-						<div hidden="[[_configPresent('list')]]" class="msg default-message"> Config not present for List view of the grid.</div>
+						<div hidden="[[_configPresent('list')]]" class="msg default-message">List view of grid not configured.</div>
 						<template is="dom-if" if="[[_configPresent('list')]]">
 							<grid-list-view id="gridListView" attribute-model-object="[[attributeModels]]" advance-selection-options="[[config.advanceSelectionOptions]]" advance-selection-enabled="[[config.advanceSelectionEnabled]]" items="[[data]]" grid-item-data-source="{{rDataSource}}" page-size="[[pageSize]]" multi-selection="{{config.itemConfig.isMultiSelect}}" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" schema-type="{{config.schemaType}}" list-items="{{config.itemConfig}}" actions="{{_getArrayFromObject(config.viewConfig.list.settings.actions)}}" selection-info="{{selectionInfo}}"></grid-list-view>
 						</template>
@@ -1391,7 +1393,15 @@ The following JSON object is a config sample which configures the grid in all ab
 					applyGraphCoalescedStyle: {
                         type: Boolean,
                         value: false
-                    }
+                    },
+					controlDirty: {
+						type: Boolean,
+                        value: false
+					},
+					_isReadyToShowMessagesPopover: {
+						type: Boolean,
+						value: false
+					}
 				}
 			}
 
@@ -1645,8 +1655,7 @@ The following JSON object is a config sample which configures the grid in all ab
 			getControlIsDirty() {
 				//To-do Need to have logic to check whether selected Item attr is updated in quick manage
 				// Currently allowing selectedItems is only one.. assuming that one item is selected and page is not dirty.
-				let controlDirty = this.getSelectedItems().length > 1;
-
+				
 				let editMode = this.get('config.mode') === "edit";
 
 				let rockAttributeObj = Polymer.dom(this.root).querySelectorAll('rock-attribute');
@@ -1655,7 +1664,7 @@ The following JSON object is a config sample which configures the grid in all ab
 					rockAttributeDirty = rockAttributeObj.getControlIsDirty();
 				}
 
-				return controlDirty || rockAttributeDirty || editMode;
+				return this.controlDirty || rockAttributeDirty || editMode;
 			}
 			getItemFromData(item) {
 				if (item.id && item.type) {
@@ -1703,8 +1712,9 @@ The following JSON object is a config sample which configures the grid in all ab
 				//Resetting preSelectItem
 				this.preSelectedItems = []
 				let _isRefresh = true;
+
 				if (options && options.partialRefresh) {
-					_isRefresh = false;
+					//_isRefresh = false;
 					if (this.selectedItem && this.selectedItem.id && this.selectedItem.type) {
 						if (options.selectedItem && options.selectedItem.id && options.selectedItem.type) {
 							if ((this.selectedItem.id == options.selectedItem.id) &&
@@ -1716,10 +1726,11 @@ The following JSON object is a config sample which configures the grid in all ab
 							}
 						}
 					}
-					if (!_isRefresh && options.toastData) {
-						let notificationObj = RUFUtilities.mainApp.$$('bedrock-dataobject-notification-handler');
-						notificationObj.showToast(options.toastData);
-					}
+					//if (!_isRefresh && options.toastData) {
+						//let notificationObj = RUFUtilities.mainApp.$$('bedrock-dataobject-notification-handler');
+						//notificationObj.showToast(options.toastData);
+					//}
+					
 				}
 				if (_isRefresh) {
 					this._onRefresh();
@@ -2526,16 +2537,24 @@ The following JSON object is a config sample which configures the grid in all ab
 				let view = this.shadowRoot.querySelector("#" + elementId)
 				return ElementHelper.getElement(view, "iron-list");
 			}
+
+			resetControlDirty(){
+				this.controlDirty = false;
+			}
 			_onSelectingItem(e) {
+				this.controlDirty = true;
 				this.fireBedrockEvent("grid-selecting-item", e.detail);
 			}
 			_onDeselectingItem(e) {
+				this.controlDirty = true;
 				this.fireBedrockEvent("grid-deselecting-item", e.detail);
 			}
 			_onSelectingAllItems(e) {
+				this.controlDirty = true;
 				this.fireBedrockEvent("grid-selecting-all-items", e.detail);
 			}
 			_onDeselectingAllItems(e) {
+				this.controlDirty = true;
 				this.fireBedrockEvent("grid-deselecting-all-items", e.detail);
 			}
 			_onExpandingItem(e) {
@@ -2883,6 +2902,8 @@ The following JSON object is a config sample which configures the grid in all ab
 				let item = e.currentTarget.item;
 				let index = e.currentTarget.index;
 				let name = e.currentTarget.getAttribute('name');
+				this._isReadyToShowMessagesPopover = true;
+				Polymer.dom.flush();
 				let popover = this.shadowRoot.querySelector("#errorPopover");
 				if (popover) {
 					let errorList = popover.querySelector("pebble-error-list");
@@ -2937,7 +2958,7 @@ The following JSON object is a config sample which configures the grid in all ab
 							sortData['fields'] = field;
 						};
 						if (gridData && !_.isEmpty(sortData)) {
-							gridData = gridData.sort(new DataHelper.sortingFunction(sortData).sort);
+							gridData = gridData.sort(new DataHelper.sortingFunction(sortData, this.attributeModels).sort);
 							this.set("data", gridData);
 						}
 					}
@@ -3204,6 +3225,7 @@ The following JSON object is a config sample which configures the grid in all ab
 					this.setRowMode(errors[0].index, 'edit');
 				}
 				this.shadowRoot.querySelector("#errorPopover").hide();
+				this._isReadyToShowMessagesPopover = false;
 			}
 			_getDataSourceElement() {
 				let dataSourceElement;
@@ -3387,7 +3409,11 @@ The following JSON object is a config sample which configures the grid in all ab
 							}));
 						}, null, true);
 					}
-					if (this.data) {
+					if(this.rDataSourceId){
+						if (this._getIronDataTable()) {
+							this._getIronDataTable()._resetData(this.rDataSource);
+						}
+					}else if (this.data) {
 						this.gridDataSize = this.currentRecordSize = this.data.length;
 					} else {
 						this.gridDataSize = 0;

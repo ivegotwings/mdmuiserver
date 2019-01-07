@@ -205,6 +205,9 @@
                 background: transparent;
                 animation: 3s 2 alternate detailborder
             }
+            .flex-grow-zero{
+                flex-grow: 0;
+            }
 
             @keyframes detailborder {
                 0% {
@@ -247,7 +250,7 @@
                         <pebble-checkbox on-tap="_itemClick" disabled$="[[_isDisabled(nodeData,selectedItems,selectedItems.*,selectedItem)]]" indeterminate="[[_isIndeterminate(nodeData,indeterminateItems,indeterminateItems.*)]]" checked="[[_isSelected(nodeData,selectedItems,selectedItems.*,selectedItem)]]"></pebble-checkbox>
                     </div>
                 </template>
-                <div class="flex">
+                <div class="flex flex-grow-zero">
                     <!--<div id="arrow" on-click="_toggle" hidden="[[multiSelect]]" class$="[[_arrowClass(expanded)]] arrow"-->
                     <!--&gt;</div>-->
                     <pebble-icon src="[[nodeData.src]]" icon="[[nodeData.icon]]" hidden="[[!_iconPassed(nodeData)]]"></pebble-icon>
@@ -560,7 +563,8 @@
             static get observers() {
                 return [
                     '_defaultExpandDepthChanged(defaultExpandDepth,itemPath)',
-                    '_nodeDataExpandedChanged(nodeData.expanded)'
+                    '_nodeDataExpandedChanged(nodeData.expanded)',
+                    '_getDetailClass(nodeData,selectedItems,selectedItems.*)'
                 ];
             }
 
@@ -693,12 +697,14 @@
              *  If `checkChildNodes` is set to true, then make sure to 
              *  select the child nodes and make the parent node as indeterminate unless all the sibling nodes are also selected.
              */
-            selectItem() {
+            selectItem(isItemSelected = false) {
                 if (!this.disabled) {
                     let nodeData = this.nodeData;
                     this.nodeData.valuePath = this.valuePath;
                     if (!this.multiSelect) {
-                        this.selectedItem = nodeData;
+                        if (isItemSelected) {
+                            this.selectedItem = nodeData;
+                        }
                         this.selectedNode = this;
                         if (this.disableChildNode) {
                             this.push('selectedItems', nodeData);
@@ -718,6 +724,10 @@
                         }
                     } else {
                         if (this.selectedItems.indexOf(nodeData) == -1) {
+                            //Set the selected only when isItemSelected is true
+                            if (isItemSelected) {
+                                nodeData.selected = true;
+                            }
                             this.push('selectedItems', nodeData);
                             this.selectedNodes.push(this);
                             if (this.checkParentNodes && !this.selectParentItem) {
@@ -820,6 +830,8 @@
             unCheckAllChildNodes(nodeData) {
                 let children = nodeData.children;
                 for (let i = 0; i < children.length; i++) {
+                    children[i]["isDisabled"] = false;
+                    delete children[i]["selected"];
                     let index = this.selectedItems.indexOf(children[i]);
                     if (index > -1) {
                         this.splice('selectedItems', index, 1);
@@ -915,7 +927,7 @@
                 let nodeData = this.nodeData;
                 if (this.multiSelect) {
                     if (this.selectedItems.indexOf(nodeData) == -1) {
-                        this.selectItem();
+                        this.selectItem(true);
                         this.dispatchEvent(new CustomEvent('item-selected', { detail: { data: this }, bubbles: true, composed: true }));
                     } else {
                         if(this.showWarningOnUnselect && this._hasChildren(this.nodeData)){
@@ -947,10 +959,9 @@
                         if (this.selectedNode) {
                             this.selectedNode.detailClass = 'hidden';
                         }
-                        this.selectItem();
+                        this.selectItem(true);
                     }
                 }
-                this._getDetailClass(nodeData);
             }
 
             /**
@@ -1254,8 +1265,7 @@
                     if (this._isSelected(this.nodeData)) {
                         this.deSelectItem();
                     }
-                    this.selectItem();
-                    this._getDetailClass(this.nodeData);
+                    this.selectItem(true);
                 }
                 this._loading = false;
                 this.fireBedrockEvent('tree-node-child-list-refreshed', this, { "ignoreId": true });

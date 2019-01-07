@@ -286,7 +286,6 @@ DataObjectFalcorUtil.getPathKeys = function () {
             }
         }
     };
-
 };
 
 DataObjectFalcorUtil.getDataIndexDomainMappings = function () {
@@ -299,15 +298,11 @@ DataObjectFalcorUtil.getDataIndexDomainMappings = function () {
     };
 };
 
-const pathKeys = DataObjectFalcorUtil.getPathKeys();
-
 DataObjectFalcorUtil.getSelfCtx = function () {
     return {
         'selfContext': true
     };
 };
-
-const selfCtx = DataObjectFalcorUtil.getSelfCtx();
 
 DataObjectFalcorUtil.createSelfCtxKey = function () {
     return DataObjectFalcorUtil.createCtxKey(DataObjectFalcorUtil.getSelfCtx());
@@ -341,6 +336,10 @@ DataObjectFalcorUtil.transformToExternal = function (dataObject) {
                 let transContextsItem = {};
 
                 let transContext = DataObjectFalcorUtil.createCtxItem(ctxKey);
+
+                if(transContext.coalesceOptions) {
+                    delete transContext.coalesceOptions;
+                }
 
                 transContextsItem.context = transContext;
 
@@ -706,11 +705,6 @@ DataObjectFalcorUtil.createCtxItems = function (ctxKeys) {
     for (let i = 0; i < ctxKeys.length; i++) {
         let ctxKey = ctxKeys[i];
         let ctxItem = DataObjectFalcorUtil.createCtxItem(ctxKey);
-
-        //skip self contexts..
-        if (ctxItem.selfContext) {
-            continue;
-        }
 
         if (isEmpty(ctxItem)) {
             continue;
