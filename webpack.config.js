@@ -5,9 +5,7 @@ const merge = require('webpack-merge');
 const CleanWebpackPlugin = require('clean-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
-const CompressionPlugin = require('compression-webpack-plugin');
 const TerserWebpackPlugin = require('terser-webpack-plugin');
-const BrotliPlugin = require('brotli-webpack-plugin');
 const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
 const { InjectManifest } = require('workbox-webpack-plugin');
 
@@ -107,6 +105,9 @@ const commonConfig = merge([
           exclude: /node_modules\/(?!(@webcomponents\/shadycss|lit-html|@polymer|)\/).*/,
           use: [
             {
+              loader: 'uglify-template-string-loader'
+            },
+            {
               loader: 'babel-loader',
               options: {
                 babelrc: true,
@@ -114,9 +115,6 @@ const commonConfig = merge([
                 cacheDirectory: true,
                 envName: ENV
               }
-            },
-            {
-              loader: 'uglify-template-string-loader'
             }
           ]
         }
@@ -184,10 +182,9 @@ const productionConfig = merge([
       ]
     },
     plugins: [
-      new CleanWebpackPlugin([OUTPUT_PATH], { verbose: true }),
-      new CopyWebpackPlugin([...assets]),
       new HtmlWebpackPlugin({
         template: INDEX_TEMPLATE,
+        chunksSortMode: "none",
         minify: {
           collapseWhitespace: true,
           removeComments: true,
@@ -195,7 +192,6 @@ const productionConfig = merge([
           minifyJS: true
         }
       }),
-      new CompressionPlugin({ test: /\.js(\.map)?$/i }),
       ...analyzeConfig
     ]
   }
