@@ -1,6 +1,7 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 <link rel="import" href="../bedrock-externalref-falcor/bedrock-externalref-falcor.html">
 <link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-managers/local-storage-manager.html">
 
 <script>
   /*
@@ -41,9 +42,11 @@
         }
       }
     },
+
     getCallCounters: function () {
       return JSON.stringify(this.callCounters);
     },
+
     updateCallCounters: function (operation) {
 
       if (this.callCounters === undefined) {
@@ -85,28 +88,18 @@
       return value;
     },
     
-    getLocalStorageCacheKey: function (channelName) {
+    getCacheScope: function (channelName) {
       let userId = DataHelper.getUserId();
       let tenantId = DataHelper.getTenantId();
       let rv = SharedUtils.RuntimeVersionManager.getVersion();
       let mv = SharedUtils.ModuleVersionManager.getVersion(channelName);
-      return "".concat("data:", channelName, "#@#tenant:", tenantId, "#@#user:", userId, "#@#runtime-version:", rv, "#@#module-version:", mv);
-    },
-    
-    cleanupObsoletedLocalStorage: function (channelName, excludeKey) {
-      let userId = DataHelper.getUserId();
-      let tenantId = DataHelper.getTenantId();
-      let keysToRemove = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        let key = localStorage.key(i);
-        if (key != excludeKey && key.startsWith("data:" + channelName + "#@#tenant:" + tenantId + "#@#user:" + userId) > 0) {
-          keysToRemove.push(key);
-        }
-      }
 
-      for (let i = 0; i < keysToRemove.length; i++) {
-        localStorage.removeItem(keysToRemove[i]);
-      }
+      return {
+        "tenantId": tenantId,
+        "userId": userId,
+        "runtime-version": rv,
+        "module-version": mv
+      };
     },
     
     clearAllCache: function () {
@@ -158,8 +151,8 @@
       _debouncer = Polymer.Debouncer.debounce(_debouncer, Polymer.Async.timeOut.after(debounceDuration), () => {
         let falcorCacheData = dataChannel.getModel(channelName).getCache();
         if (falcorCacheData) {
-          let cacheKey = dataChannel.getLocalStorageCacheKey(channelName);
-          localStorage.setItem(cacheKey, JSON.stringify(falcorCacheData, dataChannel.falcorCacheSerializer));
+          let dataAsString = JSON.stringify(falcorCacheData, dataChannel.falcorCacheSerializer);
+          LocalStorageManager.set(channelName, dataChannel.getCacheScope(channelName), dataAsString);
         }
       });
     },
@@ -177,9 +170,9 @@
 
       let cacheChangeEvent = undefined;
 
-      let dataStorageEnabled = localStorage.getItem("data-storage-enabled");
+      let noDataStorage = LocalStorageManager.get("no-data-storage");
 
-      let offlineStoreEnabled = channelConfig.offlineStore && dataStorageEnabled == "true";
+      let offlineStoreEnabled = channelConfig.offlineStore && (!(noDataStorage && noDataStorage == "true"));
 
       if (offlineStoreEnabled) {
         cacheChangeEvent = dataChannel[channelConfig.cacheChangeCallback];
@@ -201,9 +194,7 @@
       }
 
       if (offlineStoreEnabled) {
-        let cacheKey = this.getLocalStorageCacheKey(channelName);
-        this.cleanupObsoletedLocalStorage(channelName, cacheKey);
-        let localStorageData = localStorage.getItem(cacheKey);
+        let localStorageData = LocalStorageManager.get(channelName, this.getCacheScope(channelName), true);
         if (localStorageData) {
           model.setCache(JSON.parse(localStorageData));
         }
