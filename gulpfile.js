@@ -215,6 +215,10 @@ async function clientBuild(relativeBuildPath, bundle, isES5, isDev) {
   });
 };
 
+async function copyPolymerOverrides(buildPath) {
+  return await gulp.src('./src/polymer-overrides/**/*').pipe(gulp.dest(buildPath + '/bower_components/polymer/'));
+}
+
 gulp.task('eslint-src', function() {
   return gulp.src(['src/**/*.*'])
     .pipe(eslint())
@@ -257,9 +261,13 @@ gulp.task('prod-build-wrap-up', function () {
   });
 });
 
-gulp.task('prod-client-build', gulp.series('eslint-src', 'prod-es5-bundled-build', 'prod-es6-bundled-build', 'prod-es6-unbundled-build'));
-gulp.task('dev-build', gulp.series('eslint-src', 'prod-delete', 'prod-server-build', 'prod-es5-bundled-build', 'dev-es6-bundled-build', 'prod-es6-unbundled-build'));
-gulp.task('default', gulp.series('eslint-src', 'prod-delete', 'prod-server-build', 'prod-es6-bundled-build', 'prod-es6-unbundled-build', 'prod-build-wrap-up'));
+gulp.task('copy-polymer-overrides', async function() {
+  return await copyPolymerOverrides('.');
+});
+
+gulp.task('prod-client-build', gulp.series('eslint-src', 'prod-es5-bundled-build', 'copy-polymer-overrides', 'prod-es6-bundled-build', 'prod-es6-unbundled-build'));
+gulp.task('dev-build', gulp.series('eslint-src', 'prod-delete', 'prod-server-build', 'copy-polymer-overrides', 'prod-es5-bundled-build', 'dev-es6-bundled-build', 'prod-es6-unbundled-build'));
+gulp.task('default', gulp.series('eslint-src', 'prod-delete', 'prod-server-build', 'copy-polymer-overrides', 'prod-es6-bundled-build', 'prod-es6-unbundled-build', 'prod-build-wrap-up'));
 
 //gulp.task('default', gulp.series('prod-delete', 'prod-server-build', 'prod-es5-bundled-build', 'prod-es6-bundled-build', 'prod-build-wrap-up'));
 
