@@ -360,7 +360,7 @@ BaseModelService.prototype = {
 
             if (!isEmpty(entityType)) {
                 // get entity type model "<entity type name>_entityTypeModel"
-                let entityTypeModel = await modelGetManager.getCompositeModel("entityType");
+                let entityTypeModel = await modelGetManager.getCompositeModel(entityType);
                 let entityTypeEntities = await modelGetManager.getModels([entityType + "_entityType"], "entityType");
 
                 if (entityTypeEntities) {
