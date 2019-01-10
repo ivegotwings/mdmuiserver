@@ -371,6 +371,7 @@ BaseModelService.prototype = {
                             entityTypeModel = {};
                         }
 
+                        entityTypeModel.id = entityTypeEntity.name + "_" + entityTypeEntity.type;
                         entityTypeModel.type = entityTypeEntity.type;
                         entityTypeModel.name = entityTypeEntity.name;
                         entityTypeModel.domain = entityTypeEntity.domain;
