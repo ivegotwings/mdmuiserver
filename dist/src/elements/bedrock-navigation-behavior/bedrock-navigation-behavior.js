@@ -1,3 +1,5 @@
+import NavigationManager from '../bedrock-managers/navigation-manager.js';
+
 window.RUFBehaviors = window.RUFBehaviors || {};
 
 /** @polymerBehavior RUFBehaviors.NavigationBehavior */

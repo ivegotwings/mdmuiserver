@@ -25,6 +25,7 @@ import '../rock-entity-search-result/rock-entity-search-result.js';
 import '../rock-business-actions/rock-business-actions.js';
 import '../rock-entity-quick-manage/rock-entity-quick-manage.js';
 import '../rock-component-config-behavior/rock-component-config-behavior.js';
+import EntityTypeManager from '../bedrock-managers/entity-type-manager.js';
 import { flush } from '@polymer/polymer/lib/legacy/polymer.dom.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockEntitySearchDiscovery
@@ -920,15 +921,13 @@ extends mixinBehaviors([
       if(inputQueryString && (inputQueryString.substring(0, 4) == "show"){
           this.inputQueryString = this._searchBarElement.query;
       } */
-      this.importHref(this.resolveUrl(
-              '../rock-query-builder/rock-query-builder.html'),
-          () => {
+      import('../rock-query-builder/rock-query-builder.js').then(() => {
               let queryBuilder = this.shadowRoot.querySelector("#queryBuilder");
               if (queryBuilder) {
                   queryBuilder.onOpenQueryBuilder();
               }
               this._queryBuilderEnabled = true;
-          }, null, true);
+          });
   }
 
   _hideQueryBuilder(e) {

@@ -121,3 +121,5 @@ class NavigationManager {
     }
 
 }
+
+export default NavigationManager;
