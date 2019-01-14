@@ -16,6 +16,7 @@ import '../liquid-entity-model-get/liquid-entity-model-get.js';
 import '../liquid-dataobject-utils/liquid-dataobject-utils.js';
 import '../rock-component-config-behavior/rock-component-config-behavior.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
+import LocalStorageManager from '../bedrock-managers/local-storage-manager.js';
 
 class RuntimeVersionManager {
     static get DEFAULT_VERSION() {

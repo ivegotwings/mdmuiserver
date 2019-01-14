@@ -4,6 +4,7 @@ import '../bedrock-helpers/data-helper.js';
 import '../bedrock-managers/local-storage-manager.js';
 import { Debouncer } from '@polymer/polymer/lib/utils/debounce.js';
 import { timeOut } from '@polymer/polymer/lib/utils/async.js';
+import LocalStorageManager from '../bedrock-managers/local-storage-manager.js';
 
 window.RUFBehaviors = window.RUFBehaviors || {};
 

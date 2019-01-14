@@ -7,6 +7,8 @@ import '../bedrock-helpers/data-helper.js';
 import '../bedrock-helpers/data-request-helper.js';
 import '../bedrock-helpers/data-transform-helper.js';
 import '../liquid-entity-data-get/liquid-entity-data-get.js';
+import LocalStorageManager from '../bedrock-managers/local-storage-manager.js';
+
 class LocaleManager {
     constructor() {
         this.entityType = "locale";

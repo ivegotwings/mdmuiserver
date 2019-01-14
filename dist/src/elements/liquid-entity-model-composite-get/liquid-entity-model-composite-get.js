@@ -11,7 +11,6 @@ import '@polymer/polymer/polymer-legacy.js';
 import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '../liquid-base-behavior/liquid-base-behavior.js';
 import '../liquid-entity-model-get/liquid-entity-model-get.js';
-import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 
 class LiquidEntityModelCompositeGet

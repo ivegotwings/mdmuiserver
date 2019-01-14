@@ -87,3 +87,5 @@ class LocalStorageManager {
         return value;
     }
 }
+
+export default LocalStorageManager;
