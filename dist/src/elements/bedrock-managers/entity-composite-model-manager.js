@@ -6,6 +6,7 @@ import '../bedrock-helpers/data-transform-helper.js';
 import '../bedrock-helpers/data-helper.js';
 import '../bedrock-helpers/component-helper.js';
 import '../bedrock-helpers/data-merge-helper.js';
+import ContextModelManager from '../bedrock-managers/context-model-manager.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class EntityCompositeModelManager
     extends mixinBehaviors([
@@ -214,3 +215,5 @@ class EntityCompositeModelManager
 }
 
 customElements.define(EntityCompositeModelManager.is, EntityCompositeModelManager);
+
+export default EntityCompositeModelManager

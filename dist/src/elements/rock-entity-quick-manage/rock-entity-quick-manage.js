@@ -35,6 +35,7 @@ import '../rock-entity-quick-manage-elements/rock-entity-quick-manage-elements.j
 import '../rock-tabs/rock-tabs.js';
 import '../rock-image-viewer/rock-image-viewer.js';
 import '../bedrock-component-context-behavior/bedrock-component-context-behavior.js';
+import EntityCompositeModelManager from '../bedrock-managers/entity-composite-model-manager.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockEntityQuickManage extends mixinBehaviors([RUFBehaviors.UIBehavior,
     RUFBehaviors.ComponentContextBehavior, RUFBehaviors.ComponentConfigBehavior
