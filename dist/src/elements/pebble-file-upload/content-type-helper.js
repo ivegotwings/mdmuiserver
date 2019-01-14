@@ -1,4 +1,4 @@
-ContentTypeUtils = {};
+let ContentTypeUtils = {};
 
 ContentTypeUtils.PopulateMaps = function() {
     
@@ -6807,7 +6807,7 @@ ContentTypeUtils.PopulateMaps = function() {
     return mappings;
 };
 
-ContentTypeHelper = {};
+let ContentTypeHelper = {};
 
 ContentTypeHelper.isLoaded = false;
 
@@ -6882,3 +6882,4 @@ ContentTypeHelper.load = function () {
         ContentTypeHelper.isLoaded = true;
     }
 }
+export default ContentTypeHelper;
