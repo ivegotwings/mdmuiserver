@@ -4,7 +4,6 @@ import '@polymer/polymer/lib/utils/debounce.js';
 import '../bedrock-datachannel/bedrock-datachannel.js';
 import '../bedrock-helpers/element-helper.js';
 import '../bedrock-helpers/data-helper.js';
-import '../bedrock-type-extensions/string-extensions.js';
 import '../liquid-dataobject-utils/liquid-dataobject-utils.js';
 import '../liquid-base-behavior/liquid-base-behavior.js';
 import '../app-main/ProgressTracker.js';
