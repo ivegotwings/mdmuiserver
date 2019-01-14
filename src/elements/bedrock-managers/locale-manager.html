@@ -76,8 +76,6 @@
                     let entities = res.content.entities;
                     let formattedEntities = DataTransformHelper.transformLocaleEntitiesToLocalesJson(entities, this.localeColumnMapCollection, this.relationshipType, this.relationshipAttribute, this.fallbackLocalesThreshold);
                     this.setLocalesJson(formattedEntities);
-                    performance.mark("localeloadstop");
-                    performance.measure("localeloadtimings", "localeloadstart", "localeloadstop");
                 } else {
                     this.setLocalesJson([]);
                     console.error("locale-manager - Locales get response error", e.detail);
@@ -156,8 +154,8 @@
             return locales;
         }
 
-        async preload(skipLocalStorage) {
-            return await this._getDataFromLiquid(skipLocalStorage);
+        async preload(skipOfflineCache) {
+            return await this._getDataFromLiquid(skipOfflineCache);
         }
 
         _getByProp(propName, propValue) {
@@ -166,20 +164,17 @@
             }
         }
 
-        _getDataFromLiquid(skipLocalStorage = false) {
+        _getDataFromLiquid(skipOfflineCache = false) {
             return new Promise((resolve, reject) => {
-                performance.mark("localeloadstart");
-                if (isEmpty(this.localesJson) && !skipLocalStorage) {
-                    let localStorageData = localStorage.getItem(this.getLocalStorageCacheKey());
-                    if (!_.isEmpty(localStorageData)) {
-                        let localesJson = JSON.parse(localStorageData);
+                if (isEmpty(this.localesJson) && !skipOfflineCache) {
+                    let cachedData = LocalStorageManager.get("locales-master", this.getCacheScope());
+                    if (!_.isEmpty(cachedData)) {
+                        let localesJson = JSON.parse(cachedData);
                         this.localesJson = localesJson;
-                        performance.mark("localeloadstop");
-                        performance.measure("localeloadtimings", "localeloadstart", "localeloadstop");
                         if (resolve) {
                             resolve();
                         }
-                    } 
+                    }
                 }
 
                 if (isEmpty(this.localesJson)) {
@@ -192,14 +187,17 @@
             this.localesJson = localesJson;
             
             if(!_.isEmpty(localesJson)) {
-                localStorage.setItem(this.getLocalStorageCacheKey(), JSON.stringify(localesJson));
+                LocalStorageManager.set("locales-master", this.getCacheScope(), JSON.stringify(localesJson), true);
             }
         }
 
-        getLocalStorageCacheKey() {
+        getCacheScope() {
             let rv = SharedUtils.RuntimeVersionManager.getVersion();
             let tenantId = DataHelper.getTenantId();
-            return "".concat("data:locales-master#@#tenant:", tenantId, "#@#runtime-version:", rv);
+            return {
+                "tenantId": tenantId,
+                "runtime-version": rv
+            };
         }
     }
 

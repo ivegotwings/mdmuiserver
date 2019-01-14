@@ -157,6 +157,7 @@ module.exports = {
         "LiquidResponse": true,
         "LiquidRequest": true,
         "LiquidOperationBase": true,
-        "FalcorManager": true
+        "FalcorManager": true,
+        "LocalStorageManager": true
     }
 };

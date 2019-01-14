@@ -58,6 +58,10 @@ let DFServiceBase = function (options) {
         let hrstart = process.hrtime();
         let internalRequestId = logger.logRequest(serviceName, options);
 
+        if (request) {
+            request.requestGroupId = internalRequestId;
+        }
+
         let reqPromise = this._restRequest(options)
             .catch(function (error) {
                 logger.logException(internalRequestId, serviceName, options, error);
@@ -76,7 +80,8 @@ let DFServiceBase = function (options) {
                 result.body.response = result.body.response || {};
                 result.body.response.status = 'error';
                 result.body.response.statusDetail = {};
-                result.body.response.statusDetail.message = 'Server is busy, please try after some time.'
+                result.body.response.statusDetail.message = 'Server is busy, please try after some time.';
+                result.body.response.requestId = result.body.response.requestId || internalRequestId;
             }
             result = result.body;
         } else {
