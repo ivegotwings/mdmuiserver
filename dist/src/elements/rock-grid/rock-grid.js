@@ -243,16 +243,836 @@ extends mixinBehaviors([
     static get is() {
 				return 'rock-grid';
     }
+
+    static get template() {
+        return html`
+		<style include="bedrock-style-common bedrock-style-gridsystem bedrock-style-grid-layout bedrock-style-icons bedrock-style-padding-margin bedrock-style-buttons bedrock-style-paper-listbox bedrock-style-list">
+			:host {
+				display: block;
+				height: 100%;
+			}
+
+			pebble-data-table {
+				--pebble-data-table-header: {
+					min-height: 40px;
+					padding-top: 10px;
+					padding-right: 0;
+					padding-bottom: 10px;
+					padding-left: 0;
+				}
+
+				--pebble-data-table-row-odd: {
+					background-color: var(--secondary-button-color, #ffffff);
+				}
+			}
+
+			pebble-data-table[loading] {
+				pointer-events: none;
+			}
+
+			data-table-row[header] {
+				font-weight: var(--font-bold, bold);
+				color: var(--palette-cerulean, #036bc3);
+				border-bottom: none;
+				text-transform: uppercase;
+				font-size: var(--table-head-font-size, 11px);
+				@apply --nested-grid-font-size;
+			}
+
+			data-table-row:not([header]) {
+				color: var(--palette-dark, #1a2028);
+				font-size: var(--default-font-size, 12px);
+				height: 100%;
+				background-color: var(--palette-white, #ffffff);
+			}
+
+			data-table-row:not([header]):hover,
+			data-table-row[selected] {
+				background-color: var(--table-row-selected-color, #c1cad4) !important;
+			}
+
+			data-table-row.value-updated {
+				background-color: var(--edit-attribute-bgcolor, #EDF8FE) !important;
+			}
+
+			rock-attribute.value-duplicated {
+				border-bottom: 1px solid var(--error-color, #ed204c);
+			}
+
+			data-table-row:not([header]):hover data-table-checkbox,
+			data-table-row[selected] data-table-checkbox {
+				background-color: var(--palette-white, #ffffff) !important;
+			}
+
+
+			#pebbleGridContainer {
+				height: auto;
+				min-height: 0px;
+				font-family: var(--default-font-family);
+				font-size: var(--default-font-size, 12px);
+				margin-left: 20px;
+				margin-right: 20px;
+				@apply --pebble-grid-container;
+			}
+
+			#pebbleGridContainer grid-list-view {
+				--pebble-grid-list-container: {
+					will-change: unset;
+					transform: none !important;
+					-ms-transform: none !important;
+					-webkit-transform: none !important;
+				}
+			}
+
+			#gridHeader {
+				justify-content: space-between;
+				align-items: center;
+				font-family: var(--default-font-family);
+				font-size: var(--default-font-size, 12px);
+				padding: 10px 20px 10px 20px;
+				color: var(--palette-steel-grey, #75808b);
+				@apply --pebble-grid-container-header;
+			}
+
+			#gridHeader #title,
+			#selection-title {
+				font-weight: var(--font-bold, bold);
+				color: var(--palette-dark, #1a2028);
+			}
+
+			pebble-vertical-divider {
+				min-width: 1px;
+				min-height: 18px;
+				border-right: 0;
+				background: var(--divider-color, #c1cad4);
+			}
+
+			paper-dropdown-menu {
+				width: 90px;
+
+				--paper-input-container: {
+					padding-top: 0px;
+					padding-right: 0px;
+					padding-bottom: 0px;
+					padding-left: 0px;
+				}
+
+				--paper-input-container-underline: {
+					display: none;
+				}
+
+				--paper-input-container-underline-focus: {
+					display: none;
+				}
+
+				--paper-dropdown-menu-icon: {
+					color: var(--palette-steel-grey, #75808b);
+					margin-top: -5px;
+				}
+
+				--paper-input-container-input: {
+					color: var(--palette-steel-grey, #75808b);
+					font-size: var(--dropdown-inside-grid-size, 12px);
+					vertical-align: top !important;
+					line-height: 20px !important;
+					padding-left: var(--gutter-width, 5px);
+				}
+			}
+
+			data-table-checkbox {
+				border-right: none;
+				padding: 0 10px 0 0;
+				height: 40px;
+				flex-basis: 35px;
+				background: var(--palette-white, #ffffff);
+				justify-content: flex-start;
+			}
+
+			data-table-cell,
+			data-table-cell[header] {
+				padding: 0px 10px 0px 0;
+				min-width: 0 !important;
+				flex-basis: 150px;
+				/* Set minimum width for columns */
+				@apply --data-table-cell-width;
+			}
+
+			data-table-cell:not([header]) [slot=cell-slot-content] {
+				width: 100%;
+
+			}
+
+			data-table-cell.fixedWidth [slot=cell-slot-content] {
+				display: flex;
+				justify-content: center;
+			}
+
+			data-table-cell[header] {
+				font-size: var(--font-size-sm, 12px);
+				color: var(--palette-cerulean, #036bc3);
+				text-transform: uppercase;
+				cursor: default;
+				height: 40px;
+				align-items: center;
+				@apply --nested-grid-font-size;
+			}
+
+			data-table-row:not([header]) data-table-cell {
+				min-height: 40px !important;
+				height: 40px !important;
+				z-index: auto !important;
+			}
+
+			.check-filter {
+				flex-basis: 35px !important;
+				flex-grow: 0 !important;
+				overflow: visible !important;
+				position: relative;
+				padding: 0;
+			}
+
+			grid-selection-popover {
+				position: absolute;
+				left: 20px;
+				top: auto;
+			}
+
+			pebble-data-table {
+				--pebble-data-table-header: {
+					height: auto;
+				}
+			}
+
+			.attribute {
+				width: 100%;
+
+				--attribute-main: {
+					padding-top: 0px;
+					padding-right: 0px;
+					padding-bottom: 0px;
+					padding-left: 0px;
+				}
+
+				--attribute-edit: {
+					margin-top: -4px;
+				}
+
+				--textarea-container: {
+					padding-top: 0px;
+					padding-right: 0px;
+					padding-bottom: 0px;
+					padding-left: 0px;
+				}
+
+				--paper-input-container-input: {
+					min-height: 30px;
+				}
+			}
+
+			#pebbleGridContainer data-table-row data-table-cell data-table-column-sort {
+				--data-table-column-sort-order: {
+					display: none !important;
+				}
+			}
+
+			#pebbleGridContainer data-table-row data-table-cell pebble-button {
+				--pebble-button: {
+					margin-top: 5px;
+				}
+			}
+
+			data-table-column-sort {
+				--pebble-icon-opacity: {
+					opacity: 1;
+				}
+			}
+
+			paper-dropdown-menu {
+				--paper-menu-button-content: {
+					@apply --common-popup;
+					top: 0;
+					margin-top: var(--grid-header-height, 29px);
+					overflow: visible !important;
+				}
+			}
+
+			paper-listbox paper-item {
+				font-size: var(--font-size-sm, 12px);
+				color: var(--palette-steel-grey, #75808b);
+				min-height: 30px;
+				width: 120px;
+				height: 1px;
+			}
+
+			paper-listbox.dropdown-content {
+				padding: 12px 0px !important;
+			}
+
+			paper-listbox.dropdown-content paper-item {
+				@apply --popup-item;
+			}
+
+			paper-listbox.dropdown-content paper-item:hover,
+			paper-item.iron-selected {
+				--pebble-icon-color: {
+					fill: var(--focused-line, #026bc3);
+				}
+			}
+
+			paper-item.iron-selected {
+				font-weight: normal;
+			}
+
+			.trim {
+				display: inline-flex;
+				display: -webkit-inline-flex;
+				width: 30%;
+				text-overflow: ellipsis;
+				overflow: hidden;
+				white-space: nowrap;
+			}
+
+			pebble-actions {
+				padding-left: 10px;
+				padding-right: 10px;
+				height: 32px;
+
+				--pebble-button: {
+					background-color: var(--palette-white, #ffffff);
+					color: var(--color-steal-grey, #75808b) !important;
+				}
+			}
+
+			.error-circle {
+				height: 18px;
+				width: 18px !important;
+				line-height: 18px;
+				text-align: center;
+				border-radius: 50%;
+				background: var(--error-color, #ed204c);
+				font-size: 9px;
+				float: right;
+				color: var(--palette-white, #ffffff);
+			}
+
+			.warning-circle {
+				height: 18px;
+				width: 18px !important;
+				line-height: 18px;
+				text-align: center;
+				border-radius: 50%;
+				background: var(--warning-color, #f78e1e);
+				font-size: 9px;
+				float: right;
+				color: var(--palette-white, #ffffff);
+			}
+
+			.edit-options {
+				display: none;
+			}
+
+			.edit-options pebble-button {
+				vertical-align: top;
+				margin-top: 5px;
+			}
+
+			.edit-options.show {
+				display: block;
+			}
+
+			#gridHeader .grid-actions {
+				align-items: center;
+				@apply --rock-grid-actions;
+			}
+
+			.cell {
+				font-size: 14px;
+				display: inline-block;
+				vertical-align: middle;
+				max-height: 100px;
+				overflow-y: auto;
+				max-width: 100%;
+			}
+
+			#title {
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				text-align: left;
+				padding-right: 5px;
+			}
+
+			#selection-title {
+				flex: 1;
+				text-align: left;
+				white-space: nowrap
+			}
+
+			paper-dropdown-menu {
+				--paper-menu-button-dropdown: {
+					margin-top: 40px;
+				}
+			}
+
+			#pebbleGridContainer pebble-data-table data-table-cell .cell {
+				overflow: visible;
+			}
+
+			#pebbleGridContainer pebble-data-table data-table-cell span {
+				text-overflow: ellipsis;
+				white-space: nowrap;
+				overflow: hidden;
+				display: block;
+			}
+
+			.msg {
+				text-align: center;
+			}
+
+			.image-container {
+				width: 30px;
+				height: 30px;
+			}
+
+			.fallback-value {
+				color: var(--color-variant-1);
+			}
+
+			.disabled-value {
+				color: var(--palette-steel-grey, #75808b);
+			}
+
+			.coalesced-value {
+				font-style: italic;
+			}
+
+			.view-source-information-popover {
+				font-weight: normal;
+				text-transform: initial;
+				text-align: left;
+				margin-left: -12px;
+				margin-top: 7px;
+				--default-popup-b-p: 5px;
+				--default-popup-t-p: 5px;
+				--default-font-size: 12px;
+				width: 180px;
+			}
+
+			.view-source-information-popover::after,
+			.view-source-information-popover::before {
+				bottom: 100%;
+				left: 20px;
+				border: solid transparent;
+				content: " ";
+				height: 0;
+				width: 0;
+				position: absolute;
+				pointer-events: none;
+			}
+
+			.view-source-information-popover::after {
+				border-color: rgba(255, 255, 255, 0);
+				border-bottom-color: #ffffff;
+				border-width: 6px;
+				margin-left: -6px;
+			}
+
+			.view-source-information-popover::before {
+				border-color: rgba(194, 225, 245, 0);
+				border-bottom-color: rgb(216, 221, 228);
+				border-width: 7px;
+				margin-left: -7px;
+			}
+
+			.source-information-header,
+			.source-information-description,
+			.source-information-path {
+				padding-left: 10px;
+				padding-right: 10px;
+			}
+
+			.source-information-header {
+				font-weight: bold;
+				border-bottom: thin solid rgb(216, 221, 228);
+				padding-bottom: 3px;
+			}
+
+			.source-information-path {
+				margin-top: 10px;
+				margin-bottom: 0px;
+			}
+
+			.source-information-path .path-item {
+				color: var(--link-text-color, #139ee7);
+				display: inline-block;
+			}
+
+			.source-information-path .path-item::after {
+				content: " >>";
+				color: var(--default-text-color, #444444);
+			}
+
+			.source-information-path .path-item:last-of-type::after {
+				content: "";
+			}
+
+			li {
+				text-align: inherit;
+			}
+
+			.actionsPopover {
+				@apply --pebble-actions-popover;
+				width: 30px !important;
+				--default-popup-t-p: 5px;
+				--default-popup-b-p: 5px;
+			}
+
+			pebble-popover paper-item {
+				cursor: pointer;
+				font-size: var(--default-font-size, 14px);
+				min-height: 40px;
+				color: var(--palette-steel-grey, #75808b);
+				text-align: left;
+				transition: all 0.3s;
+				-webkit-transition: all 0.3s;
+				padding-left: var(--default-popup-item-l-p, 20px);
+				padding-right: var(--default-popup-item-r-p, 20px);
+			}
+
+			pebble-popover paper-item:hover {
+				background-color: var(--bgColor-hover, #e8f4f9);
+				color: var(--focused-line, #026bc3);
+			}
+
+			pebble-popover paper-item:focus {
+				color: var(--primary-button-color, #036bc3);
+				background-color: var(--bgColor-hover, #e8f4f9);
+			}
+
+			pebble-popover paper-item pebble-icon:hover {
+				color: var(--focused-line, #026bc3) !important;
+			}
+
+			pebble-icon {
+				padding: 0;
+				color: var(--primary-icon-color, #75808b);
+				color: var(--palette-steel-grey, #75808b);
+			}
+
+			data-table-cell[header] [slot=cell-slot-content] {
+				position: relative;
+				padding-right: 15px;
+				max-width: calc(100% - 14px);
+			}
+
+			data-table-cell[header] [slot=cell-slot-content] .cell-content-text {
+				max-width: 100%;
+				cursor: default;
+			}
+
+			data-table-cell[header] [slot=cell-slot-content] pebble-info-icon {
+				position: absolute;
+				top: 1px;
+				right: 0px;
+			}
+
+			.grid-header-wrapper {
+				height: 100%;
+			}
+
+			.relationshipDialog-content {
+				overflow-y: auto;
+				overflow-x: auto;
+				height: 50vh;
+			}
+
+			.overflow-auto {
+				overflow: auto;
+			}
+		</style>
+		<template is="dom-if" if="{{_dataIsNotNull(config, attributeModels)}}" restamp>
+			<div class="base-grid-structure">
+				<div class="base-grid-structure-child-1">
+					<template is="dom-if" if="[[!noHeader]]">
+						<div class="grid-header-wrapper">
+							<div id="gridHeader" align="right" class="row">
+								<div id="title" title="[[title]]">[[title]]</div>
+								<div id="selection-title" title="[[selectionTitle]]">[[selectionTitle]]</div>
+								<div class="grid-actions row">
+									<!-- Toolbar slot -->
+									<template is="dom-if" if="[[!hideToolbar]]">
+										<slot slot="toolbar" name="toolbar"></slot>
+										<template is="dom-if" if="[[_isToolbarSlotEmpty()]]">
+											<rock-toolbar-default-actions id="gridActions" domain="[[domain]]" context-data="[[contextData]]"></rock-toolbar-default-actions>
+										</template>
+									</template>
+									<bedrock-pubsub event-name="rock-toolbar-button-event" handler="_onToolbarEvent" target-id="gridActions"></bedrock-pubsub>
+									<bedrock-pubsub event-name="on-page-range-requested" handler="_setPageRange" target-id="gridActions"></bedrock-pubsub>
+									<template is="dom-if" if="[[!hideViewSelector]]">
+										<pebble-vertical-divider class="m-l-10 m-r-5"></pebble-vertical-divider>
+										<paper-dropdown-menu id="viewMode" label="{{config.viewMode}}" no-label-float title="View Mode">
+											<paper-listbox slot="dropdown-content" class="dropdown-content" attr-for-selected="value" selected="{{config.viewMode}}">
+												<paper-item value="Tabular">
+													<pebble-icon icon="pebble-icon:view-tabular" class="pebble-icon-size-16 m-r-10"></pebble-icon>Tabular
+												</paper-item>
+												<paper-item value="List">
+													<pebble-icon icon="pebble-icon:view-list" class="pebble-icon-size-16 m-r-10"></pebble-icon>List
+												</paper-item>
+												<paper-item value="Tile">
+													<pebble-icon icon="pebble-icon:view-tile" class="pebble-icon-size-16 m-r-10"></pebble-icon>Tile
+												</paper-item>
+											</paper-listbox>
+										</paper-dropdown-menu>
+									</template>
+								</div>
+							</div>
+						</div>
+					</template>
+				</div>
+				<div id="pebbleGridContainer" class="base-grid-structure-child-2">
+					<template is="dom-if" if="{{_isTabularMode(config.viewMode)}}" restamp>
+						<div hidden="[[_configPresent('tabular')]]" class="msg default-message">Tabular view of grid not configured.</div>
+						<template is="dom-if" if="[[_configPresent('tabular')]]">
+							<pebble-data-table id=[[id]] min-filter-length="[[minFilterLength]]" advance-selection-options="[[config.advanceSelectionOptions]]" advance-selection-enabled="[[config.advanceSelectionEnabled]]" selection-info="{{selectionInfo}}" page-size="[[pageSize]]" size="[[gridDataSize]]" selection-enabled="[[selectionEnabled]]" multi-selection="[[config.itemConfig.isMultiSelect]]" r-data-source="[[rDataSource]]" items="[[data]]" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" sort-order="{{sortOrder}}" disable-select-all="[[config.itemConfig.disableSelectAll]]" on-row-dbl-clicked="_rowDblClicked" rows="[[config.itemConfig.rows]]" on-row-drop-event="_onRowDropEvent" row-drag-drop-enabled="[[rowDragDropEnabled]]" enable-column-select="[[enableColumnSelect]]" enable-column-multi-select="[[enableColumnMultiSelect]]">
+
+								<data-table-column slot="column-slot" classes="fixedWidth" name="Actions" width="70px" flex="0" hidden$="[[!_showActions(config.mode)]]">
+									<template>
+										<div slot="cell-slot-content">
+											<template is="dom-repeat" id="actionsDomRepeat" items="[[_getActions(config.mode, item)]]" as="action" index-as="colIndex">
+												<pebble-icon id="actions_container_[[item.id]]" class="actionButton pebble-icon-size-16" icon="[[_actionValue(action)]]" on-tap="_fireActionEvent" item="[[item]]" index="[[index]]" action-index="[[colIndex]]"></pebble-icon>
+												<template is="dom-if" if="[[_hasPopoverInfo(action)]]">
+													<pebble-popover class="view-source-information-popover" id="action_[[item.id]]_sourceInfo-popover" for="actions_container_[[item.id]]">
+														<div class="attributes-description">
+															<div class="source-information-header">Source Information</div>
+															<div class="source-information-description">This value was sourced from the following path</div>
+															<template is="dom-if" if="[[_hasContextCoalescedValue(item)]]">
+																<ul class="source-information-path">
+																	Context:
+																	</br>
+																	<template is="dom-repeat" items="[[item.contextCoalescePaths]]" as="coalescePath">
+																		<li class="path-item">[[coalescePath]]</li>
+																	</template>
+																</ul>
+															</template>
+															<template is="dom-if" if="[[_hasRelatedEntityCoalescedValue(item)]]">
+																<ul class="source-information-path">
+																	Related Entity:
+																	</br>
+																	<div id="related-entity-info">Calculating . . .</div>
+																</ul>
+															</template>
+														</div>
+													</pebble-popover>
+												</template>
+											</template>
+										</div>
+									</template>
+									<span id="error-circle[[index]]" class="error-circle" hidden name="error-circle" item="[[item]]" index="[[index]]" on-tap="_openPopover" on-mouseenter="_openPopover">
+									</span>
+								</data-table-column>
+
+								<data-table-column slot="column-slot" name="Status" classes="fixedWidth" width="60px" flex="0" hidden$="[[!_isStatusEnabled(config.statusEnabled, config.mode)]]">
+									<template>
+										<pebble-icon slot="cell-slot-content" id="rowStatus" class="pebble-icon-size-16" icon="{{_getRowStatusIcon(item)}}"></pebble-icon>
+									</template>
+								</data-table-column>
+
+								<data-table-column slot="column-slot" name="" classes="fixedWidth" width="60px" flex="0" hidden$="[[!_inlineValidationEnabled]]">
+									<template>
+										<span slot="cell-slot-content" hidden id="error-circle[[index]]" class="error-circle" name="error-circle" item="[[item]]" index="[[index]]" on-tap="_openPopover" on-mouseover="_openPopover">
+										</span>
+										<span slot="cell-slot-content" hidden id="warning-circle[[index]]" class="warning-circle" name="warning-circle" item="[[item]]" index="[[index]]" on-tap="_openPopover" on-mouseover="_openPopover">
+										</span>
+									</template>
+								</data-table-column>
+
+								<template is="dom-if" if="[[config.readOnly]]" restamp>
+									<template is="dom-repeat" items="[[_fields]]" as="col" index-as="colIndex">
+										<template is="dom-if" if="[[col.visible]]">
+
+											<template is="dom-if" if="{{_isIconColumn(col)}}">
+												<data-table-column slot="column-slot" classes="fixedWidth" flex="0" width="70px" name="[[col.header]]" column-index="{{colIndex}}" filter-by="[[_isFilterEnabled(col)]]" sort-by="[[_isSortable(col)]]" sort-type="[[_getColumnSortType(col)]]" data-type="[[_getColumnDataType(col)]]" icon="pebble-icon:action-edit" class="pebble-icon-size-16" column-object="[[col]]" width="[[_getColWidth(col)]]">
+													<template>
+														<template is="dom-if" if="[[_hasLinkTemplate(column.columnObject, item)]]">
+															<template is="dom-if" if="[[_hasIcon(column.columnObject, item)]]">
+																<a slot="cell-slot-content" item="[[item]]" href="#" on-tap="_rowLinkClicked">
+																	<div class="cell" title$="[[_columnIconTooltip(item, column.columnIndex)]]">
+																		<pebble-icon icon="[[_columnIcon(item, column.columnIndex)]]" class="download-icon"></pebble-icon>
+																	</div>
+																</a>
+															</template>
+														</template>
+														<template is="dom-if" if="[[!_hasLinkTemplate(column.columnObject, item)]]">
+															<template is="dom-if" if="[[_hasIcon(column.columnObject, item)]]">
+																<div slot="cell-slot-content">
+																	<div class="cell" title$="[[_columnIconTooltip(item, column.columnIndex)]]">
+																		<pebble-icon icon="[[_columnValue(item, column.columnIndex)]]" class="pebble-icon-size-16"></pebble-icon>
+																	</div>
+																</div>
+															</template>
+														</template>
+													</template>
+												</data-table-column>
+											</template>
+											<template is="dom-if" if="{{!_isIconColumn(col)}}">
+												<data-table-column slot="column-slot" name="[[col.header]]" column-index="{{colIndex}}" filter-by="[[_isFilterEnabled(col)]]" sort-by="[[_isSortable(col)]]" sort-type="[[_getColumnSortType(col)]]" data-type="[[_getColumnDataType(col)]]" icon="pebble-icon:action-edit" class="pebble-icon-size-16" column-object="[[col]]" width="[[_getColWidth(col)]]">
+													<template>
+
+														<template is="dom-if" if="[[_isNestedAttribute(column.columnObject, item)]]">
+															<template is="dom-if" if="[[_getNestedAttributeValueCount(item, column.columnObject)]]">
+																<a slot="cell-slot-content" href="#" on-tap="_openNestedAttr" data="[[column.columnObject]]">
+																	<div class="cell" title$="click here to see values">
+																		<span> [[_getNestedAttributeMessage(item, column.columnObject, column.columnIndex)]] </span>
+																	</div>
+																</a>
+															</template>
+															<template is="dom-if" if="[[!_getNestedAttributeValueCount(item, column.columnObject)]]">
+																<div slot="cell-slot-content" class="cell" title$="[[_getEmptyDisplayValue(item)]]">
+																	<span> [[_getEmptyDisplayValue(item)]] </span>
+																</div>
+															</template>
+														</template>
+
+														<template is="dom-if" if="[[!_isNestedAttribute(column.columnObject, item)]]">
+															<template is="dom-if" if="[[_hasLinkTemplate(column.columnObject, item)]]">
+																<a slot="cell-slot-content" item="[[item]]" href="#" on-tap="_rowLinkClicked">
+																	<div class="cell" title$="[[_columnValue(item, column.columnIndex)]]">
+																		<span class$="[[_getCellClassValue(item, column.columnIndex)]]">[[_columnValue(item, column.columnIndex)]]</span>
+																	</div>
+																</a>
+																<template is="dom-if" if="[[_hasIcon(column.columnObject, item)]]">
+																	<a slot="cell-slot-content" item="[[item]]" href="#" on-tap="_rowLinkClicked">
+																		<div class="cell" title$="[[_columnIconTooltip(item, column.columnIndex)]]">
+																			<pebble-icon icon="[[_columnIcon(item, column.columnIndex)]]" class="pebble-icon-size-16 download-icon"></pebble-icon>
+																		</div>
+																	</a>
+																</template>
+															</template>
+
+
+															<template is="dom-if" if="[[!_hasLinkTemplate(column.columnObject, item)]]">
+																<!--Thumbnail and src will be computed and passed and rockimage viewer takes care of the value -->
+																<template is="dom-if" if="[[_hasImage(column.columnObject, item)]]">
+																	<div slot="cell-slot-content" class="cell" title$="[[_columnValue(item, column.columnIndex, column.columnObject)]]">
+																		<rock-image-viewer class="image-container" sizing="contain" src="[[_columnValue(item, column.columnIndex, column.columnObject)]]" thumbnail-id="[[_columnValue(item, column.columnIndex, column.columnObject)]]" asset-details="[[_getAssetDetails(item)]]">
+																		</rock-image-viewer>
+																	</div>
+																</template>
+																<template is="dom-if" if="[[!_hasImage(column.columnObject, item)]]">
+																	<div slot="cell-slot-content" title$="[[_columnValue(item, column.columnIndex)]]">
+																		<span class$="[[_getCellClassValue(item, column.columnIndex)]]">[[_columnValue(item, column.columnIndex)]]</span>
+																	</div>
+																</template>
+															</template>
+														</template>
+													</template>
+												</data-table-column>
+											</template>
+										</template>
+									</template>
+								</template>
+
+								<template is="dom-if" if="[[!config.readOnly]]" restamp>
+									<template is="dom-repeat" items="[[_fields]]" as="col" index-as="colIndex">
+										<template is="dom-if" if="[[col.visible]]">
+											<data-table-column width="" model-object="{{_getAttributeModelObject(col)}}" slot="column-slot" name="[[col.header]]" column-index="{{colIndex}}" filter-by="[[_isFilterEnabled(col)]]" sort-by="[[_isSortable(col)]]" sort-type="[[_getColumnSortType(col)]]" data-type="[[_getColumnDataType(col)]]" icon="pebble-icon:action-edit" class="pebble-icon-size-16" column-object="[[col]]" width="[[_getColWidth(col)]]">
+												<template>
+
+													<template is="dom-if" if="[[_hasLinkTemplate(column.columnObject, item)]]">
+														<a item="[[item]]" href="#" on-tap="_rowLinkClicked" slot="cell-slot-content">
+															<template is="dom-if" if="[[!column.columnObject.readOnly]]">
+																<rock-attribute index="[[index]]" context-data="[[_getContextData(column.columnIndex)]]" apply-locale-coalesce="[[applyLocaleCoalesce]]" apply-graph-coalesced-style$="[[applyGraphCoalescedStyle]]" item="[[item]]" row-index$="[[index]]" column-index$="[[column.columnIndex]]" functional-mode="grid" id="row[[index]]col[[column.columnIndex]]" class="attribute" mode="[[config.mode]]" attribute-model-object="[[column.modelObject]]" attribute-object="[[_getAttributeObject(item, column.modelObject, column.columnIndex, index)]]" dependent-attribute-model-objects="[[_getDependentAttributeModels(column.modelObject)]]" dependent-attribute-objects="[[_getDependentAttributes(item, column.modelObject, index)]]" on-attribute-value-changed="_updateValue"></rock-attribute>
+															</template>
+															<template is="dom-if" if="[[column.columnObject.readOnly]]">
+																<div title$="[[_columnValue(item, column.columnIndex)]]">
+																	<span class$="[[_getCellClassValue(item, column.columnIndex)]]">[[_columnValue(item, column.columnIndex)]]</span>
+																</div>
+															</template>
+														</a>
+													</template>
+													<template is="dom-if" if="[[!_hasLinkTemplate(column.columnObject, item)]]">
+														<template is="dom-if" if="[[!column.columnObject.readOnly]]">
+															<rock-attribute slot="cell-slot-content" index="[[index]]" context-data="[[_getContextData(column.columnIndex)]]" apply-locale-coalesce="[[applyLocaleCoalesce]]" apply-graph-coalesced-style$="[[applyGraphCoalescedStyle]]" item="[[item]]" row-index$="[[index]]" column-index$="[[column.columnIndex]]" functional-mode="grid" id="row[[index]]col[[column.columnIndex]]" class="attribute" mode="[[config.mode]]" attribute-model-object="[[column.modelObject]]" attribute-object="[[_getAttributeObject(item, column.modelObject, column.columnIndex, index)]]" dependent-attribute-model-objects="[[_getDependentAttributeModels(column.modelObject)]]" dependent-attribute-objects="[[_getDependentAttributes(item, column.modelObject, index)]]" tabindex="[[_getTabIndex()]]" on-attribute-value-changed="_updateValue"></rock-attribute>
+														</template>
+														<template is="dom-if" if="[[column.columnObject.readOnly]]">
+															<!--Thumbnail and src will be computed and passed and rockimage viewer takes care of the value -->
+															<template is="dom-if" if="[[_hasImage(column.columnObject, item)]]">
+																<div slot="cell-slot-content" class="cell" title$="[[_columnValue(item, column.columnIndex, column.columnObject)]]">
+																	<rock-image-viewer class="image-container" sizing="contain" src="[[_columnValue(item, column.columnIndex, column.columnObject)]]" thumbnail-id="[[_columnValue(item, column.columnIndex, column.columnObject)]]" asset-details="[[_getAssetDetails(item)]]">
+																	</rock-image-viewer>
+																</div>
+															</template>
+															<template is="dom-if" if="[[!_hasImage(column.columnObject, item)]]">
+																<div slot="cell-slot-content" title$="[[_columnValue(item, column.columnIndex)]]">
+																	<span class$="[[_getCellClassValue(item, column.columnIndex)]]">[[_columnValue(item, column.columnIndex)]]</span>
+																</div>
+															</template>
+														</template>
+													</template>
+												</template>
+											</data-table-column>
+										</template>
+									</template>
+								</template>
+							</pebble-data-table>
+						</template>
+
+						<template is="dom-if" if="[[_isReadyToShowMessagesPopover]]">
+							<pebble-popover id="errorPopover" no-overlap>
+								<pebble-error-list id="errorList"></pebble-error-list>
+							</pebble-popover>
+							<bedrock-pubsub target-id="errorList" event-name="fix-error" handler="_fixError"></bedrock-pubsub>
+						</template>
+					</template>
+					<template is="dom-if" if="{{_isTileMode(config.viewMode)}}" restamp>
+						<div hidden="[[_configPresent('tile')]]" class="msg default-message">Tile view of grid not configured.</div>
+						<template is="dom-if" if="[[_configPresent('tile')]]">
+							<grid-tile-view show-select-all="[[config.itemConfig.isMultiSelect]]" result-record-size="{{resultRecordSize}}" attribute-model-object="[[attributeModels]]" id="gridTileView" advance-selection-options="[[config.advanceSelectionOptions]]" advance-selection-enabled="[[config.advanceSelectionEnabled]]" items="[[data]]" grid-item-data-source="{{rDataSource}}" page-size="[[pageSize]]" multi-selection="{{config.itemConfig.isMultiSelect}}" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" tile-items="{{config.itemConfig}}" actions="{{_getArrayFromObject(config.viewConfig.tile.settings.actions)}}" selection-info="{{selectionInfo}}" title-pattern={{config.viewConfig.tile.settings.titlePattern}} sub-title-pattern={{config.viewConfig.tile.settings.subTitlePattern}}>
+							</grid-tile-view>
+						</template>
+					</template>
+					<template is="dom-if" if="{{_isListMode(config.viewMode)}}" restamp>
+						<div hidden="[[_configPresent('list')]]" class="msg default-message">List view of grid not configured.</div>
+						<template is="dom-if" if="[[_configPresent('list')]]">
+							<grid-list-view id="gridListView" attribute-model-object="[[attributeModels]]" advance-selection-options="[[config.advanceSelectionOptions]]" advance-selection-enabled="[[config.advanceSelectionEnabled]]" items="[[data]]" grid-item-data-source="{{rDataSource}}" page-size="[[pageSize]]" multi-selection="{{config.itemConfig.isMultiSelect}}" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" schema-type="{{config.schemaType}}" list-items="{{config.itemConfig}}" actions="{{_getArrayFromObject(config.viewConfig.list.settings.actions)}}" selection-info="{{selectionInfo}}"></grid-list-view>
+						</template>
+					</template>
+				</div>
+			</div>
+			<pebble-dialog id="gridMsgDialog" dialog-title="Confirmation" show-ok show-cancel show-close-icon alert-box modal>
+				<p id="msgDialog"></p>
+			</pebble-dialog>
+
+			<pebble-dialog id="attributeDialog" dialog-title="Confirmation" button-cancel-text="Close" modal medium vertical-offset=1 50 horizontal-align="auto" vertical-align="auto" no-cancel-on-outside-click no-cancel-on-esc-key show-cancel show-close-icon>
+				<div id="attrDialogContainer" style="height:80vh"></div>
+			</pebble-dialog>
+
+			<!-- relationship-dialog -->
+			<pebble-dialog id="relationshipDialog" dialog-title="Confirmation" modal horizontal-align="auto" vertical-align="auto" no-cancel-on-outside-click no-cancel-on-esc-key show-close-icon>
+				<div class="relationshipDialog-content">
+					<div id="relDialogContainer" class="button-siblings">
+					</div>
+					<div class="buttonContainer-static">
+						<pebble-button on-click="_closePopup" button-text="Close" class="close btn btn-secondary"></pebble-button>
+					</div>
+				</div>
+			</pebble-dialog>
+		</template>
+		<bedrock-pubsub event-name="toggle-sidebar" handler="_flashTileview"></bedrock-pubsub>
+		<bedrock-pubsub target-id="gridMsgDialog" event-name="on-buttonok-clicked" handler="_onDialogOk"></bedrock-pubsub>
+		<bedrock-pubsub target-id="gridMsgDialog" event-name="on-buttoncancel-clicked" handler="_onDialogCancel"></bedrock-pubsub>
+	    `;
+    }
     
     static get observers() {
-				return [
+		return [
             '_calculatePageRange(currentRecordSize, pageSize,resultRecordSize)',
             '_computeTitle(config, data, currentRecordSize, sortOrder,resultRecordSize,rDataSource,config.viewMode, config.*)',
             '_setSelectionTitle(currentRecordSize,selectionInfo,selectedItems.*)',
             '_prepareConfig(config, attributeModels)',
             '_viewModeChanged(config.viewMode)',
             '_modeChange(config.mode)'
-				]
+		]
     }
 
     static get properties() {
@@ -634,6 +1454,11 @@ extends mixinBehaviors([
      * @param {Object} detail
      * @param {Object} detail.item item to be collapsed
      */
+
+    constructor() {
+        super();
+    }
+
     /**
      * Indicates the data which is wrapped in a grid-data-source that is used as a "grid data".
      * The format for the JSON object is given in the above description.
@@ -647,21 +1472,21 @@ extends mixinBehaviors([
     }
 
     reloadListData() {
-				this.importHref(this.resolveUrl('grid-list-view.html'), () => {
-            let listView = this.shadowRoot.querySelector("#gridListView");
-            if (listView) {
-                listView.reloadData();
-            }
-				})
+			import('./grid-list-view.js').then(() => {
+                let listView = this.root.querySelector("#gridListView");
+                if (listView) {
+                    listView.reloadData();
+                }
+			})
     }
     
     reloadTileData() {
-				this.importHref(this.resolveUrl('grid-tile-view.html'), () => {
+        import('./grid-tile-view.js').then(() => {
             let tileView = this.shadowRoot.querySelector("#gridTileView");
             if (tileView) {
                 tileView.reloadData();
             }
-				});
+        });
     }
     
     _onSelectionInfoChange() {
@@ -1072,24 +1897,24 @@ extends mixinBehaviors([
     
     _resetAdvanceSelection() {
 				if (this.config.viewMode == "Tabular") {
-            let getPebbleDataTable = this.shadowRoot.querySelector(this.id);
-            if (getPebbleDataTable && getPebbleDataTable.resetAdvanceSelection) {
-                getPebbleDataTable.resetAdvanceSelection();
-            }
+                    let getPebbleDataTable = this.shadowRoot.querySelector(this.id);
+                    if (getPebbleDataTable && getPebbleDataTable.resetAdvanceSelection) {
+                        getPebbleDataTable.resetAdvanceSelection();
+                    }
 				} else if (this.config.viewMode == "List") {
-            this.importHref(this.resolveUrl('grid-list-view.html'), () => {
-                let getgridListView = this.shadowRoot.querySelector("#gridListView");
-                if (getgridListView && getgridListView.resetAdvanceSelection) {
-                    getgridListView.resetAdvanceSelection();
-                }
-            })
+                    import('./grid-list-view.js').then(() => {
+                        let getgridListView = this.shadowRoot.querySelector("#gridListView");
+                        if (getgridListView && getgridListView.resetAdvanceSelection) {
+                            getgridListView.resetAdvanceSelection();
+                        }
+                    })
 				} else if (this.config.viewMode == "Tile") {
-            this.importHref(this.resolveUrl('grid-tile-view.html'), () => {
-                let getgridTileView = this.shadowRoot.querySelector("#gridTileView");
-                if (getgridTileView && getgridTileView.resetAdvanceSelection) {
-                    getgridTileView.resetAdvanceSelection();
-                }
-            })
+                    import('./grid-tile-view.js').then(() => {
+                        let getgridTileView = this.shadowRoot.querySelector("#gridTileView");
+                        if (getgridTileView && getgridTileView.resetAdvanceSelection) {
+                            getgridTileView.resetAdvanceSelection();
+                        }
+                    })
 				}
     }
 
@@ -1112,19 +1937,19 @@ extends mixinBehaviors([
     
     clearSelection() {
 				if (this.config.viewMode == "List") {
-            this.importHref(this.resolveUrl('grid-list-view.html'), () => {
-                let listView = this.shadowRoot.querySelector("#gridListView");
-                if (listView) {
-                    listView.clearSelection();
-                }
-            })
+                    import('./grid-list-view.js').then(() => {
+                        let listView = this.shadowRoot.querySelector("#gridListView");
+                        if (listView) {
+                            listView.clearSelection();
+                        }
+                    })
 				} else if (this.config.viewMode == "Tile") {
-            this.importHref(this.resolveUrl('grid-tile-view.html'), () => {
-                let tileView = this.shadowRoot.querySelector("#gridTileView");
-                if (tileView) {
-                    tileView.clearSelection();
-                }
-            })
+                    import('./grid-tile-view.js').then(() => {
+                        let tileView = this.shadowRoot.querySelector("#gridTileView");
+                        if (tileView) {
+                            tileView.clearSelection();
+                        }
+                    })
 				} else {
             let ironDataTable = this._getIronDataTable();
             if (ironDataTable) {
@@ -1241,7 +2066,7 @@ extends mixinBehaviors([
                 this._changeToReadMode();
                 break;
 				}
-				let domRepeats = this.shadowRoot.querySelectorAll("#actionsDomRepeat");
+				let domRepeats = this.root.querySelectorAll("#actionsDomRepeat");
 				if (!_.isEmpty(domRepeats)) {
             for (let domRepeat of domRepeats) {
                 let item = (domRepeat.parentElement && domRepeat.parentElement.parentElement) && domRepeat.parentElement.parentElement.item;
@@ -1249,7 +2074,7 @@ extends mixinBehaviors([
                 domRepeat.render();
             }
 				}
-				let attrs = this.shadowRoot.querySelectorAll('rock-attribute');
+				let attrs = this.root.querySelectorAll('rock-attribute');
 				if (attrs && attrs.length) {
             for (let i = 0, l = attrs.length; i < l; i++) {
                 attrs[i].mode = mode;
@@ -1407,7 +2232,7 @@ extends mixinBehaviors([
 				let gridActionsEl = this._getSlotNode("gridActions");
 				//Find default toolbar
 				if (!gridActionsEl) {
-            gridActionsEl = this.shadowRoot.querySelector("#gridActions");
+            gridActionsEl = this.root.querySelector("#gridActions"); //need to confirm this https://github.com/Polymer/polymer/issues/4228
 				}
 				return gridActionsEl;
     }
@@ -2602,7 +3427,7 @@ extends mixinBehaviors([
     _viewModeChanged() {
 				if (this.config && this.config.viewMode) {
             if (this.config.viewMode === 'List') {
-                this.importHref(this.resolveUrl('grid-list-view.html'), () => {
+                import('./grid-list-view.js').then(() => {
                     this.dispatchEvent(new CustomEvent('view-mode-changed', {
                         detail: {
                             data: this.config.viewMode
@@ -2610,10 +3435,10 @@ extends mixinBehaviors([
                         bubbles: true,
                         composed: true
                     }));
-                }, null, true);
+                });
             }
             if (this.config.viewMode === 'Tile') {
-                this.importHref(this.resolveUrl('grid-tile-view.html'), () => {
+                import('./grid-tile-view.js').then(() => {
                     this.dispatchEvent(new CustomEvent('view-mode-changed', {
                         detail: {
                             data: this.config.viewMode
@@ -2621,7 +3446,7 @@ extends mixinBehaviors([
                         bubbles: true,
                         composed: true
                     }));
-                }, null, true);
+                });
             }
             if (this.rDataSourceId) {
                 if (this._getIronDataTable()) {
