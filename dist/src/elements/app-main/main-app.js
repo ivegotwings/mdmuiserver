@@ -15,7 +15,7 @@ import 'web-animations-js/web-animations-next-lite.min.js';
 import '@polymer/polymer/lib/elements/dom-if.js';
 import '../bedrock-managers/bedrock-managers.js';
 import LocaleManager from '../bedrock-managers/locale-manager.js';
-import '../bedrock-managers/context-model-manager.js';
+import ContextModelManager from '../bedrock-managers/context-model-manager.js';
 import '../bedrock-managers/entity-composite-model-manager.js';
 import '../bedrock-helpers/constant-helper.js';
 import '../bedrock-datasource-behavior/bedrock-datasource-behavior.js';
@@ -42,6 +42,8 @@ import { afterNextRender } from '@polymer/polymer/lib/utils/render-status.js';
 // import { importHref } from '@polymer/polymer/lib/utils/import-href.js';
 import { resolveUrl } from '@polymer/polymer/lib/utils/resolve-url.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
+import EntityTypeManager from '../bedrock-managers/entity-type-manager.js';
+
 /**
 `main-app`
 Main os app for riversand ui framework
@@ -477,7 +479,7 @@ extends mixinBehaviors([
           ComponentHelper.removeNode(document.getElementById("loader"));
 
           timeOut.after(ConstantHelper.MILLISECONDS_100).run(() => {
-              afterNextRender(() => {
+              afterNextRender(this, () => {
                   import("../app-common/app-common.js");
                   let localeManager = ComponentHelper.getLocaleManager();
                   if (localeManager) {

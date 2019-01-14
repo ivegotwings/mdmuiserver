@@ -1,5 +1,5 @@
 import './data-helper.js';
-MessageHelper = {};
+let MessageHelper = {};
 
 MessageHelper.getAttributeMessages = function (attributes, attributeModels, messageCodeMapping, localeHelper) {
     let attrMessages = {};
@@ -212,3 +212,5 @@ MessageHelper.getErrorsFromWhereUsedMessages = function (relMessages, messageCod
     }
     return errorMessages;
 };
+
+export default MessageHelper

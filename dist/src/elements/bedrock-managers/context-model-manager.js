@@ -295,3 +295,5 @@ let ContextModelManager = (function() {
 
     return contextModelManagerInstance = new ContextModelManager();
 }());
+
+export default ContextModelManager

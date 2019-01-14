@@ -2,7 +2,7 @@ import '@polymer/polymer/polymer-legacy.js';
 import '../bedrock-helpers/data-helper.js';
 import '../liquid-base-falcor-behavior/liquid-base-falcor-behavior.js';
 import '../liquid-dataobject-utils/liquid-dataobject-utils.js';
-import '../bedrock-managers/entity-type-manager.js';
+import EntityTypeManager from '../bedrock-managers/entity-type-manager.js';
 /*
  * @polymerBehavior RUFBehaviors.LiquidDataObjectGetBehavior
  * @demo demo/index.html

@@ -7,6 +7,8 @@ import '../bedrock-helpers/data-helper.js';
 import '../liquid-dataobject-utils/liquid-dataobject-utils.js';
 import '../liquid-base-behavior/liquid-base-behavior.js';
 import ProgressTracker from '../app-main/ProgressTracker.js';
+import EntityTypeManager from '../bedrock-managers/entity-type-manager.js';
+
 /*
  * <i><b>Content development is under progress... </b></i>
  * @demo demo/index.html

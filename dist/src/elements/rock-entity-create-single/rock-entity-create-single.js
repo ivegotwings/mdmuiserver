@@ -16,7 +16,7 @@ import '../bedrock-pubsub/bedrock-pubsub.js';
 import '../bedrock-helpers/data-helper.js';
 import '../bedrock-helpers/element-helper.js';
 import '../bedrock-helpers/data-transform-helper.js';
-import '../bedrock-helpers/message-helper.js';
+import MessageHelper from '../bedrock-helpers/message-helper.js';
 import '../bedrock-ui-behavior/bedrock-ui-behavior.js';
 import '../bedrock-component-context-behavior/bedrock-component-context-behavior.js';
 import '../bedrock-business-function-behavior/bedrock-component-business-function-behavior.js';

@@ -17,7 +17,7 @@ import '../bedrock-pubsub/bedrock-pubsub.js';
 import '../bedrock-helpers/data-helper.js';
 import '../bedrock-helpers/data-request-helper.js';
 import '../bedrock-helpers/data-transform-helper.js';
-import '../bedrock-helpers/message-helper.js';
+import MessageHelper from '../bedrock-helpers/message-helper.js';
 import '../bedrock-ui-behavior/bedrock-ui-behavior.js';
 import '../bedrock-component-context-behavior/bedrock-component-context-behavior.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
