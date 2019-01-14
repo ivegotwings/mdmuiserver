@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '@polymer/polymer/lib/utils/async.js';
 import '../bedrock-component-context-behavior/bedrock-component-context-behavior.js';
 import '../bedrock-ui-behavior/bedrock-ui-behavior.js';
@@ -32,7 +32,7 @@ extends mixinBehaviors([
     RUFBehaviors.ComponentConfigBehavior
 ], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style>
             :host {
                 display: block;

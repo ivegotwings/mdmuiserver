@@ -9,7 +9,7 @@ The users can switch between a search mode and a filter mode to get the query th
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import { OptionalMutableData } from '@polymer/polymer/lib/mixins/mutable-data.js';
 import { microTask, timeOut } from '@polymer/polymer/lib/utils/async.js';
@@ -44,7 +44,7 @@ class RockSearchFilter
     RUFBehaviors.AppContextBehavior
   ], OptionalMutableData(PolymerElement)) {
   static get template() {
-    return Polymer.html`
+    return html`
     <style include="bedrock-style-common bedrock-style-padding-margin bedrock-style-text-alignment">
       :host{
         --pebble-lov:{

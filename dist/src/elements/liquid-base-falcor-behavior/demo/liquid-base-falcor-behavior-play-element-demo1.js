@@ -3,7 +3,7 @@ import './liquid-base-falcor-behavior-play-element.js';
 import { Polymer as Polymer$0 } from '@polymer/polymer/lib/legacy/polymer-fn.js';
 
 Polymer$0({
-  _template: Polymer.html`
+  _template: html`
         <liquid-base-falcor-behavior-play-element name="liquidElement1" id="p21" request-data="{{reqData1}}" on-response="_entitiesRecieved" on-error="_onError">
         </liquid-base-falcor-behavior-play-element>
         <liquid-base-falcor-behavior-play-element name="liquidElement2" id="p22" request-data="{{reqData2}}" on-response="_entitiesRecieved" on-error="_onError">

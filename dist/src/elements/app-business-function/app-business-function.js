@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '../bedrock-app-behavior/bedrock-app-behavior.js';
 import '../bedrock-business-function-behavior/bedrock-business-function-behavior.js';
 import '../bedrock-logger-behavior/bedrock-logger-behavior.js';
@@ -23,7 +23,7 @@ class AppBusinessFunction
         RUFBehaviors.LoggerBehavior
     ], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-common">
             rock-wizard, rock-wizard-manage {
                 display: block;

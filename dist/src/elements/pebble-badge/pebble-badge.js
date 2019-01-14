@@ -54,7 +54,7 @@ See the docs for `Polymer.IronResizableBehavior` for accessibility features impl
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '@polymer/iron-resizable-behavior/iron-resizable-behavior.js';
 import '../bedrock-style-manager/styles/bedrock-style-icons.js';
@@ -63,7 +63,7 @@ import { dom } from '@polymer/polymer/lib/legacy/polymer.dom.js';
 class PebbleBadge
   extends PolymerElement {
   static get template() {
-    return Polymer.html`
+    return html`
     <style include="bedrock-style-icons">
       :host {
         display: block;

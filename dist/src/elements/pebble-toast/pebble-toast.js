@@ -38,7 +38,7 @@ See the docs for `Polymer.IronOverlayBehavior` for accessibility features implem
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import { IronOverlayBehaviorImpl, IronOverlayBehavior } from '@polymer/iron-overlay-behavior/iron-overlay-behavior.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
@@ -59,7 +59,7 @@ let _center = "center";
 let _right = "right";
 class PebbleToast extends mixinBehaviors([IronOverlayBehavior], PolymerElement){
   static get template() {
-    return Polymer.html`
+    return html`
             <style include="bedrock-style-common bedrock-style-icons">
                 :host {
                     display: block;

@@ -9,7 +9,7 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '../bedrock-split-screen-behavior/bedrock-split-screen-behavior.js';
 import '../pebble-button/pebble-button.js';

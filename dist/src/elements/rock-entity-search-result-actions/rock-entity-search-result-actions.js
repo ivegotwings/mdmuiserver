@@ -8,7 +8,7 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import { OptionalMutableData } from '@polymer/polymer/lib/mixins/mutable-data.js';
 import '../pebble-toolbar/pebble-toolbar.js';
@@ -18,7 +18,7 @@ import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockEntitySearchResultActions
     extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.ComponentContextBehavior, RUFBehaviors.ComponentConfigBehavior], OptionalMutableData(PolymerElement)) {
   static get template() {
-    return Polymer.html`
+    return html`
         <pebble-toolbar id="searchResultToolbar" readonly="[[readonly]]" config-data="[[_toolbarConfig]]"></pebble-toolbar>
         <bedrock-pubsub event-name="toolbar-button-event" handler="_onToolbarEvent" target-id="searchResultToolbar"></bedrock-pubsub>
         <bedrock-pubsub event-name="on-toolbar-change" handler="_onToolbarChange" target-id="searchResultToolbar"></bedrock-pubsub>

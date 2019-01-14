@@ -20,7 +20,7 @@ It can contian any elements or components.
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '@polymer/paper-item/paper-item.js';
 import '../../bedrock-style-manager/styles/bedrock-style-common.js';
@@ -37,7 +37,7 @@ class RockSidebar
         RUFBehaviors.UIBehavior
     ], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-common bedrock-style-gridsystem bedrock-style-icons">
             :host {
                 display: -webkit-box;

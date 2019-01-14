@@ -9,7 +9,7 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '../liquid-rest/liquid-rest.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
@@ -18,7 +18,7 @@ extends mixinBehaviors([
     RUFBehaviors.UIBehavior
 ], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
 
 `;
   }

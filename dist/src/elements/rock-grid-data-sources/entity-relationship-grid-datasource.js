@@ -8,7 +8,7 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '../bedrock-grid-datasource-behavior/bedrock-grid-datasource-behavior.js';
 import '../bedrock-logger-behavior/bedrock-logger-behavior.js';
@@ -26,7 +26,7 @@ class EntityRelationshipGridDatasource
     RUFBehaviors.LoggerBehavior
     ], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <template is="dom-if" if="{{hasComponentErrored(isComponentErrored)}}">
             <div id="error-container"></div>
         </template>

@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '../bedrock-pubsub/bedrock-pubsub.js';
 import '../bedrock-component-context-behavior/bedrock-component-context-behavior.js';
 import '../bedrock-helpers/constant-helper.js';
@@ -13,7 +13,7 @@ import '../pebble-spinner/pebble-spinner.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockUserSelector extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.ComponentContextBehavior], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-common bedrock-style-padding-margin bedrock-style-buttons">
             .lov-wrapper{
                 width: 100%;

@@ -8,7 +8,7 @@
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '../bedrock-lov-datasource-behavior/bedrock-lov-datasource-behavior.js';
 import '../bedrock-grid-datasource-behavior/bedrock-grid-datasource-behavior.js';
@@ -21,7 +21,7 @@ class ValueMappingsModelDatasource extends mixinBehaviors([RUFBehaviors.UIBehavi
     ],
     PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <liquid-entity-model-get id="liquidModelInitSearch" operation="initiatesearch" request-data="{{request}}" on-error="_onError" last-response="{{_initSearchResponse}}" exclude-in-progress=""></liquid-entity-model-get>
         <liquid-entity-model-get id="liquidModelGetResult" operation="getsearchresultdetail" request-data="{{request}}" on-error="_onError" request-id="[[_initSearchResponse.content.requestId]]" last-response="{{searchResultResponse}}" exclude-in-progress=""></liquid-entity-model-get>
 `;

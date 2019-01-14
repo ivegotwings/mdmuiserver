@@ -23,7 +23,7 @@ Custom property    | Description              | Default
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '../bedrock-ui-behavior/bedrock-ui-behavior.js';
 import '../bedrock-validator/bedrock-validator.js';
@@ -35,7 +35,7 @@ class PebbleBoolean
     RUFBehaviors.UIBehavior
   ], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
     <style include="bedrock-style-common">
       .boolean-btn {
         border: 1px solid var(--default-border-color, #c1cad4);

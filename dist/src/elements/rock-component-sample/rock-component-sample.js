@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '../bedrock-helpers/data-helper.js';
 import '../bedrock-helpers/data-request-helper.js';
 import '../bedrock-helpers/data-transform-helper.js';
@@ -128,7 +128,7 @@ if (SharedUtils && SharedUtils.ModuleVersionManager) {
 class RockComponentSample
     extends mixinBehaviors([RUFBehaviors.ComponentContextBehavior, RUFBehaviors.ComponentConfigBehavior], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <liquid-entity-model-composite-get on-entity-model-composite-get-response="_onCompositeModelGetResponse"></liquid-entity-model-composite-get>
         <liquid-entity-data-get operation="getbyids" on-response="_onHeaderAttributesGetResponse"></liquid-entity-data-get>
         <liquid-entity-govern-data-get operation="getbyids" on-response="_onRunningInstanceReceived" on-error="_onRunningInstanceGetFailed"></liquid-entity-govern-data-get>

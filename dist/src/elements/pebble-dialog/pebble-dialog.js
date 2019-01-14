@@ -31,7 +31,7 @@ Custom property    | Description              | Default
   from HTML and may be out of place here. Review them and
   then delete this comment!
 */
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 
 import '@polymer/paper-dialog/paper-dialog.js';
 import '../bedrock-ui-behavior/bedrock-ui-behavior.js';
@@ -45,7 +45,7 @@ import { flush } from '@polymer/polymer/lib/legacy/polymer.dom.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class PebbleDialog extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="bedrock-style-common bedrock-style-heading bedrock-style-icons bedrock-style-padding-margin">
             :host {
                 --data-table-container-position-dialog: {

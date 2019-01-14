@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '@polymer/polymer/lib/elements/array-selector.js';
 import { Debouncer } from '@polymer/polymer/lib/utils/debounce.js';
 import '../bedrock-externalref-polymerquill/bedrock-externalref-polymerquill.js';
@@ -8,7 +8,7 @@ import '../pebble-info-icon/pebble-info-icon.js';
 import { timeOut } from '@polymer/polymer/lib/utils/async.js';
 class PebbleRichtexteditor extends PolymerElement {
   static get template() {
-    return Polymer.html`
+    return html`
         <style include="quill-core quill-snow bedrock-style-common bedrock-style-scroll-bar">
             label {
                 font-size: var(--font-size-sm, 12px) !important;

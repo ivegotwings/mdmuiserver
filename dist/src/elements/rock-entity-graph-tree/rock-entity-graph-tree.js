@@ -1,4 +1,4 @@
-import { PolymerElement } from '@polymer/polymer/polymer-element.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '../bedrock-helpers/data-helper.js';
 import '../bedrock-helpers/entity-helper.js';
 import '../bedrock-helpers/attribute-helper.js';
@@ -13,7 +13,7 @@ class RockEntityGraphTree
         RUFBehaviors.UIBehavior
     ], PolymerElement) {
   static get template() {
-    return Polymer.html`
+    return html`
          <style>
              :host{           
                 --pebble-tree: {
