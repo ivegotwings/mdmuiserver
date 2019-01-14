@@ -140,11 +140,7 @@ versionRoute(app);
 
 logger.info('Web engine start - version routes are loaded');
 
-// app.use(express.static(buildPath + '/build-prod', {
-//     maxAge: "1s"
-// }));
-
-app.use(express.static(buildPath, {
+app.use(express.static(buildPath + '/build-dev', {
     maxAge: "1s"
 }));
 

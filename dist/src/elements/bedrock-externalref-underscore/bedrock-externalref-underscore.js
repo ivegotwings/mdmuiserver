@@ -1,5 +1,5 @@
 import '@polymer/polymer/polymer-element.js';
-import 'underscore/underscore.js';
+//import 'underscore/underscore.js';
 if (_) {
     _.isNullOrEmpty = function (val, fallbackVal) {
         if (val) {
