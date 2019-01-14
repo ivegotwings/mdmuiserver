@@ -119,7 +119,7 @@ ComponentHelper.loadContent = function (contentElement, component, element, call
             component.path = component.path.replace(/html$/g,'js')
             import( /* webpackInclude: /\.js$/ */
                 /* webpackExclude: /\.noimport\.js$/ */
-                /* webpackChunkName: "my-chunk-name" */
+                /* webpackChunkName: [request] */
                 /* webpackMode: "lazy" */
                 /* webpackPrefetch: true */ 
                 /* webpackPreload: true */
