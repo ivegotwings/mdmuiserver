@@ -1,6 +1,6 @@
 import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '../bedrock-helpers/data-helper.js';
-import '../bedrock-managers/pubsub-manager.js';
+import PubSubManager from '../bedrock-managers/pubsub-manager.js';
 /**
     `bedrock-pubsub` provides the basic publish-subscribe functionality for the events.
     

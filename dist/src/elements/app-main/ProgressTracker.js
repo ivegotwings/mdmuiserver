@@ -64,3 +64,5 @@ let ProgressTracker = function () {
         handleProgress: handleProgress
     };
 }();
+
+export default ProgressTracker;
