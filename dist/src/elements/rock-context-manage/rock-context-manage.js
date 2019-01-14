@@ -24,6 +24,7 @@ import '../bedrock-pubsub/bedrock-pubsub.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
 import '../bedrock-style-manager/styles/bedrock-style-grid-layout.js';
+import EntityTypeManager from '../bedrock-managers/entity-type-manager.js';
 import '../liquid-entity-data-get/liquid-entity-data-get.js';
 import '../liquid-entity-data-save/liquid-entity-data-save.js';
 import '../liquid-rest/liquid-rest.js';
