@@ -115,7 +115,7 @@ ComponentHelper.loadContent = function (contentElement, component, element, call
     if (cElement) {
         createComponent(cElement);
     } else {
-        if(component.path.indexOf('html') !== -1)
+        if(component.path.indexOf('html') !== -1)  //to do fix needs to be in configs
             component.path = component.path.replace(/html$/g,'js')
         import(component.path).then(function (e) {
             let cElement = customElements.get(component.name);

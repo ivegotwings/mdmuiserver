@@ -11,106 +11,98 @@ import '@polymer/polymer/polymer-legacy.js';
 
 import '../liquid-base-behavior/liquid-base-behavior.js';
 import '../liquid-entity-model-get/liquid-entity-model-get.js';
-import { Polymer as Polymer$0 } from '@polymer/polymer/lib/legacy/polymer-fn.js';
+import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
+import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 
-Polymer$0({
-  _template: html`
-        <liquid-entity-model-get id="liquidEntityModelGet" \$verbose="[[verbose]]" operation="getbyids" on-response="_onResponse" on-error="_onError"></liquid-entity-model-get>
-`,
+class LiquidEntityModelCompositeGet
+    extends mixinBehaviors([
+        RUFBehaviors.LiquidBaseBehavior
+    ], PolymerElement) {
 
-  is: "liquid-entity-model-composite-get",
-  behaviors: [RUFBehaviors.LiquidBaseBehavior],
+    static get template() {
+        return html`
+            <liquid-entity-model-get id="liquidEntityModelGet" \$verbose="[[verbose]]" operation="getbyids" on-response="_onResponse" on-error="_onError"></liquid-entity-model-get>
+        `;
+    }
+    static get is() { return 'liquid-entity-model-composite-get' }
 
-  /**
-* Content is not appearing - Content development is under progress.
-*/
-  attached: function () {
-  },
+    constructor() {
+      super();
+    }
 
-  /**
-* Content is not appearing - Content development is under progress.
-*/
-  ready: function () {
-  },
-
-  properties: {
-      /**
-* <b><i>Content development is under progress... </b></i>
-*/
-      dataIndex: {
-          type: String,
-          value: "entityModel"
-      },
-      /**
-* <b><i>Content development is under progress... </b></i>
-*/
-      liquidEntityModelGet: {
-          type: Object,
-          value: function () {
-              if(this.shadowRoot){
-                  return this.shadowRoot.querySelector("#liquidEntityModelGet");
-              }else{
-                  return null;
-              }
-          }
-      },
-      requestData:{
-          type:Object
-      }
-  },
-
-  /**
-* <b><i>Content development is under progress... </b></i>
-*/
-  generateRequest: function () {
-      if (!this._validate(this.requestData)) {
-          return;
+    static get properties() {
+        return {
+            dataIndex: {
+                type: String,
+                value: "entityModel"
+            },
+            liquidEntityModelGet: {
+                type: Object,
+                value: function () {
+                    if(this.shadowRoot){
+                        return this.shadowRoot.querySelector("#liquidEntityModelGet");
+                    }else{
+                        return null;
+                    }
+                }
+            },
+            requestData:{
+                type:Object
+            }
+        }
       }
 
-      let internalRequestData = this.requestData;
+      generateRequest() {
+        if (!this._validate(this.requestData)) {
+            return;
+        }
 
-      if (internalRequestData.params && internalRequestData.params.query) {
-          let query = internalRequestData.params.query;
+        let internalRequestData = this.requestData;
 
-          if (!query.contexts) {
-              query.contexts = [];
-          }
+        if (internalRequestData.params && internalRequestData.params.query) {
+            let query = internalRequestData.params.query;
 
-          // if (query.locale) {
-          //     var localeCtx = { "locale": query.locale };
-          //     this.localeCtx = localeCtx;
-          //     query.contexts.push(localeCtx);
-          // }
-          if (!query.filters) {
-              query.filters = {};
-          }
-          query.filters.typesCriterion = ["entityCompositeModel"];
-      }
+            if (!query.contexts) {
+                query.contexts = [];
+            }
 
-      if(!this.shadowRoot) {
-          return;
-      }
+            // if (query.locale) {
+            //     var localeCtx = { "locale": query.locale };
+            //     this.localeCtx = localeCtx;
+            //     query.contexts.push(localeCtx);
+            // }
+            if (!query.filters) {
+                query.filters = {};
+            }
+            query.filters.typesCriterion = ["entityCompositeModel"];
+        }
 
-      const liqModelGet = this.shadowRoot.querySelector("#liquidEntityModelGet");
+        if(!this.shadowRoot) {
+            return;
+        }
 
-      liqModelGet.requestData = internalRequestData;
-      liqModelGet.bubbles = false;
-      liqModelGet.generateRequest();
-  },
+        const liqModelGet = this.shadowRoot.querySelector("#liquidEntityModelGet");
 
-  _validate: function (reqData) { //eslint-disable-line no-unused-vars
-      return true;
-  },
+        liqModelGet.requestData = internalRequestData;
+        liqModelGet.bubbles = false;
+        liqModelGet.generateRequest();
+    }
 
-  _onResponse: function (e) {
-      let eventDetail = e.detail;
-      this.dispatchEvent(new CustomEvent("entity-model-composite-get-response", { detail:eventDetail, bubbles: this.bubbles, composed:true }));
-      this.dispatchEvent(new CustomEvent("liquid-entity-model-composite-get-response", { detail:eventDetail, bubbles: this.bubbles, composed:true }));
-  },
+    _validate(reqData) { //eslint-disable-line no-unused-vars
+        return true;
+    }
 
-  _onError: function (e) {
+    _onResponse(e) {
+        let eventDetail = e.detail;
+        this.dispatchEvent(new CustomEvent("entity-model-composite-get-response", { detail:eventDetail, bubbles: this.bubbles, composed:true }));
+        this.dispatchEvent(new CustomEvent("liquid-entity-model-composite-get-response", { detail:eventDetail, bubbles: this.bubbles, composed:true }));
+    }
+
+  _onError(e) {
       let eventDetail = e.detail;
       this.dispatchEvent(new CustomEvent("error", { detail:eventDetail, bubbles: this.bubbles, composed:true }));
       this.dispatchEvent(new CustomEvent("liquid-error", { detail:eventDetail, bubbles: this.bubbles, composed:true }));
-  }
-});
+    }
+}
+
+customElements.define(LiquidEntityModelCompositeGet.is, LiquidEntityModelCompositeGet);
