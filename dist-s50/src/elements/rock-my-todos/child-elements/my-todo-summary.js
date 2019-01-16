@@ -23,6 +23,8 @@ import '../../bedrock-style-manager/styles/bedrock-style-text-alignment.js';
 import '../../bedrock-style-manager/styles/bedrock-style-floating.js';
 import '../../bedrock-style-manager/styles/bedrock-style-gridsystem.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
+import EntityTypeManager from '../../bedrock-managers/entity-type-manager.js'
+
 class MyTodoSummary
     extends mixinBehaviors([
     RUFBehaviors.UIBehavior,
@@ -233,581 +235,581 @@ class MyTodoSummary
 `;
   }
 
-  static get is() { return 'my-todo-summary' }
-  static get properties() {
-      return {
-          myTodo: {
-              type: Object,
-              notify: true,
-              value: {}
-          },
+    static get is() { return 'my-todo-summary' }
+    static get properties() {
+        return {
+            myTodo: {
+                type: Object,
+                notify: true,
+                value: {}
+            },
 
-          _detailsToggleText: {
-              type: String,
-              value: 'View details'
-          },
+            _detailsToggleText: {
+                type: String,
+                value: 'View details'
+            },
 
-          _businessConditionMappings: {
-              type: Array,
-              observer: '_getBusinessConditionCount',
-              value: function () {
-                  return [];
-              }
-          },
+            _businessConditionMappings: {
+                type: Array,
+                observer: '_getBusinessConditionCount',
+                value: function () {
+                    return [];
+                }
+            },
 
-          businessConditions: {
-              type: Array,
-              value: function () {
-                  return [];
-              }
-          },
+            businessConditions: {
+                type: Array,
+                value: function () {
+                    return [];
+                }
+            },
 
-          _numberOfTasks: {
-              type: Number,
-              value: 0
-          },
+            _numberOfTasks: {
+                type: Number,
+                value: 0
+            },
 
-          _governDataRequest: {
-              type: Object,
-              value: function () {
-                  return {};
-              }
-          },
+            _governDataRequest: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
 
-          _businessConditionMappingRequest: {
-              type: Object,
-              value: function () {
-                  return {};
-              }
-          },
+            _businessConditionMappingRequest: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
 
-          _allowedEntityTypes: {
-              type: Array,
-              value: function () {
-                  return [];
-              }
-          },
-          _passedBC: {
-              type: Object
-          },
-          _bCsExist: {
-              type: Boolean,
-              value: false
-          },
-          contextData: {
-              type: Object,
-              value: function () {
-                  return {};
-              }
-          },
-      }
-  }
+            _allowedEntityTypes: {
+                type: Array,
+                value: function () {
+                    return [];
+                }
+            },
+            _passedBC: {
+                type: Object
+            },
+            _bCsExist: {
+                type: Boolean,
+                value: false
+            },
+            contextData: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
+        }
+    }
 
 
-  connectedCallback () {
-      super.connectedCallback();
-      let governDataLiquid = this.shadowRoot.querySelector("[name=governDataGet]");
+    connectedCallback () {
+        super.connectedCallback();
+        let governDataLiquid = this.shadowRoot.querySelector("[name=governDataGet]");
 
-      this._allowedEntityTypes = [];
-      let wfExternalName;
-      if(!_.isEmpty(this.myTodo)) {
-          this._allowedEntityTypes = this.myTodo.mappedEntityTypes;
-          wfExternalName = this.myTodo.workflow;
-          if(this.myTodo.workflowData) {
-              let mappedEntityTypesString = this.myTodo.mappedEntityTypes ? this.myTodo.mappedEntityTypes.join("#@#") : undefined;
-              this.myTodo.workflowData.mappedEntityTypesString = mappedEntityTypesString;
-              let mappedContextsString = this.myTodo.mappedContexts ? JSON.stringify(this.myTodo.mappedContexts) : undefined;
-              this.myTodo.workflowData.mappedContextsString = mappedContextsString;
-          }
-      }
+        this._allowedEntityTypes = [];
+        let wfExternalName;
+        if(!_.isEmpty(this.myTodo)) {
+            this._allowedEntityTypes = this.myTodo.mappedEntityTypes;
+            wfExternalName = this.myTodo.workflow;
+            if(this.myTodo.workflowData) {
+                let mappedEntityTypesString = this.myTodo.mappedEntityTypes ? this.myTodo.mappedEntityTypes.join("#@#") : undefined;
+                this.myTodo.workflowData.mappedEntityTypesString = mappedEntityTypesString;
+                let mappedContextsString = this.myTodo.mappedContexts ? JSON.stringify(this.myTodo.mappedContexts) : undefined;
+                this.myTodo.workflowData.mappedContextsString = mappedContextsString;
+            }
+        }
 
-      if (governDataLiquid) {
+        if (governDataLiquid) {
 
-          if (this._allowedEntityTypes && this._allowedEntityTypes.length) {
+            if (this._allowedEntityTypes && this._allowedEntityTypes.length) {
 
-              let userId = "";
-              if (!_.isEmpty(this.myTodo.workflowData.user)) {
-                  let user = this.myTodo.workflowData.user;
+                let userId = "";
+                if (!_.isEmpty(this.myTodo.workflowData.user)) {
+                    let user = this.myTodo.workflowData.user;
 
-                  if (user.toLowerCase() == "all") {
-                      userId = "";
-                  } else if (user.toLowerCase() == "currentuser") {
-                      userId = DataHelper.getUserName();
-                  } else if (user.toLowerCase() == "unassigned") {
-                      userId = "_UNASSIGNED";
-                  }
-              }
+                    if (user.toLowerCase() == "all") {
+                        userId = "";
+                    } else if (user.toLowerCase() == "currentuser") {
+                        userId = DataHelper.getUserName();
+                    } else if (user.toLowerCase() == "unassigned") {
+                        userId = "_UNASSIGNED";
+                    }
+                }
 
-              let contexts = [{
-                  "workflow": this.myTodo.workflowName
-              }];
+                let contexts = [{
+                    "workflow": this.myTodo.workflowName
+                }];
 
-              let options = {
-                  "contexts": contexts,
-                  "typesCriterion": this._allowedEntityTypes,
-                  "userId": userId,
-                  "workflowActivityName": this.myTodo.workflowData.wfActivityName,
-                  "excludeNonContextual": true
-              };
+                let options = {
+                    "contexts": contexts,
+                    "typesCriterion": this._allowedEntityTypes,
+                    "userId": userId,
+                    "workflowActivityName": this.myTodo.workflowData.wfActivityName,
+                    "excludeNonContextual": true
+                };
 
-              let req = DataRequestHelper.createGovernGetRequest(options);
-              this._governDataRequest = req;
-              governDataLiquid.generateRequest();
-          } else {
-              this.logError("Workflow "+ wfExternalName + " is not mapped to any entity types");
-              this._setTaskLoadingIndicatorVisibility(false);
-          }
-      }
+                let req = DataRequestHelper.createGovernGetRequest(options);
+                this._governDataRequest = req;
+                governDataLiquid.generateRequest();
+            } else {
+                this.logError("Workflow "+ wfExternalName + " is not mapped to any entity types");
+                this._setTaskLoadingIndicatorVisibility(false);
+            }
+        }
 
-  }
+    }
 
-  _onGovernDataResponse (e) {
-      if (e.detail && e.detail.response) {
-          let response = e.detail.response;
-          if (response && response.content) {
-              let totalRecords = response.content.totalRecords || 0;
-              let maxRecords = response.content.maxRecords || 0;
+    _onGovernDataResponse (e) {
+        if (e.detail && e.detail.response) {
+            let response = e.detail.response;
+            if (response && response.content) {
+                let totalRecords = response.content.totalRecords || 0;
+                let maxRecords = response.content.maxRecords || 0;
 
-              if (totalRecords > maxRecords) {
-                  this._numberOfTasks = maxRecords + "+";
-              } else {
-                  this._numberOfTasks = totalRecords;
-              }
-          } else {
-              this.logError("Dashboard-My To-Do's Summary - Some problem with Govern data Get response", e.detail);
-          }
+                if (totalRecords > maxRecords) {
+                    this._numberOfTasks = maxRecords + "+";
+                } else {
+                    this._numberOfTasks = totalRecords;
+                }
+            } else {
+                this.logError("Dashboard-My To-Do's Summary - Some problem with Govern data Get response", e.detail);
+            }
 
-          this._setTaskLoadingIndicatorVisibility(false);
-      }
-  }
+            this._setTaskLoadingIndicatorVisibility(false);
+        }
+    }
 
-  _setTaskLoadingIndicatorVisibility (isVisible) {
-      this.shadowRoot.querySelector('#taskCountLoading').hidden = !isVisible;
-      this.shadowRoot.querySelector('#taskCount').hidden = isVisible;
-  }
+    _setTaskLoadingIndicatorVisibility (isVisible) {
+        this.shadowRoot.querySelector('#taskCountLoading').hidden = !isVisible;
+        this.shadowRoot.querySelector('#taskCount').hidden = isVisible;
+    }
 
-  _onGovernDataError (e) {
-      this.logError("Dashboard-My To-Do's Summary - Governdata Get Exception", e.detail);
-      this._setTaskLoadingIndicatorVisibility(false);
-  }
+    _onGovernDataError (e) {
+        this.logError("Dashboard-My To-Do's Summary - Governdata Get Exception", e.detail);
+        this._setTaskLoadingIndicatorVisibility(false);
+    }
 
-  /**
-   *  This s internal function used to compute the class based on the status of my-todo
-   */
-  _computeClass (status) {
-      if (status) {
-          if (status == "red") {
-              return 'border-left-1';
-          } else if (status == "orange") {
-              return 'border-left-2';
-          } else {
-              return 'border-left-3';
-          }
-      }
-      return 'border-left-3';
-  }
+    /**
+     *  This s internal function used to compute the class based on the status of my-todo
+     */
+    _computeClass (status) {
+        if (status) {
+            if (status == "red") {
+                return 'border-left-1';
+            } else if (status == "orange") {
+                return 'border-left-2';
+            } else {
+                return 'border-left-3';
+            }
+        }
+        return 'border-left-3';
+    }
 
-  _showHideDetails () {
-      let moreDetails = this.shadowRoot.querySelector('#moreDetails');
-      if (moreDetails) {
-          if (moreDetails.hidden) {
-              moreDetails.hidden = false;
-              this._showBusinessConditions();
-          } else {
-              moreDetails.hidden = true;
-              this._detailsToggleText = "View details";
-          }
-      }
-  }
+    _showHideDetails () {
+        let moreDetails = this.shadowRoot.querySelector('#moreDetails');
+        if (moreDetails) {
+            if (moreDetails.hidden) {
+                moreDetails.hidden = false;
+                this._showBusinessConditions();
+            } else {
+                moreDetails.hidden = true;
+                this._detailsToggleText = "View details";
+            }
+        }
+    }
 
-  /**
-   * This is internal function used to fire an rock-my-todo-click when my-todo element is tapped
-   */
-  _onActivityTap () {
-      let appName = this._getAppNameToRedirect();
-      this.setState(this.myTodo.workflowData);
-      let workflowData = {state: this.getQueryParamFromState()};
-      ComponentHelper.appRoute(appName, workflowData);                
-  }
+    /**
+     * This is internal function used to fire an rock-my-todo-click when my-todo element is tapped
+     */
+    _onActivityTap () {
+        let appName = this._getAppNameToRedirect();
+        this.setState(this.myTodo.workflowData);
+        let workflowData = {state: this.getQueryParamFromState()};
+        ComponentHelper.appRoute(appName, workflowData);                
+    }
 
-  _onBusinessConditionTap (e) {
-      if (e && e.currentTarget) {
-          let appName = this._getAppNameToRedirect();
-          this.setState(e.currentTarget.data);
-          let bcData = {state: this.getQueryParamFromState()};
-          ComponentHelper.appRoute(appName, bcData);
-      }
-  }
+    _onBusinessConditionTap (e) {
+        if (e && e.currentTarget) {
+            let appName = this._getAppNameToRedirect();
+            this.setState(e.currentTarget.data);
+            let bcData = {state: this.getQueryParamFromState()};
+            ComponentHelper.appRoute(appName, bcData);
+        }
+    }
 
-  _onInitBusinessConditionsMappingGetResponse () {
+    _onInitBusinessConditionsMappingGetResponse () {
 
-      let businessConditionsMappingGet = this.shadowRoot.querySelector('#businessConditionsMappingGet');
-      if (typeof (businessConditionsMappingGet) === "undefined" || businessConditionsMappingGet == null) {
-          this.logError("Dashboard-My To-Do's Summary - BusinessConditions mappings liquid not found");
-          return;
-      }
+        let businessConditionsMappingGet = this.shadowRoot.querySelector('#businessConditionsMappingGet');
+        if (typeof (businessConditionsMappingGet) === "undefined" || businessConditionsMappingGet == null) {
+            this.logError("Dashboard-My To-Do's Summary - BusinessConditions mappings liquid not found");
+            return;
+        }
 
-      businessConditionsMappingGet.generateRequest();
-  }
-  _isBusinessConditionAllowedForRole (businessCondition) {
-      let allowedRoles;
-      if (DataHelper.isValidObjectPath(businessCondition, "data.attributes")) {
-          allowedRoles = businessCondition.data.attributes.impactRoles.values;
-      }
-      let userContext = this.contextData.UserContexts[0];
-      let currentUserRoles = userContext.roles;
-      if (allowedRoles && currentUserRoles) {
-          let isRoleAllowed = allowedRoles.some(allowedRole => currentUserRoles.indexOf(allowedRole.value) > -1 || allowedRole.value == "_ALL")
-          if(isRoleAllowed){
-              return true;
-          }
-          //Not have "_ALL" / user role
-          return false;
-      }
+        businessConditionsMappingGet.generateRequest();
+    }
+    _isBusinessConditionAllowedForRole (businessCondition) {
+        let allowedRoles;
+        if (DataHelper.isValidObjectPath(businessCondition, "data.attributes")) {
+            allowedRoles = businessCondition.data.attributes.impactRoles.values;
+        }
+        let userContext = this.contextData.UserContexts[0];
+        let currentUserRoles = userContext.roles;
+        if (allowedRoles && currentUserRoles) {
+            let isRoleAllowed = allowedRoles.some(allowedRole => currentUserRoles.indexOf(allowedRole.value) > -1 || allowedRole.value == "_ALL")
+            if(isRoleAllowed){
+                return true;
+            }
+            //Not have "_ALL" / user role
+            return false;
+        }
 
-      //No allowedRoles OR No user role, then BC is applicable to any role
-      return true;
-  }
+        //No allowedRoles OR No user role, then BC is applicable to any role
+        return true;
+    }
 
-  _onBusinessConditionsMappingGetResponse (e) {
-      let responseContent = DataHelper.validateAndGetResponseContent(e.detail.response);
-      if (responseContent) {
-          let ruleContextMappings = responseContent.entityModels;
+    _onBusinessConditionsMappingGetResponse (e) {
+        let responseContent = DataHelper.validateAndGetResponseContent(e.detail.response);
+        if (responseContent) {
+            let ruleContextMappings = responseContent.entityModels;
 
-          if (ruleContextMappings && ruleContextMappings.length) {
-              let firstRuleContextMapping = ruleContextMappings[0];
+            if (ruleContextMappings && ruleContextMappings.length) {
+                let firstRuleContextMapping = ruleContextMappings[0];
 
-              if (firstRuleContextMapping && firstRuleContextMapping.data) {
-                  let contextBaseMappings = firstRuleContextMapping.data.contexts;
+                if (firstRuleContextMapping && firstRuleContextMapping.data) {
+                    let contextBaseMappings = firstRuleContextMapping.data.contexts;
 
-                  if (contextBaseMappings && contextBaseMappings.length) {
-                      let businessConditions = [];
-                      let bcIds=[];
-                      contextBaseMappings.forEach(function (ctxMapping) {
-                          if (ctxMapping && ctxMapping.relationships) {
-                              let hasBusinessConditions = ctxMapping.relationships['hasBusinessConditions'];
+                    if (contextBaseMappings && contextBaseMappings.length) {
+                        let businessConditions = [];
+                        let bcIds=[];
+                        contextBaseMappings.forEach(function (ctxMapping) {
+                            if (ctxMapping && ctxMapping.relationships) {
+                                let hasBusinessConditions = ctxMapping.relationships['hasBusinessConditions'];
 
-                              if (hasBusinessConditions && hasBusinessConditions.length) {
-                                  hasBusinessConditions.forEach(function (businessCondition) {
-                                      if (businessCondition && businessCondition.attributes && businessCondition.relTo) {
-                                          if (this._isBusinessConditionAllowedForRole(businessCondition.relTo)) {
-                                              let stepNameAttr = businessCondition.attributes['stepName'];
-                                              let businessConditionName = this._getBusinessConditionName(businessCondition.relTo.id);
-                                              if (!this._isBusinessConditionExist(businessConditionName, businessConditions)) {
-                                                  if (stepNameAttr) {
-                                                      let value = AttributeHelper.getFirstAttributeValue(stepNameAttr);
+                                if (hasBusinessConditions && hasBusinessConditions.length) {
+                                    hasBusinessConditions.forEach(function (businessCondition) {
+                                        if (businessCondition && businessCondition.attributes && businessCondition.relTo) {
+                                            if (this._isBusinessConditionAllowedForRole(businessCondition.relTo)) {
+                                                let stepNameAttr = businessCondition.attributes['stepName'];
+                                                let businessConditionName = this._getBusinessConditionName(businessCondition.relTo.id);
+                                                if (!this._isBusinessConditionExist(businessConditionName, businessConditions)) {
+                                                    if (stepNameAttr) {
+                                                        let value = AttributeHelper.getFirstAttributeValue(stepNameAttr);
 
-                                                      if (value && value == this.myTodo.workflowData.wfActivityName) {
-                                                          bcIds.push(businessCondition.relTo.id);
-                                                          let businessConditionItem = {
-                                                              "businessConditionName": businessConditionName,
-                                                              "data": {
-                                                                  "wfName": this.myTodo.workflow,
-                                                                  "wfShortName": this.myTodo.workflowName,
-                                                                  "wfActivityName": this.myTodo.workflowData.wfActivityName,
-                                                                  "wfActivityExternalName": this.myTodo.workflowData.wfActivityExternalName,
-                                                                  "bcId": businessCondition.relTo.id,
-                                                                  "user": this.myTodo.workflowData.user,
-                                                                  "bcExternalName":businessConditionName,
-                                                                  "status":"failed",
-                                                                  "mappedEntityTypesString": this.myTodo.workflowData.mappedEntityTypesString,
-                                                                  "mappedContextsString": this.myTodo.workflowData.mappedContextsString
-                                                              }
-                                                          };
+                                                        if (value && value == this.myTodo.workflowData.wfActivityName) {
+                                                            bcIds.push(businessCondition.relTo.id);
+                                                            let businessConditionItem = {
+                                                                "businessConditionName": businessConditionName,
+                                                                "data": {
+                                                                    "wfName": this.myTodo.workflow,
+                                                                    "wfShortName": this.myTodo.workflowName,
+                                                                    "wfActivityName": this.myTodo.workflowData.wfActivityName,
+                                                                    "wfActivityExternalName": this.myTodo.workflowData.wfActivityExternalName,
+                                                                    "bcId": businessCondition.relTo.id,
+                                                                    "user": this.myTodo.workflowData.user,
+                                                                    "bcExternalName":businessConditionName,
+                                                                    "status":"failed",
+                                                                    "mappedEntityTypesString": this.myTodo.workflowData.mappedEntityTypesString,
+                                                                    "mappedContextsString": this.myTodo.workflowData.mappedContextsString
+                                                                }
+                                                            };
 
-                                                          businessConditions.push(businessConditionItem);
-                                                      }
-                                                  }
-                                              }
-                                          }
-                                      }
-                                  }, this);
-                              }
-                          }
-                      }, this);
-                      if(bcIds && bcIds.length){
-                          this._bCsExist=true;
-                          let bcId=bcIds.join("#@#");
-                          this._passedBC={
-                              "text":"Ready for transition",
-                              "data": {
-                                  "wfName": this.myTodo.workflow,
-                                  "wfShortName": this.myTodo.workflowName,
-                                  "wfActivityName": this.myTodo.workflowData.wfActivityName,
-                                  "wfActivityExternalName": this.myTodo.workflowData.wfActivityExternalName,
-                                  "user": this.myTodo.workflowData.user,
-                                  "bcId": bcId,
-                                  "status":"passed",
-                                  "bcExternalName":"Ready for transition",
-                                  "mappedEntityTypesString": this.myTodo.workflowData.mappedEntityTypesString,
-                                  "mappedContextsString": this.myTodo.workflowData.mappedContextsString
-                              }
-                          };
-                      }
-                      this._prepareBusinessConditions(businessConditions);
-                  }
-              }
-          } else {
-              let noBusinessCondditionsMessageDiv = this.shadowRoot.querySelector("#noBusinessCondditionsMessage");
-              if(noBusinessCondditionsMessageDiv) {
-                  noBusinessCondditionsMessageDiv.hidden = false;
-              }
-          }
-      } else {
-          this.logError("Dashboard-My To-Do's Summary - Some problem with businessConditions mapping Get response", e.detail);
-      }
-  }
+                                                            businessConditions.push(businessConditionItem);
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }, this);
+                                }
+                            }
+                        }, this);
+                        if(bcIds && bcIds.length){
+                            this._bCsExist=true;
+                            let bcId=bcIds.join("#@#");
+                            this._passedBC={
+                                "text":"Ready for transition",
+                                "data": {
+                                    "wfName": this.myTodo.workflow,
+                                    "wfShortName": this.myTodo.workflowName,
+                                    "wfActivityName": this.myTodo.workflowData.wfActivityName,
+                                    "wfActivityExternalName": this.myTodo.workflowData.wfActivityExternalName,
+                                    "user": this.myTodo.workflowData.user,
+                                    "bcId": bcId,
+                                    "status":"passed",
+                                    "bcExternalName":"Ready for transition",
+                                    "mappedEntityTypesString": this.myTodo.workflowData.mappedEntityTypesString,
+                                    "mappedContextsString": this.myTodo.workflowData.mappedContextsString
+                                }
+                            };
+                        }
+                        this._prepareBusinessConditions(businessConditions);
+                    }
+                }
+            } else {
+                let noBusinessCondditionsMessageDiv = this.shadowRoot.querySelector("#noBusinessCondditionsMessage");
+                if(noBusinessCondditionsMessageDiv) {
+                    noBusinessCondditionsMessageDiv.hidden = false;
+                }
+            }
+        } else {
+            this.logError("Dashboard-My To-Do's Summary - Some problem with businessConditions mapping Get response", e.detail);
+        }
+    }
 
-  _onBusinessConditionsMappingGetError (e) {
-      this.logError("Dashboard-My To-Do's Summary - BusinessConditions mapping Get Exception", e.detail);
-  }
+    _onBusinessConditionsMappingGetError (e) {
+        this.logError("Dashboard-My To-Do's Summary - BusinessConditions mapping Get Exception", e.detail);
+    }
 
-  _prepareBusinessConditions (businessConditions) {
-      if (businessConditions && businessConditions.length) {
-          this._businessConditionMappings = businessConditions;
-      }
-  }
+    _prepareBusinessConditions (businessConditions) {
+        if (businessConditions && businessConditions.length) {
+            this._businessConditionMappings = businessConditions;
+        }
+    }
 
-  _showBusinessConditions () {
-      this._detailsToggleText = "Hide details";
-      this._businessConditionButtons = [];
-      let contexts = this._getContextFromTypeCriterion();
-      let valContexts = [DataHelper.getDefaultValContext()];
+    _showBusinessConditions () {
+        this._detailsToggleText = "Hide details";
+        this._businessConditionButtons = [];
+        let contexts = this._getContextFromTypeCriterion();
+        let valContexts = [DataHelper.getDefaultValContext()];
 
-      if (this.myTodo) {
-          let req = {
-              "params": {
-                  "query": {
-                      "contexts": contexts,
-                      "valueContexts": valContexts,
-                      "filters": {
-                          "typesCriterion": [
-                              "ruleContextMappings"
-                          ],
-                          "relationshipsCriterion": [
-                              {
-                                  "hasBusinessConditions": {
-                                      "attributes": [
-                                          {
-                                              "stepName": {
-                                                  "eq": this.myTodo.workflowData.wfActivityName
-                                              }
-                                          }
-                                      ]
-                                  }
-                              }
-                          ]
-                      }
-                  },
-                  "fields": {
-                      "relationships": [
-                          "hasBusinessConditions"
-                      ],
-                      "relationshipAttributes": [
-                          "stepName"
-                      ],
-                      "relatedEntityAttributes":["impactRoles"]
-                  }
-              }
-          };
+        if (this.myTodo) {
+            let req = {
+                "params": {
+                    "query": {
+                        "contexts": contexts,
+                        "valueContexts": valContexts,
+                        "filters": {
+                            "typesCriterion": [
+                                "ruleContextMappings"
+                            ],
+                            "relationshipsCriterion": [
+                                {
+                                    "hasBusinessConditions": {
+                                        "attributes": [
+                                            {
+                                                "stepName": {
+                                                    "eq": this.myTodo.workflowData.wfActivityName
+                                                }
+                                            }
+                                        ]
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "fields": {
+                        "relationships": [
+                            "hasBusinessConditions"
+                        ],
+                        "relationshipAttributes": [
+                            "stepName"
+                        ],
+                        "relatedEntityAttributes":["impactRoles"]
+                    }
+                }
+            };
 
-          let initBusinessConditionsMapingGet = this.shadowRoot.querySelector('#initBusinessConditionsMappingGet');
+            let initBusinessConditionsMapingGet = this.shadowRoot.querySelector('#initBusinessConditionsMappingGet');
 
-          if (typeof (initBusinessConditionsMapingGet) === "undefined" || initBusinessConditionsMapingGet == null) {
-              this.logError("Dashboard-My To-Do's Summary - Init BusinessConditions mappings liquid not found");
-              return;
-          }
-          this._businessConditionMappingRequest = req;
-          initBusinessConditionsMapingGet.generateRequest();
-      }
-  }
+            if (typeof (initBusinessConditionsMapingGet) === "undefined" || initBusinessConditionsMapingGet == null) {
+                this.logError("Dashboard-My To-Do's Summary - Init BusinessConditions mappings liquid not found");
+                return;
+            }
+            this._businessConditionMappingRequest = req;
+            initBusinessConditionsMapingGet.generateRequest();
+        }
+    }
 
-  _getBusinessConditionCount () {
-      if (!_.isEmpty(this._businessConditionMappings)) {
-          if (this._allowedEntityTypes && this._allowedEntityTypes.length) {
-              let contexts = this._getContextFromTypeCriterion();
-              if(!_.isEmpty(contexts) && !_.isEmpty(this.myTodo.mappedContexts) && !("self" in this.myTodo.mappedContexts[0])) {
-                  contexts = contexts.concat(this.myTodo.mappedContexts);
-              }
-              let userId = "";
-              let user = this.myTodo.workflowData.user;
+    _getBusinessConditionCount () {
+        if (!_.isEmpty(this._businessConditionMappings)) {
+            if (this._allowedEntityTypes && this._allowedEntityTypes.length) {
+                let contexts = this._getContextFromTypeCriterion();
+                if(!_.isEmpty(contexts) && !_.isEmpty(this.myTodo.mappedContexts) && !("self" in this.myTodo.mappedContexts[0])) {
+                    contexts = contexts.concat(this.myTodo.mappedContexts);
+                }
+                let userId = "";
+                let user = this.myTodo.workflowData.user;
 
-              if (user.toLowerCase() == "all") {
-                  userId = "";
-              } else if (user.toLowerCase() == "currentuser") {
-                  userId = DataHelper.getUserName();
-              } else if (user.toLowerCase() == "unassigned") {
-                  userId = "_UNASSIGNED";
-              }
-              let attributes = ["businessConditions", "status", "activities"];
-              let passedBCOptions={};
-            
-              this._businessConditionMappings.forEach(function (businessCondition) {
-                  let governGetLiquid = document.createElement('liquid-entity-govern-data-get');
-                  governGetLiquid.addEventListener('response', this._getBusinessConditionCountResponse.bind(this));
-                  governGetLiquid.addEventListener('error', this._getBusinessConditionCountFailed);
-              
-                  if (businessCondition && businessCondition.data) {
-                      let options = {
-                          "contexts": contexts,
-                          "typesCriterion": this._allowedEntityTypes,
-                          "userId": userId,
-                          "workflowActivityName": businessCondition.data.wfActivityName,
-                          "businessConditionName": businessCondition.data.bcId,
-                          "attributes": attributes,
-                          "excludeNonContextual": false
-                      };
-                      passedBCOptions=options;
-                      let req = DataRequestHelper.createGovernGetRequest(options);
-                      if (!_.isEmpty(req)) {
-                          governGetLiquid.id = businessCondition.data.bcId;
-                          governGetLiquid.operation = 'initiatesearchandgetcount';
-                          governGetLiquid.requestData = req;
-                          governGetLiquid.excludeInProgress = true;
-                          governGetLiquid.generateRequest();
-                      }
-                  }
-              }, this);
-              delete  passedBCOptions.businessConditionName;
-              this._getPassedBusinessConditionsCount(passedBCOptions,this._businessConditionMappings);
-          } else {
-              this.logError("Default entity types are empty or undefined in appsettings");
-          }
-      }
-  }
-  _getPassedBusinessConditionsCount (options,businessConditionMappings) {
-      let bcIds=businessConditionMappings.map(function (businessCondition) {
-         return businessCondition.data.bcId
-      });
-      options.businessConditionNames=bcIds;
-      options.passedBusinessConditions=true;
-      let req = DataRequestHelper.createGovernGetRequest(options);
-      if (!_.isEmpty(req)) {
-          let governGetLiquid = document.createElement('liquid-entity-govern-data-get');
-          governGetLiquid.id = "passedBCGovernLiquid";
-          governGetLiquid.operation = 'initiatesearchandgetcount';
-          governGetLiquid.requestData = req;
-          governGetLiquid.excludeInProgress = true;
-          governGetLiquid.addEventListener('response', this._onGetPassedBusinessConditionsCountResponse.bind(this));
-          governGetLiquid.addEventListener('error', this._onGetPassedBusinessConditionsCountError.bind(this));
-          governGetLiquid.generateRequest();
-      }
-  }
-  _addCountToBCButton (response,businessConditionButton) {
-      let bcCount = 0;
-      let totalRecords = response.content.totalRecords || 0;
-      let maxRecords = response.content.maxRecords || 0;
+                if (user.toLowerCase() == "all") {
+                    userId = "";
+                } else if (user.toLowerCase() == "currentuser") {
+                    userId = DataHelper.getUserName();
+                } else if (user.toLowerCase() == "unassigned") {
+                    userId = "_UNASSIGNED";
+                }
+                let attributes = ["businessConditions", "status", "activities"];
+                let passedBCOptions={};
+                
+                this._businessConditionMappings.forEach(function (businessCondition) {
+                    let governGetLiquid = document.createElement('liquid-entity-govern-data-get');
+                    governGetLiquid.addEventListener('response', this._getBusinessConditionCountResponse.bind(this));
+                    governGetLiquid.addEventListener('error', this._getBusinessConditionCountFailed);
+                
+                    if (businessCondition && businessCondition.data) {
+                        let options = {
+                            "contexts": contexts,
+                            "typesCriterion": this._allowedEntityTypes,
+                            "userId": userId,
+                            "workflowActivityName": businessCondition.data.wfActivityName,
+                            "businessConditionName": businessCondition.data.bcId,
+                            "attributes": attributes,
+                            "excludeNonContextual": false
+                        };
+                        passedBCOptions=options;
+                        let req = DataRequestHelper.createGovernGetRequest(options);
+                        if (!_.isEmpty(req)) {
+                            governGetLiquid.id = businessCondition.data.bcId;
+                            governGetLiquid.operation = 'initiatesearchandgetcount';
+                            governGetLiquid.requestData = req;
+                            governGetLiquid.excludeInProgress = true;
+                            governGetLiquid.generateRequest();
+                        }
+                    }
+                }, this);
+                delete  passedBCOptions.businessConditionName;
+                this._getPassedBusinessConditionsCount(passedBCOptions,this._businessConditionMappings);
+            } else {
+                this.logError("Default entity types are empty or undefined in appsettings");
+            }
+        }
+    }
+    _getPassedBusinessConditionsCount (options,businessConditionMappings) {
+        let bcIds=businessConditionMappings.map(function (businessCondition) {
+            return businessCondition.data.bcId
+        });
+        options.businessConditionNames=bcIds;
+        options.passedBusinessConditions=true;
+        let req = DataRequestHelper.createGovernGetRequest(options);
+        if (!_.isEmpty(req)) {
+            let governGetLiquid = document.createElement('liquid-entity-govern-data-get');
+            governGetLiquid.id = "passedBCGovernLiquid";
+            governGetLiquid.operation = 'initiatesearchandgetcount';
+            governGetLiquid.requestData = req;
+            governGetLiquid.excludeInProgress = true;
+            governGetLiquid.addEventListener('response', this._onGetPassedBusinessConditionsCountResponse.bind(this));
+            governGetLiquid.addEventListener('error', this._onGetPassedBusinessConditionsCountError.bind(this));
+            governGetLiquid.generateRequest();
+        }
+    }
+    _addCountToBCButton (response,businessConditionButton) {
+        let bcCount = 0;
+        let totalRecords = response.content.totalRecords || 0;
+        let maxRecords = response.content.maxRecords || 0;
 
-      if (totalRecords > maxRecords) {
-          bcCount = maxRecords + "+";
-      } else {
-          bcCount = totalRecords;
-      }
-      businessConditionButton.iconUrl = '';
-      businessConditionButton.buttonText = bcCount + "  " + businessConditionButton.buttonText;
-  }
-  _onGetPassedBusinessConditionsCountResponse (e) {
-      if (e && e.currentTarget && e.detail) {
-          let businessConditionButton = this.$$('pebble-button[id=passedBCButton]');
-          if(!businessConditionButton) {
-              this.logError("Dashboard-My To-Do's Summary - Passed BusinessCondition button notfound");
-              return;
-          }
-          let response = e.detail.response;
-          if (response && response.content) {
-             this._addCountToBCButton(response,businessConditionButton);
-          } else {
-              businessConditionButton.iconUrl = ''
-              this.logError("Dashboard-My To-Do's Summary - Some problem with passed BusinessCondition count response", e.detail);
-          }
-      }
-  }
+        if (totalRecords > maxRecords) {
+            bcCount = maxRecords + "+";
+        } else {
+            bcCount = totalRecords;
+        }
+        businessConditionButton.iconUrl = '';
+        businessConditionButton.buttonText = bcCount + "  " + businessConditionButton.buttonText;
+    }
+    _onGetPassedBusinessConditionsCountResponse (e) {
+        if (e && e.currentTarget && e.detail) {
+            let businessConditionButton = this.$$('pebble-button[id=passedBCButton]');
+            if(!businessConditionButton) {
+                this.logError("Dashboard-My To-Do's Summary - Passed BusinessCondition button notfound");
+                return;
+            }
+            let response = e.detail.response;
+            if (response && response.content) {
+                this._addCountToBCButton(response,businessConditionButton);
+            } else {
+                businessConditionButton.iconUrl = ''
+                this.logError("Dashboard-My To-Do's Summary - Some problem with passed BusinessCondition count response", e.detail);
+            }
+        }
+    }
 
-  _onGetPassedBusinessConditionsCountError (e) {
-      this.logError("Dashboard-My To-Do's Summary - Get Passed BusinessConditions Get Exception", e.detail);
-  }
+    _onGetPassedBusinessConditionsCountError (e) {
+        this.logError("Dashboard-My To-Do's Summary - Get Passed BusinessConditions Get Exception", e.detail);
+    }
 
-  _getBusinessConditionCountResponse (e) {
-      if (e && e.currentTarget && e.detail) {
-          let businessConditionButton = this.shadowRoot.querySelector('pebble-button[id=' + e.currentTarget.id + ']');
-          if(!businessConditionButton) {
-              this.logError("Dashboard-My To-Do's Summary - Passed BusinessCondition button notfound");
-              return;
-          }
-          let response = e.detail.response;
-          if (response && response.content) {
-              this._addCountToBCButton(response,businessConditionButton);
-          } else {
-              businessConditionButton.iconUrl = ''
-              this.logError("Dashboard-My To-Do's Summary - Some problem with BusinessCondition count response", e.detail);
-          }
-      }
-  }
+    _getBusinessConditionCountResponse (e) {
+        if (e && e.currentTarget && e.detail) {
+            let businessConditionButton = this.shadowRoot.querySelector('pebble-button[id=' + e.currentTarget.id + ']');
+            if(!businessConditionButton) {
+                this.logError("Dashboard-My To-Do's Summary - Passed BusinessCondition button notfound");
+                return;
+            }
+            let response = e.detail.response;
+            if (response && response.content) {
+                this._addCountToBCButton(response,businessConditionButton);
+            } else {
+                businessConditionButton.iconUrl = ''
+                this.logError("Dashboard-My To-Do's Summary - Some problem with BusinessCondition count response", e.detail);
+            }
+        }
+    }
 
-  _getBusinessConditionCountFailed (e) {
-      this.logError("Dashboard-My To-Do's Summary - Get BusinessConditions count Exception", e.detail);
-  }
+    _getBusinessConditionCountFailed (e) {
+        this.logError("Dashboard-My To-Do's Summary - Get BusinessConditions count Exception", e.detail);
+    }
 
-  _isBusinessConditionExist (businessConditionName, businessConditions) {
-      if (businessConditions && businessConditions.length) {
-          let isExist = false;
-          businessConditions.forEach(function (businessCondition) {
-              if (businessCondition.businessConditionName && businessCondition.businessConditionName == businessConditionName) {
-                  isExist = true;
-              }
-          }, this);
-          return isExist;
-      }
-      return false;
-  }
+    _isBusinessConditionExist (businessConditionName, businessConditions) {
+        if (businessConditions && businessConditions.length) {
+            let isExist = false;
+            businessConditions.forEach(function (businessCondition) {
+                if (businessCondition.businessConditionName && businessCondition.businessConditionName == businessConditionName) {
+                    isExist = true;
+                }
+            }, this);
+            return isExist;
+        }
+        return false;
+    }
 
-  _getContextFromTypeCriterion () {
-      let contexts = [];
-      if(this.myTodo && !_.isEmpty(this.myTodo.mappedContexts)) {
-          contexts = DataHelper.cloneObject(this.myTodo.mappedContexts);
-          contexts.forEach(function (context) {
-              context.workflow = this.myTodo.workflowName;
-          }, this);
-      }
-      return contexts;
-  }
+    _getContextFromTypeCriterion () {
+        let contexts = [];
+        if(this.myTodo && !_.isEmpty(this.myTodo.mappedContexts)) {
+            contexts = DataHelper.cloneObject(this.myTodo.mappedContexts);
+            contexts.forEach(function (context) {
+                context.workflow = this.myTodo.workflowName;
+            }, this);
+        }
+        return contexts;
+    }
 
-  _getAppNameToRedirect () {
-      let appName = "search-thing";
+    _getAppNameToRedirect () {
+        let appName = "search-thing";
 
-      let entityTypeManager = EntityTypeManager.getInstance();
+        let entityTypeManager = EntityTypeManager.getInstance();
 
-      if (this.myTodo.mappedEntityTypes && entityTypeManager) {
-          this.myTodo.mappedEntityTypes.forEach(function (entityType) {
-              let domain = entityTypeManager.getDomainByEntityTypeName(entityType) || "";
-              if(domain !== ""){
-                  appName = "search-" + domain.toLowerCase();
-              }
-          }, this);
-      }
+        if (this.myTodo.mappedEntityTypes && entityTypeManager) {
+            this.myTodo.mappedEntityTypes.forEach(function (entityType) {
+                let domain = entityTypeManager.getDomainByEntityTypeName(entityType) || "";
+                if(domain !== ""){
+                    appName = "search-" + domain.toLowerCase();
+                }
+            }, this);
+        }
 
-      return appName;
-  }
+        return appName;
+    }
 
-  _getBusinessConditionName (businessConditionId) {
-      let businessConditionName = "";
+    _getBusinessConditionName (businessConditionId) {
+        let businessConditionName = "";
 
-      if (this.businessConditions && this.businessConditions.length && businessConditionId) {
-          for (let i = 0; i < this.businessConditions.length; i++) {
-              let businessCondition = this.businessConditions[i];
-              if (businessCondition.id == businessConditionId) {
-                  if (businessCondition.data && businessCondition.data.attributes) {
-                      let businessConditionNameAttribute = businessCondition.data.attributes["name"];
+        if (this.businessConditions && this.businessConditions.length && businessConditionId) {
+            for (let i = 0; i < this.businessConditions.length; i++) {
+                let businessCondition = this.businessConditions[i];
+                if (businessCondition.id == businessConditionId) {
+                    if (businessCondition.data && businessCondition.data.attributes) {
+                        let businessConditionNameAttribute = businessCondition.data.attributes["name"];
 
-                      if (businessConditionNameAttribute && businessConditionNameAttribute.values && businessConditionNameAttribute.values.length) {
-                          businessConditionName = businessConditionNameAttribute.values[0].value;
-                      }
-                  }
-              }
-          }
-      }
+                        if (businessConditionNameAttribute && businessConditionNameAttribute.values && businessConditionNameAttribute.values.length) {
+                            businessConditionName = businessConditionNameAttribute.values[0].value;
+                        }
+                    }
+                }
+            }
+        }
 
-      return businessConditionName;
-  }
+        return businessConditionName;
+    }
 }
 customElements.define(MyTodoSummary.is, MyTodoSummary);

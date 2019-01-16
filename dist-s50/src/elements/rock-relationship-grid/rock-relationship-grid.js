@@ -196,6 +196,7 @@ import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
 import '../bedrock-style-manager/styles/bedrock-style-grid-layout.js';
 import '../bedrock-toast-behavior/bedrock-toast-behavior.js';
 import '../bedrock-navigation-behavior/bedrock-navigation-behavior.js';
+import EntityTypeManager from '../bedrock-managers/entity-type-manager.js'
 import '../liquid-entity-data-get/liquid-entity-data-get.js';
 import '../liquid-entity-data-save/liquid-entity-data-save.js';
 import '../liquid-rest/liquid-rest.js';
@@ -214,6 +215,7 @@ import '../rock-grid-data-sources/entity-relationship-grid-datasource.js';
 import '../rock-entity-relationship-search-result-actions/rock-entity-relationship-search-result-actions.js';
 import { dom } from '@polymer/polymer/lib/legacy/polymer.dom.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
+
 class RockRelationshipGrid
   extends mixinBehaviors([
     RUFBehaviors.AppBehavior,
