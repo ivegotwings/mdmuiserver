@@ -187,6 +187,7 @@ import '../bedrock-helpers/attribute-helper.js';
 import '../bedrock-helpers/data-transform-helper.js';
 import '../bedrock-helpers/entity-helper.js';
 import MessageHelper from '../bedrock-helpers/message-helper.js';
+import EntityTypeManager from '../bedrock-managers/entity-type-manager.js';
 import '../bedrock-helpers/liquid-response-helper.js';
 import '../bedrock-pubsub/bedrock-pubsub.js';
 import '../bedrock-logger-behavior/bedrock-logger-behavior.js';

@@ -27,6 +27,7 @@ import '../bedrock-helpers/data-transform-helper.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../bedrock-style-manager/styles/bedrock-style-floating.js';
 import '../bedrock-style-manager/styles/bedrock-style-grid-layout.js';
+import ContextModelManager from '../bedrock-managers/context-model-manager.js';
 import '../liquid-entity-data-get/liquid-entity-data-get.js';
 import '../liquid-entity-data-save/liquid-entity-data-save.js';
 import '../rock-grid-data-sources/entity-dimension-grid-datasource.js';

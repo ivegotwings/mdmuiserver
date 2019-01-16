@@ -171,3 +171,4 @@ class FileDownloadManager
     }
 }
 customElements.define(FileDownloadManager.is, FileDownloadManager);
+export default FileDownloadManager

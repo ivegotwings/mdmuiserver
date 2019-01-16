@@ -22,6 +22,7 @@ import '../../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../../bedrock-style-manager/styles/bedrock-style-text-alignment.js';
 import '../../bedrock-style-manager/styles/bedrock-style-floating.js';
 import '../../bedrock-style-manager/styles/bedrock-style-gridsystem.js';
+import EntityTypeManager from '../../bedrock-managers/entity-type-manager.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class MyTodoSummary
     extends mixinBehaviors([

@@ -9,6 +9,7 @@ import '../bedrock-style-manager/styles/bedrock-style-grid-layout.js';
 import '../bedrock-helpers/data-helper.js';
 import '../bedrock-helpers/data-request-helper.js';
 import '../bedrock-helpers/data-transform-helper.js';
+import EntityCompositeModelManager from '../bedrock-managers/entity-composite-model-manager.js';
 import '../liquid-entity-model-get/liquid-entity-model-get.js';
 import '../liquid-entity-data-get/liquid-entity-data-get.js';
 import '../liquid-rest/liquid-rest.js';
