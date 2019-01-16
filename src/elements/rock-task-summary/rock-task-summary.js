@@ -7,6 +7,7 @@ import '../bedrock-style-manager/styles/bedrock-style-text-alignment.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
 import '../bedrock-style-manager/styles/bedrock-style-floating.js';
 import '../bedrock-style-manager/styles/bedrock-style-gridsystem.js';
+import FileDownloadManager from '../bedrock-managers/file-download-manager.js';
 import '../rock-multiple-file-download/rock-multiple-file-download.js';
 import '../pebble-button/pebble-button.js';
 import '../pebble-graph-pie/pebble-graph-pie.js';

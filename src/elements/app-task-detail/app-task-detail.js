@@ -4,6 +4,7 @@ import '../bedrock-pubsub/bedrock-pubsub.js';
 import '../bedrock-app-behavior/bedrock-app-behavior.js';
 import '../bedrock-helpers/format-helper.js';
 import '../bedrock-helpers/context-helper.js';
+import EntityTypeManager from '../bedrock-managers/entity-type-manager.js';
 import '../liquid-rest/liquid-rest.js';
 import '../pebble-spinner/pebble-spinner.js';
 import '../pebble-accordion/pebble-accordion.js';

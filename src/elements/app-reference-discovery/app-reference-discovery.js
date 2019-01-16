@@ -7,6 +7,7 @@ import '../bedrock-query-builder-behavior/bedrock-query-builder-behavior.js';
 import '../bedrock-logger-behavior/bedrock-logger-behavior.js';
 import '../bedrock-toast-behavior/bedrock-toast-behavior.js';
 import '../bedrock-navigation-behavior/bedrock-navigation-behavior.js';
+import EntityTypeManager from '../bedrock-managers/entity-type-manager.js';
 import '../liquid-rest/liquid-rest.js';
 import '../liquid-entity-model-composite-get/liquid-entity-model-composite-get.js';
 import '../pebble-actions/pebble-actions.js';

@@ -2,6 +2,7 @@ import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '../bedrock-helpers/data-helper.js';
 import '../bedrock-helpers/entity-helper.js';
 import '../bedrock-helpers/attribute-helper.js';
+import EntityTypeManager from '../bedrock-managers/entity-type-manager.js';
 import '../liquid-entity-model-get/liquid-entity-model-get.js';
 import '../liquid-entity-data-get/liquid-entity-data-get.js';
 import '../pebble-tree/pebble-tree.js';

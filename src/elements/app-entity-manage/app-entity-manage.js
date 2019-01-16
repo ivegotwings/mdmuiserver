@@ -29,6 +29,7 @@ import '../rock-entity-sidebar/rock-entity-sidebar.js';
 import '../rock-dimension-grid/rock-dimension-grid.js';
 import '../rock-entity-manage-elements/rock-entity-manage-elements.js';
 import EntityTypeManager from '../bedrock-managers/entity-type-manager.js'
+import EntityCompositeModelManager from '../bedrock-managers/entity-composite-model-manager.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 import ProgressTracker from '../app-main/ProgressTracker.js';
 

@@ -9,10 +9,12 @@ import '../bedrock-style-manager/styles/bedrock-style-grid-layout.js';
 import '../bedrock-style-manager/styles/bedrock-style-gridsystem.js';
 import '../bedrock-logger-behavior/bedrock-logger-behavior.js';
 import '../bedrock-toast-behavior/bedrock-toast-behavior.js';
+import FileDownloadManager from '../bedrock-managers/file-download-manager.js';
 import '../rock-component-config-behavior/rock-component-config-behavior.js';
 import '../pebble-dialog/pebble-dialog.js';
 import '../pebble-spinner/pebble-spinner.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
+
 class RockMultipleFileDownload
     extends mixinBehaviors([
         RUFBehaviors.ComponentConfigBehavior,
