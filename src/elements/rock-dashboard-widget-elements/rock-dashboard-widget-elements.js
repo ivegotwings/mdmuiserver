@@ -1,0 +1,10 @@
+import '../rock-task-list/rock-task-list.js';
+import '../rock-my-todos/rock-my-todos.js';
+import '../rock-saved-searches/rock-saved-searches.js';
+import '../rock-analytics-widget/rock-analytics-widget.js';
+import '../rock-model-integration/rock-model-integration.js';
+import '../rock-model-import/rock-model-import.js';
+import '../rock-version-manage/rock-version-manage.js';
+import '../rock-dataobject-summary/rock-dataobject-summary.js';
+import '../rock-log-service-list/rock-log-service-list.js';
+import '../rock-api-healthcheck-status-list/rock-api-healthcheck-status-list.js';

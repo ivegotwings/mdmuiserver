@@ -16,6 +16,7 @@ const ANALYZE = process.argv.find(arg => arg.includes('--analyze'));
 const OUTPUT_PATH = ENV === 'production' ? resolve('build-prod') : resolve('build-dev');
 const INDEX_TEMPLATE = resolve('./build-resources/index.html');
 const webcomponentsjs = './node_modules/@webcomponents/webcomponentsjs';
+const fragments = require('./dynamic-fragments.js');
 
 const polyfills = [
   {
@@ -53,15 +54,15 @@ const assets = [
     to: join(OUTPUT_PATH, 'src/shared')
   },
   {
-    from: resolve('./dist/src/elements/bedrock-externalref-socketio/socket.io.min.js'),
+    from: resolve('./src/elements/bedrock-externalref-socketio/socket.io.min.js'),
     to: join(OUTPUT_PATH, 'src/elements/bedrock-externalref-socketio/')
   },
   {
-    from: resolve('./dist/src/elements/bedrock-externalref-falcor/falcor.browser.min.js'),
+    from: resolve('./src/elements/bedrock-externalref-falcor/falcor.browser.min.js'),
     to: join(OUTPUT_PATH, 'src/elements/bedrock-externalref-falcor/')
   },
   {
-    from: resolve('./dist/src/elements/bedrock-type-extensions/string-extensions.js'),
+    from: resolve('./src/elements/bedrock-type-extensions/string-extensions.js'),
     to: join(OUTPUT_PATH, 'src/elements/bedrock-type-extensions/')
   },
   {
@@ -81,15 +82,20 @@ const assets = [
     to: join(OUTPUT_PATH, 'node_modules/underscore/')
   },
   {
-    from: resolve('./dist/src/elements/app-common/app-common.js'),
+    from: resolve('./src/elements/app-common/app-common.js'),
     to: join(OUTPUT_PATH, 'src/elements/app-common/')
-  }
+  },
 ];
+
+const dynamicFragments = [];
+fragments.forEach(elm => {
+  dynamicFragments.push({from: resolve(elm), to: join(OUTPUT_PATH, 'src/elements/dynamic-fragments/')})
+})
 
 const commonConfig = merge([
   {
     entry: {
-      app: './dist/src/index.js',
+      app: './src/index.js',
     },
     output: {
       path: OUTPUT_PATH + '/src/elements/bundles',
@@ -127,7 +133,7 @@ const commonConfig = merge([
         chunksSortMode: "none"
       }),
       new CleanWebpackPlugin([OUTPUT_PATH], { verbose: true }),
-      new CopyWebpackPlugin([...polyfills, ...assets])
+      new CopyWebpackPlugin([...polyfills, ...assets , ...dynamicFragments])
     ]
   }
 ]);
