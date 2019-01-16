@@ -1,1 +1,0 @@
-pebble-vertical-divider

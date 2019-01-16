@@ -4,15 +4,15 @@ let ProgressTracker = function () {
 
     function addNewWorkUnit () {
         if(ProgressTracker.progressBar) {
-            //requestCount++;
-            //handleProgress();
+            requestCount++;
+            handleProgress();
         }
     }
 
     function markWorkUnitDone () {
         if(ProgressTracker.progressBar) {
-            //responseCount++;
-            //handleProgress();
+            responseCount++;
+            handleProgress();
         }
     }
 
@@ -55,7 +55,7 @@ let ProgressTracker = function () {
         }
     }
 
-    //let progressTimer = setInterval(resetProgress, 4000);
+    let progressTimer = setInterval(resetProgress, 4000);
 
     return {
         addNewWorkUnit: addNewWorkUnit,

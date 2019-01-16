@@ -1,1 +1,0 @@
-rock-entity-detail-tabs
