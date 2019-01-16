@@ -1,1 +1,0 @@
-bedrock-component-context-behavior

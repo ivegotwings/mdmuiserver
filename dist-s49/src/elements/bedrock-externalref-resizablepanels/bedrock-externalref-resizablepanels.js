@@ -1,1 +1,0 @@
-import './resizable-panels.js';

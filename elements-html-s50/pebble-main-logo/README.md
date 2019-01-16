@@ -1,1 +1,0 @@
-pebble-main-logo
