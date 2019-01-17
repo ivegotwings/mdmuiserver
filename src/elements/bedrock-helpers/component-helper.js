@@ -117,18 +117,26 @@ ComponentHelper.loadContent = function (contentElement, component, element, call
     } else {
         if(component.path.indexOf('html') !== -1)  //to do fix needs to be in configs
             component.path = component.path.replace(/html$/g,'js')
-            import( /* webpackInclude: /\.js$/ */
-                /* webpackExclude: /\.noimport\.js$/ */
-                /* webpackChunkName: [request] */
-                /* webpackMode: "lazy" */
-                /* webpackPrefetch: true */ 
-                /* webpackPreload: true */
-            `../dynamic-fragments/${component.name}.js`).then(function (e) {
-            let cElement = customElements.get(component.name);
-            createComponent(cElement);
-        }, function (e) {
-            console.log('dynamic component load failed with exception', e); //import failed
-        });
+            let path = '', fragmentImport = {}
+            try {
+                if(__PRODUCTION__){
+                    fragmentImport = import( /* webpackInclude: /\.js$/ */
+                        /* webpackExclude: /\.noimport\.js$/ */
+                        /* webpackChunkName: [request] */
+                        /* webpackMode: "lazy" */
+                        /* webpackPrefetch: true */ 
+                        /* webpackPreload: true */
+                        `../dynamic-fragments/${component.name}.js`)                
+                }
+            }catch(e) {
+                fragmentImport = import(component.path)            
+            }
+            fragmentImport.then(function (e) {
+                let cElement = customElements.get(component.name);
+                createComponent(cElement);
+            }, function (e) {
+                console.log('dynamic component load failed with exception', e); //import failed
+            });
     }
 };
 
