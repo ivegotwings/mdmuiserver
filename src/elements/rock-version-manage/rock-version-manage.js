@@ -4,6 +4,7 @@ import '../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
 import '../pebble-button/pebble-button.js';
 import '../liquid-dataobject-utils/liquid-dataobject-utils.js';
+import LiquidDataObjectUtils from '../liquid-dataobject-utils/liquid-dataobject-utils.js'
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockVersionManage
   extends mixinBehaviors([

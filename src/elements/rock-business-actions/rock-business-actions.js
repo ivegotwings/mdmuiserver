@@ -16,6 +16,7 @@ import '../liquid-entity-model-get/liquid-entity-model-get.js';
 import '../liquid-entity-model-composite-get/liquid-entity-model-composite-get.js';
 import '../liquid-entity-govern-data-get/liquid-entity-govern-data-get.js';
 import '../liquid-rest/liquid-rest.js';
+import LiquidDataObjectUtils from '../liquid-dataobject-utils/liquid-dataobject-utils.js'
 import '../bedrock-logger-behavior/bedrock-logger-behavior.js';
 import '../bedrock-toast-behavior/bedrock-toast-behavior.js';
 import EntityTypeManager from '../bedrock-managers/entity-type-manager.js';
