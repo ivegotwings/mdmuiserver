@@ -1,7 +1,8 @@
 import './context-helper.js';
 import './component-helper.js';
 import './data-transform-helper.js';
-import '../bedrock-enums-util/bedrock-enums-util.js';
+import SharedEnumsUtil from '../bedrock-enums-util/bedrock-enums-util.js';
+
 window.DataRequestHelper = window.DataRequestHelper || {};
 
 DataRequestHelper.createEntityModelCompositeGetRequest = function (contextData) {

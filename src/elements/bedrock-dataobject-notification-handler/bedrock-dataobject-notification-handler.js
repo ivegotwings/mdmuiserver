@@ -16,9 +16,11 @@ import '../bedrock-pubsub/bedrock-pubsub.js';
 import '../bedrock-ui-behavior/bedrock-ui-behavior.js';
 import '../bedrock-helpers/component-helper.js';
 import '../bedrock-datachannel/bedrock-datachannel.js';
+import SharedEnumsUtil from '../bedrock-enums-util/bedrock-enums-util.js';
 import '../liquid-dataobject-utils/liquid-dataobject-utils.js';
 import '../pebble-toast/pebble-toast.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
+
 class BedrockDataobjectNotificationHandler
     extends mixinBehaviors([
         RUFBehaviors.UIBehavior
