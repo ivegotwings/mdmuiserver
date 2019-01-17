@@ -26,6 +26,7 @@ import '../pebble-icons/pebble-icons.js';
 import '../pebble-data-table/pebble-data-table.js';
 import '../pebble-data-table/data-table-row.js';
 import '../pebble-spinner/pebble-spinner.js';
+import DataTableRow from '../pebble-data-table/data-table-row.js'
 import { dom } from '@polymer/polymer/lib/legacy/polymer.dom.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockVariantConfigurator

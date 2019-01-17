@@ -6,6 +6,8 @@ import '../bedrock-toast-behavior/bedrock-toast-behavior.js';
 import '../pebble-dialog/pebble-dialog.js';
 import { timeOut } from '@polymer/polymer/lib/utils/async.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
+import APIExternalCommunication from '../api-external-communication/api-external-communication.js';
+
 class PebbleIframe extends 
     mixinBehaviors([
         RUFBehaviors.UIBehavior,

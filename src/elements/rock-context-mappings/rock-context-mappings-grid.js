@@ -28,6 +28,7 @@ import '../pebble-textbox/pebble-textbox.js';
 import '../pebble-lov/pebble-lov.js';
 import '../pebble-dialog/pebble-dialog.js';
 import '../pebble-actions/pebble-actions.js';
+import DataTableRow from '../pebble-data-table/data-table-row.js'
 import '../bedrock-helpers/data-helper.js';
 import '../bedrock-helpers/context-helper.js';
 import '../bedrock-mapping-grid-behavior/bedrock-mapping-grid-behavior.js';

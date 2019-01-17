@@ -34,6 +34,7 @@ import '../pebble-popover/pebble-popover.js';
 import '../pebble-dialog/pebble-dialog.js';
 import '../pebble-spinner/pebble-spinner.js';
 import '../pebble-actions/pebble-actions.js';
+import DataTableRow from '../pebble-data-table/data-table-row.js'
 import '../rock-attribute-model-lov/rock-attribute-model-lov.js';
 import '../rock-classification-tree/rock-classification-tree.js';
 import '../rock-context-selector/rock-context-selector.js';
