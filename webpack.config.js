@@ -8,6 +8,7 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 const TerserWebpackPlugin = require('terser-webpack-plugin');
 const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
 const { InjectManifest } = require('workbox-webpack-plugin');
+const webpack = require('webpack');
 
 const ENV = process.argv.find(arg => arg.includes('production'))
   ? 'production'
@@ -37,6 +38,10 @@ const polyfills = [
 ];
 
 const assets = [
+  {
+    from: resolve('./src/elements/bedrock-style-manager/themes'),
+    to: join(OUTPUT_PATH, 'src/elements/bedrock-style-manager/themes/')
+  },
   {
     from: resolve('./src/images'),
     to: join(OUTPUT_PATH, 'src/images')
@@ -133,7 +138,10 @@ const commonConfig = merge([
         chunksSortMode: "none"
       }),
       new CleanWebpackPlugin([OUTPUT_PATH], { verbose: true }),
-      new CopyWebpackPlugin([...polyfills, ...assets , ...dynamicFragments])
+      new CopyWebpackPlugin([...polyfills, ...assets , ...dynamicFragments]),
+      new webpack.DefinePlugin({
+        __PRODUCTION__: JSON.stringify(true),
+      })
     ]
   }
 ]);
