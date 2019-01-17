@@ -39,6 +39,7 @@ import '../bedrock-style-manager/styles/bedrock-style-buttons.js';
 import '../bedrock-style-manager/styles/bedrock-style-grid-layout.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
 import '../bedrock-style-manager/styles/bedrock-style-icons.js';
+import LiquidDataObjectUtils from '../liquid-dataobject-utils/liquid-dataobject-utils.js'
 import '../liquid-entity-data-get/liquid-entity-data-get.js';
 import '../liquid-dataobject-utils/liquid-dataobject-utils.js';
 import '../liquid-entity-data-save/liquid-entity-data-save.js';

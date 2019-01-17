@@ -18,6 +18,7 @@ import '../bedrock-helpers/component-helper.js';
 import '../bedrock-datachannel/bedrock-datachannel.js';
 import SharedEnumsUtil from '../bedrock-enums-util/bedrock-enums-util.js';
 import '../liquid-dataobject-utils/liquid-dataobject-utils.js';
+import LiquidDataObjectUtils from '../liquid-dataobject-utils/liquid-dataobject-utils.js'
 import '../pebble-toast/pebble-toast.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 
