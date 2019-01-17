@@ -21,6 +21,7 @@ import '../pebble-popover/pebble-popover.js';
 import '../pebble-data-table/pebble-data-table.js';
 import '../pebble-textbox/pebble-textbox.js';
 import '../pebble-lov/pebble-lov.js';
+import DataTableRow from '../pebble-data-table/data-table-row.js'
 import '../bedrock-helpers/data-helper.js';
 import '../bedrock-helpers/context-helper.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';

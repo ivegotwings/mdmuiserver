@@ -226,6 +226,7 @@ import '../pebble-vertical-divider/pebble-vertical-divider.js';
 import '../pebble-icons/pebble-icons.js';
 import '../pebble-icon/pebble-icon.js';
 import '../pebble-popover/pebble-popover.js';
+import DataTableRow from '../pebble-data-table/data-table-row.js'
 import '../rock-attribute/rock-attribute.js';
 import '../rock-image-viewer/rock-image-viewer.js';
 import '../rock-nested-attribute-grid/rock-nested-attribute-grid.js';

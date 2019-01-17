@@ -163,3 +163,5 @@ class APIExternalCommunication {
         toastElement.show();
     }
 }
+
+export default APIExternalCommunication;

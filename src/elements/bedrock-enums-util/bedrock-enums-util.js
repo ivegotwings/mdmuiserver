@@ -45,3 +45,4 @@ else {
     }
     SharedEnumsUtil.Enums = Enums;
 }
+export default SharedEnumsUtil;
