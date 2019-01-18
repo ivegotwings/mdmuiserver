@@ -192,6 +192,11 @@ class RockClassificationTree extends mixinBehaviors([RUFBehaviors.UIBehavior], O
               notify: true
           },
 
+          _externalNamePathAttr: {
+              type: String,
+              value: 'externalnamepath'
+          },
+
           _selectedItem: {
               type: Object,
               value: function () {
@@ -344,40 +349,6 @@ class RockClassificationTree extends mixinBehaviors([RUFBehaviors.UIBehavior], O
               this.selectedClassifications = !_.isEmpty(this._selectedItem) ? [this._selectedItem] : [];
           }
       }
-      if (this._isSearchMode) {
-          let req = {
-              "params": {
-                  "query": {
-                      "filters": {
-                          "typesCriterion": [
-                              "classification"
-                          ]
-                      }
-                  },
-                  "fields": {
-                      "relationships": [
-                          "belongsto"
-                      ],
-                      "relationshipAttributes": [
-                          "lineagepath"
-                      ]
-                  }
-              }
-          };
-          DataRequestHelper.addDefaultContext(req);
-          if (this.selectedClassifications) {
-              req.params.query.ids = [];
-              this.selectedClassifications.forEach((classification) => {
-                  req.params.query.ids.push(classification.id);
-              });
-              this.lineagerequest = req;
-              let lineagepathElement = this.$$("#lineagepath");
-              if (lineagepathElement) {
-                  this._loading = true;
-                  lineagepathElement.generateRequest();
-              }
-          }
-      }
   }
 
   clearSelectedItems() {
@@ -486,7 +457,7 @@ class RockClassificationTree extends mixinBehaviors([RUFBehaviors.UIBehavior], O
       let req = DataRequestHelper.createEntityGetRequest(contextData);
       if (searchKeyword) {
           let attributesCriterion = [];
-          //To avaoid other rootNode classifcations search
+          //To avoid other rootNode classifications search
           attributesCriterion.push({
               "rootexternalname": {
                   "eq": this.rootNodeExternalName,
@@ -503,6 +474,10 @@ class RockClassificationTree extends mixinBehaviors([RUFBehaviors.UIBehavior], O
               attributesCriterion.push(attrObj);
           }
           req.params.query.filters.attributesCriterion = attributesCriterion;
+      }
+      //requesting for "externalnamepath" to get all attribute paths
+      if(DataHelper.isValidObjectPath(req, 'params.fields.attributes')) {
+        req.params.fields.attributes.push(this._externalNamePathAttr);
       }
       delete req.params.options;
 
@@ -535,48 +510,52 @@ class RockClassificationTree extends mixinBehaviors([RUFBehaviors.UIBehavior], O
   }
 
   _onGetSearchResultDetailResponse(e) {
-      this._loading= false;
-      this._showSearchBar = true;
-      let res = e.detail.response;
-      let classifications = res.content.entities;
-      this._classificationsFound = true;
-      if (this._searchClicked && _.isEmpty(classifications)) {
-          this._classificationsFound = false;
-      }
-      for (let i in classifications) {
-          let classification = classifications[i];
-          let externalNameAttr = EntityHelper.getAttribute(classification, this._classificationExtNameAttr);
-          let externamName = AttributeHelper.getFirstAttributeValue(externalNameAttr);
-          classification.text = externamName || classification.name;
-          classification.value = classification.name;
-          classification.children = [];
-      }
+    this._loading= false;
+    this._showSearchBar = true;
+    let res = e.detail.response;
+    let classifications = res.content.entities;
+    this._classificationsFound = true;
+    if (this._searchClicked && _.isEmpty(classifications)) {
+        this._classificationsFound = false;
+    }
+    for (let i in classifications) {
+        let classification = classifications[i];
+        let externalNameAttr = EntityHelper.getAttribute(classification, this._classificationExtNameAttr);
+        let externalName = AttributeHelper.getFirstAttributeValue(externalNameAttr);
+        let externalPathNameAttr = EntityHelper.getAttribute(classification, this._externalNamePathAttr);
+        let externalNamePath = AttributeHelper.getFirstAttributeValue(externalPathNameAttr);
+        classification.text = externalName || classification.name;
+        classification.value = classification.name;
+        classification.isSearchMode = this._isSearchMode;
+        classification.externalNamePath = externalNamePath;
+        classification.children = [];
+    }
 
-      this._classificationsList = this._classificationsList.concat(classifications);
+    this._classificationsList = this._classificationsList.concat(classifications);
 
-      this._currentRecord += 20;
-      if (this._currentRecord < this._totalRecords) {
-          this._makeNextBatchSearchDetailCall();
-      } else {
-          this._classificationsList.sort(function (a, b) { return (a.text > b.text) ? 1 : ((b.text > a.text) ? -1 : 0); });
-          if (!this._currentNode || _.isEmpty(this._currentNode)) {
-              if (this.isModelTree && this.rootNodeData && !_.isEmpty(this.rootNodeData)) {
-                  this.rootNodeData.children = this._classificationsList;
-                  this.classifications = [this.rootNodeData];
-              } else {
-                  this.classifications = this._classificationsList;
-              }
-              this._checkForSelectedClassification();
-          } else {
-              if (!this._classificationsList.length) {
-                  this._currentNode.changeToLeafMode();
-              }
-              this._currentNode.set('nodeData.children', this._classificationsList);
-              this._currentNode.refreshChildList();
-          }
-      }
-      this._searchClicked = false;
-  }
+    this._currentRecord += 20;
+    if (this._currentRecord < this._totalRecords) {
+        this._makeNextBatchSearchDetailCall();
+    } else {
+        this._classificationsList.sort(function (a, b) { return (a.text > b.text) ? 1 : ((b.text > a.text) ? -1 : 0); });
+        if (!this._currentNode || _.isEmpty(this._currentNode)) {
+            if (this.isModelTree && this.rootNodeData && !_.isEmpty(this.rootNodeData)) {
+                this.rootNodeData.children = this._classificationsList;
+                this.classifications = [this.rootNodeData];
+            } else {
+                this.classifications = this._classificationsList;
+            }
+            this._checkForSelectedClassification();
+        } else {
+            if (!this._classificationsList.length) {
+                this._currentNode.changeToLeafMode();
+            }
+            this._currentNode.set('nodeData.children', this._classificationsList);
+            this._currentNode.refreshChildList();
+        }
+    }
+    this._searchClicked = false;
+}
 
   //If _selectedClassificationPaths available, then only pre selection process triggers
   _checkForSelectedClassification() {
