@@ -23,7 +23,7 @@ let argv = require('yargs').argv;
 const eslint = require('gulp-eslint');
 const polymerJson = require('./polymer.json');
 
-const buildDirectory = 'build/ui-platform';
+const buildDirectory = 'build';
 const serverPath = path.join(buildDirectory, 'web-server');
 //const nginxDirectory = '/usr/local/etc/nginx';
 const liveReloadPort = 35729;
