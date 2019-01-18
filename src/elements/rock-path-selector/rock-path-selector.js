@@ -247,14 +247,7 @@ class RockPathSelector extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehav
       });
       this._onCancelClassificationSelection();
   }
-  _getClassificationValuePath(classification) {
-      let valuePath = [];
-      if (classification && classification.valuePath) {
-          valuePath.push(classification.valuePath.replace(/#@#/g, this.pathSeperator));
-      }
 
-      return valuePath;
-  }
   _onCancelClassificationSelection() {
       let classificationDialog = this.shadowRoot.querySelector("#classification-popover");
       if (classificationDialog) {
