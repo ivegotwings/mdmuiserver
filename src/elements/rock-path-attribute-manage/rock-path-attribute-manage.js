@@ -406,14 +406,12 @@ class RockPathAttributeManage
 
       //Add selected categories
       this._selectedCategories.forEach(category => {
-          let valuePath = category.valuePath.replace(eval(`/${this._valuePathSeperator}/g`), this._pathSeperator);
-          values.push(this.rootNodeExternalName + this._pathSeperator + valuePath);
-      }, this);
+        values.push(category.externalNamePath);
+    }, this);
 
       //Add initial categories - further add delete action based on selected categories
       this._initialClassifications.forEach(category => {
-          let valuePath = category.join(this._pathSeperator);
-          let fullPath = this.rootNodeExternalName + this._pathSeperator + valuePath;
+          let fullPath = category.externalNamePath;
           if (values.indexOf(fullPath) == -1) {
               values.push(fullPath);
           }
@@ -443,13 +441,9 @@ class RockPathAttributeManage
           saveEntityRequest.data.attributes[this.pathAttribute].values) {
           let attributeValues = saveEntityRequest.data.attributes[this.pathAttribute].values;
           attributeValues.forEach(attributeValue => {
-              let path = attributeValue.value.split(this._pathSeperator);
-              path.shift(); //remove root node
-              let classificationWithValueSeperator = path.join(this._valuePathSeperator); //#@#
-              let classificationWithPathSeperator = path.join(this._pathSeperator); //>>
+              let path = attributeValue.value
               let filterResults = this._selectedCategories.filter(category => {
-                  return category.valuePath == classificationWithValueSeperator ||
-                         category.valuePath == classificationWithPathSeperator;
+                  return category.externalNamePath == path;
               })
               if (_.isEmpty(filterResults)) {
                   attributeValue.action = "delete";
@@ -461,7 +455,7 @@ class RockPathAttributeManage
   _updateInitialClassifications() {
       let initialClassifications = [];
       this._selectedCategories.forEach(category => {
-          initialClassifications.push(category.valuePath.split(eval(`/${this._pathSeperator}|${this._valuePathSeperator}/g`)));
+          initialClassifications.push(category.externalNamePath);
       }, this);
       this._initialClassifications = initialClassifications;
   }
