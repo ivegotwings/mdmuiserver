@@ -167,8 +167,8 @@ class PebbleSplitList extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerE
                                 <template is="dom-repeat" items="[[config.tabular.fields]]" as="col" index-as="colIndex">
                                     <data-table-column slot="column-slot" name="[[col.header]]" column-index="{{colIndex}}" filter-by="[[_isFilterEnabled(col)]]" sort-by="[[_isSortable(col)]]" icon="pebble-icon:action-edit" class="pebble-icon-size-16" column-object="[[col]]">
                                         <template>
-                                            <div slot="cell-slot-content" class="cell" title\$="[[_columnValue(item,colIndex)]]">
-                                                <span>[[_columnValue(item, colIndex)]]</span>
+                                            <div slot="cell-slot-content" class="cell" title\$="[[_columnValue(item,column.columnIndex)]]">
+                                                <span>[[_columnValue(item, column.columnIndex)]]</span>
                                             </div>
                                         </template>
                                     </data-table-column>
@@ -193,8 +193,8 @@ class PebbleSplitList extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerE
                                 <template is="dom-repeat" items="[[config.tabular.fields]]" as="col" index-as="colIndex">
                                     <data-table-column slot="column-slot" name="[[col.header]]" column-index="{{colIndex}}" filter-by="[[_isFilterEnabled(col)]]" sort-by="[[_isSortable(col)]]" icon="pebble-icon:action-edit" class="pebble-icon-size-16" column-object="[[col]]">
                                         <template>
-                                            <div slot="cell-slot-content" class="cell" title\$="[[_columnValue(item,colIndex)]]">
-                                                <span>[[_columnValue(item, colIndex)]]</span>
+                                            <div slot="cell-slot-content" class="cell" title\$="[[_columnValue(item,column.columnIndex)]]">
+                                                <span>[[_columnValue(item, column.columnIndex)]]</span>
                                             </div>
                                         </template>
                                     </data-table-column>
