@@ -229,21 +229,20 @@ class RockPathSelector extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehav
   _selectClassification() {
       let contextTree = this.shadowRoot.querySelector("#classification-contextTree");
       if (!this.rootNodeExternalName) {
-          this.logError("Classification root node extenal name missing, cannot select classification paths.");
+          this.logError("Classification root node external name missing, cannot select classification paths.");
           return;
       }
       if (contextTree) {
-          if (contextTree.selectedClassifications && contextTree.selectedClassifications.length > 0) {
-              let _values = [];
-              for (let classificationIndex = 0; classificationIndex < contextTree.selectedClassifications.length; classificationIndex++) {
-                  let valuePath = this._getClassificationValuePath(contextTree.selectedClassifications[classificationIndex]);
-                  _values.push(this.rootNodeExternalName + this.pathSeperator + valuePath[0]);
-              }
-              this.set("values", []);
-              this.set("values", _values)
-          }
-      }
-      this.fireBedrockEvent("on-classification-update", "", {
+        let selectedItems = contextTree.selectedClassifications;
+        if (selectedItems && selectedItems.length > 0) {
+            let _values = selectedItems.map(selectedItem=> {
+                return selectedItem.externalNamePath;
+            })
+            this.set("values", []);
+            this.set("values", _values)
+        }
+    }
+    this.fireBedrockEvent("on-classification-update", "", {
           ignoreId: true
       });
       this._onCancelClassificationSelection();

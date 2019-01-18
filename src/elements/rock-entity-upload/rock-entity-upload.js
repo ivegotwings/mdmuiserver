@@ -931,13 +931,8 @@ class RockEntityUpload
             categoryPathSeperator = this.selectedPath.properties.pathEntityInfo[0].pathSeperator;
         }
         this._selectedCategories.forEach(function (category) {
-            let formattedClassification = category.valuePath.replace(/#@#/g,
-                categoryPathSeperator);
-            //Prefix rootNode to the selected classifcation
-            formattedClassification = this.selectedPath.properties.pathEntityInfo[0].rootNodeExternalName + categoryPathSeperator + formattedClassification;
-
             let context = {};
-            context[this.selectedPath.name] = formattedClassification;
+            context[this.selectedPath.name] = category.externalNamePath;
             contexts.push(context);
         }, this);
 
