@@ -1938,19 +1938,18 @@ extends mixinBehaviors([
     
     clearSelection() {
 				if (this.config.viewMode == "List") {
-                    import('./grid-list-view.js').then(() => {
+                    import('./grid-list-view.js');
                         let listView = this.shadowRoot.querySelector("#gridListView");
                         if (listView) {
                             listView.clearSelection();
                         }
-                    })
+                    
 				} else if (this.config.viewMode == "Tile") {
-                    import('./grid-tile-view.js').then(() => {
+                    import('./grid-tile-view.js');
                         let tileView = this.shadowRoot.querySelector("#gridTileView");
                         if (tileView) {
                             tileView.clearSelection();
-                        }
-                    })
+                        }                    
 				} else {
             let ironDataTable = this._getIronDataTable();
             if (ironDataTable) {
