@@ -202,31 +202,13 @@ class PebbleTreeNode extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
                 font-size: 11px;
                 color: var(--text-primary-color, #364653);
                 margin-left: 10px;
+                padding-top: 5px;
             }
 
-            .detailtext:after {
-                content: '';
-                display: block;
-                margin: auto;
-                height: 3px;
-                width: 0px;
-                background: transparent;
-                animation: 3s 2 alternate detailborder
-            }
             .flex-grow-zero{
                 flex-grow: 0;
             }
 
-            @keyframes detailborder {
-                0% {
-                    width: 0%;
-                    background: black;
-                }
-                100% {
-                    width: 100%;
-                    background: blue;
-                }
-            }
         </style>
         <template is="dom-if" if="[[!hasChildren(nodeData.*,itemPath)]]">
             <li class\$="[[_getNodeClass(nodeData)]] [[_getLeafNodeClass()]]">
@@ -243,7 +225,7 @@ class PebbleTreeNode extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
                     <a class\$="nav-lnk" on-tap="_itemTextClick">[[nodeData.text]]</a>
                 </div>
                 <div class="flex">
-                    <div class\$="detailtext nodetext [[detailClass]]" id="[[nodeData.id]]"></div>
+                    <div class="detailtext nodetext">[[_getPathValue()]]</div>
                 </div>
                 <div class="right" hidden="[[isNotAddable(addableLevels)]]">
                     <pebble-icon class="iconButton" icon="pebble-icon:action-add-fill" on-tap="_addNewElement"></pebble-icon>
@@ -266,7 +248,7 @@ class PebbleTreeNode extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
                         <!--<pebble-button class="iconButton pebble-icon-size-16 m-r-5" icon="pebble-icon:view-dashboard"></pebble-button>-->[[nodeData.text]]</div>
                 </div>
                 <div class="flex">
-                    <div class\$="detailtext nodetext [[detailClass]]" id="[[nodeData.id]]"></div>
+                    <div class="detailtext nodetext">[[_getPathValue()]]</div>
                 </div>
                 <div class="right" hidden="[[isNotAddable(addableLevels)]]">
                     <pebble-icon class="iconButton" icon="pebble-icon:action-add-fill" on-tap="_addNewElement"></pebble-icon>
@@ -307,7 +289,6 @@ class PebbleTreeNode extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
         <pebble-dialog id="treeConfirmationDialog" dialog-title="Confirmation" button-cancel-text="No, do not remove" modal="" alert-box="" show-cancel="" show-ok="" no-cancel-on-outside-click="" no-cancel-on-esc-key="">
         <p>Remove [[selectedNodeName]] and all its child contexts?</p>
     </pebble-dialog>
-        <bedrock-pubsub on-bedrock-event-detailresponsereceived="_onDetailResponse" name="bedrock-event-detailresponsereceived"></bedrock-pubsub>
         <bedrock-pubsub event-name="on-buttonok-clicked" handler="_deSelectItem" target-id="treeConfirmationDialog"></bedrock-pubsub>
         <bedrock-pubsub event-name="on-buttoncancel-clicked" handler="selectItem" target-id="treeConfirmationDialog"></bedrock-pubsub>
 `;
@@ -419,11 +400,6 @@ class PebbleTreeNode extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
            */
           valuePath: {
               type: String
-          },
-
-          detailClass: {
-              type: String,
-              value: 'hidden'
           },
 
           /**
@@ -569,8 +545,7 @@ class PebbleTreeNode extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
   static get observers() {
       return [
           '_defaultExpandDepthChanged(defaultExpandDepth,itemPath)',
-          '_nodeDataExpandedChanged(nodeData.expanded)',
-          '_getDetailClass(nodeData,selectedItems,selectedItems.*)'
+          '_nodeDataExpandedChanged(nodeData.expanded)'
       ];
   }
 
@@ -676,26 +651,6 @@ class PebbleTreeNode extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
           return indeterminateItems.indexOf(item) > -1;
       }
 
-  }
-
-  _getDetailClass(nodeData) {
-      let checked = this._isSelected(nodeData);
-      this.detailClass = checked ? 'visible' : 'hidden';
-  }
-
-  _onDetailResponse(e) {
-      if (DataHelper.isValidObjectPath(e, 'detail')) {
-          let detail = e.detail;
-          Object.keys(detail).forEach(key => {
-              if (this.nodeData.id === key) {
-                  this.nodeData.valuePath = detail[key];
-                  let node = this.shadowRoot.getElementById(this.nodeData.id);
-                  if(node){
-                      node.innerHTML = "( " + detail[key] + " )";
-                  }
-              }
-          })
-      }
   }
 
   /**
@@ -812,6 +767,13 @@ class PebbleTreeNode extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
       }
   }
 
+    _getPathValue() {
+        if (this.nodeData && this.nodeData.isSearchMode && this.nodeData.externalNamePath) {
+            return ` [${this.nodeData.externalNamePath}]`;
+        } else {
+            return "";
+        }
+    }
   /**
    *  Can be used to select all the child nodes without affecting the state of the parent node.
    */
@@ -962,9 +924,6 @@ class PebbleTreeNode extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
           if (this.selectedItem == nodeData) {
               this.deSelectItem();
           } else {
-              if (this.selectedNode) {
-                  this.selectedNode.detailClass = 'hidden';
-              }
               this.selectItem(true);
           }
       }
@@ -1265,7 +1224,6 @@ class PebbleTreeNode extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
       this.shadowRoot.querySelector("#childList").render();
       if (_.isEmpty(_children)) {
           if (!this.multiSelect && this.selectedNode) {
-              this.selectedNode.detailClass = 'hidden';
               this.selectedNode.deSelectItem();
           }
           if (this._isSelected(this.nodeData)) {

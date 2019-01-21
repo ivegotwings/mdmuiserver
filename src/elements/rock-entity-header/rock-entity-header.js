@@ -929,7 +929,7 @@ extends mixinBehaviors([
           if (classificationTree) {
               selectedItems = classificationTree.selectedClassifications;
               let classificationPaths = selectedItems.map(elm => {
-                  return elm.valuePath;
+                return elm.externalNamePath;
               });
               let attributeForSave = this._currentAttributeInEdit;
               let headerAttributeModel = this._headerAttributeModels[attributeForSave];
@@ -1008,15 +1008,6 @@ extends mixinBehaviors([
       }
   }
 
-  _getFormattedValuePath(path) {
-      let pathSeperator;
-      if (DataHelper.isValidObjectPath(this._headerAttributeModels[this._currentAttributeInEdit], 'properties.pathEntityInfo.0.pathSeperator')) {
-          pathSeperator = this._headerAttributeModels[this._currentAttributeInEdit].properties.pathEntityInfo[0].pathSeperator;
-      }
-      path = this.rootNodeExternalName + pathSeperator + path;
-      return path.replace(/#@#/g, pathSeperator);
-  }
-
   _getFormattedPathTypeObject(classificationPaths, isLocalizable) {
       let pathTypeAttributeValues = {
           values: []
@@ -1026,7 +1017,7 @@ extends mixinBehaviors([
       if (!_.isEmpty(classificationPaths)) {
           classificationPaths.forEach(path => {
               let valueObject = {
-                  value: this._getFormattedValuePath(path)
+                  value: path
               }
               AttributeHelper.populateValueContext(valueObject, firstValueContext);
 
