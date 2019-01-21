@@ -545,7 +545,7 @@ class PebbleTreeNode extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
   static get observers() {
       return [
           '_defaultExpandDepthChanged(defaultExpandDepth,itemPath)',
-          '_getDetailClass(nodeData,selectedItems,selectedItems.*)'
+          '_nodeDataExpandedChanged(nodeData.expanded)'
       ];
   }
 
@@ -651,26 +651,6 @@ class PebbleTreeNode extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
           return indeterminateItems.indexOf(item) > -1;
       }
 
-  }
-
-  _getDetailClass(nodeData) {
-      let checked = this._isSelected(nodeData);
-      this.detailClass = checked ? 'visible' : 'hidden';
-  }
-
-  _onDetailResponse(e) {
-      if (DataHelper.isValidObjectPath(e, 'detail')) {
-          let detail = e.detail;
-          Object.keys(detail).forEach(key => {
-              if (this.nodeData.id === key) {
-                  this.nodeData.valuePath = detail[key];
-                  let node = this.shadowRoot.getElementById(this.nodeData.id);
-                  if(node){
-                      node.innerHTML = "( " + detail[key] + " )";
-                  }
-              }
-          })
-      }
   }
 
   /**
