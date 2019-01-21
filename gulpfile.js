@@ -57,7 +57,7 @@ function serverBuild(buildPath) {
 }
 
 async function copyPolymerOverrides(buildPath) {
-  return await gulp.src('./src/polymer-overrides/**/*').pipe(gulp.dest(buildPath + '/bower_components/polymer/'));
+  return await true; //gulp.src('./src/polymer-overrides/**/*').pipe(gulp.dest(buildPath + '/bower_components/polymer/'));
 }
 
 gulp.task('eslint-src', function() {
@@ -73,13 +73,13 @@ gulp.task('prod-delete', function () {
   ]);
 });
 
-gulp.task('prod-server-build', function () {
+gulp.task('build-server', function () {
   return Promise.all([
     serverBuild(serverPath)
   ]);
 });
 
-gulp.task('prod-build-wrap-up', function () {
+gulp.task('build-wrap-up', function () {
   return new Promise((resolve) => {
     console.log('Build complete!!');
     resolve();
@@ -90,8 +90,8 @@ gulp.task('copy-polymer-overrides', async function() {
   return await copyPolymerOverrides('.');
 });
 
-gulp.task('dev-build', gulp.series('eslint-src', 'prod-delete', 'prod-server-build', 'copy-polymer-overrides'));
-gulp.task('default', gulp.series('prod-server-build', 'copy-polymer-overrides', 'prod-build-wrap-up'));
+gulp.task('dev-build', gulp.series('eslint-src', 'prod-delete', 'build-server', 'copy-polymer-overrides'));
+gulp.task('default', gulp.series('build-server', 'copy-polymer-overrides', 'build-wrap-up'));
 
 //gulp.task('default', gulp.series('prod-delete', 'prod-server-build', 'prod-es5-bundled-build', 'prod-es6-bundled-build', 'prod-build-wrap-up'));
 
