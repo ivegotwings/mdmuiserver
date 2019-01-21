@@ -85,6 +85,13 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
                 @apply --context-coalesce-label;
             }
 
+            .attribute-label-wrapper{
+                width:calc(100% - 100px);
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
             .attribute-coalesced-label .attribute-view-label {
                 font-style: italic;
             }
@@ -124,7 +131,10 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
             }
 
             .attribute-icons-wrapper {
-                text-align: right
+                position: absolute;
+                right: 0px;
+                top: -5px;
+                z-index: 1;
             }
 
             .attribute-icons {
@@ -427,7 +437,7 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
                     <div class="attribute-icons" hidden\$="[[_isGridType]]">
                         <template is="dom-if" if="[[!_isEditMode(mode)]]">
                             <template is="dom-if" if="[[_isAttributeEditable(attributeModelObject)]]">
-                                <pebble-icon disabled\$="[[readonly]]" name="edit" class="pebble-icon-size-16 m-r-5 m-l-5" icon="pebble-icon:action-edit" title="Edit" on-tap="_onEditClick" tabindex="-1"></pebble-icon>
+                                <pebble-icon disabled\$="[[readonly]]" name="edit" class="pebble-icon-size-16 m-l-5" icon="pebble-icon:action-edit" title="Edit" on-tap="_onEditClick" tabindex="-1"></pebble-icon>
                             </template>
                         </template>
                         <template is="dom-if" if="[[_isComponentEditable(mode, attributeModelObject)]]">
@@ -445,14 +455,14 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
                         </template>
                         <template is="dom-if" if="[[_isEditMode(mode)]]">
                             <template is="dom-if" if="[[_isAttributeEditable(attributeModelObject)]]">
-                                <pebble-icon name="saveasnull" class="pebble-icon-size-16 m-r-5 m-l-5" icon="pebble-icon:save-as-null" title="Set as Null" on-tap="_onTapSaveAsNull" tabindex="-1" hidden\$="[[hideSaveAsNull]]"></pebble-icon>
+                                <pebble-icon name="saveasnull" class="pebble-icon-size-16 m-l-5" icon="pebble-icon:save-as-null" title="Set as Null" on-tap="_onTapSaveAsNull" tabindex="-1" hidden\$="[[hideSaveAsNull]]"></pebble-icon>
                             </template>
                         </template>
-                        <pebble-icon name="time" class="pebble-icon-size-16 m-r-5 m-l-5" icon="pebble-icon:time" title="Manage historical data" on-tap="_onTimeClick" tabindex="-1" hidden\$="[[hideHistory]]"></pebble-icon>
+                        <pebble-icon name="time" class="pebble-icon-size-16 m-l-5" icon="pebble-icon:time" title="Manage historical data" on-tap="_onTimeClick" tabindex="-1" hidden\$="[[hideHistory]]"></pebble-icon>
                         
-                        <pebble-icon name="locale" hidden="" class="pebble-icon-size-16 m-r-5 pebble-icon-color-blue" icon="pebble-icon:globe" title="Manage in multiple locales" on-tap="_onLocaleClick" tabindex="-1"></pebble-icon>
+                        <pebble-icon name="locale" hidden="" class="pebble-icon-size-16 m-l-5 pebble-icon-color-blue" icon="pebble-icon:globe" title="Manage in multiple locales" on-tap="_onLocaleClick" tabindex="-1"></pebble-icon>
                          <template is="dom-if" if="[[_sourceInfoVisible]]"> 
-                           <pebble-icon name="owner" class="pebble-icon-size-16 m-r-5 m-l-5 source-information-icon" icon="pebble-icon:hierarchy" id="view-source-information" title="View source information" on-tap="_onSourceInformationClick" tabindex="-1"></pebble-icon>
+                           <pebble-icon name="owner" class="pebble-icon-size-16 m-l-5 source-information-icon" icon="pebble-icon:hierarchy" id="view-source-information" title="View source information" on-tap="_onSourceInformationClick" tabindex="-1"></pebble-icon>
                            <template is="dom-if" if="[[_isReadyToShowSourceInfoPopover]]">
                                <pebble-popover id="view-source-information-popover" for="view-source-information">
                                    <div class="attributes-description">
@@ -546,15 +556,15 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
 
                 <template is="dom-if" if="[[!_isComponentEditable(mode, attributeModelObject)]]">
                     <template is="dom-if" if="[[_useDefaultReadMode(attributeModelObject)]]">
-                        <div class\$="attribute-view [[functionalMode]]" title\$="{{_formatValue(attributeModelObject, attributeObject)}}">
-                            <span hidden="[[_isGridType]]">
+                        <div class\$="attribute-view [[functionalMode]]">
+                            <span hidden="[[_isGridType]]" class="attribute-label-wrapper" title$="{{attributeModelObject.externalName}}">
                                 <span class="attribute-view-label">{{attributeModelObject.externalName}} </span>
                                 <template is="dom-if" if="[[_getDescriptionObject()]]">
                                     <pebble-info-icon hidden\$="[[_isGridOrNested(attributeModelObject)]]" description-object="[[_getDescriptionObject()]]"></pebble-info-icon>
                                 </template>
 
                             </span>
-                            <span class="attribute-view-value">{{_formatValue(attributeModelObject, attributeObject)}}</span>
+                            <span class="attribute-view-value" title$="{{_formatValue(attributeModelObject, attributeObject)}}">{{_formatValue(attributeModelObject, attributeObject)}}</span>
 
                         </div>
                     </template>
