@@ -95,11 +95,15 @@ class PebbleBoolean
           line-height: 16px;
           text-transform: capitalize;
           color: var(--label-text-color, #96b0c6);
+          width:calc(100% - 100px);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
           @apply --context-coalesce-label;
       }
     </style>
     <div id="booleanContainer">
-      <div id="lblBoolean" class="attribute-view-label">
+      <div id="lblBoolean" class="attribute-view-label" title$="[[label]]">
         [[label]]
         <template is="dom-if" if="[[descriptionObject]]">
           <pebble-info-icon description-object="[[descriptionObject]]"></pebble-info-icon>

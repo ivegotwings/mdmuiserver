@@ -112,6 +112,10 @@ class PebbleCollectionContainer extends
                 transition: all 0.2s;
                 position: absolute;
                 top: 6px;
+                width:calc(100% - 100px);
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
                 @apply --text-collection-label;
             }
 
@@ -157,11 +161,15 @@ class PebbleCollectionContainer extends
                 line-height: 16px;
                 text-transform: capitalize;
                 color: var(--label-text-color, #96b0c6);
+                width:calc(100% - 100px);
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
                 @apply --context-coalesce-label;
             }
         </style>
         <div class\$="text-collection-container [[_valuesClass]]" id="collection_container_wrapper">
-            <div class\$="[[_getLabelClassName()]]">
+            <div class\$="[[_getLabelClassName()]]" title$="[[label]]">
                 [[label]]
                 <template is="dom-if" if="[[descriptionObject]]">
                     <pebble-info-icon description-object="[[descriptionObject]]"></pebble-info-icon>

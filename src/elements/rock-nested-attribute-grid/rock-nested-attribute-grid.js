@@ -44,10 +44,14 @@ class RockNestedAttributeGrid
                 line-height: 16px;
                 text-transform: capitalize;
                 color: var(--label-text-color, #96b0c6);
+                width:calc(100% - 100px);
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
                 @apply --context-coalesce-label;
             }
         </style>
-        <label class="attribute-view-label" hidden\$="[[!_isLabelAvailable(label)]]" aria-hidden="true">[[label]]
+        <label class="attribute-view-label" hidden\$="[[!_isLabelAvailable(label)]]" aria-hidden="true" title$="[[label]]">[[label]]
             <template is="dom-if" if="[[__getDescriptionValue()]]">
                 <pebble-info-icon description-object="[[__getDescriptionValue()]]"></pebble-info-icon>
             </template>
