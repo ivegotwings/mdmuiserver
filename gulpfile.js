@@ -23,7 +23,7 @@ let argv = require('yargs').argv;
 const eslint = require('gulp-eslint');
 const polymerJson = require('./polymer.json');
 
-const buildDirectory = 'build';
+const buildDirectory = 'build/ui-platform';
 const serverPath = path.join(buildDirectory, 'web-server');
 //const nginxDirectory = '/usr/local/etc/nginx';
 const liveReloadPort = 35729;
@@ -91,7 +91,7 @@ gulp.task('copy-polymer-overrides', async function() {
 });
 
 gulp.task('dev-build', gulp.series('eslint-src', 'prod-delete', 'prod-server-build', 'copy-polymer-overrides'));
-gulp.task('default', gulp.series('eslint-src', 'prod-delete', 'prod-server-build', 'copy-polymer-overrides', 'prod-build-wrap-up'));
+gulp.task('default', gulp.series('prod-server-build', 'copy-polymer-overrides', 'prod-build-wrap-up'));
 
 //gulp.task('default', gulp.series('prod-delete', 'prod-server-build', 'prod-es5-bundled-build', 'prod-es6-bundled-build', 'prod-build-wrap-up'));
 

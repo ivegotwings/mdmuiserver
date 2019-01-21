@@ -14,7 +14,7 @@ const ENV = process.argv.find(arg => arg.includes('production'))
   ? 'production'
   : 'development';
 const ANALYZE = process.argv.find(arg => arg.includes('--analyze'));
-const OUTPUT_PATH = ENV === 'production' ? resolve('build/static/es6-bundled-prod') : resolve('build/static/es6-bundled-dev');
+const OUTPUT_PATH = ENV === 'production' ? resolve('build/ui-platform/static/es6-bundled') : resolve('build/ui-platform/static/es6-unbundled');
 const INDEX_TEMPLATE = resolve('./build-resources/index.html');
 const webcomponentsjs = './node_modules/@webcomponents/webcomponentsjs';
 const fragments = require('./dynamic-fragments.js');
