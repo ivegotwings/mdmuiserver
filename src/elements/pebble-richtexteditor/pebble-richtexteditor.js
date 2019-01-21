@@ -58,7 +58,7 @@ class PebbleRichtexteditor extends PolymerElement {
                 height: 24px;
                 border: 0;
                 outline: none;
-                background: url("../../images/quill-icons-sprite.png") no-repeat #fff -999px -999px;
+                background: url("../../src/images/quill-icons-sprite.png") no-repeat #fff -999px -999px;
             }
             
             .ql-size-huge {
@@ -74,7 +74,7 @@ class PebbleRichtexteditor extends PolymerElement {
             .ql-size-small {
                 font-size: 0.75em;
                 line-height: 0.75em;
-            }
+            }            
 
             .ql-toolbar button:hover {
                 outline: 1px solid #c1c1c1;
@@ -206,7 +206,7 @@ class PebbleRichtexteditor extends PolymerElement {
                 opacity: 1;
                 transition: none;
                 visibility: visible;
-                background: url("../../images/quill-icons-sprite.png") no-repeat #fff 0 -24px;
+                background: url("../../src/images/quill-icons-sprite.png") no-repeat #fff 0 -24px;
             }
 
             .ql-select-size .value {
@@ -237,7 +237,7 @@ class PebbleRichtexteditor extends PolymerElement {
             .ql-select-size .ql-select-option[data-value="small"] {
                 font-size: 10px;
             }
-
+            
             .ql-select-size .ql-select-option[data-value="large"] {
                 font-size: 18px;
             }
@@ -256,11 +256,11 @@ class PebbleRichtexteditor extends PolymerElement {
                 height: 24px;
                 border: 0;
                 outline: none;
-                background: url("../../images/quill-icons-sprite.png") no-repeat #fff -240px 0;
+                background: url("../../src/images/quill-icons-sprite.png") no-repeat #fff -240px 0;
             }
 
             .ql-select-color {
-                background: url("../../images/quill-icons-sprite.png") no-repeat #fff -264px 0;
+                background: url("../../src/images/quill-icons-sprite.png") no-repeat #fff -264px 0;
             }
 
             .ql-select-background:hover,
@@ -303,7 +303,7 @@ class PebbleRichtexteditor extends PolymerElement {
                 height: 24px;
                 border: 0;
                 outline: none;
-                background: url("../../images/quill-icons-sprite.png") no-repeat #fff -336px 0;
+                background: url("../../src/images/quill-icons-sprite.png") no-repeat #fff -336px 0;
             }
 
             .ql-select-align:hover {
@@ -317,7 +317,7 @@ class PebbleRichtexteditor extends PolymerElement {
             .ql-select-align .ql-select-option {
                 width: 24px;
                 height: 24px;
-                background: url("../../images/quill-icons-sprite.png") no-repeat;
+                background: url("../../src/images/quill-icons-sprite.png") no-repeat;
             }
 
             .ql-select-align .ql-select-option:hover {
