@@ -1344,3 +1344,11 @@ DataHelper.getPastedQueryLength = function (pastedQuery) {
 
     return pastedQueryLength;
 }
+DataHelper.isPublicUrl = function(inputUrl){
+    let urlRegEx = /(http)?s?:?(\/\/[^"']*\.(?:png|jpg|jpeg|gif|png|svg))?/;
+    let regexResult = urlRegEx.exec(inputUrl)
+    if(regexResult[0]){
+        return true
+    }
+    return false;
+}

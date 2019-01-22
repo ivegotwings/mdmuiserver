@@ -3167,11 +3167,10 @@ extends mixinBehaviors([
     
     _hasImage(col) {
 				if (col) {
-            if (col.displayType && col.imageSrc) {
+            if (col.displayType) {
                 if (col.displayType == "image") {
-                    if (col.imageSrc == "entityThumbnail" || col.imageSrc == "publicUrl") {
-                        return true;
-                    }
+                    return true;
+                    
                 }
             } else {
                 let attrModel = this.attributeModels[col.name];

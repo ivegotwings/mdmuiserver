@@ -270,7 +270,7 @@ class RockEntityQuickManage extends mixinBehaviors([RUFBehaviors.UIBehavior,
 
                                     </div>
                                     <div class="thumbnail">
-                                        <rock-image-viewer class="image-container" sizing="contain" thumbnail-id="[[itemThumbnailId]]">
+                                        <rock-image-viewer class="image-container" sizing="contain" thumbnail-id="[[itemThumbnailId]]" src="[[src]]">
                                         </rock-image-viewer>
                                     </div>
                                 </div>
@@ -437,10 +437,20 @@ class RockEntityQuickManage extends mixinBehaviors([RUFBehaviors.UIBehavior,
               type: String,
               value: ""
           },
+          src: {
+              type: String,
+              value: ""
+          },
           selectedEntityType: {
               type: String,
               value: ""
-          }
+          },
+          thumbnailConfig: {
+             type: Object,
+             value: function () {
+                return {}
+            }
+          }	    
       };
   }
 
@@ -494,7 +504,8 @@ class RockEntityQuickManage extends mixinBehaviors([RUFBehaviors.UIBehavior,
           this.showThumbnailAndHeader = componentConfig.config.showThumbnailAndHeader;
           //Should come from configuration, delete it once nearest get is enabled (Enable below stmt for reference-discovery testing)
           //tabConfig.tabItems.attributes.component.properties["config-context"].attributeNames = ["_ALL"];
-
+          //This property tells which attribute to consider as image source
+          this.thumbnailConfig = componentConfig.config.thumbnailConfig;
           tabConfig.tabItems = DataHelper.convertObjectToArray(tabConfig.tabItems);
           this.tabConfig = tabConfig;
 
@@ -792,52 +803,65 @@ class RockEntityQuickManage extends mixinBehaviors([RUFBehaviors.UIBehavior,
       return compositeModel;
   }
   async _onSelectedEntityChange(entity, showThumbnailAndHeader) {
-      //show the thumbnail and header if its enabled from configuration
-      if (!_.isEmpty(entity) && showThumbnailAndHeader) {
-          this._onContextDataChange();
-          let compositeModel = await this._getCompositeModel();
-          if (compositeModel) {
-              let clonedContextData = DataHelper.cloneObject(this.contextData);
-              clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
-              this.attributeModels = await DataTransformHelper.transformAttributeModels(
-                  compositeModel, clonedContextData);
-          }
-          this.selectedEntityType = entity.typeExternalName;
-          this.itemThumbnailId = "";
-          //for tile view item comes as properties, for table view its is attributes
-          if (entity.thumbnailid) {
-              this.itemThumbnailId = entity.thumbnailid;
-          } else if (entity.properties && entity.properties.thumbnailid) {
-              this.itemThumbnailId = entity.properties.thumbnailid;
-          }
-          let itemDescription = [];
-          if (!_.isEmpty(this.attributeModels)) {
-              let entityIdentifierFound = false;
-              let externalNameFound = false;
-              for (let modelName in this.attributeModels) {
-                  if (this.attributeModels.hasOwnProperty(modelName)){
-                      let attribute = this.attributeModels[modelName];
-                      if (attribute.isEntityIdentifier || attribute.isExternalName) {
-                          entityIdentifierFound = entityIdentifierFound || attribute.isEntityIdentifier;
-                          externalNameFound = externalNameFound || attribute.isExternalName;
-                          let itemValue = entity.attributes && entity.attributes[modelName] ? entity.attributes[modelName].value :
-                              entity[modelName];
-                          itemDescription.push({
-                              name: attribute.externalName,
-                              value: itemValue,
-                              description: attribute.description
-                          });
-                          //No need to loop though all the attribute models
-                          if (entityIdentifierFound && externalNameFound) {
-                              break;
-                          }
-                      }
-                  }
-              }
-          }
-          this.set("itemDescription", itemDescription);
-      }
-  }
+    //show the thumbnail and header if its enabled from configuration
+    if (!_.isEmpty(entity) && showThumbnailAndHeader) {
+        this._onContextDataChange();
+        let compositeModel = await this._getCompositeModel();
+        if (compositeModel) {
+            let clonedContextData = DataHelper.cloneObject(this.contextData);
+            clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
+            this.attributeModels = await DataTransformHelper.transformAttributeModels(
+                compositeModel, clonedContextData);
+        }
+        this.selectedEntityType = entity.typeExternalName;
+        this.itemThumbnailId = "";
+        this.src="";
+        let thumbnailIdentifier = "thumbnailid";
+        if(!_.isEmpty(this.thumbnailConfig) && this.thumbnailConfig.thumbnailIdentifier){
+            thumbnailIdentifier = this.thumbnailConfig.thumbnailIdentifier;
+        }
+        //for tile view item comes as properties, for table view it is attributes
+        if (entity[thumbnailIdentifier]) {
+            this.itemThumbnailId = entity[thumbnailIdentifier];
+        } else {
+            let imageSourceObject = EntityHelper.getEntityImageObject(entity, thumbnailIdentifier, this.contextData);
+            if(imageSourceObject && imageSourceObject.value){
+                if(imageSourceObject.isPublicUrl){
+                    this.src = imageSourceObject.value;
+                }
+                else{
+                    this.itemThumbnailId = imageSourceObject.value;
+                }
+            }
+        }
+        let itemDescription = [];
+        if (!_.isEmpty(this.attributeModels)) {
+            let entityIdentifierFound = false;
+            let externalNameFound = false;
+            for (let modelName in this.attributeModels) {
+                if (this.attributeModels.hasOwnProperty(modelName)){
+                    let attribute = this.attributeModels[modelName];
+                    if (attribute.isEntityIdentifier || attribute.isExternalName) {
+                        entityIdentifierFound = entityIdentifierFound || attribute.isEntityIdentifier;
+                        externalNameFound = externalNameFound || attribute.isExternalName;
+                        let itemValue = entity.attributes && entity.attributes[modelName] ? entity.attributes[modelName].value :
+                            entity[modelName];
+                        itemDescription.push({
+                            name: attribute.externalName,
+                            value: itemValue,
+                            description: attribute.description
+                        });
+                        //No need to loop though all the attribute models
+                        if (entityIdentifierFound && externalNameFound) {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        this.set("itemDescription", itemDescription);
+    }
+}
   _getDescriptionInfo(item) {
       return !_.isEmpty(item) && item.description;
   }
