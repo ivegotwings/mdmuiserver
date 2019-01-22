@@ -110,7 +110,11 @@ class RockEntityThumbnail
   refreshThumbnail() {
       if (!_.isEmpty(this.config) && !_.isEmpty(this.contextData)) {
           let relationshipName = this.config.relationshipName;
-          this._thumbnailIdentifier = this.config.thumbnailIdentifier;
+          this._thumbnailIdentifier = "thumbnailid";
+          if(this.config.thumbnailIdentifier){
+              this._thumbnailIdentifier = this.config.thumbnailIdentifier;
+          }
+          this.src = "";
           let relCriteria = {};
           this._relationshipFilterAttributeName = this.config.relationshipFilterAttributeName;
           this._relationshipFilterAttributeValue = this.config.relationshipFilterAttributeValue;
@@ -141,91 +145,83 @@ class RockEntityThumbnail
       }
   }
   _onGetThumbnailResponse (event) {
-      this._thumbnailId="";
-      let respData = event.detail.response;
-      let currentRel = "";
-      if (DataHelper.isValidObjectPath(respData, 'content.entities.0.data.attributes.thumbnailid.values.0.value')) {
-          this._thumbnailId = respData.content.entities[0].data.attributes.thumbnailid.values[0].value;
-          return;
-      }
-      if (DataHelper.isValidObjectPath(event, "detail.request.requestData.params.fields.relationships.0")) {
-          currentRel = event.detail.request.requestData.params.fields.relationships[0];
-      }
-      if (respData) {
-          if (respData.content && respData.content.entities) {
-              let entities = respData.content.entities;
-              if (entities && entities.length > 0) {
-                  let entityId = entities[0].id;
-                  if (entityId) {
-                      let entity = entities[0];
-                      //Based on entity attribute
-                      if(entity && entity.data && entity.data.attributes) {
-                          let thumbnailId = AttributeHelper.getFirstAttributeValue(entity.data.attributes[this._thumbnailIdentifier]);
-                          if(thumbnailId) {
-                              this._thumbnailId = thumbnailId;
-                              return;
-                          }
-                      }
-                      //Based on entity properties
-                      if (entity && entity.properties && entity.properties[this._thumbnailIdentifier]) {
-                          this._thumbnailId = entity.properties[this._thumbnailIdentifier];
-                          return;
-                      }
-                      let relationships = EntityHelper.getRelationshipsBasedOnContext(entity, ContextHelper.getFirstDataContext(this.contextData), true);
-                      if (!_.isEmpty(relationships)) {
-                          let relationshipDetails = relationships[currentRel];
-                          if (relationshipDetails && relationshipDetails.length > 0) {
-                              let primaryRel = undefined;
-                              for (let i = 0; i < relationshipDetails.length; i++) {
-                                  let relItem = relationshipDetails[i];
-                                  let relAttributes = relItem.attributes;
-                                  if (this._relationshipFilterAttributeName) {
-                                      if (!relAttributes || !relAttributes.hasOwnProperty(this._relationshipFilterAttributeName)) {
-                                          continue;
-                                      } else {
-                                          let attribute = relAttributes[this._relationshipFilterAttributeName];
-                                          if (attribute && attribute.values) {
-                                              let attributeValue = attribute.values[0].value;
-                                              if (attributeValue == this._relationshipFilterAttributeValue.toString()) {
-                                                  primaryRel = relItem;
-                                                  break;
-                                              }
-                                          }
-                                      }
-                                  }
-                              }
-
-                              // if no primary image found then select first relationship..
-
-
-                              if (primaryRel) {
-                                  if (primaryRel.relTo) {
-                                      if (primaryRel.relTo.data) {
-                                          let item =this._createItemObject(primaryRel.relTo);
-                                          this.set("assetDetails", item);
-                                          let thumbnailIdAttribute = EntityHelper.getAttribute(primaryRel.relTo, this.relationshipThumbnailIdentifier);
-                                          let thumbnailId = thumbnailIdAttribute.values[0].value;
-                                          if (thumbnailId) {
-                                              this._thumbnailId = thumbnailId;
-                                              return;
-                                          }
-                                      }
-                                  }
-                              }
-                          }
-                      }
-                  }
-              }
-          }
-      }
-      if (!this._thumbnailId) {
-          if (this.defaultThumbnailId) {
-              this._thumbnailId = this.defaultThumbnailId;
-          } else {
-              this.src = this.noThumbnailImagePath;
-          }
-      }
-  }
+    this._thumbnailId="";
+    this.src = "";
+    let respData = event.detail.response;
+    let currentRel = "";
+    let imageSrcValue;
+    if (DataHelper.isValidObjectPath(event, "detail.request.requestData.params.fields.relationships.0")) {
+        currentRel = event.detail.request.requestData.params.fields.relationships[0];
+    }
+    if (respData) {
+        if (respData.content && respData.content.entities) {
+            let entities = respData.content.entities;
+            if (entities && entities.length > 0) {
+                let entityId = entities[0].id;
+                if (entityId) {
+                    let entity = entities[0];
+                    let imageSourceObject = EntityHelper.getEntityImageObject(entity, this._thumbnailIdentifier, this.contextData);
+                    if(imageSourceObject && imageSourceObject.value){
+                        if(imageSourceObject.isPublicUrl){
+                            this.src = imageSourceObject.value;
+                        }
+                        else{
+                            this._thumbnailId = imageSourceObject.value;
+                        }
+                        return;
+                    }
+                    let relationships = EntityHelper.getRelationshipsBasedOnContext(entity, ContextHelper.getFirstDataContext(this.contextData), true);
+                    if (!_.isEmpty(relationships)) {
+                        let relationshipDetails = relationships[currentRel];
+                        if (relationshipDetails && relationshipDetails.length > 0) {
+                            let primaryRel = undefined;
+                            for (let i = 0; i < relationshipDetails.length; i++) {
+                                let relItem = relationshipDetails[i];
+                                let relAttributes = relItem.attributes;
+                                if (this._relationshipFilterAttributeName) {
+                                    if (!relAttributes || !relAttributes.hasOwnProperty(this._relationshipFilterAttributeName)) {
+                                        continue;
+                                    } else {
+                                        let attribute = relAttributes[this._relationshipFilterAttributeName];
+                                        if (attribute && attribute.values) {
+                                            let attributeValue = attribute.values[0].value;
+                                            if (attributeValue == this._relationshipFilterAttributeValue.toString()) {
+                                                primaryRel = relItem;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            // if no primary image found then select first relationship..
+                            if (primaryRel) {
+                                if (primaryRel.relTo) {
+                                    if (primaryRel.relTo.data) {
+                                        let item =this._createItemObject(primaryRel.relTo);
+                                        this.set("assetDetails", item);
+                                        let thumbnailIdAttribute = EntityHelper.getAttribute(primaryRel.relTo, this.relationshipThumbnailIdentifier);
+                                        let thumbnailId = thumbnailIdAttribute.values[0].value;
+                                        if (thumbnailId) {
+                                            this._thumbnailId = thumbnailId;
+                                            return;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if (!this._thumbnailId) {
+        if (this.defaultThumbnailId) {
+            this._thumbnailId = this.defaultThumbnailId;
+        } else {
+            this.src = this.noThumbnailImagePath;
+        }
+    }
+}
   _createItemObject(relTo){
       let type = relTo.type;
       let attributes = relTo.data.attributes;

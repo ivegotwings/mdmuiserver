@@ -318,3 +318,39 @@ EntityHelper.isAllEntitiesOfSameType = function (entities, type) {
         return entity.type == type;
     })
 };
+EntityHelper.getEntityImageObject = function(entity, thumbnailIdentifier, contextData) {
+    let imageSourceObject = {};
+    let imageSrcValue;
+    // Show the image from the selcted context and if only one context is selected
+    if(entity.data && !_.isEmpty(entity.data.contexts) && entity.data.contexts.length == 1){
+        let dataContexts = ContextHelper.getDataContexts(contextData);
+        let thumbnailObject = EntityHelper.getattributeBasedOnContext(entity,thumbnailIdentifier,dataContexts[0]);
+        if(thumbnailObject && thumbnailObject.values){
+            imageSrcValue = AttributeHelper.getAttributeValues(thumbnailObject.values);
+        }
+    }
+    else{
+        //Show the image if its not found in the current context
+        if(entity && entity.data && !_.isEmpty(entity.data.attributes)) {
+            imageSrcValue = AttributeHelper.getFirstAttributeValue(entity.data.attributes[thumbnailIdentifier]);
+        }
+    }
+    if(_.isEmpty(imageSrcValue)){
+        //Show the image if its not found in the context attribute and self level attribute
+        if(entity && entity.properties && entity.properties[thumbnailIdentifier]){
+            imageSrcValue = entity.properties[thumbnailIdentifier];
+        }
+    }
+    
+    if(!_.isEmpty(imageSrcValue)){
+        let value = _.isArray(imageSrcValue) ? imageSrcValue[0] : imageSrcValue;
+        //Image attribute can contain thumbnail ID or public URL
+        if(DataHelper.isPublicUrl(value)){
+            imageSourceObject = {value:value, isPublicUrl: true};
+        }
+        else{
+            imageSourceObject = {value:value, isPublicUrl: false};
+        }
+    }
+    return imageSourceObject;
+};
