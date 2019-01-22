@@ -24,7 +24,7 @@ const eslint = require('gulp-eslint');
 const polymerJson = require('./polymer.json');
 
 const buildDirectory = 'build/ui-platform';
-const serverPath = path.join(buildDirectory, 'web-server');
+const serverPath = buildDirectory;
 //const nginxDirectory = '/usr/local/etc/nginx';
 const liveReloadPort = 35729;
 
