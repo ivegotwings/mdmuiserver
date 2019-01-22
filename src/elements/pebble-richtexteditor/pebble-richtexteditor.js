@@ -74,7 +74,12 @@ class PebbleRichtexteditor extends PolymerElement {
             .ql-size-small {
                 font-size: 0.75em;
                 line-height: 0.75em;
-            }            
+            } 
+            
+            .ql-size-normal {
+                font-size: 1em;
+                line-height: 1em;
+            }  
 
             .ql-toolbar button:hover {
                 outline: 1px solid #c1c1c1;
@@ -232,6 +237,10 @@ class PebbleRichtexteditor extends PolymerElement {
 
             .ql-select-size .ql-select-option:hover {
                 color: #0000ff;
+            }
+
+            .ql-select-size .ql-select-option[data-value="normal"] {
+                font-size: 12px;
             }
 
             .ql-select-size .ql-select-option[data-value="small"] {
@@ -571,7 +580,7 @@ class PebbleRichtexteditor extends PolymerElement {
 
           fontSizes: {
               type: Array,
-              value: ["small", "large", "huge"]
+              value: ["normal","small", "large", "huge"]
           },
 
           backgroundColors: {

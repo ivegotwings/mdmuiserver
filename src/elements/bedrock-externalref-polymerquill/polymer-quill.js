@@ -7764,11 +7764,11 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 
 var SizeClass = new _parchment2.default.Attributor.Class('size', 'ql-size', {
   scope: _parchment2.default.Scope.INLINE,
-  whitelist: ['small', 'large', 'huge']
+  whitelist: ['normal','small', 'large', 'huge']
 });
 var SizeStyle = new _parchment2.default.Attributor.Style('size', 'font-size', {
   scope: _parchment2.default.Scope.INLINE,
-  whitelist: ['10px', '18px', '32px']
+  whitelist: ['12px','10px', '18px', '32px']
 });
 
 exports.SizeClass = SizeClass;
