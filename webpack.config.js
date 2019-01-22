@@ -89,7 +89,7 @@ const assets = [
   {
     from: resolve('./src/elements/app-common/app-common.js'),
     to: join(OUTPUT_PATH, 'src/elements/app-common/')
-  },
+  }
 ];
 
 const dynamicFragments = [];
