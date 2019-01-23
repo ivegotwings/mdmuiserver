@@ -250,7 +250,6 @@ class RockRelationshipManage
   }
 
   _onConfigContextChange() {
-      debugger;
       let relationshipTypeName, relationshipNames;
       if(this.relationshipTypeName || !_.isEmpty(this.relationshipNames)) {
           relationshipTypeName = this.relationshipTypeName;
