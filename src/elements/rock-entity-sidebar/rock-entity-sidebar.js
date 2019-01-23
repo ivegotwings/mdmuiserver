@@ -136,24 +136,13 @@ class RockEntitySidebar
   }
 
   connectedCallback(){
-      super.connectedCallback();    
-      if (!_.isEmpty(this.contextData)) {
-          let context = DataHelper.cloneObject(this.contextData);
-          //Set the default navigation for rock-tabs
-          let navContextObj = context.NavigationContexts;
-          if(!_.isEmpty(navContextObj)){
-              let navCtxObj = navContextObj[0][RockEntitySidebar.is];
-              if(navCtxObj && navCtxObj["rock-tabs"]) {
-                  this.viewMode = navCtxObj["rock-tabs"].viewMode;
-                  this.viewModeSubMenu = navCtxObj["rock-tabs"].viewModeSubMenu;
-              }
-          }
-      }
+      super.connectedCallback();
   }
 
   _onContextDataChange() {
       if (!_.isEmpty(this.contextData)) {
           let context = DataHelper.cloneObject(this.contextData);
+          let navContextObj = context.NavigationContexts;
           //App specific
           let appName = ComponentHelper.getCurrentActiveAppName();
           if (appName) {
@@ -161,6 +150,17 @@ class RockEntitySidebar
                   "app": appName
               }];
           }
+           
+            //Set the default navigation for rock-tabs            
+            if(!_.isEmpty(navContextObj)){
+                let navCtxObj = navContextObj[0][RockEntitySidebar.is];
+                this.viewMode = "";
+                this.viewModeSubMenu = "";
+                if(navCtxObj && navCtxObj["rock-tabs"]) {
+                    this.viewMode = navCtxObj["rock-tabs"].viewMode;
+                    this.viewModeSubMenu = navCtxObj["rock-tabs"].viewModeSubMenu;
+                }
+            }        
 
           this.requestConfig("rock-entity-sidebar", context);
       }
