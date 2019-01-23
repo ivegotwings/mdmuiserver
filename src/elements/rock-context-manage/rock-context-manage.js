@@ -860,9 +860,6 @@ extends mixinBehaviors([
               }
               this.showSuccessToast(toastMessage);
           }
-          if (this.functionalMode == "dataFunction") {
-              eventDetail.action.name = "business-condition-save-request";
-          };
           let itemCtx = ContextHelper.getFirstItemContext(this.contextData) || {};
           this.dataFunctionComplete({"id": itemCtx.id, "type": itemCtx.type}, [eventDetail], true);
 
