@@ -177,7 +177,7 @@ class RockRelationshipManage
           },
           relationshipChunkLength: {
               type: Number,
-              value: 3
+              value: 10
           },
           dataIndex: {
               type: String,
@@ -250,6 +250,7 @@ class RockRelationshipManage
   }
 
   _onConfigContextChange() {
+      debugger;
       let relationshipTypeName, relationshipNames;
       if(this.relationshipTypeName || !_.isEmpty(this.relationshipNames)) {
           relationshipTypeName = this.relationshipTypeName;
