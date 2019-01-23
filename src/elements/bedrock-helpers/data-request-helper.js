@@ -1426,11 +1426,14 @@ DataRequestHelper.createAttributesCriteria = function (searchText, titlePattern,
                 }
             }
         }
-
+        
         if (typeof (subTitlePattern) !== 'undefined' && subTitlePattern !== "") {
             if (!attributes.includes(subTitlePattern)) {
                 let subTitleFields = DataHelper.getAttributesBetweenCurlies(subTitlePattern);
-                if (subTitleFields && subTitleFields instanceof Array) {
+                if (_.isEmpty(subTitleFields)) {
+                    attributes.push(subTitlePattern);
+                    attrObject["isAttributesCriterionOR"] = true; 
+                }else if (subTitleFields && subTitleFields instanceof Array) {
                     attributes.push(...subTitleFields);
                     attrObject["isAttributesCriterionOR"] = true; 
                 }
@@ -1438,27 +1441,31 @@ DataRequestHelper.createAttributesCriteria = function (searchText, titlePattern,
         }
 
         if (attributes && attributes.length) {
+            let prefix = /^\"/i;
+            let suffix = /^.+\"$/gm;
+            let isPrefixed = prefix.test(searchText);
+            let isSuffixed = suffix.test(searchText);
+            let isExactSearch = false;
+            if (isPrefixed && isSuffixed) {
+                isExactSearch = true;
+            }
+            let operator = "eq";
+            //For Exact Searcvh with Quotes
+            if (isExactSearch) {
+                searchText = searchText.replace(/['"]+/g, '');
+                operator = "exact";
+            } else {
+                searchText = searchText.split(" ");
+                searchText.forEach((text,index,arr) =>{
+                    arr[index] = text + "*"
+                });
+                searchText = searchText.join(" ");
+            }
+            searchText = searchText.replace(/[^a-zA-Z0-9._:* "]/g, ' ');
             attributes.forEach(function (item) {
                 let searchKey = new Object();
                 let searchValue = new Object();
-                let prefix = /^\"/i;
-                let suffix = /^.+\"$/gm;
-                let isPrefixed = prefix.test(searchText);
-                let isSuffixed = suffix.test(searchText);
-                let isExactSearch = false;
-                if (isPrefixed && isSuffixed) {
-                    isExactSearch = true;
-                }
-                //For Exact Searcvh with Quotes
-                if (isExactSearch) {
-                    // searchValue.eq = "*" + "\""  + searchText + "\"" + "*";
-                    searchText = searchText.replace(/['"]+/g, '');
-                    searchValue.eq = '\"*' + searchText + '*\"';
-
-                    //For Partial Search Scenario
-                } else {
-                    searchValue.eq = searchText + "*";
-                }
+                searchValue[operator] = searchText;
                 searchKey[item] = searchValue;
                 attributesCriterion.push(searchKey);
             }, this);
