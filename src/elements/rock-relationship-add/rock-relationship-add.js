@@ -654,16 +654,18 @@ class RockRelationshipAdd
       });
   }
   onViewModeChanged(event) {
-      if (event && event.detail && event.detail.data) {
-          let mode = event.detail.data.toLowerCase();
-          if (this.config.assetGridConfig[mode] === undefined) {
-              this.showActionButtons = false;
-          }
-          else {
-              this.showActionButtons = true;
-          }
-      }
-  }
+    if (event && event.detail && event.detail.data) {
+        let mode = event.detail.data.toLowerCase();
+        let viewMode = this.addRelationshipGridConfig && this.addRelationshipGridConfig.viewConfig ? 
+                            this.addRelationshipGridConfig.viewConfig[mode] : undefined;
+        if (viewMode === undefined) {
+            this.showActionButtons = false;
+        }
+        else {
+            this.showActionButtons = true;
+        }
+    }
+}
 
   _onCompositeModelGetResponse(e) {
       let itemContext = this.getFirstItemContext();
