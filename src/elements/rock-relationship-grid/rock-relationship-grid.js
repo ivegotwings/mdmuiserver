@@ -1775,13 +1775,7 @@ class RockRelationshipGrid
     this._savedRelationshipItems[this.relationship] = DataHelper.cloneObject(savedRelationshipItems);
     let data = {"savedRelationships": this._savedRelationshipItems};
     let eventDetails = [];
-    if (this.functionalMode == "dataFunction") {
-      eventDetails.push({
-        "action": {
-          "name": "business-condition-save-request"
-        }
-      });
-    } else if (currentRelGrid) {
+    if (currentRelGrid) {
       this._changeRelationshipToReadMode();
       currentRelGrid.changeToReadMode();
     }

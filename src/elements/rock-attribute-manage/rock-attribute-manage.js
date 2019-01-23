@@ -1069,13 +1069,6 @@ class RockAttributeManage extends mixinBehaviors(
               data = { "id": itemCtx.id, "type": itemCtx.type };
           }
           let eventDetails = [];
-          if (this.functionalMode == "dataFunction") {
-              eventDetails.push({
-                  "action": {
-                      "name": "business-condition-save-request"
-                  }
-              });
-          }
           this.dataFunctionComplete(data, eventDetails, true);
       } else {
           this._loading = false;

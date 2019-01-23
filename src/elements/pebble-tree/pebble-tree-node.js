@@ -739,7 +739,9 @@ class PebbleTreeNode extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
                   this._changeParentDeterminateState();
               }
           } else {
-              let items = this.selectedItems.filter(obj => obj.value === this.nodeData.value);
+              let items = this.selectedItems.filter(obj => {
+                return (obj.value === this.nodeData.value && obj.externalNamePath === this.nodeData.externalNamePath)
+              });
               if(!_.isEmpty(items)) {
                   items.forEach((item) => {
                       let index = this.selectedItems.indexOf(item);
