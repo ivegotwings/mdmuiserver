@@ -66,9 +66,6 @@ class RockSearchFilter
         min-width: 0px;
       }
 
-      #filterPopover {
-        margin-left: 50px;
-      }
       pebble-textarea {
         --autogrowtextarea: {
           max-height: 200px;
@@ -178,7 +175,7 @@ class RockSearchFilter
         <bedrock-pubsub event-name="on-classification-update" handler="_onClassificationUpdate"></bedrock-pubsub>
         
         <!-- Refine popover starts here -->
-        <pebble-popover id="filterPopover" for="pebble-tag" no-overlap="" vertical-align="auto" horizontal-align="right">
+        <pebble-popover id="filterPopover" for="pebble-tag" no-overlap="" vertical-align="auto" horizontal-align="left">
           <template is="dom-if" if="{{_isAttributeValuesExistsSearchEnabled}}">
             <pebble-toggle-button class="m-b-10" checked="{{currentTag.options.hasValueChecked}}">[[_toggleButtonText]]</pebble-toggle-button>
           </template>
