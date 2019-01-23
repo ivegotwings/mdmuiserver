@@ -292,7 +292,8 @@ class EntitySearchGridDatasource
   }
 
   _onSearchError (e) {
-      this.logError("entity-search-grid-datasource - Failed to fetch search results for the given criteria", e.detail);                this.fireBedrockEvent("search-error");
+      this.logError("entity-search-grid-datasource - Failed to fetch search results for the given criteria", e.detail);
+      this.fireBedrockEvent("search-error");
   }
 
   _onSearchResultError (e) {

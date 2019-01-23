@@ -3223,16 +3223,25 @@ extends mixinBehaviors([
     }
 
     scrollToIndex(index) {
-				if (this.config.viewMode == "Tile") {
+        if (this.config.viewMode == "Tile") {
             let ironList = this._getIronList("gridTileView");
-            ironList.scrollToIndex(index);
-				} else if (this.config.viewMode == "List") {
+            if(ironList) {
+                ironList.scrollToIndex(index);
+            }
+        } else if (this.config.viewMode == "List") {
             let ironList = this._getIronList("gridListView");
-            ironList.scrollToIndex(index);
-				} else {
+            if(ironList) {
+                ironList.scrollToIndex(index);
+            }
+        } else {
             let ironDataTable = this._getIronDataTable();
-            ironDataTable.shadowRoot.querySelector('#list').scrollToIndex(index);
-				}
+            if(ironDataTable) {
+                let ironList = ironDataTable.shadowRoot.querySelector('#list');
+                if(ironList) {
+                    ironList.scrollToIndex(index);
+                }
+            }
+        }
     }
 
     getSelectedGridRow() {
@@ -3446,11 +3455,7 @@ extends mixinBehaviors([
             else{
                 this._dispatchViewModeChangedEvent(this.config.viewMode);
             }
-            if (this.rDataSourceId) {
-                if (this._getIronDataTable()) {
-                    this._getIronDataTable()._resetData(this.rDataSource);
-                }
-            } else if (this.data) {
+            if (this.data) {
                 this.gridDataSize = this.currentRecordSize = this.data.length;
             } else {
                 this.gridDataSize = 0;

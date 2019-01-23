@@ -531,6 +531,13 @@ class RockEntitySearchResult extends mixinBehaviors([RUFBehaviors.AppBehavior,
           if (componentConfig.config.dataIndex) {
               this.set("dataIndex", componentConfig.config.dataIndex);
           }
+
+          if(DataHelper.isValidObjectPath(gridConfig, "itemConfig.fields") && 
+                !_.isEmpty(gridConfig.itemConfig.fields)) {
+                    for(let field in gridConfig.itemConfig.fields) {
+                        gridConfig.itemConfig.fields[field].filterable = false;
+                    }
+          }
           this.set('gridConfig', gridConfig);
           this.set('governAttributesCriterion', componentConfig.config.governAttributesCriterion);
           this.set('governDataConfig', componentConfig.config.governDataConfig);

@@ -639,7 +639,16 @@ class RockClassificationTree extends mixinBehaviors([RUFBehaviors.UIBehavior], O
   }
 
   _getClassificationsEntityGetRequest() {
-      let request = DataRequestHelper.createEntityGetRequest(this.contextData, true);
+      /**
+     * When entity data get request has context, selfContext is not
+     * part of request any more. Data will be fetched only from requested context.
+     * As classification root node won't be extended to different contexts,
+     * it must be brought from self context always. Hence contexts should not
+     * be passed in get request.
+     * */
+      let clonedContextData = DataHelper.cloneObject(this.contextData);
+      clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
+      let request = DataRequestHelper.createEntityGetRequest(clonedContextData, true);
       //Update attributes type and id
       request.params.fields.attributes = [this._classificationExtNameAttr];
       request.params.query.filters.typesCriterion = ["classification"];
