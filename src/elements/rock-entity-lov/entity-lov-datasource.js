@@ -112,7 +112,7 @@ class EntityLovDatasource extends mixinBehaviors([
       this.rDataSource = this._dataSource.bind(this);
   }
 
-  _dataSource(data, success, error) {
+  async _dataSource(data, success, error) {
 
       if (data && data.page === 1) {
           this.isRequestInitiated = false;
@@ -149,13 +149,13 @@ class EntityLovDatasource extends mixinBehaviors([
           if(DataHelper.isValidObjectPath(this.request, 'params.query.filters.typesCriterion.0')){
             entityType= this.request.params.query.filters.typesCriterion[0];
           }
-          let criterionKey;
-          if(entityType){
-            let entityTypeManager= new EntityTypeManager();
-            let domain = entityTypeManager.getDomainByEntityTypeName(entityType);
-            let requestedEntityTypeDomain = domain ? domain : this.domain;
-            criterionKey = requestedEntityTypeDomain && (requestedEntityTypeDomain == "baseModel" || requestedEntityTypeDomain == "taxonomyModel") ? "propertiesCriterion" : "attributesCriterion";  
+          let domain;
+          if (entityType) {
+              let entityTypeManager = new EntityTypeManager();
+              domain = await entityTypeManager.getDomainByEntityTypeName(entityType);
           }
+          let requestedEntityTypeDomain = domain ? domain : this.domain;
+          let criterionKey = requestedEntityTypeDomain && (requestedEntityTypeDomain == "baseModel" || requestedEntityTypeDomain == "taxonomyModel") ? "propertiesCriterion" : "attributesCriterion";
           
           if (this.attributesCriterionBuilder && this.attributesCriterionBuilder instanceof Function) {
               let attributesCriterionObj = this.attributesCriterionBuilder(data.filter);
