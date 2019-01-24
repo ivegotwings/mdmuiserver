@@ -201,7 +201,7 @@ class RockSearchFilter
             </div>
           </template>
           <template is="dom-if" if="{{_showTagModifier('referenceList', _trigger)}}">
-            <rock-entity-lov id="rockEntityLov" multi-select="" show-action-buttons="" apply-locale-coalesced-style="" apply-context-coalesced-style="" selected-items="{{_selectedItems}}" disable-selection="[[!currentTag.options.hasValueChecked]]">
+            <rock-entity-lov id="rockEntityLov" multi-select="" show-action-buttons="" apply-locale-coalesce="" apply-locale-coalesced-style="" apply-context-coalesced-style="" selected-items="{{_selectedItems}}" disable-selection="[[!currentTag.options.hasValueChecked]]">
             </rock-entity-lov>
           </template>
           <template is="dom-if" if="{{_showTagModifier('boolean', _trigger)}}">

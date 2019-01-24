@@ -172,7 +172,7 @@ DataRequestHelper.createEntityGetRequest = function (contextData, addDefaultCont
         req.params.fields["properties"] = properties;
     }
 
-    if (domain) {
+    if (!_.isEmpty(domain)) {
         req.params.query.domain = domain;
     }
 

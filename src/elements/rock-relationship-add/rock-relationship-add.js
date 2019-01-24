@@ -132,7 +132,7 @@ class RockRelationshipAdd
             <div class="base-grid-structure-child-2">
                 <div class\$="[[_getGridClass()]]">
                     <template is="dom-if" if="{{_isAssetMode(mode)}}">
-                        <rock-assets-search-grid id="assetsSearchGrid" context-data="[[contextData]]" types-criterion="[[typesCriterion]]" grid-config="[[addRelationshipGridConfig]]" search-filters="[[_selectedSearchFilters]]" search-query="[[_searchQuery]]"></rock-assets-search-grid>
+                        <rock-assets-search-grid id="assetsSearchGrid" context-data="[[_getContextData(contextData, isRelationshipsByContext)]]" types-criterion="[[typesCriterion]]" grid-config="[[addRelationshipGridConfig]]" search-filters="[[_selectedSearchFilters]]" search-query="[[_searchQuery]]"></rock-assets-search-grid>
                     </template>
                     <template is="dom-if" if="{{!_isAssetMode(mode)}}">
                         <rock-entity-search-result id="entitySearchGrid" context-data="[[_getContextData(contextData, isRelationshipsByContext)]]" types-criterion="[[typesCriterion]]" pre-selected-items="[[preSelectedItems]]" search-filters="[[_selectedSearchFilters]]" search-query="[[_searchQuery]]"></rock-entity-search-result>

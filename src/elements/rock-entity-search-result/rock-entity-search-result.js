@@ -831,7 +831,7 @@ class RockEntitySearchResult extends mixinBehaviors([RUFBehaviors.AppBehavior,
 
           for (let key in this._selectedEntityTypes) {
               let formattedModels = DataTransformHelper.transformAttributeModels(this._selectedEntityTypes[
-                  key], {});
+                  key], this.contextData);
               _.extend(this.attributeModels, formattedModels);
           }
 

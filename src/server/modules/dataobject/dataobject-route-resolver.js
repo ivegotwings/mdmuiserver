@@ -14,8 +14,7 @@ let falcorUtil = require('../../../shared/dataobject-falcor-util');
 
 const CONST_ALL = falcorUtil.CONST_ALL,
     CONST_ANY = falcorUtil.CONST_ANY,
-    CONST_CTX_PROPERTIES = falcorUtil.CONST_CTX_PROPERTIES,
-    CONST_DATAOBJECT_METADATA_FIELDS = falcorUtil.CONST_DATAOBJECT_METADATA_FIELDS;
+    CONST_CTX_PROPERTIES = falcorUtil.CONST_CTX_PROPERTIES;
 
 const DataObjectManageService = require('../services/data-service/DataObjectManageService');
 const ConfigurationService = require('../services/configuration-service/ConfigurationService');
@@ -289,7 +288,6 @@ function createGetRequest(reqData) {
         let attrNames = reqData.attrNames;
         if (attrNames !== undefined && attrNames.length > 0) {
             let clonedAttrNames = falcorUtil.cloneObject(attrNames);
-            arrayRemove(clonedAttrNames, CONST_DATAOBJECT_METADATA_FIELDS);
             arrayRemove(clonedAttrNames, CONST_CTX_PROPERTIES);
             fields.attributes = clonedAttrNames;
         }
@@ -346,6 +344,7 @@ function createGetRequest(reqData) {
     let query = {};
 
     let coalesceOptions = {};
+    let nonContextualFlagRequired = true;
 
     if (!isEmpty(contexts)) {
         let finalContexts = [];
@@ -364,10 +363,16 @@ function createGetRequest(reqData) {
 
             if (!context.selfContext) {
                 finalContexts.push(context);
+            } else {
+                nonContextualFlagRequired = false;
             }
         }
 
         query.contexts = finalContexts;
+
+        if(!isEmpty(finalContexts) && reqData.dataIndex == "entityData" && nonContextualFlagRequired) {
+            filters.nonContextual = false;
+        }
     }
 
     if(!isEmpty(coalesceOptions)) {
@@ -476,6 +481,13 @@ async function get(dataObjectIds, reqData) {
         }
         else {
             request.params.query.id = dataObjectIds[0].toString();
+        }
+
+        if(reqData.operation === "getFields") {
+            if(!request.params.fields) {
+                request.params.fields = {};
+            }
+            request.params.fields["ctxTypes"] = ["properties"];
         }
 
         //console.log('req to api ', JSON.stringify(request));
