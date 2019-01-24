@@ -92,11 +92,6 @@ const assets = [
   }
 ];
 
-const dynamicFragments = [];
-fragments.forEach(elm => {
-  dynamicFragments.push({from: resolve(elm), to: join(OUTPUT_PATH, 'src/elements/dynamic-fragments/')})
-})
-
 const commonConfig = merge([
   {
     entry: {
@@ -138,7 +133,7 @@ const commonConfig = merge([
         chunksSortMode: "none"
       }),
       new CleanWebpackPlugin([OUTPUT_PATH], { verbose: true }),
-      new CopyWebpackPlugin([...polyfills, ...assets , ...dynamicFragments]),
+      new CopyWebpackPlugin([...polyfills, ...assets]),
       new webpack.DefinePlugin({
         __PRODUCTION__: JSON.stringify(true),
       })

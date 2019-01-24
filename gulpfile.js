@@ -27,6 +27,8 @@ const buildDirectory = 'build/ui-platform';
 const serverPath = buildDirectory;
 //const nginxDirectory = '/usr/local/etc/nginx';
 const liveReloadPort = 35729;
+const fragments = require('./dynamic-fragments');
+const copyfiles = require('copyfiles');
 
 function waitFor(stream) {
   return new Promise((resolve, reject) => {
@@ -41,6 +43,17 @@ function deleteFolder(path) {
       .then(() => {
         resolve();
       });
+  })
+}
+
+function copycb(){
+  console.log('copy task complete!!');
+}
+
+function copyFiles(paths){
+  return new Promise((resolve) => {
+    copyfiles(paths, {verbose: true, up: true}, copycb);
+    resolve();
   })
 }
 
@@ -88,6 +101,12 @@ gulp.task('build-wrap-up', function () {
 
 gulp.task('copy-polymer-overrides', async function() {
   return await copyPolymerOverrides('.');
+});
+
+gulp.task('copy-dynamic-fragments', async function() {
+  return Promise.all([
+    copyFiles(fragments)
+  ]);
 });
 
 gulp.task('dev-build', gulp.series('eslint-src', 'prod-delete', 'build-server', 'copy-polymer-overrides'));
