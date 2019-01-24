@@ -152,7 +152,7 @@ class EntityLovDatasource extends mixinBehaviors([
           let domain;
           if (entityType) {
               let entityTypeManager = new EntityTypeManager();
-              domain = await entityTypeManager.getDomainByEntityTypeName(entityType);
+              domain = await entityTypeManager.getDomainByEntityTypeNameAsync(entityType);
           }
           let requestedEntityTypeDomain = domain ? domain : this.domain;
           let criterionKey = requestedEntityTypeDomain && (requestedEntityTypeDomain == "baseModel" || requestedEntityTypeDomain == "taxonomyModel") ? "propertiesCriterion" : "attributesCriterion";
