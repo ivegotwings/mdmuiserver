@@ -122,7 +122,7 @@ ComponentHelper.loadContent = function (contentElement, component, element, call
                 if(__PRODUCTION__){
                     fragmentImport = import( /* webpackInclude: /\.js$/ */
                         /* webpackExclude: /\.noimport\.js$/ */
-                        /* webpackChunkName: [request] */
+                        /* webpackChunkName: `chunk-${component.name}.js` */
                         /* webpackMode: "lazy" */
                         /* webpackPrefetch: true */ 
                         /* webpackPreload: true */
