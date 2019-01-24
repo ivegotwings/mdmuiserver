@@ -270,7 +270,11 @@ class RockProfile extends PolymerElement {
         list-style-type: none;
       }
 
-      .profile-preferences,
+      .profile-preferences{
+        color: var(--main-content-text-color, #192027);
+        font-weight: bold;
+      }     
+       
       .profile-options {
         color: var(--focused-line, #026bc3);
       }
@@ -318,11 +322,8 @@ class RockProfile extends PolymerElement {
               </div>
               <div class="profile-content-wrap">
                 <div class="profile-preferences m-b-5">
-                  <pebble-icon icon="pebble-icon:preferences" class="pebble-icon-size-16 m-r-5 pebble-icon-color-blue"></pebble-icon>
-                  <!--<a href="#" class="btn-link">-->My Preferences
-                  <!--</a>-->
-                  <!--<pebble-icon icon="pebble-icon:action-edit" class="pebble-icon-size-12 m-t-5 pull-right"></pebble-icon>-->
-                </div>
+                  <pebble-icon icon="pebble-icon:preferences" class="pebble-icon-size-16 m-r-5"></pebble-icon>
+                  </div>
                 <div class="profile-content m-b-5">
                   <table class="profile-content-table" cellpadding="0" cellspacing="0">
                     <tbody><tr>
