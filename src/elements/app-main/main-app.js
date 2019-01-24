@@ -107,11 +107,21 @@ extends mixinBehaviors([
                 width: 45px;
                 height: 100%;
             }
+
+            .app-failure {
+                text-align: center;
+                color: #757f8a;
+                position: absolute;
+                align: center;
+                top: 30%;
+                width: 100%;
+            }
         </style>
         <bedrock-style-theme-provider></bedrock-style-theme-provider>
 
         <div class="header-loading"></div>
         <div class="nav-loading"></div>
+        <div class="app-failure" id="app-failure-message"></div>
 
         <div style="display:none">
             <app-location id="tenantRoute" route="{{route}}"></app-location>
@@ -283,6 +293,19 @@ extends mixinBehaviors([
   async connectedCallback() {
       super.connectedCallback();
       RUFUtilities.initializeLogger(RUFUtilities.Logger.levelError);
+
+      if(!this._isHttp2Protocol()) {
+          let self = this;
+          setTimeout(function() {
+            let loaderEle = document.getElementById("loader");
+            ComponentHelper.removeNode(loaderEle);
+            let domContainer = self.shadowRoot.querySelector("#app-failure-message");
+
+            self.logError("Application is not configured for http2 protocol", "", true, "Application is not configured for http2 protocol. Contact administrator", domContainer);
+          }, 1000);
+
+          return;
+      }
 
       let response = await fetch('/data/appservice/baseinfo/get', {
           cache: "reload",
@@ -641,6 +664,12 @@ extends mixinBehaviors([
           this.activeItems = [];
           this.set("activeItems", activeItems);
       }
+  }
+
+  _isHttp2Protocol() {
+      let protocol = performance.getEntriesByType('navigation')[0].nextHopProtocol;
+      //console.log('Protocol:', protocol);
+      return protocol == "h2";
   }
 }
 customElements.define(MainApp.is, MainApp)

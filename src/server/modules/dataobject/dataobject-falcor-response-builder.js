@@ -531,7 +531,16 @@ function buildResponse(dataObject, reqData, paths) {
                 let currContext = contextItem.context;
 
                 if (!isEmpty(reqData.coalesceOptions)) {
-                    currContext.coalesceOptions = reqData.coalesceOptions;
+                    currContext.coalesceOptions = falcorUtil.cloneObject(reqData.coalesceOptions);
+                    if (currContext.selfContext) {
+                        if (currContext.coalesceOptions && currContext.coalesceOptions.enhancerAttributes) {
+                            for (let enhancerAttribute of currContext.coalesceOptions.enhancerAttributes) {
+                                if (enhancerAttribute && enhancerAttribute.contexts) {
+                                    delete enhancerAttribute.contexts;
+                                }
+                            }
+                        }
+                    }
                 }
 
                 let ctxKey = falcorUtil.createCtxKey(currContext);
