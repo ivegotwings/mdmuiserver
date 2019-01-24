@@ -153,6 +153,36 @@ const productionConfig = merge([
   {
     devtool: 'nosources-source-map',
     optimization: {
+      splitChunks: {
+        chunks: 'async',
+        minSize: 20000,
+        maxSize:500000,
+        minChunks: 1,
+        maxAsyncRequests: 5,
+        maxInitialRequests: 3,
+        name: false,
+        automaticNameDelimiter: '-',
+        cacheGroups: {
+          vendors: {
+            test: /[\\/]node_modules[\\/]/,
+            name: 'npm',
+            priority: -10,
+          },
+          default: {
+            minChunks: 2,
+            priority: -20,
+            reuseExistingChunk: true,
+            name:false
+          },
+          commons: {
+            minChunks: 4,
+            priority: -15,
+            chunks: 'all',
+            name: 'common',
+
+          }
+        }
+      },
       minimizer: [
         new TerserWebpackPlugin({
           terserOptions: {
