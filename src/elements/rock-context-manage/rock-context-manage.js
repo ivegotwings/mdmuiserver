@@ -863,6 +863,11 @@ extends mixinBehaviors([
           let itemCtx = ContextHelper.getFirstItemContext(this.contextData) || {};
           this.dataFunctionComplete({"id": itemCtx.id, "type": itemCtx.type}, [eventDetail], true);
 
+          if (!this.isPartOfBusinessFunction) {                  
+            let eventName = "onSave";
+            this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+          }
+
           return;
       } else {
           //It is bulk operation and not triggered the finish from bulk response
