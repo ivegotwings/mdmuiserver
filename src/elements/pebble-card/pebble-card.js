@@ -128,6 +128,11 @@ class PebbleCard extends PolymerElement {
                 }
             }
 
+            .pebble-card-container{
+                height:100%;
+                overflow: auto;
+            }
+
             .widget-sub-title {
                 font-size: var(--default-font-size, 14px);
                 color: var(--label-text-color, #96b0c6);
@@ -179,7 +184,7 @@ class PebbleCard extends PolymerElement {
                     </div>
                 </div>
                 <div class="base-grid-structure-child-2">
-                    <div class="full-height">
+                    <div class="pebble-card-container">
                         <slot name="pebble-card-content"></slot>
                     </div>
                 </div>
