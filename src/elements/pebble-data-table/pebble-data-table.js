@@ -1706,7 +1706,7 @@ IronScrollTargetBehavior
       for (let i = 0; i < frozenDataTableCells.length; i++) {
         frozenDataTableCells[i].style.transform = transform;
         frozenDataTableCells[i].style.backgroundColor = "white";
-        frozenDataTableCells[i].style.zIndex = zIndex;
+        frozenDataTableCells[i].style.setProperty("z-index",zIndex,"important");
       }
     }
   }
