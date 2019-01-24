@@ -1093,13 +1093,6 @@ Eventservice.prototype = {
 
         req.params.query.filters.attributesCriterion = attributesCriteria;
 
-        req.params.sort = {
-            "properties": [{
-                "createdDate": "_ASC",
-                "sortType": "_DATETIME"
-            }]
-        };
-
         req.params.options = {
             "maxRecords": totalRecords
         }

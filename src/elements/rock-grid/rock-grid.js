@@ -3422,30 +3422,29 @@ extends mixinBehaviors([
 				}
 				return false;
     }
-    
+    _dispatchViewModeChangedEvent(viewMode){
+        this.dispatchEvent(new CustomEvent('view-mode-changed', {
+            detail: {
+                data: viewMode
+            },
+            bubbles: true,
+            composed: true
+        }));
+    }
     _viewModeChanged() {
 				if (this.config && this.config.viewMode) {
             if (this.config.viewMode === 'List') {
                 import('./grid-list-view.js').then(() => {
-                    this.dispatchEvent(new CustomEvent('view-mode-changed', {
-                        detail: {
-                            data: this.config.viewMode
-                        },
-                        bubbles: true,
-                        composed: true
-                    }));
+                    this._dispatchViewModeChangedEvent(this.config.viewMode);
                 });
             }
-            if (this.config.viewMode === 'Tile') {
+            else if (this.config.viewMode === 'Tile') {
                 import('./grid-tile-view.js').then(() => {
-                    this.dispatchEvent(new CustomEvent('view-mode-changed', {
-                        detail: {
-                            data: this.config.viewMode
-                        },
-                        bubbles: true,
-                        composed: true
-                    }));
+                    this._dispatchViewModeChangedEvent(this.config.viewMode);
                 });
+            }
+            else{
+                this._dispatchViewModeChangedEvent(this.config.viewMode);
             }
             if (this.rDataSourceId) {
                 if (this._getIronDataTable()) {

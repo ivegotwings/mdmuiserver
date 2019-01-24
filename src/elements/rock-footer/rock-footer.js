@@ -63,10 +63,6 @@ class RockFooter
         <div class="footer">
             <span id="footerName" class="m-b-5">[[_logoText]]</span>
             <span class="seperator">::</span>
-            <a class="btn-link">Terms of Use</a>
-            <span class="seperator">::</span>
-            <a class="btn-link">Maintenance Schedule</a>
-            <span class="seperator">::</span>
             <a class="Powered-by">Version - [[version]]</a>
             <span class="seperator">::</span>
             <span class="Powered-by">Powered by 

@@ -456,9 +456,9 @@ class RockClassificationTree extends mixinBehaviors([RUFBehaviors.UIBehavior], O
 
       let req = DataRequestHelper.createEntityGetRequest(contextData);
       if (searchKeyword) {
-          let attributesCriterion = [];
+          let _attributesCriterion = [];
           //To avoid other rootNode classifications search
-          attributesCriterion.push({
+          _attributesCriterion.push({
               "rootexternalname": {
                   "eq": this.rootNodeExternalName,
                   "type": "_STRING"
@@ -467,13 +467,10 @@ class RockClassificationTree extends mixinBehaviors([RUFBehaviors.UIBehavior], O
           //externalName search
           if (this._classificationExtNameAttr) {
               let attrObj = {};
-              attrObj[this._classificationExtNameAttr] = {
-                  "contains": searchKeyword,
-                  "type": "_STRING"
-              }
-              attributesCriterion.push(attrObj);
-          }
-          req.params.query.filters.attributesCriterion = attributesCriterion;
+              attrObj = DataRequestHelper.createAttributesCriteria(searchKeyword,this._classificationExtNameAttr);
+              _attributesCriterion.push(attrObj["attributesCriterion"][0]);
+            }
+          req.params.query.filters.attributesCriterion = _attributesCriterion;
       }
       //requesting for "externalnamepath" to get all attribute paths
       if(DataHelper.isValidObjectPath(req, 'params.fields.attributes')) {

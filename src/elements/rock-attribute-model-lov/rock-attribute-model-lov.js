@@ -25,7 +25,7 @@ class RockAttributeModelLov extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
   static get template() {
     return html`
         <liquid-entity-model-get id="getReferenceModels" operation="getbyids" request-data="[[_getRefModelsRequest]]" on-response="_onRefModelsReceived" on-error="_onRefModelsGetFailed"></liquid-entity-model-get>
-        <attribute-model-datasource id="attributeModelDataSource" mode="[[mode]]" request="[[requestData]]" r-data-source="{{rDataSource}}" r-data-formatter="{{_dataFormatter}}" keywords-criterion-builder="{{_keywordsCriterionBuilder}}" schema="lov">
+        <attribute-model-datasource id="attributeModelDataSource" mode="[[mode]]" request="[[requestData]]" r-data-source="{{rDataSource}}" r-data-formatter="{{_dataFormatter}}" filter-criterion-builder="{{_filterCriterionBuilder}}" schema="lov">
         </attribute-model-datasource>
         <pebble-lov id="attributeModelLov" page-size="[[pageSize]]" multi-select="[[multiSelect]]" show-image="[[showImage]]" show-color="[[showColor]]" no-sub-title="[[noSubTitle]]" show-action-buttons="[[showActionButtons]]" r-data-source="{{rDataSource}}" items="[[items]]" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" on-selection-changed="_onLovSelectionChanged" deleted-items-count="[[_getDeletedItemsCount(deletedItems)]]">
         </pebble-lov>
@@ -147,20 +147,6 @@ class RockAttributeModelLov extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
               value: ""
           },
 
-          _keywordsCriterionBuilder: {
-              type: Object,
-              value: function () {
-                  return {};
-              }
-          },
-
-          _attributesCriterionBuilder: {
-              type: Object,
-              value: function () {
-                  return {};
-              }
-          },
-
           rDataSource: {
               type: Object,
               value: function () {
@@ -258,8 +244,7 @@ class RockAttributeModelLov extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
   ready() {
       super.ready();
 
-      this._attributesCriterionBuilder = this._prepareAttributesCriteria.bind(this);
-      this._keywordsCriterionBuilder = this._prepareKeywordsCriteria.bind(this);
+      this._filterCriterionBuilder = this._getFilterCriterion.bind(this);
       this._prepareAttributeMaps();
 
       if (!_.isEmpty(this.mode)) {
@@ -620,39 +605,57 @@ class RockAttributeModelLov extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
   _getDeletedItemsCount() {
       return this.deletedItems ? this.deletedItems.length : 0;
   }
+    _getFilterCriterion (searchText) {                   
+        let propertiesCriterion=[];
+        this._combineEntityModels = [];
+        propertiesCriterion = this._preparePropertiesCriteria(searchText);
+        let filterCri={};
+        if(propertiesCriterion && propertiesCriterion.length) {
+            filterCri.propertiesCriterion = propertiesCriterion;
+        }
+        return filterCri;
+    }
 
-  _prepareKeywordsCriteria(searchText) {
-      this._combineEntityModels = [];
-      if(this.mode == "domainMapped") {
-          this.modelGetRequest.params.query["domain"] = this.domain;
-      }
-      if (searchText) {
-          let keywordsCriterion = DataHelper.getSearchCriteria(searchText);
-        
-          if(keywordsCriterion.keywords){
-              keywordsCriterion.keywords = '*'+keywordsCriterion.keywords+'*';
-          }
-          return keywordsCriterion;
-      }
-  }
-
-  _prepareAttributesCriteria(searchText) {
-      if (searchText) {
-          let attributesCriterion = [];
-          let searchKey = {};
-          let searchValue = {};
-          searchValue.eq = searchText ? searchText : '';
-
-          // Todo.. When Pattern comes into picture this one is effected
-          searchKey[this.titlePattern] = searchValue;
-          attributesCriterion.push(searchKey);
-
-          if(this.mode == "domainMapped") {
-              this.modelGetRequest.params.query["domain"] = this.domain;
-          }
-          return attributesCriterion;
-      }
-  }
+    _preparePropertiesCriteria(searchText) {
+        if (searchText) {
+            let propertiesCriterion = [];
+            let searchKey = {};
+            let searchValue = {};
+            let operator = "eq";
+            let prefix = /^\"/i;
+            let suffix = /^.+\"$/gm;
+            let isPrefixed = prefix.test(searchText);
+            let isSuffixed = suffix.test(searchText);
+            let isExactSearch = false;
+            if (isPrefixed && isSuffixed) {
+                isExactSearch = true;
+            }
+            //For Exact Searcvh with Quotes
+            if (isExactSearch) {
+                searchText = searchText.replace(/['"]+/g, '');
+                operator = "exact";
+            }else{
+                searchText = searchText.split(" ");
+                searchText.forEach( (text,index,arr) =>{
+                    arr[index] = text + "*";
+                });
+                searchText = searchText.join(" ");
+            }
+            searchText = searchText.replace(/[^a-zA-Z0-9._:* "]/g, ' ');
+            searchValue[operator] = searchText ? searchText : '';
+            // Todo.. When Pattern comes into picture this one is effected
+            if(searchText.indexOf(".") > -1){
+                searchKey["attributeExternalNamePath"] = searchValue;
+            }else{
+                searchKey[this.titlePattern] = searchValue;
+            }
+            propertiesCriterion.push(searchKey);
+            if(this.mode == "domainMapped") {
+                this.modelGetRequest.params.query["domain"] = this.domain;
+            }
+            return propertiesCriterion;
+        }
+    }
 
   _onLovSelectionChanged(event) {
       let item = event.detail.item;

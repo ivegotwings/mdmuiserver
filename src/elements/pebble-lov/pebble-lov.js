@@ -571,7 +571,7 @@ class PebbleLov extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehaviors.Lov
       return [
           '_itemsChanged(items.*)',
           '_focusedIndexChanged(_focusedIndex)',
-          '_filterChanged(_filter)',
+          // '_filterChanged(_filter)', TODO: For now not finding any requirement for this, In case of any issue we need to first look at this.
           '_filteredItemsChanged(_filteredItems.*)',
           '_selectedItemChanged(selectedItem)',
           '_selectedItemsChanged(selectedItems.*)',
@@ -780,9 +780,6 @@ class PebbleLov extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehaviors.Lov
               let success = this._success.bind(this);
               let error = this._error.bind(this);
               let inputValue = this._inputElementSearchValue;
-              if (inputValue) {
-                  inputValue = inputValue.replace(/[{(/)}\[\]]/g, ' ');
-              }
               rDataSource({
                   page: this._page,
                   pageSize: this.pageSize,
@@ -907,7 +904,7 @@ class PebbleLov extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehaviors.Lov
                   // Filter and input value might get out of sync, while keyboard navigating for example.
                   // Afterwards, input value might be changed to the same value as used in filtering.
                   // In situation like these, we need to make sure all the filter changes handlers are run.
-                  this._filterChanged(this._filter);
+                  //this._filterChanged(this._filter);TODO: For now not finding any requirement for this, In case of any issue we need to first look at this.
               } else {
                   this._userDefinedFilter = true;
                   this._filter = this._inputElementSearchValue;

@@ -68,11 +68,11 @@ class GridListView
                 padding: 10px;
                 align-items: center;
                 box-sizing: border-box;
-                border-bottom: 1px solid var(--divider-color, #c1cad4);
+                border-top: 1px solid var(--divider-color, #c1cad4);
                 @apply --pebble-grid-list-container;
             }
-            .container:last-child {
-                border-bottom: none;
+            .container:nth-child(1),template + .container:nth-child(2){
+                border-top: none;
             }
 
             .isPrimary {

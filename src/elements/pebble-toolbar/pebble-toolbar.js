@@ -82,7 +82,7 @@ class PebbleToolbar extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerEle
                 }
             }
             .buttonGroup pebble-button{
-                height:auto;                
+                height:20px;                
                 --pebble-icon-dimension: {
                     width:16px;
                     height:16px;
