@@ -224,8 +224,8 @@ class AttributeModelDatasource
           if(!this.isRequestById){
 
               if (!this.isRequestInitiated) {
-                  if(!DataHelper.isValidObjectPath(this.request, "params.options.maxRecords")){
-                      this.set("request.params.options",   {"maxRecords": 50});
+                  if(this.mode == "domainMapped" && !DataHelper.isValidObjectPath(this.request, "params.options.maxRecords")){
+                      this.set("request.params.options", {"maxRecords": 50});
                   }
                   this._liquidInitSearchElement.generateRequest();
               } else {

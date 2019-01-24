@@ -406,7 +406,7 @@ class RockRelationshipGrid
                             </template>
                            </template>
                       </template>
-                      <template is="dom-if" if="[[_loadLovEntities]]">
+                      <template is="dom-if" if="[[_isReadyToShowRelationshipAddPopover]]" restamp>
                         <pebble-popover for\$="button_[[relationship]]" vertical-align="auto" horizontal-align="auto" no-overlap="">
                           <rock-entity-lov on-lov-confirm-button-tap="_onLovConfirmButtonTapped" id="lov_[[relationship]]" data-index\$="[[dataIndex]]" request-data="[[_requestForAddRelationshipList(relationship)]]" sub-title-pattern="[[_getSubTitlePattern()]]" id-field="[[_getIdField()]]" image-id-field="[[_getImageIdField()]]" title-pattern="[[_getTitlePattern()]]" selected-items="[[_getSavedRelationshipItems( relationship, _savedRelationshipItems)]]" excluded-ids="[[excludedIds]]" multi-select="" show-action-buttons=""></rock-entity-lov>
                         </pebble-popover>
@@ -763,6 +763,10 @@ class RockRelationshipGrid
         value: function () {
             return {};
         }
+      },
+      _isReadyToShowRelationshipAddPopover: {
+        type: Boolean,
+        value: false
       }
     }
   }
@@ -1307,6 +1311,8 @@ class RockRelationshipGrid
       return;
     }
     if (this.addRelationshipMode == "lov") {
+      this._isReadyToShowRelationshipAddPopover = this._loadLovEntities;
+      Polymer.flush();
       let popover = this.shadowRoot.querySelector("pebble-popover[for=" + e.currentTarget.id + "]");
       this._currentSelectedLov = this.shadowRoot.querySelector('rock-entity-lov[id=lov_' + this.relationship + ']');
       popover.show();
@@ -1410,6 +1416,7 @@ class RockRelationshipGrid
 
       if (currentLovPopover) {
         currentLovPopover.hide();
+        this._isReadyToShowRelationshipAddPopover = false;
       }
     }
   }
@@ -1462,6 +1469,7 @@ class RockRelationshipGrid
         relAddLiquid.generateRequest();
       }
       popover.hide();
+      this._isReadyToShowRelationshipAddPopover = false;
     }
   }
   _addRelationship() {

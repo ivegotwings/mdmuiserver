@@ -132,8 +132,7 @@ class RockSplitList
               "fields": {
                   "ctxTypes": [
                       "properties"
-                  ],
-                  "attributes":[""]
+                  ]
               }
           }
       };

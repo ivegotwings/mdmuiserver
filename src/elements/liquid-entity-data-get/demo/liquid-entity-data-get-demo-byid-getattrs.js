@@ -26,28 +26,39 @@ Polymer$0({
                       "query": {
                           "filters": {
                               "typesCriterion": [
-                                  "productgroup"
+                                  "sku"
                               ]
                           },
-                          "id": "eQaSwUPmCj9Bj",
+                          "id": "t8Xy182pQFmdV5_QwSeOGQ",
                           "contexts": [
                               {
-                                  "taxonomy": "Enterprise Hierarchy",
-                                  "classification": "Apparel and Accessories>>Apparel>>Baby Wear>>Baby Bibs"
+                                  "country": "Germany"
                               }
                           ],
                           "valueContexts": [
                               {
                                   "source": "internal",
-                                  "locale": "en-US",
-                                  "localeCoalesce": true
+                                  "locale": "en-US"
                               }
                           ]
                       },
                       "fields": {
-                          "attributes": [
-                              "name",
-                              "INTERNAL_DATAOBJECT_METADATA_FIELDS"
+                          "attributes": ["mdmid", "mdmname"],
+                          "relationships": ["hasimages"],
+                          "relationshipAttributes": ["isPrimary"],
+                          "relatedEntityAttributes": [
+                              "description",
+                              "filemodificationdatetime",
+                              "filetype",
+                              "id",
+                              "imagedescription",
+                              "imagesize",
+                              "mdmid",
+                              "mdmname",
+                              "property_objectkey",
+                              "property_originalfilename",
+                              "thumbnail",
+                              "thumbnailid"
                           ]
                       },
                       "options": {

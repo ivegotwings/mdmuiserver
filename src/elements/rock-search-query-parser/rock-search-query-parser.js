@@ -813,6 +813,9 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
           if (attrModel) {
             attrModel.displayType = attrModel.displayType || "textbox";
             let displayType = attrModel.displayType.toLowerCase();
+            if(displayType === "referencelist") {
+              attrModel.isLocalizable = true;
+            }
             let dataType = ConstantHelper.getDataTypeConstant(attrModel.dataType.toLowerCase());
             if (dataType === "_DECIMAL" || dataType === "_INTEGER") {
               displayType = "numeric";
@@ -861,7 +864,7 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                     delete attrVal[key];
                   } else if (displayType === "path") {
                     if (key === "equals") {
-                      attrVal["eq"] = containsStr + '*';
+                      attrVal["eq"] = containsStr;
                       attrVal["pathCollection"] = valueCollection;
                     }
                     delete attrVal[key];
