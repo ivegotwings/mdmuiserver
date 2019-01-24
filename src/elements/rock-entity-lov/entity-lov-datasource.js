@@ -16,6 +16,9 @@ import '../bedrock-lov-datasource-behavior/bedrock-lov-datasource-behavior.js';
 import '../liquid-entity-data-get/liquid-entity-data-get.js';
 import { dom } from '@polymer/polymer/lib/legacy/polymer.dom.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
+import EntityTypeManager from '../bedrock-managers/entity-type-manager.js';
+
+
 class EntityLovDatasource extends mixinBehaviors([
     RUFBehaviors.LOVDataSourceBehavior,
     RUFBehaviors.LoggerBehavior],
@@ -121,7 +124,7 @@ class EntityLovDatasource extends mixinBehaviors([
       }
 
       this.request = DataHelper.cloneObject(this.baseRequest);
-
+      let entityType;
       // Bind Reponse
       if (!this.isInitResponseAttached) {
           DataHelper.oneTimeEvent(this._liquidInitSearchElement, 'response', this._onInitSearchResponse.bind(
@@ -143,8 +146,17 @@ class EntityLovDatasource extends mixinBehaviors([
       let attributesCriterion;
 
       if (this.isAttributeFilter) {
-          let criterionKey = this.domain && (this.domain == "baseModel" || this.domain == "taxonomyModel") ? "propertiesCriterion" : "attributesCriterion";
-
+          if(DataHelper.isValidObjectPath(this.request, 'params.query.filters.typesCriterion.0')){
+            entityType= this.request.params.query.filters.typesCriterion[0];
+          }
+          let criterionKey;
+          if(entityType){
+            let entityTypeManager= new EntityTypeManager();
+            let domain = entityTypeManager.getDomainByEntityTypeName(entityType);
+            let requestedEntityTypeDomain = domain ? domain : this.domain;
+            criterionKey = requestedEntityTypeDomain && (requestedEntityTypeDomain == "baseModel" || requestedEntityTypeDomain == "taxonomyModel") ? "propertiesCriterion" : "attributesCriterion";  
+          }
+          
           if (this.attributesCriterionBuilder && this.attributesCriterionBuilder instanceof Function) {
               let attributesCriterionObj = this.attributesCriterionBuilder(data.filter);
               attributesCriterion = attributesCriterionObj["attributesCriterion"];
