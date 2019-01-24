@@ -904,7 +904,7 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                   } else if (displayType === "boolean") {
                     attrVal["eq"] = containsStr;
                     delete attrVal[key];
-                  } else if (displayType === "richtexteditor") {
+                  } else if (displayType === "richtexteditor" || displayType === "textarea") {
                     attrVal["contains"] = containsStr;
                     attrVal["operator"] = operator;
                     delete attrVal[key];
