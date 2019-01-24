@@ -211,12 +211,13 @@ class MyTodoSummary
             </div>
                 <div class="clearfix"></div>
                 <div id="moreDetails" hidden="true">
-                    <template is="dom-repeat" items="[[_businessConditionMappings]]" as="businessCondition">
-                        <pebble-button id="[[businessCondition.data.bcId]]" icon-url="../../../../src/images/loading.svg" class="action bcButtons" noink="" raised="" elevation="0" horizontal-align="right" vertical-align="top" button-text="[[businessCondition.businessConditionName]]" data="[[businessCondition.data]]" on-tap="_onBusinessConditionTap">
-                        </pebble-button>
-                    </template>
                     <template is="dom-if" if="[[_bCsExist]]">
                         <pebble-button id="passedBCButton" icon-url="../../../../src/images/loading.svg" class="action" noink="" raised="" elevation="0" horizontal-align="right" vertical-align="top" button-text="[[_passedBC.text]]" data="[[_passedBC.data]]" on-tap="_onBusinessConditionTap">
+                        </pebble-button>
+                    </template>
+
+                    <template is="dom-repeat" items="[[_getSortedBusinessConditionMappings(_businessConditionMappings)]]" as="businessCondition">
+                        <pebble-button id="[[businessCondition.data.bcId]]" icon-url="../../../../src/images/loading.svg" class="action bcButtons" noink="" raised="" elevation="0" horizontal-align="right" vertical-align="top" button-text="[[businessCondition.businessConditionName]]" data="[[businessCondition.data]]" on-tap="_onBusinessConditionTap">
                         </pebble-button>
                     </template>
                     <div id="noBusinessCondditionsMessage" hidden="">
@@ -438,6 +439,13 @@ class MyTodoSummary
           let bcData = {state: this.getQueryParamFromState()};
           ComponentHelper.appRoute(appName, bcData);
       }
+  }
+
+  _getSortedBusinessConditionMappings() {
+      if(!_.isEmpty(this._businessConditionMappings)) {
+        this._businessConditionMappings = DataHelper.sort(this._businessConditionMappings, 'businessConditionName');
+      }
+      return this._businessConditionMappings;
   }
 
   _onInitBusinessConditionsMappingGetResponse () {
