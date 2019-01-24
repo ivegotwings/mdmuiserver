@@ -1023,7 +1023,7 @@ class RockAttributeManage extends mixinBehaviors(
           }
 
           if (!(liquidSave && liquidSave.operation == 'create')) {
-              let liquidGovernGet = this.$.attributeGetMessageService;
+              let liquidGovernGet = this.$.entityGovernDataGet;
               if (liquidGovernGet && this.loadGovernData) {
                   liquidGovernGet.generateRequest();
               }
