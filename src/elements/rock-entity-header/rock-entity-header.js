@@ -753,6 +753,9 @@ extends mixinBehaviors([
           } else {
               this._headerAttributeModels = headerAttributeModels;
           }
+           if(_.isEmpty(this._headerAttributeModels)) {
+               this._showMessage("Attributes are not available or there is no permission. Contact administrator");
+           }
           let clonedContextData = DataHelper.cloneObject(this.contextData);
           if (clonedContextData) {
               //add attribute names in item context
@@ -763,10 +766,7 @@ extends mixinBehaviors([
               this.shadowRoot.querySelector("liquid-entity-data-get").generateRequest();
           }
       } else {
-          let attrContainer = this.$$('#attributePanel');
-          let attrErrorContainer = this.$$('#attributeErrorPanel');
-          attrContainer.hidden = true;
-          attrErrorContainer.hidden = false;
+          this._showMessage();
           this.logError("rock-entity-header - Header attribute models get response error", e.detail, true, "", attrErrorContainer);
       }
   }
@@ -802,10 +802,7 @@ extends mixinBehaviors([
               this.$.headerAttributes.render();
           }
       } else {
-          let attrContainer = this.$$('#attributePanel');
-          let attrErrorContainer = this.$$('#attributeErrorPanel');
-          attrContainer.hidden = true;
-          attrErrorContainer.hidden = false;
+          this._showMessage();
           this.logError("rock-entity-header - Header attributes get response error", e.detail, true, "", attrErrorContainer);
       }
   }
@@ -1145,6 +1142,16 @@ extends mixinBehaviors([
       }
 
       this.set("writePermission", writePermission);
+  }
+
+  _showMessage(message) {
+      let attrContainer = this.$$('#attributePanel');
+      let attrErrorContainer = this.$$('#attributeErrorPanel');
+      if(message) {
+          attrErrorContainer.innerHTML = message;
+      }
+      attrContainer.hidden = true;
+      attrErrorContainer.hidden = false;
   }
 }
 customElements.define(RockEntityHeader.is, RockEntityHeader)

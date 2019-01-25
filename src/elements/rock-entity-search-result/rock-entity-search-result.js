@@ -815,7 +815,7 @@ class RockEntitySearchResult extends mixinBehaviors([RUFBehaviors.AppBehavior,
               }
               this.push("_selectedEntityTypes", entityModels[0]);
           } else if (_.isEmpty(entityModels) && DataHelper.isValidObjectPath(requestData,
-                  "params.query.name")) {
+              "params.query.name")) {
               this._notFoundEntityTypes.push(requestData.params.query.name);
           }
       } else {
@@ -836,9 +836,6 @@ class RockEntitySearchResult extends mixinBehaviors([RUFBehaviors.AppBehavior,
           }
 
           let attributeModels = DataHelper.cloneObject(this.attributeModels);
-          this.attributeModels = {};
-          this.set("attributeModels", attributeModels);
-          this.reloadGrid();
 
           if (!_.isEmpty(this._notFoundEntityTypes)) {
               let messageContent = this._notFoundEntityTypes.join(", ");
@@ -846,6 +843,18 @@ class RockEntitySearchResult extends mixinBehaviors([RUFBehaviors.AppBehavior,
               if (this._notFoundEntityTypes.length === this._selectedEntityTypesCount) {
                   this.fireBedrockEvent('grid-load-error');
               }
+          }
+
+          if (_.isEmpty(attributeModels)) {
+              this.logError("rock-entity-search-result - Empty attribute models", this._selectedEntityTypes);
+              /**
+              * TODO: We need to change the event to show permissions error.
+              * */
+              this.fireBedrockEvent('grid-load-error');
+          } else {
+              this.attributeModels = {};
+              this.set("attributeModels", attributeModels);
+              this.reloadGrid();
           }
           this._selectedEntityTypes = [];
           this._notFoundEntityTypes = [];

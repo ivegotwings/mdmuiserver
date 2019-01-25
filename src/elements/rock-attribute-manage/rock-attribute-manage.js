@@ -381,7 +381,7 @@ class RockAttributeManage extends mixinBehaviors(
           },
           _attributesMessage: {
               type: String,
-              value: "No attributes Found"
+              value: "Attributes are not available"
           },
           _loading: {
               type: Boolean,
@@ -626,10 +626,10 @@ class RockAttributeManage extends mixinBehaviors(
               this._loadAttributeList();
           }
       } else {
-          if (this.functionalMode == "dataFunction" || this.functionalMode ==
-              "quickManage") {
-              this._showNoAttributeMessage = true;
+          if(this.functionalMode == "default") {
+              this._attributesMessage = this._attributesMessage + " or there is no permission. Contact administrator";
           }
+          this._showNoAttributeMessage = true;
           this._loading = false;
       }
   }
