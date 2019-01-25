@@ -1339,10 +1339,11 @@ DataRequestHelper.createGetAttributeModelRequest = function (types, attributes) 
     if (!attributes || attributes.length == 0) {
         attributes = "_ALL";
     }
-
-    for (let i = 0; i < types.length; i++) {
-        let type = types[i];
-        ids.push(type + "_attributeModel");
+    if(!_.isEmpty(types)){
+        for (let i = 0; i < types.length; i++) {
+            let type = types[i];
+            ids.push(type + "_attributeModel");
+        }
     }
 
     let req = {
@@ -1362,7 +1363,9 @@ DataRequestHelper.createGetAttributeModelRequest = function (types, attributes) 
             }
         }
     };
-
+    if(_.isEmpty(ids)){
+        delete req.params.query.ids;
+    }
     return req;
 };
 
