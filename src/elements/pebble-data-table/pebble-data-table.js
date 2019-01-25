@@ -390,7 +390,7 @@ IronScrollTargetBehavior
           <div class="item">
             <data-table-row class\$="{{_computePrimaryClass(item)}}" row-drag-drop-enabled="[[rowDragDropEnabled]]" before-bind="[[beforeRowBind]]" even="[[!_isEven(index)]]" expanded="[[_isExpanded(item, _expandedItems, _expandedItems.*)]]" index="[[index]]" item="[[item]]" selected="[[_isSelected(item, selectedItems, selectedItems.*)]]">
               <template is="dom-if" if="[[_isMultiSelectEnabled(enableMultiSelection)]]">
-                <data-table-checkbox slot="data-table-checkbox-slot" hidden\$="[[!enableMultiSelection]]" tabindex="0" checked="[[_isSelected(item, selectedItems, selectedItems.*)]]" on-tap="_onCheckBoxTap" disabled\$="[[isDisabled(item)]]"></data-table-checkbox>
+                <data-table-checkbox slot="data-table-checkbox-slot" tabindex="0" checked="[[_isSelected(item, selectedItems, selectedItems.*)]]" on-tap="_onCheckBoxTap" disabled\$="[[isDisabled(item)]]"></data-table-checkbox>
               </template>
 
               <template is="dom-if" if="[[_isRowFrozen(index)]]">
