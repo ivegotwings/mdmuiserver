@@ -1182,7 +1182,11 @@ extends mixinBehaviors([
                           if (attribute.exacts) {
                               tag.displayValue = this._entitySearchFilterElement.formatFilterCollectionDisplay(attribute.exacts);
                           } else if (attribute.contains) {
-                              tag.displayValue = this._entitySearchFilterElement.formatFilterCollectionDisplay(attribute.contains.split(" "));
+                            if(tag.options.displayType.toLowerCase() == "richtexteditor"){
+                                tag.displayValue = attribute.contains;
+                            } else {
+                                tag.displayValue = this._entitySearchFilterElement.formatFilterCollectionDisplay(attribute.contains.split(" "));
+                            }
                           } else if (attribute.exact) {
                               tag.displayValue = attribute.exact;
                           } else if (attribute.eq && attribute.pathCollection) {
@@ -1193,7 +1197,13 @@ extends mixinBehaviors([
                               tag.displayValue = attribute.gte + " - " + attribute.lte;
                           } else if (attribute.contains) {
                               tag.displayValue = this._entitySearchFilterElement.formatFilterCollectionDisplay(attribute.contains.split(" "));
-                          }
+                          } else if (attribute.eq) {
+                            if(attribute.eq instanceof Array) {
+                                tag.displayValue = this._entitySearchFilterElement.formatFilterCollectionDisplay(attribute.eq);
+                            } else {
+                                tag.displayValue = attribute.eq;
+                            }
+                        } 
                       } else if (attribute.type === "_BOOLEAN") {
                           tag.displayValue = attribute.eq;
                       } else if (attribute.type === "_DATETIME" || attribute.type === "_DATE") {

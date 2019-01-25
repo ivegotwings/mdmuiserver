@@ -809,7 +809,7 @@ class RockSearchFilter
         rangePicker.positionTarget = positionTarget;
         rangePicker.noOverlap = true;
         if (showTagPopover) {
-          rangePicker.show(true);
+          rangePicker.show(true);          
         }
       });
     } else {
@@ -857,6 +857,8 @@ class RockSearchFilter
 
             if (this.currentTag.value.exact && this.currentTag.value.exact != 'All') {
               filterInput.value = this.currentTag.value.exact;
+            } else if (this.currentTag.value.contains){
+              filterInput.value = this.currentTag.value.contains;
             }
 
             setTimeout(() => {
@@ -878,6 +880,13 @@ class RockSearchFilter
             }
             this.gte = this.currentTag.value.gte || "";
             this.lte = this.currentTag.value.lte || "";
+            if(!_.isEmpty(this.currentTag.value.eq)){ 
+              if(this.currentTag.value.eq instanceof Array) {
+               this._tagsNumericCollection = this.currentTag.value.eq; 
+              } else {
+               this._tagsNumericCollection = [this.currentTag.value.eq]; 
+              }
+            }  
           }
         } else if (tagDisplayType == "referencelist") {
           //Set Id, Title and Value to the LOV
@@ -905,7 +914,7 @@ class RockSearchFilter
             } else {
               lovComponent.selectedItems = this.currentTag.value.exacts;
             }
-            let refEntityTypes = this.currentTag.options.referenceEntityTypes;
+            let refEntityTypes = DataTransformHelper._getEntityTypesForLov(this.currentTag.options);
             let itemContexts = [];
             for (let i in refEntityTypes) {
               itemContexts.push({
