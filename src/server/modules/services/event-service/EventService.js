@@ -785,6 +785,7 @@ Eventservice.prototype = {
                             eventAttributes["recordCount"] = attributes["totalRecords"];
                             eventAttributes["profileName"] = attributes["profileName"];
                             eventAttributes["hasChildTasks"] = attributes["hasChildTasks"];
+                            eventAttributes["fileExtension"] = attributes["fileExtension"];
                             eventAttributes["isExtractComplete"] = attributes["isExtractComplete"];
                             eventAttributes["createdOn"] = {"values": [
                                 {
