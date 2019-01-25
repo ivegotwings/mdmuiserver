@@ -41,6 +41,8 @@ import '../rock-widget-panel/rock-widget-panel.js';
 import '../pebble-echo-html/pebble-echo-html.js';
 import './entity-history-datasource.js';
 import '../rock-grid-data-sources/attribute-model-datasource.js';
+import ContextModelManager from '../bedrock-managers/context-model-manager.js';
+import EntityTypeManager from '../bedrock-managers/entity-type-manager.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockRecentActivity extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.ComponentContextBehavior,
     RUFBehaviors.LoggerBehavior
@@ -277,6 +279,7 @@ class RockRecentActivity extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBeh
   </liquid-entity-model-composite-get>
   <attribute-model-datasource id="attributeModelDataSource" mode="[[attributeMode]]" request="[[modelGetRequest]]" r-data-source="{{rDataSource}}" r-data-formatter="{{_dataFormatter}}" schema="lov">
   </attribute-model-datasource>
+  <liquid-entity-data-get id="getEntity" operation="getbyids" data-index="entityData" data-sub-index="data" on-response="_onEntityGetResponse" on-error="_onEntityGetFailed"></liquid-entity-data-get>
 `;
   }
 
@@ -398,6 +401,12 @@ class RockRecentActivity extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBeh
       maxRecords: {
         type: Number,
         value: 200
+      },
+      _coalesceOptions: {
+        type: Object,
+        value: function () {
+          return {};
+        }
       }
     }
   }
@@ -417,14 +426,18 @@ class RockRecentActivity extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBeh
 
   ready() {
     super.ready();
+    this._dataFormatter = this._getAttributeFormattedData.bind(this);
+    this._triggerForCoalesceOptions();
+  }
+  _triggerProcess() {
+    this.loading = false;
     let compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
     compositeModelGetRequest.params.fields.attributes = ["_ALL"];
     this.modelGetRequest = compositeModelGetRequest;
+    this._setCoalesceOptions(this.modelGetRequest);
     this.reTriggerRequest();
     this.isModelGetInitiated = true;
     this.getEvents();
-    this._dataFormatter = this._getAttributeFormattedData.bind(this);
-
   }
   getEvents() {
     if (DataHelper.isValidObjectPath(this.contextData, 'ItemContexts.0.id')) {
@@ -436,6 +449,7 @@ class RockRecentActivity extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBeh
         req.params.query.contexts = dataContexts;
       }
       this.request = req
+      this._setCoalesceOptions(this.request);
       let _liquidRestElement = this.shadowRoot.querySelector("#entityEventGetLiquidRest");
       if (_liquidRestElement) {
         _liquidRestElement.requestData = this.request;
@@ -445,11 +459,82 @@ class RockRecentActivity extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBeh
       this.noRecord = false;
     }
   }
+  _setCoalesceOptions(request) {
+    if(_.isEmpty(this._coalesceOptions)) {
+      return;
+    }
+    if(!request.params.options) {
+      request.params.options  = {};
+    }
+    request.params.options.coalesceOptions = this._coalesceOptions;
+  }
+  async _triggerForCoalesceOptions() {
+    this.loading = true;
+    let domain = await this._getDomain();
+    let enhancerAttributes = await ContextModelManager.getEnhancerAttributeNamesBasedOnDomainAndContext(domain);
+    if(!_.isEmpty(enhancerAttributes)) {
+      let clonedContextData = DataHelper.cloneObject(this.contextData);
+      clonedContextData.ItemContexts[0].attributeNames = enhancerAttributes;
+      let req = DataRequestHelper.createEntityGetRequest(clonedContextData);
+      let entityGet = this.shadowRoot.querySelector("#getEntity");
+      if (entityGet) {
+          entityGet.requestData = req;
+          entityGet.generateRequest();
+      }
+    } else {
+      this._triggerProcess();
+    }
+  }
+  async _getDomain() {
+    let domain = "";
+    let domainContext = ContextHelper.getFirstDomainContext(this.contextData);
+    if(domainContext) {
+      domain = domainContext.domain;
+    }
+    if(!domain) {
+      let itemContext = ContextHelper.getFirstItemContext(this.contextData);
+      if(itemContext) {
+        let entityTypeManager = EntityTypeManager.getInstance();
+        domain = await entityTypeManager.getDomainByEntityTypeNameAsync(itemContext.type);
+      }
+    }
+    return domain || "thing"; //default
+  }
+  _onEntityGetResponse(e, detail) {
+    let responseContent = DataHelper.validateAndGetResponseContent(detail.response);
+    if (responseContent && !_.isEmpty(responseContent.entities) &&
+      DataHelper.isValidObjectPath(responseContent.entities, "0.data.attributes")) {
+      //Prepare coalesceOptions
+      let attributes = responseContent.entities[0].data.attributes || {};
+      let enhancerAttributeValues = [];
+      let dataContexts = ContextHelper.getDataContexts(this.contextData);
+      for (let attrName in attributes) {
+        let attributeValues = attributes[attrName].values;
+        for (let attributeValueObj of attributeValues) {
+          let attrObj = {};
+          attrObj[attrName] = attributeValueObj.value;;
+          if (!_.isEmpty(dataContexts)) {
+            attrObj["contexts"] = dataContexts;
+          }
+          enhancerAttributeValues.push(attrObj);
+        }
+      }
+      if (!_.isEmpty(enhancerAttributeValues)) {
+        this._coalesceOptions = {
+          "enhancerAttributes": enhancerAttributeValues
+        }
+      }
+    }
+    this._triggerProcess();
+  }
+  _onEntityGetFailed(e) {
+    this._triggerProcess();
+    this.logError("Entity get failed", e);
+  }
   _getAttributeFormattedData(data) {
     if (data && data.content && !_.isEmpty(data.content.entityModels[0])) {
       this.attributeModels = DataTransformHelper.transformAttributeModels(data.content.entityModels[0], this.contextData);
     }
-
   }
   _onOpenAttributeDialog(e) {
     if (!_.isEmpty(e.detail)) {
