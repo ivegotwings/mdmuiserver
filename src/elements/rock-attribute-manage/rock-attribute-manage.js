@@ -627,7 +627,7 @@ class RockAttributeManage extends mixinBehaviors(
           }
       } else {
           if(this.functionalMode == "default") {
-              this._attributesMessage = this._attributesMessage + " or there is no permission. Contact administrator.";
+              this._attributesMessage = this._attributesMessage + " or there is no permission. Contact administrator";
           }
           this._showNoAttributeMessage = true;
           this._loading = false;
