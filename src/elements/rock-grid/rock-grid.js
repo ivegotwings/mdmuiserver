@@ -2593,7 +2593,7 @@ extends mixinBehaviors([
     _onFilteringItems() {
 				let ironDataTable = this._getIronDataTable();
 				let filteredItems = ironDataTable.getFilteredItems();
-				this.currentRecordSize = filteredItems.length;
+				this.currentRecordSize = filteredItems ? filteredItems.length : 0;
     }
     
     _actionValue(action) {

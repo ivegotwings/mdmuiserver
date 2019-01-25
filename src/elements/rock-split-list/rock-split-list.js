@@ -16,6 +16,7 @@ import '../bedrock-helpers/attribute-helper.js';
 import '../bedrock-helpers/context-helper.js';
 import '../pebble-split-list/pebble-split-list.js';
 import '../rock-grid-data-sources/attribute-model-datasource.js';
+import EntityTypeManager from '../bedrock-managers/entity-type-manager.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockSplitList
     extends mixinBehaviors([
@@ -34,9 +35,9 @@ class RockSplitList
         </template>
         
         <template is="dom-if" if="{{!hasComponentErrored(isComponentErrored)}}">
-            <attribute-model-datasource id="[[objectType]]" mode="all" request="[[requestData]]" r-data-source="{{rDataSource}}" total-count="{{totalCount}}" buffer-record-size="{{size}}" current-record-size="{{currentRecordSize}}" result-record-size="{{resultRecordSize}}" r-data-formatter="{{_dataFormatter}}" schema="grid" filter-criterion-builder="{{_filterCriterionBuilder}}" sort-criterion-builder="{{_sortCriterionBuilder}}">
+            <attribute-model-datasource id="[[objectType]]" mode="[[_dataSourceMode]]" request="[[requestData]]" r-data-source="{{rDataSource}}" total-count="{{totalCount}}" buffer-record-size="{{size}}" current-record-size="{{currentRecordSize}}" result-record-size="{{resultRecordSize}}" r-data-formatter="{{_dataFormatter}}" schema="grid" filter-criterion-builder="{{_filterCriterionBuilder}}" sort-criterion-builder="{{_sortCriterionBuilder}}" domain="[[_dataSourceDomain]]">
             </attribute-model-datasource>
-            <pebble-split-list r-data-source-id="[[objectType]]" deleted-items="{{deletedItems}}" page-size="[[pageSize]]" size="{{size}}" selected-items="{{selectedItems}}" retain-selected-items="{{retainSelectedItems}}" move-up-down-enabled="{{moveUpDownEnabled}}" config="[[config]]" r-data-source="{{rDataSource}}" unique-id="{{objectType}}"></pebble-split-list>
+            <pebble-split-list r-data-source-id="[[objectType]]" deleted-items="{{deletedItems}}" page-size="[[pageSize]]" size="{{_gridDataSize}}" selected-items="{{selectedItems}}" retain-selected-items="{{retainSelectedItems}}" move-up-down-enabled="{{moveUpDownEnabled}}" config="[[config]]" r-data-source="{{rDataSource}}" unique-id="{{objectType}}"></pebble-split-list>
         </template>
 `;
   }
@@ -84,7 +85,7 @@ class RockSplitList
           },
           pageSize: {
               type: Number,
-              value: 50
+              value: 100
           },
           deletedItems: {
               type: Array,
@@ -103,7 +104,19 @@ class RockSplitList
               type: Boolean,
               value: false,
               observer: '_onDisableSplitList'
-          }
+          },
+          _gridDataSize:{
+                type:Number,
+                value:0,
+                notify:true
+            },
+            _dataSourceMode:{
+                type:String,
+                value:"all"
+            },
+            _dataSourceDomain: {
+                type:String
+            }
       }
   }
 
@@ -117,8 +130,10 @@ class RockSplitList
       this._sortCriterionBuilder = this._getSortCriterion.bind(this);  
       this.requestData = {};
       let typesCriterion = "attributeModel";
+      this._dataSourceMode = "DomainAndTaxonomy";
       if(this.objectType == "relationship"){
           typesCriterion = "relationshipModel";
+          this._dataSourceMode = "all";
       }              
       let modelGetRequest = {
           "params": {
@@ -136,7 +151,14 @@ class RockSplitList
               }
           }
       };
-      
+        if(!_.isEmpty(this.contextData)){
+            let firstItemContext = ContextHelper.getFirstItemContext(this.contextData);
+            let entityType = firstItemContext && firstItemContext.type ? firstItemContext.type : undefined;
+            let entityTypeManager = EntityTypeManager.getInstance();
+            if(entityType && entityTypeManager){
+                this._dataSourceDomain = entityTypeManager.getDomainByEntityTypeName(entityType);
+            }
+        }
       this.set("requestData", modelGetRequest);   
   }
 
@@ -177,6 +199,8 @@ class RockSplitList
               }
               return { "properties": attributes };
           }
+      }else{
+        return DataHelper.prepareAttributeModelSortCriterion('externalName');
       }
       return undefined;
   }
@@ -299,7 +323,11 @@ class RockSplitList
           if(isMissingItems && !this.warningShown){                            
               this.showWarningToast("Some attributes/relationships may not be listed because they do not have external name");
               this.warningShown = true; 
-          }                        
+          }         
+          this.set("_gridDataSize", 0);          
+          this.set("_gridDataSize", formattedData.length);  
+          let sortDetails = DataHelper.prepareAttributeModelSortCriterion('externalName');
+          formattedData = DataHelper.sort(formattedData, "externalName", ConstantHelper.DATATYPE_STRING, null, sortDetails.properties);             
           return formattedData;
       } else {
           this.logError("models are not found for the request ", this.requestData);

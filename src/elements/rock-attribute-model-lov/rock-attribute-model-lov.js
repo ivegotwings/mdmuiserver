@@ -338,6 +338,7 @@ class RockAttributeModelLov extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
       if(DataHelper.isValidObjectPath(this.modelGetRequest,"params.fields.attributes")){
           this.modelGetRequest.params.fields.attributes = ["_ALL"];
       }
+      this.modelGetRequest.params.fields.sort = {"properties":[{"externalName":"_ASC","sortType":"_STRING"}]};
       this.requestData = undefined;
       this.requestData = this.modelGetRequest;
       /**

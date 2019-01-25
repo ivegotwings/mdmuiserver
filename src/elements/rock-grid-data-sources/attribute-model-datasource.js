@@ -96,6 +96,20 @@ class AttributeModelDatasource
           },
           isRequestById: {
               type: Boolean
+          },
+          isDomainAttributesLoaded:{
+              type:Object,
+              value:false
+          },
+          domainAttributes:{
+              type:Array,
+              value:function(){
+                  return [];
+              }
+          },
+          domain:{
+              type:String,
+              value:""
           }
       }
   }
@@ -116,7 +130,7 @@ class AttributeModelDatasource
       this._liquidNestedAttrGet = this.shadowRoot.querySelector('#nestedAttrModelGet');
 
       if(!_.isEmpty(this.mode)) {
-          if(this.mode === "all" || this.mode === "domainMapped") {
+          if(this.mode === "all" || this.mode === "domainMapped" || this.mode === "DomainAndTaxonomy") {
               this.rDataSource = this._dataSource.bind(this);
           }
       }
@@ -132,7 +146,14 @@ class AttributeModelDatasource
       if (_.isEmpty(this.request)) {
           return;
       }
-      
+      if(this.mode === "DomainAndTaxonomy"){
+        this.domainAttributes = [];
+        this.isDomainAttributesLoaded = false;
+        if(this.domain){
+            this.request.params.query["domain"] = this.domain;
+        }
+        this.isRequestInitiated = false;
+      }
       DataHelper.oneTimeEvent(this._liquidInitSearchElement, 'response', this._onInitSearchResponse.bind(
           this));
 
@@ -207,7 +228,7 @@ class AttributeModelDatasource
           }
       }
 
-      if(this.mode != "domainMapped"){
+      if(this.mode != "domainMapped" && this.mode != "DomainAndTaxonomy"){
           // Set Range
           let requestOptions = this._prepareRequestOptions(this._options);
           this.set("request.params.options", requestOptions);
@@ -220,7 +241,7 @@ class AttributeModelDatasource
     * <b><i>Content development is under progress... </b></i> 
     */
   reTriggerRequest () {
-      if(this.mode === "all" || this.mode == "domainMapped") {
+      if(this.mode === "all" || this.mode == "domainMapped" || this.mode === "DomainAndTaxonomy") {
           if(!this.isRequestById){
 
               if (!this.isRequestInitiated) {
@@ -267,6 +288,26 @@ class AttributeModelDatasource
                       success(_formattedData);
                   }
               } else if(this.schema === "grid") {
+                    if(this.mode == "DomainAndTaxonomy"){
+                        this.isRequestInitiated = false;
+                        this.resetDataSource();
+                        if(this.isDomainAttributesLoaded){
+                            this.isDomainAttributesLoaded = false;
+                            if(!_.isEmpty(this.domainAttributes)){
+                                if(this.searchResultResponse.content && this.searchResultResponse.content.entityModels){
+                                    this.searchResultResponse.content.entityModels = this.searchResultResponse.content.entityModels.concat(this.domainAttributes);
+                                }
+                            }
+                        }else{
+                            this.isDomainAttributesLoaded = true;
+                            this.request.params.query["domain"] = "taxonomyModel";
+                            if(this.searchResultResponse.content && this.searchResultResponse.content.entityModels){
+                                this.domainAttributes = this.searchResultResponse.content.entityModels;
+                            }
+                            this.reTriggerRequest();
+                            return;
+                        }
+                    }
                   if (this._lastPage < this._options.page) {
                       let searchResults = this._formatResponse(this.searchResultResponse);
 
