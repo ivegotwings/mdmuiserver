@@ -831,10 +831,11 @@ class RockTaskList extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors
           image,
           title,
           subtitle,
+          extension,
           id,
           fields
       } = config.itemConfig;
-      let attributeNames = [image, title, subtitle, id];
+      let attributeNames = [image, title, subtitle, extension, id];
       for (let key in fields) {
           if (!fields.hasOwnProperty(key)) continue;
 
@@ -854,6 +855,8 @@ class RockTaskList extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors
       }
 
       switch (formatter.toLowerCase()) {
+          case "seedload":
+              return "/src/images/zip.svg";
           case "excel":
               return "/src/images/MicrosoftExcel50,100,500px/MicrosoftExcel_100.svg";
           case "rsjson":
