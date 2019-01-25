@@ -101,7 +101,7 @@ _setRequestObject () {
 
     let valContexts = this.getValueContexts();
 
-    if (_.isEmpty(valContexts) && _.isEmpty(valContexts[0])) {
+    if(_.isEmpty(valContexts) || valContexts.length > 1) {
         valContexts = [DataHelper.getDefaultValContext()];
     }
     

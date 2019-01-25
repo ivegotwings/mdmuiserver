@@ -556,7 +556,7 @@ class RockQueryBuilder extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehavi
       }, 
       _enableAttributeSearch: {
           type: Boolean,
-          computed: '_getItemVisibility(settings,"enableAttributesSearch")',
+          value: false
       },
       _enableRelationshipsSearch: {
           type: Boolean,
