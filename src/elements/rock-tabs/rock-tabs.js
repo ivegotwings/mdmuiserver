@@ -516,14 +516,14 @@ class RockTabs
       if (!_.isEmpty(menuItems)) {
           this.set('_calculatedTabItems.' + tabItem.index + ".enableDropdownMenu", true);
           this.set('_calculatedTabItems.' + tabItem.index + ".menuItems", menuItems);
-          if (tabItem.selected || tabItem.name == this.selectedTab.name) {
-              flush();
-              this._setSelectedMenuItem(tabItem);
-              this.readyToRender(true);
-              this.reloadCurrentTab();
-          }
       } else {
           this.set('_calculatedTabItems.' + tabItem.index + ".enableDropdownMenu", false);
+      }
+      if (tabItem.selected || tabItem.name == this.selectedTab.name) {
+          flush();
+          this._setSelectedMenuItem(tabItem);
+          this.readyToRender(true);
+          this.reloadCurrentTab();
       }
   }
 
