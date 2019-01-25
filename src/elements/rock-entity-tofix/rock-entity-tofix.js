@@ -920,7 +920,12 @@ RUFBehaviors.LoggerBehavior], PolymerElement) {
           if (tofixGlobalData.businessConditions.length > 0) {
               _tofixData.push(tofixGlobalData);
           }
-
+          //sorting
+          _tofixData.forEach(elm=> {
+              if(elm.businessConditions) {
+                  DataHelper.sort(elm.businessConditions, 'name');
+              }
+          });
           this.set("_tofixData", _tofixData);
           this._isToFixDataExists = true;
       }
