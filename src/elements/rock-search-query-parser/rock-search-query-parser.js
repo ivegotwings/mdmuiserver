@@ -829,10 +829,7 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                 let val = attrVal[key];
                 let isPrefixed = prefix.test(val);
                 let isSuffixed = suffix.test(val);
-                if (isPrefixed || isSuffixed) {
-                  isPartialSearch = true;
-                }
-
+                
                 let operator;
                 let splitQueryByAnd = val.toLowerCase().split("' and '");
                 let splitQueryByOr = val.toLowerCase().split("' or '");
@@ -844,8 +841,20 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                 } else if (splitQueryByOr.length > 1) {
                   operator = "_OR";
                   containsStr = splitQueryByOr;
+                  if(!isPartialSearch && !_.isEmpty(containsStr)){
+                    containsStr.forEach( strVal => {
+                      if(!isPrefixed){
+                        isPrefixed = prefix.test(strVal);
+                      }
+                      if(!isSuffixed){
+                        isSuffixed = suffix.test(strVal);
+                      }
+                    });
+                  }
                 }
-
+                if (isPrefixed || isSuffixed) {
+                  isPartialSearch = true;
+                }
                 let valueCollection = [];
                 if (containsStr instanceof Array) {
                   valueCollection = val.split(/ OR | AND /gi);
