@@ -154,7 +154,7 @@ class RockHeader extends PolymerElement {
   }
   _scroll() {
       if (this._lastTop == 0) {
-          this._shrinkableHeight = this._headerContainerHeight - 40;
+          this._shrinkableHeight = this._headerContainerHeight - 35;
           this._scrollableContainerHeight = this._scrollerElement.offsetHeight;
           this._scrollableHeight = this._scrollerElement.scrollHeight - this._scrollableContainerHeight;
       }
@@ -167,8 +167,8 @@ class RockHeader extends PolymerElement {
 
           if (scrollTop > 0) {
               if (this._scrollableHeight > (this._shrinkableHeight * 2)) {
-                  if (scrollTop >= (this._headerContainerHeight - 40)) {
-                      this.$.rockHeaderContainer.style.height = '40px';
+                  if (scrollTop >= (this._headerContainerHeight - 35)) {
+                      this.$.rockHeaderContainer.style.height = '35px';
                       this.$.rockHeaderContainer.style.minHeight = '0px';
                       this._hideAndShowContent('none', 'block');
                   } else {
@@ -178,7 +178,7 @@ class RockHeader extends PolymerElement {
                       this._hideAndShowContent('block', 'none');
                   }
               } else {
-                  this.$.rockHeaderContainer.style.height = '40px';
+                  this.$.rockHeaderContainer.style.height = '35px';
                   this.$.rockHeaderContainer.style.minHeight = '0px';
                   this._hideAndShowContent('none', 'block');
               }

@@ -123,7 +123,7 @@ class RockRelationshipAdd
                 </div>
                 <div class="flex searchFilterTag min-width-0">
                     <!-- Search Filter Tags -->
-                    <rock-entity-search-filter id="searchFilter" _selected-search-filters="{{_selectedSearchFilters}}" context-data="[[_getFilterContextData(contextData, mode)]]" types-criterion="[[typesCriterion]]" tags="{{tags}}"></rock-entity-search-filter>
+                    <rock-entity-search-filter id="searchFilter" _selected-search-filters="{{_selectedSearchFilters}}" context-data="[[_getFilterContextData(contextData, mode)]]" types-criterion="[[typesCriterion]]" tags="{{tags}}" attributes-type="domainMapped"></rock-entity-search-filter>
                     <bedrock-pubsub event-name="tag-item-added" handler="_showResetSearch"></bedrock-pubsub>
                     <bedrock-pubsub event-name="tag-item-remove" handler="_showResetSearch"></bedrock-pubsub>
                     <bedrock-pubsub event-name="build-query" handler="_searchFiltersChanged"></bedrock-pubsub>
@@ -132,7 +132,7 @@ class RockRelationshipAdd
             <div class="base-grid-structure-child-2">
                 <div class\$="[[_getGridClass()]]">
                     <template is="dom-if" if="{{_isAssetMode(mode)}}">
-                        <rock-assets-search-grid id="assetsSearchGrid" context-data="[[contextData]]" types-criterion="[[typesCriterion]]" grid-config="[[addRelationshipGridConfig]]" search-filters="[[_selectedSearchFilters]]" search-query="[[_searchQuery]]"></rock-assets-search-grid>
+                        <rock-assets-search-grid id="assetsSearchGrid" context-data="[[_getContextData(contextData, isRelationshipsByContext)]]" types-criterion="[[typesCriterion]]" grid-config="[[addRelationshipGridConfig]]" search-filters="[[_selectedSearchFilters]]" search-query="[[_searchQuery]]"></rock-assets-search-grid>
                     </template>
                     <template is="dom-if" if="{{!_isAssetMode(mode)}}">
                         <rock-entity-search-result id="entitySearchGrid" context-data="[[_getContextData(contextData, isRelationshipsByContext)]]" types-criterion="[[typesCriterion]]" pre-selected-items="[[preSelectedItems]]" search-filters="[[_selectedSearchFilters]]" search-query="[[_searchQuery]]"></rock-entity-search-result>
@@ -654,16 +654,18 @@ class RockRelationshipAdd
       });
   }
   onViewModeChanged(event) {
-      if (event && event.detail && event.detail.data) {
-          let mode = event.detail.data.toLowerCase();
-          if (this.config.assetGridConfig[mode] === undefined) {
-              this.showActionButtons = false;
-          }
-          else {
-              this.showActionButtons = true;
-          }
-      }
-  }
+    if (event && event.detail && event.detail.data) {
+        let mode = event.detail.data.toLowerCase();
+        let viewMode = this.addRelationshipGridConfig && this.addRelationshipGridConfig.viewConfig ? 
+                            this.addRelationshipGridConfig.viewConfig[mode] : undefined;
+        if (viewMode === undefined) {
+            this.showActionButtons = false;
+        }
+        else {
+            this.showActionButtons = true;
+        }
+    }
+}
 
   _onCompositeModelGetResponse(e) {
       let itemContext = this.getFirstItemContext();

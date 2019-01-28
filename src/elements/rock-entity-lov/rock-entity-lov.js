@@ -30,7 +30,7 @@ class RockEntityLov
     ], OptionalMutableData(PolymerElement)) {
   static get template() {
     return html`
-        <entity-lov-datasource id="entityLovDataSource" data-index\$="[[dataIndex]]" base-request="[[requestData]]" r-data-source="{{rDataSource}}" r-data-formatter="{{_dataFormatter}}" keywords-criterion-builder="{{_keywordsCriterionBuilder}}" sort-criterion-builder="{{_sortCriterionBuilder}}" attributes-criterion-builder="{{_attributesCriterionBuilder}}" is-attribute-filter="{{_isAttributeFilter}}" lazy-loading-disabled="[[lazyLoadingDisabled]]">
+        <entity-lov-datasource id="entityLovDataSource" apply-locale-coalesce="[[applyLocaleCoalesce]]" data-index\$="[[dataIndex]]" base-request="[[requestData]]" r-data-source="{{rDataSource}}" r-data-formatter="{{_dataFormatter}}" keywords-criterion-builder="{{_keywordsCriterionBuilder}}" sort-criterion-builder="{{_sortCriterionBuilder}}" attributes-criterion-builder="{{_attributesCriterionBuilder}}" lazy-loading-disabled="[[lazyLoadingDisabled]]">
         </entity-lov-datasource>
         <rock-image-source-provider image-source="{{imageSource}}"></rock-image-source-provider>
         <pebble-lov id="entityLov" readonly="[[readonly]]" image-source="{{imageSource}}" page-size="[[pageSize]]" select-all="[[enableSelectAll]]" multi-select="[[multiSelect]]" show-image="[[_showImage(imageField,imageIdField)]]" show-color="[[showColor]]" no-sub-title="[[noSubTitle]]" show-action-buttons="[[showActionButtons]]" r-data-source="{{rDataSource}}" items="[[items]]" allow-favourites="[[allowFavourites]]" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" allow-search-query-format="" on-selection-changed="_onLovSelectionChanged" on-lov-confirm-button-tap="_onLovConfirmButtonTapped" on-lov-close-button-tap="_onLovCloseButtonTapped" on-lov-favourite-icon-tap="_onLovItemFavouriteIconTapped" disable-selection="[[disableSelection]]">
@@ -196,10 +196,6 @@ class RockEntityLov
               type: Boolean,
               value: false
           },
-          _isAttributeFilter: {
-              type: Boolean,
-              value: false
-          },
           excludedIds: {
               type: Array,
               value: function () {
@@ -251,6 +247,10 @@ class RockEntityLov
               value: function () {
                   return DataObjectFalcorUtil.getPathKeys().dataIndexInfo.entityData.maxRecordsToReturn;
               }
+          },
+          applyLocaleCoalesce: {
+              type: Boolean,
+              value: false
           }
       }
   }
@@ -303,7 +303,6 @@ class RockEntityLov
               let titleFields = DataHelper.getAttributesBetweenCurlies(this._titlePattern);
               if (titleFields && titleFields instanceof Array) {
                   attributes.push(...titleFields);
-                  this._isAttributeFilter = true;
               }
           }
       }
@@ -479,8 +478,12 @@ class RockEntityLov
   }
 
   _prepareAttributesCriteria(searchText) {
-      return DataRequestHelper.createAttributesCriteria(searchText, this._titlePattern, this.subTitlePattern);
-  }
+    let _subTitlePattern = this.subTitlePattern;
+    if(this.id == "context-lov" || this.id == "locale-lov"){
+        _subTitlePattern = "";
+    }
+    return DataRequestHelper.createFilterCriteria("attributesCriterion",searchText, this._titlePattern, _subTitlePattern);
+}
 
   _onLovSelectionChanged(event) {
       let eventDetail = {

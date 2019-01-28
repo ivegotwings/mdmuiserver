@@ -254,6 +254,7 @@ class RockBusinessConditionStepProvider extends mixinBehaviors([RUFBehaviors.UIB
                   }
               }
               dynamicDataForSteps["config-context"] = this.configContext;
+              dynamicDataForSteps["apply-locale-coalesce"] = true;
           steps.push(stepConfig);
       }
       if (!_.isEmpty(this._impactRelationships)) {

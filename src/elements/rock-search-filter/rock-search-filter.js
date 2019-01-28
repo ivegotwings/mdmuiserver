@@ -66,9 +66,6 @@ class RockSearchFilter
         min-width: 0px;
       }
 
-      #filterPopover {
-        margin-left: 50px;
-      }
       pebble-textarea {
         --autogrowtextarea: {
           max-height: 200px;
@@ -178,7 +175,7 @@ class RockSearchFilter
         <bedrock-pubsub event-name="on-classification-update" handler="_onClassificationUpdate"></bedrock-pubsub>
         
         <!-- Refine popover starts here -->
-        <pebble-popover id="filterPopover" for="pebble-tag" no-overlap="" vertical-align="auto" horizontal-align="right">
+        <pebble-popover id="filterPopover" for="pebble-tag" no-overlap="" vertical-align="auto" horizontal-align="left">
           <template is="dom-if" if="{{_isAttributeValuesExistsSearchEnabled}}">
             <pebble-toggle-button class="m-b-10" checked="{{currentTag.options.hasValueChecked}}">[[_toggleButtonText]]</pebble-toggle-button>
           </template>
@@ -204,7 +201,7 @@ class RockSearchFilter
             </div>
           </template>
           <template is="dom-if" if="{{_showTagModifier('referenceList', _trigger)}}">
-            <rock-entity-lov id="rockEntityLov" multi-select="" show-action-buttons="" apply-locale-coalesced-style="" apply-context-coalesced-style="" selected-items="{{_selectedItems}}" disable-selection="[[!currentTag.options.hasValueChecked]]">
+            <rock-entity-lov id="rockEntityLov" multi-select="" show-action-buttons="" apply-locale-coalesce="" apply-locale-coalesced-style="" apply-context-coalesced-style="" selected-items="{{_selectedItems}}" disable-selection="[[!currentTag.options.hasValueChecked]]">
             </rock-entity-lov>
           </template>
           <template is="dom-if" if="{{_showTagModifier('boolean', _trigger)}}">
@@ -812,7 +809,7 @@ class RockSearchFilter
         rangePicker.positionTarget = positionTarget;
         rangePicker.noOverlap = true;
         if (showTagPopover) {
-          rangePicker.show(true);
+          rangePicker.show(true);          
         }
       });
     } else {
@@ -860,6 +857,8 @@ class RockSearchFilter
 
             if (this.currentTag.value.exact && this.currentTag.value.exact != 'All') {
               filterInput.value = this.currentTag.value.exact;
+            } else if (this.currentTag.value.contains){
+              filterInput.value = this.currentTag.value.contains;
             }
 
             setTimeout(() => {
@@ -881,6 +880,13 @@ class RockSearchFilter
             }
             this.gte = this.currentTag.value.gte || "";
             this.lte = this.currentTag.value.lte || "";
+            if(!_.isEmpty(this.currentTag.value.eq)){ 
+              if(this.currentTag.value.eq instanceof Array) {
+               this._tagsNumericCollection = this.currentTag.value.eq; 
+              } else {
+               this._tagsNumericCollection = [this.currentTag.value.eq]; 
+              }
+            }  
           }
         } else if (tagDisplayType == "referencelist") {
           //Set Id, Title and Value to the LOV
@@ -908,7 +914,7 @@ class RockSearchFilter
             } else {
               lovComponent.selectedItems = this.currentTag.value.exacts;
             }
-            let refEntityTypes = this.currentTag.options.referenceEntityTypes;
+            let refEntityTypes = DataTransformHelper._getEntityTypesForLov(this.currentTag.options);
             let itemContexts = [];
             for (let i in refEntityTypes) {
               itemContexts.push({

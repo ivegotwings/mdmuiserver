@@ -430,8 +430,8 @@ class RockVariantConfigurator
                       entityAttributes = entityData.attributes;
                   }
               }
-              this._requestVariantModel(entityAttributes);
           }
+          this._requestVariantModel(entityAttributes);
       } else {
           this._onEntityGetFailed(e);
       }

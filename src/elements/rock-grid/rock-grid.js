@@ -2593,7 +2593,7 @@ extends mixinBehaviors([
     _onFilteringItems() {
 				let ironDataTable = this._getIronDataTable();
 				let filteredItems = ironDataTable.getFilteredItems();
-				this.currentRecordSize = filteredItems.length;
+				this.currentRecordSize = filteredItems ? filteredItems.length : 0;
     }
     
     _actionValue(action) {
@@ -3223,16 +3223,25 @@ extends mixinBehaviors([
     }
 
     scrollToIndex(index) {
-				if (this.config.viewMode == "Tile") {
+        if (this.config.viewMode == "Tile") {
             let ironList = this._getIronList("gridTileView");
-            ironList.scrollToIndex(index);
-				} else if (this.config.viewMode == "List") {
+            if(ironList) {
+                ironList.scrollToIndex(index);
+            }
+        } else if (this.config.viewMode == "List") {
             let ironList = this._getIronList("gridListView");
-            ironList.scrollToIndex(index);
-				} else {
+            if(ironList) {
+                ironList.scrollToIndex(index);
+            }
+        } else {
             let ironDataTable = this._getIronDataTable();
-            ironDataTable.shadowRoot.querySelector('#list').scrollToIndex(index);
-				}
+            if(ironDataTable) {
+                let ironList = ironDataTable.shadowRoot.querySelector('#list');
+                if(ironList) {
+                    ironList.scrollToIndex(index);
+                }
+            }
+        }
     }
 
     getSelectedGridRow() {
@@ -3422,36 +3431,31 @@ extends mixinBehaviors([
 				}
 				return false;
     }
-    
+    _dispatchViewModeChangedEvent(viewMode){
+        this.dispatchEvent(new CustomEvent('view-mode-changed', {
+            detail: {
+                data: viewMode
+            },
+            bubbles: true,
+            composed: true
+        }));
+    }
     _viewModeChanged() {
 				if (this.config && this.config.viewMode) {
             if (this.config.viewMode === 'List') {
                 import('./grid-list-view.js').then(() => {
-                    this.dispatchEvent(new CustomEvent('view-mode-changed', {
-                        detail: {
-                            data: this.config.viewMode
-                        },
-                        bubbles: true,
-                        composed: true
-                    }));
+                    this._dispatchViewModeChangedEvent(this.config.viewMode);
                 });
             }
-            if (this.config.viewMode === 'Tile') {
+            else if (this.config.viewMode === 'Tile') {
                 import('./grid-tile-view.js').then(() => {
-                    this.dispatchEvent(new CustomEvent('view-mode-changed', {
-                        detail: {
-                            data: this.config.viewMode
-                        },
-                        bubbles: true,
-                        composed: true
-                    }));
+                    this._dispatchViewModeChangedEvent(this.config.viewMode);
                 });
             }
-            if (this.rDataSourceId) {
-                if (this._getIronDataTable()) {
-                    this._getIronDataTable()._resetData(this.rDataSource);
-                }
-            } else if (this.data) {
+            else{
+                this._dispatchViewModeChangedEvent(this.config.viewMode);
+            }
+            if (this.data) {
                 this.gridDataSize = this.currentRecordSize = this.data.length;
             } else {
                 this.gridDataSize = 0;

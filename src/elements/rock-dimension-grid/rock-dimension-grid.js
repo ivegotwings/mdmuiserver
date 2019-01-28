@@ -343,7 +343,7 @@ class RockDimensionGrid
                          };
                this._dataContextModelObjects[dataContextKey]["dataRequest"] = reqData;
                this._dataContextModelObjects[dataContextKey]["dataMappings"] = {"id":"name"};
-               this._dataContextModelObjects[dataContextKey]["dataMappings"]["title"] = "name"
+               this._dataContextModelObjects[dataContextKey]["dataMappings"]["title"] = "{entity.attributes.value}"
                this._dataContextModelObjects[dataContextKey]["dataMappings"]["type"] = dataContextType
          }
            

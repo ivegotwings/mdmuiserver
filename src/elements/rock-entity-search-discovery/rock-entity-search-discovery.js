@@ -210,7 +210,7 @@ extends mixinBehaviors([
                                 <pebble-button id="entityTypeFilterButton" button-text="[[entityTypeFilterText]]" dropdown-icon="" noink="" class="dropdownText dropdownIcon btn dropdown-outline-primary dropdown-trigger" on-tap="_openEntityTypeFilterLov"></pebble-button>
                                 <template is="dom-if" if="[[_entityTypeFilterPopover]]">
                                     <pebble-popover id="entityTypeFilterPopover" for="entityTypeFilterButton" no-overlap="" vertical-align="auto" horizontal-align="auto">
-                                        <rock-entity-type-model-lov id="entityTypeModelLov" settings="[[_getComponentSettings('rock-entity-type-model-lov')]]" domain="[[domain]]" select-all="true" allowed-entity-types="[[allowedEntityTypes]]" selected-items="{{_selectedEntityTypes}}" selected-item="{{_selectedEntityType}}" show-action-buttons="">
+                                        <rock-entity-type-model-lov id="entityTypeModelLov" settings="[[_getComponentSettings('rock-entity-type-model-lov')]]" domain="[[domain]]" select-all="true" allowed-entity-types="[[allowedEntityTypes]]" selected-items="{{_selectedEntityTypes}}" selected-item="{{_selectedEntityType}}" title-pattern="externalName" show-action-buttons="">
                                         </rock-entity-type-model-lov>
                                     </pebble-popover>
                                     <bedrock-pubsub event-name="entity-type-model-lov-confirm-button-tap" handler="_onSelectedEntityTypesChange" target-id="entityTypeModelLov"></bedrock-pubsub>
@@ -1182,7 +1182,11 @@ extends mixinBehaviors([
                           if (attribute.exacts) {
                               tag.displayValue = this._entitySearchFilterElement.formatFilterCollectionDisplay(attribute.exacts);
                           } else if (attribute.contains) {
-                              tag.displayValue = this._entitySearchFilterElement.formatFilterCollectionDisplay(attribute.contains.split(" "));
+                            if(tag.options.displayType.toLowerCase() == "richtexteditor"){
+                                tag.displayValue = attribute.contains;
+                            } else {
+                                tag.displayValue = this._entitySearchFilterElement.formatFilterCollectionDisplay(attribute.contains.split(" "));
+                            }
                           } else if (attribute.exact) {
                               tag.displayValue = attribute.exact;
                           } else if (attribute.eq && attribute.pathCollection) {
@@ -1193,7 +1197,13 @@ extends mixinBehaviors([
                               tag.displayValue = attribute.gte + " - " + attribute.lte;
                           } else if (attribute.contains) {
                               tag.displayValue = this._entitySearchFilterElement.formatFilterCollectionDisplay(attribute.contains.split(" "));
-                          }
+                          } else if (attribute.eq) {
+                            if(attribute.eq instanceof Array) {
+                                tag.displayValue = this._entitySearchFilterElement.formatFilterCollectionDisplay(attribute.eq);
+                            } else {
+                                tag.displayValue = attribute.eq;
+                            }
+                        } 
                       } else if (attribute.type === "_BOOLEAN") {
                           tag.displayValue = attribute.eq;
                       } else if (attribute.type === "_DATETIME" || attribute.type === "_DATE") {

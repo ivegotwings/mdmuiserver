@@ -381,7 +381,7 @@ class RockAttributeManage extends mixinBehaviors(
           },
           _attributesMessage: {
               type: String,
-              value: "No attributes Found"
+              value: "Attributes are not available"
           },
           _loading: {
               type: Boolean,
@@ -626,10 +626,10 @@ class RockAttributeManage extends mixinBehaviors(
               this._loadAttributeList();
           }
       } else {
-          if (this.functionalMode == "dataFunction" || this.functionalMode ==
-              "quickManage") {
-              this._showNoAttributeMessage = true;
+          if(this.functionalMode == "default") {
+              this._attributesMessage = this._attributesMessage + " or there is no permission. Contact administrator";
           }
+          this._showNoAttributeMessage = true;
           this._loading = false;
       }
   }
@@ -1023,7 +1023,7 @@ class RockAttributeManage extends mixinBehaviors(
           }
 
           if (!(liquidSave && liquidSave.operation == 'create')) {
-              let liquidGovernGet = this.$.attributeGetMessageService;
+              let liquidGovernGet = this.$.entityGovernDataGet;
               if (liquidGovernGet && this.loadGovernData) {
                   liquidGovernGet.generateRequest();
               }
@@ -1069,13 +1069,6 @@ class RockAttributeManage extends mixinBehaviors(
               data = { "id": itemCtx.id, "type": itemCtx.type };
           }
           let eventDetails = [];
-          if (this.functionalMode == "dataFunction") {
-              eventDetails.push({
-                  "action": {
-                      "name": "business-condition-save-request"
-                  }
-              });
-          }
           this.dataFunctionComplete(data, eventDetails, true);
       } else {
           this._loading = false;

@@ -464,39 +464,9 @@ extends mixinBehaviors([
 
   //Prepare request get the contexts for the selected entities
   _prepareGetContextRequest() {
-      let contextData = DataHelper.cloneObject(this.contextData);
-      contextData[ContextHelper.CONTEXT_TYPE_VALUE] = [];
-      contextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
-      let triggerRequest = false;
-      let entities = [];
-      let types = [];
-
-      if (this.isBulkProcess) {
-          if (this.selectedEntities && this.selectedEntities.length) {
-              triggerRequest = true;
-          }
-          for (let entityIdx = 0; entityIdx < this.selectedEntities.length; entityIdx++) {
-              entities.push(this.selectedEntities[entityIdx].id);
-              if (types.indexOf(this.selectedEntities[entityIdx].type) == -1) {
-                  types.push(this.selectedEntities[entityIdx].type)
-              }
-          }
-      } else {
-          let firstItemContext = ContextHelper.getFirstItemContext(contextData);
-          if (firstItemContext && firstItemContext.type && firstItemContext.id) {
-              firstItemContext.attributes = [];
-              triggerRequest = true;
-          }
-      }
-
-      if (triggerRequest) {
-          let req = DataRequestHelper.createEntityGetRequest(contextData);
-          req.params.fields.attributes = [];
-          delete req.params.options;
-          if (this.isBulkProcess) {
-              req.params.query.ids = entities;
-              req.params.query.filters.typesCriterion = types;
-          }
+      let firstItemContext = ContextHelper.getFirstItemContext(this.contextData);
+      if (firstItemContext && firstItemContext.id && firstItemContext.type) {
+          let req = DataRequestHelper.createEntityContextGetRequest(firstItemContext.id, firstItemContext.type);
           this.set('requestData', req);
 
           if (!_.isEmpty(this.dataIndex) && this.dataIndex.toLowerCase() == "entitymodel") {
@@ -860,11 +830,13 @@ extends mixinBehaviors([
               }
               this.showSuccessToast(toastMessage);
           }
-          if (this.functionalMode == "dataFunction") {
-              eventDetail.action.name = "business-condition-save-request";
-          };
           let itemCtx = ContextHelper.getFirstItemContext(this.contextData) || {};
           this.dataFunctionComplete({"id": itemCtx.id, "type": itemCtx.type}, [eventDetail], true);
+
+          if (!this.isPartOfBusinessFunction) {                  
+            let eventName = "onSave";
+            this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+          }
 
           return;
       } else {

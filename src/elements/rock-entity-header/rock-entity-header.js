@@ -114,9 +114,6 @@ extends mixinBehaviors([
 
             #attributePanel,
             #attributeErrorPanel {
-                display: -webkit-box;
-                display: -webkit-flex;
-                display: -ms-flexbox;
                 display: flex;
                 flex-wrap: wrap;
                 -webkit-flex-wrap: wrap;
@@ -128,7 +125,6 @@ extends mixinBehaviors([
                 overflow: hidden;
                 height: 100%;
                 padding: 13px 0px;
-                @apply --layout-horizontal;
             }
 
             .attribute {
@@ -210,12 +206,8 @@ extends mixinBehaviors([
             }
 
             #headerSection.header-collapse {
-                height: 50px;
+                height: 45px;
                 padding: 0 20px;
-            }
-
-            .header-collapse #buttonPanel {
-                margin-top: 10px;
             }
 
             .header-collapse #attributePanel {
@@ -271,6 +263,16 @@ extends mixinBehaviors([
                 max-width: calc(100% - 20px);
             }
 
+            .attribute:not(.trim) .attr-item--value {
+                display: -webkit-box;
+                word-break: break-all;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: normal;
+                -webkit-line-clamp: 4;
+             }	           
+
             .header-collapse .toggle-area {
                 transform: rotatex(180deg);
                 -webkit-transform: rotatex(180deg);
@@ -305,8 +307,13 @@ extends mixinBehaviors([
             }
 
             .header-collapse .header-right-panel {
-                width: calc(100% - 40px);
+                width: calc(100% - 35px);
             }
+            .trim .ellipsis{
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }	            
 
             rock-entity-actions {
                 display: flex;
@@ -327,7 +334,7 @@ extends mixinBehaviors([
             <div class="header-right-panel">
                 <div id="attributePanel">
                     <template id="headerAttributes" is="dom-repeat" items="[[_headerAttributeValues]]">
-                        <div id="attribute" class="attribute">
+                        <div id="attribute" class$="[[_computeAttributeClass(item)]]">
                             <div id="attrName">
                                 <span class="text-ellipsis">[[_getAttributeLabel(item)]]</span>
                                 <template is="dom-if" if="[[_getDescriptionInfo(item)]]">
@@ -335,7 +342,7 @@ extends mixinBehaviors([
                                 </template>
                             </div>
                             <div id="attrVal" title="[[item.value]]">
-                                <div class="attr-item--value text-ellipsis">[[item.value]]</div>
+                                <div class="attr-item--value ellipsis">[[item.value]]</div>
                                 <template is="dom-if" if="[[_isPathAttributeAndHasWritePermission(item)]]">
                                     <pebble-icon icon="pebble-icon:Open-window" class="pebble-icon-size-14 m-l-5" on-tap="_onPathAttributeEdit" attribute-name="[[item.name]]"></pebble-icon>
                                 </template>
@@ -640,7 +647,7 @@ extends mixinBehaviors([
           headerSection.classList.add('header-collapse');
           headerCollapse = true;
           if (!(window.navigator.userAgent.indexOf("Edge") > -1)) {
-              windowInnerHeight = window.innerHeight + 50;
+              windowInnerHeight = window.innerHeight + 45;
               mainApp.updateStyles({
                   '--window-inner-height': windowInnerHeight + 'px'
               });
@@ -746,6 +753,9 @@ extends mixinBehaviors([
           } else {
               this._headerAttributeModels = headerAttributeModels;
           }
+           if(_.isEmpty(this._headerAttributeModels)) {
+               this._showMessage("Attributes are not available or there is no permission. Contact administrator");
+           }
           let clonedContextData = DataHelper.cloneObject(this.contextData);
           if (clonedContextData) {
               //add attribute names in item context
@@ -756,10 +766,7 @@ extends mixinBehaviors([
               this.shadowRoot.querySelector("liquid-entity-data-get").generateRequest();
           }
       } else {
-          let attrContainer = this.$$('#attributePanel');
-          let attrErrorContainer = this.$$('#attributeErrorPanel');
-          attrContainer.hidden = true;
-          attrErrorContainer.hidden = false;
+          this._showMessage();
           this.logError("rock-entity-header - Header attribute models get response error", e.detail, true, "", attrErrorContainer);
       }
   }
@@ -795,10 +802,7 @@ extends mixinBehaviors([
               this.$.headerAttributes.render();
           }
       } else {
-          let attrContainer = this.$$('#attributePanel');
-          let attrErrorContainer = this.$$('#attributeErrorPanel');
-          attrContainer.hidden = true;
-          attrErrorContainer.hidden = false;
+          this._showMessage();
           this.logError("rock-entity-header - Header attributes get response error", e.detail, true, "", attrErrorContainer);
       }
   }
@@ -1059,16 +1063,26 @@ extends mixinBehaviors([
       }
   }
 
-  _onCancelHeaderSave() {
-      let attrEditDialog = this.$.attributeEditDialog;
-      if (attrEditDialog) {
-          attrEditDialog.close();
-      }
-  }
-  _computeIcon(percentage) {
-      let per = Math.round(percentage / 10) * 10;
-      return "pebble-icon:percentage-circle";
-  }
+    _onCancelHeaderSave() {
+        let attrEditDialog = this.$.attributeEditDialog;
+        if (attrEditDialog) {
+            attrEditDialog.close();
+        }
+    }
+    _computeIcon(percentage) {
+        let per = Math.round(percentage / 10) * 10;
+        return "pebble-icon:percentage-circle";
+    }
+    _computeAttributeClass(attributeValue) {
+        let configItem = this._getConfigItem(this.headerConfig, attributeValue.name);
+        if (configItem) {
+            if (configItem.noTrim && this.headerConfig.length <=4) {
+                return "attribute";
+            } else {
+                return "attribute trim";
+            }
+        }
+    }
   _getConfigItem(headerConfig, attributeName) {
       if (!headerConfig) {
           return;
@@ -1128,6 +1142,16 @@ extends mixinBehaviors([
       }
 
       this.set("writePermission", writePermission);
+  }
+
+  _showMessage(message) {
+      let attrContainer = this.$$('#attributePanel');
+      let attrErrorContainer = this.$$('#attributeErrorPanel');
+      if(message) {
+          attrErrorContainer.innerHTML = message;
+      }
+      attrContainer.hidden = true;
+      attrErrorContainer.hidden = false;
   }
 }
 customElements.define(RockEntityHeader.is, RockEntityHeader)

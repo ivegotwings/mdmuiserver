@@ -207,15 +207,17 @@ class RockQueryBuilder extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehavi
                 <!-- Entity Type search -->
                 <div class="card-content-header">
                     <pebble-button id="entityTypeFilterButton" icon="pebble-icon:filter" button-text="{{selectedEntityTypeNames}}" title="{{selectedEntityTypeNames}}" dropdown-icon="" noink="" class="dropdownText dropdownIcon btn dropdown-outline-primary dropdown-trigger" is-ruf-component="" target-id="productSearchPopover" on-tap="_openLov"></pebble-button>
-                    <template is="dom-if" if="{{_isRelationshipsExistsSearchEnabled}}">
+                    <template is="dom-if" if="[[_enableRelationshipsSearch]]">
+                        <template is="dom-if" if="{{_isRelationshipsExistsSearchEnabled}}">
                             <pebble-toggle-button class="m-l-20 m-b-10" checked="{{_hasRelationshipChecked}}" disabled\$="{{disableHasRelationshipExistSearchToggle}}">[[_toggleButtonText]]</pebble-toggle-button>
-                    </template>
-                    <template is="dom-if" if="{{!_isRelationshipsExistsSearchEnabled}}">
+                        </template>
+                        <template is="dom-if" if="{{!_isRelationshipsExistsSearchEnabled}}">
                             <pebble-button class="queryHeadingButton m-b-5 m-r-5 m-l-5" on-tap="" button-text="HAVING"></pebble-button>
+                        </template>
+                        <pebble-button id="relationshipButton" button-text="{{selectedRelationshipName}}" title="{{selectedRelationshipName}}" dropdown-icon="" noink="" class="dropdownText dropdownIcon btn dropdown-primary dropdown-trigger" is-ruf-component="" target-id="relationshipPopover" on-tap="_openRelationshipModelLov"></pebble-button>
                     </template>
-                    <pebble-button id="relationshipButton" button-text="{{selectedRelationshipName}}" title="{{selectedRelationshipName}}" dropdown-icon="" noink="" class="dropdownText dropdownIcon btn dropdown-primary dropdown-trigger" is-ruf-component="" target-id="relationshipPopover" on-tap="_openRelationshipModelLov"></pebble-button>
                     <pebble-popover id="productSearchPopover" for="entityTypeFilterButton" vertical-align="auto" horizontal-align="auto">
-                        <rock-entity-type-model-lov id="entityTypeLov" settings="[[lovSettings]]" domain="[[domain]]" select-all="true" allowed-entity-types="{{allowedEntityTypes}}" selected-items="{{selectedEntityTypes}}"></rock-entity-type-model-lov>
+                        <rock-entity-type-model-lov id="entityTypeLov" settings="[[lovSettings]]" domain="[[domain]]" select-all="true" allowed-entity-types="{{allowedEntityTypes}}" selected-items="{{selectedEntityTypes}}" title-pattern="externalName"></rock-entity-type-model-lov>
                         <div class="PebbleButtonPadding text-center m-t-10">
                             <pebble-button class="btn btn-secondary m-r-5" target-id="productSearchPopover" on-tap="_closeLov" raised="" elevation="1" button-text="Close"></pebble-button>
                             <pebble-button class="btn btn-success" button-text="Apply" raised="" elevation="1" on-tap="_onSelectedEntityTypesChange" target-id="entityTypeLov"></pebble-button>
@@ -226,7 +228,7 @@ class RockQueryBuilder extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehavi
                 </div>
                 <div class="card-content p-r-20 p-l-20">
                     <!-- Attribute Search -->
-                    <template is="dom-if" if="{{_enableAttributeList}}">
+                    <template is="dom-if" if="[[_enableAttributeSearch]]">
                         <div>
                         <!-- Attributes search - supports multiple attributes -->
                             <div class="queryHeading">
@@ -277,137 +279,144 @@ class RockQueryBuilder extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehavi
                         <pebble-popover id="relationshipPopover" for="relationshipButton" vertical-align="auto" horizontal-align="auto">
                             <pebble-lov id="relationshipModelLov" on-selection-changed="_onRelationshipLovSelectionChanged" selected-item="{{selectedRelationship}}"></pebble-lov>    
                         </pebble-popover>
-                        <div class="queryHeadingReset">
-                            <pebble-button class="btn-link" on-tap="_onResetRelationship" button-text="Reset"></pebble-button>                   
-                        </div>    
+                        <template is="dom-if" if="[[_enableRelationshipsSearch]]">
+                            <div class="queryHeadingReset">
+                                <pebble-button class="btn-link" on-tap="_onResetRelationship" button-text="Reset"></pebble-button>                   
+                            </div>
+                        </template>
                     </div>
                     <div class="base-grid-structure scroll-wrapper">
-                        <div class="relationshipGridContainer base-grid-structure-child-1">
-                            <div id="overlay-div" hidden="[[!enableOverlay]]"></div>
-                            <div class="queryHeading">
-                                <pebble-button icon="pebble-icon:action-add-fill" class="queryHeadingButton m-l-10" target-id="relationship-grid" on-tap="_onAddRowClick" button-text="WITH"></pebble-button> 
-                                <div class="queryHeadingReset m-r-10">
-                                    <pebble-button class="btn-link" on-tap="_onResetRelationshipGrid" button-text="Reset"></pebble-button>                   
-                                </div>                   
-                            </div>
-                            <div class="p-5">
-                                <pebble-data-table id="relationship-grid" items="{{relationshipGridData}}">
-                                    <data-table-column slot="column-slot" flex="0">
-                                    <template>
-                                        <pebble-icon slot="cell-slot-content" icon="pebble-icon:action-delete" target-id="relationship-grid" class="pebble-icon-size-16" on-tap="_onDeleteRowClick"></pebble-icon>                        
-                                    </template>
-                                    </data-table-column>
-                                    <data-table-column slot="column-slot">
-                                    <template>
-                                        <div id="inputDiv" slot="cell-slot-content" on-tap="" index="[[index]]">
-                                            <pebble-textbox readonly="" id="relationship-text_[[index]]" target-id="relationshipGrid" row-id="[[index]]" value="{{item.name}}" no-label-float="true"></pebble-textbox>
-                                        </div>
-                                        <div id="iconDiv" slot="cell-slot-content">
-                                            <pebble-icon class="dropdown-icon pebble-icon-size-10" id="rtxtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:navigation-action-down" on-tap="_openRelationshipAttributeModelLov"></pebble-icon>
-                                        </div>                         
-                                    </template>                        
-                                    </data-table-column>
-                                    <data-table-column slot="column-slot">
-                                    <template>
-                                        <div id="inputDiv" slot="cell-slot-content" on-tap="" index="[[index]]">
-                                            <pebble-textbox readonly="" id="relationship-value_[[index]]" row-id="[[index]]" target-id="relationshipGrid" value="{{item.value}}" no-label-float="true"></pebble-textbox>
-                                        </div>
-                                        <div id="iconDiv" slot="cell-slot-content">
-                                            <pebble-icon class="dropdown-icon pebble-icon-size-10" id="rtxtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:navigation-action-down" target-row-name="relationship-value_" on-tap="_onOpenFilterPopover"></pebble-icon>
-                                        </div>                                                
-                                    </template>  
-                                    </data-table-column>
-                                </pebble-data-table>
-                            </div>
-                            <pebble-popover id="relAttributesPopover" for="" no-overlap="" vertical-align="auto" horizontal-align="auto">
-                                <pebble-lov id="relAttributeModelLov" on-selection-changed="_onRelAttributeLovSelectionChanged"></pebble-lov>
-                            </pebble-popover>
-                                                    
-                        <!-- Related Entity search
-                        - Related Entity attributes -->                     
-                            <div class="relEntityContainer">
-                                <liquid-entity-model-composite-get id="liquidRelEntityAttributeGet" on-entity-model-composite-get-response="_onRelEntityAttributeGetReceived" on-error="_onRelEntityAttributeGetFailed" exclude-in-progress=""></liquid-entity-model-composite-get>
-                                <pebble-button id="relEntityButton" button-text="{{selectedRelEntityName}}" title="{{selectedRelEntityName}}" dropdown-icon="" noink="" class="dropdownText dropdownIcon btn dropdown-primary dropdown-trigger" disabled="" is-ruf-component=""></pebble-button>
-                                
+                        <template is="dom-if" if="[[_enableRelationshipsSearch]]">
+                            <div class="relationshipGridContainer base-grid-structure-child-1">
+                                <div id="overlay-div" hidden="[[!enableOverlay]]"></div>
                                 <div class="queryHeading">
-                                    <pebble-button icon="pebble-icon:action-add-fill" class="queryHeadingButton m-l-10" target-id="relEntity-grid" on-tap="_onAddRowClick" button-text="WITH"></pebble-button> 
+                                    <pebble-button icon="pebble-icon:action-add-fill" class="queryHeadingButton m-l-10" target-id="relationship-grid" on-tap="_onAddRowClick" button-text="WITH"></pebble-button> 
                                     <div class="queryHeadingReset m-r-10">
-                                        <pebble-button class="btn-link" on-tap="_onResetRelEntityGrid" button-text="Reset"></pebble-button>                   
+                                        <pebble-button class="btn-link" on-tap="_onResetRelationshipGrid" button-text="Reset"></pebble-button>                   
                                     </div>                   
                                 </div>
                                 <div class="p-5">
-                                    <pebble-data-table id="relEntity-grid" items="{{relEntityGridData}}">
+                                    <pebble-data-table id="relationship-grid" items="{{relationshipGridData}}">
                                         <data-table-column slot="column-slot" flex="0">
+                                        <template>
+                                            <pebble-icon slot="cell-slot-content" icon="pebble-icon:action-delete" target-id="relationship-grid" class="pebble-icon-size-16" on-tap="_onDeleteRowClick"></pebble-icon>                        
+                                        </template>
+                                        </data-table-column>
+                                        <data-table-column slot="column-slot">
+                                        <template>
+                                            <div id="inputDiv" slot="cell-slot-content" on-tap="" index="[[index]]">
+                                                <pebble-textbox readonly="" id="relationship-text_[[index]]" target-id="relationshipGrid" row-id="[[index]]" value="{{item.name}}" no-label-float="true"></pebble-textbox>
+                                            </div>
+                                            <div id="iconDiv" slot="cell-slot-content">
+                                                <pebble-icon class="dropdown-icon pebble-icon-size-10" id="rtxtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:navigation-action-down" on-tap="_openRelationshipAttributeModelLov"></pebble-icon>
+                                            </div>                         
+                                        </template>                        
+                                        </data-table-column>
+                                        <data-table-column slot="column-slot">
+                                        <template>
+                                            <div id="inputDiv" slot="cell-slot-content" on-tap="" index="[[index]]">
+                                                <pebble-textbox readonly="" id="relationship-value_[[index]]" row-id="[[index]]" target-id="relationshipGrid" value="{{item.value}}" no-label-float="true"></pebble-textbox>
+                                            </div>
+                                            <div id="iconDiv" slot="cell-slot-content">
+                                                <pebble-icon class="dropdown-icon pebble-icon-size-10" id="rtxtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:navigation-action-down" target-row-name="relationship-value_" on-tap="_onOpenFilterPopover"></pebble-icon>
+                                            </div>                                                
+                                        </template>  
+                                        </data-table-column>
+                                    </pebble-data-table>
+                                </div>
+                                <pebble-popover id="relAttributesPopover" for="" no-overlap="" vertical-align="auto" horizontal-align="auto">
+                                    <pebble-lov id="relAttributeModelLov" on-selection-changed="_onRelAttributeLovSelectionChanged"></pebble-lov>
+                                </pebble-popover>
+                                 <template is="dom-if" if="[[_enableRelatedEntitySearch]]">                        
+                                    <!-- Related Entity search
+                                    - Related Entity attributes -->                     
+                                    <div class="relEntityContainer">
+                                        <liquid-entity-model-composite-get id="liquidRelEntityAttributeGet" on-entity-model-composite-get-response="_onRelEntityAttributeGetReceived" on-error="_onRelEntityAttributeGetFailed" exclude-in-progress=""></liquid-entity-model-composite-get>
+                                        <pebble-button id="relEntityButton" button-text="{{selectedRelEntityName}}" title="{{selectedRelEntityName}}" dropdown-icon="" noink="" class="dropdownText dropdownIcon btn dropdown-primary dropdown-trigger" disabled="" is-ruf-component=""></pebble-button>
+                                        
+                                        <div class="queryHeading">
+                                            <pebble-button icon="pebble-icon:action-add-fill" class="queryHeadingButton m-l-10" target-id="relEntity-grid" on-tap="_onAddRowClick" button-text="WITH"></pebble-button> 
+                                            <div class="queryHeadingReset m-r-10">
+                                                <pebble-button class="btn-link" on-tap="_onResetRelEntityGrid" button-text="Reset"></pebble-button>                   
+                                            </div>                   
+                                        </div>
+                                        <div class="p-5">
+                                            <pebble-data-table id="relEntity-grid" items="{{relEntityGridData}}">
+                                                <data-table-column slot="column-slot" flex="0">
+                                                    <template>
+                                                        <pebble-icon slot="cell-slot-content" icon="pebble-icon:action-delete" target-id="relEntity-grid" class="pebble-icon-size-16" on-tap="_onDeleteRowClick"></pebble-icon>                        
+                                                    </template>
+                                                </data-table-column>
+                                                <data-table-column slot="column-slot">
+                                                    <template>
+                                                        <div id="inputDiv" slot="cell-slot-content" on-tap="" index="[[index]]">
+                                                            <pebble-textbox readonly="" id="relEntity-text_[[index]]" target-id="relatedEntityGrid" row-id="[[index]]" value="{{item.name}}" no-label-float="true"></pebble-textbox>
+                                                        </div>
+                                                        <div id="iconDiv" slot="cell-slot-content">
+                                                            <pebble-icon class="dropdown-icon pebble-icon-size-10" id="rtxtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:navigation-action-down" on-tap="_openRelEntityAttributeModelLov"></pebble-icon>
+                                                        </div>                         
+                                                    </template>                        
+                                                </data-table-column>
+                                                <data-table-column slot="column-slot">
+                                                    <template>
+                                                        <div id="inputDiv" slot="cell-slot-content" on-tap="" index="[[index]]">
+                                                            <pebble-textbox readonly="" id="relEntity-value_[[index]]" row-id="[[index]]" target-id="relatedEntityGrid" value="{{item.value}}" no-label-float="true"></pebble-textbox>
+                                                        </div>
+                                                        <div id="iconDiv" slot="cell-slot-content">
+                                                            <pebble-icon class="dropdown-icon pebble-icon-size-10" id="rtxtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:navigation-action-down" target-row-name="relEntity-value_" on-tap="_onOpenFilterPopover"></pebble-icon>
+                                                        </div>                                                
+                                                    </template>  
+                                                </data-table-column>
+                                            </pebble-data-table>
+                                        </div>
+                                        <pebble-popover id="relEntityAttributesPopover" for="" no-overlap="" vertical-align="auto" horizontal-align="auto">
+                                            <pebble-lov id="relEntityAttributeModelLov" on-selection-changed="_onRelEntityAttributeLovSelectionChanged"></pebble-lov>
+                                        </pebble-popover>
+                                    </div>
+                                 </template>
+                            </div>
+                        </template>
+                        <template is="dom-if" if="[[_enableWorkflowSearch]]">
+                            <div class="workflowGridContainer base-grid-structure-child-2">
+                                <div class="queryHeading">
+                                    <pebble-button class="queryHeadingButton" target-id="workflow-grid" button-text="PENDING"></pebble-button>
+                                    <div class="queryHeadingReset">
+                                        <pebble-button class="btn-link" on-tap="_onResetWorkflowGrid" button-text="Reset"></pebble-button>
+                                    </div>
+                                </div>
+        
+                                <div class="p-10">
+                                    <pebble-data-table id="workflow-grid" items="{{workflowGridData}}">
+                                        <data-table-column slot="column-slot">
                                             <template>
-                                                <pebble-icon slot="cell-slot-content" icon="pebble-icon:action-delete" target-id="relEntity-grid" class="pebble-icon-size-16" on-tap="_onDeleteRowClick"></pebble-icon>                        
+                                                <div id="inputDiv" slot="cell-slot-content" on-tap="" index="[[index]]">
+                                                    <pebble-textbox readonly="" id="workflow-text_[[index]]" row-id="[[index]]" value="{{item.name}}" no-label-float="true"></pebble-textbox>
+                                                </div>
+                                                <div id="iconDiv" slot="cell-slot-content">
+                                                    <pebble-icon class="dropdown-icon pebble-icon-size-10" id="wtxtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:navigation-action-down" on-tap="_openWorkflowModelLov"></pebble-icon>
+                                                </div>
                                             </template>
                                         </data-table-column>
                                         <data-table-column slot="column-slot">
                                             <template>
                                                 <div id="inputDiv" slot="cell-slot-content" on-tap="" index="[[index]]">
-                                                    <pebble-textbox readonly="" id="relEntity-text_[[index]]" target-id="relatedEntityGrid" row-id="[[index]]" value="{{item.name}}" no-label-float="true"></pebble-textbox>
+                                                    <pebble-textbox readonly="" id="workflow-value_[[index]]" row-id="[[index]]" value="{{item.value}}" no-label-float="true"></pebble-textbox>
                                                 </div>
                                                 <div id="iconDiv" slot="cell-slot-content">
-                                                    <pebble-icon class="dropdown-icon pebble-icon-size-10" id="rtxtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:navigation-action-down" on-tap="_openRelEntityAttributeModelLov"></pebble-icon>
-                                                </div>                         
-                                            </template>                        
-                                        </data-table-column>
-                                        <data-table-column slot="column-slot">
-                                            <template>
-                                                <div id="inputDiv" slot="cell-slot-content" on-tap="" index="[[index]]">
-                                                    <pebble-textbox readonly="" id="relEntity-value_[[index]]" row-id="[[index]]" target-id="relatedEntityGrid" value="{{item.value}}" no-label-float="true"></pebble-textbox>
+                                                    <pebble-icon class="dropdown-icon pebble-icon-size-10" id="wtxtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:navigation-action-down" on-tap="_openWorkflowActivityLov"></pebble-icon>
                                                 </div>
-                                                <div id="iconDiv" slot="cell-slot-content">
-                                                    <pebble-icon class="dropdown-icon pebble-icon-size-10" id="rtxtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:navigation-action-down" target-row-name="relEntity-value_" on-tap="_onOpenFilterPopover"></pebble-icon>
-                                                </div>                                                
-                                            </template>  
+                                            </template>
                                         </data-table-column>
                                     </pebble-data-table>
                                 </div>
-                                <pebble-popover id="relEntityAttributesPopover" for="" no-overlap="" vertical-align="auto" horizontal-align="auto">
-                                    <pebble-lov id="relEntityAttributeModelLov" on-selection-changed="_onRelEntityAttributeLovSelectionChanged"></pebble-lov>
+                                <pebble-popover id="workflowPopover" for="" no-overlap="" vertical-align="auto" horizontal-align="auto">
+                                    <pebble-lov id="workflowModelLov" on-selection-changed="_onWorkflowLovSelectionChanged"></pebble-lov>
+                                </pebble-popover>
+                                <pebble-popover id="workflowActivityPopover" for="" no-overlap="" vertical-align="auto" horizontal-align="auto">
+                                    <pebble-lov id="workflowActivityLov" on-selection-changed="_onWorkflowActivityLovSelectionChanged"></pebble-lov>
                                 </pebble-popover>
                             </div>
-                        </div>
-                        <div class="workflowGridContainer base-grid-structure-child-2">
-                            <div class="queryHeading">
-                                <pebble-button class="queryHeadingButton" target-id="workflow-grid" button-text="PENDING"></pebble-button>
-                                <div class="queryHeadingReset">
-                                    <pebble-button class="btn-link" on-tap="_onResetWorkflowGrid" button-text="Reset"></pebble-button>
-                                </div>
-                            </div>
-    
-                            <div class="p-10">
-                                <pebble-data-table id="workflow-grid" items="{{workflowGridData}}">
-                                    <data-table-column slot="column-slot">
-                                        <template>
-                                            <div id="inputDiv" slot="cell-slot-content" on-tap="" index="[[index]]">
-                                                <pebble-textbox readonly="" id="workflow-text_[[index]]" row-id="[[index]]" value="{{item.name}}" no-label-float="true"></pebble-textbox>
-                                            </div>
-                                            <div id="iconDiv" slot="cell-slot-content">
-                                                <pebble-icon class="dropdown-icon pebble-icon-size-10" id="wtxtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:navigation-action-down" on-tap="_openWorkflowModelLov"></pebble-icon>
-                                            </div>
-                                        </template>
-                                    </data-table-column>
-                                    <data-table-column slot="column-slot">
-                                        <template>
-                                            <div id="inputDiv" slot="cell-slot-content" on-tap="" index="[[index]]">
-                                                <pebble-textbox readonly="" id="workflow-value_[[index]]" row-id="[[index]]" value="{{item.value}}" no-label-float="true"></pebble-textbox>
-                                            </div>
-                                            <div id="iconDiv" slot="cell-slot-content">
-                                                <pebble-icon class="dropdown-icon pebble-icon-size-10" id="wtxtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:navigation-action-down" on-tap="_openWorkflowActivityLov"></pebble-icon>
-                                            </div>
-                                        </template>
-                                    </data-table-column>
-                                </pebble-data-table>
-                            </div>
-                            <pebble-popover id="workflowPopover" for="" no-overlap="" vertical-align="auto" horizontal-align="auto">
-                                <pebble-lov id="workflowModelLov" on-selection-changed="_onWorkflowLovSelectionChanged"></pebble-lov>
-                            </pebble-popover>
-                            <pebble-popover id="workflowActivityPopover" for="" no-overlap="" vertical-align="auto" horizontal-align="auto">
-                                <pebble-lov id="workflowActivityLov" on-selection-changed="_onWorkflowActivityLovSelectionChanged"></pebble-lov>
-                            </pebble-popover>
-                        </div>
+                        </template>
                     </div>
                     <liquid-entity-model-get id="getWorkflowMappingDefinition" operation="getbyids" request-id="req1" request-data="{{workflowMappingDefinitionRequest}}" on-response="_onWfMappingsReceived" on-error="_onMappingsGetFailed"></liquid-entity-model-get>
                     <liquid-entity-model-get id="entityGetWorkflowDefinition" operation="getbyids" request-id="req1" request-data="{{workflowDefinitionRequest}}" on-response="_onDefinitionReceived" on-error="_onDefinitionGetFailed"></liquid-entity-model-get> 
@@ -545,9 +554,21 @@ class RockQueryBuilder extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehavi
       domain:{
           type:String
       }, 
-      _enableAttributeList:{
+      _enableAttributeSearch: {
           type: Boolean,
           value: false
+      },
+      _enableRelationshipsSearch: {
+          type: Boolean,
+          computed: '_getItemVisibility(settings,"enableRelationshipsSearch")',
+      },
+      _enableRelatedEntitySearch: {
+          type: Boolean,
+          computed: '_getItemVisibility(settings,"enableRelatedEntitySearch")',
+      },
+      _enableWorkflowSearch: {
+          type: Boolean,
+          computed: '_getItemVisibility(settings,"enableWorkflowSearch")',
       },
       workflowMappingDefinitionRequest: {
           type: Object,
@@ -854,13 +875,19 @@ class RockQueryBuilder extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehavi
  }
 
   //Rerendering of grids 
-  reRenderGrid(){
+  reRenderGrid() {
       let relationshipGrid = this.shadowRoot.querySelector('#relationship-grid');
-      relationshipGrid.clearCache();
+      if (relationshipGrid) {
+          relationshipGrid.clearCache();
+      }
       let relGrid = this.shadowRoot.querySelector('#relEntity-grid');
-      relGrid.clearCache();
+      if (relGrid) {
+          relGrid.clearCache();
+      }
       let workflowGrid = this.shadowRoot.querySelector('#workflow-grid');
-      workflowGrid.clearCache();
+      if (workflowGrid) {
+          workflowGrid.clearCache();
+      }
   }
   /**
    * Function to get the query builder data to form the query

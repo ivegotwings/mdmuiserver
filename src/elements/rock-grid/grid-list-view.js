@@ -68,11 +68,11 @@ class GridListView
                 padding: 10px;
                 align-items: center;
                 box-sizing: border-box;
-                border-bottom: 1px solid var(--divider-color, #c1cad4);
+                border-top: 1px solid var(--divider-color, #c1cad4);
                 @apply --pebble-grid-list-container;
             }
-            .container:last-child {
-                border-bottom: none;
+            .container:nth-child(1),template + .container:nth-child(2){
+                border-top: none;
             }
 
             .isPrimary {
@@ -324,7 +324,7 @@ class GridListView
                 display: block;
             }
         </style>
-        <template is="dom-if" if="[[_isMultiSelectEnabled()]]">
+        <template is="dom-if" if="[[_isMultiSelectEnabled(enableMultiSelection)]]">
             <div class="top">
                 <pebble-checkbox header="" class="header-button-container" on-tap="_toggleSelectAll" checked="[[_isSelectAllChecked(selectedItems.length, selectedItems.inverted, items.length)]]" indeterminate="[[_isSelectAllIndeterminate(selectedItems.length, items.length)]]"></pebble-checkbox>
                 <!--<span class="actions">Actions</span>-->
@@ -336,7 +336,7 @@ class GridListView
         <iron-list id="list" items="[[items]]" as="item">
             <template>
                 <div class\$="{{_computePrimaryClass(item)}}" on-tap="_tapEvent">
-                    <template is="dom-if" if="[[_isMultiSelectEnabled()]]">
+                    <template is="dom-if" if="[[_isMultiSelectEnabled(enableMultiSelection)]]">
                         <div class="left">
                             <pebble-checkbox class="button-container" checked="[[_isSelected(item, selectedItems, selectedItems.*)]]"></pebble-checkbox>
                         </div>
@@ -568,8 +568,8 @@ class GridListView
       return hasActions;
   }
 
-  _isMultiSelectEnabled () {
-      return this.enableMultiSelection;
+  _isMultiSelectEnabled (enableMultiSelection) {
+      return enableMultiSelection;
   }
   /**
    * This is an internal function, used to split the fields into three columns.
