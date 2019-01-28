@@ -176,7 +176,8 @@ class RockEntitySearchResult extends mixinBehaviors([RUFBehaviors.AppBehavior,
               type: Object,
               value: function () {
                   return {};
-              }
+              },
+              notify: true
           },
 
           /**

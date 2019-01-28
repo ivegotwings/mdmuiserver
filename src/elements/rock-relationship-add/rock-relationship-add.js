@@ -135,7 +135,7 @@ class RockRelationshipAdd
                         <rock-assets-search-grid id="assetsSearchGrid" context-data="[[_getContextData(contextData, isRelationshipsByContext)]]" types-criterion="[[typesCriterion]]" grid-config="[[addRelationshipGridConfig]]" search-filters="[[_selectedSearchFilters]]" search-query="[[_searchQuery]]"></rock-assets-search-grid>
                     </template>
                     <template is="dom-if" if="{{!_isAssetMode(mode)}}">
-                        <rock-entity-search-result id="entitySearchGrid" context-data="[[_getContextData(contextData, isRelationshipsByContext)]]" types-criterion="[[typesCriterion]]" pre-selected-items="[[preSelectedItems]]" search-filters="[[_selectedSearchFilters]]" search-query="[[_searchQuery]]"></rock-entity-search-result>
+                        <rock-entity-search-result id="entitySearchGrid" context-data="[[_getContextData(contextData, isRelationshipsByContext)]]" types-criterion="[[typesCriterion]]" grid-config="{{addRelationshipGridConfig}}" pre-selected-items="[[preSelectedItems]]" search-filters="[[_selectedSearchFilters]]" search-query="[[_searchQuery]]"></rock-entity-search-result>
                     </template>
                 </div>
                 <pebble-spinner active="[[_loading]]"></pebble-spinner>
@@ -656,8 +656,8 @@ class RockRelationshipAdd
   onViewModeChanged(event) {
     if (event && event.detail && event.detail.data) {
         let mode = event.detail.data.toLowerCase();
-        let viewMode = this.addRelationshipGridConfig && this.addRelationshipGridConfig.viewConfig ? 
-                            this.addRelationshipGridConfig.viewConfig[mode] : undefined;
+        let viewMode = this.addRelationshipGridConfig && this.addRelationshipGridConfig.viewConfig ?
+                this.addRelationshipGridConfig.viewConfig[mode] : undefined;
         if (viewMode === undefined) {
             this.showActionButtons = false;
         }
