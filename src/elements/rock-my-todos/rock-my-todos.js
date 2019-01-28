@@ -43,6 +43,10 @@ class RockMyTodos
                 display: block;
                 height: 100%;
             }
+            
+            .w-30{
+                width:30%;
+            }
 
             rock-tabs {
                 --rock-tab-content: {
@@ -68,10 +72,8 @@ class RockMyTodos
                 <template is="dom-if" if="[[_load]]">
                     <div class="base-grid-structure">
                         <div class="base-grid-structure-child-1">
-                            <div class="row-wrap">
-                                <div class="col-3">
-                                    <pebble-dropdown id="assignedTo" label="Assigned To" selected-value="{{selectedValue}}" items="[[dropDownItems]]"></pebble-dropdown>
-                                </div>
+                            <div class="w-30">
+                                <pebble-dropdown id="assignedTo" label="Assigned To" selected-value="{{selectedValue}}" items="[[dropDownItems]]"></pebble-dropdown>
                             </div>
                         </div>
                         <div class="base-grid-structure-child-2">
