@@ -208,40 +208,33 @@ class RockSplitList
   /**
    *  Function to handle filter criterion search
    */
-  _getFilterCriterion (filters) {                   
-      let attributesCriterion=[];
-      let propertiesCriterion=[];
-      let fields = this.config && this.config.tabular ? this.config.tabular.fields : {};
-      let gridColumns = DataHelper.convertObjectToArray(fields || {});
-      if (filters && filters.length) {
-          for (let i = 0; i < filters.length; i++) {
-              let path = filters[i].path;
-              let column=gridColumns.find(function (col) {
-                  return col.name===path;
-              });
-              if(column) {
-                  let filter = filters[i].filter;
-                  let cri = {};
-                  if (filter) {
-                      cri[path] = {eq: filter + "*"};
-                      if(column.readFrom === "attributes") {
-                          attributesCriterion.push(cri);
-                      } else{
-                          propertiesCriterion.push(cri);
-                      }
-                  }
-              }
-          }
-      }
-      let filterCri={};
-      if(attributesCriterion.length) {
-          filterCri.attributesCriterion=attributesCriterion;
-      }
-      if(propertiesCriterion.length) {
-          filterCri.propertiesCriterion=propertiesCriterion;
-      }
-      return filterCri;
-  }
+    _getFilterCriterion (filters) {                   
+        let filterCriterion = {};
+        let propertiesCriterion = [];
+        let fields = this.config && this.config.tabular ? this.config.tabular.fields : {};
+        let gridColumns = DataHelper.convertObjectToArray(fields || {});
+        if (filters && filters.length) {
+            for (let i = 0; i < filters.length; i++) {
+                let path = filters[i].path;
+                let column=gridColumns.find(function (col) {
+                    return col.name===path;
+                });
+                if(column) {
+                    let filter = filters[i].filter;
+                    if (filter) {
+                        let propertyCri = DataRequestHelper.createFilterCriteria("propertiesCriterion",filter, path);
+                        if(propertyCri && propertyCri["propertiesCriterion"].length > 0){
+                            propertiesCriterion.push(propertyCri["propertiesCriterion"][0]);
+                        }
+                    }
+                }
+            }
+        }
+        if(propertiesCriterion.length) {	
+            filterCriterion.propertiesCriterion=propertiesCriterion;	
+        }
+        return filterCriterion;
+    }
 
   /**
    *  Function to get formatted data

@@ -210,7 +210,7 @@ extends mixinBehaviors([
                                 <pebble-button id="entityTypeFilterButton" button-text="[[entityTypeFilterText]]" dropdown-icon="" noink="" class="dropdownText dropdownIcon btn dropdown-outline-primary dropdown-trigger" on-tap="_openEntityTypeFilterLov"></pebble-button>
                                 <template is="dom-if" if="[[_entityTypeFilterPopover]]">
                                     <pebble-popover id="entityTypeFilterPopover" for="entityTypeFilterButton" no-overlap="" vertical-align="auto" horizontal-align="auto">
-                                        <rock-entity-type-model-lov id="entityTypeModelLov" settings="[[_getComponentSettings('rock-entity-type-model-lov')]]" domain="[[domain]]" select-all="true" allowed-entity-types="[[allowedEntityTypes]]" selected-items="{{_selectedEntityTypes}}" selected-item="{{_selectedEntityType}}" show-action-buttons="">
+                                        <rock-entity-type-model-lov id="entityTypeModelLov" settings="[[_getComponentSettings('rock-entity-type-model-lov')]]" domain="[[domain]]" select-all="true" allowed-entity-types="[[allowedEntityTypes]]" selected-items="{{_selectedEntityTypes}}" selected-item="{{_selectedEntityType}}" title-pattern="externalName" show-action-buttons="">
                                         </rock-entity-type-model-lov>
                                     </pebble-popover>
                                     <bedrock-pubsub event-name="entity-type-model-lov-confirm-button-tap" handler="_onSelectedEntityTypesChange" target-id="entityTypeModelLov"></bedrock-pubsub>

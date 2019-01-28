@@ -606,57 +606,15 @@ class RockAttributeModelLov extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
   _getDeletedItemsCount() {
       return this.deletedItems ? this.deletedItems.length : 0;
   }
-    _getFilterCriterion (searchText) {                   
-        let propertiesCriterion=[];
-        this._combineEntityModels = [];
-        propertiesCriterion = this._preparePropertiesCriteria(searchText);
-        let filterCri={};
-        if(propertiesCriterion && propertiesCriterion.length) {
-            filterCri.propertiesCriterion = propertiesCriterion;
-        }
-        return filterCri;
+  _getFilterCriterion (searchText) {                   
+    this._combineEntityModels = [];
+    let filterCri = DataRequestHelper.createFilterCriteria("propertiesCriterion",searchText, this.titlePattern,null,this.showNestedChildAttributes)
+    if(this.mode == "domainMapped") {
+        this.modelGetRequest.params.query["domain"] = this.domain;
+    }
+    return filterCri;
     }
 
-    _preparePropertiesCriteria(searchText) {
-        if (searchText) {
-            let propertiesCriterion = [];
-            let searchKey = {};
-            let searchValue = {};
-            let operator = "eq";
-            let prefix = /^\"/i;
-            let suffix = /^.+\"$/gm;
-            let isPrefixed = prefix.test(searchText);
-            let isSuffixed = suffix.test(searchText);
-            let isExactSearch = false;
-            if (isPrefixed && isSuffixed) {
-                isExactSearch = true;
-            }
-            //For Exact Searcvh with Quotes
-            if (isExactSearch) {
-                searchText = searchText.replace(/['"]+/g, '');
-                operator = "exact";
-            }else{
-                searchText = searchText.split(" ");
-                searchText.forEach( (text,index,arr) =>{
-                    arr[index] = text + "*";
-                });
-                searchText = searchText.join(" ");
-            }
-            searchText = searchText.replace(/[^a-zA-Z0-9._:* "]/g, ' ');
-            searchValue[operator] = searchText ? searchText : '';
-            // Todo.. When Pattern comes into picture this one is effected
-            if(searchText.indexOf(".") > -1){
-                searchKey["attributeExternalNamePath"] = searchValue;
-            }else{
-                searchKey[this.titlePattern] = searchValue;
-            }
-            propertiesCriterion.push(searchKey);
-            if(this.mode == "domainMapped") {
-                this.modelGetRequest.params.query["domain"] = this.domain;
-            }
-            return propertiesCriterion;
-        }
-    }
 
   _onLovSelectionChanged(event) {
       let item = event.detail.item;

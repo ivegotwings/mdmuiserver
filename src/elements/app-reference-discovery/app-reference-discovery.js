@@ -216,7 +216,7 @@ class AppReferenceDiscovery
                                 <div>
                                     <pebble-button id="actions" class="dropdownText btn dropdown-outline-primary m-r-5" button-text="{{_mainTitle}}" noink="" dropdown-icon="" on-tap="_onActionsTap"></pebble-button>
                                     <pebble-popover id="actionsPopover" for="actions" no-overlap="" horizontal-align="left">
-                                        <rock-entity-type-model-lov multi-select="{{_multiSelect}}" domain="[[domain]]" id="referenceDataLov" sort-field="externalName" selected-item="[[lovSelectedItem]]"></rock-entity-type-model-lov>
+                                        <rock-entity-type-model-lov multi-select="{{_multiSelect}}" domain="[[domain]]" id="referenceDataLov" sort-field="externalName" selected-item="[[lovSelectedItem]]"  title-pattern="externalName"></rock-entity-type-model-lov>
                                     </pebble-popover>
                                     <bedrock-pubsub event-name="entity-type-selection-changed" handler="_onReferenceDataChange" target-id="referenceDataLov"></bedrock-pubsub>
                                 </div>
@@ -240,7 +240,7 @@ class AppReferenceDiscovery
                             <div class="layout horizontal p-t-10">
                                 <div class="flex searchFilterTag min-width-0">
                                     <!-- Search Filter Tags -->
-                                    <rock-entity-search-filter id="searchFilter" selected-search-filters="{{_selectedSearchFilters}}" context-data="[[contextData]]" types-criterion="[[_typesCriterion]]" tags="{{tags}}" settings="[[_getComponentSettings('rock-entity-search-filter')]]"></rock-entity-search-filter>
+                                    <rock-entity-search-filter id="searchFilter" selected-search-filters="{{_selectedSearchFilters}}" context-data="[[contextData]]" types-criterion="[[_typesCriterion]]" tags="{{tags}}" settings="[[_getComponentSettings('rock-entity-search-filter')]]" attributes-type="domainMapped"></rock-entity-search-filter>
                                     <bedrock-pubsub event-name="tag-item-added" handler="_showResetSearch"></bedrock-pubsub>
                                     <bedrock-pubsub event-name="tag-item-remove" handler="_showResetSearch"></bedrock-pubsub>
                                     <bedrock-pubsub event-name="build-query" handler="_buildQueryString"></bedrock-pubsub>
@@ -1014,12 +1014,19 @@ class AppReferenceDiscovery
           let attributeList = detail;
 
           for (let attrIndex = 0; attrIndex < attributeList.length; attrIndex++) {
-              let newItem = {
-                  name: attributeList[attrIndex].longName,
-                  value: (attributeList[attrIndex].displayValue).replace(/"|'/g, ""),
-                  attributeModel: attributeList[attrIndex].options
-              };
-              attributeListArray.push(newItem);
+            let value = attributeList[attrIndex].displayValue;
+            if (DataHelper.isValidObjectPath(attributeList[attrIndex], 'options.dataType') && attributeList[attrIndex].options.dataType == "boolean") {
+                value = attributeList[attrIndex].booleanSearchValue;
+            }
+            if (this._queryParser) {
+                value = this._queryParser.formatValue(value);
+            }
+            let newItem = {
+                name: attributeList[attrIndex].longName,
+                value: value,
+                attributeModel: attributeList[attrIndex].options
+            };
+            attributeListArray.push(newItem);
           }
       }
 

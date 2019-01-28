@@ -36,10 +36,6 @@ class EntityLovDatasource extends mixinBehaviors([
           /**
           * <b><i>Content development is under progress... </b></i>
           */
-          isAttributeFilter: {
-              type: Boolean,
-              value: false
-          },
           rDataSource: {
               type: Object,
               notify: true
@@ -142,7 +138,6 @@ class EntityLovDatasource extends mixinBehaviors([
       //so if there are more than one attrs to search in, then use keyword search
       let attributesCriterion;
 
-      if (this.isAttributeFilter) {
           let criterionKey = this.domain && (this.domain == "baseModel" || this.domain == "taxonomyModel") ? "propertiesCriterion" : "attributesCriterion";
 
           if (this.attributesCriterionBuilder && this.attributesCriterionBuilder instanceof Function) {
@@ -165,9 +160,6 @@ class EntityLovDatasource extends mixinBehaviors([
                   }
               }
           }
-      } else {
-          this._setKeywordCriterion(data.filter);
-      }
 
       this._setSortCriterion(data.sort);
 
