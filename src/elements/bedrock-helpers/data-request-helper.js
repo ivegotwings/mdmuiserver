@@ -1457,6 +1457,7 @@ DataRequestHelper.createFilterCriteria = function (criterionType,searchText, tit
             }
             let operator = "eq";
             //For Exact Searcvh with Quotes
+            searchText = searchText.trim();
             if (isExactSearch) {
                 searchText = searchText.replace(/['"]+/g, '');
                 operator = "exact";
