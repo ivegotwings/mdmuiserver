@@ -724,7 +724,7 @@ class RockTaskList extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors
               case "MODEL_EXPORT":
                   taskTypeCriterion = {
                       "taskType": {
-                          "contains": this.taskType ? this.taskType + "_Export" : "UI_BaseDataModel_Export  UI_InstanceDataModel_Export UI_GovernanceModel_Export UI_AuthorizationAppModel UI_WorkflowAppModel_Export",
+                          "contains": this.taskType ? this.taskType + "_Export" : "UI_BaseDataModel_Export  UI_InstanceDataModel_Export UI_GovernanceModel_Export UI_AuthorizationAppModel_Export UI_WorkflowAppModel_Export",
                           "operator": "_OR"
                       }
                   };
