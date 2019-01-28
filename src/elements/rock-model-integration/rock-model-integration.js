@@ -39,7 +39,6 @@ class RockModelIntegration
 
       .downloadButton {
         float: right;
-        margin-bottom: 10px;
       }
 
       rock-wizard {
