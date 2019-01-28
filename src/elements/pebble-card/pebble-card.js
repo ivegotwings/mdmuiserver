@@ -130,7 +130,8 @@ class PebbleCard extends PolymerElement {
 
             .pebble-card-container{
                 height:100%;
-                overflow: auto;
+                overflow-y: auto;
+                overflow-x: hidden;
             }
 
             .widget-sub-title {
