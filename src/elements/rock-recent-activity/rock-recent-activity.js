@@ -41,8 +41,7 @@ import '../rock-widget-panel/rock-widget-panel.js';
 import '../pebble-echo-html/pebble-echo-html.js';
 import './entity-history-datasource.js';
 import '../rock-grid-data-sources/attribute-model-datasource.js';
-import ContextModelManager from '../bedrock-managers/context-model-manager.js';
-import EntityTypeManager from '../bedrock-managers/entity-type-manager.js';
+import EntityCompositeModelManager from '../bedrock-managers/entity-composite-model-manager.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockRecentActivity extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.ComponentContextBehavior,
     RUFBehaviors.LoggerBehavior
@@ -279,7 +278,6 @@ class RockRecentActivity extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBeh
   </liquid-entity-model-composite-get>
   <attribute-model-datasource id="attributeModelDataSource" mode="[[attributeMode]]" request="[[modelGetRequest]]" r-data-source="{{rDataSource}}" r-data-formatter="{{_dataFormatter}}" schema="lov">
   </attribute-model-datasource>
-  <liquid-entity-data-get id="getEntity" operation="getbyids" data-index="entityData" data-sub-index="data" on-response="_onEntityGetResponse" on-error="_onEntityGetFailed"></liquid-entity-data-get>
 `;
   }
 
@@ -430,7 +428,6 @@ class RockRecentActivity extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBeh
     this._triggerForCoalesceOptions();
   }
   _triggerProcess() {
-    this.loading = false;
     let compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
     compositeModelGetRequest.params.fields.attributes = ["_ALL"];
     this.modelGetRequest = compositeModelGetRequest;
@@ -469,67 +466,9 @@ class RockRecentActivity extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBeh
     request.params.options.coalesceOptions = this._coalesceOptions;
   }
   async _triggerForCoalesceOptions() {
-    this.loading = true;
-    let domain = await this._getDomain();
-    let enhancerAttributes = await ContextModelManager.getEnhancerAttributeNamesBasedOnDomainAndContext(domain);
-    if(!_.isEmpty(enhancerAttributes)) {
-      let clonedContextData = DataHelper.cloneObject(this.contextData);
-      clonedContextData.ItemContexts[0].attributeNames = enhancerAttributes;
-      let req = DataRequestHelper.createEntityGetRequest(clonedContextData);
-      let entityGet = this.shadowRoot.querySelector("#getEntity");
-      if (entityGet) {
-          entityGet.requestData = req;
-          entityGet.generateRequest();
-      }
-    } else {
-      this._triggerProcess();
-    }
-  }
-  async _getDomain() {
-    let domain = "";
-    let domainContext = ContextHelper.getFirstDomainContext(this.contextData);
-    if(domainContext) {
-      domain = domainContext.domain;
-    }
-    if(!domain) {
-      let itemContext = ContextHelper.getFirstItemContext(this.contextData);
-      if(itemContext) {
-        let entityTypeManager = EntityTypeManager.getInstance();
-        domain = await entityTypeManager.getDomainByEntityTypeNameAsync(itemContext.type);
-      }
-    }
-    return domain || "thing"; //default
-  }
-  _onEntityGetResponse(e, detail) {
-    let responseContent = DataHelper.validateAndGetResponseContent(detail.response);
-    if (responseContent && !_.isEmpty(responseContent.entities) &&
-      DataHelper.isValidObjectPath(responseContent.entities, "0.data.attributes")) {
-      //Prepare coalesceOptions
-      let attributes = responseContent.entities[0].data.attributes || {};
-      let enhancerAttributeValues = [];
-      let dataContexts = ContextHelper.getDataContexts(this.contextData);
-      for (let attrName in attributes) {
-        let attributeValues = attributes[attrName].values;
-        for (let attributeValueObj of attributeValues) {
-          let attrObj = {};
-          attrObj[attrName] = attributeValueObj.value;;
-          if (!_.isEmpty(dataContexts)) {
-            attrObj["contexts"] = dataContexts;
-          }
-          enhancerAttributeValues.push(attrObj);
-        }
-      }
-      if (!_.isEmpty(enhancerAttributeValues)) {
-        this._coalesceOptions = {
-          "enhancerAttributes": enhancerAttributeValues
-        }
-      }
-    }
+    let entityCompositeModelManager = new EntityCompositeModelManager();
+    this._coalesceOptions = await entityCompositeModelManager.getCoalesceOptions(this.contextData);
     this._triggerProcess();
-  }
-  _onEntityGetFailed(e) {
-    this._triggerProcess();
-    this.logError("Entity get failed", e);
   }
   _getAttributeFormattedData(data) {
     if (data && data.content && !_.isEmpty(data.content.entityModels[0])) {

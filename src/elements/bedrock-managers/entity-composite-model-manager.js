@@ -94,7 +94,7 @@ class EntityCompositeModelManager
             let options = requestData.params.options;
             let coalesceOptions;
             if(requestData.applyEnhancerCoalesce) {
-                coalesceOptions = await this._getCoalesceOptions(contextData);
+                coalesceOptions = await this.getCoalesceOptions(contextData);
             }
             if (!query.contexts) {
                 query.contexts = [];
@@ -115,7 +115,7 @@ class EntityCompositeModelManager
         }
     }
 
-    async _getCoalesceOptions(contextData) {
+    async getCoalesceOptions(contextData) {
         let coalesceOptions = {};
         let itemContext = ContextHelper.getFirstItemContext(contextData);
         let domainContext = ContextHelper.getFirstDomainContext(contextData);
