@@ -760,6 +760,7 @@ extends mixinBehaviors([
               }
           }
           if (!_.isEmpty(this.externalSearchRelationships) && _.isEmpty(this.externalSearchAttributes)) {
+              this._isExternalSearchDataLoaded = true;
               let firstRelationship = this.externalSearchRelationships[0];
               if (firstRelationship.internal && firstRelationship.external) {
                   let attributeListArray = [];
