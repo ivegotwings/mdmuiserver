@@ -134,7 +134,7 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
                 position: absolute;
                 right: 0px;
                 top: -5px;
-                z-index: 1;
+                z-index: 10;
             }
 
             .attribute-icons {
