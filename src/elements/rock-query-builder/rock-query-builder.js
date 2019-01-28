@@ -835,9 +835,13 @@ class RockQueryBuilder extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehavi
       this.selectedRelEntity = "";
       //Remove the dropdown list items 
       let relAttributeModelLov = this.shadowRoot.querySelector('#relAttributeModelLov');
-      relAttributeModelLov.items = [];
+      if (relAttributeModelLov) {
+          relAttributeModelLov.items = [];
+      }
       let relEntityAttributeModelLov = this.shadowRoot.querySelector('#relEntityAttributeModelLov');
-      relEntityAttributeModelLov.items = [];      
+      if (relEntityAttributeModelLov) {
+          relEntityAttributeModelLov.items = [];
+      }
   }
 
   /**
