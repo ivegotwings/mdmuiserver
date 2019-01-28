@@ -35,12 +35,16 @@ EntityHistoryEventservice.prototype = {
                     //This is for getbyids...
                     let valContexts = undefined;
                     let dataContexts = undefined;
+                    let coalesceOptions = {};
                     if (request.params.query && request.params.query.valueContexts) {
                         valContexts = falcorUtil.cloneObject(request.params.query.valueContexts);
                         delete request.params.query.valueContexts;
                     }
                     if (request.params.query && request.params.query.contexts) {
                         dataContexts = falcorUtil.cloneObject(request.params.query.contexts);
+                    }
+                    if(request.params.options && request.params.options.coalesceOptions) {
+                        coalesceOptions = falcorUtil.cloneObject(request.params.options.coalesceOptions);
                     }
 
                     if (request.params.fields) {
@@ -52,7 +56,7 @@ EntityHistoryEventservice.prototype = {
 
                     if (response && response.response && response.response.entities) {
                         let events = response.response.entities;
-                        let historyList = await this._generateHistoryData(events, valContexts, dataContexts);
+                        let historyList = await this._generateHistoryData(events, valContexts, dataContexts, coalesceOptions);
                         response.response.entities = historyList;
                     }
                 }
@@ -76,7 +80,7 @@ EntityHistoryEventservice.prototype = {
         return response;
     },
 
-    _generateHistoryData: async function (events, valContexts, dataContexts) {
+    _generateHistoryData: async function (events, valContexts, dataContexts, coalesceOptions) {
         let historyList = [];
         let historyListToBeReturned = [];
         let excludeAttribute = ['clientId', 'relatedRequestId', 'eventSubType', 'entityType', 'entityId', 'eventType', 'entityAction', 'taskId',"sourceTimestamp"];
@@ -152,7 +156,7 @@ EntityHistoryEventservice.prototype = {
         let externalResponse = {};
         let attributeModels = {};
         if (internalIds.attributeList.length > 0) {
-            externalResponse = await this._fetchCurrentEntityDisplayModel(internalIds, valContexts, dataContexts);
+            externalResponse = await this._fetchCurrentEntityDisplayModel(internalIds, valContexts, dataContexts, coalesceOptions);
 
             if (externalResponse) {
                 this._getAttributeAndRelTypeExternalName(externalResponse, attributesKeyValue, relationshipKeyValue);
@@ -550,7 +554,7 @@ EntityHistoryEventservice.prototype = {
         return actionType;
     },
 
-    _fetchCurrentEntityDisplayModel: async function (internalIds, valContexts, dataContexts) {
+    _fetchCurrentEntityDisplayModel: async function (internalIds, valContexts, dataContexts, coalesceOptions) {
         let req = {
             "params": {
                 "query": {
@@ -566,6 +570,9 @@ EntityHistoryEventservice.prototype = {
                 "fields": {
                     "attributes": internalIds.attributeList,
                     "relationships": internalIds.relationshipList
+                },
+                "options": {
+                    "coalesceOptions": coalesceOptions
                 }
             }
         }
