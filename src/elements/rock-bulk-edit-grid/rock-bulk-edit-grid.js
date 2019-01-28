@@ -115,8 +115,8 @@ class RockBulkEditGrid
         return DataHelper.prepareAttributeModelSortCriterion('externalName');
     }
   _getFilterCriterion (filters) { 
-    let attributesCriterion=[];
-    let propertiesCriterion=[];
+    let filterCriterion = {};
+    let propertiesCriterion = [];
     let fields = this.config && this.config.itemConfig ? this.config.itemConfig.fields : {};
     let gridColumns = DataHelper.convertObjectToArray(fields || {});
     if (filters && filters.length) {
@@ -127,33 +127,27 @@ class RockBulkEditGrid
             });
             if(column) {
                 let filter = filters[i].filter;
-                let cri = {};
                 if (filter) {
-                    cri[path] = {eq: filter + "*"};
-                    if(column.readFrom === "attributes") {
-                        attributesCriterion.push(cri);
-                    } else{
-                        propertiesCriterion.push(cri);
+                    let propertyCri = DataRequestHelper.createFilterCriteria("propertiesCriterion",filter, path);
+                    if(propertyCri && propertyCri["propertiesCriterion"].length > 0){
+                        propertiesCriterion.push(propertyCri["propertiesCriterion"][0]);
                     }
                 }
             }
         }
     }
-    let filterCri={};
-    if(attributesCriterion.length) {
-        filterCri.attributesCriterion=attributesCriterion;
+    if(propertiesCriterion.length) {	
+        filterCriterion.propertiesCriterion=propertiesCriterion;	
     }
-    if(propertiesCriterion.length) {
-        filterCri.propertiesCriterion=propertiesCriterion;
-    }
-    return filterCri;
+    return filterCriterion;
+
 }
-  _getAttributeModelGrid () {
-      return ElementHelper.getElement(this, "#attributeModelGrid");
-  }
-  _getAttributeModelDataSource () {
-      return this.shadowRoot.querySelector('#attributeModelDataSource');
-  }
+_getAttributeModelGrid () {
+    return ElementHelper.getElement(this, "#attributeModelGrid");
+}
+_getAttributeModelDataSource () {
+    return this.shadowRoot.querySelector('#attributeModelDataSource');
+}
   _getAttributeModels (contextData0) {
         if (!_.isEmpty(this.contextData)) {
             this._loading = true;

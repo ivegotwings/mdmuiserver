@@ -24,7 +24,7 @@ class RockEntityTypeModelLov extends mixinBehaviors([RUFBehaviors.UIBehavior,
 RUFBehaviors.LovBehavior], PolymerElement) {
   static get template() {
     return html`
-        <attribute-model-datasource id="entityModelDataSource" is-request-by-id="[[isRequestById]]" mode="all" request="[[requestData]]" r-data-source="{{rDataSource}}" r-data-formatter="{{_dataFormatter}}" keywords-criterion-builder="{{_keywordsCriterionBuilder}}" schema="lov" sort-criterion-builder="{{_sortCriterionBuilder}}">
+        <attribute-model-datasource id="entityModelDataSource" is-request-by-id="[[isRequestById]]" mode="all" request="[[requestData]]" r-data-source="{{rDataSource}}" r-data-formatter="{{_dataFormatter}}" filter-criterion-builder="{{_filterCriterionBuilder}}" schema="lov" sort-criterion-builder="{{_sortCriterionBuilder}}">
         </attribute-model-datasource>
 
         <pebble-lov id="entityTypeModelLov" select-all="[[selectAll]]" page-size="[[pageSize]]" multi-select="{{multiSelect}}" show-image="[[showImage]]" show-color="[[showColor]]" no-sub-title="" show-action-buttons="[[showActionButtons]]" r-data-source="{{rDataSource}}" items="[[items]]" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" on-selection-changed="_onSelectedItemChange" on-lov-confirm-button-tap="_onLovConfirmButtonTapped" on-lov-close-button-tap="_onLovCloseButtonTapped">
@@ -90,13 +90,6 @@ RUFBehaviors.LovBehavior], PolymerElement) {
               }
           },
 
-          _keywordsCriterionBuilder: {
-              notify: true,
-              value: function () {
-                  return this._prepareKeywordsCriteria.bind(this);
-              }
-          },
-
           selectAll: {
               type: Boolean,
               value: false
@@ -111,13 +104,23 @@ RUFBehaviors.LovBehavior], PolymerElement) {
               type: String,
               value: ""
           },
+          _filterCriterionBuilder: {
+            notify: true,
+            value: function () {
+                return this._prepareFilterCriterionBuilder.bind(this);
+            }
+        },
+        titlePattern: {
+            type: String,
+            value: ""
+        },
 
-          _sortCriterionBuilder: {
-              type: Object,
-              value: function () {
-                  return this._getSortCriterion.bind(this);
-              }
-          },
+        _sortCriterionBuilder: {
+            type: Object,
+            value: function () {
+                return this._getSortCriterion.bind(this);
+            }
+        },
 
           settings: {
               type: Object
@@ -168,6 +171,11 @@ RUFBehaviors.LovBehavior], PolymerElement) {
           this.fireBedrockEvent("entity-type-selection-changed", eventDetail);
       }
   }
+
+  _prepareFilterCriterionBuilder (searchText) {                   
+        let filterCri = DataRequestHelper.createFilterCriteria("propertiesCriterion",searchText, this.titlePattern)
+        return filterCri;
+    }
 
   _getSortCriterion() {
       if (this.sortField) {
@@ -271,16 +279,6 @@ RUFBehaviors.LovBehavior], PolymerElement) {
           return item == id;
       });
       return !!presentItem;
-  }
-
-  _prepareKeywordsCriteria(searchText) {
-      if (searchText) {
-          let keywordsCriterion = {};
-
-          keywordsCriterion.keywords = "*" + searchText + "*";
-          keywordsCriterion.operator = "_AND";
-          return keywordsCriterion;
-      }
   }
 
   _onLovConfirmButtonTapped(event) {

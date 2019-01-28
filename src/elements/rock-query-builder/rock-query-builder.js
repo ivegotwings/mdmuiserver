@@ -217,7 +217,7 @@ class RockQueryBuilder extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehavi
                         <pebble-button id="relationshipButton" button-text="{{selectedRelationshipName}}" title="{{selectedRelationshipName}}" dropdown-icon="" noink="" class="dropdownText dropdownIcon btn dropdown-primary dropdown-trigger" is-ruf-component="" target-id="relationshipPopover" on-tap="_openRelationshipModelLov"></pebble-button>
                     </template>
                     <pebble-popover id="productSearchPopover" for="entityTypeFilterButton" vertical-align="auto" horizontal-align="auto">
-                        <rock-entity-type-model-lov id="entityTypeLov" settings="[[lovSettings]]" domain="[[domain]]" select-all="true" allowed-entity-types="{{allowedEntityTypes}}" selected-items="{{selectedEntityTypes}}"></rock-entity-type-model-lov>
+                        <rock-entity-type-model-lov id="entityTypeLov" settings="[[lovSettings]]" domain="[[domain]]" select-all="true" allowed-entity-types="{{allowedEntityTypes}}" selected-items="{{selectedEntityTypes}}" title-pattern="externalName"></rock-entity-type-model-lov>
                         <div class="PebbleButtonPadding text-center m-t-10">
                             <pebble-button class="btn btn-secondary m-r-5" target-id="productSearchPopover" on-tap="_closeLov" raised="" elevation="1" button-text="Close"></pebble-button>
                             <pebble-button class="btn btn-success" button-text="Apply" raised="" elevation="1" on-tap="_onSelectedEntityTypesChange" target-id="entityTypeLov"></pebble-button>

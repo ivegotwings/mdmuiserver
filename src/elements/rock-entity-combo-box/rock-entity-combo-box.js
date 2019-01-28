@@ -25,7 +25,7 @@ class RockEntityComboBox extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBeh
   static get template() {
     return html`
         <liquid-entity-model-get id="getReferenceModels" operation="getbyids" request-data="[[_getRefModelsRequest]]" on-response="_onRefModelsReceived" on-error="_onRefModelsGetFailed"></liquid-entity-model-get>
-        <entity-lov-datasource id="entityLovDataSource" apply-locale-coalesce="[[applyLocaleCoalesce]]" base-request="[[requestData]]" r-data-source="{{rDataSource}}" domain="[[_domain]]" r-data-formatter="{{_dataFormatter}}" attributes-criterion-builder="{{_attributesCriterionBuilder}}" keywords-criterion-builder="{{_keywordsCriterionBuilder}}" sort-criterion-builder="{{_sortCriterionBuilder}}" is-attribute-filter="{{_isAttributeFilter}}">
+        <entity-lov-datasource id="entityLovDataSource" apply-locale-coalesce="[[applyLocaleCoalesce]]" base-request="[[requestData]]" r-data-source="{{rDataSource}}" domain="[[_domain]]" r-data-formatter="{{_dataFormatter}}" attributes-criterion-builder="{{_attributesCriterionBuilder}}" keywords-criterion-builder="{{_keywordsCriterionBuilder}}" sort-criterion-builder="{{_sortCriterionBuilder}}">
         </entity-lov-datasource>
         <rock-image-source-provider image-source="{{imageSource}}"></rock-image-source-provider>
         <pebble-combo-box id="comboBox" label="[[label]]" page-size="[[pageSize]]" multi-select="[[multiSelect]]" show-image="[[_showImage(imageField,imageIdField)]]" show-color="[[showColor]]" no-sub-title="[[noSubTitle]]" no-popover="[[noPopover]]" show-action-buttons="[[showActionButtons]]" is-readonly="[[isReadonly]]" r-data-source="{{rDataSource}}" image-source="{{imageSource}}" selected-values-color="[[selectedValuesColor]]" selected-values-font-style="[[selectedValuesFontStyle]]" selected-values-locale="{{selectedValuesLocale}}" selected-ids="{{selectedIds}}" selected-id="{{selectedId}}" selected-values="{{selectedValues}}" no-label-float="[[noLabelFloat]]" description-object="[[descriptionObject]]" selected-value="{{selectedValue}}" tabindex\$="[[_getTabIndex(_tabIndex)]]" on-focus="_onFocusCombo" on-blur="_onBlurCombo" on-tap="_onFocusCombo">
@@ -183,10 +183,6 @@ class RockEntityComboBox extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBeh
           _sortField: {
               type: String,
               value: ""
-          },
-          _isAttributeFilter: {
-              type: Boolean,
-              value: false
           },
           imageSource: {
               type: Object
@@ -348,7 +344,6 @@ class RockEntityComboBox extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBeh
                   attributes.push(...titleFields);
                   this._lovColumnMap.title = this.titlePattern;
                   this._sortField = titleFields.length > 0 ? titleFields[0] : "";
-                  this._isAttributeFilter = true;
               }
           }
       }
@@ -359,7 +354,6 @@ class RockEntityComboBox extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBeh
               if (subtitleFields && subtitleFields instanceof Array) {
                   attributes.push(...subtitleFields);
                   this._lovColumnMap.subtitle = this.subTitlePattern;
-                  this._isAttributeFilter = true;
               }
           }
       }
@@ -537,7 +531,7 @@ class RockEntityComboBox extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBeh
   }
 
   _prepareAttributesCriteria(searchText) {
-      return DataRequestHelper.createAttributesCriteria(searchText, this.titlePattern, this.subTitlePattern);
+    return DataRequestHelper.createFilterCriteria("attributesCriterion",searchText, this.titlePattern, this.subTitlePattern);
   }
 
   _prepareKeywordsCriteria(searchText) {

@@ -1413,12 +1413,13 @@ DataRequestHelper.createEntityContextGetRequest = function (entityId, entityType
     return req;
 };
 
-DataRequestHelper.createAttributesCriteria = function (searchText, titlePattern, subTitlePattern) {
-    let attributesCriterion = [];
-    let attrObject = {};
+DataRequestHelper.createFilterCriteria = function (criterionType,searchText, titlePattern, subTitlePattern,isNestedChildAttributesEnable) {
+    let filterCriterion = [];
+    let filterObject = {};
+    let searchKey = {};
+    let searchValue = {};
     if (!_.isEmpty(searchText)) {
         let attributes = [];
-
         if (typeof (titlePattern) !== 'undefined' && titlePattern !== "") {
             if (!attributes.includes(this.titlePattern)) {
                 let titleFields = DataHelper.getAttributesBetweenCurlies(titlePattern);
@@ -1429,20 +1430,22 @@ DataRequestHelper.createAttributesCriteria = function (searchText, titlePattern,
                 }
             }
         }
-        
-        if (typeof (subTitlePattern) !== 'undefined' && subTitlePattern !== "") {
-            if (!attributes.includes(subTitlePattern)) {
-                let subTitleFields = DataHelper.getAttributesBetweenCurlies(subTitlePattern);
-                if (_.isEmpty(subTitleFields)) {
-                    attributes.push(subTitlePattern);
-                    attrObject["isAttributesCriterionOR"] = true; 
-                }else if (subTitleFields && subTitleFields instanceof Array) {
-                    attributes.push(...subTitleFields);
-                    attrObject["isAttributesCriterionOR"] = true; 
+        if(criterionType == "attributesCriterion"){
+            if (typeof (subTitlePattern) !== 'undefined' && subTitlePattern !== "") {
+                if (!attributes.includes(subTitlePattern)) {
+                    let subTitleFields = DataHelper.getAttributesBetweenCurlies(subTitlePattern);
+                    if (_.isEmpty(subTitleFields)) {
+                        attributes.push(subTitlePattern);
+                        filterObject["isAttributesCriterionOR"] = true; 
+                    }else if (subTitleFields && subTitleFields instanceof Array) {
+                        attributes.push(...subTitleFields);
+                        filterObject["isAttributesCriterionOR"] = true; 
+                        
+                    }
                 }
             }
         }
-
+        
         if (attributes && attributes.length) {
             let prefix = /^\"/i;
             let suffix = /^.+\"$/gm;
@@ -1458,24 +1461,28 @@ DataRequestHelper.createAttributesCriteria = function (searchText, titlePattern,
                 searchText = searchText.replace(/['"]+/g, '');
                 operator = "exact";
             } else {
+                searchText = searchText.replace(/[^a-zA-Z0-9._:*' "]/g, ' ');
                 searchText = searchText.split(" ");
                 searchText.forEach((text,index,arr) =>{
                     arr[index] = text + "*"
                 });
                 searchText = searchText.join(" ");
             }
-            searchText = searchText.replace(/[^a-zA-Z0-9._:* "]/g, ' ');
+            searchValue[operator] = searchText;
             attributes.forEach(function (item) {
-                let searchKey = new Object();
-                let searchValue = new Object();
-                searchValue[operator] = searchText;
-                searchKey[item] = searchValue;
-                attributesCriterion.push(searchKey);
+                if(searchText.indexOf(".") > -1 && criterionType == "propertiesCriterion" && isNestedChildAttributesEnable){
+                    searchKey["attributeExternalNamePath"] = searchValue;
+                }else{
+                    searchKey[item] = searchValue;
+                }
+                filterCriterion.push(searchKey);
             }, this);
         }
     }
-    attrObject["attributesCriterion"] = attributesCriterion
-    return attrObject;
+    if(filterCriterion){
+        filterObject[criterionType] = filterCriterion
+    }
+    return filterObject;
 };
 
 DataRequestHelper.createModelGetRequest = function(contextData) {

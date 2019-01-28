@@ -467,7 +467,7 @@ class RockClassificationTree extends mixinBehaviors([RUFBehaviors.UIBehavior], O
           //externalName search
           if (this._classificationExtNameAttr) {
               let attrObj = {};
-              attrObj = DataRequestHelper.createAttributesCriteria(searchKeyword,this._classificationExtNameAttr);
+              attrObj = DataRequestHelper.createFilterCriteria("attributesCriterion",searchKeyword,this._classificationExtNameAttr);
               _attributesCriterion.push(attrObj["attributesCriterion"][0]);
             }
           req.params.query.filters.attributesCriterion = _attributesCriterion;

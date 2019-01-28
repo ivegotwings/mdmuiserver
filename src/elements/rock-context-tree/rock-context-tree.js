@@ -802,12 +802,8 @@ class RockContextTree extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavi
       let attributesCriterion = [];
       if(!_.isEmpty(attributeNames)) {
           attributeNames.forEach((attributeName) => {
-              let attrCriterion = {};
-              attrCriterion[attributeName] = {
-                  "contains": searchKeyWord,
-                  "type": "_STRING"
-              };
-              attributesCriterion.push(attrCriterion);
+            let attrCriterion = DataRequestHelper.createFilterCriteria("attributesCriterion",searchKeyWord,attributeName)
+            attributesCriterion.push(attrCriterion.attributesCriterion[0]);
           }, this);
       }
 
