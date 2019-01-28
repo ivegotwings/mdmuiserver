@@ -330,6 +330,7 @@ class RockSplitList
           formattedData = DataHelper.sort(formattedData, "externalName", ConstantHelper.DATATYPE_STRING, null, sortDetails.properties);             
           return formattedData;
       } else {
+          this.set("_gridDataSize", 0);  
           this.logError("models are not found for the request ", this.requestData);
       }
       
