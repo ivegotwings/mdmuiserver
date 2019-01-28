@@ -8,7 +8,7 @@ class DomainManager extends mixinBehaviors([RUFBehaviors.LoggerBehavior], Polyme
     }
     constructor() {
         super();
-        this.systemDomains = ['baseModel', 'governanceModel', 'sysReferenceData', 'taxonomyModel'];
+        this.systemDomains = ['baseModel', 'governanceModel', 'sysReferenceData', 'taxonomyModel','referenceData'];
         if (!RUFUtilities.domainManager) {
             RUFUtilities.domainManager = this;
         }

@@ -1413,7 +1413,7 @@ DataRequestHelper.createEntityContextGetRequest = function (entityId, entityType
     return req;
 };
 
-DataRequestHelper.createFilterCriteria = function (criterionType,searchText, titlePattern, subTitlePattern,isNestedChildAttributesEnable) {
+DataRequestHelper.createFilterCriteria = function (criterionType,searchText, titlePattern, subTitlePattern,hasNestedChildAttributes) {
     let filterCriterion = [];
     let filterObject = {};
     let searchKey = {};
@@ -1464,14 +1464,17 @@ DataRequestHelper.createFilterCriteria = function (criterionType,searchText, tit
             } else {
                 searchText = searchText.replace(/[^a-zA-Z0-9._:*' "]/g, ' ');
                 searchText = searchText.split(" ");
-                searchText.forEach((text,index,arr) =>{
-                    arr[index] = text + "*"
+                let modifiedSearchText = [];
+                searchText.forEach((text) =>{
+                    if(!_.isEmpty(text)){
+                        modifiedSearchText.push(text + "*");
+                    }
                 });
-                searchText = searchText.join(" ");
+                searchText = modifiedSearchText.join(" ");
             }
             searchValue[operator] = searchText;
             attributes.forEach(function (item) {
-                if(searchText.indexOf(".") > -1 && criterionType == "propertiesCriterion" && isNestedChildAttributesEnable){
+                if(searchText.indexOf(".") > -1 && criterionType == "propertiesCriterion" && hasNestedChildAttributes){
                     searchKey["attributeExternalNamePath"] = searchValue;
                 }else{
                     searchKey[item] = searchValue;

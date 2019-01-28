@@ -445,7 +445,7 @@ class RockAttributeModelLov extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
           if(this.mode == "domainMapped" && DataHelper.isValidObjectPath(this.modelGetRequest, "params.query.domain")){
               let requestedDomain = this.modelGetRequest.params.query.domain;
               let systemDomains = DomainManager.getInstance().getSystemDomains();
-              if(requestedDomain === this.domain && (systemDomains.indexOf(this.domain) == -1) && requestedDomain != "referenceData") {
+              if(requestedDomain === this.domain && (systemDomains.indexOf(this.domain) == -1)) {
                   this._initiateDomainMappedRequest("taxonomyModel");
                   return false;
               } else{
