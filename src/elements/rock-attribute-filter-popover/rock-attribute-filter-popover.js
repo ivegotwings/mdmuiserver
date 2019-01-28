@@ -566,8 +566,10 @@ class RockAttributeFilterPopover extends mixinBehaviors([RUFBehaviors.UIBehavior
                  
               }
           } else if (this._tagsNumericCollection.length > 0){
-              filterInputValue = this.formatFilterCollectionDisplay(this._tagsNumericCollection)
-          } 
+              filterInputValue = this.formatFilterCollectionDisplay(this._tagsNumericCollection);
+          } else if (this._tagNumericInput) {
+              filterInputValue = this._tagNumericInput;
+          }
       }
       let eventDetail = {
           "attributeHasValueChecked":this.currentFilterObj.attributeHasValueChecked,
