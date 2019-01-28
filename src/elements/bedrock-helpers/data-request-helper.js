@@ -1459,7 +1459,7 @@ DataRequestHelper.createFilterCriteria = function (criterionType,searchText, tit
             //For Exact Searcvh with Quotes
             searchText = searchText.trim();
             if (isExactSearch) {
-                searchText = searchText.replace(/['"]+/g, '');
+                searchText = searchText.replace(/["]+/g, '');
                 operator = "exact";
             } else {
                 searchText = searchText.replace(/[^a-zA-Z0-9._:*' "]/g, ' ');
