@@ -573,6 +573,10 @@ extends mixinBehaviors([
           _isSearchFilterChanged:{
               type:Boolean,
               value:false
+          },
+          _isExternalSearchDataLoaded:{
+              type:Boolean,
+              value:false
           }
       }
   }
@@ -755,7 +759,7 @@ extends mixinBehaviors([
                   this.set("_governDataCriterion", governDataCriterion);
               }
           }
-          if (!_.isEmpty(this.externalSearchRelationships)) {
+          if (!_.isEmpty(this.externalSearchRelationships) && _.isEmpty(this.externalSearchAttributes)) {
               let firstRelationship = this.externalSearchRelationships[0];
               if (firstRelationship.internal && firstRelationship.external) {
                   let attributeListArray = [];
@@ -1607,6 +1611,16 @@ extends mixinBehaviors([
               attributeListArray.push(newItem);
           }
           this.attributeGridData = attributeListArray;
+          if(!this._isExternalSearchDataLoaded){
+            this._isExternalSearchDataLoaded = true;
+            if(!_.isEmpty(this.externalSearchRelationships) && _.isEmpty(queryBuilderData.relationship)){
+                let firstRelationship = this.externalSearchRelationships[0];
+                if (firstRelationship.internal && firstRelationship.external) {
+                    queryBuilderData.relationship = firstRelationship.external;
+                    queryBuilderData.relationshipShortName = firstRelationship.internal;
+                }
+            }
+        }
       } else if (this.attributeGridData) {
           attributeListArray = this.attributeGridData;
       }
