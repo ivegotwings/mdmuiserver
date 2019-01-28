@@ -31,6 +31,7 @@ import '../rock-self-help/rock-self-help.js';
 import '../rock-app-repository/rock-app-repository.js';
 import '../rock-component-config-behavior/rock-component-config-behavior.js';
 import '../bedrock-helpers/bedrock-helpers.js';
+import '../bedrock-helpers/data-helper.js';
 import '../bedrock-style-manager/styles/bedrock-style-variables.js';
 import '../bedrock-style-manager/bedrock-style-theme-provider.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
@@ -68,13 +69,13 @@ function isEmpty(obj) {
 // }
 
 class MainApp
-extends mixinBehaviors([
-    RUFBehaviors.UIBehavior,
-    RUFBehaviors.AppContextBehavior,
-    RUFBehaviors.ComponentConfigBehavior
-], OptionalMutableData(PolymerElement)) {
-  static get template() {
-    return html`
+    extends mixinBehaviors([
+        RUFBehaviors.UIBehavior,
+        RUFBehaviors.AppContextBehavior,
+        RUFBehaviors.ComponentConfigBehavior
+    ], OptionalMutableData(PolymerElement)) {
+    static get template() {
+        return html`
         <style include="bedrock-style-variables bedrock-style-common">
             #middle-container {
                 margin-left: 45px;
@@ -145,532 +146,547 @@ extends mixinBehaviors([
             </div>
         </template>
 `;
-  }
+    }
 
-  static get is() {
-      return 'main-app';
-  }
+    static get is() {
+        return 'main-app';
+    }
 
-  static get properties() {
-      return {
-          page: {
-              type: String,
-              notify: true,
-              value: function () {
-                  return "";
-              }
-          },
-          pages: {
-              type: Object,
-              value: []
-          },
-          menuItems: {
-              type: Array,
-              notify: true,
-              value: function () {
-                  return [];
-              }
-          },
-          activeItems: {
-              type: Array,
-              notify: true,
-              value: function () {
-                  return [];
-              }
-          },
-          appRepository: {
-              type: Object,
-              notify: true
-          },
-          globalSettings: {
-              type: Object,
-              value: function () {
-                  return {};
-              }
-          },
-          queryParams: {
-              type: Object,
-              notify: true,
-              value: function () {
-                  return {};
-              }
-          },
-          tenantId: {
-              type: String,
-              notify: true,
-              value: "t1"
-          },
-          userId: {
-              type: String,
-              notify: true,
-              value: ""
-          },
-          fullName: {
-              type: String,
-              value: ""
-          },
-          userName: {
-              type: String,
-              notify: true,
-              value: ""
-          },
-          ownershipData: {
-              type: String,
-              notify: true,
-              value: ""
-          },
-          ownershipEditData: {
-              type: String,
-              notify: true,
-              value: ""
-          },
-          isAuthenticated: {
-              type: Boolean,
-              value: false
-          },
-          tenantLogo: {
-              type: String,
-              value: ""
-          },
-          tenantLogoText: {
-              type: String,
-              value: ""
-          },
-          mainLogo: {
-              type: String,
-              value: "../src/images/mainlogo.svg"
-          },
-          versionInfo: {
-              type: Object,
-              value: function () {
-                  return {};
-              }
-          },
-          contextData: {
-              type: Object,
-              value: function () {
-                  return {};
-              }
-          },
-          localeManager: {
-              type: Object,
-              value: function () {
-                  return {};
-              }
-          },
-          roles: {
-              type: String,
-              value: ""
-          },
-          defaultRole: {
-              type: String,
-              value: ""
-          },
-          errorList: {
-              type: Array,
-              value: function () {
-                  return [];
-              }
-          },
-          readyForLoad: {
-              type: Boolean,
-              value: false
-          }
-      }
-  }
+    static get properties() {
+        return {
+            page: {
+                type: String,
+                notify: true,
+                value: function () {
+                    return "";
+                }
+            },
+            pages: {
+                type: Object,
+                value: []
+            },
+            menuItems: {
+                type: Array,
+                notify: true,
+                value: function () {
+                    return [];
+                }
+            },
+            activeItems: {
+                type: Array,
+                notify: true,
+                value: function () {
+                    return [];
+                }
+            },
+            appRepository: {
+                type: Object,
+                notify: true
+            },
+            globalSettings: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
+            queryParams: {
+                type: Object,
+                notify: true,
+                value: function () {
+                    return {};
+                }
+            },
+            tenantId: {
+                type: String,
+                notify: true,
+                value: "t1"
+            },
+            userId: {
+                type: String,
+                notify: true,
+                value: ""
+            },
+            fullName: {
+                type: String,
+                value: ""
+            },
+            userName: {
+                type: String,
+                notify: true,
+                value: ""
+            },
+            ownershipData: {
+                type: String,
+                notify: true,
+                value: ""
+            },
+            ownershipEditData: {
+                type: String,
+                notify: true,
+                value: ""
+            },
+            isAuthenticated: {
+                type: Boolean,
+                value: false
+            },
+            tenantLogo: {
+                type: String,
+                value: ""
+            },
+            tenantLogoText: {
+                type: String,
+                value: ""
+            },
+            mainLogo: {
+                type: String,
+                value: "../src/images/mainlogo.svg"
+            },
+            versionInfo: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
+            contextData: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
+            localeManager: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
+            roles: {
+                type: String,
+                value: ""
+            },
+            defaultRole: {
+                type: String,
+                value: ""
+            },
+            errorList: {
+                type: Array,
+                value: function () {
+                    return [];
+                }
+            },
+            readyForLoad: {
+                type: Boolean,
+                value: false
+            }
+        }
+    }
 
-  static get observers() {
-      return [
-          "_routePageChanged(routeData.page)",
-          "_pageChanged(page,appRepository,queryParams)"
-      ]
-  }
+    static get observers() {
+        return [
+            "_routePageChanged(routeData.page)",
+            "_pageChanged(page,appRepository,queryParams)"
+        ]
+    }
 
-  disconnectedCallback() {
-      super.disconnectedCallback();
-  }
+    disconnectedCallback() {
+        super.disconnectedCallback();
+    }
 
-  async connectedCallback() {
-      super.connectedCallback();
-      RUFUtilities.initializeLogger(RUFUtilities.Logger.levelError);
+    async connectedCallback() {
+        super.connectedCallback();
+        RUFUtilities.initializeLogger(RUFUtilities.Logger.levelError);
 
-      if(!this._isHttp2Protocol()) {
-          let self = this;
-          setTimeout(function() {
-            let loaderEle = document.getElementById("loader");
-            ComponentHelper.removeNode(loaderEle);
-            let domContainer = self.shadowRoot.querySelector("#app-failure-message");
+        if (!this._isHttp2Protocol()) {
+            let self = this;
+            setTimeout(function () {
+                let loaderEle = document.getElementById("loader");
+                ComponentHelper.removeNode(loaderEle);
+                let domContainer = self.shadowRoot.querySelector("#app-failure-message");
 
-            self.logError("Application is not configured for http2 protocol", "", true, "Application is not configured for http2 protocol. Contact administrator", domContainer);
-          }, 1000);
+                self.logError("Application is not configured for http2 protocol", "", true, "Application is not configured for http2 protocol. Contact administrator", domContainer);
+            }, 1000);
 
-          return;
-      }
+            return;
+        }
 
-      let response = await fetch('/data/appservice/baseinfo/get', {
-          cache: "reload",
-          credentials: "include"
-      });
-      let userInfo = await response.json();
-      //console.log('user info', userInfo);
-      this.initializeApp(userInfo);
-  }
+        let response = await fetch('/data/appservice/baseinfo/get', {
+            cache: "reload",
+            credentials: "include"
+        });
+        let userInfo = await response.json();
+        //console.log('user info', userInfo);
+        this.initializeApp(userInfo);
+    }
 
-  ready() {
-      super.ready();
-      setPassiveTouchGestures(true);
-      gestures.add(document.documentElement, "down", null);
-  }
+    ready() {
+        super.ready();
+        setPassiveTouchGestures(true);
+        gestures.add(document.documentElement, "down", null);
+    }
 
-  initializeApp(userInfo) {
-      if (userInfo) {
-          Object.keys(userInfo).map((key) => this[key] = userInfo[key]);
-      } else {
-          RUFUtilities.Logger.error('No user data available at get UserInfo. Unauthorized at main-app');
-      }
+    initializeApp(userInfo) {
+        if (userInfo) {
+            Object.keys(userInfo).map((key) => this[key] = userInfo[key]);
+        } else {
+            RUFUtilities.Logger.error('No user data available at get UserInfo. Unauthorized at main-app');
+        }
 
-      if (this.isAuthenticated) {
+        if (this.isAuthenticated) {
 
-          let versionInfo = this.versionInfo;
-          if (SharedUtils && SharedUtils.ModuleVersionManager) {
-              ModuleVersionManager.initialize(versionInfo.moduleVersions);
-              //console.log('module versions: ', JSON.stringify(ModuleVersionManager.getAll()));
-          }
+            let versionInfo = this.versionInfo;
+            if (SharedUtils && SharedUtils.ModuleVersionManager) {
+                ModuleVersionManager.initialize(versionInfo.moduleVersions);
+                //console.log('module versions: ', JSON.stringify(ModuleVersionManager.getAll()));
+            }
 
-          if (SharedUtils && SharedUtils.RuntimeVersionManager) {
-              RuntimeVersionManager.setVersion(versionInfo.runtimeVersion);
-              //console.log('runtime version: ', RuntimeVersionManager.getVersion());
-          }
+            if (SharedUtils && SharedUtils.RuntimeVersionManager) {
+                RuntimeVersionManager.setVersion(versionInfo.runtimeVersion);
+                //console.log('runtime version: ', RuntimeVersionManager.getVersion());
+            }
 
-          if (this.route.path == "/" || (location.href.indexOf("logout") !== -1)) {
-              window.history.pushState("", "Riversand Platform", "/" + this.tenantId);
-              this.shadowRoot.querySelector("#tenantRoute").set("route.prefix", this.tenantId);
-          }
+            if (this.route.path == "/" || (location.href.indexOf("logout") !== -1)) {
+                window.history.pushState("", "Riversand Platform", "/" + this.tenantId);
+                this.shadowRoot.querySelector("#tenantRoute").set("route.prefix", this.tenantId);
+            }
 
-          if (!_.isEmpty(this.roles)) {
-              this.roles = this.roles.split(",");
-          }
+            if (!_.isEmpty(this.roles)) {
+                this.roles = this.roles.split(",");
+            }
 
-          RUFUtilities.mainApp = dom(document).querySelector("main-app");
+            RUFUtilities.mainApp = dom(document).querySelector("main-app");
 
-          timeOut.after(ConstantHelper.MILLISECONDS_100).run(() => {
-              RUFUtilities.navbarPlaceholder = this.shadowRoot.querySelectorAll(".nav-loading")[0];
-              RUFUtilities.middleContainer = this.shadowRoot.querySelectorAll("#middle-container")[0];
-          });
+            timeOut.after(ConstantHelper.MILLISECONDS_100).run(() => {
+                RUFUtilities.navbarPlaceholder = this.shadowRoot.querySelectorAll(".nav-loading")[0];
+                RUFUtilities.middleContainer = this.shadowRoot.querySelectorAll("#middle-container")[0];
+            });
 
-          let logDetail = {
-              "userName": this.userName,
-              "userAgent": navigator.userAgent
-          };
+            let logDetail = {
+                "userName": this.userName,
+                "userAgent": navigator.userAgent
+            };
 
-          RUFUtilities.Logger.info("RUF_BROWSER_APPLICATION_LOADED", logDetail, "main-app");
+            RUFUtilities.Logger.info("RUF_BROWSER_APPLICATION_LOADED", logDetail, "main-app");
 
-          this.requestConfig("global-settings", this.contextData);
-      }
+            this.requestConfig("global-settings", this.contextData);
+        }
 
-      this.readyForLoad = true;
+        this.readyForLoad = true;
 
-      
-  }
 
-  changePageRoutePath(newPath, action) {
-      if (newPath) {
-          this.set("pageRoute.path", newPath);
-          window.dispatchEvent(new CustomEvent("location-changed"));
-      }
-      this.openAction = action;
-  }
+    }
 
-  onConfigLoaded(componentConfig) {
-      if (componentConfig && componentConfig.config) {
-          let globalSettings = componentConfig.config;
-          this.initGlobalSettings(globalSettings);
-          this._renderTenantLogo(globalSettings.themeSettings);
-          this._themeProvider = this._themeProvider || this.shadowRoot.querySelector("bedrock-style-theme-provider");
-          this._themeProvider.initiateTheme(globalSettings.themeSettings);
+    changePageRoutePath(newPath, action) {
+        if (newPath) {
+            this.set("pageRoute.path", newPath);
+            window.dispatchEvent(new CustomEvent("location-changed"));
+        }
+        this.openAction = action;
+    }
 
-          this.localeManager = new LocaleManager();
-      } else {
-          ComponentHelper.removeNode(document.getElementById("loader"));
-          let domContainer = this.shadowRoot.querySelector("#middle-container");
-          this.logError("Base configs are missing", "", true, "Configurations are missing. Contact administrator", domContainer);
-      }
-  }
+    onConfigLoaded(componentConfig) {
+        if (componentConfig && componentConfig.config) {
+            let globalSettings = componentConfig.config;
+            this.initGlobalSettings(globalSettings);
+            this._renderTenantLogo(globalSettings.themeSettings);
+            this._themeProvider = this._themeProvider || this.shadowRoot.querySelector("bedrock-style-theme-provider");
+            this._themeProvider.initiateTheme(globalSettings.themeSettings);
 
-  onConfigError(detail) {
-      ComponentHelper.removeNode(document.getElementById("loader"));
-      let domContainer = this.shadowRoot.querySelector("#middle-container");
-      this.logError("Base configs are missing", detail, true, "Configurations are missing. Contact administrator", domContainer);
-  }
+            this.localeManager = new LocaleManager();
+        } else {
+            ComponentHelper.removeNode(document.getElementById("loader"));
+            let domContainer = this.shadowRoot.querySelector("#middle-container");
+            this.logError("Base configs are missing", "", true, "Configurations are missing. Contact administrator", domContainer);
+        }
+    }
 
-  _onAppRepositoryGetError(e, detail) {
-      ComponentHelper.removeNode(document.getElementById("loader"));
-      let domContainer = this.shadowRoot.querySelector("#middle-container");
-      this.logError("Base configs are missing", detail, true, "Configurations are missing. Contact administrator", domContainer);
-  }
+    onConfigError(detail) {
+        ComponentHelper.removeNode(document.getElementById("loader"));
+        let domContainer = this.shadowRoot.querySelector("#middle-container");
+        this.logError("Base configs are missing", detail, true, "Configurations are missing. Contact administrator", domContainer);
+    }
 
-  onLogoClick() {
-      let drawer = this.drawerLayout;
-      //ToDo: remove hard coded style and use class toggle
-      drawer.setAttribute("menu-expanded", "");
-      drawer.style.width = "266px";
-  }
+    _onAppRepositoryGetError(e, detail) {
+        ComponentHelper.removeNode(document.getElementById("loader"));
+        let domContainer = this.shadowRoot.querySelector("#middle-container");
+        this.logError("Base configs are missing", detail, true, "Configurations are missing. Contact administrator", domContainer);
+    }
 
-  get contentViewManager() {
-      this._contentViewManager = this._contentViewManager || this.shadowRoot.querySelector("#contentViewManager");
+    onLogoClick() {
+        let drawer = this.drawerLayout;
+        //ToDo: remove hard coded style and use class toggle
+        drawer.setAttribute("menu-expanded", "");
+        drawer.style.width = "266px";
+    }
 
-      return this._contentViewManager;
-  }
+    get contentViewManager() {
+        this._contentViewManager = this._contentViewManager || this.shadowRoot.querySelector("#contentViewManager");
 
-  onMenuCloseClick(e, customArgs) {
-      this.contentViewManager.closeView(customArgs.item.data_route, customArgs.item.queryParams);
-  }
+        return this._contentViewManager;
+    }
 
-  onRefreshClick() {
-      location.reload();
-  }
+    onMenuCloseClick(e, customArgs) {
+        this.contentViewManager.closeView(customArgs.item.data_route, customArgs.item.queryParams);
+    }
 
-  onViewOpen(e, customArgs) {
-      let queryParams;
+    onRefreshClick() {
+        location.reload();
+    }
 
-      if (!customArgs || !customArgs.config) {
-          return;
-      }
+    onViewOpen(e, customArgs) {
+        let queryParams;
 
-      if (!isEmpty(this.queryParams)) {
-          queryParams = this.queryParams;
-          RUFUtilities.notinnavmenu = RUFUtilities.notinnavmenu ? RUFUtilities.notinnavmenu : _.difference(Object.keys(this.appRepository), RUFUtilities.menuTitles);
-          if (RUFUtilities.notinnavmenu.indexOf(customArgs.config.data_route) === -1) {
-              for (let ind = 0; ind < this.menuItems.length; ind++) {
-                  if (this.menuItems[ind].data_route == customArgs.config.data_route) {
-                      if (!queryParams || JSON.stringify(queryParams) == JSON.stringify(this.menuItems[ind].queryParams)) {
-                          return;
-                      }
-                  }
+        if (!customArgs || !customArgs.config) {
+            return;
+        }
 
-                  if (this.menuItems[ind].menuItems) {
-                      for (let subind = 0; subind < this.menuItems[ind].menuItems.length; subind++) {
-                          if (this.menuItems[ind].menuItems[subind].data_route == customArgs.config.data_route) {
-                              if (!queryParams || JSON.stringify(queryParams) == JSON.stringify(this.menuItems[ind].menuItems[subind].queryParams)) {
-                                  return;
-                              }
-                          }
-                      }
-                  }
-              }
-          }
-          for (let actind = 0; actind < this.activeItems.length; actind++) {
-              if (this.activeItems[actind].data_route == customArgs.config.data_route) {
-                  if (!queryParams || JSON.stringify(queryParams) == JSON.stringify(this.activeItems[actind].queryParams)) {
-                      return;
-                  }
-              }
-          }
-      }
+        if (!isEmpty(this.queryParams)) {
+            queryParams = this.queryParams;
+            RUFUtilities.notinnavmenu = RUFUtilities.notinnavmenu ? RUFUtilities.notinnavmenu : _.difference(Object.keys(this.appRepository), RUFUtilities.menuTitles);
+            if (RUFUtilities.notinnavmenu.indexOf(customArgs.config.data_route) === -1) {
+                for (let ind = 0; ind < this.menuItems.length; ind++) {
+                    if (this.menuItems[ind].data_route == customArgs.config.data_route) {
+                        if (!queryParams || JSON.stringify(queryParams) == JSON.stringify(this.menuItems[ind].queryParams)) {
+                            return;
+                        }
+                    }
 
-      let config = DataHelper.cloneObject(customArgs.config);
-      config.queryParams = queryParams;
-      this.push("activeItems", config);
-  }
+                    if (this.menuItems[ind].menuItems) {
+                        for (let subind = 0; subind < this.menuItems[ind].menuItems.length; subind++) {
+                            if (this.menuItems[ind].menuItems[subind].data_route == customArgs.config.data_route) {
+                                if (!queryParams || JSON.stringify(queryParams) == JSON.stringify(this.menuItems[ind].menuItems[subind].queryParams)) {
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            for (let actind = 0; actind < this.activeItems.length; actind++) {
+                if (this.activeItems[actind].data_route == customArgs.config.data_route) {
+                    if (!queryParams || JSON.stringify(queryParams) == JSON.stringify(this.activeItems[actind].queryParams)) {
+                        return;
+                    }
+                }
+            }
+        }
 
-  onViewOpened(e, customArgs) {
-      if (customArgs) {
-          let app = customArgs.previousView ? customArgs.previousView : customArgs.contentView;
+        let config = DataHelper.cloneObject(customArgs.config);
+        config.queryParams = queryParams;
+        this.push("activeItems", config);
+    }
 
-          if (this.activeItems.length && app && app.getAppCurrentStatus) {
-              let activeItem = this.activeItems[this.activeItems.length - 1];
-              if (activeItem.component.name == app.localName) {
-                  activeItem = this.pop("activeItems");
-                  activeItem.appStatus = app.getAppCurrentStatus(activeItem);
-                  this.push("activeItems", activeItem);
-              }
-          }
-      }
+    onViewOpened(e, customArgs) {
+        if (customArgs) {
+            let app = customArgs.previousView ? customArgs.previousView : customArgs.contentView;
 
-      this.loadAppCommon();
-  }
+            if (this.activeItems.length && app && app.getAppCurrentStatus) {
+                let activeItem = this.activeItems[this.activeItems.length - 1];
+                if (activeItem.component.name == app.localName) {
+                    activeItem = this.pop("activeItems");
+                    activeItem.appStatus = app.getAppCurrentStatus(activeItem);
+                    this.push("activeItems", activeItem);
+                }
+            }
+        }
 
-  loadAppCommon() {
-      let cElement = customElements.get("app-common");
+        this.loadAppCommon();
+    }
 
-      // This shall / must execute only on first view opened event...as after that customElements registry would already have app-common element
-      if (!cElement) {
-          this.updateStyles({
-              "--loading-opacity": 1
-          });
+    loadAppCommon() {
+        let cElement = customElements.get("app-common");
 
-          ComponentHelper.removeNode(document.getElementById("loader"));
+        // This shall / must execute only on first view opened event...as after that customElements registry would already have app-common element
+        if (!cElement) {
+            this.updateStyles({
+                "--loading-opacity": 1
+            });
 
-          timeOut.after(ConstantHelper.MILLISECONDS_100).run(() => {
-              afterNextRender(this, () => {
-                  import("../app-common/app-common.js");
-                  let localeManager = ComponentHelper.getLocaleManager();
-                  if (localeManager) {
-                      localeManager.preload();
-                  }
-                  let entityTypeManager = EntityTypeManager.getInstance();
+            ComponentHelper.removeNode(document.getElementById("loader"));
 
-                  if (entityTypeManager) {
-                      entityTypeManager.preload();
-                  }
-                  // if (ContextModelManager && ContextModelManager.preload) {
-                  //     ContextModelManager.preload();
-                  // }
-              });
-          });
-      }
-  }
+            timeOut.after(ConstantHelper.MILLISECONDS_100).run(() => {
+                afterNextRender(this, () => {
+                    import("../app-common/app-common.js");
+                    let localeManager = ComponentHelper.getLocaleManager();
+                    if (localeManager) {
+                        localeManager.preload();
+                    }
+                    let entityTypeManager = EntityTypeManager.getInstance();
 
-  onViewClose(e, customArgs) {
-      let viewIndex;
-      for (let actIndex = 0; actIndex < this.activeItems.length; actIndex++) {
-          let viewName = ComponentHelper.getViewNameWithQueryParams(this.activeItems[actIndex].queryParams, this.activeItems[actIndex].data_route);
-          if (viewName == customArgs.viewName) {
-              viewIndex = actIndex;
-              break;
-          }
-      }
-      if (viewIndex || viewIndex == 0) {
-          this.splice("activeItems", viewIndex, 1);
-      }
-  }
+                    if (entityTypeManager) {
+                        entityTypeManager.preload();
+                    }
+                    // if (ContextModelManager && ContextModelManager.preload) {
+                    //     ContextModelManager.preload();
+                    // }
+                });
+            });
+        }
+    }
 
-  getIsDirty() {
-      return this.contentViewManager && this.contentViewManager.getIsDirty();
-  }
+    onViewClose(e, customArgs) {
+        let viewIndex;
+        for (let actIndex = 0; actIndex < this.activeItems.length; actIndex++) {
+            let viewName = ComponentHelper.getViewNameWithQueryParams(this.activeItems[actIndex].queryParams, this.activeItems[actIndex].data_route);
+            if (viewName == customArgs.viewName) {
+                viewIndex = actIndex;
+                break;
+            }
+        }
+        if (viewIndex || viewIndex == 0) {
+            this.splice("activeItems", viewIndex, 1);
+        }
+    }
 
-  _routePageChanged(page) {
-      if (page) {
-          this.page = page || "";
-      }
-  }
+    getIsDirty() {
+        return this.contentViewManager && this.contentViewManager.getIsDirty();
+    }
 
-  _fillPages(pages, appRepository) {
-      if (_.isEmpty(this.pages) && !_.isEmpty(appRepository)) {
-          for (let appName in appRepository) {
-              let appConfig = appRepository[appName];
-              if (!_.isEmpty(appConfig) && appConfig.data_route && pages.indexOf(appConfig.data_route) < 0) {
-                  pages.push(appConfig.data_route);
-              }
-          }
-      }
-  }
+    _routePageChanged(page) {
+        if (page) {
+            this.page = page || "";
+        }
+    }
 
-  _pageChanged(page, appRepository, queryParams) {
-      this._debouncer = Debouncer.debounce(this._debouncer, timeOut.after(0),
-          () => {
-              if (page != undefined && queryParams != undefined && !_.isEmpty(appRepository)) {
-                  this._fillPages(this.pages, appRepository);
-                  //Extract page from URL
-                  let pageurl = "";
-                  let queryParamSplit = location.href.split("?");
-                  if (queryParamSplit.length) {
-                      let urlWithoutParam = queryParamSplit[0];
-                      if (urlWithoutParam) {
-                          let slashIndex = urlWithoutParam.lastIndexOf("/") + 1;
-                          pageurl = urlWithoutParam.substr(slashIndex, urlWithoutParam.length);
-                      }
-                  }
+    _fillPages(pages, appRepository) {
+        if (_.isEmpty(this.pages) && !_.isEmpty(appRepository)) {
+            for (let appName in appRepository) {
+                let appConfig = appRepository[appName];
+                if (!_.isEmpty(appConfig) && appConfig.data_route && pages.indexOf(appConfig.data_route) < 0) {
+                    pages.push(appConfig.data_route);
+                }
+            }
+        }
+    }
 
-                  if (this.pages.indexOf(pageurl) !== -1) {
-                      this.page = pageurl;
-                      this.changePageRoutePath(pageurl);
-                      let that = this;
-                      import("../rock-content-view-manager/rock-content-view-manager.js").then(function () {
-                          let contentViewManager = that.contentViewManager;
-                          if (contentViewManager) {
-                              ComponentHelper.setQueryParamsWithoutEncode(queryParams);
-                              contentViewManager.openView(page, that.appRepository[page], that.queryParams, that.openAction);
-                          }
-                      }, null, true);
-                  } else {
-                      if (!_.isEmpty(pageurl)) {
-                          this.logError("Requested app '" + this.page + "' is not available in app repository.");
-                      }
+    _pageChanged(page, appRepository, queryParams) {
+        this._debouncer = Debouncer.debounce(this._debouncer, timeOut.after(0),
+            () => {
+                if (page != undefined && queryParams != undefined && !_.isEmpty(appRepository)) {
+                    this._fillPages(this.pages, appRepository);
+                    //Extract page from URL
+                    let pageurl = "";
+                    let queryParamSplit = location.href.split("?");
+                    if (queryParamSplit.length) {
+                        let urlWithoutParam = queryParamSplit[0];
+                        if (urlWithoutParam) {
+                            let slashIndex = urlWithoutParam.lastIndexOf("/") + 1;
+                            pageurl = urlWithoutParam.substr(slashIndex, urlWithoutParam.length);
+                        }
+                    }
 
-                      this.page = "dashboard";
-                      this.changePageRoutePath("dashboard");
-                  }
-              }
-              this.dispatchEvent(new CustomEvent("bedrock-event", {
-                  detail: {
-                      name: "route-changed",
-                      data: {
-                          route: this.route
-                      }
-                  },
-                  bubbles: true,
-                  composed: true
-              }));
-          });
-  }
+                    if (this.pages.indexOf(pageurl) !== -1) {
+                        this.page = pageurl;
+                        this.changePageRoutePath(pageurl);
+                        let that = this;
+                        import("../rock-content-view-manager/rock-content-view-manager.js").then(function () {
+                            let contentViewManager = that.contentViewManager;
+                            if (contentViewManager) {
+                                ComponentHelper.setQueryParamsWithoutEncode(queryParams);
+                                contentViewManager.openView(page, that.appRepository[page], that.queryParams, that.openAction);
+                            }
+                        }, null, true);
+                    } else {
+                        if (!_.isEmpty(pageurl)) {
+                            this.logError("Requested app '" + this.page + "' is not available in app repository.");
+                        }
 
-  get mainAppErrorPanel() {
-      this._mainAppErrorPanel = this._mainAppErrorPanel || this.shadowRoot.querySelector("#mainAppErrorPanel");
-      return this._mainAppErrorPanel;
-  }
+                        this.page = "dashboard";
+                        this.changePageRoutePath("dashboard");
+                    }
+                }
+                this.dispatchEvent(new CustomEvent("bedrock-event", {
+                    detail: {
+                        name: "route-changed",
+                        data: {
+                            route: this.route
+                        }
+                    },
+                    bubbles: true,
+                    composed: true
+                }));
+            });
+    }
 
-  _renderTenantLogo(_tenantConfig) {
-      if (_tenantConfig) {
-          this.tenantLogo = _tenantConfig.headerLogoUrl;
-          this.tenantLogoText = _tenantConfig.footerTitle;
+    get mainAppErrorPanel() {
+        this._mainAppErrorPanel = this._mainAppErrorPanel || this.shadowRoot.querySelector("#mainAppErrorPanel");
+        return this._mainAppErrorPanel;
+    }
 
-          if (!_.isEmpty(_tenantConfig.mainLogoUrl)) {
-              this.mainLogo = _tenantConfig.mainLogoUrl;
-          }
-      } else {
-          console.error("Configuration not found for User:" + this.userName);
-          //RUFUtilities.Logger.error("Configuration not found for user");
-      }
-  }
+    _renderTenantLogo(_tenantConfig) {
+        if (_tenantConfig) {
+            this.tenantLogo = _tenantConfig.headerLogoUrl;
+            this.tenantLogoText = _tenantConfig.footerTitle;
 
-  _onViewMinimize(e, customArgs) {
-      this._updateActiveItemsAppStatus(customArgs);
-  }
+            if (!_.isEmpty(_tenantConfig.mainLogoUrl)) {
+                this.mainLogo = _tenantConfig.mainLogoUrl;
+            }
+        } else {
+            console.error("Configuration not found for User:" + this.userName);
+            //RUFUtilities.Logger.error("Configuration not found for user");
+        }
+    }
 
-  _onAppStatusChanged(e, customArgs) {
-      this._updateActiveItemsAppStatus(customArgs);
-  }
+    _onViewMinimize(e, customArgs) {
+        this._updateActiveItemsAppStatus(customArgs);
+    }
 
-  _updateActiveItemsAppStatus(customArgs) {
-      let viewIndex;
-      for (let actIndex = 0; actIndex < this.activeItems.length; actIndex++) {
-          let viewName = ComponentHelper.getViewNameWithQueryParams(this.activeItems[actIndex].queryParams, this.activeItems[actIndex].data_route);
-          if (viewName == customArgs.viewName) {
-              viewIndex = actIndex;
-              break;
-          }
-      }
+    _onAppStatusChanged(e, customArgs) {
+        this._updateActiveItemsAppStatus(customArgs);
+    }
 
-      let appInstance = customArgs.contentView.shadowRoot.querySelector(".view-component");
-      if (viewIndex >= 0 && appInstance && appInstance.getAppCurrentStatus) {
-          let appStatus = appInstance.getAppCurrentStatus(this.activeItems[viewIndex]);
-          let activeItems = this.activeItems;
-          activeItems[viewIndex].appStatus = appStatus;
-          this.activeItems = [];
-          this.set("activeItems", activeItems);
-      }
-  }
+    _updateActiveItemsAppStatus(customArgs) {
+        let viewIndex;
+        for (let actIndex = 0; actIndex < this.activeItems.length; actIndex++) {
+            let viewName = ComponentHelper.getViewNameWithQueryParams(this.activeItems[actIndex].queryParams, this.activeItems[actIndex].data_route);
+            if (viewName == customArgs.viewName) {
+                viewIndex = actIndex;
+                break;
+            }
+        }
 
-  _updateActiveItemsAppStatusTitle(customArgs) {
-      let activeItems = DataHelper.cloneObject(this.activeItems);
-      for (let actIndex = 0; actIndex < activeItems.length; actIndex++) {
-          if (JSON.stringify(activeItems[actIndex].queryParams) == JSON.stringify(customArgs.detail.queryParams)) {
-              activeItems[actIndex].appStatus.title = customArgs.detail.title;
-              break;
-          }
-      }
-      if (activeItems.length > 0) {
-          this.activeItems = [];
-          this.set("activeItems", activeItems);
-      }
-  }
+        let appInstance = customArgs.contentView.shadowRoot.querySelector(".view-component");
+        if (viewIndex >= 0 && appInstance && appInstance.getAppCurrentStatus) {
+            let appStatus = appInstance.getAppCurrentStatus(this.activeItems[viewIndex]);
+            let activeItems = this.activeItems;
+            activeItems[viewIndex].appStatus = appStatus;
+            this.activeItems = [];
+            this.set("activeItems", activeItems);
+        }
+    }
 
-  _isHttp2Protocol() {
-      let protocol = performance.getEntriesByType('navigation')[0].nextHopProtocol;
-      //console.log('Protocol:', protocol);
-      return protocol == "h2";
-  }
+    _updateActiveItemsAppStatusTitle(customArgs) {
+        let activeItems = DataHelper.cloneObject(this.activeItems);
+        for (let actIndex = 0; actIndex < activeItems.length; actIndex++) {
+            if (JSON.stringify(activeItems[actIndex].queryParams) == JSON.stringify(customArgs.detail.queryParams)) {
+                activeItems[actIndex].appStatus.title = customArgs.detail.title;
+                break;
+            }
+        }
+        if (activeItems.length > 0) {
+            this.activeItems = [];
+            this.set("activeItems", activeItems);
+        }
+    }
+
+    _isHttp2Protocol() {
+        // Edge and firefox ddoes not support proper navigation api 2 so skipping for these browsers
+        if (DataHelper.checkBrowser('edge') || DataHelper.checkBrowser('firefox')) {
+            return true;
+        }
+
+        let protocol = performance.getEntriesByType('navigation')[0].nextHopProtocol;
+
+        if (!(protocol && (protocol.toLowerCase() == "h2" || protocol.toLowerCase() == "http/2"))) {
+            let logDetail = {
+                "userName": this.userName,
+                "userAgent": navigator.userAgent,
+                "protocol": protocol
+            };
+
+            RUFUtilities.Logger.error("RUF_BROWSER_PROTOCOL_ERROR", logDetail, "main-app");
+        }
+
+        return true;
+    }
 }
 customElements.define(MainApp.is, MainApp)
 
