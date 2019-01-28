@@ -16,6 +16,9 @@ import '../bedrock-lov-datasource-behavior/bedrock-lov-datasource-behavior.js';
 import '../liquid-entity-data-get/liquid-entity-data-get.js';
 import { dom } from '@polymer/polymer/lib/legacy/polymer.dom.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
+import EntityTypeManager from '../bedrock-managers/entity-type-manager.js';
+
+
 class EntityLovDatasource extends mixinBehaviors([
     RUFBehaviors.LOVDataSourceBehavior,
     RUFBehaviors.LoggerBehavior],
@@ -105,7 +108,7 @@ class EntityLovDatasource extends mixinBehaviors([
       this.rDataSource = this._dataSource.bind(this);
   }
 
-  _dataSource(data, success, error) {
+  async _dataSource(data, success, error) {
 
       if (data && data.page === 1) {
           this.isRequestInitiated = false;
@@ -117,7 +120,7 @@ class EntityLovDatasource extends mixinBehaviors([
       }
 
       this.request = DataHelper.cloneObject(this.baseRequest);
-
+      let entityType;
       // Bind Reponse
       if (!this.isInitResponseAttached) {
           DataHelper.oneTimeEvent(this._liquidInitSearchElement, 'response', this._onInitSearchResponse.bind(
@@ -137,29 +140,37 @@ class EntityLovDatasource extends mixinBehaviors([
       //temporary code because RDF doesnt support OR search in attributesCriterion
       //so if there are more than one attrs to search in, then use keyword search
       let attributesCriterion;
+      if(DataHelper.isValidObjectPath(this.request, 'params.query.filters.typesCriterion.0')){
+            entityType= this.request.params.query.filters.typesCriterion[0];
+        }
+        let domain;
+        if (entityType) {
+            let entityTypeManager = new EntityTypeManager();
+            domain = await entityTypeManager.getDomainByEntityTypeName(entityType);
+        }
+        let requestedEntityTypeDomain = domain ? domain : this.domain;
+        let criterionKey = requestedEntityTypeDomain && (requestedEntityTypeDomain == "baseModel" || requestedEntityTypeDomain == "taxonomyModel") ? "propertiesCriterion" : "attributesCriterion";
+        
+        if (this.attributesCriterionBuilder && this.attributesCriterionBuilder instanceof Function) {
+            let attributesCriterionObj = this.attributesCriterionBuilder(data.filter);
+            attributesCriterion = attributesCriterionObj["attributesCriterion"];
 
-          let criterionKey = this.domain && (this.domain == "baseModel" || this.domain == "taxonomyModel") ? "propertiesCriterion" : "attributesCriterion";
-
-          if (this.attributesCriterionBuilder && this.attributesCriterionBuilder instanceof Function) {
-              let attributesCriterionObj = this.attributesCriterionBuilder(data.filter);
-              attributesCriterion = attributesCriterionObj["attributesCriterion"];
-
-              if (!_.isEmpty(attributesCriterion)) {
-                  if (_.isEmpty(this.request.params.query.filters[criterionKey])) {
-                      this.request.params.query.filters[criterionKey] = [];
-                  }
-                  if (criterionKey == "attributesCriterion") {
-                      attributesCriterion.forEach(function (attrCriterion) {
-                          this.request.params.query.filters[criterionKey].push(attrCriterion);
-                      }, this);
-                      if (attributesCriterionObj["isAttributesCriterionOR"]) {
-                          this.request.params.query.filters["isAttributesCriterionOR"] = true;
-                      }
-                  } else {
-                      this.request.params.query.filters[criterionKey] = [attributesCriterion[0]];
-                  }
-              }
-          }
+            if (!_.isEmpty(attributesCriterion)) {
+                if (_.isEmpty(this.request.params.query.filters[criterionKey])) {
+                    this.request.params.query.filters[criterionKey] = [];
+                }
+                if (criterionKey == "attributesCriterion") {
+                    attributesCriterion.forEach(function (attrCriterion) {
+                        this.request.params.query.filters[criterionKey].push(attrCriterion);
+                    }, this);
+                    if (attributesCriterionObj["isAttributesCriterionOR"]) {
+                        this.request.params.query.filters["isAttributesCriterionOR"] = true;
+                    }
+                } else {
+                    this.request.params.query.filters[criterionKey] = [attributesCriterion[0]];
+                }
+            }
+        }
 
       this._setSortCriterion(data.sort);
 
