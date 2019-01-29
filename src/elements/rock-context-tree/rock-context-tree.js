@@ -160,9 +160,9 @@ class RockContextTree extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavi
                     <p class="status-text">[[selectedContextText]]</p><p id="newContextText" class="status-text modified-status-text" on-mouseover="_openPopover" on-mouseout="_closePopover">[[newContextText]]</p><p id="removedContextText" class="status-text modified-status-text" on-mouseover="_openPopover" on-mouseout="_closePopover">[[removedContextText]]</p>
                 </template>
             </div>
-            <div hidden\$="[[_contextsDataFound]]" class="status-error">No Contexts Found</div>
             <div class="base-grid-structure-child-2">
-                <pebble-tree id="contextTree" class="contextTree" data="{{contextsData}}" check-child-nodes="[[checkChildNodes]]" default-child-depth="10" selected-items="{{selectedItems}}" selected-item="{{_selectedItem}}" multi-select="[[multiSelect]]" disable-child-node="[[disableChildNode]]" check-parent-nodes="[[checkParentNodes]]" select-parent-item="[[selectParentItem]]" leaf-node-only="[[leafNodeOnly]]" show-warning-on-unselect="[[showWarningOnUnselect]]"></pebble-tree>
+                <div hidden\$="[[_contextsDataFound]]" class="default-message">No Contexts Found</div>
+                <pebble-tree id="contextTree" hidden\$="[[!_contextsDataFound]]" class="contextTree" data="{{contextsData}}" check-child-nodes="[[checkChildNodes]]" default-child-depth="10" selected-items="{{selectedItems}}" selected-item="{{_selectedItem}}" multi-select="[[multiSelect]]" disable-child-node="[[disableChildNode]]" check-parent-nodes="[[checkParentNodes]]" select-parent-item="[[selectParentItem]]" leaf-node-only="[[leafNodeOnly]]" show-warning-on-unselect="[[showWarningOnUnselect]]"></pebble-tree>
             </div>
         </div>
         <pebble-popover id="selectedContextsPopover" no-overlap="">
