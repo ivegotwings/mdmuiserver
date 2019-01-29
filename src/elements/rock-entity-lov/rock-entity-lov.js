@@ -477,12 +477,8 @@ class RockEntityLov
       return entities;
   }
 
-  _prepareAttributesCriteria(searchText) {
-    let _subTitlePattern = this.subTitlePattern;
-    if(this.id == "context-lov" || this.id == "locale-lov"){
-        _subTitlePattern = "";
-    }
-    return DataRequestHelper.createFilterCriteria("attributesCriterion",searchText, this._titlePattern, _subTitlePattern);
+  _prepareAttributesCriteria(searchText,criterionKey) {
+    return DataRequestHelper.createFilterCriteria(criterionKey,searchText, this._titlePattern, this.subTitlePattern);
 }
 
   _onLovSelectionChanged(event) {

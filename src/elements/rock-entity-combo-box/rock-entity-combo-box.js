@@ -530,8 +530,8 @@ class RockEntityComboBox extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBeh
       return entities;
   }
 
-  _prepareAttributesCriteria(searchText) {
-    return DataRequestHelper.createFilterCriteria("attributesCriterion",searchText, this.titlePattern, this.subTitlePattern);
+  _prepareAttributesCriteria(searchText,criterionKey) {
+    return DataRequestHelper.createFilterCriteria(criterionKey,searchText, this.titlePattern, this.subTitlePattern);
   }
 
   _prepareKeywordsCriteria(searchText) {
