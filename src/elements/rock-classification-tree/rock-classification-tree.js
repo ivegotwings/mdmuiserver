@@ -94,10 +94,10 @@ class RockClassificationTree extends mixinBehaviors([RUFBehaviors.UIBehavior], O
                         </div>
                     </template>
                 </div>
-            </div>
-            <div hidden\$="[[_classificationsFound]]" class="status-error">No Classifications Found</div>
-            <div class="base-grid-structure-child-2" hidden\$="[[!_classificationsFound]]">
-                <pebble-tree id="contextTree" class="contextTree" leaf-node-only="[[leafNodeOnly]]" data="{{classifications}}" check-child-nodes="[[checkChildNodes]]" default-child-depth="10" selected-items="{{_selectedItems}}" selected-item="{{_selectedItem}}" multi-select="[[multiSelect]]" disable-child-node="[[disableChildNode]]" hide-leaf-node-checkbox="[[hideLeafNodeCheckbox]]" check-parent-nodes="[[checkParentNodes]]"></pebble-tree>
+            </div>            
+            <div class="base-grid-structure-child-2">
+            <div hidden\$="[[_classificationsFound]]" class="default-message">No Classifications Found</div>
+                <pebble-tree id="contextTree" class="contextTree" leaf-node-only="[[leafNodeOnly]]" data="{{classifications}}" check-child-nodes="[[checkChildNodes]]" default-child-depth="10" selected-items="{{_selectedItems}}" selected-item="{{_selectedItem}}" multi-select="[[multiSelect]]" disable-child-node="[[disableChildNode]]" hide-leaf-node-checkbox="[[hideLeafNodeCheckbox]]" check-parent-nodes="[[checkParentNodes]]" hidden\$="[[!_classificationsFound]]"></pebble-tree>
             </div>
         </div>
         <bedrock-pubsub event-name="tree-node-child-list-refreshed" handler="_childListRefreshed"></bedrock-pubsub>
