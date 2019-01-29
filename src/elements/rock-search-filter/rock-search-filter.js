@@ -691,7 +691,7 @@ class RockSearchFilter
 
     tag.options = data;
     tag.options.displayType = displayType;
-    tag["longName"] = data.externalName;
+    tag["longName"] = data.attributeExternalNamePath ? data.attributeExternalNamePath : data.externalName;
     tag["name"] = data.name;
     tag.options.hasValueChecked = true;
     this.shadowRoot.querySelector("#filter-tags").addTag(tag);
