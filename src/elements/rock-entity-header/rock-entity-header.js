@@ -753,9 +753,6 @@ extends mixinBehaviors([
           } else {
               this._headerAttributeModels = headerAttributeModels;
           }
-           if(_.isEmpty(this._headerAttributeModels)) {
-               this._showMessage("Attributes are not available or there is no permission. Contact administrator");
-           }
           let clonedContextData = DataHelper.cloneObject(this.contextData);
           if (clonedContextData) {
               //add attribute names in item context
@@ -799,7 +796,21 @@ extends mixinBehaviors([
 
               this._setMetadataAttributes(entity);
               this.set("_headerAttributeValues", this._entityAttributes);
-              this.$.headerAttributes.render();
+              if(_.isEmpty(this._headerAttributeModels)){
+                    let metaDataColumnFound = false;
+                    for(let attribute of this.headerConfig){
+                        if(attribute.isMetadataAttribute){
+                            metaDataColumnFound = true;
+                            break;
+                        }
+                    }
+                    if(!metaDataColumnFound && _.isEmpty(this._entityAttributes)){
+                        this._showMessage("Attributes are not available or there is no permission. Contact administrator");
+                    }
+                }
+                else{
+                    this.$.headerAttributes.render();
+                }
           }
       } else {
           this._showMessage();
