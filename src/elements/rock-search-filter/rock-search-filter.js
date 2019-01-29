@@ -880,7 +880,7 @@ class RockSearchFilter
             }
             this.gte = this.currentTag.value.gte || "";
             this.lte = this.currentTag.value.lte || "";
-            if(!_.isEmpty(this.currentTag.value.eq)){ 
+            if(!_.isEmpty(this.currentTag.value.eq) && this.currentTag.value.eq != 'All'){ 
               if(this.currentTag.value.eq instanceof Array) {
                this._tagsNumericCollection = this.currentTag.value.eq; 
               } else {
