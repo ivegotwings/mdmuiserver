@@ -800,13 +800,8 @@ extends mixinBehaviors([
 
               this._setMetadataAttributes(entity);
               this.set("_headerAttributeValues", this._entityAttributes);
-              if(_.isEmpty(this._headerAttributeModels)){
-                    if(!this.metaDataColumnFound){
-                        this._showMessage("Attributes are not available or there is no permission. Contact administrator");
-                    }
-                    else{
-                        this.$.headerAttributes.render();
-                    }
+              if(_.isEmpty(this._headerAttributeModels) && !this.metaDataColumnFound){
+                    this._showMessage("Attributes are not available or there is no permission. Contact administrator");
                 }
                 else{
                     this.$.headerAttributes.render();
