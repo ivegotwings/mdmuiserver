@@ -531,6 +531,10 @@ extends mixinBehaviors([
           rootNodeExternalName: {
               type: String,
               value: ""
+          },
+          metaDataColumnFound : {
+            type: Boolean,
+            value: false
           }
       }
   }
@@ -753,9 +757,6 @@ extends mixinBehaviors([
           } else {
               this._headerAttributeModels = headerAttributeModels;
           }
-           if(_.isEmpty(this._headerAttributeModels)) {
-               this._showMessage("Attributes are not available or there is no permission. Contact administrator");
-           }
           let clonedContextData = DataHelper.cloneObject(this.contextData);
           if (clonedContextData) {
               //add attribute names in item context
@@ -799,7 +800,12 @@ extends mixinBehaviors([
 
               this._setMetadataAttributes(entity);
               this.set("_headerAttributeValues", this._entityAttributes);
-              this.$.headerAttributes.render();
+              if(_.isEmpty(this._headerAttributeModels) && !this.metaDataColumnFound){
+                    this._showMessage("Attributes are not available or there is no permission. Contact administrator");
+                }
+                else{
+                    this.$.headerAttributes.render();
+                }
           }
       } else {
           this._showMessage();
@@ -815,6 +821,7 @@ extends mixinBehaviors([
                       "name": this.headerConfig[i].attributeName,
                       "value": entity[this.headerConfig[i].attributeName]
                   };
+                  this.metaDataColumnFound = true;
                   this._entityAttributes.push(attrObj);
               }
           }
