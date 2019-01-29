@@ -66,7 +66,7 @@ class RockLogServiceList
             }
         </style>
         <div class="rock-log-servie-wrapper">
-            <rock-grid id="importlistGrid" config="{{gridConfig}}" attribute-models="{{_attributeModels}}" page-size="50" data="[[loggerArray]]">
+            <rock-grid id="importlistGrid" config="{{gridConfig}}" attribute-models="{{_attributeModels}}" page-size="50" data="[[loggerArray]]" hide-view-selector>
                 <pebble-toolbar id="toolbar" readonly="[[readonly]]" slot="toolbar" config-data="[[_toolbarConfig]]"></pebble-toolbar>
                 <bedrock-pubsub event-name="toolbar-button-event" handler="_onToolbarEvent" target-id="toolbar"></bedrock-pubsub>
             </rock-grid>
