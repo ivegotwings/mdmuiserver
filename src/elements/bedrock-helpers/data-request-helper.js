@@ -1431,6 +1431,9 @@ DataRequestHelper.createFilterCriteria = function (criterionType,searchText, tit
             }
         }
         if(criterionType == "attributesCriterion"){
+            if(subTitlePattern && subTitlePattern.indexOf("typeExternalName") > -1){
+                subTitlePattern = "";
+            }
             if (typeof (subTitlePattern) !== 'undefined' && subTitlePattern !== "") {
                 if (!attributes.includes(subTitlePattern)) {
                     let subTitleFields = DataHelper.getAttributesBetweenCurlies(subTitlePattern);
