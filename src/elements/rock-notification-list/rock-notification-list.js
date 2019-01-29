@@ -182,7 +182,7 @@ class RockNotificationList
       <p class="notification-msg">New notifications will appear here when:</p>
       <ul class="notification-msgs">
         <li>You are assigned new tasks as per workflow processes</li>
-        <li>Items you are worked on have errors/warnings</li>
+        <li>Items you are working on have errors/warnings</li>
         <li>Other users share tasks/content with you</li>
       </ul>
     </template>
