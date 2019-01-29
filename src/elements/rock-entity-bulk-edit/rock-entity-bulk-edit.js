@@ -294,6 +294,7 @@ RUFBehaviors.ComponentContextBehavior, RUFBehaviors.ComponentConfigBehavior], Po
           this._selectedItems.push(selectedItem);
       }
       selectedItem["hasWritePermission"] = true;
+      await this._updateNestedChildAttributes(selectedItem);
       if (!this._attributeModels[selectedItem.name]) {
           this._attributeModels[selectedItem.name] = selectedItem;
           let values = DataTransformHelper.transformAttributes({}, this._attributeModels, this.contextData, "array", true);
@@ -303,6 +304,27 @@ RUFBehaviors.ComponentContextBehavior, RUFBehaviors.ComponentConfigBehavior], Po
           }
       }
   }
+
+  async _updateNestedChildAttributes(selectedItem){
+    if(selectedItem && selectedItem.dataType && selectedItem.dataType == "nested" && !selectedItem.group){
+        let entityModelManager = new EntityModelManager();
+        let request = DataRequestHelper.createGetAttributeModelRequest(selectedItem.childAttributes);
+        let childAttributeModels = {};
+        if(entityModelManager && request) {
+            childAttributeModels = await entityModelManager.get(request);
+        }
+        if(!_.isEmpty(childAttributeModels)){
+            let childAttrModelObj = {};
+            childAttributeModels.forEach((elem) => {
+                childAttrModelObj[elem.name] = elem;
+            });
+            let attributeDataModels = {"data": {"attributes":childAttrModelObj}};
+            let attributeModels = DataTransformHelper.transformAttributeModels(attributeDataModels, {});
+                    
+            selectedItem.group = [childAttrModelObj];
+        }
+    }
+}
 
   _onDeSelectingGridItem(e, detail) {
       let deSelectedItem = detail.item;
@@ -331,20 +353,14 @@ RUFBehaviors.ComponentContextBehavior, RUFBehaviors.ComponentConfigBehavior], Po
           this._selectedItems = [];
           let scopeItems = detail.data.scope;
           let gridItems = attributesGrid.getData();
-          //scope may have contextual attributes as well. 
-          //Need to filter inorder to get only self context attributes for edit.
-          for (let i = 0; i < scopeItems.length; i++) {
-              let scopeItem = scopeItems[i];
-              let gridItem = gridItems.find(obj => obj.name === scopeItem.name);
-              if (gridItem) {
-                  this.push("_selectedItems", gridItem);
-              }
-          }
+          //Since loading attributeModels instead of compositeModel no need to filter context attributes
+          this._selectedItems = scopeItems;
           attributesGrid.selectItems(this._selectedItems);
           this._attributeModels = {};
           for (let i = 0; i < this._selectedItems.length; i++) {
               let selectedItem = this._selectedItems[i];
               selectedItem["hasWritePermission"] = true;
+              await this._updateNestedChildAttributes(selectedItem);
               if (!this._attributeModels[selectedItem.name]) {
                   this._attributeModels[selectedItem.name] = selectedItem;
               }
