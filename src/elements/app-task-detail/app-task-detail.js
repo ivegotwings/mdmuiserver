@@ -336,7 +336,7 @@ class AppTaskDetail
                       this.domain = domainList[0];
                   }
               }
-
+              this._showMessage = false;
               if (taskStatus === "completed with errors") {
                   this._showErroredTasks = true;
               } else if (!this._showCompletedTasks) {
@@ -350,6 +350,7 @@ class AppTaskDetail
                   this._showMessage = true;
               } else {
                   this._showErroredTasks = true;
+                  this._showMessage = false;
               }
           } else {
               this._showMessage = true;
