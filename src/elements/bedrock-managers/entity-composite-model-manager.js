@@ -202,8 +202,15 @@ class EntityCompositeModelManager
                 for(let valIdx =0; valIdx<values.length; valIdx++) {
                     let obj = {};
                     obj[attributeName] = values[valIdx].value;
-                    if(isContextPresent) {
-                        obj["contexts"] = [dataContext];
+                    /**
+                     * Need to pass self always along with contexts 
+                     * in coalesce options. If not enhancer given attributes will
+                     * be coalesced into only given context and when user moves to
+                     * self context, enhancer given attributes may not be visible.
+                     * */
+                    obj["contexts"] = [{ "self": "self" }];
+                    if (isContextPresent) {
+                        obj["contexts"].push(dataContext);
                     }
                     enhancerAttributes.push(obj);
                 }
