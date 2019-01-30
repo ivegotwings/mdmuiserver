@@ -22,8 +22,7 @@ const falcorUtil = require('../../../shared/dataobject-falcor-util');
 
 const CONST_ALL = falcorUtil.CONST_ALL,
     CONST_ANY = falcorUtil.CONST_ANY,
-    CONST_CTX_PROPERTIES = falcorUtil.CONST_CTX_PROPERTIES,
-    CONST_DATAOBJECT_METADATA_FIELDS = falcorUtil.CONST_DATAOBJECT_METADATA_FIELDS;
+    CONST_CTX_PROPERTIES = falcorUtil.CONST_CTX_PROPERTIES;
 
 const pathKeys = falcorUtil.getPathKeys();
 
@@ -463,21 +462,9 @@ function buildResponse(dataObject, reqData, paths) {
         let data = dataObject.data;
 
         //add data level attrs, rels and props as self context item in falcor response..
-        if ((data && (data.attributes || data.relationships || data.properties
-            || data.jsonData)) || reqData.attrNames.indexOf(CONST_DATAOBJECT_METADATA_FIELDS) >= 0) {
+        if (data && (data.attributes || data.relationships || data.properties || data.jsonData)) {
 
-            if (!data && reqData.attrNames.indexOf(CONST_DATAOBJECT_METADATA_FIELDS) >= 0) {
-                data = {};
-            };
             let contexts = falcorUtil.getOrCreate(data, "contexts", []);
-
-            if (reqData.attrNames.indexOf(CONST_DATAOBJECT_METADATA_FIELDS) >= 0) {
-                let metadataFieldAttr = _createMetadataFieldsAttribute(dataObject);
-                if (!data.attributes) {
-                    data.attributes = {};
-                }
-                data.attributes[CONST_DATAOBJECT_METADATA_FIELDS] = metadataFieldAttr;
-            }
 
             let selfCtxItem = {
                 'context': falcorUtil.getSelfCtx(),
@@ -544,7 +531,16 @@ function buildResponse(dataObject, reqData, paths) {
                 let currContext = contextItem.context;
 
                 if (!isEmpty(reqData.coalesceOptions)) {
-                    currContext.coalesceOptions = reqData.coalesceOptions;
+                    currContext.coalesceOptions = falcorUtil.cloneObject(reqData.coalesceOptions);
+                    if (currContext.selfContext) {
+                        if (currContext.coalesceOptions && currContext.coalesceOptions.enhancerAttributes) {
+                            for (let enhancerAttribute of currContext.coalesceOptions.enhancerAttributes) {
+                                if (enhancerAttribute && enhancerAttribute.contexts) {
+                                    delete enhancerAttribute.contexts;
+                                }
+                            }
+                        }
+                    }
                 }
 
                 let ctxKey = falcorUtil.createCtxKey(currContext);

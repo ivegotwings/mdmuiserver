@@ -131,6 +131,7 @@ module.exports = {
         "EntityTypeManager": true,
         "ContextDataManager":true,
         "EntityCompositeModelManager": true,
+        "EntityModelManager": true,
         "SharedUtils": true,
         "SharedEnumsUtil": true,
         "SecurityContextHelper": true,

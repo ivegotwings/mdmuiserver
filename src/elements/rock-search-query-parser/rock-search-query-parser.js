@@ -813,6 +813,9 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
           if (attrModel) {
             attrModel.displayType = attrModel.displayType || "textbox";
             let displayType = attrModel.displayType.toLowerCase();
+            if(displayType === "referencelist") {
+              attrModel.isLocalizable = true;
+            }
             let dataType = ConstantHelper.getDataTypeConstant(attrModel.dataType.toLowerCase());
             if (dataType === "_DECIMAL" || dataType === "_INTEGER") {
               displayType = "numeric";
@@ -826,10 +829,7 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                 let val = attrVal[key];
                 let isPrefixed = prefix.test(val);
                 let isSuffixed = suffix.test(val);
-                if (isPrefixed || isSuffixed) {
-                  isPartialSearch = true;
-                }
-
+                
                 let operator;
                 let splitQueryByAnd = val.toLowerCase().split("' and '");
                 let splitQueryByOr = val.toLowerCase().split("' or '");
@@ -841,8 +841,20 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                 } else if (splitQueryByOr.length > 1) {
                   operator = "_OR";
                   containsStr = splitQueryByOr;
+                  if(!isPartialSearch && !_.isEmpty(containsStr)){
+                    containsStr.forEach( strVal => {
+                      if(!isPrefixed){
+                        isPrefixed = prefix.test(strVal);
+                      }
+                      if(!isSuffixed){
+                        isSuffixed = suffix.test(strVal);
+                      }
+                    });
+                  }
                 }
-
+                if (isPrefixed || isSuffixed) {
+                  isPartialSearch = true;
+                }
                 let valueCollection = [];
                 if (containsStr instanceof Array) {
                   valueCollection = val.split(/ OR | AND /gi);
@@ -861,7 +873,7 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                     delete attrVal[key];
                   } else if (displayType === "path") {
                     if (key === "equals") {
-                      attrVal["eq"] = containsStr + '*';
+                      attrVal["eq"] = containsStr;
                       attrVal["pathCollection"] = valueCollection;
                     }
                     delete attrVal[key];
@@ -901,7 +913,7 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                   } else if (displayType === "boolean") {
                     attrVal["eq"] = containsStr;
                     delete attrVal[key];
-                  } else if (displayType === "richtexteditor") {
+                  } else if (displayType === "richtexteditor" || displayType === "textarea") {
                     attrVal["contains"] = containsStr;
                     attrVal["operator"] = operator;
                     delete attrVal[key];

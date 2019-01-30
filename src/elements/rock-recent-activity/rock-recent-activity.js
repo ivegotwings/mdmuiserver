@@ -41,6 +41,7 @@ import '../rock-widget-panel/rock-widget-panel.js';
 import '../pebble-echo-html/pebble-echo-html.js';
 import './entity-history-datasource.js';
 import '../rock-grid-data-sources/attribute-model-datasource.js';
+import EntityCompositeModelManager from '../bedrock-managers/entity-composite-model-manager.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockRecentActivity extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.ComponentContextBehavior,
     RUFBehaviors.LoggerBehavior
@@ -398,6 +399,12 @@ class RockRecentActivity extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBeh
       maxRecords: {
         type: Number,
         value: 200
+      },
+      _coalesceOptions: {
+        type: Object,
+        value: function () {
+          return {};
+        }
       }
     }
   }
@@ -417,14 +424,17 @@ class RockRecentActivity extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBeh
 
   ready() {
     super.ready();
+    this._dataFormatter = this._getAttributeFormattedData.bind(this);
+    this._triggerForCoalesceOptions();
+  }
+  _triggerProcess() {
     let compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
     compositeModelGetRequest.params.fields.attributes = ["_ALL"];
     this.modelGetRequest = compositeModelGetRequest;
+    this._setCoalesceOptions(this.modelGetRequest);
     this.reTriggerRequest();
     this.isModelGetInitiated = true;
     this.getEvents();
-    this._dataFormatter = this._getAttributeFormattedData.bind(this);
-
   }
   getEvents() {
     if (DataHelper.isValidObjectPath(this.contextData, 'ItemContexts.0.id')) {
@@ -436,6 +446,7 @@ class RockRecentActivity extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBeh
         req.params.query.contexts = dataContexts;
       }
       this.request = req
+      this._setCoalesceOptions(this.request);
       let _liquidRestElement = this.shadowRoot.querySelector("#entityEventGetLiquidRest");
       if (_liquidRestElement) {
         _liquidRestElement.requestData = this.request;
@@ -445,11 +456,24 @@ class RockRecentActivity extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBeh
       this.noRecord = false;
     }
   }
+  _setCoalesceOptions(request) {
+    if(_.isEmpty(this._coalesceOptions)) {
+      return;
+    }
+    if(!request.params.options) {
+      request.params.options  = {};
+    }
+    request.params.options.coalesceOptions = this._coalesceOptions;
+  }
+  async _triggerForCoalesceOptions() {
+    let entityCompositeModelManager = new EntityCompositeModelManager();
+    this._coalesceOptions = await entityCompositeModelManager.getCoalesceOptions(this.contextData);
+    this._triggerProcess();
+  }
   _getAttributeFormattedData(data) {
     if (data && data.content && !_.isEmpty(data.content.entityModels[0])) {
       this.attributeModels = DataTransformHelper.transformAttributeModels(data.content.entityModels[0], this.contextData);
     }
-
   }
   _onOpenAttributeDialog(e) {
     if (!_.isEmpty(e.detail)) {

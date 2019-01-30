@@ -12,7 +12,10 @@ const dynamicFragments = [
     "./src/elements/app-task-detail/app-task-detail.js",
     "./src/elements/rock-query-builder/rock-query-builder.js",
     "./src/elements/rock-grid/grid-list-view.js",
-    "./src/elements/rock-grid/grid-tile-view.js"
+    "./src/elements/rock-grid/check-box-with-indeterminate-state.js",
+    "./src/elements/rock-grid/grid-tile-view.js",
+    "./src/elements/rock-grid/grid-item-view-behavior.js",
+    "./src/elements/dynamic-fragments/"   /*self path required for copyfiles */
 ];
 
 module.exports = dynamicFragments;

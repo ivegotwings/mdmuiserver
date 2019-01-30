@@ -426,7 +426,7 @@ class RockTaskList extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors
                       "UI_BaseDataModel",
                       "UI_InstanceDataModel",
                       "UI_GovernanceModel",
-                      "UI_AuthorizationModel"
+                      "UI_AuthorizationAppModel"
                   ]
               }
           },
@@ -716,7 +716,7 @@ class RockTaskList extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors
                   taskTypeCriterion = {
                       "taskType": {
                           "contains": this.taskType ||
-                              "UI_BaseDataModel UI_InstanceDataModel UI_GovernanceModel UI_AuthorizationModel UI_WorkflowAppModel loadtenantseed",
+                              "UI_BaseDataModel UI_InstanceDataModel UI_GovernanceModel UI_AuthorizationAppModel UI_WorkflowAppModel loadtenantseed",
                           "operator": "_OR"
                       }
                   };
@@ -724,7 +724,7 @@ class RockTaskList extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors
               case "MODEL_EXPORT":
                   taskTypeCriterion = {
                       "taskType": {
-                          "contains": this.taskType ? this.taskType + "_Export" : "UI_BaseDataModel_Export  UI_InstanceDataModel_Export UI_GovernanceModel_Export UI_AuthorizationModel_Export UI_WorkflowAppModel_Export",
+                          "contains": this.taskType ? this.taskType + "_Export" : "UI_BaseDataModel_Export  UI_InstanceDataModel_Export UI_GovernanceModel_Export UI_AuthorizationAppModel_Export UI_WorkflowAppModel_Export",
                           "operator": "_OR"
                       }
                   };
@@ -831,10 +831,11 @@ class RockTaskList extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors
           image,
           title,
           subtitle,
+          extension,
           id,
           fields
       } = config.itemConfig;
-      let attributeNames = [image, title, subtitle, id];
+      let attributeNames = [image, title, subtitle, extension, id];
       for (let key in fields) {
           if (!fields.hasOwnProperty(key)) continue;
 
@@ -854,6 +855,8 @@ class RockTaskList extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors
       }
 
       switch (formatter.toLowerCase()) {
+          case "seedload":
+              return "/src/images/zip.svg";
           case "excel":
               return "/src/images/MicrosoftExcel50,100,500px/MicrosoftExcel_100.svg";
           case "rsjson":
@@ -864,6 +867,7 @@ class RockTaskList extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors
   }
   _onEventTypeFilterChanged(selectedEventType) {
       if (this.request && !_.isEmpty(this.request) && selectedEventType) {
+        this._noBatchDataPresent=false;
           //Filtering only values from {value, titles} array elements
           let eventTypesValues = this.eventTypes.map((elm, index) => {
               return elm.value;
@@ -915,6 +919,7 @@ class RockTaskList extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors
   }
   _onEventSubTypeFilterChanged(selectedEventSubType) {
       if (this.request && !_.isEmpty(this.request) && selectedEventSubType) {
+        this._noBatchDataPresent=false;
           //Filtering only values from {value, titles} array elements  
           let eventSubTypesValues = this.eventSubTypes.map((elm, index) => {
               return elm.value;
@@ -939,6 +944,7 @@ class RockTaskList extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors
   }
   _onDurationFilterChanged(selectedDurationFilter) {
       if (this.request && !_.isEmpty(this.request) && selectedDurationFilter) {
+        this._noBatchDataPresent=false;
           //Filtering only values from {value, titles} array elements  
           let durationFilterValues = this.config.gridConfig.itemConfig.fields.durationFilter.values;
           let selectedIndexDurationFilter = durationFilterValues.indexOf(selectedDurationFilter);
@@ -974,6 +980,7 @@ class RockTaskList extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors
   }
   _userStateChanged(getAllUsersEvents) {
       if (this.request && !_.isEmpty(this.request)) {
+        this._noBatchDataPresent=false;
           let req = this.request;
           if (!getAllUsersEvents) {
               req.params.query.filters.attributesCriterion.push({

@@ -1352,3 +1352,14 @@ DataHelper.isPublicUrl = function(inputUrl){
     }
     return false;
 }
+DataHelper.prepareAttributeModelSortCriterion = function(_sortField){
+    let sortField = _sortField || 'name';
+    let sortProperties = [];
+    let sortProperty = {};
+    sortProperty[sortField] = "_ASC";
+    sortProperty["sortType"] = "_STRING"; // How to determine this?
+    sortProperties.push(sortProperty);
+    let sort = {};
+    sort.properties = sortProperties;
+    return sort;
+}

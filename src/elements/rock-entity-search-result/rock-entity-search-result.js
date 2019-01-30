@@ -176,7 +176,8 @@ class RockEntitySearchResult extends mixinBehaviors([RUFBehaviors.AppBehavior,
               type: Object,
               value: function () {
                   return {};
-              }
+              },
+              notify: true
           },
 
           /**
@@ -531,6 +532,13 @@ class RockEntitySearchResult extends mixinBehaviors([RUFBehaviors.AppBehavior,
           if (componentConfig.config.dataIndex) {
               this.set("dataIndex", componentConfig.config.dataIndex);
           }
+
+          if(DataHelper.isValidObjectPath(gridConfig, "itemConfig.fields") && 
+                !_.isEmpty(gridConfig.itemConfig.fields)) {
+                    for(let field in gridConfig.itemConfig.fields) {
+                        gridConfig.itemConfig.fields[field].filterable = false;
+                    }
+          }
           this.set('gridConfig', gridConfig);
           this.set('governAttributesCriterion', componentConfig.config.governAttributesCriterion);
           this.set('governDataConfig', componentConfig.config.governDataConfig);
@@ -808,7 +816,7 @@ class RockEntitySearchResult extends mixinBehaviors([RUFBehaviors.AppBehavior,
               }
               this.push("_selectedEntityTypes", entityModels[0]);
           } else if (_.isEmpty(entityModels) && DataHelper.isValidObjectPath(requestData,
-                  "params.query.name")) {
+              "params.query.name")) {
               this._notFoundEntityTypes.push(requestData.params.query.name);
           }
       } else {
@@ -824,14 +832,11 @@ class RockEntitySearchResult extends mixinBehaviors([RUFBehaviors.AppBehavior,
 
           for (let key in this._selectedEntityTypes) {
               let formattedModels = DataTransformHelper.transformAttributeModels(this._selectedEntityTypes[
-                  key], {});
+                  key], this.contextData);
               _.extend(this.attributeModels, formattedModels);
           }
 
           let attributeModels = DataHelper.cloneObject(this.attributeModels);
-          this.attributeModels = {};
-          this.set("attributeModels", attributeModels);
-          this.reloadGrid();
 
           if (!_.isEmpty(this._notFoundEntityTypes)) {
               let messageContent = this._notFoundEntityTypes.join(", ");
@@ -839,6 +844,18 @@ class RockEntitySearchResult extends mixinBehaviors([RUFBehaviors.AppBehavior,
               if (this._notFoundEntityTypes.length === this._selectedEntityTypesCount) {
                   this.fireBedrockEvent('grid-load-error');
               }
+          }
+
+          if (_.isEmpty(attributeModels)) {
+              this.logError("rock-entity-search-result - Empty attribute models", this._selectedEntityTypes);
+              /**
+              * TODO: We need to change the event to show permissions error.
+              * */
+              this.fireBedrockEvent('grid-load-error');
+          } else {
+              this.attributeModels = {};
+              this.set("attributeModels", attributeModels);
+              this.reloadGrid();
           }
           this._selectedEntityTypes = [];
           this._notFoundEntityTypes = [];

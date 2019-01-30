@@ -227,7 +227,6 @@ DataObjectFalcorUtil.CONTEXT_KEY_DEFAULT_VAL = 'xzx';
 DataObjectFalcorUtil.CONST_ANY = '_ANY';
 DataObjectFalcorUtil.CONST_ALL = '_ALL';
 DataObjectFalcorUtil.CONST_CTX_PROPERTIES = 'INTERNAL_CTX_PROPERTIES';
-DataObjectFalcorUtil.CONST_DATAOBJECT_METADATA_FIELDS = 'INTERNAL_DATAOBJECT_METADATA_FIELDS';
 
 DataObjectFalcorUtil.getPathKeys = function () {
     return {
@@ -318,6 +317,10 @@ DataObjectFalcorUtil.transformToExternal = function (dataObject) {
         return transDataObject;
     }
 
+    let dataObj = DataObjectFalcorUtil.getOrCreate(transDataObject, "data", {});
+    let dataAttrs = DataObjectFalcorUtil.getOrCreate(dataObj, "attributes", {});
+    let dataRels = DataObjectFalcorUtil.getOrCreate(dataObj, "relationships", {});
+
     for (let dataObjectField in dataObject) {
         if (dataObjectField != 'data') {
             transDataObject[dataObjectField] = dataObject[dataObjectField];
@@ -355,19 +358,6 @@ DataObjectFalcorUtil.transformToExternal = function (dataObject) {
 
                 if (enContextData.jsonData) {
                     transContextsItem.jsonData = enContextData.jsonData;
-                }
-
-                //read dataobject' metadata fields from the attributes.metadataFields, if available
-                if (transContextsItem.attributes && transContextsItem.attributes[DataObjectFalcorUtil.CONST_DATAOBJECT_METADATA_FIELDS]) {
-
-                    if (transContext.selfContext) {
-                        let metadataFields = DataObjectFalcorUtil.transformPropertiesToExternal(transContextsItem.attributes[DataObjectFalcorUtil.CONST_DATAOBJECT_METADATA_FIELDS]);
-                        for (let dataObjectField in metadataFields) {
-                            transDataObject[dataObjectField] = metadataFields[dataObjectField];
-                        }
-                    }
-
-                    delete transContextsItem.attributes[DataObjectFalcorUtil.CONST_DATAOBJECT_METADATA_FIELDS];
                 }
 
                 //read context's properties from the attributes.properties, if available

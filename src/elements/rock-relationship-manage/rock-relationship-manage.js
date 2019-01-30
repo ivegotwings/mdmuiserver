@@ -177,7 +177,7 @@ class RockRelationshipManage
           },
           relationshipChunkLength: {
               type: Number,
-              value: 3
+              value: 10
           },
           dataIndex: {
               type: String,

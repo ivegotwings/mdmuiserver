@@ -23,13 +23,14 @@ import '../bedrock-style-manager/styles/bedrock-style-flex-layout.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
 import '../bedrock-style-manager/styles/bedrock-style-icons.js';
 import '../bedrock-style-manager/styles/bedrock-style-heading.js';
+import '../bedrock-style-manager/styles/bedrock-style-scroll-bar.js';
 import '../pebble-button/pebble-button.js';
 import ContentTypeHelper from './content-type-helper.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class PebbleFileUpload extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerElement) {
   static get template() {
     return html`
-        <style include="bedrock-style-common bedrock-style-heading bedrock-style-icons bedrock-style-padding-margin bedrock-style-flex-layout">
+        <style include="bedrock-style-common bedrock-style-heading bedrock-style-icons bedrock-style-padding-margin bedrock-style-flex-layout bedrock-style-scroll-bar">
             :host {
                 display: block;
                 margin: 0 24px;
@@ -41,6 +42,7 @@ class PebbleFileUpload extends mixinBehaviors([RUFBehaviors.UIBehavior], Polymer
             .progress-zone {
                 height: 100%;
                 border: 2px dotted var(--pebble-file-upload-zone-border-color, #D3DAE1);
+                min-height: min-content;
                 @apply --layout-vertical;
                 @apply --layout-center-center;
                 @apply --pebble-file-upload-zone;
@@ -53,6 +55,8 @@ class PebbleFileUpload extends mixinBehaviors([RUFBehaviors.UIBehavior], Polymer
 
             #main {
                 height: 100%;
+                overflow-y:auto;
+                overflow-x:hidden;
                 background-color: var(--table-row-odd-bg-color, #F9FBFD);
                 color: var(--palette-dark, #1a2028);
             }

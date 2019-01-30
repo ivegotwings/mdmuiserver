@@ -167,7 +167,7 @@ app.get('/*', function (req, res) {
             url = url.replace("/" + tenantId, "");
         }
 
-        let staticPath = "/static/es6-bundled";
+        let staticPath = "/build/ui-platform/static/es6-unbundled";
 
         if (url.indexOf("/node_modules/") > -1) {
             url = url.replace("/node_modules/", staticPath + "/node_modules/");

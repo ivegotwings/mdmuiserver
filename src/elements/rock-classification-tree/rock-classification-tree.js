@@ -94,10 +94,10 @@ class RockClassificationTree extends mixinBehaviors([RUFBehaviors.UIBehavior], O
                         </div>
                     </template>
                 </div>
-            </div>
-            <div hidden\$="[[_classificationsFound]]" class="status-error">No Classifications Found</div>
-            <div class="base-grid-structure-child-2" hidden\$="[[!_classificationsFound]]">
-                <pebble-tree id="contextTree" class="contextTree" leaf-node-only="[[leafNodeOnly]]" data="{{classifications}}" check-child-nodes="[[checkChildNodes]]" default-child-depth="10" selected-items="{{_selectedItems}}" selected-item="{{_selectedItem}}" multi-select="[[multiSelect]]" disable-child-node="[[disableChildNode]]" hide-leaf-node-checkbox="[[hideLeafNodeCheckbox]]" check-parent-nodes="[[checkParentNodes]]"></pebble-tree>
+            </div>            
+            <div class="base-grid-structure-child-2">
+            <div hidden\$="[[_classificationsFound]]" class="default-message">No Classifications Found</div>
+                <pebble-tree id="contextTree" class="contextTree" leaf-node-only="[[leafNodeOnly]]" data="{{classifications}}" check-child-nodes="[[checkChildNodes]]" default-child-depth="10" selected-items="{{_selectedItems}}" selected-item="{{_selectedItem}}" multi-select="[[multiSelect]]" disable-child-node="[[disableChildNode]]" hide-leaf-node-checkbox="[[hideLeafNodeCheckbox]]" check-parent-nodes="[[checkParentNodes]]" hidden\$="[[!_classificationsFound]]"></pebble-tree>
             </div>
         </div>
         <bedrock-pubsub event-name="tree-node-child-list-refreshed" handler="_childListRefreshed"></bedrock-pubsub>
@@ -454,11 +454,11 @@ class RockClassificationTree extends mixinBehaviors([RUFBehaviors.UIBehavior], O
           delete itemContext.relationshipsCriterion;
       }
 
-      let req = DataRequestHelper.createEntityGetRequest(contextData);
+      let req = DataRequestHelper.createEntityGetRequest(contextData, true);
       if (searchKeyword) {
-          let attributesCriterion = [];
+          let _attributesCriterion = [];
           //To avoid other rootNode classifications search
-          attributesCriterion.push({
+          _attributesCriterion.push({
               "rootexternalname": {
                   "eq": this.rootNodeExternalName,
                   "type": "_STRING"
@@ -467,13 +467,10 @@ class RockClassificationTree extends mixinBehaviors([RUFBehaviors.UIBehavior], O
           //externalName search
           if (this._classificationExtNameAttr) {
               let attrObj = {};
-              attrObj[this._classificationExtNameAttr] = {
-                  "contains": searchKeyword,
-                  "type": "_STRING"
-              }
-              attributesCriterion.push(attrObj);
-          }
-          req.params.query.filters.attributesCriterion = attributesCriterion;
+              attrObj = DataRequestHelper.createFilterCriteria("attributesCriterion",searchKeyword,this._classificationExtNameAttr);
+              _attributesCriterion.push(attrObj["attributesCriterion"][0]);
+            }
+          req.params.query.filters.attributesCriterion = _attributesCriterion;
       }
       //requesting for "externalnamepath" to get all attribute paths
       if(DataHelper.isValidObjectPath(req, 'params.fields.attributes')) {
@@ -642,7 +639,16 @@ class RockClassificationTree extends mixinBehaviors([RUFBehaviors.UIBehavior], O
   }
 
   _getClassificationsEntityGetRequest() {
-      let request = DataRequestHelper.createEntityGetRequest(this.contextData, true);
+      /**
+     * When entity data get request has context, selfContext is not
+     * part of request any more. Data will be fetched only from requested context.
+     * As classification root node won't be extended to different contexts,
+     * it must be brought from self context always. Hence contexts should not
+     * be passed in get request.
+     * */
+      let clonedContextData = DataHelper.cloneObject(this.contextData);
+      clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
+      let request = DataRequestHelper.createEntityGetRequest(clonedContextData, true);
       //Update attributes type and id
       request.params.fields.attributes = [this._classificationExtNameAttr];
       request.params.query.filters.typesCriterion = ["classification"];

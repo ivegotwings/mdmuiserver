@@ -311,16 +311,23 @@ RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
 
         let jsonDataPath = this._getJsonDataPath(reqData, basePath, ctxKeys);
 
-        if (isRelationshipsRequested || jsonDataPath) {
-            let dataObjectFieldsPath = utils.mergePathSets(basePath, [dataObjectFields]);
-            paths.push(dataObjectFieldsPath);
-        } else {
-            if (!reqData.params.fields.attributes) {
-                reqData.params.fields.attributes = [];
-            }
+        let dataObjectFieldsPath = utils.mergePathSets(basePath, [dataObjectFields]);
+        paths.push(dataObjectFieldsPath);
 
-            reqData.params.fields.attributes.push(utils.CONST_DATAOBJECT_METADATA_FIELDS);
+        if (!reqData.params.fields.attributes) {
+            reqData.params.fields.attributes = [];
         }
+
+        // if (isRelationshipsRequested || jsonDataPath) {
+        //     let dataObjectFieldsPath = utils.mergePathSets(basePath, [dataObjectFields]);
+        //     paths.push(dataObjectFieldsPath);
+        // } else {
+        //     if (!reqData.params.fields.attributes) {
+        //         reqData.params.fields.attributes = [];
+        //     }
+
+        //     reqData.params.fields.attributes.push(utils.CONST_DATAOBJECT_METADATA_FIELDS);
+        // }
 
         let attributesPath = this._getAttributesPath(reqData, basePath, ctxKeys, valCtxKeys);
 
@@ -670,7 +677,6 @@ RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
 
             if (loadAllFlags.loadAttributeNames) {
                 reqData.params.fields.attributes = _.uniq(allAttrNames);
-                reqData.params.fields.attributes.push(utils.CONST_DATAOBJECT_METADATA_FIELDS);
             }
 
             if (loadAllFlags.loadRelationshipsTypes) {
@@ -765,22 +771,25 @@ RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
             }
         }
 
-        let selfContext = utils.getSelfCtx();
+        let relatedDataObjectAttrs = _.isEmpty(reqData.params.fields.relatedEntityAttributes) ? false : true;
+        if(clonedContexts.length < 1 || this.dataIndex != "entityData" || relatedDataObjectAttrs) {
+            let selfContext = utils.getSelfCtx();
 
-        if (coalesceOptions) {
-            let selfCoalescedOptions = utils.cloneObject(coalesceOptions);
-            if (selfCoalescedOptions.enhancerAttributes) {
-                for (let enhancerAttribute of selfCoalescedOptions.enhancerAttributes) {
-                    if (enhancerAttribute && enhancerAttribute.contexts) {
-                        delete enhancerAttribute.contexts;
+            if (coalesceOptions) {
+                let selfCoalescedOptions = utils.cloneObject(coalesceOptions);
+                if (selfCoalescedOptions.enhancerAttributes) {
+                    for (let enhancerAttribute of selfCoalescedOptions.enhancerAttributes) {
+                        if (enhancerAttribute && enhancerAttribute.contexts) {
+                            delete enhancerAttribute.contexts;
+                        }
                     }
                 }
+
+                selfContext["coalesceOptions"] = selfCoalescedOptions;
             }
 
-            selfContext["coalesceOptions"] = selfCoalescedOptions;
+            clonedContexts.push(selfContext);
         }
-
-        clonedContexts.push(selfContext);
 
         return utils.createCtxKeys(clonedContexts);
     },
@@ -790,7 +799,6 @@ RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
         let utils = SharedUtils.DataObjectFalcorUtil;
 
         let attributesPath = undefined;
-        //var attrs = [utils.CONST_DATAOBJECT_METADATA_FIELDS];
         let attrs = [];
 
         if (reqData.params.fields.attributes !== undefined && reqData.params.fields.attributes.length > 0) {

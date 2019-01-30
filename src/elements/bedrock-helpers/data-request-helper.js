@@ -172,7 +172,7 @@ DataRequestHelper.createEntityGetRequest = function (contextData, addDefaultCont
         req.params.fields["properties"] = properties;
     }
 
-    if (domain) {
+    if (!_.isEmpty(domain)) {
         req.params.query.domain = domain;
     }
 
@@ -1339,10 +1339,11 @@ DataRequestHelper.createGetAttributeModelRequest = function (types, attributes) 
     if (!attributes || attributes.length == 0) {
         attributes = "_ALL";
     }
-
-    for (let i = 0; i < types.length; i++) {
-        let type = types[i];
-        ids.push(type + "_attributeModel");
+    if(!_.isEmpty(types)){
+        for (let i = 0; i < types.length; i++) {
+            let type = types[i];
+            ids.push(type + "_attributeModel");
+        }
     }
 
     let req = {
@@ -1362,7 +1363,9 @@ DataRequestHelper.createGetAttributeModelRequest = function (types, attributes) 
             }
         }
     };
-
+    if(_.isEmpty(ids)){
+        delete req.params.query.ids;
+    }
     return req;
 };
 
@@ -1410,12 +1413,13 @@ DataRequestHelper.createEntityContextGetRequest = function (entityId, entityType
     return req;
 };
 
-DataRequestHelper.createAttributesCriteria = function (searchText, titlePattern, subTitlePattern) {
-    let attributesCriterion = [];
-    let attrObject = {};
+DataRequestHelper.createFilterCriteria = function (criterionType,searchText, titlePattern, subTitlePattern,hasNestedChildAttributes) {
+    let filterCriterion = [];
+    let filterObject = {};
+    let searchKey = {};
+    let searchValue = {};
     if (!_.isEmpty(searchText)) {
         let attributes = [];
-
         if (typeof (titlePattern) !== 'undefined' && titlePattern !== "") {
             if (!attributes.includes(this.titlePattern)) {
                 let titleFields = DataHelper.getAttributesBetweenCurlies(titlePattern);
@@ -1426,46 +1430,66 @@ DataRequestHelper.createAttributesCriteria = function (searchText, titlePattern,
                 }
             }
         }
-
-        if (typeof (subTitlePattern) !== 'undefined' && subTitlePattern !== "") {
-            if (!attributes.includes(subTitlePattern)) {
-                let subTitleFields = DataHelper.getAttributesBetweenCurlies(subTitlePattern);
-                if (subTitleFields && subTitleFields instanceof Array) {
-                    attributes.push(...subTitleFields);
-                    attrObject["isAttributesCriterionOR"] = true; 
+        if(criterionType == "attributesCriterion"){
+            if(subTitlePattern && subTitlePattern.indexOf("typeExternalName") > -1){
+                subTitlePattern = "";
+            }
+            if (typeof (subTitlePattern) !== 'undefined' && subTitlePattern !== "") {
+                if (!attributes.includes(subTitlePattern)) {
+                    let subTitleFields = DataHelper.getAttributesBetweenCurlies(subTitlePattern);
+                    if (_.isEmpty(subTitleFields)) {
+                        attributes.push(subTitlePattern);
+                        filterObject["isAttributesCriterionOR"] = true; 
+                    }else if (subTitleFields && subTitleFields instanceof Array) {
+                        attributes.push(...subTitleFields);
+                        filterObject["isAttributesCriterionOR"] = true; 
+                        
+                    }
                 }
             }
         }
-
+        
         if (attributes && attributes.length) {
+            let prefix = /^\"/i;
+            let suffix = /^.+\"$/gm;
+            let isPrefixed = prefix.test(searchText);
+            let isSuffixed = suffix.test(searchText);
+            let isExactSearch = false;
+            if (isPrefixed && isSuffixed) {
+                isExactSearch = true;
+            }
+            let operator = "eq";
+            //For Exact Searcvh with Quotes
+            searchText = searchText.trim();
+            if (isExactSearch) {
+                searchText = searchText.replace(/["]+/g, '');
+                operator = "exact";
+            } else {
+                searchText = searchText.replace(/[^a-zA-Z0-9._:*' "]/g, ' ');
+                searchText = searchText.split(" ");
+                let modifiedSearchText = [];
+                searchText.forEach((text) =>{
+                    if(!_.isEmpty(text)){
+                        modifiedSearchText.push(text + "*");
+                    }
+                });
+                searchText = modifiedSearchText.join(" ");
+            }
+            searchValue[operator] = searchText;
             attributes.forEach(function (item) {
-                let searchKey = new Object();
-                let searchValue = new Object();
-                let prefix = /^\"/i;
-                let suffix = /^.+\"$/gm;
-                let isPrefixed = prefix.test(searchText);
-                let isSuffixed = suffix.test(searchText);
-                let isExactSearch = false;
-                if (isPrefixed && isSuffixed) {
-                    isExactSearch = true;
+                if(searchText.indexOf(".") > -1 && criterionType == "propertiesCriterion" && hasNestedChildAttributes){
+                    searchKey["attributeExternalNamePath"] = searchValue;
+                }else{
+                    searchKey[item] = searchValue;
                 }
-                //For Exact Searcvh with Quotes
-                if (isExactSearch) {
-                    // searchValue.eq = "*" + "\""  + searchText + "\"" + "*";
-                    searchText = searchText.replace(/['"]+/g, '');
-                    searchValue.eq = '\"*' + searchText + '*\"';
-
-                    //For Partial Search Scenario
-                } else {
-                    searchValue.eq = searchText + "*";
-                }
-                searchKey[item] = searchValue;
-                attributesCriterion.push(searchKey);
+                filterCriterion.push(searchKey);
             }, this);
         }
     }
-    attrObject["attributesCriterion"] = attributesCriterion
-    return attrObject;
+    if(filterCriterion){
+        filterObject[criterionType] = filterCriterion
+    }
+    return filterObject;
 };
 
 DataRequestHelper.createModelGetRequest = function(contextData) {

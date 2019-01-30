@@ -109,7 +109,7 @@ class DataTableColumnFilter extends PolymerElement {
       <label>[[label]]</label>
     </div>
     <template is="dom-if" if="[[!_isCheckBoxFilter(filterType)]]">
-      <paper-input placeholder="Search" no-label-float="" value="[[value]]" on-keydown="_keyDown" on-value-changed="_valueChanged">
+      <paper-input placeholder="Search" no-label-float="" title\$="[[filterValue]]" value="[[value]]" on-keydown="_keyDown" on-value-changed="_valueChanged">
         <pebble-icon slot="prefix" class="pebble-icon-size-16 m-r-5" noink="" icon="pebble-icon:search-entity"></pebble-icon>
       </paper-input>
     </template>
@@ -130,6 +130,9 @@ class DataTableColumnFilter extends PolymerElement {
       value: {
         type: String,
         notify: true
+      },
+      filterValue:{
+        type:String
       },
       hidden: {
         type: Boolean
@@ -155,6 +158,7 @@ class DataTableColumnFilter extends PolymerElement {
      *the column parent
      */
     let value = e.detail.value;
+    this.filterValue = value;
     let parentDataTable = this._getParentDataTable();
     if (parentDataTable) {
       let tableId = parentDataTable.id;

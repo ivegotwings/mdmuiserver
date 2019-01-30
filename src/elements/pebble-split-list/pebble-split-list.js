@@ -163,7 +163,7 @@ class PebbleSplitList extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerE
                             <h4>Available Fields</h4>
                         </div>
                         <div class="base-grid-structure-child-2">
-                            <pebble-data-table id="{{leftDataTableId}}" disable-select-all="" deleted-items="{{deletedItems}}" page-size="[[pageSize]]" size="{{size}}" selection-enabled="" multi-selection="[[config.tabular.settings.isMultiSelect]]" r-data-source="[[rDataSource]]" items="{{items}}">
+                            <pebble-data-table id="{{leftDataTableId}}" disable-select-all="" deleted-items="{{deletedItems}}" page-size="[[pageSize]]" size="{{size}}" selection-enabled="" multi-selection="[[config.tabular.settings.isMultiSelect]]" r-data-source="[[rDataSource]]" min-filter-length="[[minFilterLength]]">
                                 <template is="dom-repeat" items="[[config.tabular.fields]]" as="col" index-as="colIndex">
                                     <data-table-column slot="column-slot" name="[[col.header]]" column-index="{{colIndex}}" filter-by="[[_isFilterEnabled(col)]]" sort-by="[[_isSortable(col)]]" icon="pebble-icon:action-edit" class="pebble-icon-size-16" column-object="[[col]]">
                                         <template>
@@ -189,7 +189,7 @@ class PebbleSplitList extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerE
                             <h4>Selected Fields</h4>
                         </div>
                         <div class="base-grid-structure-child-2">
-                            <pebble-data-table id="{{rightDataTableId}}" selection-enabled="" multi-selection="[[config.tabular.settings.isMultiSelect]]" items="[[selectedItems]]">
+                            <pebble-data-table id="{{rightDataTableId}}" selection-enabled="" multi-selection="[[config.tabular.settings.isMultiSelect]]" items="[[selectedItems]]" min-filter-length="[[minFilterLength]]">
                                 <template is="dom-repeat" items="[[config.tabular.fields]]" as="col" index-as="colIndex">
                                     <data-table-column slot="column-slot" name="[[col.header]]" column-index="{{colIndex}}" filter-by="[[_isFilterEnabled(col)]]" sort-by="[[_isSortable(col)]]" icon="pebble-icon:action-edit" class="pebble-icon-size-16" column-object="[[col]]">
                                         <template>
@@ -248,7 +248,7 @@ class PebbleSplitList extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerE
 
           pageSize: {
               type: Number,
-              value: 50
+              value: 200
           },
 
           deletedItems: {
@@ -296,7 +296,11 @@ class PebbleSplitList extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerE
 
           rightTableObj: {
               type: Object
-          }
+          },
+          minFilterLength: {
+            type: Number,
+            value: 1
+        }
       };
   }
 

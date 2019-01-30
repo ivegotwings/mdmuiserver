@@ -873,7 +873,11 @@ class RockContextSelector
   _onEntityLovConfirmButtonTapped(event) {
       this._isFirstContextLoad = false;
       this._currentLovEvent = event;
-      this._updateSelectedDimensions();
+      let isContextChangedManually = false;
+      if(DataHelper.isValidObjectPath(event, "detail.data.id") && event.detail.data.id === "context-lov") {
+          isContextChangedManually = true;
+      }
+      this._updateSelectedDimensions(isContextChangedManually);
       this._toggleLovPopover(this._currentContextSelector.popover);
   }
 
@@ -889,14 +893,14 @@ class RockContextSelector
       return false;
   }
 
-  _updateSelectedDimensions() {
+  _updateSelectedDimensions(isContextChangedManually) {
       Debouncer.debounce(this._debouncer, timeOut.after(500), () => {
-          this._setSelectedDimensions();
+          this._setSelectedDimensions(isContextChangedManually);
           this._updateCurrentContextState();
       });
   }
 
-  _setSelectedDimensions() {
+  _setSelectedDimensions(isContextChangedManually) {
       //On page refresh set from navigationData
       let defaultDimensions = [];
       if (!_.isEmpty(this.navigationData) && this._isFirstContextLoad) {
@@ -986,6 +990,15 @@ class RockContextSelector
               }
           }
           this.set("selectedDimensions", selectedDimensions);
+          if(isContextChangedManually) {
+              let contextLov = this.shadowRoot.querySelector("#context-lov");
+              let noOfSelectedContexts = contextLov.selectedItems ? contextLov.selectedItems.length : 0;
+              if(contextLov && noOfSelectedContexts < 2 && contextLov.rData && !_.isEmpty(contextLov.rData.mappedValueContexts)) {
+                  let valCtxType = contextLov.rData.mappedValueContexts[0].valueContext;
+                  this.selectedDimensions[valCtxType] = [];
+                  return;
+              }
+          }
           Debouncer.debounce(this._debouncer, timeOut.after(500), () => {
               this.fireBedrockEvent("context-selector-data-changed", eventDetail);
           });
@@ -1198,8 +1211,9 @@ class RockContextSelector
                                                               defaultValCtxIds[relEntityType] = [];
                                                           }
                                                       }
-
-                                                      valCtxIds[relEntityType].push(relId);
+                                                      if(valCtxIds[relEntityType].indexOf(relId) === -1) {
+                                                        valCtxIds[relEntityType].push(relId);
+                                                      }
                                                   });
                                               }
                                           });
@@ -1214,7 +1228,7 @@ class RockContextSelector
                   };
 
                   let ctxGetError = (e) => {
-                      console.logError('Value context dependecy get failed based on current selected contexts', e.detail);
+                      this.logError('Value context dependecy get failed based on current selected contexts', e.detail);
                   }
 
                   liquidElement.addEventListener("response", ctxGetResponse.bind(this));
@@ -1230,6 +1244,7 @@ class RockContextSelector
   }
 
   _updateCurrentValContextState(dependentLovRelationships) {
+      let lovResetDone = false;
       this.configData.forEach(function (item) {
           let ctxKey = item.id;
           let lovElement = this.$$('#' + ctxKey + '-lov');
@@ -1257,7 +1272,7 @@ class RockContextSelector
                               lovElement.selectedItems = this.selectedDimensionsDetail[ctxType];
                               lovElement.selectedItem = !_.isEmpty(lovElement.selectedItems) ? lovElement.selectedItems[0] : {};
                               lovElement.requestData = reqData;
-
+                              lovResetDone = true;
                               lovElement.reset();
                           }
                       }
@@ -1272,7 +1287,9 @@ class RockContextSelector
           localeLovButton.disabled = false;
       }
 
-      this._setSelectedDimensions();
+      if(!lovResetDone) {
+        this._setSelectedDimensions();
+      }
   }
 
   _isRootContextChanged() {

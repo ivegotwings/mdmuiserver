@@ -785,6 +785,7 @@ Eventservice.prototype = {
                             eventAttributes["recordCount"] = attributes["totalRecords"];
                             eventAttributes["profileName"] = attributes["profileName"];
                             eventAttributes["hasChildTasks"] = attributes["hasChildTasks"];
+                            eventAttributes["fileExtension"] = attributes["fileExtension"];
                             eventAttributes["isExtractComplete"] = attributes["isExtractComplete"];
                             eventAttributes["createdOn"] = {"values": [
                                 {
@@ -1092,13 +1093,6 @@ Eventservice.prototype = {
         attributesCriteria.push(impactedEventCriterion);
 
         req.params.query.filters.attributesCriterion = attributesCriteria;
-
-        req.params.sort = {
-            "properties": [{
-                "createdDate": "_ASC",
-                "sortType": "_DATETIME"
-            }]
-        };
 
         req.params.options = {
             "maxRecords": totalRecords
@@ -1461,7 +1455,7 @@ Eventservice.prototype = {
                 case "ui_governancemodel":
                     taskType = "Governance Model Imports"
                     break;
-                case "ui_authorizationmodel":
+                case "ui_authorizationappmodel":
                     taskType = "Authorization Model Imports"
                     break;
                 case "ui_workflowappmodel":
@@ -1476,7 +1470,7 @@ Eventservice.prototype = {
                 case "ui_instancedatamodel_export":
                     taskType = "Instance Data Model Exports"
                     break;    
-                case "ui_authorizationmodel_export":
+                case "ui_authorizationappmodel_export":
                     taskType = "Authorization Model Exports"
                     break;
                 case "ui_workflowappmodel_export":

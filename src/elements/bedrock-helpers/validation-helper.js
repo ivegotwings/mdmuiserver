@@ -74,7 +74,7 @@ ValidationHelper.numberRangeValidator=function(value, min, max, minInclusive, ma
 };
 
 ValidationHelper.emailValidator=function(input) {
-    let regex = /^([a-zA-Z0-9_.+-])+\@(([a-zA-Z0-9-])+\.)+([a-zA-Z0-9]{2,4})+$/;
+    let regex = /^([a-zA-Z0-9_\-\.]+)@([a-zA-Z0-9_\-\.]+)\.([a-zA-Z]{2,5})$/;
     return regex.test(input);
 };
 

@@ -68,25 +68,23 @@ extends mixinBehaviors([
             <template is="dom-if" if="[[!isPartOfBusinessFunction]]">
                 <pebble-button elevation="1" raised="" on-tap="_onTriggerEvent" data-args="onCancel" class="btn btn-primary m-r-5" id="cancelEvent" button-text="Cancel"></pebble-button>
             </template>
-            <pebble-button elevation="1" raised="" on-tap="_onTriggerEvent" data-args="onSave" class="btn btn-success" id="nextEvent" button-text="Save" disabled\$="[[!allowSaveClassifications]]"></pebble-button>
+            <pebble-button elevation="1" raised="" on-tap="_onTriggerEvent" data-args="onSave" class="btn btn-success" id="nextEvent" button-text="Save" disabled\$="[[!allowSaveContexts]]"></pebble-button>
         </div>
         <div class="button-siblings">
             <div class="base-grid-structure" align="center">
                 <div class="tree-heading base-grid-structure-child-1">
-                    <p class="status-error status-text" hidden\$="[[allowSaveClassifications]]">Do not have permissions to edit/save Contexts, contact administrator.</p>
+                    <p class="status-error status-text" hidden\$="[[allowSaveContexts]]">Do not have permissions to [[_permissionType]] contexts, contact administrator</p>
                 </div>
                 <div class="base-grid-structure-child-2">
-                    <rock-context-tree id="contextTree" selected-contexts-data="{{_selectedItems}}" context-data="[[contextData]]" multi-select="[[multiSelect]]" check-child-nodes="[[checkChildNodes]]" disable-child-node="[[disableChildNode]]" check-parent-nodes="[[checkParentNodes]]" leaf-node-only="[[leafNodeOnly]]" loading="[[showLoading]]"></rock-context-tree>
+                    <rock-context-tree id="contextTree" hidden\$="[[!allowReadContexts]]" selected-contexts-data="{{_selectedItems}}" context-data="[[contextData]]" multi-select="[[multiSelect]]" check-child-nodes="[[checkChildNodes]]" disable-child-node="[[disableChildNode]]" check-parent-nodes="[[checkParentNodes]]" leaf-node-only="[[leafNodeOnly]]" loading="[[showLoading]]"></rock-context-tree>
                 </div>
             </div>
         </div>
-        <liquid-entity-data-get id="taxonomyGetDataService" operation="getbyids" request-data="{{_taxonomyRequest}}" on-response="_onTaxonomyResponse"></liquid-entity-data-get>
         <liquid-entity-data-save id="attributeSaveDataService" operation="update" data-index\$="[[dataIndex]]" request-data="{{_saveRequest}}" on-response="_onSaveResponse"></liquid-entity-data-save>
         <liquid-entity-model-get id="getAuthModel" operation="getbyids" on-response="_onAuthModelReceived" on-error="_onAuthModelFailed"></liquid-entity-model-get>
         <liquid-rest id="contextLiquid" url="[[_getContextURL]]" method="POST" request-data="{{requestData}}" on-liquid-response="_onResponseReceived" exclude-in-progress="">
         </liquid-rest>
-        <liquid-rest id="taxonomyModelGet" url="/data/pass-through/entitymodelservice/get" method="POST" request-data="{{_taxonomyModelRequest}}" on-liquid-response="_onTaxonomyModelGetResponse"></liquid-rest>
-        <liquid-rest id="asyncReclassification" url="/data/pass-through/bulkentityservice/createtask" method="POST" on-liquid-response="_onAsyncReclassificationSuccess" on-liquid-error="_onAsyncReclassificationFailure"></liquid-rest>
+        <liquid-rest id="asyncSaveContexts" url="/data/pass-through/bulkentityservice/createtask" method="POST" on-liquid-response="_onAsyncSaveContextsSuccess" on-liquid-error="_onAsyncSaveContextsFailure"></liquid-rest>
         <pebble-dialog id="confirmationDialog" dialog-title="Confirmation" button-ok-text="Save" button-cancel-text="Discard" modal="" alert-box="" show-cancel="" show-ok="" no-cancel-on-outside-click="" no-cancel-on-esc-key="">
         <p>Unsaved changes identified, do you want to save your changes?</p>
     </pebble-dialog>
@@ -123,11 +121,6 @@ extends mixinBehaviors([
               }
           },
 
-          taxonomy: {
-              type: String,
-              value: ""
-          },
-
           //To-do BF V2 Cleanup, use finishStepData
           businessFunctionData: {
               type: Object,
@@ -153,13 +146,6 @@ extends mixinBehaviors([
               }
           },
           
-          _entitiesCurrentClassifications: {
-              type: Object,
-              value: function () {
-                  return {};
-              }
-          },
-          
           _liquidSaveElement: {
               type: Object,
               value: function () {
@@ -173,30 +159,6 @@ extends mixinBehaviors([
           leafNodeOnly: {
               type: Boolean,
               value: false
-          },
-
-          _taxonomyExtName: {
-              type: String,
-              value: ""
-          },
-
-          _taxonomyExtNameAttr: {
-              type: String,
-              value: ""
-          },
-
-          _taxonomyRequest: {
-              type: Object,
-              value: function () {
-                  return {};
-              }
-          },
-
-          _taxonomyModelRequest: {
-              type: Object,
-              value: function () {
-                  return {};
-              }
           },
 
           _getContextURL: {
@@ -233,12 +195,11 @@ extends mixinBehaviors([
               }
           },
 
-          _asyncReclassificationRequest: {
+          _asyncSaveContextsRequest: {
               type: Object,
               value: function () {
                   return {
                       "params": {
-                          "reclassification": true,
                           "operationType": "inboundService",
                           "data": {
                               "contexts": []
@@ -248,9 +209,9 @@ extends mixinBehaviors([
               }
           },
 
-          _bulkReclassificationErrorMessage: {
+          _bulkSaveContextsErrorMessage: {
               type: String,
-              value: "Failed to perform the Bulk reclassification. Contact administrator."
+              value: "Failed to perform the Bulk context updates. Contact administrator"
           },
 
           componentEvents: {
@@ -260,7 +221,12 @@ extends mixinBehaviors([
               }
           },
 
-          allowSaveClassifications: {
+          allowReadContexts: {
+              type: Boolean,
+              value: true
+          },
+
+          allowSaveContexts: {
               type: Boolean,
               value: true
           },
@@ -284,13 +250,17 @@ extends mixinBehaviors([
           showLoading:{
               type:Boolean,
               value:false
+          },
+          _permissionType: {
+              type: String,
+              value: "edit/save"
           }
       };
   }
 
   static get observers() {
       return [
-          '_onContextOrTaxonomyChange(contextData, taxonomy)',
+          '_onContextChange(contextData)',
           '_onSelectedItemsChange(_selectedItems.*)'
       ];
   }
@@ -310,10 +280,6 @@ extends mixinBehaviors([
 
   connectedCallback() {
       super.connectedCallback();
-
-      if (!this.taxonomy || this.taxonomy == "undefined") {
-          this.taxonomy = this.appSetting("dataDefaults").taxonomy;
-      }
   }
 
   disconnectedCallback() {
@@ -325,8 +291,8 @@ extends mixinBehaviors([
       this._liquidSaveElement = this.shadowRoot.querySelector("#attributeSaveDataService");
   }
 
-  _onContextOrTaxonomyChange() {
-      if (this.taxonomy && !_.isEmpty(this.contextData)) {
+  _onContextChange() {
+      if (!_.isEmpty(this.contextData)) {
           if (this.isPartOfBusinessFunction) {
               let context = DataHelper.cloneObject(this.contextData);
               //App specific
@@ -378,83 +344,22 @@ extends mixinBehaviors([
 
   _onAuthModelReceived(e, detail) {
       if (detail && DataHelper.isValidObjectPath(detail, "response.content.entityModels.0.properties.contextsPermission.0")) {
-          this.allowSaveClassifications = detail.response.content.entityModels[0].properties.contextsPermission[0].writePermission || false;
+          let contextsPermission = detail.response.content.entityModels[0].properties.contextsPermission[0];
+          this.allowReadContexts = contextsPermission.readPermission || false;
+          this.allowSaveContexts = contextsPermission.writePermission || false;
+          if (!this.allowReadContexts) {
+              this._permissionType = "read";
+              this.allowSaveContexts = false;
+          }
       }
-      this._getTaxonomyManageModel();
+      if (this.isBulkProcess) {
+          this._triggerContextsTree();
+      } else {
+          this._prepareGetContextRequest();
+      }
   }
 
   _onAuthModelFailed(e, detail) {
-      this._getTaxonomyManageModel();
-  }
-
-  _getTaxonomyManageModel() {
-      this._taxonomyModelRequest = DataRequestHelper.createGetManageModelRequest(["taxonomy"]);
-
-      let taxonomyModelGetElement = this.$$("#taxonomyModelGet");
-
-      if (taxonomyModelGetElement) {
-          taxonomyModelGetElement.generateRequest();
-      }
-  }
-
-  _onTaxonomyModelGetResponse(e) {
-      let modelErrorMsg = "Entity manage model not found for taxonomy.";
-      if (!e.detail || !e.detail.response || !e.detail.response.response) {
-          this.logError(modelErrorMsg, e.detail);
-          return;
-      }
-
-      let response = e.detail.response.response;
-      if (response && response.entityModels) {
-          let entityModel = response.entityModels[0];
-          let externalNameAndExternalNameAttr = AttributeHelper.getExternalNameAndExternalNameAttr(entityModel);
-
-          if (externalNameAndExternalNameAttr && externalNameAndExternalNameAttr.externalNameAttr) {
-              this._taxonomyExtNameAttr = externalNameAndExternalNameAttr.externalNameAttr;
-              this._getTaxonomy();
-          } else {
-              this.logError("Attribute not found with isExternlName in taxonomy entity manage model", e.detail);
-          }
-      } else {
-          this.logError(modelErrorMsg, e.detail);
-      }
-  }
-
-  _getTaxonomy() {
-      let contextData = DataHelper.cloneObject(this.contextData);
-      let firstItemContext = ContextHelper.getFirstItemContext(contextData);
-      if (firstItemContext) {
-          firstItemContext.type = "taxonomy";
-          firstItemContext.attributeNames = [this._taxonomyExtNameAttr];
-          firstItemContext.id = this.taxonomy;
-          contextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
-          let req = DataRequestHelper.createEntityGetRequest(contextData);
-          delete req.params.options;
-          this._taxonomyRequest = req;
-
-          let taxonomyGetElement = this.$$("#taxonomyGetDataService");
-
-          if (taxonomyGetElement) {
-              taxonomyGetElement.generateRequest();
-          }
-      }
-  }
-
-  _onTaxonomyResponse(e) {
-      if (e && e.detail && e.detail.response) {
-          let res = e.detail.response;
-          if (res && res.content && res.content.entities && res.content.entities.length) {
-              let entity = res.content.entities[0];
-              if (entity && entity.data) {
-                  let attributes = entity.data.attributes;
-
-                  if (attributes && attributes[this._taxonomyExtNameAttr]) {
-                      this._taxonomyExtName = attributes[this._taxonomyExtNameAttr].values && attributes[this._taxonomyExtNameAttr].values.length ? attributes[this._taxonomyExtNameAttr].values[0].value : undefined;
-                  }
-              }
-          }
-      }
-
       if (this.isBulkProcess) {
           this._triggerContextsTree();
       } else {
@@ -464,39 +369,9 @@ extends mixinBehaviors([
 
   //Prepare request get the contexts for the selected entities
   _prepareGetContextRequest() {
-      let contextData = DataHelper.cloneObject(this.contextData);
-      contextData[ContextHelper.CONTEXT_TYPE_VALUE] = [];
-      contextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
-      let triggerRequest = false;
-      let entities = [];
-      let types = [];
-
-      if (this.isBulkProcess) {
-          if (this.selectedEntities && this.selectedEntities.length) {
-              triggerRequest = true;
-          }
-          for (let entityIdx = 0; entityIdx < this.selectedEntities.length; entityIdx++) {
-              entities.push(this.selectedEntities[entityIdx].id);
-              if (types.indexOf(this.selectedEntities[entityIdx].type) == -1) {
-                  types.push(this.selectedEntities[entityIdx].type)
-              }
-          }
-      } else {
-          let firstItemContext = ContextHelper.getFirstItemContext(contextData);
-          if (firstItemContext && firstItemContext.type && firstItemContext.id) {
-              firstItemContext.attributes = [];
-              triggerRequest = true;
-          }
-      }
-
-      if (triggerRequest) {
-          let req = DataRequestHelper.createEntityGetRequest(contextData);
-          req.params.fields.attributes = [];
-          delete req.params.options;
-          if (this.isBulkProcess) {
-              req.params.query.ids = entities;
-              req.params.query.filters.typesCriterion = types;
-          }
+      let firstItemContext = ContextHelper.getFirstItemContext(this.contextData);
+      if (firstItemContext && firstItemContext.id && firstItemContext.type) {
+          let req = DataRequestHelper.createEntityContextGetRequest(firstItemContext.id, firstItemContext.type);
           this.set('requestData', req);
 
           if (!_.isEmpty(this.dataIndex) && this.dataIndex.toLowerCase() == "entitymodel") {
@@ -514,42 +389,17 @@ extends mixinBehaviors([
           let res = e.detail.response.response;
 
           if (res && res.entities && res.entities.length) {
-              //Collect bulk entities currect cassifications
-              if (this.isBulkProcess) {
-                  this._entitiesCurrentClassifications = {};
-                  for (let entityIdx = 0; entityIdx < res.entities.length; entityIdx++) {
-                      let entity = res.entities[entityIdx];
-                      if (entity && entity.data) {
-                          let contexts = entity.data.contexts;
-                          let entityCurrentContexts = [];
-                          for (let ctxIdx = 0; ctxIdx < contexts.length; ctxIdx++) {
-                              let context = contexts[ctxIdx].context;
-                              if (!_.isEmpty(context)) {
-                                  let item = context["classification"];
-                                  if (item) {
-                                      if (context["taxonomy"] == this._taxonomyExtName) {
-                                          entityCurrentContexts.push(item);
-                                      }
-                                  }
-                              }
-                          }
-                          this._entitiesCurrentClassifications[entity.id] = entityCurrentContexts;
-                      }
-                  }
-              } else { //Collect classification for single entity and make it selectable in tree
+              let entity = res.entities[0];
+              if (entity && entity.data) {
+                  let contexts = entity.data.contexts;
+                  let firstDataContext = this.getFirstDataContext(this.contextData);
+                  let primaryContext = firstDataContext;
 
-                  let entity = res.entities[0];
-                  if (entity && entity.data) {
-                      let contexts = entity.data.contexts;
-                      let firstDataContext = this.getFirstDataContext(this.contextData);
-                      let primaryContext = this._getPrimaryContext(firstDataContext);
-
-                      for (let i = 0; i < contexts.length; i++) {
-                          let context = contexts[i].context;
-                          if (!_.isEmpty(context)) {
-                              items.push(Object.values(context));
-                              this._entityCurrentContexts.push(context)
-                          }
+                  for (let i = 0; i < contexts.length; i++) {
+                      let context = contexts[i].context;
+                      if (!_.isEmpty(context)) {
+                          items.push(Object.values(context));
+                          this._entityCurrentContexts.push(context)
                       }
                   }
               }
@@ -620,7 +470,7 @@ extends mixinBehaviors([
               this._triggerAsyncUpdateContexts(); //Trigger async process for 20+ entities OR query selection//Trigger async process for 20+ entities OR query selection
           } else {
               //this._prepareGetContextRequest(); //Trigger bulk process based on selected entities context
-              //Triggering bulk process based on selected classification
+              //Triggering bulk process based on selected contexts
               this._prepareBulkUpdateContextsSaveRequest();
           }
       } else {
@@ -638,26 +488,15 @@ extends mixinBehaviors([
       }
   }
 
-  _getSelectedClassifications() {
-      let originalClassifications = [];
-      for (let ctxIdx = 0; ctxIdx < this.contextData.Contexts.length; ctxIdx++) {
-          originalClassifications.push(this.contextData.Contexts[ctxIdx].classification);
-      }
-
-      return originalClassifications;
-  }
-
   _prepareBulkUpdateContextsSaveRequest() {
       let entities = [];
-      let originalClassifications = [];
       for (let entityIdx = 0; entityIdx < this.selectedEntities.length; entityIdx++) {
           let data = {};
-          data.contexts = this._prepareContexts(this._selectedItems, originalClassifications);
+          data.contexts = this._prepareContexts(this._selectedItems);
           let entity = {
               "id": this.selectedEntities[entityIdx].id,
               "type": this.selectedEntities[entityIdx].type,
-              "data": data,
-              "isReclassification": true
+              "data": data
           };
           entities.push(entity);
       }
@@ -670,7 +509,7 @@ extends mixinBehaviors([
       let deletedcontexts = [];
       let entityCurrentContexts = this.isBulkProcess ? entityContexts : this._entityCurrentContexts;
       let firstDataContext = this.getFirstDataContext(this.contextData);
-      let primaryContext = this._getPrimaryContext(firstDataContext);
+      let primaryContext = firstDataContext
       let contextType = "";
       // Update - For selected items
       for (let i in selectedItems) {
@@ -794,28 +633,12 @@ extends mixinBehaviors([
 
           if (request && request.requestData && request.requestData.entities) {
               let entities = request.requestData.entities;
-              let newClassifiactions = "";
-              //New classifications
-              if (entities[0] && entities[0].data &&
-                  entities[0].data.contexts && entities[0].data.contexts.length) {
-                  let contexts = entities[0].data.contexts;
-                  let classifications = [];
-                  for (let ctxIdx = 0; ctxIdx < contexts.length; ctxIdx++) {
-                      if (contexts[ctxIdx] && contexts[ctxIdx].context &&
-                          contexts[ctxIdx].context.classification) {
-                          classifications.push(contexts[ctxIdx].context.classification);
-                      }
-                  }
-
-                  newClassifiactions = classifications.join(", ");
-              }
 
               for (let entityIdx = 0; entityIdx < entities.length; entityIdx++) {
                   let message = {
                       "Entity Id": entities[entityIdx].id
                   };
 
-                  message["New Classification(s)"] = newClassifiactions;
                   message["Status"] = response.status == "success" ? "Request submitted successfully" : "Request failed";
 
                   this._responseMessages.push(message);
@@ -842,7 +665,7 @@ extends mixinBehaviors([
   }
 
   _triggerFinishStep(isJob, isTriggeredForBulk = true, newlyAddedContexts, ErrorToastMessage) {
-      //Single entity reclassification
+      //Single entity
       if (!this.isBulkProcess) {
           let eventDetail = {
               "action": {
@@ -860,11 +683,13 @@ extends mixinBehaviors([
               }
               this.showSuccessToast(toastMessage);
           }
-          if (this.functionalMode == "dataFunction") {
-              eventDetail.action.name = "business-condition-save-request";
-          };
           let itemCtx = ContextHelper.getFirstItemContext(this.contextData) || {};
           this.dataFunctionComplete({"id": itemCtx.id, "type": itemCtx.type}, [eventDetail], true);
+
+          if (!this.isPartOfBusinessFunction) {                  
+            let eventName = "onSave";
+            this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+          }
 
           return;
       } else {
@@ -874,7 +699,7 @@ extends mixinBehaviors([
           }
       }
 
-      //Bulk reclassification final step starts from here
+      //Bulk contexts save final step starts from here
       let noGrid = false;
       let message = "";
       let actions = [{
@@ -885,7 +710,7 @@ extends mixinBehaviors([
 
       if (isJob) {
           noGrid = true;
-          message = "Reclassification process has started, you can review the progress of the task " + this._taskId + " in task details.";
+          message = "Contexts save process has started, you can review the progress of the task " + this._taskId + " in task details.";
           actions.push({
               "name": "gotoJobDetails",
               "text": "Show me the task details",
@@ -896,7 +721,7 @@ extends mixinBehaviors([
               }
           });
       } else {
-          message = "Reclassification process has started, refresh data grid after some time.";
+          message = "Contexts save process has started, refresh data grid after some time.";
       }
 
       let data = {
@@ -937,51 +762,37 @@ extends mixinBehaviors([
       return false;
   }
 
-  _getPrimaryContext(dataContext) {
-      let primaryContext = {};
-      if (!_.isEmpty(dataContext)) {
-          Object.keys(dataContext).forEach(function (item) {
-              //TODO:: For now "taxonomy" and "classification" dimensions are considered as additional for extension manage. Need to correct it with proper design.
-              if (item.toLowerCase() != "taxonomy" && item.toLowerCase() != "classification") {
-                  primaryContext[item] = dataContext[item];
-              }
-          }, this);
-      }
-      return primaryContext;
-  }
-
   _triggerAsyncUpdateContexts() {
-      let asyncLiqReclassification = this.shadowRoot.querySelector("#asyncReclassification");
-      let reclassificationRequest = DataHelper.cloneObject(this._asyncReclassificationRequest);
+      let asyncLiqSaveContexts = this.shadowRoot.querySelector("#asyncSaveContexts");
+      let saveContextsRequest = DataHelper.cloneObject(this._asyncSaveContextsRequest);
 
-      if (!asyncLiqReclassification) {
-          this.logError("BulkReclassificationError:- Liquid component not available to trigger create task");
+      if (!asyncLiqSaveContexts) {
+          this.logError("BulkSaveContextsError:- Liquid component not available to trigger create task");
           return;
       }
 
       //Add hotline flag if hotline is enabled
       if (DataHelper.isHotlineModeEnabled()) {
-          reclassificationRequest.hotline = true;
+          saveContextsRequest.hotline = true;
       }
 
       if (this.selectionQuery.params && this.selectionQuery.params.isCombinedQuerySearch) {
-          asyncLiqReclassification.url = "/data/pass-through-combined-query/bulkentityservice/createtask";
-          reclassificationRequest.params.taskType = "process-multi-query";
-          reclassificationRequest.entities = [this.selectionQuery.entity];
+          asyncLiqSaveContexts.url = "/data/pass-through-combined-query/bulkentityservice/createtask";
+          saveContextsRequest.params.taskType = "process-multi-query";
+          saveContextsRequest.entities = [this.selectionQuery.entity];
       } else {
-          reclassificationRequest.params.taskType = "process-query";
-          reclassificationRequest.params.query = this.selectionQuery.params ? this.selectionQuery.params.query : this.selectionQuery;
+          saveContextsRequest.params.taskType = "process-query";
+          saveContextsRequest.params.query = this.selectionQuery.params ? this.selectionQuery.params.query : this.selectionQuery;
       }
 
-      let originalClassifications = [];
-      reclassificationRequest.params.data.contexts = this._prepareContexts(this._selectedItems, originalClassifications);
+      saveContextsRequest.params.data.contexts = this._prepareContexts(this._selectedItems);
 
       //Add clientAttributes
       let valueContext = ContextHelper.getFirstValueContext(this.contextData);
       let userContext = ContextHelper.getFirstUserContext(this.contextData);
-      let clientMessage = "Bulk reclassification";
+      let clientMessage = "Bulk contexts update";
 
-      reclassificationRequest.clientAttributes = {
+      saveContextsRequest.clientAttributes = {
           "taskName": {
               "values": [{
                   "source": valueContext.source,
@@ -991,18 +802,18 @@ extends mixinBehaviors([
           }
       };
 
-      asyncLiqReclassification.requestData = reclassificationRequest;
-      asyncLiqReclassification.generateRequest();
+      asyncLiqSaveContexts.requestData = saveContextsRequest;
+      asyncLiqSaveContexts.generateRequest();
   }
 
-  _onAsyncReclassificationSuccess(e, detail) {
+  _onAsyncSaveContextsSuccess(e, detail) {
       let response = e.detail.response && e.detail.response.response ? e.detail.response.response : e.detail.response;
       let request = e.detail.response ? e.detail.response.request : undefined;
 
       if ((!response || _.isEmpty(response)) ||
           (DataHelper.isValidObjectPath(response, "dataObjectOperationResponse.status") && response.dataObjectOperationResponse.status.toLowerCase() == "error") ||
           (response.status && response.status.toLowerCase() == "error")) {
-          this.logError("BulkReclassificationError", response);
+          this.logError("BulkSaveContextsError", response);
           return;
       } else {
           if (response.status && response.status.toLowerCase() == "success") {
@@ -1015,8 +826,8 @@ extends mixinBehaviors([
       }
   }
 
-  _onAsyncReclassificationFailure(e, detail) {
-      this.logError("BulkReclassificationError", e.detail);
+  _onAsyncSaveContextsFailure(e, detail) {
+      this.logError("BulkSaveContextsError", e.detail);
   }
 
   _onTriggerEvent(e, detail) {
