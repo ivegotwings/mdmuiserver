@@ -1638,6 +1638,9 @@ DataTransformHelper.transformAtributeModelsToLovSchema = function (attributeMode
             if(!_.isEmpty(attributeModel.attributeExternalNamePath)){
                 attributeModel.title = attributeModel.attributeExternalNamePath;
             }
+            if(!_.isEmpty(attributeModel.attributeNamePath)){
+                attributeModel.name = attributeModel.attributeNamePath;
+            }
             formattedAttributeModels.push(attributeModel);
         }
     }
