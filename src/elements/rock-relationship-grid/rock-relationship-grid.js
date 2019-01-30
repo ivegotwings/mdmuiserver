@@ -2407,7 +2407,13 @@ class RockRelationshipGrid
     let contextData = DataHelper.cloneObject(this.contextData);
     //delete this.contextData.ItemContexts[0];
     contextData.ItemContexts[0] = { "type": relatedEntityTypes[0], "relationship": this.relationship };
-    let domain = DataHelper.isValidObjectPath(this.contextData, "ItemContexts.0.domain") ? this.contextData.ItemContexts[0].domain : undefined;
+    let domain;
+    if(DataHelper.isValidObjectPath(this.contextData, "ItemContexts.0.domain") && !_.isEmpty(this.contextData.ItemContexts[0].domain)){
+      domain = this.contextData.itemContexts[0].domain;
+    }
+    else{
+      domain = this.domain;
+    }
     const sharedData = {
       "context-data": contextData,
       "entity-domain": domain
