@@ -1455,7 +1455,7 @@ Eventservice.prototype = {
                 case "ui_governancemodel":
                     taskType = "Governance Model Imports"
                     break;
-                case "ui_authorizationmodel":
+                case "ui_authorizationappmodel":
                     taskType = "Authorization Model Imports"
                     break;
                 case "ui_workflowappmodel":
@@ -1470,7 +1470,7 @@ Eventservice.prototype = {
                 case "ui_instancedatamodel_export":
                     taskType = "Instance Data Model Exports"
                     break;    
-                case "ui_authorizationmodel_export":
+                case "ui_authorizationappmodel_export":
                     taskType = "Authorization Model Exports"
                     break;
                 case "ui_workflowappmodel_export":
