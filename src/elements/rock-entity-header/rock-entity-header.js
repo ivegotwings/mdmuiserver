@@ -1083,7 +1083,7 @@ extends mixinBehaviors([
     _computeAttributeClass(attributeValue) {
         let configItem = this._getConfigItem(this.headerConfig, attributeValue.name);
         if (configItem) {
-            if (configItem.noTrim && this.headerConfig.length <=4) {
+            if (configItem.noTrim && this._headerAttributeValues && this._headerAttributeValues.length <=4){
                 return "attribute";
             } else {
                 return "attribute trim";
