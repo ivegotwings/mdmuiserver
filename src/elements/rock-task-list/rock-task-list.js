@@ -426,7 +426,7 @@ class RockTaskList extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors
                       "UI_BaseDataModel",
                       "UI_InstanceDataModel",
                       "UI_GovernanceModel",
-                      "UI_AuthorizationModel"
+                      "UI_AuthorizationAppModel"
                   ]
               }
           },
