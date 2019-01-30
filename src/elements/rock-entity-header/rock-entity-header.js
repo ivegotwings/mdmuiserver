@@ -810,7 +810,7 @@ extends mixinBehaviors([
                     let value = entity[this.headerConfig[i].attributeName];
                     let attrObj = {
                         "name": this.headerConfig[i].attributeName,
-                        "value": !_.isEmpty(value) ? value : "NA"
+                        "value": !_.isEmpty(value) ? value : ""
                     };
                     this._entityAttributes.push(attrObj);
               }
