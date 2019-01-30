@@ -2412,7 +2412,7 @@ class RockRelationshipGrid
       domain = this.contextData.itemContexts[0].domain;
     }
     else{
-      domain = this.domain;
+      domain = "";
     }
     const sharedData = {
       "context-data": contextData,
