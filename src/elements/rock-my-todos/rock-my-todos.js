@@ -357,7 +357,7 @@ class RockMyTodos
                           "properties": {
                               "config-context": {
                                   "workflowName": workflowDefinition.name,
-                                  "mappedEntityTypes": this._workflowDefinitionMappings[workflowDefinition.id].mappedEntityTypes,
+                                  "mappedEntityTypes": (this._workflowDefinitionMappings[workflowDefinition.id] !== undefined) ? this._workflowDefinitionMappings[workflowDefinition.id].mappedEntityTypes : "",
                                   "mappedContexts": this._workflowDefinitionMappings[workflowDefinition.id].mappedContexts
                               },
                               "assigned-to": this._assignedTo
