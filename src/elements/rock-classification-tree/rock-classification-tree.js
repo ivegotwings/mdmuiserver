@@ -454,7 +454,7 @@ class RockClassificationTree extends mixinBehaviors([RUFBehaviors.UIBehavior], O
           delete itemContext.relationshipsCriterion;
       }
 
-      let req = DataRequestHelper.createEntityGetRequest(contextData);
+      let req = DataRequestHelper.createEntityGetRequest(contextData, true);
       if (searchKeyword) {
           let _attributesCriterion = [];
           //To avoid other rootNode classifications search

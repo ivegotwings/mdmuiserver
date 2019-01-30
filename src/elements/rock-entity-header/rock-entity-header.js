@@ -930,7 +930,8 @@ extends mixinBehaviors([
   }
 
   _onSaveHeaderAttribute() {
-      if (DataHelper.isValidObjectPath(this._headerAttributesGetResponse, 'content.entities.0.data.attributes')) {
+    if (DataHelper.isValidObjectPath(this._headerAttributesGetResponse, 'content.entities.0.data.attributes') ||
+        DataHelper.isValidObjectPath(this._headerAttributesGetResponse, 'content.entities.0.data.contexts.0.attributes')) {
           let classificationTree = this.shadowRoot.querySelector('#classification-contextTree');
           let selectedItems;
           if (!this.rootNodeExternalName) {
