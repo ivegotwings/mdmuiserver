@@ -756,12 +756,18 @@ DataRequestHelper.createGovernGetRequest = function (options) {
                     "contexts": options.contexts,
                     "filters": {
                         "attributesCriterion": [],
-                        "typesCriterion": options.typesCriterion,
-                        "excludeNonContextual": options.excludeNonContextual
+                        "typesCriterion": options.typesCriterion
+                       
                     }
                 }
             }
         };
+        if(options.hasOwnProperty("excludeNonContextual")){
+            req.params.query.filters["excludeNonContextual"] = options["excludeNonContextual"];
+        }
+        if(options.hasOwnProperty("nonContextual")){
+            req.params.query.filters["nonContextual"] = options["nonContextual"];
+        }
 
         if (!_.isEmpty(options.workflowActivityName)) {
             req.params.query.filters.attributesCriterion.push({

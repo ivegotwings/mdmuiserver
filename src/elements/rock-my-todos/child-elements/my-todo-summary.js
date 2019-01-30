@@ -349,7 +349,7 @@ class MyTodoSummary
                   "typesCriterion": this._allowedEntityTypes,
                   "userId": userId,
                   "workflowActivityName": this.myTodo.workflowData.wfActivityName,
-                  "excludeNonContextual": true
+                  "nonContextual":false
               };
 
               let req = DataRequestHelper.createGovernGetRequest(options);
@@ -664,9 +664,12 @@ class MyTodoSummary
                           "workflowActivityName": businessCondition.data.wfActivityName,
                           "businessConditionName": businessCondition.data.bcId,
                           "attributes": attributes,
-                          "excludeNonContextual": false
+                          "nonContextual":false
                       };
                       passedBCOptions=options;
+                      if(!_.isEmpty(contexts) && !_.isEmpty(this.myTodo.mappedContexts) && ("self" in this.myTodo.mappedContexts[0])) {
+                        options.nonContextual = true;
+                      }
                       let req = DataRequestHelper.createGovernGetRequest(options);
                       if (!_.isEmpty(req)) {
                           governGetLiquid.id = businessCondition.data.bcId;
