@@ -822,6 +822,7 @@ extends mixinBehaviors([
                         "name": this.headerConfig[i].attributeName,
                         "value": !_.isEmpty(value) ? value : ""
                     };
+                    this.metaDataColumnFound = true;
                     this._entityAttributes.push(attrObj);
               }
           }
