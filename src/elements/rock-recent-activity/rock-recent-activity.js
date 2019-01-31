@@ -445,6 +445,10 @@ class RockRecentActivity extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBeh
         req.params.query.filters.nonContextual = false;
         req.params.query.contexts = dataContexts;
       }
+      let valContexts = ContextHelper.getValueContexts(this.contextData);
+      if(!_.isEmpty(valContexts)){
+        req.params.query.valueContexts = valContexts;
+      }
       this.request = req
       this._setCoalesceOptions(this.request);
       let _liquidRestElement = this.shadowRoot.querySelector("#entityEventGetLiquidRest");
