@@ -672,8 +672,8 @@ DataHelper.getSearchCriteria = function (searchText) {
             };
         } else {
             let keywordsCriterion = {};
-            let splitQueryByAnd = searchText.split(/ and |,/ig);
-            let splitQueryByOr = searchText.split(/ or |,/ig);
+            let splitQueryByAnd = searchText.toLowerCase().split(/' and '|,/ig);
+            let splitQueryByOr = searchText.toLowerCase().split(/' or '|,/ig);
 
             if (splitQueryByAnd.length > 1 || (splitQueryByAnd.length == 1 && splitQueryByOr.length ==
                     1)) {
