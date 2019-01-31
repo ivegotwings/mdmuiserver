@@ -426,7 +426,7 @@ class RockTaskList extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors
                       "UI_BaseDataModel",
                       "UI_InstanceDataModel",
                       "UI_GovernanceModel",
-                      "UI_AuthorizationModel"
+                      "UI_AuthorizationAppModel"
                   ]
               }
           },
@@ -867,6 +867,7 @@ class RockTaskList extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors
   }
   _onEventTypeFilterChanged(selectedEventType) {
       if (this.request && !_.isEmpty(this.request) && selectedEventType) {
+        this._noBatchDataPresent=false;
           //Filtering only values from {value, titles} array elements
           let eventTypesValues = this.eventTypes.map((elm, index) => {
               return elm.value;
@@ -918,6 +919,7 @@ class RockTaskList extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors
   }
   _onEventSubTypeFilterChanged(selectedEventSubType) {
       if (this.request && !_.isEmpty(this.request) && selectedEventSubType) {
+        this._noBatchDataPresent=false;
           //Filtering only values from {value, titles} array elements  
           let eventSubTypesValues = this.eventSubTypes.map((elm, index) => {
               return elm.value;
@@ -942,6 +944,7 @@ class RockTaskList extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors
   }
   _onDurationFilterChanged(selectedDurationFilter) {
       if (this.request && !_.isEmpty(this.request) && selectedDurationFilter) {
+        this._noBatchDataPresent=false;
           //Filtering only values from {value, titles} array elements  
           let durationFilterValues = this.config.gridConfig.itemConfig.fields.durationFilter.values;
           let selectedIndexDurationFilter = durationFilterValues.indexOf(selectedDurationFilter);
@@ -977,6 +980,7 @@ class RockTaskList extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors
   }
   _userStateChanged(getAllUsersEvents) {
       if (this.request && !_.isEmpty(this.request)) {
+        this._noBatchDataPresent=false;
           let req = this.request;
           if (!getAllUsersEvents) {
               req.params.query.filters.attributesCriterion.push({

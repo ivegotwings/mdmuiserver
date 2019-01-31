@@ -1086,8 +1086,19 @@ class RockAttributeManage extends mixinBehaviors(
       taxonomyRequests.forEach(taxonomyRequest => {
           let request = DataHelper.cloneObject(taxonomyRequest);
           request.id = "e" + ElementHelper.getRandomString();
+          let externalNameAttribute = undefined;
+          if (DataHelper.isValidObjectPath(request, "data.attributes.externalName")) {
+              externalNameAttribute = request.data.attributes.externalName;
+          }
           if (DataHelper.isValidObjectPath(request, "data.attributes.identifier.values.0.value")) {
+              if (!externalNameAttribute) {
+                  externalNameAttribute = DataHelper.cloneObject(request.data.attributes.identifier);
+              }
               request.data.attributes["identifier"].values[0].value += "root";
+          }
+          //Create rootexternalname, externalnamepath attributes based on externalName attribute
+          if (!_.isEmpty(externalNameAttribute)) {
+              request.data.attributes["rootexternalname"] = request.data.attributes["externalnamepath"] = externalNameAttribute;
           }
           request.type = "classification";
           request.data.relationships = {
@@ -1142,7 +1153,7 @@ class RockAttributeManage extends mixinBehaviors(
           }
 
           let rootNode = request.data.attributes["identifier"].values[0].value;
-          let id = request.name.replace(/ /g, "").toLowerCase();
+          let id = (request.name || rootNode).replace(/ /g, "").toLowerCase();
           request.type = "attributeModel";
           request.id = id + "_" + request.type;
           request.domain = "thing";

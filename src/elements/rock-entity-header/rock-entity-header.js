@@ -817,12 +817,13 @@ extends mixinBehaviors([
       if (this.headerConfig && this.headerConfig.length > 0) {
           for (let i = 0; i < this.headerConfig.length; i++) {
               if (this.headerConfig[i].isMetadataAttribute) {
-                  let attrObj = {
-                      "name": this.headerConfig[i].attributeName,
-                      "value": entity[this.headerConfig[i].attributeName]
-                  };
-                  this.metaDataColumnFound = true;
-                  this._entityAttributes.push(attrObj);
+                  let value = entity[this.headerConfig[i].attributeName];
+                    let attrObj = {
+                        "name": this.headerConfig[i].attributeName,
+                        "value": !_.isEmpty(value) ? value : ""
+                    };
+                    this.metaDataColumnFound = true;
+                    this._entityAttributes.push(attrObj);
               }
           }
       }
@@ -930,7 +931,8 @@ extends mixinBehaviors([
   }
 
   _onSaveHeaderAttribute() {
-      if (DataHelper.isValidObjectPath(this._headerAttributesGetResponse, 'content.entities.0.data.attributes')) {
+    if (DataHelper.isValidObjectPath(this._headerAttributesGetResponse, 'content.entities.0.data.attributes') ||
+        DataHelper.isValidObjectPath(this._headerAttributesGetResponse, 'content.entities.0.data.contexts.0.attributes')) {
           let classificationTree = this.shadowRoot.querySelector('#classification-contextTree');
           let selectedItems;
           if (!this.rootNodeExternalName) {

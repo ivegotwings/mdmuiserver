@@ -842,7 +842,7 @@ extends mixinBehaviors([
 											<template is="dom-repeat" id="actionsDomRepeat" items="[[_getActions(config.mode, item)]]" as="action" index-as="colIndex">
 												<pebble-icon id="actions_container_[[item.id]]" class="actionButton pebble-icon-size-16" icon="[[_actionValue(action)]]" on-tap="_fireActionEvent" item="[[item]]" index="[[index]]" action-index="[[colIndex]]"></pebble-icon>
 												<template is="dom-if" if="[[_hasPopoverInfo(action)]]">
-													<pebble-popover class="view-source-information-popover" id="action_[[item.id]]_sourceInfo-popover" for="actions_container_[[item.id]]">
+													<pebble-popover class="view-source-information-popover" id="action_[[item.id]]_sourceInfo-popover">
 														<div class="attributes-description">
 															<div class="source-information-header">Source Information</div>
 															<div class="source-information-description">This value was sourced from the following path</div>
@@ -2730,10 +2730,11 @@ extends mixinBehaviors([
             } else if (action.name.toLowerCase() == 'edit') {
                 eventName = "grid-edit-item";
             } else if (action.name.toLowerCase() == 'sourceinfo') {
-                let sourceInformation = this.$$("#action_" + e.model.item.id + "_" + action.name + "-popover");
+                let sourceInformation = e.currentTarget.nextElementSibling;
                 if (sourceInformation) {
                     this._sourceInfoPopover = sourceInformation;
-                    sourceInformation.show();
+                    sourceInformation.positionTarget = e.currentTarget;
+                    sourceInformation.show(true);
                 }
                 e.stopPropagation();
                 this._onSourceInformationClick(detail);
