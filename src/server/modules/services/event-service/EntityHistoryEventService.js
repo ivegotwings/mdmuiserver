@@ -80,6 +80,10 @@ EntityHistoryEventservice.prototype = {
         return response;
     },
 
+    _formatAttributeData: function (attributeData) {
+        return (JSON.stringify(attributeData) || "").replace(/'/g, "&apos;");
+    },
+
     _generateHistoryData: async function (events, valContexts, dataContexts, coalesceOptions) {
         let historyList = [];
         let historyListToBeReturned = [];
@@ -262,7 +266,7 @@ EntityHistoryEventservice.prototype = {
                         }
                         if((isNested || isRichTextEditor) && historyRecord.previousValues != "NULL"){
                             attributeDetails[historyRecord.internalAttributeId] = historyRecord.previousValues;
-                            let attributePrevData = JSON.stringify(attributeDetails);
+                            let attributePrevData = this._formatAttributeData(attributeDetails);
                             if(isRichTextEditor){
                                 historyRecord.previousValues = [1];
                             }
@@ -277,7 +281,7 @@ EntityHistoryEventservice.prototype = {
                         }
                         if((isNested || isRichTextEditor) && historyRecord.attributeValues != "NULL"){
                             attributeDetails[historyRecord.internalAttributeId] = historyRecord.attributeValues;
-                            let attributeData = JSON.stringify(attributeDetails);
+                            let attributeData = this._formatAttributeData(attributeDetails);
                             if(isRichTextEditor){
                                 historyRecord.attributeValues = [1];
                             }
