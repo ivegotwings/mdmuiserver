@@ -15,7 +15,7 @@ const ENV = process.argv.find(arg => arg.includes('production'))
   : 'development';
 const ANALYZE = process.argv.find(arg => arg.includes('--analyze'));
 const OUTPUT_PATH = ENV === 'production' ? resolve('build/ui-platform/static/es6-bundled') : resolve('build/ui-platform/static/es6-unbundled');
-const INDEX_TEMPLATE = resolve('./build-resources/index.html');
+const INDEX_TEMPLATE = resolve('index.html');
 const webcomponentsjs = './node_modules/@webcomponents/webcomponentsjs';
 const fragments = require('./dynamic-fragments.js');
 
@@ -60,35 +60,43 @@ const assets = [
   },
   {
     from: resolve('./src/elements/bedrock-externalref-socketio/socket.io.min.js'),
-    to: join(OUTPUT_PATH, 'src/elements/bedrock-externalref-socketio/')
+    to: join(OUTPUT_PATH, 'src/elements/bedrock-externalref-socketio/'),
+    flatten: true
   },
   {
-    from: resolve('./src/elements/bedrock-externalref-falcor/falcor.browser.min.js'),
-    to: join(OUTPUT_PATH, 'src/elements/bedrock-externalref-falcor/')
+    from: resolve('./src/elements/bedrock-externalref-d3js/bedrock-externalref-d3js.js'),
+    to: join(OUTPUT_PATH, 'src/elements/bedrock-externalref-d3js/'),
+    flatten:true
+  },
+  {
+    from: resolve('./src/elements/bedrock-externalref-falcor/falcor.browser.js'),
+    to: join(OUTPUT_PATH, 'src/elements/bedrock-externalref-falcor/'),
+    flatten:true
   },
   {
     from: resolve('./src/elements/bedrock-type-extensions/string-extensions.js'),
-    to: join(OUTPUT_PATH, 'src/elements/bedrock-type-extensions/')
+    to: join(OUTPUT_PATH, 'src/elements/bedrock-type-extensions/'),
+    flatten: true
   },
   {
-    from: resolve('./node_modules/web-animations-js/web-animations-next.min.js'),
-    to: join(OUTPUT_PATH, 'node_modules/web-animations-js/')
+    from: resolve('./node_modules/web-animations-js/web-animations-next.min.{js,map}'),
+    to: join(OUTPUT_PATH, 'node_modules/web-animations-js/'),
+    flatten: true,
   },
   {
-    from: resolve('./node_modules/intl-messageformat/dist/intl-messageformat.min.js'),
-    to: join(OUTPUT_PATH, 'node_modules/intl-messageformat/dist/')
+    from: resolve('./node_modules/intl-messageformat/dist/intl-messageformat.min.{js,map}'),
+    to: join(OUTPUT_PATH, 'node_modules/intl-messageformat/dist/'),
+    flatten: true
   },
   {
     from: resolve('./node_modules/moment/min/moment-with-locales.min.js'),
-    to: join(OUTPUT_PATH, 'node_modules/moment/min/')
+    to: join(OUTPUT_PATH, 'node_modules/moment/min/'),
+    flatten: true
   },
   {
-    from: resolve('./node_modules/underscore/underscore.js'),
-    to: join(OUTPUT_PATH, 'node_modules/underscore/')
-  },
-  {
-    from: resolve('./src/elements/app-common/app-common.js'),
-    to: join(OUTPUT_PATH, 'src/elements/app-common/')
+    from: resolve('./node_modules/underscore/underscore.{js,map}'),
+    to: join(OUTPUT_PATH, 'node_modules/underscore/'),
+    flatten: true
   }
 ];
 

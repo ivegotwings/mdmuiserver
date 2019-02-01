@@ -199,7 +199,8 @@ class EntityCompositeModelManager
         if(!_.isEmpty(attributes)) {
             Object.keys(attributes).forEach(function(attributeName) {
                 let values = attributes[attributeName].values;
-                for(let valIdx =0; valIdx<values.length; valIdx++) {
+                let valuesLength = values ? values.length : 0;
+                for(let valIdx =0; valIdx<valuesLength; valIdx++) {
                     let obj = {};
                     obj[attributeName] = values[valIdx].value;
                     /**
