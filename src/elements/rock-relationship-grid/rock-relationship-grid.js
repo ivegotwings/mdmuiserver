@@ -2411,7 +2411,7 @@ class RockRelationshipGrid
     contextData.ItemContexts[0] = { "type": relatedEntityTypes[0], "relationship": this.relationship };
     let domain;
     if(DataHelper.isValidObjectPath(this.contextData, "ItemContexts.0.domain") && !_.isEmpty(this.contextData.ItemContexts[0].domain)){
-      domain = this.contextData.itemContexts[0].domain;
+      domain = this.contextData.ItemContexts[0].domain;
     }
     else{
       domain = "";

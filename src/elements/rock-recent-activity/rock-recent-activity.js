@@ -415,7 +415,10 @@ class RockRecentActivity extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBeh
     e.currentTarget.classList.toggle("active");
     e.currentTarget.nextElementSibling.classList.toggle("show");
   }
-  _refresh() {
+  _refresh(event) {
+    if (event) {
+        this.contextData = event.detail.contextData;
+    }
     this.items = [];
     this.page = 0;
     this.page = 1;
@@ -444,10 +447,6 @@ class RockRecentActivity extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBeh
         req.params.query.contexts = dataContexts;
         req.params.query.filters.nonContextual = false;
         req.params.query.contexts = dataContexts;
-      }
-      let valContexts = ContextHelper.getValueContexts(this.contextData);
-      if(!_.isEmpty(valContexts)){
-        req.params.query.valueContexts = valContexts;
       }
       this.request = req
       this._setCoalesceOptions(this.request);
