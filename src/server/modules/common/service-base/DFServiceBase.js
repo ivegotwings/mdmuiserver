@@ -188,8 +188,8 @@ let DFServiceBase = function (options) {
             rdpApiHeaders = {
                 "x-rdp-clientid": secHeaders.clientId || "",
                 "x-rdp-tenantId": tenantId,
-                "x-rdp-ownershipdata": secHeaders.ownershipData || "",
-                "x-rdp-ownershipeditdata": secHeaders.ownershipEditData || "",
+                "x-rdp-ownershipdata": secHeaders.ownershipData ? JSON.stringify(secHeaders.ownershipData) : "",
+                "x-rdp-ownershipeditdata": secHeaders.ownershipEditData ? JSON.stringify(secHeaders.ownershipEditData) : "",
                 "x-rdp-userid": userId.indexOf("_user") < 0 ? userId + "_user" : userId,
                 "x-rdp-username": secHeaders.userName || "",
                 "x-rdp-useremail": secHeaders.userEmail || "",
