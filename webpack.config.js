@@ -59,7 +59,7 @@ const assets = [
     to: join(OUTPUT_PATH, 'src/shared')
   },
   {
-    from: resolve('./node_modules/socket.io-client/dist/socket.io.slim.{js,map}'),
+    from: resolve('./src/elements/bedrock-externalref-socketio/socket.io.min.js'),
     to: join(OUTPUT_PATH, 'src/elements/bedrock-externalref-socketio/'),
     flatten: true
   },
@@ -69,7 +69,7 @@ const assets = [
     flatten:true
   },
   {
-    from: resolve('./node_modules/falcor/dist/falcor.browser.min.js'),
+    from: resolve('./src/elements/bedrock-externalref-falcor/falcor.browser.js'),
     to: join(OUTPUT_PATH, 'src/elements/bedrock-externalref-falcor/'),
     flatten:true
   },
