@@ -320,7 +320,8 @@ class RockMyTodos
 
                   let workflowActivities = AttributeHelper.getNestedAttributeValues(workflowAttributes.activities);
                   let noOfAllowedActivities = 0;
-                  for (let j = 0; j < workflowActivities.length; j++) {
+                  let workflowActivitiesLength = workflowActivities ? workflowActivities.length : 0;
+                  for (let j = 0; j < workflowActivitiesLength; j++) {
                       let workflowActivity = workflowActivities[j];
 
                       // Validate if current loggedin user has a role to work on the activity
