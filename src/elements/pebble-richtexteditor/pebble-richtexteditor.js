@@ -367,7 +367,7 @@ class PebbleRichtexteditor extends PolymerElement {
             }               
         </style>
 
-        <div hidden\$="[[readOnly]]">
+        <div hidden\$="[[readOnly]]"  on-tap="_hideDropdown">
 
             <div class="attribute-view-label" hidden\$="[[!label]]" aria-hidden="true" title$="[[label]]">
                 [[label]]
@@ -386,7 +386,7 @@ class PebbleRichtexteditor extends PolymerElement {
                             </template>
                         </select>
 
-                        <div class="ql-select-area ql-select-size" on-tap="_toggleDropdown">
+                        <div class="ql-select-area ql-select-size dropdown" on-tap="_toggleDropdown">
                             <div class="value">{{selectedFontSize}}</div>
 
                             <div class="wrapper">
@@ -419,7 +419,7 @@ class PebbleRichtexteditor extends PolymerElement {
                             </template>
                         </select>
 
-                        <div class="ql-select-area ql-select-background" on-tap="_toggleDropdown">
+                        <div class="ql-select-area ql-select-background dropdown" on-tap="_toggleDropdown">
                             <div class="wrapper">
                                 <template is="dom-repeat" id="backgroundColorsList" items="{{backgroundColors}}">
                                     <div class="ql-select-option" active\$="{{_isSelectedBackgroundColor(item, selectedBackgroundColor)}}" style\$="background-color: {{item}}"></div>
@@ -437,7 +437,7 @@ class PebbleRichtexteditor extends PolymerElement {
                             </template>
                         </select>
 
-                        <div class="ql-select-area ql-select-color" on-tap="_toggleDropdown">
+                        <div class="ql-select-area ql-select-color dropdown" on-tap="_toggleDropdown">
                             <div class="wrapper">
                                 <template is="dom-repeat" id="colorsList" items="{{colors}}">
                                     <div class="ql-select-option" active\$="{{_isSelectedColor(item, selectedColor)}}" style\$="background-color: {{item}}"></div>
@@ -458,7 +458,7 @@ class PebbleRichtexteditor extends PolymerElement {
                             </template>
                         </select>
 
-                        <div class="ql-select-area ql-select-align" on-tap="_toggleDropdown">
+                        <div class="ql-select-area ql-select-align dropdown" on-tap="_toggleDropdown">
                             <div class="wrapper">
                                 <template is="dom-repeat" id="alignsList" items="{{aligns}}">
                                     <div class="ql-select-option" active\$="{{_isSelectedAlign(item, selectedAlign)}}" data-value\$="{{item}}"></div>
@@ -708,6 +708,18 @@ class PebbleRichtexteditor extends PolymerElement {
           this._onSelect(e);
       }
   }
+
+  _hideDropdown(e) {
+    if (!e.target.matches('.dropdown')) {
+        var dropdowns = this.$.content.getElementsByClassName('dropdown');
+        for (let i = 0; i < dropdowns.length; i++) {
+            var openDropdown = dropdowns[i];
+            if (openDropdown.closest(".ql-select").classList.contains('active')) {
+                openDropdown.closest(".ql-select").classList.remove('active');
+            }
+        }
+    }
+}
 
   _onSelect(e) {
       const classList = e.target.closest(".ql-select-area").classList;
