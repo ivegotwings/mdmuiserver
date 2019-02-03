@@ -2281,6 +2281,9 @@ extends mixinBehaviors([
 				if (typeof (cellData) === "boolean") {
             return cellData.toString();
             //Had to manually convert to string because pebble-boolean is not working when you pass boolean.
+                }
+                if(cellData instanceof Array && cellData.length >0){
+					return cellData[0].toString();
 				}
 
 				return cellData;
