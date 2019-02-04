@@ -429,6 +429,14 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
             .attribute-edit-mode-icons .source-information-icon{
                 opacity: 1;
             }
+
+            #messagePopover{
+                --popover: {
+                    max-height: 350px;
+                    overflow-y: auto;
+                    overflow-x: auto;
+                }
+            }
             
         </style>
         <div class\$="attribute [[functionalMode]]">
