@@ -571,6 +571,8 @@ class RockCompareEntities extends mixinBehaviors([
       }, this);
 
       //attributes
+      normalRowModels = _.uniq(normalRowModels, false, (model)=>model.name);
+      frozenRowModels = _.uniq(frozenRowModels, false, (model)=>model.name);
       frozenRowModels.forEach(function (rowModel) {
           rows.push(rowModel);
       }, this);
@@ -579,6 +581,8 @@ class RockCompareEntities extends mixinBehaviors([
       }, this);
 
       //relationships
+      normalRowModelsRelationshipGrid = _.uniq(normalRowModelsRelationshipGrid, false, (model)=>model.name);
+      frozenRowModelsRelationshipGrid = _.uniq(frozenRowModelsRelationshipGrid, false, (model)=>model.name);
       frozenRowModelsRelationshipGrid.forEach(function (rowModel) {
           rowsRelationships.push(rowModel);
       }, this);
