@@ -475,7 +475,7 @@ RUFBehaviors.ComponentContextBehavior, RUFBehaviors.ComponentConfigBehavior], Po
               req.params.taskType = "process-query";
               req.params.query = this.selectionQuery;
           } else {
-              if (_.isEmpty(this.workflowCriterion)) {
+              if (_.isEmpty(this.workflowCriterion) || this.workflowCriterion == "undefined") {
                   req.params.taskType = "process-query";
                   req.params.query = this.selectionQuery.params ? this.selectionQuery.params.query : this.selectionQuery;
               } else {
