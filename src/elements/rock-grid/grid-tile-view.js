@@ -430,6 +430,7 @@ extends mixinBehaviors([
                                             </div>
                                         </pebble-popover>
                                     </template>
+                                    <template is="dom-if" if="[[_isActionsAvailable(actions)]]">
                                     <pebble-icon id="actions_container_{{item.id}}" class="dropdown-trigger pebble-icon-size-16" name="more" icon="pebble-icon:actions-more-vertical" title="More options" on-tap="_onActionsTap" noink=""></pebble-icon>
                                     <pebble-popover id\$="action_list_{{item.id}}" class="actionsPopover p-r-20 p-l-20" for="actions_container_{{item.id}}" no-overlap="" horizontal-align="right">
                                         <template is="dom-repeat" items="[[_getActions(item)]]" as="action">
@@ -449,6 +450,7 @@ extends mixinBehaviors([
                                             </paper-item>
                                         </template>
                                     </pebble-popover>
+                                    </template>
                                 </div>
                                 <rock-image-viewer alt="Product image." id="image-container" sizing="contain" src="{{_computeImage(item,tileItems.image)}}" thumbnail-id="{{_computeValue(item,tileItems.thumbnailId)}}" asset-details="[[item]]">
                                 </rock-image-viewer>
@@ -660,6 +662,12 @@ extends mixinBehaviors([
       }
       return "photoContent";
   }
+  _isActionsAvailable(actions){
+    if(actions && actions.length >0){
+        return true;
+    }
+    return false
+}
   _getActions (item) {
       let actions = DataHelper.cloneObject(this.actions);
       if (this._addSourceInfoAction(actions, item)) {
