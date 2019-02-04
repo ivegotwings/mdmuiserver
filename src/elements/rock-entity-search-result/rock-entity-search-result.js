@@ -1151,6 +1151,15 @@ class RockEntitySearchResult extends mixinBehaviors([RUFBehaviors.AppBehavior,
       let selectionMode = this.getSelectionMode();
       let selectionQuery = this.getSelectedItemsAsQuery();
 
+      let copContext = {};
+      if(detail && detail["cop-context"]){
+          copContext = detail["cop-context"];
+          if(copContext.source){
+            let valContexts = ContextHelper.getValueContexts(this.contextData);        
+            copContext.source = valContexts[0].source;
+          }
+      }
+
       if (selectedItems && selectedItems.length && this.contextData) {
           let selectedItemsCount = selectionMode == "query" ? this.totalCount : selectedItems
               .length;
@@ -1159,7 +1168,8 @@ class RockEntitySearchResult extends mixinBehaviors([RUFBehaviors.AppBehavior,
               "selection-query": selectionQuery,
               "selection-mode": selectionMode,
               "selected-entities": selectedItems,
-              "selected-items-count": selectedItemsCount
+              "selected-items-count": selectedItemsCount,
+              "cop-context": copContext
           };
 
           this.openBusinessFunctionDialog({
@@ -1414,6 +1424,14 @@ class RockEntitySearchResult extends mixinBehaviors([RUFBehaviors.AppBehavior,
       ComponentHelper.fireBedrockEvent("toggle-spinner", eventDetail, {
           ignoreId: true
       });
+  }
+
+  getSelectedItemsCount(){
+    let selectedItems = this.getSelectedItems();
+    let selectionMode = this.getSelectionMode();
+    let selectedItemsCount = selectionMode == "query" ? this.totalCount : selectedItems
+    .length;
+    return selectedItemsCount;
   }
 }
 
