@@ -340,8 +340,8 @@ class RockMatchMerge extends mixinBehaviors([
                         "allowCreate": true,
                         "title": "{noOfEntities} match(es) found, please select a matched entity to merge or create your entity anyway.",
                         "matchEntityTypes": {
-                            "requestsku": "sku",
-                            "requestproduct": "product"
+                            "rsdraftsku": "sku",
+                            "rsdraftproduct": "product"
                         }
                     };
                 }
@@ -350,8 +350,8 @@ class RockMatchMerge extends mixinBehaviors([
                 type: Object,
                 value: function () {
                     return {
-                        "create": 50,
-                        "merge": 90
+                        "create": 0,
+                        "merge": 100
                     }
                 }
             },
@@ -530,6 +530,13 @@ class RockMatchMerge extends mixinBehaviors([
     _onMatchConfigGetResponse(e, detail) {
         if (DataHelper.isValidObjectPath(detail, "response.content.configObjects.0.data.jsonData")) {
             let matchConfig = detail.response.content.configObjects[0].data.jsonData;
+            if (matchConfig && !_.isEmpty(matchConfig.matchRules)) {
+                let probabilisticRule = matchConfig.matchRules.find(rule => rule.matchType == "probabilistic");
+                if (probabilisticRule && probabilisticRule.matchThresholds) {
+                    this._matchThreshold.create = probabilisticRule.matchThresholds.createThreshold || 0;
+                    this._matchThreshold.merge = probabilisticRule.matchThresholds.mergeThreshold || 100;
+                }
+            }
         }
     }
 
@@ -590,28 +597,6 @@ class RockMatchMerge extends mixinBehaviors([
         }
     }
 
-    // _updateMatchesForTesting(entities) {
-    //     let score = 50;
-    //     let matchEntities = (entities || []).map(entity => {
-    //         score = score + 10;
-    //         entity.data = {
-    //             "attributes": {
-    //                 "score": {
-    //                   "values": [
-    //                       {
-    //                           "locale": "en-US",
-    //                           "source": "internal",
-    //                           "value": score
-    //                       }
-    //                   ]
-    //                 }
-    //             }
-    //         }
-    //         return entity;
-    //     });
-    //     return matchEntities;
-    // }
-
     _onMatchSuccess(e, detail) {
         if (detail.response && detail.response.response) {
             let response = detail.response.response;
@@ -625,9 +610,6 @@ class RockMatchMerge extends mixinBehaviors([
                 this._tiggerCreateProcess();
                 return;
             }
-
-            //Todo - Testing
-            //response.entities = this._updateMatchesForTesting(response.entities);
 
             //Match process starts
             let matchedEntities = response.entities;

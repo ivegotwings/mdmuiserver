@@ -306,8 +306,8 @@ class RockEntityCreateSingle
               type: Object,
               value: function () {
                   return {
-                      "create": 50,
-                      "merge": 90
+                      "create": 0,
+                      "merge": 100
                   }
               }
           }
@@ -337,7 +337,7 @@ class RockEntityCreateSingle
       let req = DataRequestHelper.createEntityGetRequest(this.contextData);
       let itemContext = ContextHelper.getFirstItemContext(this.contextData);
       if (this.isReviewProcess && itemContext && DataHelper.isValidObjectPath(req, "params.query.filters.typesCriterion")) {
-          req.params.query.filters.typesCriterion[0] = "request" + itemContext.type;
+          req.params.query.filters.typesCriterion[0] = "rsdraft" + itemContext.type;
       }
       this.set("entityGetRequest", req);
       let liquidModelGet = this.shadowRoot.querySelector("[name=entityGetDataService]");
@@ -498,8 +498,15 @@ class RockEntityCreateSingle
 
   //Todo, set _matchThreshold with the response details
   _onMatchConfigGetResponse(e, detail) {
-      if(DataHelper.isValidObjectPath(detail, "response.content.configObjects.0.data.jsonData")) {
+      if (DataHelper.isValidObjectPath(detail, "response.content.configObjects.0.data.jsonData")) {
           let matchConfig = detail.response.content.configObjects[0].data.jsonData;
+          if (matchConfig && !_.isEmpty(matchConfig.matchRules)) {
+              let probabilisticRule = matchConfig.matchRules.find(rule => rule.matchType == "probabilistic");
+              if (probabilisticRule && probabilisticRule.matchThresholds) {
+                  this._matchThreshold.create = probabilisticRule.matchThresholds.createThreshold || 0;
+                  this._matchThreshold.merge = probabilisticRule.matchThresholds.mergeThreshold || 100;
+              }
+          }
       }
   }
 
@@ -534,29 +541,6 @@ class RockEntityCreateSingle
       }
   }
 
-  //Todo, Remove it once testing done
-//   _updateMatchesForTesting(entities) {
-//       let score = 10;
-//       let matchEntities = (entities || []).map(entity => {
-//           score = score + 10;
-//           entity.data = {
-//               "attributes": {
-//                   "score": {
-//                     "values": [
-//                         {
-//                             "locale": "en-US",
-//                             "source": "internal",
-//                             "value": score
-//                         }
-//                     ]
-//                   }
-//               }
-//           }
-//           return entity;
-//       });
-//       return matchEntities;
-//   }
-
   _onMatchSuccess(e, detail) {
       if (detail.response) {
           let response = detail.response.response;
@@ -569,9 +553,6 @@ class RockEntityCreateSingle
               this._triggerGovernRequest();
               return
           }
-
-          //Todo - Testing - mlbased
-          //response.entities = this._updateMatchesForTesting(response.entities);
 
           //Match process starts
           let matchedEntities = response.entities;
@@ -761,7 +742,7 @@ class RockEntityCreateSingle
   _setBusinessFunctionData(operation, msg, isEntityCreated) {
       let itemCtx = this.getFirstItemContext();
       let entityCreateElement = ComponentHelper.getParentElement(this); //rock-entity-create
-      this.savedEntity = { "id": itemCtx.id, "type": this.isReviewProcess ? "request" + itemCtx.type : itemCtx.type };
+      this.savedEntity = { "id": itemCtx.id, "type": this.isReviewProcess ? "rsdraft" + itemCtx.type : itemCtx.type };
       entityCreateElement.dataFunctionComplete(this.savedEntity);
       this._saveButtonText = "Update";
       this._hideView("entity-match");
@@ -841,7 +822,7 @@ class RockEntityCreateSingle
       }
       let itemContext = ContextHelper.getFirstItemContext(this.contextData);
       if (DataHelper.isValidObjectPath(this._saveRequest, "entities.0.type") && itemContext) {
-          this._saveRequest.entities[0].type = "request" + itemContext.type;
+          this._saveRequest.entities[0].type = "rsdraft" + itemContext.type;
       }
   }
   _skipServerErrors() {
