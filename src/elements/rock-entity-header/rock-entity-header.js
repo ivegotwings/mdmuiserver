@@ -1161,9 +1161,11 @@ extends mixinBehaviors([
   }
 
   _showMessage(message) {
-      let attrErrorContainer = this.$$('#attributeErrorPanel');
       if(message) {
-          attrErrorContainer.innerHTML = message;
+          let attrErrorContainer = this.$$('#attributeErrorPanel');
+          if(attrErrorContainer) {
+            attrErrorContainer.innerHTML = message;
+          }
       }
       this._showErrorMessage = true;
   }
