@@ -332,7 +332,7 @@ extends mixinBehaviors([
             </template>
             <rock-entity-thumbnail id="entityThumbnail" config="[[thumbnailConfig]]" default-thumbnail-id="[[_defaultThumbnailId]]"></rock-entity-thumbnail>
             <div class="header-right-panel">
-                <div id="attributePanel">
+                <div id="attributePanel" hidden\$="[[_showErrorMessage]]">
                     <template id="headerAttributes" is="dom-repeat" items="[[_headerAttributeValues]]">
                         <div id="attribute" class$="[[_computeAttributeClass(item)]]">
                             <div id="attrName">
@@ -350,7 +350,7 @@ extends mixinBehaviors([
                         </div>
                     </template>
                 </div>
-                <div id="attributeErrorPanel" hidden=""></div>
+                <div id="attributeErrorPanel" hidden\$="[[!_showErrorMessage]]"></div>
                 <div id="buttonPanel">
                     <template is="dom-if" if="[[writePermission]]">
                         <template is="dom-if" if="[[businessActionsConfig.showActions]]">
@@ -535,6 +535,10 @@ extends mixinBehaviors([
           metaDataColumnFound : {
             type: Boolean,
             value: false
+          },
+          _showErrorMessage: {
+              type: Boolean,
+              value: false
           }
       }
   }
@@ -805,6 +809,7 @@ extends mixinBehaviors([
                     this._showMessage("Attributes are not available or there is no permission. Contact administrator");
                 }
                 else{
+                    this._showErrorMessage = false;
                     this.$.headerAttributes.render();
                 }
           }
@@ -1156,13 +1161,11 @@ extends mixinBehaviors([
   }
 
   _showMessage(message) {
-      let attrContainer = this.$$('#attributePanel');
       let attrErrorContainer = this.$$('#attributeErrorPanel');
       if(message) {
           attrErrorContainer.innerHTML = message;
       }
-      attrContainer.hidden = true;
-      attrErrorContainer.hidden = false;
+      this._showErrorMessage = true;
   }
 }
 customElements.define(RockEntityHeader.is, RockEntityHeader)
