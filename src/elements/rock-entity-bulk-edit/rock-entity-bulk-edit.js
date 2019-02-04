@@ -420,6 +420,12 @@ RUFBehaviors.ComponentContextBehavior, RUFBehaviors.ComponentConfigBehavior], Po
           let firstValueContext = this.getFirstValueContext();
 
           if (this.editAttributesOnly) {
+              let firstDataContext = ContextHelper.getFirstDataContext(this.contextData);
+              if (!_.isEmpty(firstDataContext)) {
+                attributesJSON.forEach( (attribute) => {
+                    delete attribute.selfContext;
+                })
+              }
               newEntity = await DataTransformHelper.prepareEntityForAttributesSave({}, attributesJSON, this.contextData, this._attributeModels);
           } else if (this.editRelationshipAttributesOnly) {
               newEntity = DataHelper.cloneObject(this.originalEntity);
