@@ -159,6 +159,7 @@ module.exports = {
         "LiquidRequest": true,
         "LiquidOperationBase": true,
         "FalcorManager": true,
-        "LocalStorageManager": true
+        "LocalStorageManager": true,
+        "__PRODUCTION__": true
     }
 };
