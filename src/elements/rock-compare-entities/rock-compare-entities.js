@@ -77,12 +77,18 @@ class RockCompareEntities extends mixinBehaviors([
         </style>
         <template is="dom-if" if="[[showActionButtons]]">
             <div id="content-actions" class="buttonContainer-top-right" align="center">
-                <pebble-button class="action-button btn btn-secondary m-r-5" id="back" button-text="Change Data" raised="" on-tap="_onBackTap"></pebble-button>
-                <template is="dom-if" if="[[_allowCreate(compareEntitiesContext, showCreateButton)]]">
-                    <pebble-button class="action-button btn btn-primary m-r-5" id="create" button-text="Create" raised="" on-tap="_onCreateTap"></pebble-button>
+                <pebble-button class="action-button btn btn-secondary m-r-5" id="back" button-text="Change Data" raised on-tap="_onBackTap"></pebble-button>
+                <template is="dom-if" if="[[_allowAction(compareEntitiesContext, 'discard')]]">
+                    <pebble-button class="action-button btn btn-primary m-r-5" id="discard" button-text="Discard" raised on-tap="_onDiscardTap"></pebble-button>
                 </template>
-                <template is="dom-if" if="[[showMergeButton]]">
-                    <pebble-button class="action-button-focus dropdownText btn btn-success" id="merge" button-text="Merge" raised="" on-tap="_onMergeTap"></pebble-button>
+                <template is="dom-if" if="[[_allowAction(compareEntitiesContext, 'createReview')]]">
+                    <pebble-button class="action-button btn btn-primary m-r-5" data-args="createReview" id="createReview" button-text="Send for Review" raised on-tap="_onCreateTap"></pebble-button>
+                </template>
+                <template is="dom-if" if="[[_allowAction(compareEntitiesContext, 'create', showCreateButton)]]">
+                    <pebble-button class="action-button btn btn-success m-r-5" data-args="create" id="create" button-text="Create" raised on-tap="_onCreateTap"></pebble-button>
+                </template>
+                <template is="dom-if" if="[[_allowAction(compareEntitiesContext, 'merge', showMergeButton)]]">
+                    <pebble-button class="action-button-focus dropdownText btn btn-success" id="merge" button-text="Merge" raised on-tap="_onMergeTap"></pebble-button>
                 </template>
             </div>
         </template>
@@ -404,6 +410,10 @@ class RockCompareEntities extends mixinBehaviors([
           selectedEntityId: {
               type: String,
               value: null
+          },
+          showAllAttributes: {
+              type: Boolean,
+              value: false
           }
       };
   }
@@ -440,6 +450,9 @@ class RockCompareEntities extends mixinBehaviors([
           if (this._entityTypes && this._entityTypes.length) {
               let compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this._contextData);
               compositeModelGetRequest.params.fields.relationships = ["_ALL"];
+              if (this.showAllAttributes) {
+                  compositeModelGetRequest.params.fields.attributes = ["_ALL"];
+              }
               for(let index=0; index<this._entityTypes.length; index++) {
                   if(DataHelper.isValidObjectPath(compositeModelGetRequest, 'params.query.name')) {
                       compositeModelGetRequest.params.query.name = [this._entityTypes[index]]
@@ -482,11 +495,35 @@ class RockCompareEntities extends mixinBehaviors([
       }
       this._modelGetTracker--;
       if (this._modelGetTracker == 0) {
+          this._sortModels(this._entityModels);
           this._prepareGridRowsModel(this._entityModels, rows, rowsRelationships);
           this._rowsModel = rows;
           this._rowsModelRelationships = rowsRelationships;
           this._dataGet();
       }
+  }
+
+  _sortModels(models) {
+      if (_.isEmpty(models)) {
+          return;
+      }
+      let firstItemContext = ContextHelper.getFirstItemContext(this.contextData);
+      if (firstItemContext && firstItemContext.attributeNames) {
+          models.forEach(model => {
+              if (!_.isEmpty(model.data.attributes)) {
+                  for (let attrKey in model.data.attributes) {
+                      if (firstItemContext.attributeNames.indexOf(attrKey) != -1) {
+                          model.data.attributes[attrKey].properties["rank"] = 1;
+                      } else {
+                          model.data.attributes[attrKey].properties["rank"] = 2;
+                      }
+                  }
+              }
+          })
+      }
+      models.forEach(model => {
+          model.data.attributes = DataHelper.sortObject(model.data.attributes, ["properties.rank", "properties.groupName"]);
+      })
   }
 
   _pushDataInRowModel(key, frozenRowModels, normalRowModels, gridModelData, gridType) {
@@ -898,6 +935,8 @@ class RockCompareEntities extends mixinBehaviors([
   //attributes grid column prepare
   async _prepareGridColumnsModelAndData(entities, columns, items) {
       if (this._rowsModel) {
+          let matchConfig = (this.compareEntitiesContext || {}).matchConfig;
+          let isMergeEnabled = matchConfig && matchConfig.matchMerge && matchConfig.matchMerge.canMerge;
           let rowHeader = {
               "header": "",
               "name": "Attributes",
@@ -909,17 +948,10 @@ class RockCompareEntities extends mixinBehaviors([
               "visible": true
           }
           //Normal Scenario
-          if (this.enableColumnSelect && !this.isSnapshot) {
+          if (this.enableColumnSelect) {
               rowHeader["selectable"] = {
                   "isAction": false,
-                  "text": "Select for merge"
-              }
-          }
-          //Snapshot Scenario
-          if (this.enableColumnSelect && this.isSnapshot) {
-              rowHeader["selectable"] = {
-                  "isAction": false,
-                  "text": "Select for rollback"
+                  "text": this.isSnapshot ? "Select for rollback" : "Select for merge"
               }
           }
           columns.push(rowHeader);
@@ -946,21 +978,21 @@ class RockCompareEntities extends mixinBehaviors([
                           "readFrom": "properties",
                           "visible": true,
                           "type": entity.type,
-                          "version": this._getSnapshotMetadata(entity).snapVersion
+                          "version": this._getSnapshotMetadata(entity).snapVersion,
+                          "link": this._getLink(entity.id, `entity-manage?id=${entity.id}&type=${entity.type}`)
                       }
                       if (!_.isEmpty(this.compareEntitiesContext)) {
-                          if (this.compareEntitiesContext.newEntity) {
-                              colDetails["selectable"] = {
-                                  "isAction": true,
-                                  "disable": this.compareEntitiesContext.newEntity.id ==
-                                      entity.id
-                              };
-                          }
+                          let disable;
                           if (this.enableColumnSelect) {
+                              disable = this.contextData.ItemContexts[0].id == entity.id;
+                          } else if (this.compareEntitiesContext.newEntity) {
+                              disable = this.compareEntitiesContext.newEntity.id == entity.id;
+                          }
+
+                          if (typeof disable == "boolean") {
                               colDetails["selectable"] = {
                                   "isAction": true,
-                                  "disable": this.contextData.ItemContexts[0].id ==
-                                      entity.id
+                                  "disable": disable || !isMergeEnabled
                               };
                           }
                       }
@@ -1540,6 +1572,17 @@ class RockCompareEntities extends mixinBehaviors([
           return entityHeader;
       }
   }
+  _getLink(entityId, entityLink) {
+      let link = "";
+      if (!this.isSnapshot && entityLink) {
+          let newEntityId = "";
+          if (this.compareEntitiesContext && this.compareEntitiesContext.newEntity) {
+              newEntityId = this.compareEntitiesContext.newEntity.id;
+          }
+          link = entityId == newEntityId ? "" : entityLink;
+      }
+      return link;
+  }
   _onColumnSelectionChanged(e) {
       if (e.detail.checked) {
           this.selectedEntityId = e.detail.value;
@@ -1552,10 +1595,18 @@ class RockCompareEntities extends mixinBehaviors([
       let eventName = "compare-entities-back";
       this.fireBedrockEvent(eventName, null);
   }
+  _onDiscardTap(e) {
+      this._reset();
+      let eventName = "compare-entities-discard";
+      this.fireBedrockEvent(eventName, null);
+  }
   _onCreateTap(e) {
       //Already new entity details available, so just trigger the event
       let eventName = "compare-entities-create";
-      this.fireBedrockEvent(eventName, null);
+      let isReviewProcess = e.target.getAttribute("data-args") == "createReview";
+      this.fireBedrockEvent(eventName, {
+          "isReviewProcess": isReviewProcess
+      });
   }
   _onMergeTap(e) {
       if (!this.selectedEntityId) {
@@ -1575,13 +1626,23 @@ class RockCompareEntities extends mixinBehaviors([
       });
   }
 
-  _allowCreate(compareEntitiesContext, showCreateButton) {
-      let allowCreate = false;
-      if (compareEntitiesContext && compareEntitiesContext.matchConfig &&
-          showCreateButton) {
-          allowCreate = compareEntitiesContext.matchConfig["allow-create"];
+  _allowAction(compareEntitiesContext, type) {
+      let allowAction = false;
+      if (compareEntitiesContext &&
+          compareEntitiesContext.matchConfig &&
+          compareEntitiesContext.matchConfig.matchMerge) {
+          let matchConfig = compareEntitiesContext.matchConfig;
+          if (type == "create") {
+              allowAction = matchConfig["allow-create"] && matchConfig.matchMerge.canCreate && this.showCreateButton;
+          } else if (type == "createReview") {
+              allowAction = matchConfig["allow-create"] && matchConfig.matchMerge.canCreateReview;
+          } else if (type == "merge") {
+              allowAction = matchConfig.matchMerge.canMerge && this.showMergeButton;
+          } else if (type == "discard") {
+              allowAction = matchConfig.matchMerge.canDiscard;
+          }
       }
-      return allowCreate;
+      return allowAction;
   }
   _reset() {
       this._modelGetTracker = 0;

@@ -327,6 +327,32 @@ DataHelper.getRandomString = function () {
         Math.abs(Math.floor(Math.random() * x) ^ new Date().getTime()).toString(36);
 };
 
+DataHelper.sortObject = function (obj, valuePaths, orderBy = "asc", keyIdentifier = "keyIdentifier") {
+    let objArray = _.map(obj, function (value, key) { value[keyIdentifier] = key; return value });
+    if (_.isEmpty(valuePaths)) {
+        valuePaths = [keyIdentifier];
+    }
+    let sortedObjArray = _.sortBy(objArray, function (item) {
+        let properties = valuePaths.map(path => {
+            if (DataHelper.isValidObjectPath(item, path)) {
+                return eval("item." + path);
+            } else {
+                return undefined;
+            }
+        });
+        return properties;
+    })
+    if (orderBy != "asc") {
+        sortedObjArray = sortedObjArray.reverse();
+    }
+    let resultObj = {};
+    sortedObjArray.forEach(item => {
+        resultObj[item[keyIdentifier]] = item;
+        delete item[keyIdentifier];
+    })
+    return resultObj;
+};
+
 DataHelper.sort = function (arrayOfObjects, sortByProperty, dataType, sortType, sortByAdditionalProperties) {
     let sortedData = arrayOfObjects;
     if (arrayOfObjects && sortByProperty) {

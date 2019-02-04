@@ -64,6 +64,10 @@ extends mixinBehaviors([
               type: Boolean,
               value: false
           },
+          showReviewActions: {
+              type: Boolean,
+              value: false
+          },
           businessActions: {
               type: Array,
               value: function () {
@@ -189,7 +193,8 @@ extends mixinBehaviors([
               for (let key in componentConfig.config.actionGroups) {
                   let group = componentConfig.config.actionGroups[key];
 
-                  if (!this.showWorkflowActions && group.isWorkflowActions) {
+                  if ((!this.showWorkflowActions && group.isWorkflowActions) ||
+                      (!this.showReviewActions && group.isReviewActions)) {
                       continue;
                   }
 
@@ -380,6 +385,19 @@ extends mixinBehaviors([
               sharedData = {
                   "selected-entities": this._selectedItems,
                   "selection-mode": selectionMode
+              };
+              break;
+          }
+          case 'action-matchandmerge': {
+              detail = {
+                  name: componentName,
+                  subName: subComponentName,
+                  mergeTitle: true,
+                  title: this.isSingleEntityProcess ? this._getEntityName() : this._selectedItems.length + " entities"
+              };
+              sharedData = {
+                  "source-entities": [...new Set(this._selectedItems.map((entity) => entity.id))],
+                  "is-review-process": true
               };
               break;
           }
@@ -689,6 +707,15 @@ extends mixinBehaviors([
           this.fireBedrockEvent("on-preview-template-tap", detail, {
               ignoreId: true
           });
+          return;
+      }
+
+      if (eventName == "action-matchandmerge") {
+          this._currentAction = detail;
+          let selectedDetails = {
+              "selectedItems": DataHelper.cloneObject(this.getItemContexts())
+          };
+          this.triggerProcess(selectedDetails);
           return;
       }
 

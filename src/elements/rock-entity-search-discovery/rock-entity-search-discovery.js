@@ -266,7 +266,7 @@ extends mixinBehaviors([
                         <div class="right-actions">
                             <template is="dom-if" if="[[_getVisibility('rock-business-actions')]]">
                                 <div class="action-buttons">
-                                    <rock-business-actions id="businessActions" context-data="[[contextData]]" context-model-type="[[domain]]" show-workflow-actions="[[_showWorkflowActions(_workflowCriterion)]]"></rock-business-actions>
+                                    <rock-business-actions id="businessActions" context-data="[[contextData]]" context-model-type="[[domain]]" show-workflow-actions="[[_showWorkflowActions(_workflowCriterion)]]" show-review-actions="[[_showReviewActions(_workflowCriterion)]]"></rock-business-actions>
                                     <bedrock-pubsub event-name="business-actions-action-click" handler="_onActionItemTap" target-id="businessActions"></bedrock-pubsub>
                                 </div>
                             </template>
@@ -1461,6 +1461,14 @@ extends mixinBehaviors([
           return true;
       }
 
+      return false;
+  }
+
+  _showReviewActions(wfCriterion) {
+      //Todo, Workflow name may change
+      if (!DataHelper.isEmptyObject(wfCriterion) && wfCriterion.workflowShortName == "entityReview") {
+          return true;
+      }
       return false;
   }
 
