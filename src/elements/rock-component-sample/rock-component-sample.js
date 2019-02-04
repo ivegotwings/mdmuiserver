@@ -79,13 +79,6 @@ class ModuleVersionManager {
     }
 }
 
-// eslint-disable-next-line no-var
-var SharedUtils = SharedUtils || {};
-
-if (!SharedUtils) {
-    SharedUtils = {};
-}
-
 SharedUtils.ModuleVersionManager = ModuleVersionManager;
 
 //register as module or as js 
