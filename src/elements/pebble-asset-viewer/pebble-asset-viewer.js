@@ -31,7 +31,7 @@ class PebbleAssetViewer extends OptionalMutableData(PolymerElement) {
                     max-width: 100%;
                 }
 
-                .video-extension-not-supported {
+                .asset-extension-not-supported {
                     position: absolute;
                     left: 40%;
                     top: 50%;
@@ -70,13 +70,20 @@ class PebbleAssetViewer extends OptionalMutableData(PolymerElement) {
                             <pebble-icon icon="pebble-icon:download-asset" class="download-icon pebble-icon-size-16 pebble-icon-color-white m-r-5"></pebble-icon> Download
                         </a>
                     </template>
-                    <div class="modal-content-wrapper">
-                        <img class="modal-content" src\$="[[assetUrl]]" id="bigImage" sizing="contain" onload="[[_onAssetLoad]]">
-                    </div>
+                    <template is="dom-if" if="[[assetError]]">
+                        <div class="asset-extension-not-supported">
+                            <span>File extension not supported. <a href\$="[[assetUrl]]">Click here to download</a></span>
+                        </div>
+                    </template>
+                    <template is="dom-if" if="[[!assetError]]">
+                        <div class="modal-content-wrapper">
+                            <img class="modal-content" src\$="[[assetUrl]]" id="bigImage" sizing="contain" onload="[[_onAssetLoad]]" onerror="[[_onAssetError]]">
+                        </div>
+                    </template>
                 </template>
                 <template is="dom-if" if="[[isVideoView(assetType)]]">
                     <template is="dom-if" if="[[assetError]]">
-                        <div class="video-extension-not-supported">
+                        <div class="asset-extension-not-supported">
                             <span>Video extension not supported. <a href\$="[[assetUrl]]">Click here to download</a></span>
                         </div>
                     </template>
@@ -141,7 +148,10 @@ class PebbleAssetViewer extends OptionalMutableData(PolymerElement) {
   _onAssetError() {
       let viewer = this.__dataHost.parentModel;
       viewer.set("_loading", false);
-      viewer.$.viewerContainer.classList.remove("asset-render");
+      let viewContainer = viewer.shadowRoot.querySelector("#viewerContainer");
+      if(viewContainer){
+        viewContainer.classList.remove("asset-render");
+      }
       viewer.set("assetError", true);
   }
   isImageView(assetType) {
