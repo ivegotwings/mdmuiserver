@@ -885,7 +885,11 @@ class RockSearchFilter
             this._tagsNumericCollection = this.currentTag.value.contains.split(" ");
           } else {
             if (filterPopover.querySelector('paper-radio-group')) {
-              filterPopover.querySelector('paper-radio-group').selected = 'equalToData';
+              if (this.currentTag.value && (this.currentTag.value.lte || this.currentTag.value.gte)) {
+                filterPopover.querySelector('paper-radio-group').selected = 'range';
+              } else {
+                filterPopover.querySelector('paper-radio-group').selected = 'equalToData';
+              }
             }
             this.gte = this.currentTag.value.gte || "";
             this.lte = this.currentTag.value.lte || "";
