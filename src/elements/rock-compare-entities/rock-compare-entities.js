@@ -523,7 +523,12 @@ class RockCompareEntities extends mixinBehaviors([
           })
       }
       models.forEach(model => {
-          model.data.attributes = DataHelper.sortObject(model.data.attributes, ["properties.rank", "properties.groupName"]);
+          let sortProperties = [{
+              "key": "properties.rank"
+          }, {
+              "key": "properties.groupName"
+          }];
+          model.data.attributes = DataHelper.sortObject(model.data.attributes, sortProperties);
       })
   }
 
