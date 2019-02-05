@@ -181,7 +181,7 @@ class AppEntityManage
         <bedrock-pubsub event-name="govern-complete" handler="_onGovernComplete"></bedrock-pubsub>
         <bedrock-pubsub event-name="quick-manage-save-complete" handler="_onQuickManageSaveComplete"></bedrock-pubsub>
         <bedrock-pubsub event-name="navigation-change" handler="_onNavigationChange"></bedrock-pubsub>
-        <bedrock-pubsub event-name="on-download-dsv" handler="_downloadEvent"></bedrock-pubsub>
+        <bedrock-pubsub event-name="on-download" handler="_downloadEvent"></bedrock-pubsub>
                         
         <liquid-rest id="entityDeleteLiquidRest" url="/data/pass-through/[[appService]]/delete" method="POST" on-liquid-response="_deleteSuccess" on-liquid-error="_deleteFailure"></liquid-rest>
         <liquid-entity-model-composite-get id="compositeRelModelGet" on-entity-model-composite-get-response="_onRelationshipCompositeModelGetResponse" on-error="_onCompositeModelGetError"></liquid-entity-model-composite-get>

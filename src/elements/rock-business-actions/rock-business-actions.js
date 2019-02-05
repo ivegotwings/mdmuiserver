@@ -148,7 +148,7 @@ extends mixinBehaviors([
                       "action-view-snapshot",
                       "action-copy",
                       "action-paste",
-                      "action-download-dsv",
+                      "action-download",
                       "action-re-publish"
                   ];
               }
@@ -372,7 +372,7 @@ extends mixinBehaviors([
               };
               break;
           }
-          case 'action-download-dsv': {
+          case 'action-download': {
             detail = {
                 name: componentName,
                 subName: subComponentName,
@@ -755,9 +755,9 @@ extends mixinBehaviors([
           return;
       }
 
-      if (eventName === "action-download-dsv") {
+      if (eventName === "action-download") {
           detail = detail.data;
-          this.fireBedrockEvent("on-download-dsv", detail, {
+          this.fireBedrockEvent("on-download", detail, {
               ignoreId: true
           });
           return;
