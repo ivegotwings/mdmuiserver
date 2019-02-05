@@ -134,8 +134,7 @@ class RockCompareEntities extends mixinBehaviors([
                             </div>
                         </pebble-accordion>
                     </template>
-            
-        
+
         <pebble-dialog id="attributeDialog" dialog-title="Confirmation" modal="" medium="" vertical-offset="1" 50="" horizontal-align="auto" vertical-align="auto" no-cancel-on-outside-click="" no-cancel-on-esc-key="" show-ok="" show-cancel="" show-close-icon="" alert-box="">
             <div id="attrDialogContainer" class="overflow-auto"></div>
         </pebble-dialog>
@@ -449,7 +448,9 @@ class RockCompareEntities extends mixinBehaviors([
           this._modelGetTracker = this._entityTypes.length;
           if (this._entityTypes && this._entityTypes.length) {
               let compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this._contextData);
-              compositeModelGetRequest.params.fields.relationships = ["_ALL"];
+              if (this._getRelationshipVisibilityStatus()) {
+                  compositeModelGetRequest.params.fields.relationships = ["_ALL"];
+              }
               if (this.showAllAttributes) {
                   compositeModelGetRequest.params.fields.attributes = ["_ALL"];
               }

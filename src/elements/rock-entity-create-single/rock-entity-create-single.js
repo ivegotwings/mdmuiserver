@@ -33,7 +33,6 @@ import '../pebble-spinner/pebble-spinner.js';
 import '../pebble-dialog/pebble-dialog.js';
 import '../rock-attribute-list/rock-attribute-list.js';
 import '../rock-compare-entities/rock-compare-entities.js';
-import '../rock-match-merge/rock-match-merge.js';
 import '../liquid-config-get/liquid-config-get.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockEntityCreateSingle
@@ -249,7 +248,7 @@ class RockEntityCreateSingle
           },
           enableMatchStep: {
               type: Boolean,
-              value: false
+              value: true
           },
           matchType: {
               type: String,
@@ -287,7 +286,7 @@ class RockEntityCreateSingle
               type: Boolean,
               value: false
           },
-          _mlbasedEntities: {
+          _mlBasedResults: {
               type: Array,
               value: function () {
                   return [];
@@ -579,12 +578,12 @@ class RockEntityCreateSingle
               }
           }
           if (type == "mlbased") {
-              this._mlbasedEntities = this._prepareEntities(matchedEntities, type);
-              if (!this._mlbasedEntities.fullList.length || this._mlbasedEntities.fullList.length == this._mlbasedEntities.createList.length) {
+              this._mlBasedResults = this._prepareEntities(matchedEntities, type);
+              if (!this._mlBasedResults.fullList.length || this._mlBasedResults.fullList.length == this._mlBasedResults.createList.length) {
                   this._triggerGovernRequest();
-              } else if (this._mlbasedEntities.mergeList.length) {
-                  let highestRankedEntity = _.max(this._mlbasedEntities.mergeList, function (entity) { return entity.score; });
-                  let highestRankedEntityList = this._mlbasedEntities.mergeList.filter(entity => {
+              } else if (this._mlBasedResults.mergeList.length) {
+                  let highestRankedEntity = _.max(this._mlBasedResults.mergeList, function (entity) { return entity.score; });
+                  let highestRankedEntityList = this._mlBasedResults.mergeList.filter(entity => {
                       return entity.score == highestRankedEntity.score;
                   })
                   if (highestRankedEntityList.length == 1) {
@@ -592,10 +591,10 @@ class RockEntityCreateSingle
                       this.shadowRoot.querySelector('#updateConfirmDialog').open();
                   } else {
                       this.matchConfig.matchMerge.canDiscard = true;
-                      this._showCompareWindow(this._mlbasedEntities.mergeList);
+                      this._showCompareWindow(this._mlBasedResults.mergeList);
                   }
-              } else if (this._mlbasedEntities.createOrMergeList.length) {
-                  this._showCompareWindowBasedOnPermissions(this._mlbasedEntities.createOrMergeList);
+              } else if (this._mlBasedResults.createOrMergeList.length) {
+                  this._showCompareWindowBasedOnPermissions(this._mlBasedResults.createOrMergeList);
               }
           }
       }

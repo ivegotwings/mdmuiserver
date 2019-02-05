@@ -64,10 +64,6 @@ extends mixinBehaviors([
               type: Boolean,
               value: false
           },
-          showReviewActions: {
-              type: Boolean,
-              value: false
-          },
           businessActions: {
               type: Array,
               value: function () {
