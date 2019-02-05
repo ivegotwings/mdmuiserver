@@ -367,7 +367,7 @@ class PebbleRichtexteditor extends PolymerElement {
             }               
         </style>
 
-        <div hidden\$="[[readOnly]]">
+        <div hidden\$="[[readOnly]]"  on-tap="_hideDropdown">
 
             <div class="attribute-view-label" hidden\$="[[!label]]" aria-hidden="true" title$="[[label]]">
                 [[label]]
@@ -708,6 +708,18 @@ class PebbleRichtexteditor extends PolymerElement {
           this._onSelect(e);
       }
   }
+
+  _hideDropdown(e) {
+    if (!e.target.matches('.ql-select-area')) {
+        var activeDropdowns = this.$.content.getElementsByClassName('active');
+        if(activeDropdowns.length >0){
+            for (let i = 0; i < activeDropdowns.length; i++) {
+                var activeDropdown = activeDropdowns[i];
+                activeDropdown.closest(".ql-select").classList.remove('active');
+            }
+        }
+    }
+}
 
   _onSelect(e) {
       const classList = e.target.closest(".ql-select-area").classList;
