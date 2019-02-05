@@ -649,6 +649,23 @@ class PebbleDatetimePickerOverlay
       this.$$('pebble-date-picker').setDate(date);
   }
   /**
+    * Set start date for the calendar
+    */
+  setStartDate(date) {
+    if(date){
+        this.startDateText = date;
+    }
+  }
+
+  /**
+  * Set end date for the calendar
+  */
+  setEndDate(date) {
+    if(date){
+        this.endDateText = date;
+    }
+  }
+  /**
    * Set range type to date picker
    */
   setRangeType(rangeType) {

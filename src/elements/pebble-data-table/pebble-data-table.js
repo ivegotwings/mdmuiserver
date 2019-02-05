@@ -1641,7 +1641,7 @@ IronScrollTargetBehavior
   }
   deleteItems(items) {
     for (let i = 0; i < items.length; i++) {
-      if (this.items.length) {
+      if (this.items && this.items.length) {
         let index = this.items.indexOf(items[i]);
         this.push("deletedItems", items[i]);
         this.splice("items", index, 1);
