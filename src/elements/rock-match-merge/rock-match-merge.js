@@ -513,7 +513,7 @@ class RockMatchMerge extends mixinBehaviors([
         }
     }
 
-    _tiggerMatchConfigGet() {
+    _triggerMatchConfigGet() {
         let matchConfigGet = this.shadowRoot.querySelector("#matchConfigGet");
         if (matchConfigGet) {
             let entityType = this.matchConfig.matchEntityTypes[this.sourceEntity.type] || this.sourceEntity.type;

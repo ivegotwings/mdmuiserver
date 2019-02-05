@@ -193,8 +193,7 @@ extends mixinBehaviors([
               for (let key in componentConfig.config.actionGroups) {
                   let group = componentConfig.config.actionGroups[key];
 
-                  if ((!this.showWorkflowActions && group.isWorkflowActions) ||
-                      (!this.showReviewActions && group.isReviewActions)) {
+                  if (!this.showWorkflowActions && group.isWorkflowActions) {
                       continue;
                   }
 
