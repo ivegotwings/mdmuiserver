@@ -768,6 +768,7 @@ extends mixinBehaviors([
           }
       } else {
           this._showMessage();
+          let attrErrorContainer = this.$$('#attributeErrorPanel');
           this.logError("rock-entity-header - Header attribute models get response error", e.detail, true, "", attrErrorContainer);
       }
   }
@@ -809,6 +810,7 @@ extends mixinBehaviors([
           }
       } else {
           this._showMessage();
+          let attrErrorContainer = this.$$('#attributeErrorPanel');
           this.logError("rock-entity-header - Header attributes get response error", e.detail, true, "", attrErrorContainer);
       }
   }

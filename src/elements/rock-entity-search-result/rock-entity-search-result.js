@@ -1211,7 +1211,6 @@ class RockEntitySearchResult extends mixinBehaviors([RUFBehaviors.AppBehavior,
           }
           let clonedContextData = DataHelper.cloneObject(this.contextData);
           clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
-          clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
 
           const sharedData = {
               "context-data": clonedContextData,

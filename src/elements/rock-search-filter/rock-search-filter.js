@@ -796,14 +796,21 @@ class RockSearchFilter
         }
 
         let _date = new Date(rangePicker.startDateValue);
-        rangePicker.setDate(_date);
-      } else {
-        rangePicker.startDateValue = "";
-        rangePicker.endDateValue = "";
-        rangePicker.setDate(new Date());
-      }
-
-      rangePicker.setRangeType(null);
+        if(!_.isEmpty(rangePicker.startDateValue) && !_.isEmpty(rangePicker.endDateValue) && rangePicker.startDateValue != rangePicker.endDateValue) {              
+          rangePicker.setStartDate(_date); 
+          rangePicker.setEndDate(new Date(rangePicker.endDateValue)); 
+          rangePicker.setRangeType("range");
+        } else {
+          rangePicker.setDate(_date);               
+          rangePicker.setStartDate(_date); 
+          rangePicker.setRangeType(null);              
+          }
+        } else {
+          rangePicker.startDateValue = "";
+          rangePicker.endDateValue = "";
+          rangePicker.setDate(new Date());
+          rangePicker.setRangeType(null);
+        }         
 
       microTask.run(() => {
         rangePicker.positionTarget = positionTarget;
@@ -841,6 +848,8 @@ class RockSearchFilter
             filterInput.values = DataHelper.cloneObject(this.currentTag.value.exacts);
           } else if (this.currentTag.value.exact && this.currentTag.value.exact != 'All') {
             filterInput.values = [DataHelper.cloneObject(this.currentTag.value.exact)];
+          } else if (this.currentTag.value.contains && this.currentTag.value.contains != 'All') {
+            filterInput.values = [DataHelper.cloneObject(this.currentTag.value.contains)];
           }
 
           setTimeout(() => {
@@ -857,7 +866,7 @@ class RockSearchFilter
 
             if (this.currentTag.value.exact && this.currentTag.value.exact != 'All') {
               filterInput.value = this.currentTag.value.exact;
-            } else if (this.currentTag.value.contains){
+            } else if (this.currentTag.value.contains && this.currentTag.value.contains != 'All') {
               filterInput.value = this.currentTag.value.contains;
             }
 
