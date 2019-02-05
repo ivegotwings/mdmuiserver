@@ -2536,7 +2536,7 @@ extends mixinBehaviors([
     }
     
     _onDownload(e) {
-				this.fireBedrockEvent("grid-download-item");
+				this.fireBedrockEvent("grid-download-item",e.detail);
     }
     
     _onUpload(e, detail) {
