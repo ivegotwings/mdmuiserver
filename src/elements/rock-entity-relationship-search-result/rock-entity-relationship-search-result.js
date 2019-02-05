@@ -295,9 +295,8 @@ class RockEntityRelationshipSearchResult
   }
   _getConfigForUpDirection(config) {
       if (!_.isEmpty(config.upDirectionConfig) &&
-          this.configContext.fromEntityType &&
-          config.upDirectionConfig[this.configContext.fromEntityType]) {
-          let upConfig = config.upDirectionConfig[this.configContext.fromEntityType];
+          this.configContext.fromEntityType) {
+          let upConfig = config.upDirectionConfig.gridConfig;
 
           if (upConfig.title && config.gridConfig) {
               config.gridConfig.title = upConfig.title;
@@ -308,9 +307,10 @@ class RockEntityRelationshipSearchResult
           if (upConfig.lovTitlePattern && config.addRelLovConfig) {
               config.addRelLovConfig.titlePattern = upConfig.lovTitlePattern;
           }
-          if (upConfig.fromEntityTypes) {
-              config.fromEntityTypes = upConfig.fromEntityTypes;
+          if(this.configContext.fromEntityType){
+              config.fromEntityTypes = [this.configContext.fromEntityType];
           }
+          
           if (this.configContext.direction) {
               config.direction = this.configContext.direction;
           }
@@ -576,8 +576,11 @@ class RockEntityRelationshipSearchResult
                       this.logError("Related entity information is not available", e, true);
                   }
               }
+              else {
+                this.logError("Relationship models not found", e, true);
+              }
           } else {
-              this.logError("Relationship models not found", e, true);
+              this.logError("Composite model not found", e, true);
           }
       } else {
           this.logError("Relationship model get request failed", e, true);

@@ -791,7 +791,7 @@ extends mixinBehaviors([
 				overflow: auto;
 			}
 		</style>
-		<template is="dom-if" if="{{_dataIsNotNull(config, attributeModels)}}" restamp>
+		<template is="dom-if" if="{{_dataIsNotNull(config)}}" restamp>
 			<div class="base-grid-structure">
 				<div class="base-grid-structure-child-1">
 					<template is="dom-if" if="[[!noHeader]]">
@@ -2487,29 +2487,24 @@ extends mixinBehaviors([
 				}
     }
     
-    _dataIsNotNull(config, attributeModels) {
+    _dataIsNotNull(config) {
 				let result = typeof (config) == "object" && Object.keys(config).length ? true : false;
 				if (result) {
-            if ((config.schemaType == "attribute" || config.schemaType == "colModel") && Object.keys(attributeModels).length ==
-                0) {
-                result = false;
-            }
+                    if (DataHelper.isValidObjectPath(config, 'viewConfig.tabular.settings.actions')) {
+                        this._actions = this._getArrayFromObject(this.config.viewConfig.tabular.settings.actions);
 
-            if (DataHelper.isValidObjectPath(config, 'viewConfig.tabular.settings.actions')) {
-                this._actions = this._getArrayFromObject(this.config.viewConfig.tabular.settings.actions);
-
-                //TODO : This has to be moved to some helper.
-                if (this.applyContextCoalesce) {
-                    this._actions.push({
-                        "name": "sourceInfo",
-                        "icon": "pebble-icon:hierarchy",
-                        "text": "",
-                        "visible": true,
-                        "tooltip": "Source Info",
-                        "intent": "read"
-                    });
-                }
-            }
+                        //TODO : This has to be moved to some helper.
+                        if (this.applyContextCoalesce) {
+                            this._actions.push({
+                                "name": "sourceInfo",
+                                "icon": "pebble-icon:hierarchy",
+                                "text": "",
+                                "visible": true,
+                                "tooltip": "Source Info",
+                                "intent": "read"
+                            });
+                        }
+                    }
 				}
 
 				return result;
