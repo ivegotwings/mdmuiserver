@@ -172,6 +172,10 @@ extends mixinBehaviors([
           onSaveContextChange: {
               type: Boolean,
               value: false
+          },
+          isReviewProcess: {
+              type: Boolean,
+              value: false
           }
       }
   }
@@ -232,7 +236,8 @@ extends mixinBehaviors([
               "default-entity": this.defaultEntity,
               "data-index": this.dataIndex,
               "entity-domain": this.entityDomain,
-              "is-part-of-business-function": this.isPartOfBusinessFunction
+              "is-part-of-business-function": this.isPartOfBusinessFunction,
+              "is-review-process": this.isReviewProcess
           }
       };
       let contentEl = this.shadowRoot.querySelector("#content-create");

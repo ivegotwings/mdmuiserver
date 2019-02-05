@@ -187,6 +187,11 @@ class RockPathAttributeManage
           rootNodeExternalName: {
               type: String,
               value: ""
+          },
+
+          isReviewProcess: {
+              type: Boolean,
+              value: false
           }
       }
   }

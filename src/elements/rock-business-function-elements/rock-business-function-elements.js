@@ -12,6 +12,7 @@ import '../rock-workflow-transition/rock-workflow-transition.js';
 import '../rock-scope-manage/rock-scope-manage.js';
 import '../rock-entity-delete/rock-entity-delete.js';
 import '../rock-compare-entities/rock-compare-entities.js';
+import '../rock-match-merge/rock-match-merge.js';
 import '../rock-entity-create-single/rock-entity-create-single.js';
 import '../rock-path-attribute-manage/rock-path-attribute-manage.js';
 import '../rock-user-context-selector/rock-user-context-selector.js';
