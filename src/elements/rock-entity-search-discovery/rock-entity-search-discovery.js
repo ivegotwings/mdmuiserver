@@ -1434,10 +1434,22 @@ extends mixinBehaviors([
 
   // Revisit
   _onActionItemTap(e, detail, sender) {
+
+      let copContext = {};
+      if (detail && detail["data"] && detail["data"]["cop-context"]) {
+          copContext = detail["data"]["cop-context"];
+          let valContexts = ContextHelper.getValueContexts(this.contextData);
+          if (copContext.source) {
+              copContext.source = valContexts[0].source;
+          }
+      }
+
       let selectedDetails = {
           "selectedItems": this._searchGridElement.getSelectedItems(),
           "selectionMode": this._searchGridElement.getSelectionMode(),
-          "selectionQuery": this._searchGridElement.getSelectedItemsAsQuery()
+          "selectionQuery": this._searchGridElement.getSelectedItemsAsQuery(),
+          "selectedItemsCount": this._searchGridElement.getSelectedItemsCount(),
+          "copContext": copContext
       };
 
       let businessActionsEl = this.shadowRoot.querySelector("#businessActions");

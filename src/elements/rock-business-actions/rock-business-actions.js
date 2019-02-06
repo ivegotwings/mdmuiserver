@@ -148,6 +148,7 @@ extends mixinBehaviors([
                       "action-view-snapshot",
                       "action-copy",
                       "action-paste",
+                      "action-download",
                       "action-re-publish"
                   ];
               }
@@ -255,7 +256,9 @@ extends mixinBehaviors([
       const {
           selectedItems,
           selectionMode,
-          selectionQuery
+          selectionQuery,
+          copContext,
+          selectedItemsCount
       } = selectedDetails;
 
       this._workflowCriterion = workflowCriterion || {};
@@ -369,6 +372,29 @@ extends mixinBehaviors([
               };
               break;
           }
+          case 'action-download': {
+            detail = {
+                name: componentName,
+                subName: subComponentName,
+                mergeTitle: true,
+                title: DataHelper.concatValuesFromArray([ContextHelper.getDataContexts(this.contextData), this._selectedItems.length + " entities"])
+            };                    
+
+            if (this._selectedItems && this._selectedItems.length && this._selectedItems.length > 0 && this.contextData) {
+                let seltemsCount = selectedItemsCount ? selectedItemsCount : this._selectedItems.length;
+                shouldOpenBusinessDialog = true;   
+                sharedData = {
+                  "selection-query": selectionQuery,
+                  "selection-mode": selectionMode,
+                  "selected-entities": this._selectedItems,
+                  "selected-items-count": seltemsCount,
+                  "cop-context": copContext
+                };                
+              } else {
+                this.showInformationToast("Select at least one entity from grid to download.");
+              }
+              break;
+          }
           case 'action-re-publish': {
               detail = {
                   name: componentName,
@@ -380,6 +406,19 @@ extends mixinBehaviors([
               sharedData = {
                   "selected-entities": this._selectedItems,
                   "selection-mode": selectionMode
+              };
+              break;
+          }
+          case 'action-matchandmerge': {
+              detail = {
+                  name: componentName,
+                  subName: subComponentName,
+                  mergeTitle: true,
+                  title: this.isSingleEntityProcess ? this._getEntityName() : this._selectedItems.length + " entities"
+              };
+              sharedData = {
+                  "source-entities": [...new Set(this._selectedItems.map((entity) => entity.id))],
+                  "is-review-process": true
               };
               break;
           }
@@ -692,6 +731,15 @@ extends mixinBehaviors([
           return;
       }
 
+      if (eventName == "action-matchandmerge") {
+          this._currentAction = detail;
+          let selectedDetails = {
+              "selectedItems": DataHelper.cloneObject(this.getItemContexts())
+          };
+          this.triggerProcess(selectedDetails);
+          return;
+      }
+
       if (eventName == "action-re-publish") {
           this._currentAction = detail;
           let selectedDetails = {
@@ -724,6 +772,14 @@ extends mixinBehaviors([
 
       if (eventName === "action-paste") {
           this.fireBedrockEvent("on-paste-tap", detail, {
+              ignoreId: true
+          });
+          return;
+      }
+
+      if (eventName === "action-download") {
+          detail = detail.data;
+          this.fireBedrockEvent("on-download", detail, {
               ignoreId: true
           });
           return;

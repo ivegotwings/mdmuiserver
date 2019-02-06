@@ -620,7 +620,7 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
                     <!-- Show the popover for read-only mode for the grid-->
                     <template is="dom-if" if="[[_isGridType]]">
                         <template is="dom-if" if="[[!_isEditMode(mode)]]">
-                            <span id="rtelink" class="fallback-value" on-mouseenter="_rteLinkHovered">Show More</span>
+                            <span id="rtelink" class="fallback-value" on-mouseenter="_rteLinkHovered" on-mouseout="_rteLinkHoveredOut">Show More</span>
                             <pebble-popover id="rtePopover" class="p-10" for="rtelink" no-overlap="" horizontal-align="right">
                                 <pebble-richtexteditor id="input" description-object="[[_getDescriptionObject()]]" validation-errors="{{validationErrors}}" label="{{_getLabel(attributeModelObject.externalName)}}" invalid="{{invalid}}" value="{{attributeDisplayValue}}" tabindex="[[tabindex]]" read-only="[[!_isComponentEditable(mode, attributeModelObject)]]" selected-values-font-style="[[_coalescedFontStyle]]" selected-values-color="[[_fallbackColor]]"></pebble-richtexteditor>
                             </pebble-popover>
@@ -1472,6 +1472,9 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
   _rteLinkHovered(e) {
       this.shadowRoot.querySelector('#rtePopover').show();
   }
+  _rteLinkHoveredOut(e) {
+    this.shadowRoot.querySelector('#rtePopover').hide();
+}
   _rteEditLinkTapped(e) {
       this.shadowRoot.querySelector('#rteSingleEdit').open();
   }

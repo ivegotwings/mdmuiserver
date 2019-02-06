@@ -22,17 +22,17 @@ const fragments = require('./dynamic-fragments.js');
 const polyfills = [
   {
     from: resolve(`${webcomponentsjs}/webcomponents-*.{js,map}`),
-    to: join(OUTPUT_PATH, 'vendor'),
+    to: join(OUTPUT_PATH, 'node_modules/@webcomponents/webcomponentsjs/'),
     flatten: true
   },
   {
     from: resolve(`${webcomponentsjs}/bundles/*.{js,map}`),
-    to: join(OUTPUT_PATH, 'vendor', 'bundles'),
+    to: join(OUTPUT_PATH, 'node_modules/@webcomponents/webcomponentsjs/', 'bundles'),
     flatten: true
   },
   {
     from: resolve(`${webcomponentsjs}/custom-elements-es5-adapter.js`),
-    to: join(OUTPUT_PATH, 'vendor'),
+    to: join(OUTPUT_PATH, 'node_modules/@webcomponents/webcomponentsjs/'),
     flatten: true
   }
 ];

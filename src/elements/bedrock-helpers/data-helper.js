@@ -327,6 +327,62 @@ DataHelper.getRandomString = function () {
         Math.abs(Math.floor(Math.random() * x) ^ new Date().getTime()).toString(36);
 };
 
+/*
+    Sort the object data based on keys or values
+    obj - source object
+    sortProperties - is an array, user can provide value object deep path and order by. default is key sorting/asc.
+                     Eg: [{
+                            "key": "properties.rank",
+                            "orderBy": "desc"
+                          }, {
+                            "key": "properties.groupName"
+                         }]
+    keyIdentifier - Object key converts to the value property while sorting,
+                    this is to retain the object after sorting
+*/
+DataHelper.sortObject = function (obj, sortProperties, keyIdentifier = "keyIdentifier") {
+    let objArray = _.map(obj, function (value, key) {
+        if (!(value instanceof Object)) {
+            value = {};
+        }
+        value[keyIdentifier] = key;
+        return value
+    });
+    //Prepare sort keys and order by details
+    let sortKeys = []; let sortOrders = [];
+    if (!_.isEmpty(sortProperties)) {
+        for(let sortProperty of sortProperties) {
+            if(sortProperty.key) {
+                sortKeys.push(sortProperty.key);
+                sortOrders.push(sortProperty.orderBy || "asc");
+            }
+        }
+    } else {
+        sortKeys = [keyIdentifier];
+        sortOrders = ["asc"];
+    }
+    let sortedObjArray = _.orderBy(objArray, function (item) {
+        let properties = sortKeys.map(path => {
+            if (DataHelper.isValidObjectPath(item, path)) {
+                return eval("item." + path);
+            } else {
+                return undefined;
+            }
+        });
+        return properties;
+    }, sortOrders);
+    let resultObj = {};
+    sortedObjArray.forEach(item => {
+        let key = item[keyIdentifier];
+        resultObj[key] = item;
+        delete item[keyIdentifier];
+        if (_.isEmpty(resultObj[key])) {
+            resultObj[key] = obj[key];
+        }
+    })
+    return resultObj;
+};
+
 DataHelper.sort = function (arrayOfObjects, sortByProperty, dataType, sortType, sortByAdditionalProperties) {
     let sortedData = arrayOfObjects;
     if (arrayOfObjects && sortByProperty) {
