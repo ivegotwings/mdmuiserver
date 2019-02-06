@@ -42,13 +42,19 @@ class DataTableColumn extends mixinBehaviors([RUFBehaviors.UIBehavior], Optional
                 <data-table-column-filter slot="cell-slot-content" label="[[column.name]]" value="{{column.filterValue}}" hidden\$="[[!column.filterBy]]" filter-type="[[filterType]]"></data-table-column-filter>
             </template>
             <div slot="cell-slot-content" class="cell-content" hidden\$="[[column.filterBy]]" title\$="[[column.name]]">
-                <div class="cell-content-text text-ellipsis">[[column.name]]</div>
+                <div class="cell-content-text text-ellipsis">
+                    <template is="dom-if" if="[[_columHasLink(column.columnObject)]]">
+                        <a href="#" on-tap="_columnLinkClicked">[[column.name]]</a>
+                    </template>
+                    <template is="dom-if" if="[[!_columHasLink(column.columnObject)]]">
+                        <span>[[column.name]]</span>
+                    </template>
+                </div>
                 <template is="dom-if" if="[[columnObject.headerDescription]]">
                     <pebble-info-icon description-object="[[columnObject.headerDescription]]"></pebble-info-icon>
                 </template>
             </div>
-        </template>
-`;
+        </template>`;
   }
 
   static get is() {
@@ -368,6 +374,20 @@ class DataTableColumn extends mixinBehaviors([RUFBehaviors.UIBehavior], Optional
       pubsub.setAttribute('handler', '_filterEvent');
       pubsub._filterEvent = this._filterEvent;
       dom(this).appendChild(pubsub);
+  }
+
+  _columnLinkClicked(e) {
+    if (!_.isEmpty(this.columnObject) && this.columnObject.link) {
+        window.history.pushState("", "", this.columnObject.link);
+        window.dispatchEvent(new CustomEvent('location-changed'));
+    }
+  }
+
+  _columHasLink(columnObject) {
+      if (!_.isEmpty(columnObject) && columnObject.link) {
+          return true;
+      }
+      return false;
   }
 }
 customElements.define(DataTableColumn.is, DataTableColumn);

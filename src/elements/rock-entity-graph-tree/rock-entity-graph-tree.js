@@ -61,12 +61,17 @@ class RockEntityGraphTree
              }
          </style>
         <liquid-entity-model-get id="liquidModeleGet" operation="getbyids" request-data="[[_modelRequest]]" on-response="_onModelReceived" on-error="_onModelGetFailed"></liquid-entity-model-get>
-        <liquid-entity-data-get id="titleAttributeGet" operation="getbyids" request-data="[[_titleRequest]]" on-response="_onTitleAttributesGetResponse"></liquid-entity-data-get>
+        <liquid-entity-data-get id="titleAttributeGet" operation="getbyids" request-data="[[_titleRequest]]" on-response="_onTitleAttributesGetResponse" on-error="_onTitleAttributesGetFailed"></liquid-entity-data-get>
 
         <entity-graph-tree-datasource where-used-request="{{_whereUsedRequest}}" where-used-data-source="{{_whereUsedDataSource}}" owned-relationships-request="{{_ownedRelationshipsRequest}}" owned-data-source="{{_ownedDataSource}}"></entity-graph-tree-datasource>
 
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
-        <pebble-tree id="tree" leaf-node-only="[[leafNodeOnly]]" data="{{_graphs}}" default-child-depth="10" multi-select="[[multiSelect]]" expand-collapse-icon-object="[[_expandCollapseIconObject]]"></pebble-tree>
+        <template is="dom-if" if="{{hasComponentErrored(isComponentErrored)}}">
+            <div id="error-container"></div>
+        </template>
+        <template is="dom-if" if="{{!hasComponentErrored(isComponentErrored)}}">
+            <pebble-tree id="tree" leaf-node-only="[[leafNodeOnly]]" data="{{_graphs}}" default-child-depth="10" multi-select="[[multiSelect]]" expand-collapse-icon-object="[[_expandCollapseIconObject]]"></pebble-tree>
+        </template>
         <bedrock-pubsub event-name="tree-node-child-list-refreshed" handler="_childListRefreshed"></bedrock-pubsub>
 `;
   }
@@ -309,6 +314,12 @@ class RockEntityGraphTree
               }
           }
       }
+  }
+  _onTitleAttributesGetFailed(e) {
+    this._loading = false;
+      this.logError(
+          "EntityDataGetFail:- There is a problem with entity data service (EntityDataGet).",
+          e.detail, true);
   }
   _childListRefreshed() {
       this._checkForSelectedGraphItem();
@@ -570,7 +581,10 @@ class RockEntityGraphTree
       }
   }
   _onModelGetFailed(e){
-      //Need to log error
+      this._loading = false;
+      this.logError(
+          "EntityModelGetFail:- There is a problem with entity model service (EntityModelGet).",
+          e.detail, true);
   }
   _updatePaginationNode(){
       if(this._currentNode && !_.isEmpty(this._currentNodeData)){

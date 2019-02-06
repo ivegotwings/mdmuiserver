@@ -409,6 +409,19 @@ extends mixinBehaviors([
               };
               break;
           }
+          case 'action-matchandmerge': {
+              detail = {
+                  name: componentName,
+                  subName: subComponentName,
+                  mergeTitle: true,
+                  title: this.isSingleEntityProcess ? this._getEntityName() : this._selectedItems.length + " entities"
+              };
+              sharedData = {
+                  "source-entities": [...new Set(this._selectedItems.map((entity) => entity.id))],
+                  "is-review-process": true
+              };
+              break;
+          }
           case 'action-add-context': {
               let properties = this._currentAction.data.properties;
               let entityTypeManager = EntityTypeManager.getInstance();
@@ -715,6 +728,15 @@ extends mixinBehaviors([
           this.fireBedrockEvent("on-preview-template-tap", detail, {
               ignoreId: true
           });
+          return;
+      }
+
+      if (eventName == "action-matchandmerge") {
+          this._currentAction = detail;
+          let selectedDetails = {
+              "selectedItems": DataHelper.cloneObject(this.getItemContexts())
+          };
+          this.triggerProcess(selectedDetails);
           return;
       }
 
