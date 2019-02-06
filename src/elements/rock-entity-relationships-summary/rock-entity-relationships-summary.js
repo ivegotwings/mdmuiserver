@@ -366,7 +366,7 @@ extends mixinBehaviors([
       }
   }
   _onError(e) {
-      this.logError("Failed to get Entity data", e.detail);
+      this.logError("Failed to get Entity data", e.detail, true);
   }
   _onModelGetFailed(e) {
       this.logError("TabMenuError", e.detail, true);

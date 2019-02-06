@@ -567,6 +567,9 @@ RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
             } else {
                 return {}; // no falcor call needed..
             }
+        },
+        function(errorPkg) {
+            return self._handleError(request, errorPkg);
         });
 
         return {};

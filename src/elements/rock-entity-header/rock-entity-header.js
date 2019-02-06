@@ -332,7 +332,7 @@ extends mixinBehaviors([
             </template>
             <rock-entity-thumbnail id="entityThumbnail" config="[[thumbnailConfig]]" default-thumbnail-id="[[_defaultThumbnailId]]"></rock-entity-thumbnail>
             <div class="header-right-panel">
-                <div id="attributePanel">
+                <div id="attributePanel" hidden\$="[[_showErrorMessage]]">
                     <template id="headerAttributes" is="dom-repeat" items="[[_headerAttributeValues]]">
                         <div id="attribute" class$="[[_computeAttributeClass(item)]]">
                             <div id="attrName">
@@ -350,7 +350,7 @@ extends mixinBehaviors([
                         </div>
                     </template>
                 </div>
-                <div id="attributeErrorPanel" hidden=""></div>
+                <div id="attributeErrorPanel" hidden\$="[[!_showErrorMessage]]"></div>
                 <div id="buttonPanel">
                     <template is="dom-if" if="[[writePermission]]">
                         <template is="dom-if" if="[[businessActionsConfig.showActions]]">
@@ -378,7 +378,7 @@ extends mixinBehaviors([
 
 
         </div>
-        <liquid-entity-data-get name="attributeGetDataService" operation="getbyids" request-data="{{headerAttributeRequest}}" last-response="{{_headerAttributesGetResponse}}" on-response="_onHeaderAttributesGetResponse" include-type-external-name=""></liquid-entity-data-get>
+        <liquid-entity-data-get name="attributeGetDataService" operation="getbyids" request-data="{{headerAttributeRequest}}" last-response="{{_headerAttributesGetResponse}}" on-response="_onHeaderAttributesGetResponse" on-error="_onHeaderAttributesGetResponseError" include-type-external-name=""></liquid-entity-data-get>
         <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{headerAttributeModelRequest}}" on-entity-model-composite-get-response="_onCompositeModelGetResponse"></liquid-entity-model-composite-get>
         <liquid-entity-data-save name="attributeSaveDataService" operation="[[_entityDataOperation]]" request-data="{{_saveRequest}}" last-response="{{_saveResponse}}" on-response="_onSaveResponse" on-error="_onSaveError"></liquid-entity-data-save>
 `;
@@ -535,6 +535,10 @@ extends mixinBehaviors([
           metaDataColumnFound : {
             type: Boolean,
             value: false
+          },
+          _showErrorMessage: {
+              type: Boolean,
+              value: false
           }
       }
   }
@@ -805,6 +809,7 @@ extends mixinBehaviors([
                     this._showMessage("Attributes are not available or there is no permission. Contact administrator");
                 }
                 else{
+                    this._showErrorMessage = false;
                     this.$.headerAttributes.render();
                 }
           }
@@ -813,6 +818,12 @@ extends mixinBehaviors([
           let attrErrorContainer = this.$$('#attributeErrorPanel');
           this.logError("rock-entity-header - Header attributes get response error", e.detail, true, "", attrErrorContainer);
       }
+  }
+
+  _onHeaderAttributesGetResponseError(e) {
+      this._showMessage();
+      let attrErrorContainer = this.$$('#attributeErrorPanel');
+      this.logError("rock-entity-header - Header attributes get response error", e.detail, true, "", attrErrorContainer);
   }
 
   _setMetadataAttributes(entity) {
@@ -1156,13 +1167,13 @@ extends mixinBehaviors([
   }
 
   _showMessage(message) {
-      let attrContainer = this.$$('#attributePanel');
-      let attrErrorContainer = this.$$('#attributeErrorPanel');
       if(message) {
-          attrErrorContainer.innerHTML = message;
+          let attrErrorContainer = this.$$('#attributeErrorPanel');
+          if(attrErrorContainer) {
+            attrErrorContainer.innerHTML = message;
+          }
       }
-      attrContainer.hidden = true;
-      attrErrorContainer.hidden = false;
+      this._showErrorMessage = true;
   }
 }
 customElements.define(RockEntityHeader.is, RockEntityHeader)
