@@ -34,6 +34,7 @@ import '../pebble-dialog/pebble-dialog.js';
 import '../rock-attribute-list/rock-attribute-list.js';
 import '../rock-compare-entities/rock-compare-entities.js';
 import '../liquid-config-get/liquid-config-get.js';
+import EntityTypeManager from '../bedrock-managers/entity-type-manager.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockEntityCreateSingle
     extends mixinBehaviors([
@@ -75,10 +76,10 @@ class RockEntityCreateSingle
         <liquid-rest id="modelGovernService" url="/data/pass-through/modelgovernservice/validate" method="POST" request-data="{{_modelGovernRequest}}" on-liquid-response="_onEntityGovernResponse" on-liquid-error="_onEntityGovernFailed">
         </liquid-rest>
         <pebble-dialog id="updateConfirmDialog" modal="" small="" vertical-offset="1" 50="" horizontal-align="auto" vertical-align="auto" no-cancel-on-outside-click="" no-cancel-on-esc-key="" dialog-title="Found Match">
-            <p>Found the below matching entity in system: </p>
+            <p>Found the below matching entity with high accuracy in the system: </p>
             <ul class="error-list">
-                <li>Entity Id: [[_matchedEntity.id]]</li>
-                <li>Entity Type: [[_matchedEntity.type]]</li>
+                <li>Id: [[_matchedEntity.id]]</li>
+                <li>Type: [[_getExternalEntityType(_matchedEntity.type)]]</li>
             </ul>
             <p>Do you want to update the entity?</p>
             <div class="buttons">
@@ -309,6 +310,10 @@ class RockEntityCreateSingle
                       "merge": 100
                   }
               }
+          },
+          _isMergeProcess: {
+              type: Boolean,
+              value: true
           }
       }
   }
@@ -472,6 +477,7 @@ class RockEntityCreateSingle
 
       //Trigger entity updated instead of match
       if(!_.isEmpty(this.savedEntity)) {
+          this._isMergeProcess = false;
           this._updateEntity();
           return;
       }
@@ -606,7 +612,7 @@ class RockEntityCreateSingle
 
   _showCompareWindowBasedOnPermissions(entities) {
       this.matchConfig.matchMerge.canMerge = this._matchPermissions.mergePermission;
-      this.matchConfig.matchMerge.canCreateReview = this._matchPermissions.submitPermission;
+      this.matchConfig.matchMerge.canCreateReview = this._matchPermissions.submitPermission && !this.matchConfig.matchMerge.canMerge;
       this._showCompareWindow(entities);
   }
   _getMatchType(matchedEntities) {
@@ -720,6 +726,9 @@ class RockEntityCreateSingle
       }
       if (operation == "update") {
           msg = "Entity updated successfully.";
+          if(this._isMergeProcess) {
+            this._triggerEntityGet(); //Trigger entity get for latest details
+          }
       }
 
       if (this.dataIndex != "entityModel") {
@@ -904,6 +913,15 @@ class RockEntityCreateSingle
   _onCompareEntitiesMerge(e, detail) {
       this._matchedEntity = detail.matchedEntity;
       this._updateEntity();
+  }
+
+  _getExternalEntityType(entityTypeId) {
+      let entityType = entityTypeId;
+      let entityTypeManager = EntityTypeManager.getInstance();
+      if (entityTypeManager) {
+        entityType = entityTypeManager.getTypeExternalNameById(entityTypeId);
+      }
+      return entityType;
   }
 }
 /**

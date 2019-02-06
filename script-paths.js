@@ -1,6 +1,5 @@
 const scriptPaths = [
     "/node_modules/underscore/underscore.js",
-    "/node_modules/lodash/lodash.js",
     "/node_modules/web-animations-js/web-animations-next.min.js",
     "/node_modules/intl-messageformat/dist/intl-messageformat.min.js",
     "/src/elements/bedrock-externalref-socketio/socket.io.min.js",

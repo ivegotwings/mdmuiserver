@@ -786,12 +786,7 @@ class RockMatchMerge extends mixinBehaviors([
             })
         }
         models.forEach(model => {
-            let sortProperties = [{
-                "key": "properties.rank"
-            }, {
-                "key": "properties.groupName"
-            }];
-            model.data.attributes = DataHelper.sortObject(model.data.attributes, sortProperties);
+            model.data.attributes = DataHelper.sortObject(model.data.attributes, ["properties.rank", "properties.groupName"]);
         })
     }
 

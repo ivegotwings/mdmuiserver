@@ -97,11 +97,6 @@ const assets = [
     from: resolve('./node_modules/underscore/underscore.{js,map}'),
     to: join(OUTPUT_PATH, 'node_modules/underscore/'),
     flatten: true
-  },
-  {
-    from: resolve('./node_modules/lodash/lodash.{js,map}'),
-    to: join(OUTPUT_PATH, 'node_modules/lodash/'),
-    flatten: true
   }
 ];
 
