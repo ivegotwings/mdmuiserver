@@ -330,17 +330,12 @@ DataHelper.getRandomString = function () {
 /*
     Sort the object data based on keys or values
     obj - source object
-    sortProperties - is an array, user can provide value object deep path and order by. default is key sorting/asc.
-                     Eg: [{
-                            "key": "properties.rank",
-                            "orderBy": "desc"
-                          }, {
-                            "key": "properties.groupName"
-                         }]
+    sortProperties - is an array, user can provide value object deep path. default is key sorting.
+                     Eg: ["properties.rank", "properties.groupName"]
     keyIdentifier - Object key converts to the value property while sorting,
                     this is to retain the object after sorting
 */
-DataHelper.sortObject = function (obj, sortProperties, keyIdentifier = "keyIdentifier") {
+DataHelper.sortObject = function (obj, sortProperties, orderBy = "asc", keyIdentifier = "keyIdentifier") {
     let objArray = _.map(obj, function (value, key) {
         if (!(value instanceof Object)) {
             value = {};
@@ -348,21 +343,11 @@ DataHelper.sortObject = function (obj, sortProperties, keyIdentifier = "keyIdent
         value[keyIdentifier] = key;
         return value
     });
-    //Prepare sort keys and order by details
-    let sortKeys = []; let sortOrders = [];
-    if (!_.isEmpty(sortProperties)) {
-        for(let sortProperty of sortProperties) {
-            if(sortProperty.key) {
-                sortKeys.push(sortProperty.key);
-                sortOrders.push(sortProperty.orderBy || "asc");
-            }
-        }
-    } else {
-        sortKeys = [keyIdentifier];
-        sortOrders = ["asc"];
+    if (_.isEmpty(sortProperties)) {
+        sortProperties = [keyIdentifier];
     }
-    let sortedObjArray = _.orderBy(objArray, function (item) {
-        let properties = sortKeys.map(path => {
+    let sortedObjArray = _.sortBy(objArray, function (item) {
+        let properties = sortProperties.map(path => {
             if (DataHelper.isValidObjectPath(item, path)) {
                 return eval("item." + path);
             } else {
@@ -370,7 +355,10 @@ DataHelper.sortObject = function (obj, sortProperties, keyIdentifier = "keyIdent
             }
         });
         return properties;
-    }, sortOrders);
+    });
+    if (orderBy != "asc") {
+        sortedObjArray = sortedObjArray.reverse();
+    }
     let resultObj = {};
     sortedObjArray.forEach(item => {
         let key = item[keyIdentifier];
