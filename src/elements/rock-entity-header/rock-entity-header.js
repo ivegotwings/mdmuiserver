@@ -378,7 +378,7 @@ extends mixinBehaviors([
 
 
         </div>
-        <liquid-entity-data-get name="attributeGetDataService" operation="getbyids" request-data="{{headerAttributeRequest}}" last-response="{{_headerAttributesGetResponse}}" on-response="_onHeaderAttributesGetResponse" include-type-external-name=""></liquid-entity-data-get>
+        <liquid-entity-data-get name="attributeGetDataService" operation="getbyids" request-data="{{headerAttributeRequest}}" last-response="{{_headerAttributesGetResponse}}" on-response="_onHeaderAttributesGetResponse" on-error="_onHeaderAttributesGetResponseError" include-type-external-name=""></liquid-entity-data-get>
         <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{headerAttributeModelRequest}}" on-entity-model-composite-get-response="_onCompositeModelGetResponse"></liquid-entity-model-composite-get>
         <liquid-entity-data-save name="attributeSaveDataService" operation="[[_entityDataOperation]]" request-data="{{_saveRequest}}" last-response="{{_saveResponse}}" on-response="_onSaveResponse" on-error="_onSaveError"></liquid-entity-data-save>
 `;
@@ -818,6 +818,12 @@ extends mixinBehaviors([
           let attrErrorContainer = this.$$('#attributeErrorPanel');
           this.logError("rock-entity-header - Header attributes get response error", e.detail, true, "", attrErrorContainer);
       }
+  }
+
+  _onHeaderAttributesGetResponseError(e) {
+      this._showMessage();
+      let attrErrorContainer = this.$$('#attributeErrorPanel');
+      this.logError("rock-entity-header - Header attributes get response error", e.detail, true, "", attrErrorContainer);
   }
 
   _setMetadataAttributes(entity) {

@@ -551,6 +551,7 @@ class RockAttributeManage extends mixinBehaviors(
       let compositeModel = {};
       let entityCompositeModelManager = new EntityCompositeModelManager();
       if(entityCompositeModelManager && compositeModelGetRequest) {
+          entityCompositeModelManager.addEventListener('composite-model-manager-error', this._onEntityModelCompositeGetFailed.bind(this));
           compositeModelGetRequest.applyEnhancerCoalesce = true;
           compositeModel = await entityCompositeModelManager.get(compositeModelGetRequest, this.contextData);
       }

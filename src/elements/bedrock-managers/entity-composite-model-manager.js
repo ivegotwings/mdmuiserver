@@ -82,7 +82,7 @@ class EntityCompositeModelManager
     _onError(e) {
         this.logError('Entity composite model get failed', e.detail);
         this.dispatchEvent(new CustomEvent("error", { detail:e.detail, bubbles: this.bubbles, composed:true }));
-        this.dispatchEvent(new CustomEvent("liquid-error", { detail:e.detail, bubbles: this.bubbles, composed:true }));
+        this.dispatchEvent(new CustomEvent("composite-model-manager-error", { detail:e.detail, bubbles: this.bubbles, composed:true }));
     }
 
     async get(requestData, contextData) {
