@@ -19,6 +19,7 @@ import '../pebble-image-viewer/pebble-image-viewer.js';
 import '../bedrock-helpers/liquid-response-helper.js';
 import '../liquid-rest/liquid-rest.js';
 import '../liquid-entity-data-get/liquid-entity-data-get.js';
+import EntityTypeManager from '../bedrock-managers/entity-type-manager.js'
 class RockImageViewer extends  OptionalMutableData(PolymerElement) {
   static get template() {
     return html`
@@ -300,6 +301,12 @@ class RockImageViewer extends  OptionalMutableData(PolymerElement) {
               value: function () {
                   return {}
               }
+          },
+          typesCriterion: {
+              type: Array,
+              value: function () {
+                  return []
+              }
           }
       }
   }
@@ -315,6 +322,10 @@ class RockImageViewer extends  OptionalMutableData(PolymerElement) {
   }
   connectedCallback() {
       super.connectedCallback();
+      let entityTypes = EntityTypeManager.getInstance().getTypesByDomain("digitalAsset");
+      this.typesCriterion = entityTypes.filter(entityType => {
+        return entityType.includes("rendition");
+      });
       this.addEventListener('enlarge-asset', this._onAssetEnlargeEvent);
       this.addEventListener('asset-popover-closed', this.assetPopoverClosed);
 
@@ -334,7 +345,7 @@ class RockImageViewer extends  OptionalMutableData(PolymerElement) {
                       "fields": {}
                   }
               };
-              req.params.query.filters.typesCriterion = ["imagerendition"];
+              req.params.query.filters.typesCriterion = this.typesCriterion;
               req.params.fields.attributes = ["blob"];
 
               let getThumbnailLiquid = this._createLiquidRest("/data/pass-through/binaryobjectservice/get", this._onGetThumbnailResponse);
