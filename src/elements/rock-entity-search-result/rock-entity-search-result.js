@@ -1146,6 +1146,10 @@ class RockEntitySearchResult extends mixinBehaviors([RUFBehaviors.AppBehavior,
       return true;
   }
 
+  triggerDownload(e,detail){
+    this._onDownload(e, detail);
+  }
+
   _onDownload(e, detail) {
       let selectedItems = this.getSelectedItems();
       let selectionMode = this.getSelectionMode();

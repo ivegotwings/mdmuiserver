@@ -158,6 +158,10 @@ class RockSplitList
             if(entityType && entityTypeManager){
                 this._dataSourceDomain = entityTypeManager.getDomainByEntityTypeName(entityType);
             }
+
+            if(this._dataSourceDomain.toLowerCase() == "referencedata"){
+                this._dataSourceMode = "all";
+            }              
         }
       this.set("requestData", modelGetRequest);   
   }

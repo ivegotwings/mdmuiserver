@@ -153,7 +153,12 @@ class AttributeModelDatasource
             this.request.params.query["domain"] = this.domain;
         }
         this.isRequestInitiated = false;
+      } 
+      
+      if (this.mode === "all" && this.domain && this.domain.toLowerCase() == "referencedata"){
+        this.request.params.query["domain"] = this.domain;
       }
+      
       DataHelper.oneTimeEvent(this._liquidInitSearchElement, 'response', this._onInitSearchResponse.bind(
           this));
 

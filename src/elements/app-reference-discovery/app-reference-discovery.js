@@ -562,6 +562,8 @@ class AppReferenceDiscovery
           if (!_.isEmpty(data)) {
               if (data.eventName == "action-re-publish") {
                   this._rePublish(data.subComponentName);
+              } else if (data.eventName == "action-download") {
+                  this._searchGridElement.triggerDownload(e,data);                  
               }
           }
       }
