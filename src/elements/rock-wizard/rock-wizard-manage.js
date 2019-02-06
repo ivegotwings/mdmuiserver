@@ -541,6 +541,24 @@ class RockWizardManage
               this._triggerComponentEvent(eventDetail);
           });
       }
+      //Trigger finish step
+      if (detail && detail.triggerFinishStep) {
+          this._triggerFinishStep();
+      }
+  }
+
+  _triggerFinishStep() {
+      //Single step
+      if(this.config.steps.length == 1) {
+          this.fire("cancel-event");
+          return;
+      }
+
+      let lastStepIndex = this.config.steps.length - 1;
+      let currentStepConfig = this.config.steps[lastStepIndex];
+      currentStepConfig.stepToBackOptionEnabled = false;
+      this._setCurrentComponentState(); //For component result
+      this.goToStep(lastStepIndex);
   }
 
   _onBusinessFunctionClose(e, detail) {

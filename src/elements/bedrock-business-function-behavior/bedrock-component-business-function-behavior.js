@@ -81,11 +81,12 @@ RUFBehaviors.ComponentBusinessFunctionBehaviorImpl = {
         return this.isComponentDirty;
     },
 
-    dataFunctionComplete: function (data, eventDetails, closeBusinessFunction = false) {
+    dataFunctionComplete: function (data, eventDetails, closeBusinessFunction = false, triggerFinishStep = false) {
         this.isComponentDirty = false;
         this.componentResult = {
             "status": "completed",
-            "eventDetails": eventDetails || []
+            "eventDetails": eventDetails || [],
+            "triggerFinishStep": triggerFinishStep
         }
         if (!_.isEmpty(data)) {
             for (let key in data) {

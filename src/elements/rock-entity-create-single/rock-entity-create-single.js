@@ -751,7 +751,8 @@ class RockEntityCreateSingle
       let itemCtx = this.getFirstItemContext();
       let entityCreateElement = ComponentHelper.getParentElement(this); //rock-entity-create
       this.savedEntity = { "id": itemCtx.id, "type": this.isReviewProcess ? "rsdraft" + itemCtx.type : itemCtx.type };
-      entityCreateElement.dataFunctionComplete(this.savedEntity);
+      //If review process, then trigger finish step directly
+      entityCreateElement.dataFunctionComplete(this.savedEntity, [], false, this.isReviewProcess);
       this._saveButtonText = "Update";
       this._hideView("entity-match");
       this._showView("entity-create");
@@ -787,7 +788,7 @@ class RockEntityCreateSingle
   }
   _onEntityGovernResponse(e) {
       let response = e.detail.response;
-      if (response.response && response.response.status && response.response.status.toLowerCase() == "success") {
+      if (DataHelper.isValidObjectPath(response, "response.status") && response.response.status.toLowerCase() == "success") {
           let res = response.response;
           let itemContext = this.getFirstItemContext();
           let entityId;
