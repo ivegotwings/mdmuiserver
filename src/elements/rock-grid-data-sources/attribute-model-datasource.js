@@ -153,7 +153,8 @@ class AttributeModelDatasource
             this.request.params.query["domain"] = this.domain;
         }
         this.isRequestInitiated = false;
-      }
+      }         
+
       DataHelper.oneTimeEvent(this._liquidInitSearchElement, 'response', this._onInitSearchResponse.bind(
           this));
 

@@ -864,7 +864,7 @@ class RockTaskList extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors
           case "rsjson":
               return "/src/images/json.svg";
           case "dsv":
-              return "/src/images/image.svg";
+              return "/src/images/dsv.svg";
           default:
               return "/src/images/MicrosoftExcel50,100,500px/MicrosoftExcel_100.svg";
       }
