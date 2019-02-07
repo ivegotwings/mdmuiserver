@@ -161,6 +161,7 @@ class RockSplitList
 
             if(this._dataSourceDomain.toLowerCase() == "referencedata"){
                 this._dataSourceMode = "all";
+                modelGetRequest.params.query["domain"] = this._dataSourceDomain;                  
             }              
         }
       this.set("requestData", modelGetRequest);   
