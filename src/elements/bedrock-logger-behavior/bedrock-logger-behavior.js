@@ -100,7 +100,9 @@ RUFBehaviors.LoggerBehaviorImpl = {
         }
         
         let errorGUID = DataHelper.generateUUID();
-        exceptionDetail["id"] = errorGUID;
+        if(typeof exceptionDetail != "string"){
+            exceptionDetail["id"] = errorGUID;
+        }
         RUFUtilities.Logger.error("RUF_UI_ERROR", exceptionDetail, "ui-platform");
         //arguments[4] or domContainer is an optional parameter which is sent in special cases only like main-app by default error-container is used.
 
