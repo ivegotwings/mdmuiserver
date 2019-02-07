@@ -213,7 +213,7 @@ import '../rock-entity-lov/rock-entity-lov.js';
 import '../rock-grid/rock-grid.js';
 import '../rock-grid-data-sources/entity-relationship-grid-datasource.js';
 import '../rock-entity-relationship-search-result-actions/rock-entity-relationship-search-result-actions.js';
-import { dom } from '@polymer/polymer/lib/legacy/polymer.dom.js';
+import { dom, flush } from '@polymer/polymer/lib/legacy/polymer.dom.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockRelationshipGrid
   extends mixinBehaviors([
@@ -1312,7 +1312,7 @@ class RockRelationshipGrid
     }
     if (this.addRelationshipMode == "lov") {
       this._isReadyToShowRelationshipAddPopover = this._loadLovEntities;
-      Polymer.flush();
+      flush();
       let popover = this.shadowRoot.querySelector("pebble-popover[for=" + e.currentTarget.id + "]");
       this._currentSelectedLov = this.shadowRoot.querySelector('rock-entity-lov[id=lov_' + this.relationship + ']');
       popover.show();

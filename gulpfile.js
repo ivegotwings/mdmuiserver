@@ -98,7 +98,7 @@ function serverBuild(buildPath) {
 }
 
 async function copyPolymerOverrides(buildPath) {
-  return await true; //gulp.src('./src/polymer-overrides/**/*').pipe(gulp.dest(buildPath + '/bower_components/polymer/'));
+  return await gulp.src('./src/polymer-overrides/**/*').pipe(gulp.dest(buildPath + '/node_modules/@polymer/polymer/'));
 }
 
 gulp.task('eslint-src', function() {
@@ -139,7 +139,7 @@ gulp.task('copy-dynamic-fragments', async function() {
 
 gulp.task('generate-index', async function() {
   let isProduction = (argv.production === undefined) ? false : true;
-  return generateIndex(isProduction)
+  return generateIndex(isProduction);
 });
 
 gulp.task('dev-build', gulp.series('eslint-src', 'prod-delete', 'build-server', 'copy-polymer-overrides'));

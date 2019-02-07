@@ -177,11 +177,6 @@ class PebbleInfoIcon extends OptionalMutableData(PolymerElement){
 
       e.stopPropagation();
   }
-
-  // _onPopoverClose(e) {
-  //     this._showPopover = false;
-  //     Polymer.dom.flush();
-  // }
 }
 
 customElements.define(PebbleInfoIcon.is, PebbleInfoIcon);
