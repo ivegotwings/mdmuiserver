@@ -153,7 +153,7 @@ class AppEntityManage
                 <bedrock-pubsub event-name="on-paste-tap" handler="_onPasteActionTap"></bedrock-pubsub>
                 <bedrock-pubsub event-name="on-preview-template-tap" handler="_onPreviewTemplateTap"></bedrock-pubsub>
                 <template is="dom-if" if="[[_loadComponents]]">
-                    <rock-sidebar id="rockSideBar" position="right" context-data="[[contextData]]" slot="rock-sidebar" collapsable="">
+                    <rock-sidebar id="rockSideBar" position="right" context-data="[[contextData]]" slot="rock-sidebar" collapsable="" on-rock-sidebar-attached="_onRockSidebarAttached">
                         <rock-entity-sidebar id="entityManageSidebar" context-data="[[contextData]]"></rock-entity-sidebar>
                     </rock-sidebar>
                 </template>
@@ -181,7 +181,8 @@ class AppEntityManage
         <bedrock-pubsub event-name="govern-complete" handler="_onGovernComplete"></bedrock-pubsub>
         <bedrock-pubsub event-name="quick-manage-save-complete" handler="_onQuickManageSaveComplete"></bedrock-pubsub>
         <bedrock-pubsub event-name="navigation-change" handler="_onNavigationChange"></bedrock-pubsub>
-        
+        <bedrock-pubsub event-name="on-download" handler="_downloadEvent"></bedrock-pubsub>
+                        
         <liquid-rest id="entityDeleteLiquidRest" url="/data/pass-through/[[appService]]/delete" method="POST" on-liquid-response="_deleteSuccess" on-liquid-error="_deleteFailure"></liquid-rest>
         <liquid-entity-model-composite-get id="compositeRelModelGet" on-entity-model-composite-get-response="_onRelationshipCompositeModelGetResponse" on-error="_onCompositeModelGetError"></liquid-entity-model-composite-get>
         <liquid-entity-model-composite-get id="compositeAttrModelGet" on-entity-model-composite-get-response="_onAttributeCompositeModelGetResponse" on-error="_onCompositeModelGetError"></liquid-entity-model-composite-get>
@@ -917,6 +918,15 @@ class AppEntityManage
       console.log("event triggered: " + detail.name);
   }
   _downloadEvent(e) {
+      let copContext = {};
+      if (e && e.detail && e.detail["cop-context"]) {
+          copContext = e.detail["cop-context"];
+          if (copContext.source) {
+              let valContexts = ContextHelper.getValueContexts(this.contextData);
+              copContext.source = valContexts[0].source;
+          }
+      }
+
       let itemContexts = this.getItemContexts();
 
       if (!itemContexts || !itemContexts.length) {
@@ -933,7 +943,8 @@ class AppEntityManage
           "selected-entities": [{
               id,
               type
-          }]
+          }],
+          "cop-context": copContext
       };
 
       this.openBusinessFunctionDialog({
@@ -958,16 +969,23 @@ class AppEntityManage
       this.logError("Failed to download entity data.", e.detail);
       this._loading = false;
   }
-  _toggleStepper(contexts) {
-      let rockSideBar = this.shadowRoot.querySelector("#rockSideBar");
-      if (rockSideBar) {
-          if (contexts && contexts.length > 1) {
-              rockSideBar.setAttribute("show","false");
-          } else {
-              rockSideBar.setAttribute("show","true");
-          }
-      }
+  _onRockSidebarAttached(){
+      this._toggleStepper();
   }
+    _toggleStepper() {
+        let rockSideBar = this.shadowRoot.querySelector("#rockSideBar");
+        if (rockSideBar) {
+            let valContexts = ContextHelper.getValueContexts(this.contextData);
+            let dataContexts = ContextHelper.getDataContexts(this.contextData);
+
+            if ((valContexts && valContexts.length > 1) || (dataContexts && dataContexts.length > 1)) {
+                rockSideBar.setAttribute("show", "false");
+            } else {
+                rockSideBar.setAttribute("show", "true");
+            }
+
+        }
+    }
   async summaryTodoTap(e, detail) {
       if (!detail || !detail.type) {
           this.logError("Configuration missing.", e.detail);
@@ -1311,21 +1329,11 @@ class AppEntityManage
       }
       this._refreshRightSidePanel();
       this._refreshTitleBar();
-
-      let valContexts = ContextHelper.getValueContexts(this.contextData);
-      let dataContexts = ContextHelper.getDataContexts(this.contextData);
-
-      if (valContexts && valContexts.length) {
-          this._toggleStepper(valContexts);
-      }
-
-      if (dataContexts && dataContexts.length) {
-          this._toggleStepper(dataContexts);
-      }
-
+      this._toggleStepper();
       //Loading the details tab
       this._loadDetailTabs(1);
   }
+  
 
   /**
    * Function to retry loading the detailTabs

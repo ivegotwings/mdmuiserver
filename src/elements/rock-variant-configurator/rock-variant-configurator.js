@@ -479,6 +479,7 @@ class RockVariantConfigurator
       }
 
       if (!_.isEmpty(this.contextKeys)) {
+        if(Array.isArray(this.contextKeys)) {
           for (let key of this.contextKeys) {
               //Fetching the 1st context value
               let filteredArray = _.find(this.contextData.Contexts, function (item) { return item[key] });
@@ -488,7 +489,10 @@ class RockVariantConfigurator
                   variantContext[key] = "_DEFAULT";
               }
           }
+        } else {
+          variantContext[this.contextKeys] = this.contextKeys
       }
+    }
 
       variantContext["entityType"] = DataHelper.getParamValue('type');
 

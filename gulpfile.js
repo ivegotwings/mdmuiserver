@@ -29,6 +29,8 @@ const serverPath = buildDirectory;
 const liveReloadPort = 35729;
 const fragments = require('./dynamic-fragments');
 const copyfiles = require('copyfiles');
+const scriptPaths = require('./script-paths.js');
+const fs = require('fs');
 
 function waitFor(stream) {
   return new Promise((resolve, reject) => {
@@ -55,6 +57,32 @@ function copyFiles(paths){
     copyfiles(paths, {verbose: true, up: true}, copycb);
     resolve();
   })
+}
+
+let generateIndex = function(isProduction){
+  let seperator = isProduction ? "." : "";
+  let addOnText = isProduction ? "" : '\n<script type="module" src="/src/elements/app-main/main-app.js" crossorigin="use-credentials" defer></script>'
+  let appendText = addOnText;
+  scriptPaths.forEach((path) => {
+    path = seperator + path;
+    appendText += `\n<script type="text/javascript" src="${path}"></script>`
+  })
+  appendText += "\n</body>\n</html>";
+  fs.unlink("index.html", (err) => {
+      if(err){
+        console.log("Error Deleting Old Index.html", err);
+      }
+      fs.copyFile('./index-template.html', "index.html", (err) => {
+        if(err){
+          console.log("Error Generating Index.html", err);
+        }
+        fs.appendFile('./index.html', appendText, (err) => {
+          if(err){
+            console.log("Error Generating Index.html", err);
+          }
+        })
+      })
+    })
 }
 
 function serverBuild(buildPath) {
@@ -107,6 +135,11 @@ gulp.task('copy-dynamic-fragments', async function() {
   return Promise.all([
     copyFiles(fragments)
   ]);
+});
+
+gulp.task('generate-index', async function() {
+  let isProduction = (argv.production === undefined) ? false : true;
+  return generateIndex(isProduction);
 });
 
 gulp.task('dev-build', gulp.series('eslint-src', 'prod-delete', 'build-server', 'copy-polymer-overrides'));

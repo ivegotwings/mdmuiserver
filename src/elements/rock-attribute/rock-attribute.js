@@ -620,7 +620,7 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
                     <!-- Show the popover for read-only mode for the grid-->
                     <template is="dom-if" if="[[_isGridType]]">
                         <template is="dom-if" if="[[!_isEditMode(mode)]]">
-                            <span id="rtelink" class="fallback-value" on-mouseenter="_rteLinkHovered">Show More</span>
+                            <span id="rtelink" class="fallback-value" on-mouseenter="_rteLinkHovered" on-mouseout="_rteLinkHoveredOut">Show More</span>
                             <pebble-popover id="rtePopover" class="p-10" for="rtelink" no-overlap="" horizontal-align="right">
                                 <pebble-richtexteditor id="input" description-object="[[_getDescriptionObject()]]" validation-errors="{{validationErrors}}" label="{{_getLabel(attributeModelObject.externalName)}}" invalid="{{invalid}}" value="{{attributeDisplayValue}}" tabindex="[[tabindex]]" read-only="[[!_isComponentEditable(mode, attributeModelObject)]]" selected-values-font-style="[[_coalescedFontStyle]]" selected-values-color="[[_fallbackColor]]"></pebble-richtexteditor>
                             </pebble-popover>
@@ -1184,17 +1184,10 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
       //Checking for imported RTE values that might not be formatted as required by the editor
       if (!this.changed && this.attributeModelObject && this._isRichTextEditor(this.attributeModelObject) && !_.isEmpty(this.originalAttributeObject.value)) {
           if (!_.isEqual(this.attributeObject.value, this.originalAttributeObject.value)) {
-              let rteObj = this.shadowRoot.querySelector("pebble-richtexteditor");
-              let formattedValue = rteObj.getFormattedValue(this.originalAttributeObject.value);
-              let attributeValue = this.attributeObject.value;
-              if (DataHelper.checkBrowser('edge') || DataHelper.checkBrowser('firefox')) {
-                  let tempAttrVal = this.attributeObject.value.replace(/style-scope pebble-richtexteditor/gi, "");
-                  attributeValue = tempAttrVal.replace(/ class=""/gi, "");
-              }
-              //If the rte is formatting the originalAttributeObject value same as the current attributeObject, then there is no change required to be honoured               
-              if (_.isEqual(attributeValue, formattedValue)) {
-                  changeRecord.path = "attributeObject";
-              }
+            let rteObj = this.shadowRoot.querySelector("pebble-richtexteditor");
+            if (rteObj && !rteObj.isValueChanged(this.originalAttributeObject.value)) {
+                changeRecord.path = "attributeObject";
+            }
           } else {
               //If this.originalAttributeObject.value and this.attributeObject.value are equal, then there is no change, hence return
               this._onAttributeObjectChangedEnd();
@@ -1472,6 +1465,9 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
   _rteLinkHovered(e) {
       this.shadowRoot.querySelector('#rtePopover').show();
   }
+  _rteLinkHoveredOut(e) {
+    this.shadowRoot.querySelector('#rtePopover').hide();
+}
   _rteEditLinkTapped(e) {
       this.shadowRoot.querySelector('#rteSingleEdit').open();
   }

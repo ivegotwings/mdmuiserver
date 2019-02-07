@@ -694,7 +694,14 @@ class RockSearchFilter
     tag["longName"] = data.attributeExternalNamePath ? data.attributeExternalNamePath : data.externalName;
     tag["name"] = data.name;
     tag.options.hasValueChecked = true;
-    this.shadowRoot.querySelector("#filter-tags").addTag(tag);
+    let filterTags = this.shadowRoot.querySelector("#filter-tags")
+    let isTagExist = filterTags.checkTagExist(tag);
+    if(isTagExist){
+      this._onTagItemTap(e,tag);
+    }else{
+      filterTags.addTag(tag);
+    }
+    
     this._fireAddEvent(data.name);
     let refineFilterPopover = this.shadowRoot.querySelector('#refineFilterPopover');
     if (refineFilterPopover) {
@@ -707,6 +714,8 @@ class RockSearchFilter
   toggleMode(e) {
     this.searchMode = !this.searchMode;
   }
+
+  
 
   _prepareRequestData(contextData) {
     return DataRequestHelper.createEntityGetRequest(contextData, true);
@@ -885,7 +894,11 @@ class RockSearchFilter
             this._tagsNumericCollection = this.currentTag.value.contains.split(" ");
           } else {
             if (filterPopover.querySelector('paper-radio-group')) {
-              filterPopover.querySelector('paper-radio-group').selected = 'equalToData';
+              if (this.currentTag.value && (this.currentTag.value.lte || this.currentTag.value.gte)) {
+                filterPopover.querySelector('paper-radio-group').selected = 'range';
+              } else {
+                filterPopover.querySelector('paper-radio-group').selected = 'equalToData';
+              }
             }
             this.gte = this.currentTag.value.gte || "";
             this.lte = this.currentTag.value.lte || "";

@@ -179,6 +179,7 @@ class RockSidebar
   */
   connectedCallback() {
       super.connectedCallback();
+      this.dispatchEvent(new CustomEvent("rock-sidebar-attached", {bubbles: true,composed: true}));
       let parentContainer = dom(this).parentNode.$.container;
       
       if(this.position == "left")

@@ -1408,9 +1408,6 @@ DataRequestHelper.createEntityContextGetRequest = function (entityId, entityType
                             entityType
                         ]
                     }
-                },
-                "fields": {
-                    "attributes": ["_ALL"]
                 }
             }
         };

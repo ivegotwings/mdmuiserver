@@ -192,10 +192,15 @@ app.get('/*', function (req, res) {
             if (url.indexOf("?") > -1) {
                 url = url.split("?")[0];
             }
-            res.sendFile(path.join(buildPath, url));
+            let urlPath = path.join(buildPath, url);
+            //console.log('file path returned for requested url', urlPath); 
+            res.sendFile(urlPath);
             return;
         }
-        res.sendFile(path.join(buildPath + staticPath + "/index.html"));
+
+        let indexFilePath = path.join(buildPath + staticPath + "/index.html");
+        //console.log('file path returned for index ', indexFilePath);
+        res.sendFile(indexFilePath);
     }
 });
 

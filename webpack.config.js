@@ -22,17 +22,17 @@ const fragments = require('./dynamic-fragments.js');
 const polyfills = [
   {
     from: resolve(`${webcomponentsjs}/webcomponents-*.{js,map}`),
-    to: join(OUTPUT_PATH, 'vendor'),
+    to: join(OUTPUT_PATH, 'node_modules/@webcomponents/webcomponentsjs/'),
     flatten: true
   },
   {
     from: resolve(`${webcomponentsjs}/bundles/*.{js,map}`),
-    to: join(OUTPUT_PATH, 'vendor', 'bundles'),
+    to: join(OUTPUT_PATH, 'node_modules/@webcomponents/webcomponentsjs/', 'bundles'),
     flatten: true
   },
   {
     from: resolve(`${webcomponentsjs}/custom-elements-es5-adapter.js`),
-    to: join(OUTPUT_PATH, 'vendor'),
+    to: join(OUTPUT_PATH, 'node_modules/@webcomponents/webcomponentsjs/'),
     flatten: true
   }
 ];
@@ -79,12 +79,12 @@ const assets = [
     flatten: true
   },
   {
-    from: resolve('./node_modules/web-animations-js/web-animations-next.min.{js,map}'),
+    from: resolve('./node_modules/web-animations-js/web-animations-next.min.*{js,map}'),
     to: join(OUTPUT_PATH, 'node_modules/web-animations-js/'),
     flatten: true,
   },
   {
-    from: resolve('./node_modules/intl-messageformat/dist/intl-messageformat.min.{js,map}'),
+    from: resolve('./node_modules/intl-messageformat/dist/intl-messageformat.min.*{js,map}'),
     to: join(OUTPUT_PATH, 'node_modules/intl-messageformat/dist/'),
     flatten: true
   },
@@ -94,7 +94,7 @@ const assets = [
     flatten: true
   },
   {
-    from: resolve('./node_modules/underscore/underscore.{js,map}'),
+    from: resolve('./node_modules/underscore/underscore.*{js,map}'),
     to: join(OUTPUT_PATH, 'node_modules/underscore/'),
     flatten: true
   }

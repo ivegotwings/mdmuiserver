@@ -152,7 +152,7 @@ class GridSelectionPopover extends mixinBehaviors([
         } else {
           value.checked = false;
         }
-      });
+      }.bind(this));
       this.set("selectionOptions", completeOptions);
     } else {
       this.resetSelection();

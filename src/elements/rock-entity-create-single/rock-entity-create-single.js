@@ -33,6 +33,8 @@ import '../pebble-spinner/pebble-spinner.js';
 import '../pebble-dialog/pebble-dialog.js';
 import '../rock-attribute-list/rock-attribute-list.js';
 import '../rock-compare-entities/rock-compare-entities.js';
+import '../liquid-config-get/liquid-config-get.js';
+import EntityTypeManager from '../bedrock-managers/entity-type-manager.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockEntityCreateSingle
     extends mixinBehaviors([
@@ -74,10 +76,10 @@ class RockEntityCreateSingle
         <liquid-rest id="modelGovernService" url="/data/pass-through/modelgovernservice/validate" method="POST" request-data="{{_modelGovernRequest}}" on-liquid-response="_onEntityGovernResponse" on-liquid-error="_onEntityGovernFailed">
         </liquid-rest>
         <pebble-dialog id="updateConfirmDialog" modal="" small="" vertical-offset="1" 50="" horizontal-align="auto" vertical-align="auto" no-cancel-on-outside-click="" no-cancel-on-esc-key="" dialog-title="Found Match">
-            <p>Found the below matching entity in system: </p>
+            <p>Found the below matching entity with high accuracy in the system: </p>
             <ul class="error-list">
-                <li>Entity Id: [[_matchedEntity.id]]</li>
-                <li>Entity Type: [[_matchedEntity.type]]</li>
+                <li>Id: [[_matchedEntity.id]]</li>
+                <li>Type: [[_getExternalEntityType(_matchedEntity.type)]]</li>
             </ul>
             <p>Do you want to update the entity?</p>
             <div class="buttons">
@@ -110,13 +112,15 @@ class RockEntityCreateSingle
             </div>
         </div>
         <div id="content-entity-match" hidden="" class="full-height">
-            <rock-compare-entities id="matchEntities" enable-relationships-match-merge="[[enableRelationshipsMatchMerge]]" compare-entities-context="[[compareEntitiesContext]]" attribute-names="[[attributeNames]]" show-action-buttons="" enable-column-select="" is-part-of-business-function\$="[[isPartOfBusinessFunction]]"></rock-compare-entities>
+            <rock-compare-entities id="matchEntities" enable-relationships-match-merge="[[enableRelationshipsMatchMerge]]" compare-entities-context="[[compareEntitiesContext]]" attribute-names="[[attributeNames]]" show-action-buttons="" enable-column-select="" is-part-of-business-function\$="[[isPartOfBusinessFunction]]" show-all-attributes></rock-compare-entities>
         </div>
         <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{attributeModelRequest}}" on-entity-model-composite-get-response="_onCompositeModelGetResponse">
         <liquid-entity-data-save name="entitySaveService" operation="create" data-index="[[dataIndex]]" data-sub-index="[[dataSubIndex]]" request-data="{{_saveRequest}}" last-response="{{_saveResponse}}" on-response="_onSaveResponse" on-error="_onSaveError"></liquid-entity-data-save>
         <liquid-entity-data-get name="entityGetDataService" operation="getbyids" data-index="[[dataIndex]]" data-sub-index="[[dataSubIndex]]" request-data="{{entityGetRequest}}" on-response="_onEntityGetResponse" on-error="_onEntityGetError" include-type-external-name=""></liquid-entity-data-get>
+        <liquid-config-get id="matchConfigGet" operation="getbyids" on-response="_onMatchConfigGetResponse" on-error="_onMatchConfigGetError"></liquid-config-get>
         <bedrock-pubsub event-name="error-length-changed" handler="_errorLengthChanged"></bedrock-pubsub>
         <bedrock-pubsub event-name="compare-entities-back" handler="_onCompareEntitiesBack" target-id="matchEntities"></bedrock-pubsub>
+        <bedrock-pubsub event-name="compare-entities-discard" handler="_onCompareEntitiesDiscard" target-id="matchEntities"></bedrock-pubsub>
         <bedrock-pubsub event-name="compare-entities-create" handler="_onCompareEntitiesCreate" target-id="matchEntities"></bedrock-pubsub>
         <bedrock-pubsub event-name="compare-entities-merge" handler="_onCompareEntitiesMerge" target-id="matchEntities"></bedrock-pubsub>
         <bedrock-pubsub event-name="entity-model-created" handler="_onEntityModelCreated"></bedrock-pubsub>
@@ -245,7 +249,7 @@ class RockEntityCreateSingle
           },
           enableMatchStep: {
               type: Boolean,
-              value: false
+              value: true
           },
           matchType: {
               type: String,
@@ -278,6 +282,38 @@ class RockEntityCreateSingle
           _saveButtonText: {
               type: String,
               value: "Create"
+          },
+          isReviewProcess: {
+              type: Boolean,
+              value: false
+          },
+          _mlBasedResults: {
+              type: Array,
+              value: function () {
+                  return [];
+              }
+          },
+          _matchPermissions: {
+              type: Object,
+              value: function () {
+                  return {
+                      "submitPermission": true,
+                      "mergePermission": false
+                  };
+              }
+          },
+          _matchThreshold: {
+              type: Object,
+              value: function () {
+                  return {
+                      "create": 0,
+                      "merge": 100
+                  }
+              }
+          },
+          _isMergeProcess: {
+              type: Boolean,
+              value: true
           }
       }
   }
@@ -303,6 +339,10 @@ class RockEntityCreateSingle
 
   _triggerEntityGet() {
       let req = DataRequestHelper.createEntityGetRequest(this.contextData);
+      let itemContext = ContextHelper.getFirstItemContext(this.contextData);
+      if (this.isReviewProcess && itemContext && DataHelper.isValidObjectPath(req, "params.query.filters.typesCriterion")) {
+          req.params.query.filters.typesCriterion[0] = "rsdraft" + itemContext.type;
+      }
       this.set("entityGetRequest", req);
       let liquidModelGet = this.shadowRoot.querySelector("[name=entityGetDataService]");
       if (liquidModelGet) {
@@ -333,8 +373,13 @@ class RockEntityCreateSingle
   async _onCompositeModelGetResponse(e) {
       let values = [];
       if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
-          this._attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], this.contextData);
+          let entityModel = e.detail.response.content.entityModels[0];
+          this._attributeModels = DataTransformHelper.transformAttributeModels(entityModel, this.contextData);
           values = DataTransformHelper.transformAttributes(this.savedEntity, this._attributeModels, this.contextData, "array", true);
+          if (!_.isEmpty(entityModel.properties)) {
+              this._matchPermissions.submitPermission = entityModel.properties.submitPermission || this._matchPermissions.submitPermission;
+              this._matchPermissions.mergePermission = entityModel.properties.mergePermission || this._matchPermissions.mergePermission;
+          }
       }
       this._attributeValues = values;
   }
@@ -347,7 +392,6 @@ class RockEntityCreateSingle
 
       if (!_.isEmpty(this.matchConfig)) {
           this.enableMatchStep = this.matchConfig["enable-match-step"];
-          this.matchType = this.matchConfig["match-type"] || "deterministic";
       }
 
       if (attributeList.hasModelErrors()) {
@@ -433,18 +477,46 @@ class RockEntityCreateSingle
 
       //Trigger entity updated instead of match
       if(!_.isEmpty(this.savedEntity)) {
+          this._isMergeProcess = false;
           this._updateEntity();
           return;
       }
-
+      this._tiggerMatchConfigGet();
       let entityMatchService = this.shadowRoot.querySelector("#entityMatchService");
-
-      if (this.enableMatchStep && this.matchType === "MLBased") {
-          entityMatchService.url = "/data/pass-through/matchservice/match";
-      }
       if (entityMatchService) {
           entityMatchService.generateRequest();
       }
+  }
+
+  _tiggerMatchConfigGet() {
+      let matchConfigGet = this.shadowRoot.querySelector("#matchConfigGet");
+      if (matchConfigGet) {
+        let firstItemContext = ContextHelper.getFirstItemContext(this.contextData);
+        let configId = firstItemContext.type + "_matchConfig";
+        let request = DataRequestHelper.createConfigGetRequestNew(configId);
+        delete request.params.query.contexts;
+        request.params.query.filters.typesCriterion = ["matchConfig"];
+        matchConfigGet.requestData = request;
+        matchConfigGet.generateRequest();
+      }
+  }
+
+  //Todo, set _matchThreshold with the response details
+  _onMatchConfigGetResponse(e, detail) {
+      if (DataHelper.isValidObjectPath(detail, "response.content.configObjects.0.data.jsonData")) {
+          let matchConfig = detail.response.content.configObjects[0].data.jsonData;
+          if (matchConfig && !_.isEmpty(matchConfig.matchRules)) {
+              let probabilisticRule = matchConfig.matchRules.find(rule => rule.matchType == "probabilistic");
+              if (probabilisticRule && probabilisticRule.matchThresholds) {
+                  this._matchThreshold.create = probabilisticRule.matchThresholds.createThreshold || 0;
+                  this._matchThreshold.merge = probabilisticRule.matchThresholds.mergeThreshold || 100;
+              }
+          }
+      }
+  }
+
+  _onMatchConfigGetError(e, detail) {
+    this.logError("MatchConfigGetFail", detail);
   }
 
   _resetEntityAdditionalAttributes(entity) {
@@ -477,71 +549,127 @@ class RockEntityCreateSingle
   _onMatchSuccess(e, detail) {
       if (detail.response) {
           let response = detail.response.response;
-          if (!response || (response.dataObjectOperationResponse && response.dataObjectOperationResponse.status &&
-              response.dataObjectOperationResponse.status.toLowerCase() == "error") ||
-              (response.status && response.status.toLowerCase() == "error")) {
+          if (!response || (response.status && response.status.toLowerCase() == "error")) {
               this.logError("MatchServiceRequestFail", e.detail);
               return;
           }
-
-          if (this.matchType === "MLBased") {
-              response.status = "success";
+          //No matches found, create entity along with sync validation
+          if (_.isEmpty(response.entities)) {
+              this._triggerGovernRequest();
+              return
           }
 
-          if (response.status && response.status.toLowerCase() == "success") {
-              if (!_.isEmpty(response.entities)) {
-                  if (!this.enableMatchStep) {
-                      if (response.entities.length == 1) {
-                          this._matchedEntity = response.entities[0];
-                          this.shadowRoot.querySelector('#updateConfirmDialog').open();
-                      } else if (response.entities.length > 1) {
-                          this.showWarningToast("We found multiple entities matching in our system. Check entity details or contact your administrator.");
-                      }
-                      return;
-                  }
-
-                  if (this.matchType === "MLBased") {
-                      let entity = response.entities[0];
-                      let matchResult = EntityHelper.getAttribute(entity, "matchresult");
-
-                      if (matchResult && !_.isEmpty(matchResult.group)) {
-                          let entities = [];
-                          for (let idx = 0; idx < matchResult.group.length; idx++) {
-                              let group = matchResult.group[idx];
-                              let mEntity = {
-                                  "id": AttributeHelper.getFirstAttributeValue(group.identifier),
-                                  "score": AttributeHelper.getFirstAttributeValue(group.score)
-                              }
-
-                              entities.push(mEntity);
-                          }
-
-                          response.entities = entities;
-                      } else {
-                          this._triggerGovernRequest();
-                          return;
-                      }
-                  }
-
-                  let matchedEntityIds = response.entities.map(entity => entity.id);
-                  let entityType = ContextHelper.getFirstItemContext(this.contextData).type;
-
-                  this.compareEntitiesContext = {
-                      "newEntity": DataHelper.cloneObject(this._entityMatchRequest.entity),
-                      "entityIds": matchedEntityIds,
-                      "entityTypes": [entityType],
-                      "contextData": DataHelper.cloneObject(this.contextData),
-                      "matchConfig": this.matchConfig,
-                      "entities-data": response.entities
-                  }
-
-                  this._hideView("entity-create");
-                  this._showView("entity-match");
+          //Match process starts
+          let matchedEntities = response.entities;
+          if (!this.enableMatchStep && matchedEntities.length) {
+              this.showWarningToast("We found matched entities in our system. Check entity details or contact your administrator.");
+              return;
+          }
+          let type = this._getMatchType(matchedEntities);
+          if (!this.matchConfig) {
+              this.matchConfig = { "matchMerge": {} }
+          } else {
+              this.matchConfig["matchMerge"] = {};
+          }
+          this.matchConfig.matchMerge.type = type;
+          if (type == "deterministic") {
+              let entities = this._prepareEntities(matchedEntities, type);
+              if (entities.fullList.length == 1) {
+                  this._matchedEntity = entities.fullList[0];
+                  this.shadowRoot.querySelector('#updateConfirmDialog').open();
+                  return;
               } else {
+                  this.matchConfig.matchMerge.canDiscard = true;
+                  this._showCompareWindow(entities.fullList);
+              }
+          }
+          if (type == "mlbased") {
+              this._mlBasedResults = this._prepareEntities(matchedEntities, type);
+              if (!this._mlBasedResults.fullList.length || this._mlBasedResults.fullList.length == this._mlBasedResults.createList.length) {
                   this._triggerGovernRequest();
+              } else if (this._mlBasedResults.mergeList.length) {
+                  let highestRankedEntity = _.max(this._mlBasedResults.mergeList, function (entity) { return entity.score; });
+                  let highestRankedEntityList = this._mlBasedResults.mergeList.filter(entity => {
+                      return entity.score == highestRankedEntity.score;
+                  })
+                  if (highestRankedEntityList.length == 1) {
+                      this._matchedEntity = highestRankedEntity;
+                      this.shadowRoot.querySelector('#updateConfirmDialog').open();
+                  } else {
+                      this.matchConfig.matchMerge.canDiscard = true;
+                      this._showCompareWindow(this._mlBasedResults.mergeList);
+                  }
+              } else if (this._mlBasedResults.createOrMergeList.length) {
+                  this._showCompareWindowBasedOnPermissions(this._mlBasedResults.createOrMergeList);
               }
           }
       }
+  }
+
+  _onMatchFailure(e, detail) {
+      this.logError("MatchServiceRequestFail", "response", JSON.stringify(detail));
+  }
+
+  _showCompareWindowBasedOnPermissions(entities) {
+      this.matchConfig.matchMerge.canMerge = this._matchPermissions.mergePermission;
+      this.matchConfig.matchMerge.canCreateReview = this._matchPermissions.submitPermission && !this.matchConfig.matchMerge.canMerge;
+      this._showCompareWindow(entities);
+  }
+  _getMatchType(matchedEntities) {
+      let matchType = "deterministic";
+      let entitiesHavingScore = matchedEntities.filter(entity => {
+          if (DataHelper.isValidObjectPath(entity, "data.attributes.score")) {
+              let score = AttributeHelper.getFirstAttributeValue(entity.data.attributes.score);
+              if (score) {
+                  return entity;
+              }
+          }
+      });
+      if (entitiesHavingScore.length) {
+          matchType = "mlbased";
+      }
+      return matchType;
+  }
+  _prepareEntities(matchedEntities, type) {
+     let entities = {
+         "fullList": [],
+         "createList": [],
+         "mergeList": [],
+         "createOrMergeList": []
+     };
+     for (let entity of matchedEntities) {
+         let mEntity = {
+             "id": entity.id,
+             "type": entity.type || ""
+         }
+         if (type == "mlbased") {
+             mEntity.score = AttributeHelper.getFirstAttributeValue(entity.data.attributes.score);
+             if (mEntity.score < this._matchThreshold.create) {
+                 entities.createList.push(mEntity);
+             } else if (mEntity.score > this._matchThreshold.merge) {
+                 entities.mergeList.push(mEntity);
+             } else {
+                 entities.createOrMergeList.push(mEntity);
+             }
+         }
+         entities.fullList.push(mEntity);
+     }
+     return entities;
+  }
+
+  _showCompareWindow(entities) {
+     let matchedEntityIds = entities.map(entity => entity.id);
+     let entityType = ContextHelper.getFirstItemContext(this.contextData).type;
+     this.compareEntitiesContext = {
+         "newEntity": DataHelper.cloneObject(this._entityMatchRequest.entity),
+         "entityIds": matchedEntityIds,
+         "entityTypes": [entityType],
+         "contextData": DataHelper.cloneObject(this.contextData),
+         "matchConfig": this.matchConfig,
+         "entities-data": entities
+     }
+     this._hideView("entity-create");
+     this._showView("entity-match");
   }
 
   _triggerGovernRequest(operation) {
@@ -569,17 +697,8 @@ class RockEntityCreateSingle
       }
   }
 
-  _onMatchFailure(e, detail) {
-      this.logError("MatchServiceRequestFail", "response", JSON.stringify(detail));
-  }
-
   _updateEntity() {
-      if (!this.enableMatchStep) {
-          let updateConfirmDialog = this.$.updateConfirmDialog;
-          if (updateConfirmDialog) {
-              updateConfirmDialog.close();
-          }
-      }
+      this._cancelProcess(); //Close dialog
       let clientState = {};
       clientState.notificationInfo = {};
       clientState.notificationInfo.showNotificationToUser = false;
@@ -607,6 +726,9 @@ class RockEntityCreateSingle
       }
       if (operation == "update") {
           msg = "Entity updated successfully.";
+          if(this._isMergeProcess) {
+            this._triggerEntityGet(); //Trigger entity get for latest details
+          }
       }
 
       if (this.dataIndex != "entityModel") {
@@ -628,8 +750,9 @@ class RockEntityCreateSingle
   _setBusinessFunctionData(operation, msg, isEntityCreated) {
       let itemCtx = this.getFirstItemContext();
       let entityCreateElement = ComponentHelper.getParentElement(this); //rock-entity-create
-      this.savedEntity = {"id": itemCtx.id, "type": itemCtx.type};
-      entityCreateElement.dataFunctionComplete(this.savedEntity);
+      this.savedEntity = { "id": itemCtx.id, "type": this.isReviewProcess ? "rsdraft" + itemCtx.type : itemCtx.type };
+      //If review process, then trigger finish step directly
+      entityCreateElement.dataFunctionComplete(this.savedEntity, [], false, this.isReviewProcess);
       this._saveButtonText = "Update";
       this._hideView("entity-match");
       this._showView("entity-create");
@@ -665,7 +788,7 @@ class RockEntityCreateSingle
   }
   _onEntityGovernResponse(e) {
       let response = e.detail.response;
-      if (response.response && response.response.status && response.response.status.toLowerCase() == "success") {
+      if (DataHelper.isValidObjectPath(response, "response.status") && response.response.status.toLowerCase() == "success") {
           let res = response.response;
           let itemContext = this.getFirstItemContext();
           let entityId;
@@ -702,6 +825,15 @@ class RockEntityCreateSingle
   _onEntityGovernFailed(e) {
       this.logError("There is a problem in validation service.", e.detail);
   }
+  _updateRequestForReview() {
+      if (!this.isReviewProcess) {
+          return;
+      }
+      let itemContext = ContextHelper.getFirstItemContext(this.contextData);
+      if (DataHelper.isValidObjectPath(this._saveRequest, "entities.0.type") && itemContext) {
+          this._saveRequest.entities[0].type = "rsdraft" + itemContext.type;
+      }
+  }
   _skipServerErrors() {
       let errorDialog = this.$.errorsDialog;
       if (errorDialog) {
@@ -709,6 +841,7 @@ class RockEntityCreateSingle
       }
       let liquidSave = this.shadowRoot.querySelector("[name=entitySaveService]");
       if (liquidSave) {
+          this._updateRequestForReview();
           liquidSave.generateRequest();
       }
   }
@@ -769,13 +902,27 @@ class RockEntityCreateSingle
       this._showView("entity-create");
   }
 
+  _onCompareEntitiesDiscard(e, detail) {
+      ComponentHelper.closeCurrentApp();
+  }
+
   _onCompareEntitiesCreate(e, detail) {
+      ComponentHelper.getParentElement(this).isReviewProcess = this.isReviewProcess = detail.isReviewProcess;
       this._triggerGovernRequest();
   }
 
   _onCompareEntitiesMerge(e, detail) {
       this._matchedEntity = detail.matchedEntity;
       this._updateEntity();
+  }
+
+  _getExternalEntityType(entityTypeId) {
+      let entityType = entityTypeId;
+      let entityTypeManager = EntityTypeManager.getInstance();
+      if (entityTypeManager) {
+        entityType = entityTypeManager.getTypeExternalNameById(entityTypeId);
+      }
+      return entityType;
   }
 }
 /**
