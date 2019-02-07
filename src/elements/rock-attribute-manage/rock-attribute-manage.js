@@ -952,6 +952,35 @@ class RockAttributeManage extends mixinBehaviors(
 
       return changedAttributeElements.concat(remainingRangeAttributeNodeList);
   }
+
+  _getMappedAttributes(changedAttributeElements){
+      let mappedAttributeCollection = {
+        "range":     ["rangeFrom", "rangeTo", "rangeFromInclusive", "rangeToInclusive"],
+        "pattern":["regexPattern", "regexHint"]
+      }
+      for(let mappedAttributeGroup in mappedAttributeCollection){
+            let mappedAttributes = mappedAttributeCollection[mappedAttributeGroup];
+            changedAttributeElements = [].slice.call(changedAttributeElements); //Node list to array
+            let mappedAttributesInChangedList = changedAttributeElements.filter(attributeElement => {
+                return attributeElement.attributeModelObject && mappedAttributes.indexOf(attributeElement.attributeModelObject.name) != -1
+            }).map(attributeElement => {
+                return attributeElement.attributeModelObject.name;
+            }) || [];
+
+            if(mappedAttributesInChangedList.length) {
+                let remainingMappedAttributes = _.difference(mappedAttributes, mappedAttributesInChangedList);
+                let attributeList = this.attributeList.shadowRoot.querySelectorAll('rock-attribute');
+                attributeList = [].slice.call(attributeList); //Node list to array
+                let remainingMappedAttributeNodeList = attributeList.filter(attributeElement => {
+                    return (attributeElement.attributeModelObject && remainingMappedAttributes.indexOf(attributeElement.attributeModelObject.name) != -1);
+                }) || [];
+                if(remainingMappedAttributeNodeList.length){
+                    changedAttributeElements = changedAttributeElements.concat(remainingMappedAttributeNodeList);
+                }
+            }
+      }
+    return changedAttributeElements;
+  }
   async _save(e) {
       if (e.currentTarget.disabled == true) {
           return;
@@ -975,7 +1004,7 @@ class RockAttributeManage extends mixinBehaviors(
       }
       let firstItemContext = ContextHelper.getFirstItemContext(this.contextData)
       if (this.dataIndex == "entityModel" && firstItemContext && firstItemContext.type == "attributeModel") {
-          changedAttributeElements = this._setAllRangeFieldsInChangeAttributes(changedAttributeElements);
+          changedAttributeElements = this._getMappedAttributes(changedAttributeElements);
       }
 
       //Show the spinner
