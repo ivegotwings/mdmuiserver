@@ -575,11 +575,6 @@ class PebbleCalendar
           month: date.getMonth() + 1,
           date: new Date(date)
         };
-
-        if (!this._monthWithinValidRange(monthData.year, monthData.month)) {
-          continue;
-        }
-
         // add "padding" days
         let firstDay = date.getDay() - this._firstDayOfWeek;
         if (firstDay < 0) {
@@ -757,11 +752,13 @@ class PebbleCalendar
 
   // Swipe to previous month
   _swipePrevMonth() {
-    this._translateX(0, 'swipe', function () {
-      this.set('_contentClass', '');
-      this.transform('translateX(' + this._startPos + 'px)', this.$.months);
-      this.dispatchEvent(new CustomEvent('swiped', { detail: { direction: 'right' }, bubbles: true, composed: true }));
-    }.bind(this));
+    if (!this.minDate || this.currentYear > this.minDate.getFullYear() || this.currentMonth > this.minDate.getMonth() + 1) {
+      this._translateX(0, 'swipe', function () {
+        this.set('_contentClass', '');
+        this.transform('translateX(' + this._startPos + 'px)', this.$.months);
+        this.dispatchEvent(new CustomEvent('swiped', { detail: { direction: 'right' }, bubbles: true, composed: true }));
+      }.bind(this));
+    }
   }
 
   // Swipe to next month
