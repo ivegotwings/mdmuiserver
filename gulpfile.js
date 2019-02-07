@@ -98,7 +98,7 @@ function serverBuild(buildPath) {
 }
 
 async function copyPolymerOverrides(buildPath) {
-  return await true; //gulp.src('./src/polymer-overrides/**/*').pipe(gulp.dest(buildPath + '/bower_components/polymer/'));
+  return await gulp.src('./src/polymer-overrides/**/*').pipe(gulp.dest(buildPath + '/node_modules/@polymer/polymer/'));
 }
 
 gulp.task('eslint-src', function() {
