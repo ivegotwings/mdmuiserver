@@ -196,14 +196,10 @@ class PebbleTags extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalMutab
       return;
     }
     else {
-      for (let i = 0; i < this.tags.length; i++) {
-        if (this.tags[i].name == tag.name) {
-          this.logWarning("PebbleTagsAddCheck", "tagName", tag.name);
+        if(this.checkTagExist(tag)){
           return;
         }
-      }
     }
-
     this.push('tags', tag);
   }
 
@@ -212,6 +208,18 @@ class PebbleTags extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalMutab
     */
   removeAllTags() {
     this.tags = [];
+  }
+
+  checkTagExist(tag){
+    if(this.tags.length >0){
+      for (let i = 0; i < this.tags.length; i++) {
+        if (this.tags[i].name == tag.name) {
+          tag.index=i;
+          return true
+        }
+      }
+    }
+    return false;
   }
 
   /**

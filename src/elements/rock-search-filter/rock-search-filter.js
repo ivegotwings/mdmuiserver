@@ -694,7 +694,14 @@ class RockSearchFilter
     tag["longName"] = data.attributeExternalNamePath ? data.attributeExternalNamePath : data.externalName;
     tag["name"] = data.name;
     tag.options.hasValueChecked = true;
-    this.shadowRoot.querySelector("#filter-tags").addTag(tag);
+    let filterTags = this.shadowRoot.querySelector("#filter-tags")
+    let isTagExist = filterTags.checkTagExist(tag);
+    if(isTagExist){
+      this._onTagItemTap(e,tag);
+    }else{
+      filterTags.addTag(tag);
+    }
+    
     this._fireAddEvent(data.name);
     let refineFilterPopover = this.shadowRoot.querySelector('#refineFilterPopover');
     if (refineFilterPopover) {
@@ -707,6 +714,8 @@ class RockSearchFilter
   toggleMode(e) {
     this.searchMode = !this.searchMode;
   }
+
+  
 
   _prepareRequestData(contextData) {
     return DataRequestHelper.createEntityGetRequest(contextData, true);
