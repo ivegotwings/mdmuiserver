@@ -1184,17 +1184,10 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
       //Checking for imported RTE values that might not be formatted as required by the editor
       if (!this.changed && this.attributeModelObject && this._isRichTextEditor(this.attributeModelObject) && !_.isEmpty(this.originalAttributeObject.value)) {
           if (!_.isEqual(this.attributeObject.value, this.originalAttributeObject.value)) {
-              let rteObj = this.shadowRoot.querySelector("pebble-richtexteditor");
-              let formattedValue = rteObj.getFormattedValue(this.originalAttributeObject.value);
-              let attributeValue = this.attributeObject.value;
-              if (DataHelper.checkBrowser('edge') || DataHelper.checkBrowser('firefox')) {
-                  let tempAttrVal = this.attributeObject.value.replace(/style-scope pebble-richtexteditor/gi, "");
-                  attributeValue = tempAttrVal.replace(/ class=""/gi, "");
-              }
-              //If the rte is formatting the originalAttributeObject value same as the current attributeObject, then there is no change required to be honoured               
-              if (_.isEqual(attributeValue, formattedValue)) {
-                  changeRecord.path = "attributeObject";
-              }
+            let rteObj = this.shadowRoot.querySelector("pebble-richtexteditor");
+            if (rteObj && !rteObj.isValueChanged(this.originalAttributeObject.value)) {
+                changeRecord.path = "attributeObject";
+            }
           } else {
               //If this.originalAttributeObject.value and this.attributeObject.value are equal, then there is no change, hence return
               this._onAttributeObjectChangedEnd();
