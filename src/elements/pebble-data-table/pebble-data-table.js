@@ -33,19 +33,17 @@ function ArrayDataSource(arr) {
     if (filter.length === 0) {
       return items;
     }
-
-    return Array.prototype.filter.call(items, function(item, index) {
+    let _filteredArray = items;
+    if(filter && filter.length > 0){
       for (let i = 0; i < filter.length; i++) {
-        let value = Base.get(filter[i].path, item);
-        if ([undefined, null, ''].indexOf(filter[i].filter) > -1) {
-          continue;
-        } else if ([undefined, null].indexOf(value) > -1 ||
-                    value.toString().toLowerCase().indexOf(filter[i].filter.toString().toLowerCase()) === -1) {
-          return false;
+        let titlePattern = filter[i].path;
+        let _filterValue = filter[i].filter;
+        if(!_.isEmpty(_filterValue)){
+          _filteredArray = DataHelper.getLocalFilterItems(_filteredArray,_filterValue,Base,titlePattern);
         }
       }
-      return true;
-    });
+    }
+    return _filteredArray;
   }
 
   function _compare(a, b) {

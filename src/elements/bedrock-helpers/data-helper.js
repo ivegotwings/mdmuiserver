@@ -133,6 +133,79 @@ DataHelper.compareObjects = function (firstObject, secondObject) {
     // are considered equivalent
     return true;
 };
+DataHelper.getLocalFilterItems = function(arr,filter,elem,titlePattern,subTitlePattern) {
+    if (!arr) {
+        return arr;
+    }
+    filter = filter.toLowerCase();
+    let prefix = /^\"/i;
+    let suffix = /^.+\"$/gm;
+    let isPrefixed = prefix.test(filter);
+    let isSuffixed = suffix.test(filter);
+    let isExactSearch = false;
+    if (isPrefixed && isSuffixed) {
+        isExactSearch = true;
+    }
+    let filterItems = filter.split(" ");
+    return arr.filter((function (item) {
+        let titleFound = false;
+        let subtitleFound = false;
+        let itemTitle = DataHelper.getItemTitle(item,elem,titlePattern).toString().toLowerCase();
+        let itemSubTitle = DataHelper.getItemSubTitle(item,elem,subTitlePattern).toString().toLowerCase();
+        if(isExactSearch){
+            filter = filter.replace(/["]+/g, '');
+            if(filter == itemTitle){
+                titleFound = true;
+            }
+            if(filter == itemSubTitle){
+                subtitleFound = true;
+            }
+        }else{
+            if(!_.isEmpty(itemTitle)){
+                let itemTitleArray = itemTitle.split(" ");
+                titleFound = filterItems.every(value => {
+                    let currentTitleIndex = itemTitle.indexOf(value);
+                    if(currentTitleIndex > -1){
+                        if(currentTitleIndex == 0 || currentTitleIndex  > 0 && itemTitle.charAt(currentTitleIndex - 1) ==  " " ){
+                            return true;
+                        }
+                    }
+                });
+            }
+            if(!_.isEmpty(itemSubTitle) && !titleFound){
+                let itemSubTitleArray = itemSubTitle.split(" ");
+                subtitleFound = filterItems.every(value => {
+                    let currentSubTitleIndex = itemSubTitle.indexOf(value);
+                    if(currentSubTitleIndex > -1){
+                        if(currentSubTitleIndex == 0 || currentSubTitleIndex  > 0 && itemSubTitle.charAt(currentSubTitleIndex - 1) ==  " " ){
+                            return true;
+                        }
+                    }
+                });
+            }
+        }
+        if(subtitleFound || titleFound){
+            return true;
+        }
+        return false;
+    }))
+}
+DataHelper.getItemTitle = function(item,elem,titlePattern) {
+    let _titlePattern = titlePattern ? titlePattern : "title";
+    let title = elem.get(_titlePattern, item);
+    if (title === undefined || title === null) {
+        title = item ? item.toString() : '';
+    }
+    return title;
+}
+DataHelper.getItemSubTitle = function(item,elem,subTitlePattern) {
+    let _subtitlePattern = subTitlePattern ? subTitlePattern : "subtitle";
+    let subtitle = elem.get(_subtitlePattern, item);
+    if (subtitle === undefined || subtitle === null) {
+        subtitle = '';
+    }
+    return subtitle;
+}
 
 DataHelper.containsObject = function (obj, list) {
     let res = _.find(list, function (val) {
