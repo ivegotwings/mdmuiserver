@@ -116,7 +116,7 @@ class BedrockValidator extends PolymerElement {
                 type: String
             },
 
-            // Indicates an array of validation errors.
+            // Indicates an array of server errors.
             serverErrors: {
                 type: Array,
                 value: function () {

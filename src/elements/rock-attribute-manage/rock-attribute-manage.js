@@ -931,30 +931,8 @@ class RockAttributeManage extends mixinBehaviors(
           return _.isEmpty(value);
       }
   }
-  _setAllRangeFieldsInChangeAttributes(changedAttributeElements) {
-      let rangeAttributes = ["rangeFrom", "rangeTo", "rangeFromInclusive", "rangeToInclusive"];
-      changedAttributeElements = [].slice.call(changedAttributeElements); //Node list to array
-      let rangeAttributesInChangedList = changedAttributeElements.filter(attributeElement => {
-          return attributeElement.attributeModelObject && rangeAttributes.indexOf(attributeElement.attributeModelObject.name) != -1
-      }).map(attributeElement => {
-          return attributeElement.attributeModelObject.name;
-      }) || [];
 
-      if(rangeAttributesInChangedList.length == 0 || rangeAttributes.length == rangeAttributesInChangedList.length) {
-          return changedAttributeElements;
-      }
-
-      let remainingRangeAttributes = _.difference(rangeAttributes, rangeAttributesInChangedList);
-      let attributeList = this.attributeList.shadowRoot.querySelectorAll('rock-attribute');
-      attributeList = [].slice.call(attributeList); //Node list to array
-      let remainingRangeAttributeNodeList = attributeList.filter(attributeElement => {
-          return (attributeElement.attributeModelObject && remainingRangeAttributes.indexOf(attributeElement.attributeModelObject.name) != -1);
-      }) || [];
-
-      return changedAttributeElements.concat(remainingRangeAttributeNodeList);
-  }
-
-  _getMappedAttributes(changedAttributeElements){
+  _setAllGroupFieldsInChangeAttributes(changedAttributeElements){
       let mappedAttributeCollection = {
         "range":     ["rangeFrom", "rangeTo", "rangeFromInclusive", "rangeToInclusive"],
         "pattern":["regexPattern", "regexHint"]
@@ -1005,7 +983,7 @@ class RockAttributeManage extends mixinBehaviors(
       }
       let firstItemContext = ContextHelper.getFirstItemContext(this.contextData)
       if (this.dataIndex == "entityModel" && firstItemContext && firstItemContext.type == "attributeModel") {
-          changedAttributeElements = this._getMappedAttributes(changedAttributeElements);
+          changedAttributeElements = this._setAllGroupFieldsInChangeAttributes(changedAttributeElements);
       }
 
       //Show the spinner
