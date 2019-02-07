@@ -125,8 +125,7 @@ class MainApp
         <div class="app-failure" id="app-failure-message"></div>
 
         <div style="display:none">
-            <app-location id="tenantRoute" route="{{route}}"></app-location>
-            <app-route route="{{route}}" pattern="/:tenant" data="{{baseRouteData}}" query-params="{{tenantRouteQueryParams}}" tail="{{pageRoute}}"></app-route>
+            <app-location id="pageRoute" route="{{pageRoute}}"></app-location>
             <app-route route="{{pageRoute}}" pattern="/:page" data="{{routeData}}" query-params="{{queryParams}}" tail="{{subRoute}}"></app-route>
             <app-route route="{{subRoute}}" pattern="/:id" data="{{subRouteData}}"></app-route>
             <template is="dom-if" if="[[readyForLoad]]">
@@ -343,11 +342,6 @@ class MainApp
                 //console.log('runtime version: ', RuntimeVersionManager.getVersion());
             }
 
-            if (this.route.path == "/" || (location.href.indexOf("logout") !== -1)) {
-                window.history.pushState("", "Riversand Platform", "/" + this.tenantId);
-                this.shadowRoot.querySelector("#tenantRoute").set("route.prefix", this.tenantId);
-            }
-
             if (!_.isEmpty(this.roles)) {
                 this.roles = this.roles.split(",");
             }
@@ -377,6 +371,9 @@ class MainApp
     changePageRoutePath(newPath, action) {
         if (newPath) {
             this.set("pageRoute.path", newPath);
+            //Disabling push state management, history is managed by app-localion. This is so because function
+            //gets called multiple times so multiple history states are pushd. //TODO-FIX ME
+            //window.history.pushState({}, "", this.pageRoute.path);
             window.dispatchEvent(new CustomEvent("location-changed"));
         }
         this.openAction = action;
@@ -597,7 +594,7 @@ class MainApp
                     detail: {
                         name: "route-changed",
                         data: {
-                            route: this.route
+                            route: this.pageRoute
                         }
                     },
                     bubbles: true,
