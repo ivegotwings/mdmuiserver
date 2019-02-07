@@ -139,7 +139,7 @@ gulp.task('copy-dynamic-fragments', async function() {
 
 gulp.task('generate-index', async function() {
   let isProduction = (argv.production === undefined) ? false : true;
-  return generateIndex(isProduction)
+  return generateIndex(isProduction);
 });
 
 gulp.task('dev-build', gulp.series('eslint-src', 'prod-delete', 'build-server', 'copy-polymer-overrides'));

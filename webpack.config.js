@@ -79,12 +79,12 @@ const assets = [
     flatten: true
   },
   {
-    from: resolve('./node_modules/web-animations-js/web-animations-next.min.{js,map}'),
+    from: resolve('./node_modules/web-animations-js/web-animations-next.min.*{js,map}'),
     to: join(OUTPUT_PATH, 'node_modules/web-animations-js/'),
     flatten: true,
   },
   {
-    from: resolve('./node_modules/intl-messageformat/dist/intl-messageformat.min.{js,map}'),
+    from: resolve('./node_modules/intl-messageformat/dist/intl-messageformat.min.*{js,map}'),
     to: join(OUTPUT_PATH, 'node_modules/intl-messageformat/dist/'),
     flatten: true
   },
@@ -94,7 +94,7 @@ const assets = [
     flatten: true
   },
   {
-    from: resolve('./node_modules/underscore/underscore.{js,map}'),
+    from: resolve('./node_modules/underscore/underscore.*{js,map}'),
     to: join(OUTPUT_PATH, 'node_modules/underscore/'),
     flatten: true
   }
