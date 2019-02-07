@@ -345,6 +345,9 @@ class RockImageViewer extends  OptionalMutableData(PolymerElement) {
                       "fields": {}
                   }
               };
+              if(_.isEmpty(this.typesCriterion)){
+                this.typesCriterion = ["imagerendition"];
+              }
               req.params.query.filters.typesCriterion = this.typesCriterion;
               req.params.fields.attributes = ["blob"];
 
