@@ -489,9 +489,10 @@ class RockVariantConfigurator
                   variantContext[key] = "_DEFAULT";
               }
           }
-      } else {
+        } else {
           variantContext[this.contextKeys] = this.contextKeys
       }
+    }
 
       variantContext["entityType"] = DataHelper.getParamValue('type');
 
