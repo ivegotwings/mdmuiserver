@@ -1388,7 +1388,7 @@ class RockSearchFilter
     this.shadowRoot.querySelector("#entityTypeFilterPopover").open();
   }
 
-  _onFilterAttrributesChange() {
+  _onFilterAttributesChange() {
     if (!this.tags || this.tags.length == 0) {
       return;
     }
