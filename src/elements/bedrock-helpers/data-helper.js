@@ -134,6 +134,65 @@ DataHelper.compareObjects = function (firstObject, secondObject) {
     return true;
 };
 
+DataHelper.applyLocalFilter = function(recordsToBeFiltered,filterText,fieldsToConsider) {
+    if (!recordsToBeFiltered) {
+        return recordsToBeFiltered;
+    }
+    filterText = filterText.toLowerCase();
+    let prefix = /^\"/i;
+    let suffix = /^.+\"$/gm;
+    let isPrefixed = prefix.test(filterText);
+    let isSuffixed = suffix.test(filterText);
+    let isExactSearch = false;
+    if (isPrefixed && isSuffixed) {
+        isExactSearch = true;
+        filterText = filterText.replace(/(^")|("$)/g, "")
+    }else{
+        filterText = DataHelper.removeSpecialCharacters(filterText);
+    }
+    let filterTextItems = filterText.split(" ");
+    return recordsToBeFiltered.filter((function (record) {
+        let itemFound = false;
+        for(let field=0;field < fieldsToConsider.length;field++){
+            let _currentField = fieldsToConsider[field];
+            let itemFieldValue = DataHelper.getItemFieldValue(record,_currentField).toString().toLowerCase();
+            if(!_.isEmpty(itemFieldValue)){
+                if(isExactSearch){
+                    if(filterText == itemFieldValue){
+                        itemFound = true;
+                        break;
+                    }
+                }else{
+                    itemFound = filterTextItems.every(value => {
+                        itemFieldValue = DataHelper.removeSpecialCharacters(itemFieldValue)
+                        let currentFieldValueIndex = itemFieldValue.indexOf(value);
+                        if(currentFieldValueIndex > -1){
+                            if(currentFieldValueIndex == 0 || currentFieldValueIndex  > 0 && itemFieldValue.charAt(currentFieldValueIndex - 1) ==  " " ){
+                                return true;
+                            }
+                        }
+                    });
+                }
+                if(itemFound){
+                    break;
+                }
+            }
+        }
+        return itemFound;
+    }))
+}
+DataHelper.getItemFieldValue = function(item,field) {
+    let fieldValue = item[field];
+    if (_.isEmpty(fieldValue)) {
+        fieldValue = '';
+    }
+    return fieldValue;
+}
+
+DataHelper.removeSpecialCharacters = function(text){
+    return text.replace(/[^a-zA-Z0-9._:*' "]/g, ' ');
+}
+
 DataHelper.containsObject = function (obj, list) {
     let res = _.find(list, function (val) {
         return _.isEqual(obj, val)
