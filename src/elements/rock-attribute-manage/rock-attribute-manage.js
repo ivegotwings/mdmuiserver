@@ -931,27 +931,34 @@ class RockAttributeManage extends mixinBehaviors(
           return _.isEmpty(value);
       }
   }
-  _setAllRangeFieldsInChangeAttributes(changedAttributeElements) {
-      let rangeAttributes = ["rangeFrom", "rangeTo", "rangeFromInclusive", "rangeToInclusive"];
-      changedAttributeElements = [].slice.call(changedAttributeElements); //Node list to array
-      let rangeAttributesInChangedList = changedAttributeElements.filter(attributeElement => {
-          return attributeElement.attributeModelObject && rangeAttributes.indexOf(attributeElement.attributeModelObject.name) != -1
-      }).map(attributeElement => {
-          return attributeElement.attributeModelObject.name;
-      }) || [];
 
-      if(rangeAttributesInChangedList.length == 0 || rangeAttributes.length == rangeAttributesInChangedList.length) {
-          return changedAttributeElements;
+  _setAllGroupFieldsInChangeAttributes(changedAttributeElements){
+      let mappedAttributeCollection = {
+        "range":     ["rangeFrom", "rangeTo", "rangeFromInclusive", "rangeToInclusive"],
+        "pattern":["regexPattern", "regexHint"]
       }
-
-      let remainingRangeAttributes = _.difference(rangeAttributes, rangeAttributesInChangedList);
+      changedAttributeElements = [].slice.call(changedAttributeElements); //Node list to array
       let attributeList = this.attributeList.shadowRoot.querySelectorAll('rock-attribute');
       attributeList = [].slice.call(attributeList); //Node list to array
-      let remainingRangeAttributeNodeList = attributeList.filter(attributeElement => {
-          return (attributeElement.attributeModelObject && remainingRangeAttributes.indexOf(attributeElement.attributeModelObject.name) != -1);
-      }) || [];
+      for(let mappedAttributeGroup in mappedAttributeCollection){
+            let mappedAttributes = mappedAttributeCollection[mappedAttributeGroup];
+            let mappedAttributesInChangedList = changedAttributeElements.filter(attributeElement => {
+                return attributeElement.attributeModelObject && mappedAttributes.indexOf(attributeElement.attributeModelObject.name) != -1
+            }).map(attributeElement => {
+                return attributeElement.attributeModelObject.name;
+            }) || [];
 
-      return changedAttributeElements.concat(remainingRangeAttributeNodeList);
+            if(mappedAttributesInChangedList.length) {
+                let remainingMappedAttributes = _.difference(mappedAttributes, mappedAttributesInChangedList);
+                let remainingMappedAttributeNodeList = attributeList.filter(attributeElement => {
+                    return (attributeElement.attributeModelObject && remainingMappedAttributes.indexOf(attributeElement.attributeModelObject.name) != -1);
+                }) || [];
+                if(remainingMappedAttributeNodeList.length){
+                    changedAttributeElements = changedAttributeElements.concat(remainingMappedAttributeNodeList);
+                }
+            }
+      }
+    return changedAttributeElements;
   }
   async _save(e) {
       if (e.currentTarget.disabled == true) {
@@ -976,7 +983,7 @@ class RockAttributeManage extends mixinBehaviors(
       }
       let firstItemContext = ContextHelper.getFirstItemContext(this.contextData)
       if (this.dataIndex == "entityModel" && firstItemContext && firstItemContext.type == "attributeModel") {
-          changedAttributeElements = this._setAllRangeFieldsInChangeAttributes(changedAttributeElements);
+          changedAttributeElements = this._setAllGroupFieldsInChangeAttributes(changedAttributeElements);
       }
 
       //Show the spinner
