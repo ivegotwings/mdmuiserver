@@ -937,9 +937,11 @@ class RockAttributeManage extends mixinBehaviors(
         "range":     ["rangeFrom", "rangeTo", "rangeFromInclusive", "rangeToInclusive"],
         "pattern":["regexPattern", "regexHint"]
       }
+      changedAttributeElements = [].slice.call(changedAttributeElements); //Node list to array
+      let attributeList = this.attributeList.shadowRoot.querySelectorAll('rock-attribute');
+      attributeList = [].slice.call(attributeList); //Node list to array
       for(let mappedAttributeGroup in mappedAttributeCollection){
             let mappedAttributes = mappedAttributeCollection[mappedAttributeGroup];
-            changedAttributeElements = [].slice.call(changedAttributeElements); //Node list to array
             let mappedAttributesInChangedList = changedAttributeElements.filter(attributeElement => {
                 return attributeElement.attributeModelObject && mappedAttributes.indexOf(attributeElement.attributeModelObject.name) != -1
             }).map(attributeElement => {
@@ -948,8 +950,6 @@ class RockAttributeManage extends mixinBehaviors(
 
             if(mappedAttributesInChangedList.length) {
                 let remainingMappedAttributes = _.difference(mappedAttributes, mappedAttributesInChangedList);
-                let attributeList = this.attributeList.shadowRoot.querySelectorAll('rock-attribute');
-                attributeList = [].slice.call(attributeList); //Node list to array
                 let remainingMappedAttributeNodeList = attributeList.filter(attributeElement => {
                     return (attributeElement.attributeModelObject && remainingMappedAttributes.indexOf(attributeElement.attributeModelObject.name) != -1);
                 }) || [];
