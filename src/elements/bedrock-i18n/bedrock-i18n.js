@@ -264,6 +264,7 @@ RUFBehaviors.Internationalization = {
       resources = JSON.parse(resources);
     }
     
+    let _self = this;
     proto.__localize = function () {
       let key = arguments[0];
       if (!key || !resources || !language || !resources[language])
@@ -274,7 +275,7 @@ RUFBehaviors.Internationalization = {
       let translatedValue = resources[language][key];
 
       if (!translatedValue) {
-        return this.useKeyIfMissing ? key : '';
+        return _self.useKeyIfMissing ? key : '';
       }
 
       let messageKey = key + translatedValue;
