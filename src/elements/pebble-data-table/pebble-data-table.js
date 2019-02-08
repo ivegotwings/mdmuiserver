@@ -36,10 +36,10 @@ function ArrayDataSource(arr) {
     let _filteredArray = items;
     if(filter && filter.length > 0){
       for (let i = 0; i < filter.length; i++) {
-        let titlePattern = filter[i].path;
+        let fieldToConsider = filter[i].path;
         let _filterValue = filter[i].filter;
         if(!_.isEmpty(_filterValue)){
-          _filteredArray = DataHelper.getLocalFilterItems(_filteredArray,_filterValue,Base,titlePattern);
+          _filteredArray = DataHelper.applyLocalFilter(_filteredArray,_filterValue,[fieldToConsider]);
         }
       }
     }

@@ -133,78 +133,64 @@ DataHelper.compareObjects = function (firstObject, secondObject) {
     // are considered equivalent
     return true;
 };
-DataHelper.getLocalFilterItems = function(arr,filter,elem,titlePattern,subTitlePattern) {
-    if (!arr) {
-        return arr;
+
+DataHelper.applyLocalFilter = function(recordsToBeFiltered,filterText,fieldsToConsider) {
+    if (!recordsToBeFiltered) {
+        return recordsToBeFiltered;
     }
-    filter = filter.toLowerCase();
+    filterText = filterText.toLowerCase();
     let prefix = /^\"/i;
     let suffix = /^.+\"$/gm;
-    let isPrefixed = prefix.test(filter);
-    let isSuffixed = suffix.test(filter);
+    let isPrefixed = prefix.test(filterText);
+    let isSuffixed = suffix.test(filterText);
     let isExactSearch = false;
     if (isPrefixed && isSuffixed) {
         isExactSearch = true;
+        filterText = filterText.replace(/(^")|("$)/g, "")
+    }else{
+        filterText = DataHelper.removeSpecialCharacters(filterText);
     }
-    let filterItems = filter.split(" ");
-    return arr.filter((function (item) {
-        let titleFound = false;
-        let subtitleFound = false;
-        let itemTitle = DataHelper.getItemTitle(item,elem,titlePattern).toString().toLowerCase();
-        let itemSubTitle = DataHelper.getItemSubTitle(item,elem,subTitlePattern).toString().toLowerCase();
-        if(isExactSearch){
-            filter = filter.replace(/["]+/g, '');
-            if(filter == itemTitle){
-                titleFound = true;
-            }
-            if(filter == itemSubTitle){
-                subtitleFound = true;
-            }
-        }else{
-            if(!_.isEmpty(itemTitle)){
-                let itemTitleArray = itemTitle.split(" ");
-                titleFound = filterItems.every(value => {
-                    let currentTitleIndex = itemTitle.indexOf(value);
-                    if(currentTitleIndex > -1){
-                        if(currentTitleIndex == 0 || currentTitleIndex  > 0 && itemTitle.charAt(currentTitleIndex - 1) ==  " " ){
-                            return true;
-                        }
+    let filterTextItems = filterText.split(" ");
+    return recordsToBeFiltered.filter((function (record) {
+        let itemFound = false;
+        for(let field=0;field < fieldsToConsider.length;field++){
+            let _currentField = fieldsToConsider[field];
+            let itemFieldValue = DataHelper.getItemFieldValue(record,_currentField).toString().toLowerCase();
+            if(!_.isEmpty(itemFieldValue)){
+                if(isExactSearch){
+                    if(filterText == itemFieldValue){
+                        itemFound = true;
+                        break;
                     }
-                });
-            }
-            if(!_.isEmpty(itemSubTitle) && !titleFound){
-                let itemSubTitleArray = itemSubTitle.split(" ");
-                subtitleFound = filterItems.every(value => {
-                    let currentSubTitleIndex = itemSubTitle.indexOf(value);
-                    if(currentSubTitleIndex > -1){
-                        if(currentSubTitleIndex == 0 || currentSubTitleIndex  > 0 && itemSubTitle.charAt(currentSubTitleIndex - 1) ==  " " ){
-                            return true;
+                }else{
+                    itemFound = filterTextItems.every(value => {
+                        itemFieldValue = DataHelper.removeSpecialCharacters(itemFieldValue)
+                        let currentFieldValueIndex = itemFieldValue.indexOf(value);
+                        if(currentFieldValueIndex > -1){
+                            if(currentFieldValueIndex == 0 || currentFieldValueIndex  > 0 && itemFieldValue.charAt(currentFieldValueIndex - 1) ==  " " ){
+                                return true;
+                            }
                         }
-                    }
-                });
+                    });
+                }
+                if(itemFound){
+                    break;
+                }
             }
         }
-        if(subtitleFound || titleFound){
-            return true;
-        }
-        return false;
+        return itemFound;
     }))
 }
-DataHelper.getItemTitle = function(item,elem,titlePattern) {
-    let _titlePattern = titlePattern ? titlePattern : "title";
-    let title = elem.get(_titlePattern, item);
-    if (title === undefined || title === null) {
-        title = item ? item.toString() : '';
+DataHelper.getItemFieldValue = function(item,field) {
+    let fieldValue = item[field];
+    if (_.isEmpty(fieldValue)) {
+        fieldValue = '';
     }
-    return title;
+    return fieldValue;
 }
-DataHelper.getItemSubTitle = function(item,elem,subTitlePattern) {
-    let _subtitlePattern = subTitlePattern ? subTitlePattern : "subtitle";
-    let subtitle = elem.get(_subtitlePattern, item);
-    if (subtitle === undefined || subtitle === null) {
-        subtitle = '';
-    }
-    return subtitle;
+
+DataHelper.removeSpecialCharacters = function(text){
+    return text.replace(/[^a-zA-Z0-9._:*' "]/g, ' ');
 }
 
 DataHelper.containsObject = function (obj, list) {

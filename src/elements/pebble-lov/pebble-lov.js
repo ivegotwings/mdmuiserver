@@ -915,7 +915,7 @@ class PebbleLov extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehaviors.Lov
   }
 
   _filterChanged(filter) {
-      if (filter != undefined) {
+      if (filter != undefined && _.isEmpty(this.rDataSource) && this.rDataSource instanceof Function == false) {
           if (this.items) {
               this._filteredItems = this._filterItems(this.items, filter);
           }
@@ -935,7 +935,7 @@ class PebbleLov extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehaviors.Lov
   }
 
   _filterItems(arr, filter) {
-    return DataHelper.getLocalFilterItems(arr,filter,this)
+    return DataHelper.applyLocalFilter(arr,filter,["title","subtitle"])
   }
 
   _setOverlayItems() {

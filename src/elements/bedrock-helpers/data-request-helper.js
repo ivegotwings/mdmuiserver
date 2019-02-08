@@ -1340,6 +1340,17 @@ DataRequestHelper.createGetManageModelRequest = function (entityTypes) {
     return req;
 };
 
+DataRequestHelper.appendWildcard = function(value){
+    let _value = value.split(" ");
+    let modifiedValue = [];
+    _value.forEach((val) =>{
+        if(!_.isEmpty(val)){
+            modifiedValue.push(val + "*");
+        }
+    });
+    return modifiedValue.join(" ");
+}
+
 DataRequestHelper.createGetAttributeModelRequest = function (types, attributes) {
     let ids = [];
     if (!attributes || attributes.length == 0) {

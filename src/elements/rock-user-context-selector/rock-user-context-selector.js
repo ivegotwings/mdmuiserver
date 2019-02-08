@@ -15,9 +15,6 @@ import '../bedrock-style-manager/styles/bedrock-style-buttons.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
 import '../bedrock-style-manager/styles/bedrock-style-icons.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
-import { Debouncer } from '@polymer/polymer/lib/utils/debounce.js';
-import { timeOut } from '@polymer/polymer/lib/utils/async.js';
-
 class RockUserContextSelector extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.ComponentContextBehavior], PolymerElement) {
   static get template() {
     return html`
@@ -82,13 +79,9 @@ class RockUserContextSelector extends mixinBehaviors([RUFBehaviors.UIBehavior, R
                     <bedrock-pubsub event-name="entity-model-lov-selection-changed" handler="_onRoleSelection" target-id="rolesModelLov"></bedrock-pubsub>
                     <bedrock-pubsub event-name="entity-lov-selection-changed" handler="_onOwnershipDataSelection" target-id="ownershipReferenceLov"></bedrock-pubsub>
                     <liquid-entity-model-get id="getRoleModel" operation="getbyids" on-response="_onRoleModelReceived" on-error="_onRoleModelGetFailed"></liquid-entity-model-get>
-                    <liquid-entity-model-get id="getRoleModels" operation="searchandget" request-data="[[_roleModelRequestData]]" on-response="_onRoleModelsResponse" on-error="_onRoleModelsGetFailed"></liquid-entity-model-get>
                     <!-- Model popovers here -->
                     <pebble-popover class="roles-popover" id="rolesModelPopover" for="roleDropdownIcon" no-overlap="" vertical-align="auto" horizontal-align="right">
-                        <pebble-lov id="roleModelLov"
-                        selected-item="{{selectedRole}}" selected-items="{{selectedItems}}" on-selection-changed="_onRoleSelection"
-                        on-lov-confirm-button-tap="_onLovConfirmButtonTapped" on-lov-close-button-tap="_onLovCloseButtonTapped"
-                        deleted-items-count="{{deletedRolesCount}}"></pebble-lov>
+                        <rock-entity-model-lov id="rolesModelLov" id-field="id" title-pattern="{entity.properties.description}" request-data="[[_roleModelRequestData]]" selected-item="{{selectedRole}}" external-data-formatter="[[_roleDataFormatter]]" deleted-items-count="[[deletedRolesCount]]"></rock-entity-model-lov>
                     </pebble-popover>
                     <pebble-popover class="ownership-popover" id="ownershipRefDataPopover" for="ownershipDropdownIcon" no-overlap="" vertical-align="auto" horizontal-align="right">
                         <rock-entity-lov id="ownershipReferenceLov" id-field="id" request-data="[[_ownershipRequestData]]" title-pattern="{entity.name}" multi-select="[[ownershipLOVMultiSelect]]" selected-item="{{selectedOwnershipData}}"></rock-entity-lov>
@@ -159,6 +152,13 @@ class RockUserContextSelector extends mixinBehaviors([RUFBehaviors.UIBehavior, R
               value: true
           },
 
+          _roleDataFormatter: {
+              type: Object,
+              value: function () {
+                  return this._roleDataFormatter.bind(this);
+              }
+          },
+
           deletedRolesCount: {
               type: Number,
               value: 0
@@ -202,13 +202,7 @@ class RockUserContextSelector extends mixinBehaviors([RUFBehaviors.UIBehavior, R
           ownershipLOVMultiSelect: {
               type: Boolean,
               value: false
-          },
-          _lovColumnNameValueCollection: {
-            type: Object,
-            value: function () {
-                return {};
-            }
-        },
+          }
       }
   }
 
@@ -261,108 +255,41 @@ class RockUserContextSelector extends mixinBehaviors([RUFBehaviors.UIBehavior, R
   }
 
   _prepareRoleModelRequest() {
-    let req = DataRequestHelper.createGetModelRequest("role");
-    req.params["sort"] = {
-        "properties": [
-            {
-                "name": "_ASC",
-                "sortType": ConstantHelper.getDataTypeConstant("string")
-            }
-        ]
-    }
-    delete req.params.fields.attributes;
-    delete req.params.fields.relationships;
-    delete req.params.query.ids;
-    req.params.fields.properties = ["_ALL"];
-    this.set("_roleModelRequestData", req);
-    this._prepareAttributeMaps();
-  
-}
-_prepareAttributeMaps() {
-    this._lovColumnNameValueCollection.id = "id";
-    this._lovColumnNameValueCollection.title = "{entity.properties.description}";
-    this._lovColumnNameValueCollection.subtitle = "";
-    this._lovColumnNameValueCollection.image = "";
-    this._lovColumnNameValueCollection.color = "";
-    this._lovColumnNameValueCollection.value = "";
-    this._lovColumnNameValueCollection.type = [];
-    this._prepareAttributes("{entity.properties.description}")
-}
-_prepareAttributes(titlePattern, subTitlePattern, imageField, colorField,
-    valueField) {
-    let attributes = [];
+      let req = DataRequestHelper.createGetModelRequest("role");
+      req.params["sort"] = {
+          "properties": [
+              {
+                  "name": "_ASC",
+                  "sortType": ConstantHelper.getDataTypeConstant("string")
+              }
+          ]
+      }
+      delete req.params.fields.attributes;
+      delete req.params.fields.relationships;
+      delete req.params.query.ids;
+      req.params.fields.properties = ["_ALL"];
+      this.set("_roleModelRequestData", req);
+  }
 
-    if (typeof (titlePattern) !== 'undefined' && titlePattern !== "") {
-        if (!attributes.includes(titlePattern)) {
-            let titleFields = DataHelper.getAttributesBetweenCurlies(titlePattern);
-            if (titleFields && titleFields instanceof Array) {
-                attributes.push(...titleFields);
-                this._isAttributeFilter = true;
-            }
-        }
-    }
-
-    if (typeof (subTitlePattern) !== 'undefined' && subTitlePattern !== "") {
-        if (!attributes.includes(subTitlePattern)) {
-            attributes.push(subTitlePattern);
-        }
-    }
-
-    if (typeof (imageField) !== 'undefined' && imageField !== "") {
-        if (!attributes.includes(imageField)) {
-            attributes.push(imageField);
-        }
-    }
-
-    if (typeof (colorField) !== 'undefined' && colorField !== "") {
-        if (!attributes.includes(colorField)) {
-            attributes.push(colorField);
-        }
-    }
-    DataHelper.arrayRemove(attributes, "id");
-    DataHelper.arrayRemove(attributes, "name");
-
-    if (attributes.length > 0) {
-        if (typeof (this._roleModelRequestData.params.fields) === "undefined") {
-            this.set('_roleModelRequestData.params.fields', {});
-        }
-        this.set('_roleModelRequestData.params.fields.attributes', attributes);
-    }
-    Debouncer.debounce(this._debouncer, timeOut.after(500), () =>{
-        let roleLiquidModelGet = this.shadowRoot.querySelector("#getRoleModels");
-        if (roleLiquidModelGet) {
-            roleLiquidModelGet.generateRequest();
-        }
-    });
-}
-
-_onRoleModelsResponse(e) {
-    this.deletedRolesCount = 0;
-    if (DataHelper.isValidObjectPath(e, "detail.response.content.entityModels")) {
-            let data = e.detail.response.content.entityModels;
-            let formattedData = DataTransformHelper.transformEntityModelSchemaToLovSchema(data, this._lovColumnNameValueCollection);             
-        if (formattedData && formattedData.length > 0) {
-            formattedData = formattedData.filter((role) => {
-                let roleData = data.filter((eModel) => { return eModel.id == role.id; });
-                if(roleData && roleData.length > 0 && 
-                roleData[0].properties && roleData[0].properties.ownershipEntityTypeName) {
-                    role["ownershipEntityTypeName"] = roleData[0].properties.ownershipEntityTypeName;
-                }
-                role.id = role.id.replace("_role", "");
-                return role;
-            });
-        }
-        if (_.isEmpty(this.selectedRole)) {
-            this._setCurrentRoleSelected();
-        }
-        this.deletedRolesCount = data.length - formattedData.length;
-        let roleModelLov = this.shadowRoot.querySelector('#roleModelLov');
-        roleModelLov.items = [];
-        roleModelLov.items = formattedData;
-    } else {
-        this.logError("An error occured in fetching the role models");
-    }
-}
+  _roleDataFormatter(formattedData, data) {
+      this.deletedRolesCount = 0;
+      if (formattedData && formattedData.length > 0) {
+          formattedData = formattedData.filter((role) => {
+              let roleData = data.filter((eModel) => { return eModel.id == role.id; });
+              if(roleData && roleData.length > 0 && 
+                 roleData[0].properties && roleData[0].properties.ownershipEntityTypeName) {
+                  role["ownershipEntityTypeName"] = roleData[0].properties.ownershipEntityTypeName;
+              }
+              role.id = role.id.replace("_role", "");
+              return role;
+          });
+      }
+      if (_.isEmpty(this.selectedRole)) {
+          this._setCurrentRoleSelected();
+      }
+      this.deletedRolesCount = data.length - formattedData.length;
+      return formattedData;
+  }
 
   _setCurrentRoleSelected() {
       if (this.businessFunctionData && this.businessFunctionData.selectedOptions &&
@@ -405,10 +332,6 @@ _onRoleModelsResponse(e) {
 
   _onRoleModelGetFailed(e, detail) {
       this.logError("An error occured in fetching the current role.");
-  }
-
-  _onRoleModelsGetFailed(e, detail) {
-    this.logError("An error occured in fetching the role models.");
   }
 
   _onNextTap() {
