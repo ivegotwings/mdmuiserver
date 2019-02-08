@@ -571,7 +571,7 @@ class PebbleLov extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehaviors.Lov
       return [
           '_itemsChanged(items.*)',
           '_focusedIndexChanged(_focusedIndex)',
-          // '_filterChanged(_filter)', TODO: For now not finding any requirement for this, In case of any issue we need to first look at this.
+          '_filterChanged(_filter)',
           '_filteredItemsChanged(_filteredItems.*)',
           '_selectedItemChanged(selectedItem)',
           '_selectedItemsChanged(selectedItems.*)',
@@ -904,7 +904,7 @@ class PebbleLov extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehaviors.Lov
                   // Filter and input value might get out of sync, while keyboard navigating for example.
                   // Afterwards, input value might be changed to the same value as used in filtering.
                   // In situation like these, we need to make sure all the filter changes handlers are run.
-                  //this._filterChanged(this._filter);TODO: For now not finding any requirement for this, In case of any issue we need to first look at this.
+                  this._filterChanged(this._filter);
               } else {
                   this._userDefinedFilter = true;
                   this._filter = this._inputElementSearchValue;
@@ -915,7 +915,7 @@ class PebbleLov extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehaviors.Lov
   }
 
   _filterChanged(filter) {
-      if (filter != undefined) {
+      if (filter != undefined && _.isEmpty(this.rDataSource) && this.rDataSource instanceof Function == false) {
           if (this.items) {
               this._filteredItems = this._filterItems(this.items, filter);
           }
@@ -935,16 +935,7 @@ class PebbleLov extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehaviors.Lov
   }
 
   _filterItems(arr, filter) {
-      if (!arr) {
-          return arr;
-      }
-      return arr.filter((function (item) {
-          filter = filter ? filter.toString().toLowerCase() : '';
-          // Check if item contains input value.
-          return this._getItemTitle(item).toString().toLowerCase().indexOf(filter) >
-              -1 || this._getItemSubTitle(item).toString().toLowerCase().indexOf(
-                  filter) > -1;
-      }).bind(this));
+    return DataHelper.applyLocalFilter(arr,filter,["title","subtitle"])
   }
 
   _setOverlayItems() {

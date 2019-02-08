@@ -21,7 +21,7 @@ class BedrockValidator extends PolymerElement {
             },
 
             // Indicates allowed values for pattern invalid message
-            allowedInput: {
+            regexHint: {
                 type: String,
                 value: null
             },
@@ -116,6 +116,15 @@ class BedrockValidator extends PolymerElement {
                 type: String
             },
 
+            // Indicates an array of server errors.
+            serverErrors: {
+                type: Array,
+                value: function () {
+                    return [];
+                },
+                notify: true
+            },
+
             // Indicates an array of validation errors.
             validationErrors: {
                 type: Array,
@@ -192,11 +201,12 @@ class BedrockValidator extends PolymerElement {
         if (this.required) {
             if (!ValidationHelper.requiredValidator(input)) {
                 this.invalid = true;
+                this._updateServerErrors("Required");
                 this.push('validationErrors', "Required");
             }
         }
 
-        if (input && inputDataType) {
+        if (inputDataType) {
 
             if (inputDataType == "boolean") {
                 if (!ValidationHelper.booleanValidator(input)) {
@@ -219,7 +229,11 @@ class BedrockValidator extends PolymerElement {
             if (this.pattern) {
                 if (!ValidationHelper.regexValidator(input, this.pattern)) {
                     this.invalid = true;
-                    let msg = "Text does not match required pattern.";
+                    let msg = "Text doesn't match the required pattern.";
+                    this._updateServerErrors(msg);
+                    if(this.regexHint){
+                        msg += " Hint - "+this.regexHint
+                    }
                     this.push('validationErrors', msg);
                 }
             }
@@ -247,6 +261,7 @@ class BedrockValidator extends PolymerElement {
                     message = "Value should be " + (this.minInclusive ? _greaterEqual : _greater) + ValidationHelper.getDateByFormat(this.min, this.dateFormat) + " and " +
                         (this.maxInclusive ? _lesserEqual : _lesser) + ValidationHelper.getDateByFormat(this.max, this.dateFormat);
                     this.push('validationErrors', message);
+                    this._updateServerErrors(message);
                 }
                 else if (!this.min && this.max && (!ValidationHelper.dateRangeValidator(input, this.dateFormat, '', this.max, this.minInclusive, this.maxInclusive))) {
                     this.invalid = true;
@@ -295,6 +310,7 @@ class BedrockValidator extends PolymerElement {
                 }
 
                 if (message != "") {
+                    this._updateServerErrors(message);
                     this.push('validationErrors', message);
                 }
             }
@@ -342,7 +358,14 @@ class BedrockValidator extends PolymerElement {
             this._refreshValidationMessages();
         }
     }
-
+    _updateServerErrors(msg){
+        if(msg && !_.isEmpty(this.serverErrors)){
+            let errorIndex = this.serverErrors.indexOf(msg);
+            if(errorIndex > -1){
+                this.serverErrors.splice(errorIndex, 1);
+            }
+        }
+    }
     _refreshValidationMessages() {
         //Warnings
         let warnings = this.validationWarnings;

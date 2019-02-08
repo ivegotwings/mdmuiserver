@@ -120,7 +120,7 @@ class RockAttributeMappingGrid
                                 </pebble-data-table>
                                 <bedrock-pubsub event-name="attribute-model-lov-selection-changed" handler="_onAttributeSelection" target-id="attributeModelLov"></bedrock-pubsub>
                                 <pebble-popover class="attributes-popover" id="attributesPopover" for="" no-overlap="" vertical-align="auto" horizontal-align="auto">
-                                    <rock-attribute-model-lov mode="self" no-sub-title="" id-field="name" title-pattern="externalName" id="attributeModelLov" context-data="[[modelContextData]]" exclude-nested-attributes=""></rock-attribute-model-lov>
+                                    <rock-attribute-model-lov mode="all" no-sub-title="" id-field="name" title-pattern="externalName" id="attributeModelLov" context-data="[[modelContextData]]" exclude-nested-attributes=""></rock-attribute-model-lov>
                                 </pebble-popover>
                             </template>
                         </div>
