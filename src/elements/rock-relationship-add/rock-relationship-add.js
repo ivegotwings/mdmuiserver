@@ -595,7 +595,8 @@ class RockRelationshipAdd
               if ((DataHelper.isValidObjectPath(attributeList[i], 'options.dataType')) && attributeList[i].options.dataType == "boolean") {
                   value = attributeList[i].booleanSearchValue;
               }
-              if (queryParser) {
+              let _displayType = attributeList[i].options.displayType;
+              if (queryParser && _displayType != "RichTextEditor" && _displayType != "TextArea") {
                   value = queryParser.formatValue(value);
               }
               let newItem = {

@@ -718,20 +718,42 @@ DataHelper.getSearchCriteria = function (searchText) {
             let keywordsCriterion = {};
             let splitQueryByAnd = searchText.toLowerCase().split(/' and '|,/ig);
             let splitQueryByOr = searchText.toLowerCase().split(/' or '|,/ig);
+            let prefix = /^\"/i;
+            let suffix = /^.+\"$/gm;
+            let isPrefixed = prefix.test(searchText);
+            let isSuffixed = suffix.test(searchText);
+            let isExactSearch = false;
+            if (isPrefixed && isSuffixed) {
+                isExactSearch = true;
+            }
 
             if (splitQueryByAnd.length > 1 || (splitQueryByAnd.length == 1 && splitQueryByOr.length ==
                     1)) {
+                let keywordText = splitQueryByAnd.join(' ');
+                if(isExactSearch){
+                    keywordsCriterion.keywords = keywordText;
+                }else{
+                    keywordsCriterion.keywords = DataRequestHelper.appendWildcard(keywordText);
+                }
                 keywordsCriterion.operator = "_AND";
-                keywordsCriterion.keywords = splitQueryByAnd.join(' ');
             } else {
-                keywordsCriterion.operator = "_OR"
-                keywordsCriterion.keywords = splitQueryByOr.join(' ');
+                keywordsCriterion.operator = "_OR";
+                let keywordText = splitQueryByOr.join(' ');
+                if(isExactSearch){
+                    keywordsCriterion.keywords = keywordText;
+                }else{
+                    keywordsCriterion.keywords = DataRequestHelper.appendWildcard(keywordText);
+                }
             }
 
             return keywordsCriterion;
         }
     }
 };
+
+DataHelper.removeSpecialCharacters = function(text){
+    return text.replace(/[^a-zA-Z0-9._:*' "]/g, ' ');
+}
 
 DataHelper.isHotlineModeEnabled = function () {
     let mainApp = RUFUtilities.mainApp;

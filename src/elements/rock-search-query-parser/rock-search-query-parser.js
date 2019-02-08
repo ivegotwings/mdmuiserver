@@ -801,8 +801,8 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
 
   _prepareAttrsCriterion(attributeModels, attributes) {
     if (attributes && attributes.length > 0) {
-      let prefix = /^\*/i;
-      let suffix = /^.+\*$/gm;
+      let prefix = /^\"/i;
+      let suffix = /^.+\"$/gm;
       let selectedContext = ContextHelper.getDataContexts(this.contextData);
       for (let i = 0; i < attributes.length; i++) {
         let attribute = attributes[i];
@@ -821,18 +821,21 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
               displayType = "numeric";
             }
             let keys = Object.keys(attrVal);
-            let isPartialSearch = false;
 
             if (keys && keys.length > 0) {
               for (let j = 0; j < keys.length; j++) {
                 let key = keys[j];
                 let val = attrVal[key];
+                let valueStr =  ""
                 let isPrefixed = prefix.test(val);
                 let isSuffixed = suffix.test(val);
                 
                 let operator;
                 let splitQueryByAnd = val.toLowerCase().split("' and '");
                 let splitQueryByOr = val.toLowerCase().split("' or '");
+                if(isPrefixed && isSuffixed){
+                  val = val.replace(/["]+/g, '');
+                }
                 let containsStr = val;
 
                 if (splitQueryByAnd.length > 1) {
@@ -841,48 +844,38 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                 } else if (splitQueryByOr.length > 1) {
                   operator = "_OR";
                   containsStr = splitQueryByOr;
-                  if(!isPartialSearch && !_.isEmpty(containsStr)){
-                    containsStr.forEach( strVal => {
-                      if(!isPrefixed){
-                        isPrefixed = prefix.test(strVal);
-                      }
-                      if(!isSuffixed){
-                        isSuffixed = suffix.test(strVal);
-                      }
-                    });
-                  }
                 }
-                if (isPrefixed || isSuffixed) {
-                  isPartialSearch = true;
-                }
-                let valueCollection = [];
                 if (containsStr instanceof Array) {
-                  valueCollection = val.split(/ OR | AND /gi);
                   containsStr = containsStr.join(' ');
-                } else {
-                  valueCollection.push(containsStr);
                 }
 
-                if (isPartialSearch) {
-                  attrVal["contains"] = containsStr;
-                  if (operator) attrVal["operator"] = operator;
-                  delete attrVal[key];
-                } else {
                   if (val.indexOf("!%&") > -1) {
                     attrVal["hasvalue"] = val == "!%&has value!%&" ? true : false;
                     delete attrVal[key];
                   } else if (displayType === "path") {
                     if (key === "equals") {
-                      attrVal["eq"] = containsStr;
-                      attrVal["pathCollection"] = valueCollection;
+                      let valSplitByOr = val.split("' or '");
+                      let valSplitByAnd = val.split("' and '");
+                      
+                      if (valSplitByAnd.length > 1) {
+                        valueStr = this._addSeperator(valSplitByAnd,false,false)
+                        attrVal["eq"] = valueStr;
+                        attrVal["operator"] = "_AND"
+                      } else if (valSplitByOr.length > 1) {
+                        valueStr = this._addSeperator(valSplitByOr,false,false)
+                        attrVal["eq"] = valueStr;
+                        attrVal["operator"] = "_OR"
+                      } else {
+                        attrVal["eq"] = val;
+                      }
                     }
                     delete attrVal[key];
                   }
-                  else if (displayType === "referencelist" || displayType === "textbox") {
+                  else if (displayType === "referencelist") {
                     if (key === "equals") {
                       let valSplitByOr = val.split("' or '");
                       let valSplitByAnd = val.split("' and '");
-
+                      
                       if (valSplitByAnd.length > 1) {
                         attrVal["exacts"] = valSplitByAnd;
                         attrVal["operator"] = "_AND"
@@ -894,16 +887,49 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                       }
                       delete attrVal[key];
                     }
+                  }else if (displayType === "textbox") {
+                    if (key === "equals") {
+                   
+                      let valSplitByOr = val.split("' or '");
+                      let valSplitByAnd = val.split("' and '");
+                      if(isPrefixed && isSuffixed){
+                        if (valSplitByAnd.length > 1) {
+                          attrVal["exacts"] = valSplitByAnd;
+                          attrVal["operator"] = "_AND"
+                        } else if (valSplitByOr.length > 1) {
+                          attrVal["exacts"] = valSplitByOr;
+                          attrVal["operator"] = "_OR"
+                        } else {
+                          attrVal["exact"] = containsStr;
+                        }
+                      }else{
+                        if (valSplitByAnd.length > 1) {
+                          valueStr = this._addSeperator(valSplitByAnd,true,true)
+                          attrVal["eq"] = valueStr;
+                          attrVal["operator"] = "_AND"
+                        } else if (valSplitByOr.length > 1) {
+                          valueStr = this._addSeperator(valSplitByOr,true,true)
+                          attrVal["eq"] = valueStr;
+                          attrVal["operator"] = "_OR"
+                        } else {
+                          containsStr = DataHelper.removeSpecialCharacters(containsStr);
+                          let value = DataRequestHelper.appendWildcard(containsStr);
+                          attrVal["eq"] = value;
+                        }
+                      }
+                    
+                      delete attrVal[key];
+                    }
                   } else if (displayType === "numeric") {
                     if (key === "equals") {
                       let valSplitByOr = val.split("' or '");
                       let valSplitByAnd = val.split("' and '");
 
                       if (valSplitByAnd.length > 1) {
-                        attrVal["eq"] = valSplitByAnd;
+                        attrVal["exacts"] = valSplitByAnd;
                         attrVal["operator"] = "_AND"
                       } else if (valSplitByOr.length > 1) {
-                        attrVal["eq"] = valSplitByOr;
+                        attrVal["exacts"] = valSplitByOr;
                         attrVal["operator"] = "_OR"
                       } else {
                         attrVal["eq"] = containsStr;
@@ -914,8 +940,15 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                     attrVal["eq"] = containsStr;
                     delete attrVal[key];
                   } else if (displayType === "richtexteditor" || displayType === "textarea") {
-                    attrVal["contains"] = containsStr;
-                    attrVal["operator"] = operator;
+                    containsStr = containsStr.replace(/["]+/g, '');
+                    if(isPrefixed && isSuffixed){
+                      attrVal["eq"] = "\""+containsStr+"\"";
+                      attrVal["operator"] = operator;
+                    }else{
+                      containsStr = DataHelper.removeSpecialCharacters(containsStr);
+                      attrVal["eq"] = DataRequestHelper.appendWildcard(containsStr)
+                      attrVal["operator"] = operator;
+                    }
                     delete attrVal[key];
                   } else if (displayType === "datetime") {
                     if (key === "gte") {
@@ -945,9 +978,8 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                     }
                     delete attrVal[key];
                   }
-                }
               }
-              attrVal["type"] = isPartialSearch ? "_STRING" : dataType;
+              attrVal["type"] = dataType;
               let defaultValCtx = DataHelper.getDefaultValContext();
               if (!attrModel.isLocalizable && !attrModel.isNestedChildItem) {
                 attrVal["valueContexts"] = [defaultValCtx];
@@ -1000,6 +1032,24 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
       }
     }
     return attributes;
+  }
+
+  _addSeperator(valArray,addWildcard,removeSpecialCharacters){
+    let valueStr = "";
+    valArray.forEach(val => {
+      if(removeSpecialCharacters){
+        val = DataHelper.removeSpecialCharacters(val);
+      }
+      if(!_.isEmpty(valueStr)){
+        valueStr += "|";
+      }
+      if(addWildcard){
+        valueStr += "(" + DataRequestHelper.appendWildcard(val) + ")"
+      }else{
+        valueStr += "(" + val + ")"
+      }
+    })
+    return valueStr
   }
 
   _prepareRelationshipsCriterion(relationshipModels, relationshipAttributes, relatedEntityAttributes,
