@@ -92,16 +92,6 @@ DataRequestHelper.addContextsToModelRequest = function (requestObject, contextDa
     //Overrideing Ilya's changes for now beacause it's breaking modelCoalesce
     requestObject.params.query.contexts = dataContexts;
 };
-DataRequestHelper.appendWildcard = function(value){
-    let _value = value.split(" ");
-    let modifiedValue = [];
-    _value.forEach((val) =>{
-        if(!_.isEmpty(val)){
-            modifiedValue.push(val + "*");
-        }
-    });
-    return modifiedValue.join(" ");
-}
 
 DataRequestHelper.createEntityGetRequest = function (contextData, addDefaultContext) {
     let clonedContextData = DataHelper.cloneObject(contextData); //to avoid live reference change
@@ -1350,17 +1340,6 @@ DataRequestHelper.createGetManageModelRequest = function (entityTypes) {
     return req;
 };
 
-DataRequestHelper.appendWildcard = function(value){
-    let _value = value.split(" ");
-    let modifiedValue = [];
-    _value.forEach((val) =>{
-        if(!_.isEmpty(val)){
-            modifiedValue.push(val + "*");
-        }
-    });
-    return modifiedValue.join(" ");
-}
-
 DataRequestHelper.createGetAttributeModelRequest = function (types, attributes) {
     let ids = [];
     if (!attributes || attributes.length == 0) {
@@ -1490,7 +1469,7 @@ DataRequestHelper.createFilterCriteria = function (criterionType,searchText, tit
                 operator = "exact";
             } else {
                 searchText = DataHelper.removeSpecialCharacters(searchText)
-                searchText = DataRequestHelper.appendWildcard(searchText);
+                searchText = DataHelper.populateWildcardForFilterText(searchText);
             }
             searchValue[operator] = searchText;
             attributes.forEach(function (item) {

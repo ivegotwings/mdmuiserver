@@ -150,7 +150,6 @@ DataHelper.applyLocalFilter = function(recordsToBeFiltered,filterText,fieldsToCo
     }else{
         filterText = DataHelper.removeSpecialCharacters(filterText);
     }
-    let filterTextItems = filterText.split(" ");
     return recordsToBeFiltered.filter((function (record) {
         let itemFound = false;
         for(let field=0;field < fieldsToConsider.length;field++){
@@ -163,6 +162,7 @@ DataHelper.applyLocalFilter = function(recordsToBeFiltered,filterText,fieldsToCo
                         break;
                     }
                 }else{
+                    let filterTextItems = filterText.split(" ");
                     itemFound = filterTextItems.every(value => {
                         itemFieldValue = DataHelper.removeSpecialCharacters(itemFieldValue)
                         let currentFieldValueIndex = itemFieldValue.indexOf(value);
@@ -777,32 +777,22 @@ DataHelper.getSearchCriteria = function (searchText) {
             let keywordsCriterion = {};
             let splitQueryByAnd = searchText.toLowerCase().split(/' and '|,/ig);
             let splitQueryByOr = searchText.toLowerCase().split(/' or '|,/ig);
-            let prefix = /^\"/i;
-            let suffix = /^.+\"$/gm;
-            let isPrefixed = prefix.test(searchText);
-            let isSuffixed = suffix.test(searchText);
-            let isExactSearch = false;
-            if (isPrefixed && isSuffixed) {
-                isExactSearch = true;
-            }
+            // let prefix = /^\"/i;
+            // let suffix = /^.+\"$/gm;
+            // let isPrefixed = prefix.test(searchText);
+            // let isSuffixed = suffix.test(searchText);
+            // let isExactSearch = false;
+            // if (isPrefixed && isSuffixed) {
+            //     isExactSearch = true;
+            // }
 
             if (splitQueryByAnd.length > 1 || (splitQueryByAnd.length == 1 && splitQueryByOr.length ==
                     1)) {
                 let keywordText = splitQueryByAnd.join(' ');
-                if(isExactSearch){
-                    keywordsCriterion.keywords = keywordText;
-                }else{
-                    keywordsCriterion.keywords = DataRequestHelper.appendWildcard(keywordText);
-                }
-                keywordsCriterion.operator = "_AND";
+                keywordsCriterion = DataHelper.prepareKeywordsCriteria(keywordText,"_AND")
             } else {
-                keywordsCriterion.operator = "_OR";
                 let keywordText = splitQueryByOr.join(' ');
-                if(isExactSearch){
-                    keywordsCriterion.keywords = keywordText;
-                }else{
-                    keywordsCriterion.keywords = DataRequestHelper.appendWildcard(keywordText);
-                }
+                keywordsCriterion = DataHelper.prepareKeywordsCriteria(keywordText,"_OR")
             }
 
             return keywordsCriterion;
@@ -810,8 +800,36 @@ DataHelper.getSearchCriteria = function (searchText) {
     }
 };
 
+DataHelper.prepareKeywordsCriteria = function(searchText,operator) {
+    if (searchText) {
+        let keywordsCriterion = {};
+        let prefix = /^\"/i;
+        let suffix = /^.+\"$/gm;
+        let isPrefixed = prefix.test(searchText);
+        let isSuffixed = suffix.test(searchText);
+        if(isPrefixed && isSuffixed){
+            keywordsCriterion.keywords = searchText;
+        }else{
+            keywordsCriterion.keywords = DataHelper.populateWildcardForFilterText(searchText);
+        }
+        keywordsCriterion.operator = operator;
+        return keywordsCriterion;
+    }
+  }
+
 DataHelper.removeSpecialCharacters = function(text){
     return text.replace(/[^a-zA-Z0-9._:*' "]/g, ' ');
+}
+
+DataHelper.populateWildcardForFilterText  = function(value){
+    let _value = value.split(" ");
+    let modifiedValue = [];
+    _value.forEach((val) =>{
+        if(!_.isEmpty(val)){
+            modifiedValue.push(val + "*");
+        }
+    });
+    return modifiedValue.join(" ");
 }
 
 DataHelper.isHotlineModeEnabled = function () {

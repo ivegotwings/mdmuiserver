@@ -834,7 +834,7 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                 let splitQueryByAnd = val.toLowerCase().split("' and '");
                 let splitQueryByOr = val.toLowerCase().split("' or '");
                 if(isPrefixed && isSuffixed){
-                  val = val.replace(/["]+/g, '');
+                  val = val.replace(/(^")|("$)/g, "");
                 }
                 let containsStr = val;
 
@@ -858,11 +858,11 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                       let valSplitByAnd = val.split("' and '");
                       
                       if (valSplitByAnd.length > 1) {
-                        valueStr = this._addSeperator(valSplitByAnd,false,false)
+                        valueStr = this._formatQueryValue(valSplitByAnd,false,false)
                         attrVal["eq"] = valueStr;
                         attrVal["operator"] = "_AND"
                       } else if (valSplitByOr.length > 1) {
-                        valueStr = this._addSeperator(valSplitByOr,false,false)
+                        valueStr = this._formatQueryValue(valSplitByOr,false,false)
                         attrVal["eq"] = valueStr;
                         attrVal["operator"] = "_OR"
                       } else {
@@ -904,16 +904,16 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                         }
                       }else{
                         if (valSplitByAnd.length > 1) {
-                          valueStr = this._addSeperator(valSplitByAnd,true,true)
+                          valueStr = this._formatQueryValue(valSplitByAnd,true,true)
                           attrVal["eq"] = valueStr;
                           attrVal["operator"] = "_AND"
                         } else if (valSplitByOr.length > 1) {
-                          valueStr = this._addSeperator(valSplitByOr,true,true)
+                          valueStr = this._formatQueryValue(valSplitByOr,true,true)
                           attrVal["eq"] = valueStr;
                           attrVal["operator"] = "_OR"
                         } else {
                           containsStr = DataHelper.removeSpecialCharacters(containsStr);
-                          let value = DataRequestHelper.appendWildcard(containsStr);
+                          let value = DataHelper.populateWildcardForFilterText(containsStr);
                           attrVal["eq"] = value;
                         }
                       }
@@ -946,7 +946,7 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                       attrVal["operator"] = operator;
                     }else{
                       containsStr = DataHelper.removeSpecialCharacters(containsStr);
-                      attrVal["eq"] = DataRequestHelper.appendWildcard(containsStr)
+                      attrVal["eq"] = DataHelper.populateWildcardForFilterText(containsStr)
                       attrVal["operator"] = operator;
                     }
                     delete attrVal[key];
@@ -1034,7 +1034,7 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
     return attributes;
   }
 
-  _addSeperator(valArray,addWildcard,removeSpecialCharacters){
+  _formatQueryValue(valArray,addWildcard,removeSpecialCharacters){
     let valueStr = "";
     valArray.forEach(val => {
       if(removeSpecialCharacters){
@@ -1043,11 +1043,12 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
       if(!_.isEmpty(valueStr)){
         valueStr += "|";
       }
-      if(addWildcard){
-        valueStr += "(" + DataRequestHelper.appendWildcard(val) + ")"
-      }else{
-        valueStr += "(" + val + ")"
-      }
+      valueStr = addWildcard ? valueStr + "(" + DataHelper.populateWildcardForFilterText(val) + ")" : valueStr + "(" + val + ")"
+      // if(addWildcard){
+      //   valueStr += "(" + DataHelper.populateWildcardForFilterText(val) + ")"
+      // }else{
+      //   valueStr += "(" + val + ")"
+      // }
     })
     return valueStr
   }
