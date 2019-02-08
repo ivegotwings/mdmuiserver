@@ -307,7 +307,7 @@ extends mixinBehaviors([
                         <div class="quick-wrap">
                             <rock-quick-actions id="quick-actions" context-data="[[contextData]]" page-route="[[pageRoute]]"></rock-quick-actions>
                         </div>
-                        <pebble-icon icon="pebble-icon:help" class="icon-button pebble-icon-color-white pebble-icon-size-20 m-r-5 m-l-5" onclick="window.open('/docportal')" title="Help"></pebble-icon>
+                        <pebble-icon icon="pebble-icon:help" class="icon-button pebble-icon-color-white pebble-icon-size-20 m-r-5 m-l-5" on-tap="_goToHelp" title="Help"></pebble-icon>
                         <rock-notification id="mdmUserNotifications" label="0" on-click="showUserNotifications" title="Notifications"></rock-notification>
                         <pebble-popover id="popoverUserNotifications" for="mdmUserNotifications" no-overlap="" display-arrow-as-per-target="" horizontal-align="right">
                             <div class="popup-title p-b-5 p-r-20 p-l-20">Notifications</div>
@@ -410,6 +410,12 @@ extends mixinBehaviors([
           contentContainerWidth: {
               type: String,
               value: "45px"
+          },
+          helpSettings: {
+              type: Object,
+              value: function () {
+                  return{};
+              }
           }
       }
   }
@@ -549,6 +555,11 @@ extends mixinBehaviors([
   }
   _previewId(e) {
       this.previewdata = e.detail;
+  }
+  _goToHelp() {
+      if(this.helpSettings && this.helpSettings.helpUrl) {
+        window.open(this.helpSettings.helpUrl);
+      }
   }
 }
 customElements.define(AppCommon.is, AppCommon)
