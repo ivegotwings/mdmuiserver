@@ -1048,11 +1048,6 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
         valueStr += "|";
       }
       valueStr = addWildcard ? valueStr + "(" + DataHelper.populateWildcardForFilterText(val) + ")" : valueStr + "(" + val + ")"
-      // if(addWildcard){
-      //   valueStr += "(" + DataHelper.populateWildcardForFilterText(val) + ")"
-      // }else{
-      //   valueStr += "(" + val + ")"
-      // }
     })
     return valueStr
   }

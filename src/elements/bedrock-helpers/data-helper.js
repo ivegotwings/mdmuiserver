@@ -802,6 +802,7 @@ DataHelper.prepareKeywordsCriteria = function(searchText,operator) {
         if(isPrefixed && isSuffixed){
             keywordsCriterion.keywords = searchText;
         }else{
+            searchText = DataHelper.removeSpecialCharacters(searchText)
             keywordsCriterion.keywords = DataHelper.populateWildcardForFilterText(searchText);
         }
         keywordsCriterion.operator = operator;
