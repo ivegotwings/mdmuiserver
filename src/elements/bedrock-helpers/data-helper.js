@@ -777,14 +777,6 @@ DataHelper.getSearchCriteria = function (searchText) {
             let keywordsCriterion = {};
             let splitQueryByAnd = searchText.toLowerCase().split(/' and '|,/ig);
             let splitQueryByOr = searchText.toLowerCase().split(/' or '|,/ig);
-            // let prefix = /^\"/i;
-            // let suffix = /^.+\"$/gm;
-            // let isPrefixed = prefix.test(searchText);
-            // let isSuffixed = suffix.test(searchText);
-            // let isExactSearch = false;
-            // if (isPrefixed && isSuffixed) {
-            //     isExactSearch = true;
-            // }
 
             if (splitQueryByAnd.length > 1 || (splitQueryByAnd.length == 1 && splitQueryByOr.length ==
                     1)) {

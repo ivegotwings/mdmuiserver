@@ -829,11 +829,15 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                 let valueStr =  ""
                 let isPrefixed = prefix.test(val);
                 let isSuffixed = suffix.test(val);
+                let isExactSearch = false
                 
                 let operator;
                 let splitQueryByAnd = val.toLowerCase().split("' and '");
                 let splitQueryByOr = val.toLowerCase().split("' or '");
                 if(isPrefixed && isSuffixed){
+                 isExactSearch = true;
+                }
+                if(isExactSearch){
                   val = val.replace(/(^")|("$)/g, "");
                 }
                 let containsStr = val;
@@ -892,7 +896,7 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                    
                       let valSplitByOr = val.split("' or '");
                       let valSplitByAnd = val.split("' and '");
-                      if(isPrefixed && isSuffixed){
+                      if(isExactSearch){
                         if (valSplitByAnd.length > 1) {
                           attrVal["exacts"] = valSplitByAnd;
                           attrVal["operator"] = "_AND"
@@ -941,7 +945,7 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                     delete attrVal[key];
                   } else if (displayType === "richtexteditor" || displayType === "textarea") {
                     containsStr = containsStr.replace(/["]+/g, '');
-                    if(isPrefixed && isSuffixed){
+                    if(isExactSearch){
                       attrVal["eq"] = "\""+containsStr+"\"";
                       attrVal["operator"] = operator;
                     }else{
