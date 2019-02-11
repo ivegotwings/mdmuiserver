@@ -503,7 +503,11 @@ class RockEntityRelationshipSearchResult
               let relationships = DataTransformHelper.transformRelationshipModels(compositeModel, this.contextData);
               if (relationships && relationships[relType] && relationships[relType].length) {
                   let rel = null;
+                  let direction = this.configContext.direction;
                   let selectedRelationshipId = this.configContext.relationshipId;
+                  if(direction && direction == "up"){
+                    selectedRelationshipId = relType + "owned";  
+                  }
                   if(selectedRelationshipId){
                       for(let relationshipObj of relationships[relType]){
                           if(relationshipObj.id == selectedRelationshipId){
