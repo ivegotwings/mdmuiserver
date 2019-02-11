@@ -1184,7 +1184,15 @@ extends mixinBehaviors([
                       if (attribute.hasvalue != undefined) {
                           tag.displayValue = attribute.hasvalue ? "!%&has value!%&" : "!%&has no value!%&";
                       } else if (attribute.type === "_STRING") {
-                          if (attribute.exacts) {
+                        if (attribute.eq) {
+                            let _tagValue = attribute.eq.replace(/[()*]+/g, '');
+                            let valSplitByPipe = _tagValue.split("|");
+                            if(valSplitByPipe.length > 1){
+                                tag.displayValue = this._entitySearchFilterElement.formatFilterCollectionDisplay(valSplitByPipe);
+                            }else{
+                                tag.displayValue = _tagValue
+                            }
+                        }else if (attribute.exacts) {
                               tag.displayValue = this._entitySearchFilterElement.formatFilterCollectionDisplay(attribute.exacts);
                           } else if (attribute.contains) {
                             if(tag.options.displayType.toLowerCase() == "richtexteditor"){
@@ -1193,7 +1201,7 @@ extends mixinBehaviors([
                                 tag.displayValue = this._entitySearchFilterElement.formatFilterCollectionDisplay(attribute.contains.split(" "));
                             }
                           } else if (attribute.exact) {
-                              tag.displayValue = attribute.exact;
+                              tag.displayValue = '"' + attribute.exact + '"';
                           } else if (attribute.eq && attribute.pathCollection) {
                               tag.displayValue = this._entitySearchFilterElement.formatFilterCollectionDisplay(attribute.pathCollection);
                           }
@@ -1202,13 +1210,13 @@ extends mixinBehaviors([
                               tag.displayValue = attribute.gte + " - " + attribute.lte;
                           } else if (attribute.contains) {
                               tag.displayValue = this._entitySearchFilterElement.formatFilterCollectionDisplay(attribute.contains.split(" "));
-                          } else if (attribute.eq) {
-                            if(attribute.eq instanceof Array) {
-                                tag.displayValue = this._entitySearchFilterElement.formatFilterCollectionDisplay(attribute.eq);
-                            } else {
-                                tag.displayValue = attribute.eq;
+                          }else if (attribute.exacts) {
+                                if(attribute.exacts instanceof Array) {
+                                    tag.displayValue = this._entitySearchFilterElement.formatFilterCollectionDisplay(attribute.exacts);
+                                } else {
+                                    tag.displayValue = attribute.exacts;
+                                }
                             }
-                        } 
                       } else if (attribute.type === "_BOOLEAN") {
                           tag.displayValue = attribute.eq;
                       } else if (attribute.type === "_DATETIME" || attribute.type === "_DATE") {
@@ -1613,9 +1621,14 @@ extends mixinBehaviors([
               if ((DataHelper.isValidObjectPath(attributeList[i], 'options.dataType')) && attributeList[i].options.dataType == "boolean") {
                   value = attributeList[i].booleanSearchValue;
               }
-              if (queryParser) {
-                  value = queryParser.formatValue(value);
+              let _displayType = "";
+              if (DataHelper.isValidObjectPath(attributeList[i], 'options.displayType')) {
+                  _displayType = attributeList[i].options.displayType;
               }
+                if (queryParser && _displayType != "RichTextEditor" && _displayType != "TextArea") {
+                    value = queryParser.formatValue(value);
+                }
+            
               let newItem = {
                   name: attributeList[i].longName,
                   value: value,

@@ -289,18 +289,7 @@ RUFBehaviors.LovBehavior
 
   _prepareKeywordsCriteria(searchText) {
     if (searchText) {
-        let keywordsCriterion = {};
-        let prefix = /^\"/i;
-        let suffix = /^.+\"$/gm;
-        let isPrefixed = prefix.test(searchText);
-        let isSuffixed = suffix.test(searchText);
-        if(isPrefixed && isSuffixed){
-            keywordsCriterion.keywords = searchText;
-        }else{
-            keywordsCriterion.keywords = DataRequestHelper.appendWildcard(searchText);
-        }
-        keywordsCriterion.operator = "_AND";
-        return keywordsCriterion;
+        return DataHelper.prepareKeywordsCriteria(searchText,"_AND");
     }
     
   }
