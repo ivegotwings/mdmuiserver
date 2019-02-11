@@ -1152,7 +1152,7 @@ class RockQueryBuilder extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehavi
                                       let newItem = {
                                           id: rel[k].id,
                                           relationshipName: relType,
-                                          title: rel[k].properties && rel[k].properties.externalName ? rel[k].properties.externalName : "",
+                                          title: rel[k].properties && rel[k].properties.externalName ? rel[k].properties.externalName : rel[k].id,
                                           relEntityType: rel[k].properties.relatedEntityInfo[0].relEntityType,
                                           attributes: rel[k].attributes,
                                           relationshipOwnership: rel[k].properties.relationshipOwnership
