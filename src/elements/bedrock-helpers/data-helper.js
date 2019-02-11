@@ -189,10 +189,6 @@ DataHelper.getItemFieldValue = function(item,field) {
     return fieldValue;
 }
 
-DataHelper.removeSpecialCharacters = function(text){
-    return text.replace(/[^a-zA-Z0-9._:*' "]/g, ' ');
-}
-
 DataHelper.containsObject = function (obj, list) {
     let res = _.find(list, function (val) {
         return _.isEqual(obj, val)
@@ -813,7 +809,11 @@ DataHelper.prepareKeywordsCriteria = function(searchText,operator) {
   }
 
 DataHelper.removeSpecialCharacters = function(text){
-    return text.replace(/[^a-zA-Z0-9._:*' ]/g, ' ');
+    // replace all non supporting chars with space.
+     // replace leading and traiiling . ' : (not supprting in leading and trailling position) with space. 
+     // replace all extra space with single space.
+    text = text.replace(/[\(\)\[\]{}&@₹#$\-\|~!%^*=+/;,<>?\\"]/g," ").replace(/(^.)|(^')|(^:)|(.$)|(:$)|('$)/g, "").replace(/  +/g, ' ').trim(); 
+    return text;
 }
 
 DataHelper.replaceDoubleQuotesWithSpace = function(value){
