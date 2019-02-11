@@ -90,6 +90,7 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
                 overflow: hidden;
                 text-overflow: ellipsis;
                 white-space: nowrap;
+                display:block;
             }
 
             .attribute-coalesced-label .attribute-view-label {
