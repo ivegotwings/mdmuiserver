@@ -559,9 +559,11 @@ class GridListView
    * <b><i>Content development is under progress... </b></i>
    */
   reloadData () {
-      this.items = [];
-      this.page = 0;
-      this.page = 1;
+    if (!this.loading) {
+        this.items = [];
+        this.page = 0;
+        this.page = 1;
+    }
   }
   _hasActions (actions) {
       let hasActions = actions && actions.length > 0;
