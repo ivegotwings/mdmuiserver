@@ -517,11 +517,17 @@ class RockEntityRelationshipSearchResult
                               }
                           }
                       }
+                      //will removed this after we change all the relationship to suffix with type
                       if(_.isEmpty(rel)){
                           let relationshipId = this.configContext.relationshipId;
-                          if(relationships[relationshipId]){
-                            rel = relationships[relationshipId][0];
-                          }
+                          for(let relationshipObj of relationships[relType]){
+                                if(relationshipObj.id == relationshipId){
+                                    if(relationshipObj.properties && relationshipObj.properties.relatedEntityInfo){
+                                        rel = relationshipObj;
+                                        break;
+                                    }
+                                }
+                            }
                       }
                   }
                   else{
