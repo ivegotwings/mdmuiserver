@@ -49,6 +49,7 @@ import '../pebble-button/pebble-button.js';
 import '../pebble-icon/pebble-icon.js';
 import '../pebble-image-viewer/pebble-image-viewer.js';
 import '../pebble-toolbar/pebble-toolbar.js';
+import '../pebble-echo-html/pebble-echo-html.js';
 import '../pebble-horizontal-divider/pebble-horizontal-divider.js';
 import '../pebble-info-icon/pebble-info-icon.js';
 import '../rock-entity-thumbnail/rock-entity-thumbnail.js';
@@ -342,7 +343,15 @@ extends mixinBehaviors([
                                 </template>
                             </div>
                             <div id="attrVal" title="[[item.value]]">
-                                <div class="attr-item--value ellipsis">[[item.value]]</div>
+                                <div class="attr-item--value ellipsis">
+                                <template is="dom-if" if="[[!_isPathAttributeAndLessThenFour(item)]]">
+                                     [[item.value]]
+                                </template>
+                                <template is="dom-if" if="[[_isPathAttributeAndLessThenFour(item)]]">
+                                    <pebble-echo-html html="[[_getItemValue(item)]]"></pebble-echo-html>
+                                </template>
+                                
+                                </div>
                                 <template is="dom-if" if="[[_isPathAttributeAndHasWritePermission(item)]]">
                                     <pebble-icon icon="pebble-icon:Open-window" class="pebble-icon-size-14 m-l-5" on-tap="_onPathAttributeEdit" attribute-name="[[item.name]]"></pebble-icon>
                                 </template>
@@ -596,6 +605,19 @@ extends mixinBehaviors([
           return attrModel && attrModel.displayType === "path" && attrModel.hasWritePermission;
       }
       return false;
+  }
+  _isPathAttributeAndLessThenFour(item){
+    if (!_.isEmpty(this._headerAttributeModels) &&
+          this._headerAttributeModels.hasOwnProperty(item.name)) {
+          let attrModel = this._headerAttributeModels[item.name];
+          return attrModel && attrModel.displayType === "path" && this._headerAttributeValues.length <=4;
+      }
+      return false;
+}
+  _getItemValue(item){
+      if(item && item.value){
+          return item.value[0].split('>>').join('>><wbr/>');
+      }
   }
 
   onConfigLoaded(componentConfig) {
