@@ -799,12 +799,12 @@ DataHelper.prepareKeywordsCriteria = function(searchText,operator) {
         let suffix = /^.+\"$/gm;
         let isPrefixed = prefix.test(searchText);
         let isSuffixed = suffix.test(searchText);
-        searchText = DataHelper.replaceDoubleQuotesWithSpace(searchText);
         if(isPrefixed && isSuffixed){
+            searchText = DataHelper.replaceDoubleQuotesWithSpace(searchText);
             searchText = '"' + searchText + '"';
             keywordsCriterion.keywords = searchText;
         }else{
-            searchText = DataHelper.removeSpecialCharacters(searchText)
+            searchText = DataHelper.removeSpecialCharacters(searchText);
             keywordsCriterion.keywords = DataHelper.populateWildcardForFilterText(searchText);
         }
         keywordsCriterion.operator = operator;
@@ -813,7 +813,7 @@ DataHelper.prepareKeywordsCriteria = function(searchText,operator) {
   }
 
 DataHelper.removeSpecialCharacters = function(text){
-    return text.replace(/[^a-zA-Z0-9._:*' "]/g, ' ');
+    return text.replace(/[^a-zA-Z0-9._:*' ]/g, ' ');
 }
 
 DataHelper.replaceDoubleQuotesWithSpace = function(value){

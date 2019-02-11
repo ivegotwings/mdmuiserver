@@ -837,9 +837,6 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                 if(isPrefixed && isSuffixed){
                  isExactSearch = true;
                 }
-                if(isExactSearch){
-                  val = val.replace(/(^")|("$)/g, "");
-                }
                 let containsStr = val;
 
                 if (splitQueryByAnd.length > 1) {

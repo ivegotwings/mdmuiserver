@@ -1465,10 +1465,9 @@ DataRequestHelper.createFilterCriteria = function (criterionType,searchText, tit
             //For Exact Search with Quotes
             searchText = searchText.trim();
             if (isExactSearch) {
-                searchText = searchText.replace(/(^")|("$)/g, "");
+                searchText = DataHelper.replaceDoubleQuotesWithSpace(searchText);
                 operator = "exact";
             } else {
-                searchText = DataHelper.replaceDoubleQuotesWithSpace(searchText);
                 searchText = DataHelper.removeSpecialCharacters(searchText)
                 searchText = DataHelper.populateWildcardForFilterText(searchText);
             }
