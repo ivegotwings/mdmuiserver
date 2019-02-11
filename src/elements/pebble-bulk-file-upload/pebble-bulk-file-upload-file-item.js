@@ -224,11 +224,17 @@ class PebbleBulkFileUploadFileItem extends OptionalMutableData(PolymerElement) {
       '_fileAborted(file.abort)'
     ]
   }
+
+  disconnectedCallback() {
+    this.removeEventListener('animationend', this._fireFileRemoveEvent)
+  }
+
   _fileChanged() {
     if (this.file != undefined) {
       this.$.progress.updateStyles();
     }
   }
+
   _fileAborted(abort) {
     if (abort) {
       this.toggleClass('fade-out', true);
@@ -236,11 +242,13 @@ class PebbleBulkFileUploadFileItem extends OptionalMutableData(PolymerElement) {
       if (!animationName || animationName === 'none') {
         this.dispatchEvent(new CustomEvent('file-remove', { detail: { file: this.file }, bubbles: true, composed: true }));
       } else {
-        this.addEventListener('animationend', function () {
-          this.dispatchEvent(new CustomEvent('file-remove', { detail: { file: this.file }, bubbles: true, composed: true }));
-        }.bind(this));
+        this.addEventListener('animationend', this._fireFileRemoveEvent);
       }
     }
+  }
+
+  _fireFileRemoveEvent () {
+    this.dispatchEvent(new CustomEvent('file-remove', { detail: { file: this.file }, bubbles: true, composed: true }));
   }
 
   _fireFileEvent(e) {

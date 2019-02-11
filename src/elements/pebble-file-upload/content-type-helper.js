@@ -6826,7 +6826,7 @@ ContentTypeHelper.getExtensions = function(mimeTypes) {
 };
 
 ContentTypeHelper.getExtension = function(mimeType) {
-    console.log('get extension is called');
+    //console.log('get extension is called');
     if (!ContentTypeHelper.isLoaded) {
         ContentTypeHelper.load();
     }
@@ -6849,12 +6849,12 @@ ContentTypeHelper.getMimeTypes = function(extensions) {
 };
 
 ContentTypeHelper.getMimeType = function(extension) {
-    console.log('get mime type is called');
+    //console.log('get mime type is called');
     if (!ContentTypeHelper.isLoaded) {
         ContentTypeHelper.load();
     }
     let x = ContentTypeHelper.MimeTypes[extension];
-    console.log('mime type returned ', x);
+    //console.log('mime type returned ', x);
     return x;
 };
 
