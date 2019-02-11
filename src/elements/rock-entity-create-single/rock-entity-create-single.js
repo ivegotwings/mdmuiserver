@@ -815,6 +815,7 @@ class RockEntityCreateSingle
           } else {
               let liquidSave = this.shadowRoot.querySelector("[name=entitySaveService]");
               if (liquidSave) {
+                  this._updateRequestForReview();
                   liquidSave.generateRequest();
               }
           }
