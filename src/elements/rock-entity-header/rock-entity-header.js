@@ -266,7 +266,7 @@ extends mixinBehaviors([
 
             .attribute:not(.trim) .attr-item--value {
                 display: -webkit-box;
-                word-break: break-all;
+                word-break: normal;
                 -webkit-box-orient: vertical;
                 overflow: hidden;
                 text-overflow: ellipsis;
@@ -646,11 +646,17 @@ extends mixinBehaviors([
                   //Remove if attribute not for header
                   if (!configItem) {
                       this._headerAttributeValues.splice(i, 1);
+                      //this._headerAttributeValues.pop();
+
                   }
 
                   break;
               }
           }
+          this._headerAttributeValues.pop()
+          this._headerAttributeValues.pop()
+          this._headerAttributeValues.pop()
+          this._headerAttributeValues.pop()
       }
   }
   _getCollapseClass() {
