@@ -1340,17 +1340,6 @@ DataRequestHelper.createGetManageModelRequest = function (entityTypes) {
     return req;
 };
 
-DataRequestHelper.appendWildcard = function(value){
-    let _value = value.split(" ");
-    let modifiedValue = [];
-    _value.forEach((val) =>{
-        if(!_.isEmpty(val)){
-            modifiedValue.push(val + "*");
-        }
-    });
-    return modifiedValue.join(" ");
-}
-
 DataRequestHelper.createGetAttributeModelRequest = function (types, attributes) {
     let ids = [];
     if (!attributes || attributes.length == 0) {
@@ -1473,21 +1462,14 @@ DataRequestHelper.createFilterCriteria = function (criterionType,searchText, tit
                 isExactSearch = true;
             }
             let operator = "eq";
-            //For Exact Searcvh with Quotes
+            //For Exact Search with Quotes
             searchText = searchText.trim();
             if (isExactSearch) {
-                searchText = searchText.replace(/["]+/g, '');
+                searchText = DataHelper.replaceDoubleQuotesWithSpace(searchText);
                 operator = "exact";
             } else {
-                searchText = searchText.replace(/[^a-zA-Z0-9._:*' "]/g, ' ');
-                searchText = searchText.split(" ");
-                let modifiedSearchText = [];
-                searchText.forEach((text) =>{
-                    if(!_.isEmpty(text)){
-                        modifiedSearchText.push(text + "*");
-                    }
-                });
-                searchText = modifiedSearchText.join(" ");
+                searchText = DataHelper.removeSpecialCharacters(searchText)
+                searchText = DataHelper.populateWildcardForFilterText(searchText);
             }
             searchValue[operator] = searchText;
             attributes.forEach(function (item) {

@@ -503,7 +503,11 @@ class RockEntityRelationshipSearchResult
               let relationships = DataTransformHelper.transformRelationshipModels(compositeModel, this.contextData);
               if (relationships && relationships[relType] && relationships[relType].length) {
                   let rel = null;
+                  let direction = this.configContext.direction;
                   let selectedRelationshipId = this.configContext.relationshipId;
+                  if(direction && direction == "up"){
+                    selectedRelationshipId = relType + "owned";  
+                  }
                   if(selectedRelationshipId){
                       for(let relationshipObj of relationships[relType]){
                           if(relationshipObj.id == selectedRelationshipId){
@@ -512,6 +516,18 @@ class RockEntityRelationshipSearchResult
                                   break;
                               }
                           }
+                      }
+                      //will removed this after we change all the relationship to suffix with type
+                      if(_.isEmpty(rel)){
+                          let relationshipId = this.configContext.relationshipId;
+                          for(let relationshipObj of relationships[relType]){
+                                if(relationshipObj.id == relationshipId){
+                                    if(relationshipObj.properties && relationshipObj.properties.relatedEntityInfo){
+                                        rel = relationshipObj;
+                                        break;
+                                    }
+                                }
+                            }
                       }
                   }
                   else{
