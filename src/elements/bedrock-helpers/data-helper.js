@@ -812,8 +812,8 @@ DataHelper.removeSpecialCharacters = function(text){
     // replace all non supporting chars with space.
      // replace leading and traiiling . ' : (not supprting in leading and trailling position) with space. 
      // replace all extra space with single space.
-    text = text.replace(/[\(\)\[\]{}&@₹#$\-\|~!%^*=+/;,<>?\\"]/g," ").replace(/(^.)|(^')|(^:)|(.$)|(:$)|('$)/g, "").replace(/  +/g, ' ').trim(); 
-    return text;
+     text = text.replace(/[\(\)\[\]{}&@₹#$\-\|~!%^*=+/;,<>?\\"]/g," ").replace(/(^[.\s]+)|(^['\s]+)|(^[:\s]+)|([.\s]+$)|([:\s]+$)|(['\s]+$)/g, "").replace(/  +/g, ' ').trim(); 
+     return text;
 }
 
 DataHelper.replaceDoubleQuotesWithSpace = function(value){
