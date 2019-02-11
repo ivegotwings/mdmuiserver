@@ -944,7 +944,7 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                     attrVal["eq"] = containsStr;
                     delete attrVal[key];
                   } else if (displayType === "richtexteditor" || displayType === "textarea") {
-                    containsStr = containsStr.replace(/["]+/g, '');
+                    containsStr = containsStr.replace(/(^")|("$)/g, "");
                     if(isExactSearch){
                       attrVal["eq"] = "\""+containsStr+"\"";
                       attrVal["operator"] = operator;
