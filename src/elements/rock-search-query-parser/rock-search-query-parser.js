@@ -826,10 +826,10 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
               for (let j = 0; j < keys.length; j++) {
                 let key = keys[j];
                 let val = attrVal[key];
-                let valueStr =  ""
+                let valueStr =  "";
                 let isPrefixed = prefix.test(val);
                 let isSuffixed = suffix.test(val);
-                let isExactSearch = false
+                let isExactSearch = false;
                 
                 let operator;
                 let splitQueryByAnd = val.toLowerCase().split("' and '");
@@ -844,13 +844,22 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
 
                 if (splitQueryByAnd.length > 1) {
                   operator = "_AND";
+                  if(isExactSearch){
+                    splitQueryByAnd = DataHelper.replaceDoubleQuotesWithSpace(splitQueryByAnd);
+                  }
                   containsStr = splitQueryByAnd;
                 } else if (splitQueryByOr.length > 1) {
                   operator = "_OR";
+                  if(isExactSearch){
+                    splitQueryByOr = DataHelper.replaceDoubleQuotesWithSpace(splitQueryByOr);
+                  }
                   containsStr = splitQueryByOr;
+                }else if(isExactSearch){
+                  containsStr = DataHelper.replaceDoubleQuotesWithSpace(containsStr);
                 }
                 if (containsStr instanceof Array) {
                   containsStr = containsStr.join(' ');
+
                 }
 
                   if (val.indexOf("!%&") > -1) {
@@ -858,15 +867,12 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                     delete attrVal[key];
                   } else if (displayType === "path") {
                     if (key === "equals") {
-                      let valSplitByOr = val.split("' or '");
-                      let valSplitByAnd = val.split("' and '");
-                      
-                      if (valSplitByAnd.length > 1) {
-                        valueStr = this._formatQueryValue(valSplitByAnd,false,false)
+                      if (splitQueryByAnd.length > 1) {
+                        valueStr = this._formatQueryValue(splitQueryByAnd,false,false)
                         attrVal["eq"] = valueStr;
                         attrVal["operator"] = "_AND"
-                      } else if (valSplitByOr.length > 1) {
-                        valueStr = this._formatQueryValue(valSplitByOr,false,false)
+                      } else if (splitQueryByOr.length > 1) {
+                        valueStr = this._formatQueryValue(splitQueryByOr,false,false)
                         attrVal["eq"] = valueStr;
                         attrVal["operator"] = "_OR"
                       } else {
@@ -877,14 +883,11 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                   }
                   else if (displayType === "referencelist") {
                     if (key === "equals") {
-                      let valSplitByOr = val.split("' or '");
-                      let valSplitByAnd = val.split("' and '");
-                      
-                      if (valSplitByAnd.length > 1) {
-                        attrVal["exacts"] = valSplitByAnd;
+                      if (splitQueryByAnd.length > 1) {
+                        attrVal["exacts"] = splitQueryByAnd;
                         attrVal["operator"] = "_AND"
-                      } else if (valSplitByOr.length > 1) {
-                        attrVal["exacts"] = valSplitByOr;
+                      } else if (splitQueryByOr.length > 1) {
+                        attrVal["exacts"] = splitQueryByOr;
                         attrVal["operator"] = "_OR"
                       } else {
                         attrVal["exact"] = containsStr;
@@ -893,26 +896,23 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                     }
                   }else if (displayType === "textbox") {
                     if (key === "equals") {
-                   
-                      let valSplitByOr = val.split("' or '");
-                      let valSplitByAnd = val.split("' and '");
                       if(isExactSearch){
-                        if (valSplitByAnd.length > 1) {
-                          attrVal["exacts"] = valSplitByAnd;
+                        if (splitQueryByAnd.length > 1) {
+                          attrVal["exacts"] = splitQueryByAnd;
                           attrVal["operator"] = "_AND"
-                        } else if (valSplitByOr.length > 1) {
-                          attrVal["exacts"] = valSplitByOr;
+                        } else if (splitQueryByOr.length > 1) {
+                          attrVal["exacts"] = splitQueryByOr;
                           attrVal["operator"] = "_OR"
                         } else {
                           attrVal["exact"] = containsStr;
                         }
                       }else{
-                        if (valSplitByAnd.length > 1) {
-                          valueStr = this._formatQueryValue(valSplitByAnd,true,true)
+                        if (splitQueryByAnd.length > 1) {
+                          valueStr = this._formatQueryValue(splitQueryByAnd,true,true)
                           attrVal["eq"] = valueStr;
                           attrVal["operator"] = "_AND"
-                        } else if (valSplitByOr.length > 1) {
-                          valueStr = this._formatQueryValue(valSplitByOr,true,true)
+                        } else if (splitQueryByOr.length > 1) {
+                          valueStr = this._formatQueryValue(splitQueryByOr,true,true)
                           attrVal["eq"] = valueStr;
                           attrVal["operator"] = "_OR"
                         } else {
@@ -926,14 +926,11 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                     }
                   } else if (displayType === "numeric") {
                     if (key === "equals") {
-                      let valSplitByOr = val.split("' or '");
-                      let valSplitByAnd = val.split("' and '");
-
-                      if (valSplitByAnd.length > 1) {
-                        attrVal["exacts"] = valSplitByAnd;
+                      if (splitQueryByAnd.length > 1) {
+                        attrVal["exacts"] = splitQueryByAnd;
                         attrVal["operator"] = "_AND"
-                      } else if (valSplitByOr.length > 1) {
-                        attrVal["exacts"] = valSplitByOr;
+                      } else if (splitQueryByOr.length > 1) {
+                        attrVal["exacts"] = splitQueryByOr;
                         attrVal["operator"] = "_OR"
                       } else {
                         attrVal["eq"] = containsStr;
@@ -944,11 +941,11 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                     attrVal["eq"] = containsStr;
                     delete attrVal[key];
                   } else if (displayType === "richtexteditor" || displayType === "textarea") {
-                    containsStr = containsStr.replace(/(^")|("$)/g, "");
                     if(isExactSearch){
                       attrVal["eq"] = "\""+containsStr+"\"";
                       attrVal["operator"] = operator;
                     }else{
+                      containsStr = containsStr.replace(/(^")|("$)/g, "");
                       containsStr = DataHelper.removeSpecialCharacters(containsStr);
                       attrVal["eq"] = DataHelper.populateWildcardForFilterText(containsStr)
                       attrVal["operator"] = operator;

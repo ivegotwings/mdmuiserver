@@ -1462,12 +1462,13 @@ DataRequestHelper.createFilterCriteria = function (criterionType,searchText, tit
                 isExactSearch = true;
             }
             let operator = "eq";
-            //For Exact Searcvh with Quotes
+            //For Exact Search with Quotes
             searchText = searchText.trim();
             if (isExactSearch) {
-                searchText = searchText.replace(/["]+/g, '');
+                searchText = searchText.replace(/(^")|("$)/g, "");
                 operator = "exact";
             } else {
+                searchText = DataHelper.replaceDoubleQuotesWithSpace(searchText);
                 searchText = DataHelper.removeSpecialCharacters(searchText)
                 searchText = DataHelper.populateWildcardForFilterText(searchText);
             }
