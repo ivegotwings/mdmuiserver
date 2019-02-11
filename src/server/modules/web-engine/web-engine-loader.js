@@ -14,6 +14,7 @@ let config = require('config');
 let logger = require('../common/logger/logger-service');
 let loggerConfig = config.get('modules.common.logger');
 logger.configure(loggerConfig);
+let isEmpty = require('../common/utils/isEmpty');
 
 let buildPath = process.cwd();
 
@@ -166,9 +167,13 @@ app.get('/*', function (req, res) {
         if (url.indexOf(tenantId) > -1) {
             url = url.replace("/" + tenantId, "");
         }
-        
+
         let staticPath = "/static/es6-bundled"; 
-        //let staticPath = "/build/ui-platform/static/es6-unbundled";
+
+        if(req.cookies && !isEmpty(req.cookies.staticroot)) {
+            //console.log('cookie ', req.cookies.staticroot);
+            staticPath = "/static/" + req.cookies.staticroot;
+        }
 
         if (url.indexOf("/node_modules/") > -1) {
             url = url.replace("/node_modules/", staticPath + "/node_modules/");

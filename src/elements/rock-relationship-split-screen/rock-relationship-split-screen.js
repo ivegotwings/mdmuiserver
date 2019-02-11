@@ -204,7 +204,8 @@ class RockRelationshipSplitScreen
 				}
     }
     disconnectedCallback() {
-				super.disconnectedCallback();
+                super.disconnectedCallback();
+                this.removeEventListener('scroll', this._onScrollDebounce);
     }
     connectedCallback() {
 				super.connectedCallback();

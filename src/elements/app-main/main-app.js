@@ -135,12 +135,12 @@ class MainApp
                 <bedrock-pubsub event-name="app-repository-get-error" handler="_onAppRepositoryGetError" name="bedrock-event-app-repository-get-error"></bedrock-pubsub>
                 <bedrock-notification-receiver></bedrock-notification-receiver>
                 <bedrock-dataobject-notification-handler></bedrock-dataobject-notification-handler>
-                <rock-self-help context-data="[[contextData]]"></rock-self-help>
+                <rock-self-help context-data="[[contextData]]" help-settings="{{helpSettings}}"></rock-self-help>
                 <rock-app-repository context-data="[[contextData]]" app-repository="{{appRepository}}"></rock-app-repository>
             </template>
         </div>
         <template is="dom-if" if="[[readyForLoad]]">
-            <app-common sub-menu-item="{{subMenuItem}}" tenant-logo="{{tenantLogo}}" tenant-logo-text="{{tenantLogoText}}" main-logo="{{mainLogo}}" route="{{routeData}}" tenant-id="{{tenantId}}" context-data="[[contextData]]" page="{{page}}" query-params="{{queryParams}}" menu-items="{{menuItems}}" active-items="{{activeItems}}"></app-common>
+            <app-common sub-menu-item="{{subMenuItem}}" tenant-logo="{{tenantLogo}}" tenant-logo-text="{{tenantLogoText}}" main-logo="{{mainLogo}}" route="{{routeData}}" tenant-id="{{tenantId}}" context-data="[[contextData]]" page="{{page}}" query-params="{{queryParams}}" menu-items="{{menuItems}}" active-items="{{activeItems}}" help-settings="[[helpSettings]]"></app-common>
             <div id="middle-container">
                 <rock-content-view-manager id="contentViewManager" on-open="onViewOpen" on-opened="onViewOpened" on-close="onViewClose" on-minimize="_onViewMinimize"></rock-content-view-manager>
             </div>
@@ -276,7 +276,13 @@ class MainApp
             readyForLoad: {
                 type: Boolean,
                 value: false
-            }
+            },
+            helpSettings: {
+              type: Object,
+              value: function () {
+                  return{};
+              }
+          }
         }
     }
 

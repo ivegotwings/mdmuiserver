@@ -123,7 +123,7 @@ class PebbleToolbar extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerEle
                     <div class="buttonGroup">
                         <template is="dom-repeat" items="[[button.buttons]]" as="button">
                             <template is="dom-if" if="[[_computeIcon(button)]]" on-dom-change="_onToolbarChange">
-                                <pebble-button icon="[[button.icon]]" on-tap="_onTap" disabled="[[readonly]]" noink="" class="icon  m-l-10" data="[[button]]" title\$="[[button.tooltip]]" id="[[button.name]]">
+                                <pebble-button icon="[[button.icon]]" on-tap="_onTap" disabled="[[_isDisabled(button)]]" noink="" class="icon  m-l-10" data="[[button]]" title\$="[[button.tooltip]]" id="[[button.name]]">
                                 </pebble-button>
                             </template>
 
@@ -202,6 +202,12 @@ class PebbleToolbar extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerEle
       this.fireBedrockEvent("on-toolbar-change", e);
   }
 
+  _isDisabled(buttonConfig){
+    if(buttonConfig && buttonConfig.hasOwnProperty('disabled')){
+        return buttonConfig.disabled;
+    }
+    return this.readonly;
+  }
   _onTap(e) {
       if (e.currentTarget.disabled == true) {
           return;

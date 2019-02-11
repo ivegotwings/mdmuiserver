@@ -16,13 +16,17 @@ let BaseModelService = function (option) {
 }
 
 const compositeModelTypes = ["entityManageModel", "entityDisplayModel", "entityValidationModel", "entityDefaultValuesModel"];
-const collectionProperties = ["range"];
+const collectionProperties = ["range", "pattern"];
 const attributePropertyMapper = {
     "range": {
         "rangeFrom": "rangeFrom",
         "rangeTo": "rangeTo",
         "rangeFromInclusive": "isRangeFromInclusive",
         "rangeToInclusive": "isRangeToInclusive"
+    },
+    "pattern": {
+        "regexPattern": "regexPattern",
+        "regexHint": "regexHint"
     }
 };
 let modelGetManager = new ModelGetManager({});

@@ -288,14 +288,10 @@ RUFBehaviors.LovBehavior
   }
 
   _prepareKeywordsCriteria(searchText) {
-      if (searchText) {
-          let keywordsCriterion = {};
-
-          keywordsCriterion.keywords = "*"+searchText+"*";
-          keywordsCriterion.operator = "AND";
-
-          return keywordsCriterion;
-      }
+    if (searchText) {
+        return DataHelper.prepareKeywordsCriteria(searchText,"_AND");
+    }
+    
   }
 
   _onLovSelectionChanged(event) {

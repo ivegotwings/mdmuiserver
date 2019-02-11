@@ -131,7 +131,9 @@ class PebbleIcon extends PolymerElement {
 
   disconnectedCallback() {
     super.disconnectedCallback();
+    window.removeEventListener('iron-iconset-added', this._updateIcon);
   }
+  
   _iconChanged(icon) {
     let parts = (icon || '').split(':');
     this._iconName = parts.pop();

@@ -90,6 +90,7 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
                 overflow: hidden;
                 text-overflow: ellipsis;
                 white-space: nowrap;
+                display:block;
             }
 
             .attribute-coalesced-label .attribute-view-label {
@@ -637,7 +638,7 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
                     </template>
                 </template>
 
-                <bedrock-validator validation-errors="{{validationErrors}}" validation-warnings="{{validationWarnings}}" input="[[_getInputValue(attributeObject.value)]]" input-data-type="[[attributeModelObject.dataType]]" pattern="[[attributeModelObject.pattern]]" allowed-input="[[attributeModelObject.allowedInput]]" min-length="[[attributeModelObject.minLength]]" max-length="[[attributeModelObject.maxLength]]" precision="[[attributeModelObject.precision]]" required="[[attributeModelObject.required]]" invalid="{{invalid}}" min="[[_getRangeFieldValue(attributeModelObject, 'rangeFrom')]]" max="[[_getRangeFieldValue(attributeModelObject, 'rangeTo')]]" min-inclusive="[[_getRangeFieldValue(attributeModelObject, 'isRangeFromInclusive')]]" max-inclusive="[[_getRangeFieldValue(attributeModelObject, 'isRangeToInclusive')]]" date-format="[[attributeModelObject.dateFormat]]" type="[[attributeModelObject.validationType]]" type-array="[[attributeModelObject.validationTypeArray]]">
+                <bedrock-validator validation-errors="{{validationErrors}}" server-errors="{{serverErrors}}" validation-warnings="{{validationWarnings}}" input="[[_getInputValue(attributeObject.value)]]" input-data-type="[[attributeModelObject.dataType]]" pattern="[[_getPatternFieldValue(attributeModelObject, 'regexPattern')]]" regex-hint="[[_getPatternFieldValue(attributeModelObject, 'regexHint')]]" min-length="[[attributeModelObject.minLength]]" max-length="[[attributeModelObject.maxLength]]" precision="[[attributeModelObject.precision]]" required="[[attributeModelObject.required]]" invalid="{{invalid}}" min="[[_getRangeFieldValue(attributeModelObject, 'rangeFrom')]]" max="[[_getRangeFieldValue(attributeModelObject, 'rangeTo')]]" min-inclusive="[[_getRangeFieldValue(attributeModelObject, 'isRangeFromInclusive')]]" max-inclusive="[[_getRangeFieldValue(attributeModelObject, 'isRangeToInclusive')]]" date-format="[[attributeModelObject.dateFormat]]" type="[[attributeModelObject.validationType]]" type-array="[[attributeModelObject.validationTypeArray]]">
                 </bedrock-validator>
 
                 <div id="error-display" hidden="[[_messageAbsent(messages)]]" on-tap="_messageTapped">
@@ -1733,7 +1734,11 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
           return "attribute-edit-mode-icons";
       }
   }
-
+  _getPatternFieldValue(attributeModelObject, fieldName){
+    if (!_.isEmpty(attributeModelObject.pattern)) {
+        return attributeModelObject.pattern[0][fieldName];
+    }
+  }
   _getRangeFieldValue(attributeModelObject, fieldName) {
       if (_.isEmpty(attributeModelObject) || !fieldName) {
           return;

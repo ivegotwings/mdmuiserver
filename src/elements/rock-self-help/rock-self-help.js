@@ -29,6 +29,13 @@ class RockSelfHelp
               value: function () {
                   return {};
               }
+          },
+          helpSettings: {
+              type: Object,
+              value: function () {
+                  return{};
+              },
+              notify: true
           }
       };
   }
@@ -44,6 +51,7 @@ class RockSelfHelp
 
   onConfigLoaded({config}) {
       if(!_.isEmpty(config)) {
+          this.set("helpSettings", config);
           if(config.enabled) {
               //append url to head
               if (config.mode && config[config.mode + 'url']) {

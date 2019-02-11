@@ -134,6 +134,65 @@ DataHelper.compareObjects = function (firstObject, secondObject) {
     return true;
 };
 
+DataHelper.applyLocalFilter = function(recordsToBeFiltered,filterText,fieldsToConsider) {
+    if (!recordsToBeFiltered) {
+        return recordsToBeFiltered;
+    }
+    filterText = filterText.toLowerCase();
+    let prefix = /^\"/i;
+    let suffix = /^.+\"$/gm;
+    let isPrefixed = prefix.test(filterText);
+    let isSuffixed = suffix.test(filterText);
+    let isExactSearch = false;
+    if (isPrefixed && isSuffixed) {
+        isExactSearch = true;
+        filterText = filterText.replace(/(^")|("$)/g, "")
+    }else{
+        filterText = DataHelper.removeSpecialCharacters(filterText);
+    }
+    return recordsToBeFiltered.filter((function (record) {
+        let itemFound = false;
+        for(let field=0;field < fieldsToConsider.length;field++){
+            let _currentField = fieldsToConsider[field];
+            let itemFieldValue = DataHelper.getItemFieldValue(record,_currentField).toString().toLowerCase();
+            if(!_.isEmpty(itemFieldValue)){
+                if(isExactSearch){
+                    if(filterText == itemFieldValue){
+                        itemFound = true;
+                        break;
+                    }
+                }else{
+                    let filterTextItems = filterText.split(" ");
+                    itemFound = filterTextItems.every(value => {
+                        itemFieldValue = DataHelper.removeSpecialCharacters(itemFieldValue)
+                        let currentFieldValueIndex = itemFieldValue.indexOf(value);
+                        if(currentFieldValueIndex > -1){
+                            if(currentFieldValueIndex == 0 || currentFieldValueIndex  > 0 && itemFieldValue.charAt(currentFieldValueIndex - 1) ==  " " ){
+                                return true;
+                            }
+                        }
+                    });
+                }
+                if(itemFound){
+                    break;
+                }
+            }
+        }
+        return itemFound;
+    }))
+}
+DataHelper.getItemFieldValue = function(item,field) {
+    let fieldValue = item[field];
+    if (_.isEmpty(fieldValue)) {
+        fieldValue = '';
+    }
+    return fieldValue;
+}
+
+DataHelper.removeSpecialCharacters = function(text){
+    return text.replace(/[^a-zA-Z0-9._:*' "]/g, ' ');
+}
+
 DataHelper.containsObject = function (obj, list) {
     let res = _.find(list, function (val) {
         return _.isEqual(obj, val)
@@ -721,17 +780,64 @@ DataHelper.getSearchCriteria = function (searchText) {
 
             if (splitQueryByAnd.length > 1 || (splitQueryByAnd.length == 1 && splitQueryByOr.length ==
                     1)) {
-                keywordsCriterion.operator = "_AND";
-                keywordsCriterion.keywords = splitQueryByAnd.join(' ');
+                let keywordText = splitQueryByAnd.join(' ');
+                keywordsCriterion = DataHelper.prepareKeywordsCriteria(keywordText,"_AND")
             } else {
-                keywordsCriterion.operator = "_OR"
-                keywordsCriterion.keywords = splitQueryByOr.join(' ');
+                let keywordText = splitQueryByOr.join(' ');
+                keywordsCriterion = DataHelper.prepareKeywordsCriteria(keywordText,"_OR")
             }
 
             return keywordsCriterion;
         }
     }
 };
+
+DataHelper.prepareKeywordsCriteria = function(searchText,operator) {
+    if (searchText) {
+        let keywordsCriterion = {};
+        let prefix = /^\"/i;
+        let suffix = /^.+\"$/gm;
+        let isPrefixed = prefix.test(searchText);
+        let isSuffixed = suffix.test(searchText);
+        if(isPrefixed && isSuffixed){
+            searchText = DataHelper.replaceDoubleQuotesWithSpace(searchText);
+            searchText = '"' + searchText + '"';
+            keywordsCriterion.keywords = searchText;
+        }else{
+            searchText = DataHelper.removeSpecialCharacters(searchText);
+            keywordsCriterion.keywords = DataHelper.populateWildcardForFilterText(searchText);
+        }
+        keywordsCriterion.operator = operator;
+        return keywordsCriterion;
+    }
+  }
+
+DataHelper.removeSpecialCharacters = function(text){
+    return text.replace(/[^a-zA-Z0-9._:*' ]/g, ' ');
+}
+
+DataHelper.replaceDoubleQuotesWithSpace = function(value){
+    if(value instanceof Array){
+        let _modifiedArray = [];
+        value.forEach(val =>{
+            _modifiedArray.push(val.replace(/"/g, " ").replace(/  +/g, ' ').trim());
+        });
+        return _modifiedArray;
+    }else{
+        return value.replace(/"/g, " ").replace(/  +/g, ' ').trim();
+    }
+}
+
+DataHelper.populateWildcardForFilterText  = function(value){
+    let _value = value.split(" ");
+    let modifiedValue = [];
+    _value.forEach((val) =>{
+        if(!_.isEmpty(val)){
+            modifiedValue.push(val + "*");
+        }
+    });
+    return modifiedValue.join(" ");
+}
 
 DataHelper.isHotlineModeEnabled = function () {
     let mainApp = RUFUtilities.mainApp;
