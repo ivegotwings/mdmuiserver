@@ -129,7 +129,7 @@ extends mixinBehaviors([
                   for (let buttonIndex = 0; buttonIndex < buttons.length; buttonIndex++) {
                       const buttonItem = buttons[buttonIndex];
                       if(buttonItem && buttonItem.name && buttonItem.name == 'bulkedit'){
-                          buttons.splice(buttonIndex, 1);
+                          buttonItem.disabled = true;
                           break;
                       }
                   }
