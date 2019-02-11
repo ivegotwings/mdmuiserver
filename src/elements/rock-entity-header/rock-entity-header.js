@@ -344,10 +344,10 @@ extends mixinBehaviors([
                             </div>
                             <div id="attrVal" title="[[item.value]]">
                                 <div class="attr-item--value ellipsis">
-                                <template is="dom-if" if="[[!_isPathAttributeAndLessThenFour(item)]]">
+                                <template is="dom-if" if="[[!_isPathAttributeAndLessThanFour(item)]]">
                                      [[item.value]]
                                 </template>
-                                <template is="dom-if" if="[[_isPathAttributeAndLessThenFour(item)]]">
+                                <template is="dom-if" if="[[_isPathAttributeAndLessThanFour(item)]]">
                                     <pebble-echo-html html="[[_getItemValue(item)]]"></pebble-echo-html>
                                 </template>
                                 
@@ -606,7 +606,7 @@ extends mixinBehaviors([
       }
       return false;
   }
-  _isPathAttributeAndLessThenFour(item){
+  _isPathAttributeAndLessThanFour(item){
     if (!_.isEmpty(this._headerAttributeModels) &&
           this._headerAttributeModels.hasOwnProperty(item.name)) {
           let attrModel = this._headerAttributeModels[item.name];
@@ -646,17 +646,12 @@ extends mixinBehaviors([
                   //Remove if attribute not for header
                   if (!configItem) {
                       this._headerAttributeValues.splice(i, 1);
-                      //this._headerAttributeValues.pop();
 
                   }
 
                   break;
               }
           }
-          this._headerAttributeValues.pop()
-          this._headerAttributeValues.pop()
-          this._headerAttributeValues.pop()
-          this._headerAttributeValues.pop()
       }
   }
   _getCollapseClass() {
