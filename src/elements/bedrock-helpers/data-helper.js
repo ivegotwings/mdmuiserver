@@ -813,7 +813,7 @@ DataHelper.removeSpecialCharacters = function(text){
      // replace leading and traiiling . ' : (not supprting in leading and trailling position) with space. 
      // replace all extra space with single space.
     text = text.replace(/[\(\)\[\]{}&@₹#$\-\|~!%^*=+/;,<>?\\"]/g," ").replace(/(^.)|(^')|(^:)|(.$)|(:$)|('$)/g, "").replace(/  +/g, ' ').trim(); 
-    return text
+    return text;
 }
 
 DataHelper.replaceDoubleQuotesWithSpace = function(value){
