@@ -517,6 +517,12 @@ class RockEntityRelationshipSearchResult
                               }
                           }
                       }
+                      if(_.isEmpty(rel)){
+                          let relationshipId = this.configContext.relationshipId;
+                          if(relationships[relationshipId]){
+                            rel = relationships[relationshipId][0];
+                          }
+                      }
                   }
                   else{
                       for(let relationshipObj of relationships[relType]){
