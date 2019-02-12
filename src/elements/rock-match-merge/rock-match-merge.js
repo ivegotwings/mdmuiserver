@@ -70,10 +70,6 @@ class RockMatchMerge extends mixinBehaviors([
                 #errorsDialog {
                     --popup-header-color: var(--palette-pinkish-red, #ee204c);
                 }
-                .infoMessage {
-                    font-size: 12px;
-                    padding-bottom: 5px;
-                }
                 .widget-box {
                     padding: 10px;
                     border: solid 1px var(--default-border-color, #c1cad4);                    
@@ -111,8 +107,8 @@ class RockMatchMerge extends mixinBehaviors([
                     margin: 0px;
                 }
             </style>
-            <template is="dom-if" if="[[_message]]">
-                <div class="default-message">[[_message]]</div>
+            <template is="dom-if" if="[[_matchProcessMessage]]">
+                <div class="default-message">[[_matchProcessMessage]]</div>
             </template>
             <template is="dom-if" if="[[_isValidForProcess]]">
                 <div class="base-grid-structure button-siblings">
@@ -140,7 +136,6 @@ class RockMatchMerge extends mixinBehaviors([
                         <div class="pebble-dropdown-wrapper" hidden\$="[[_showMessageOnly]]">
                             <pebble-dropdown id="actionsButton" label="Filter By" selected-value="{{_selectedValue}}" items="[[_dropDownItems]]" on-change="_onDropdownChange"></pebble-dropdown>
                         </div>
-                        <div align="center" class="infoMessage">[[_matchProcessMessage]]</div>
                     </div>
                     <template is="dom-if" if="[[!_showMessageOnly]]">
                         <div class="base-grid-structure-child-2">
@@ -433,10 +428,6 @@ class RockMatchMerge extends mixinBehaviors([
                     };
                 }
             },
-            _message: {
-                type: String,
-                value: ""
-            },
             _isValidForProcess: {
                 type: Boolean,
                 value: false
@@ -506,7 +497,7 @@ class RockMatchMerge extends mixinBehaviors([
     _onSourceEntitiesChange() {
         if (!_.isEmpty(this.sourceEntities)) {
             if (!this._isAllEntitiesValidForProcess()) {
-                this._message = this.isBulkProcess ? 
+                this._matchProcessMessage = this.isBulkProcess ? 
                                 "All selected entities should be of draft type for the review, select valid entities." : 
                                 "Entity should be of draft type for the review, select a valid entity. ";
                 return;
@@ -676,8 +667,9 @@ class RockMatchMerge extends mixinBehaviors([
 
     _logMatchFailure(detail) {
         this._loading = false;
+        this._showMessageOnly = true;
         this._matchProcessMessage = "Failed to show matched entities, click skip to move next";
-        this.logError("MatchSearchRequestFail", "response", JSON.stringify(detail));
+        this.logError("MatchSearchRequestFail", JSON.stringify(detail));
     }
 
     _tiggerCreateProcess() {
