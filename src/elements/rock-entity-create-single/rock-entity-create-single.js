@@ -33,7 +33,6 @@ import '../pebble-spinner/pebble-spinner.js';
 import '../pebble-dialog/pebble-dialog.js';
 import '../rock-attribute-list/rock-attribute-list.js';
 import '../rock-compare-entities/rock-compare-entities.js';
-import '../liquid-config-get/liquid-config-get.js';
 import EntityTypeManager from '../bedrock-managers/entity-type-manager.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockEntityCreateSingle
@@ -296,8 +295,8 @@ class RockEntityCreateSingle
               type: Object,
               value: function () {
                   return {
-                      "submitPermission": true,
-                      "mergePermission": false
+                      "submitPermission": false,
+                      "mergePermission": true
                   };
               }
           },
@@ -376,8 +375,8 @@ class RockEntityCreateSingle
           this._attributeModels = DataTransformHelper.transformAttributeModels(entityModel, this.contextData);
           values = DataTransformHelper.transformAttributes(this.savedEntity, this._attributeModels, this.contextData, "array", true);
           if (!_.isEmpty(entityModel.properties)) {
-              this._matchPermissions.submitPermission = entityModel.properties.submitPermission || this._matchPermissions.submitPermission;
-              this._matchPermissions.mergePermission = entityModel.properties.mergePermission || this._matchPermissions.mergePermission;
+              this._matchPermissions.submitPermission = typeof entityModel.properties.submitPermission == "boolean" ? entityModel.properties.submitPermission : this._matchPermissions.submitPermission;
+              this._matchPermissions.mergePermission = typeof entityModel.properties.mergePermission == "boolean" ?  entityModel.properties.mergePermission : this._matchPermissions.mergePermission;
           }
       }
       this._attributeValues = values;

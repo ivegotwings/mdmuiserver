@@ -11,7 +11,6 @@ import '../bedrock-style-manager/styles/bedrock-style-grid-layout.js';
 import '../liquid-rest/liquid-rest.js';
 import '../liquid-entity-data-get/liquid-entity-data-get.js';
 import '../liquid-entity-model-composite-get/liquid-entity-model-composite-get.js';
-import '../liquid-config-get/liquid-config-get.js';
 import '../pebble-dropdown/pebble-dropdown.js';
 import '../pebble-spinner/pebble-spinner.js';
 import '../pebble-horizontal-divider/pebble-horizontal-divider.js';
@@ -160,7 +159,6 @@ class RockMatchMerge extends mixinBehaviors([
             <liquid-entity-data-save id="entitySaveService" operation="[[_operation]]" request-data="{{_saveRequest}}" last-response="{{_saveResponse}}" on-response="_onSaveResponse" on-error="_onSaveError"></liquid-entity-data-save>
             <liquid-rest id="entityMatchService" url="/data/pass-through/matchservice/search" method="POST" request-data={{_entityMatchRequest}} on-liquid-response="_onMatchSuccess" on-liquid-error="_onMatchFailure"></liquid-rest>
             <liquid-rest id="entityGovernService" url="/data/pass-through/entitygovernservice/validate" method="POST" request-data={{_entityGovernRequest}} on-liquid-response="_onEntityGovernResponse" on-liquid-error="_onEntityGovernFailed"></liquid-rest>
-            <liquid-rest id="asyncEntityDelete" method="POST" url="/data/pass-through/bulkentityservice/createtask" on-liquid-response="_onAsyncDeleteSuccess" on-liquid-error="_onAsyncDeleteFailure"></liquid-rest>
             <bedrock-pubsub event-name="refresh-grid" handler="_onRefreshGrid" target-id="compareEntitiesGrid"></bedrock-pubsub>
                 `;
     }
@@ -427,7 +425,7 @@ class RockMatchMerge extends mixinBehaviors([
             _draftTypePattern: {
                 value: /^rsdraft/i
             },
-            enableEntityLink: {
+            enableEntityHeaderLink: {
                 type: Boolean,
                 value: false
             }
@@ -436,7 +434,7 @@ class RockMatchMerge extends mixinBehaviors([
 
     static get observers() {
         return [
-            "_initiateMergeProcess(contextData, sourceEntities)"
+            "_initiateMatchMergeReview(contextData, sourceEntities)"
         ]
     }
 
@@ -449,7 +447,7 @@ class RockMatchMerge extends mixinBehaviors([
         super.connectedCallback();
     }
 
-    _initiateMergeProcess() {
+    _initiateMatchMergeReview() {
         if (_.isEmpty(this.contextData) || _.isEmpty(this.sourceEntities)) {
             return;
         }
@@ -482,8 +480,8 @@ class RockMatchMerge extends mixinBehaviors([
         if (!_.isEmpty(this.sourceEntities)) {
             if (!this._isAllEntitiesValidForProcess()) {
                 this._message = this.isBulkProcess ? 
-                                "All selected entities should be draft type for the process, select valid entities." : 
-                                "Entity should be draft type for the process, select a valid entity. ";
+                                "All selected entities should be of draft type for the review, select valid entities." : 
+                                "Entity should be of draft type for the review, select a valid entity. ";
                 return;
             }
             let sourceIds = [...new Set(this.sourceEntities.map((entity) => entity.id))];
@@ -559,8 +557,8 @@ class RockMatchMerge extends mixinBehaviors([
             this._attributeModels = DataTransformHelper.transformAttributeModels(this._entityModels[0], this.contextData);
 
             if (!_.isEmpty(this._entityModels[0].properties)) {
-                this._matchPermissions.submitPermission = this._entityModels[0].properties.submitPermission || this._matchPermissions.submitPermission;
-                this._matchPermissions.mergePermission = this._entityModels[0].properties.mergePermission || this._matchPermissions.mergePermission;
+                this._matchPermissions.submitPermission = typeof this._entityModels[0].properties.submitPermission == "boolean" ?  this._entityModels[0].properties.submitPermission : this._matchPermissions.submitPermission;
+                this._matchPermissions.mergePermission = typeof this._entityModels[0].properties.mergePermission == "boolean" ?  this._entityModels[0].properties.mergePermission : this._matchPermissions.mergePermission;
             }
         }
         this._triggerEntityMatch();
@@ -589,7 +587,7 @@ class RockMatchMerge extends mixinBehaviors([
         if (detail.response && detail.response.response) {
             let response = detail.response.response;
             if (!response || (response.status && response.status.toLowerCase() == "error")) {
-                this.logError("MatchServiceRequestFail", e.detail);
+                this._logMatchFailure(detail);
                 return;
             }
 
@@ -641,9 +639,18 @@ class RockMatchMerge extends mixinBehaviors([
                 }
             }
         } else {
-            this._loading = false;
-            this.logError("MatchSearchRequestFail", "response", JSON.stringify(detail));
+            this._logMatchFailure(detail);
         }
+    }
+
+    _onMatchFailure(e, detail) {
+        this._logMatchFailure(detail);
+    }
+
+    _logMatchFailure(detail) {
+        this._loading = false;
+        this._matchProcessMessage = "Failed to show matched entities, click skip to move next";
+        this.logError("MatchSearchRequestFail", "response", JSON.stringify(detail));
     }
 
     _tiggerCreateProcess() {
@@ -1107,7 +1114,7 @@ class RockMatchMerge extends mixinBehaviors([
 
     _getLink(entityId, entityLink) {
         let link = "";
-        if (this.enableEntityLink && entityLink) {
+        if (this.enableEntityHeaderLink && entityLink) {
             let newEntityId = "";
             if (this.sourceEntity) {
                 newEntityId = this.sourceEntity.id;
@@ -1356,12 +1363,6 @@ class RockMatchMerge extends mixinBehaviors([
         }
     }
 
-    _onBackTap(e) {
-        this._reset();
-        let eventName = "compare-entities-back";
-        this.fireBedrockEvent(eventName, null);
-    }
-
     _onSkipTap(e) {
         if (_.isEmpty(this.sourceEntitiesData)) {
             return;
@@ -1397,7 +1398,8 @@ class RockMatchMerge extends mixinBehaviors([
         this._saveRequest = {
             "entities": [sourceEntity]
         };
-        this._triggerGovernRequest();
+        //this._triggerGovernRequest(); //Todo, will be enabled for new match merge UI
+        this._triggerSaveRequest();
     }
 
     _onApproveTap(e) {
@@ -1410,32 +1412,23 @@ class RockMatchMerge extends mixinBehaviors([
     }
 
     _deleteDraftEntity() {
-        let entities = [this.sourceEntity.id];
-        let types = [this.sourceEntity.type];
-        let deleteRequest = DataRequestHelper.createEntityDeleteRequest(entities, types);
-        let asyncLiquidDelete = this.shadowRoot.querySelector("#asyncEntityDelete");
-        if (asyncLiquidDelete) {
-            asyncLiquidDelete.requestData = deleteRequest;
-            asyncLiquidDelete.generateRequest();
-        }
+        this._operation = "delete";
+        this._saveRequest = {
+            "entities": [{
+                "id": this.sourceEntity.id,
+                "type": this.sourceEntity.type
+            }]
+        };
+        this._triggerSaveRequest();
     }
 
-    _onAsyncDeleteSuccess(e) {
-        if (this._isDiscardProcess) {
-            this.sourceEntitiesData[this.reviewIndex].status = "discarded";
-            this.showSuccessToast("Entity deleted successfully");
-            this._isDiscardProcess = false;
-        }
+    _finishEntityReview() {
         if (this.isBulkProcess) {
             this._notifySourceEntities();
             this._moveToNextEntity();
         } else {
             this.fire("cancel-event");
         }
-    }
-
-    _onAsyncDeleteFailure(e) {
-        this.logError("Entity delete process failed", e.detail);
     }
 
     //Todo - rel name? rel type? This should be added for create/merge
@@ -1527,15 +1520,30 @@ class RockMatchMerge extends mixinBehaviors([
     _onSaveResponse(e) {
         let operation = e.detail.request.operation;
         let msg = "";
+        let status = "";
+
+        if (!this._isDiscardProcess && operation == "delete") {
+            this._finishEntityReview();
+            return;
+        }
 
         if (operation == "create") {
             msg = "Entity created successfully.";
-        }
-        if (operation == "update") {
+            status = "created";
+        } else if (operation == "update") {
             msg = "Entity merged successfully.";
+            status = "merged";
+        } else if (operation == "delete") {
+            msg = "Draft entity deleted successfully.";
+            status = "discarded";
         }
-        this.sourceEntitiesData[this.reviewIndex].status = operation == "create" ? "created" : "merged";
-        this._deleteDraftEntity();
+
+        this.sourceEntitiesData[this.reviewIndex].status = status;
+        if (!this._isDiscardProcess) {
+            this._deleteDraftEntity();
+        } else {
+            this._finishEntityReview();
+        }
 
         setTimeout(() => {
             this._loading = false;
@@ -1544,7 +1552,9 @@ class RockMatchMerge extends mixinBehaviors([
     }
 
     _onSaveError(e) {
+        this._loading = false;
         this.logError("Failed to update entity", e.detail);
+        this.showErrorToast("Failed to process the current entity, contact administrator");
     }
 
     _allowAction(type) {
@@ -1565,7 +1575,7 @@ class RockMatchMerge extends mixinBehaviors([
         this._attributeModels = {};
         this._matchProcessMessage = "";
         this._showMessageOnly = false;
-        this._canCreate = this._canMerge = this._showDiscard = false;
+        this._canCreate = this._canMerge = this._showDiscard = this._isDiscardProcess = false;
         let pebbleDropDown = this.$$("#actionsButton");
         if (pebbleDropDown) {
             pebbleDropDown.selectedIndex = 0;
