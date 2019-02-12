@@ -357,12 +357,14 @@ class RockPathAttributeManage
           return true;
       }
       selectedItems = selectedItems.map(item => item.valuePath);
-      let _valuePathSeperator = this._valuePathSeperator;
+      let valuePathSeperator = this._valuePathSeperator;
+      let pathSeperator = this._pathSeperator;
       let initialItems = this._initialClassifications.map(function (item) {
-          if (item.indexOf('>>') !== -1) {
-            return item.replace(/>>/g, _valuePathSeperator);
+          if (item.indexOf(pathSeperator) !== -1) {
+            let pattern = new RegExp(pathSeperator,'g');
+            return item.replace(pattern, valuePathSeperator);
           } else {
-            return item.join(_valuePathSeperator);             
+            return item.join(valuePathSeperator);             
           }           
       });
       return !DataHelper.areEqualArrays(selectedItems, initialItems);
