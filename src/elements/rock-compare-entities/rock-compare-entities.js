@@ -28,11 +28,6 @@ class RockCompareEntities extends mixinBehaviors([
             :host {
                 display: block;
                 height: 100%;
-
-                --rock-entity-compare-dialog: {
-                    height: 30vh !important;
-                    /* temp fix need to rework on nested grid with alert box*/
-                }
             }
 
             :host(.one-accordion) {

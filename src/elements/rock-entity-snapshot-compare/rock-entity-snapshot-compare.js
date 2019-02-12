@@ -47,7 +47,6 @@ class RockEntitySnapshotCompare extends mixinBehaviors([RUFBehaviors.UIBehavior,
             :host {
                 display: block;
                 height: 100%;
-                transform: translate3d(0, 0, 0);
             }
 
             .buttonContainer-fixed {
