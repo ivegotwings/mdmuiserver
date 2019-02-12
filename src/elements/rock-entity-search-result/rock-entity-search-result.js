@@ -509,6 +509,15 @@ class RockEntitySearchResult extends mixinBehaviors([RUFBehaviors.AppBehavior,
               }
           }
 
+           //App specific
+           let appName = "";
+           appName = ComponentHelper.getCurrentActiveAppName(this);
+           if (appName) {
+               context[ContextHelper.CONTEXT_TYPE_APP] = [{
+                   "app": appName
+               }];
+           }
+
           this.requestConfig('rock-entity-search-result', context);
       }
   }
