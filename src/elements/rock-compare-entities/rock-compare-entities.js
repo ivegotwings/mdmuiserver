@@ -72,7 +72,7 @@ class RockCompareEntities extends mixinBehaviors([
                 width:20%;
             }
             .button-siblings{
-                @apply --rock-snapshot-screen;
+                height:calc(100% - 50px);
             }
         </style>
         <template is="dom-if" if="[[showActionButtons]]">
