@@ -150,7 +150,6 @@ DataHelper.applyLocalFilter = function(recordsToBeFiltered,filterText,fieldsToCo
     }else{
         filterText = DataHelper.removeSpecialCharacters(filterText);
     }
-    let filterTextItems = filterText.split(" ");
     return recordsToBeFiltered.filter((function (record) {
         let itemFound = false;
         for(let field=0;field < fieldsToConsider.length;field++){
@@ -163,6 +162,7 @@ DataHelper.applyLocalFilter = function(recordsToBeFiltered,filterText,fieldsToCo
                         break;
                     }
                 }else{
+                    let filterTextItems = filterText.split(" ");
                     itemFound = filterTextItems.every(value => {
                         itemFieldValue = DataHelper.removeSpecialCharacters(itemFieldValue)
                         let currentFieldValueIndex = itemFieldValue.indexOf(value);
@@ -187,10 +187,6 @@ DataHelper.getItemFieldValue = function(item,field) {
         fieldValue = '';
     }
     return fieldValue;
-}
-
-DataHelper.removeSpecialCharacters = function(text){
-    return text.replace(/[^a-zA-Z0-9._:*' "]/g, ' ');
 }
 
 DataHelper.containsObject = function (obj, list) {
@@ -780,17 +776,68 @@ DataHelper.getSearchCriteria = function (searchText) {
 
             if (splitQueryByAnd.length > 1 || (splitQueryByAnd.length == 1 && splitQueryByOr.length ==
                     1)) {
-                keywordsCriterion.operator = "_AND";
-                keywordsCriterion.keywords = splitQueryByAnd.join(' ');
+                let keywordText = splitQueryByAnd.join(' ');
+                keywordsCriterion = DataHelper.prepareKeywordsCriteria(keywordText,"_AND")
             } else {
-                keywordsCriterion.operator = "_OR"
-                keywordsCriterion.keywords = splitQueryByOr.join(' ');
+                let keywordText = splitQueryByOr.join(' ');
+                keywordsCriterion = DataHelper.prepareKeywordsCriteria(keywordText,"_OR")
             }
 
             return keywordsCriterion;
         }
     }
 };
+
+DataHelper.prepareKeywordsCriteria = function(searchText,operator) {
+    if (searchText) {
+        let keywordsCriterion = {};
+        let prefix = /^\"/i;
+        let suffix = /^.+\"$/gm;
+        let isPrefixed = prefix.test(searchText);
+        let isSuffixed = suffix.test(searchText);
+        if(isPrefixed && isSuffixed){
+            searchText = DataHelper.replaceDoubleQuotesWithSpace(searchText);
+            searchText = '"' + searchText + '"';
+            keywordsCriterion.keywords = searchText;
+        }else{
+            searchText = DataHelper.removeSpecialCharacters(searchText);
+            keywordsCriterion.keywords = DataHelper.populateWildcardForFilterText(searchText);
+        }
+        keywordsCriterion.operator = operator;
+        return keywordsCriterion;
+    }
+  }
+
+DataHelper.removeSpecialCharacters = function(text){
+    // replace all non supporting chars with space.
+     // replace leading and traiiling . ' : (not supprting in leading and trailling position) with space. 
+     // replace all extra space with single space.
+     text = text.replace(/[\(\)\[\]{}&@₹#$\-\|~!%^*=+/;,<>?\\"]/g," ").replace(/(^[.\s]+)|(^['\s]+)|(^[:\s]+)|([.\s]+$)|([:\s]+$)|(['\s]+$)/g, "").replace(/  +/g, ' ').trim(); 
+     return text;
+}
+
+DataHelper.replaceDoubleQuotesWithSpace = function(value){
+    if(value instanceof Array){
+        let _modifiedArray = [];
+        value.forEach(val =>{
+            _modifiedArray.push(val.replace(/"/g, " ").replace(/  +/g, ' ').trim());
+        });
+        return _modifiedArray;
+    }else{
+        return value.replace(/"/g, " ").replace(/  +/g, ' ').trim();
+    }
+}
+
+DataHelper.populateWildcardForFilterText  = function(value){
+    let _value = value.split(" ");
+    let modifiedValue = [];
+    _value.forEach((val) =>{
+        if(!_.isEmpty(val)){
+            modifiedValue.push(val + "*");
+        }
+    });
+    return modifiedValue.join(" ");
+}
 
 DataHelper.isHotlineModeEnabled = function () {
     let mainApp = RUFUtilities.mainApp;

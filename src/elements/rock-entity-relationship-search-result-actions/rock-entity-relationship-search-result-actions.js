@@ -122,6 +122,21 @@ extends mixinBehaviors([
           for (let i = 0; i < buttonItems.length; i++) {
               buttonItems[i].buttons = DataHelper.convertObjectToArray(buttonItems[i].buttons);
           }
+          //Temp fix - Removing bulk-edit from relationship grid
+          if(!_.isEmpty(this.contextData) && !_.isEmpty(ContextHelper.getDataContexts(this.contextData))){
+              if(!_.isEmpty(buttonItems) && !_.isEmpty(buttonItems[0].buttons)){
+                  let buttons = buttonItems[0].buttons;
+                  for (let buttonIndex = 0; buttonIndex < buttons.length; buttonIndex++) {
+                      const buttonItem = buttons[buttonIndex];
+                      if(buttonItem && buttonItem.name && buttonItem.name == 'bulkedit'){
+                          buttonItem.disabled = true;
+                          break;
+                      }
+                  }
+              }
+          }
+          //Temp fix ends here
+
           this._toolbarConfig = {
               "buttonItems": buttonItems
           };

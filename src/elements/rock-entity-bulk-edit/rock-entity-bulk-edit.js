@@ -108,7 +108,7 @@ RUFBehaviors.ComponentContextBehavior, RUFBehaviors.ComponentConfigBehavior], Po
                                 <pebble-card id="attributes-card" no-header="">
                                     <pebble-accordion header-text="[[groupName]]" slot="pebble-card-content">
                                         <div slot="accordion-content" class="full-height">
-                                            <rock-attribute-list id="attributeList" group-name="" context-data="[[contextData]]" no-of-columns="1" mode="edit" attribute-values="[[_attributeValues]]" attribute-models="[[_attributeModels]]" dependent-attribute-values="[[_attributeValues]]" dependent-attribute-models="[[_attributeModels]]" show-delete-icon="" hide-history="[[hideHistory]]"></rock-attribute-list>
+                                            <rock-attribute-list id="attributeList" group-name="" context-data="[[contextData]]" no-of-columns="1" mode="edit" attribute-values="[[_attributeValues]]" attribute-models="[[_attributeModels]]" dependent-attribute-values="[[_attributeValues]]" dependent-attribute-models="[[_attributeModels]]" show-delete-icon="" hide-history="[[hideHistory]]" apply-locale-coalesce="true"></rock-attribute-list>
                                         </div>
                                     </pebble-accordion>
                                 </pebble-card>
@@ -412,6 +412,15 @@ RUFBehaviors.ComponentContextBehavior, RUFBehaviors.ComponentConfigBehavior], Po
                   attributeJSON.action = "delete";
               } else {
                   attributeJSON = attributeElement.attributeObject;
+                  if (attributeElement.attributeModelObject && attributeElement.attributeModelObject
+                    .referenceEntityTypes) {
+                    let attributeRefEntityTypes = attributeElement.attributeModelObject
+                        .referenceEntityTypes;
+                    if (attributeRefEntityTypes instanceof Array &&
+                        attributeRefEntityTypes.length > 0) {
+                        attributeJSON.referenceEntityType = attributeRefEntityTypes[0];
+                    }
+                }
               }
               attributesJSON.push(attributeJSON);
           }

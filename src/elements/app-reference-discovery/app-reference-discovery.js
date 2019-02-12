@@ -1020,7 +1020,11 @@ class AppReferenceDiscovery
             if (DataHelper.isValidObjectPath(attributeList[attrIndex], 'options.dataType') && attributeList[attrIndex].options.dataType == "boolean") {
                 value = attributeList[attrIndex].booleanSearchValue;
             }
-            if (this._queryParser) {
+            let _displayType = "";
+            if (DataHelper.isValidObjectPath(attributeList[attrIndex], 'options.displayType')) {
+                _displayType = attributeList[attrIndex].options.displayType;
+            }
+            if (this._queryParser && _displayType != "RichTextEditor" && _displayType != "TextArea") {
                 value = this._queryParser.formatValue(value);
             }
             let newItem = {
