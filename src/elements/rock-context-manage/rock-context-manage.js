@@ -36,7 +36,6 @@ import '../pebble-dialog/pebble-dialog.js';
 import '../rock-attribute-list/rock-attribute-list.js';
 import '../rock-context-tree/rock-context-tree.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
-import AppBusinessFunction from '../app-business-function/app-business-function.js';
 
 class RockContextManage
 extends mixinBehaviors([
@@ -758,7 +757,7 @@ extends mixinBehaviors([
 
   _isNotificationDisabled() {
       let app = ComponentHelper.getCurrentActiveApp();
-      if (app && (typeof AppBusinessFunction !== "undefined") && app instanceof AppBusinessFunction) {
+      if (app && (customElements.get('app-business-function') !== "undefined") && app.id.indexOf('app-business-function') !== -1) {
           return true;
       }
       return false;
