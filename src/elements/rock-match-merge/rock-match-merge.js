@@ -481,7 +481,9 @@ class RockMatchMerge extends mixinBehaviors([
     _onSourceEntitiesChange() {
         if (!_.isEmpty(this.sourceEntities)) {
             if (!this._isAllEntitiesValidForProcess()) {
-                this._message = "All selected entities should be draft type for the process, select valid entities.";
+                this._message = this.isBulkProcess ? 
+                                "All selected entities should be draft type for the process, select valid entities." : 
+                                "Entity should be draft type for the process, select a valid entity. ";
                 return;
             }
             let sourceIds = [...new Set(this.sourceEntities.map((entity) => entity.id))];
