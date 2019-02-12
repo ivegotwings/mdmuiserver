@@ -26,59 +26,47 @@ class RockMatchMerge extends mixinBehaviors([
 ], OptionalMutableData(PolymerElement)) {
     static get template() {
         return html`
-                <style include="bedrock-style-common bedrock-style-grid-layout bedrock-style-padding-margin">
+            <style include="bedrock-style-common bedrock-style-grid-layout bedrock-style-padding-margin">
                 :host {
                     display: block;
                     height: 100%;
                 }
-    
+
                 :host(.one-accordion) {
                     height: 100%;
                 }
-    
+
                 .pebble-dropdown-wrapper {
                     display: flex;
                     justify-content: flex-end;
                 }
-    
+
                 .compare-container {
                     position: relative;
                     height: 100%;
-    
+
                     --pebble-grid-container: {
                         margin-left: 10px;
                         margin-right: 10px;
                     }
-    
+
                     --pebble-grid-container-header: {
                         padding-right: 10px;
                         padding-left: 10px;
                     }
                 }
-    
+
                 .buttonContainer-top-right {
-                    text-align: right;
-                    padding-top: 10px;
-                    margin-bottom: 0px;
-                    margin-top: 0px;
+                    text-align:right;
                 }
-    
+
                 .overflow-auto {
                     overflow: auto;
                 }
-    
-                #actionButton {
-                    width: 20%;
-                }
-    
+
                 .button-siblings {
                     @apply --rock-match-merge-screen;
                 }
-    
-                #content-status {
-                    font-size: 12px;
-                }
-    
                 #errorsDialog {
                     --popup-header-color: var(--palette-pinkish-red, #ee204c);
                 }
@@ -86,30 +74,69 @@ class RockMatchMerge extends mixinBehaviors([
                     font-size: 12px;
                     padding-bottom: 5px;
                 }
-                .message {
-                    text-align: center;
+                .widget-box {
+                    padding: 10px;
+                    border: solid 1px var(--default-border-color, #c1cad4);                    
+                    margin:0px 0px 10px 0px;
+                    box-shadow: 1px 2px 5px -1px var(--default-border-color, #c1cad4);
+                    min-height: 80px;
+                    max-height:150px;
+                    overflow:auto;
+                    display:flex;
+                    align-items:center;
+                    justify-content:center;
+                    font-size: var(--default-font-size, 14px);
+                    @apply --box-style;
+                }
+                .status-info{
+                    border: 1px solid var(--primary-border-button-color, #026bc3);
+                    border-radius: 3px;
+                    padding-top: 5px;
+                    padding-left: 10px;
+                    padding-bottom: 5px;
+                    padding-right: 10px;
+                    margin-right: 5px;
+                    color:#000;
+                }
+                .success-count{
+                    color: var(--success-button-color);
+                }
+                .warning-count{
+                    color: var(--warning-color, #f78e1e);
+                }
+                .error-count{
+                    color: var(--error-button-color);
+                }
+                .default-message {
+                    margin: 0px;
                 }
             </style>
-            <div class="message">[[_message]]</div>
+            <template is="dom-if" if="[[_message]]">
+                <div class="default-message">[[_message]]</div>
+            </template>
             <template is="dom-if" if="[[_isValidForProcess]]">
-                <template is="dom-if" if="[[showActionButtons]]">
-                    <div id="content-actions" class="buttonContainer-top-right" align="center">
-                        <template is="dom-if" if="[[isBulkProcess]]">
-                            <pebble-button class="action-button btn btn-secondary m-r-5" id="skip" button-text="Skip" raised on-tap="_onSkipTap" disabled\$="[[_disableSkip(reviewIndex, sourceEntities)]]"></pebble-button>
-                        </template>
-                        <template is="dom-if" if="[[_showDiscard]]">
-                            <pebble-button class="action-button btn btn-primary m-r-5" id="discard" button-text="Discard" raised on-tap="_onDiscard"></pebble-button>
-                        </template>
-                        <template is="dom-if" if="[[_allowAction('merge', showMergeButton, _canMerge)]]">
-                            <pebble-button class="action-button-focus dropdownText btn btn-success" id="approve" button-text="Approve" raised on-tap="_onApproveTap"></pebble-button>
-                        </template>
-                    </div>
-                </template>
                 <div class="base-grid-structure button-siblings">
                     <div class="base-grid-structure-child-1">
-                        <div id="content-status" hidden\$="[[!isBulkProcess]]">
-                            [[reviewCreatedEntities]] - Created, [[reviewMergedEntities]] - Merged, [[reviewSkipped]] - Skipped, [[reviewDiscarded]] - Discarded, [[reviewPending]] - Pending
+                        <div id="content-status" class="widget-box" hidden\$="[[!isBulkProcess]]">
+                            <div class="status-info"><span class="success-count">[[reviewCreatedEntities]]</span> Created</div>
+                            <div class="status-info"><span class="success-count">[[reviewMergedEntities]]</span> Merged</div>
+                            <div class="status-info"><span class="warning-count">[[reviewSkipped]]</span> Skipped</div>
+                            <div class="status-info"><span class="error-count">[[reviewDiscarded]]</span> Discarded</div>
+                            <div class="status-info"><span class="error-count">[[reviewPending]]</span> Pending</div> 
                         </div>
+                        <template is="dom-if" if="[[showActionButtons]]">
+                            <div id="content-actions" class="buttonContainer-top-right" align="center">
+                                <template is="dom-if" if="[[isBulkProcess]]">
+                                    <pebble-button class="action-button btn btn-secondary m-r-5" id="skip" button-text="Skip" raised on-tap="_onSkipTap" disabled\$="[[_disableSkip(reviewIndex, sourceEntities)]]"></pebble-button>
+                                </template>
+                                <template is="dom-if" if="[[_showDiscard]]">
+                                    <pebble-button class="action-button btn btn-primary m-r-5" id="discard" button-text="Discard" raised on-tap="_onDiscard"></pebble-button>
+                                </template>
+                                <template is="dom-if" if="[[_allowAction('merge', showMergeButton, _canMerge)]]">
+                                    <pebble-button class="action-button-focus dropdownText btn btn-success" id="approve" button-text="Approve" raised on-tap="_onApproveTap"></pebble-button>
+                                </template>
+                            </div>
+                        </template>
                         <div class="pebble-dropdown-wrapper" hidden\$="[[_showMessageOnly]]">
                             <pebble-dropdown id="actionsButton" label="Filter By" selected-value="{{_selectedValue}}" items="[[_dropDownItems]]" on-change="_onDropdownChange"></pebble-dropdown>
                         </div>
