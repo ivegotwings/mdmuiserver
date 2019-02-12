@@ -140,9 +140,11 @@ class ContextDataManager extends mixinBehaviors([RUFBehaviors.LoggerBehavior], P
                     if (!isEmpty(_allowedLocales)) {
                         let locales = []
                         _allowedLocales.forEach(locale => {
-                            locales.push(locale.id)
+                           if(locale.relTo && locale.relTo.id) {
+                               locales.push(locale.relTo.id);
+                           }
                         })
-                        _mappedLocale[entity.name] = locales
+                        _mappedLocale[entity.name] = locales;
                     }
                 }
             });
