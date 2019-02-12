@@ -1284,6 +1284,9 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
       this.set("attributeObject.referenceDataId", setValue);
       this.set("attributeObject.action", "delete");
       this.changed = true;
+      this.fireBedrockEvent("attribute-value-cleared", this.attributeObject, {
+        ignoreId: true
+      });
   }
   _cloneObject(o) {
       return DataHelper.cloneObject(o);
@@ -1609,7 +1612,7 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
   }
   _hasValue(attributeObject) {
       let value = attributeObject.value;
-      if (!_.isEmpty(value) || attributeObject.isNullValue) {
+      if (!_.isEmpty(value) || attributeObject.isNullValue || attributeObject.isBulkEdit) {
           return true;
       } else {
           return false;
