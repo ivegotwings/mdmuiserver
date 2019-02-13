@@ -28,11 +28,6 @@ class RockCompareEntities extends mixinBehaviors([
             :host {
                 display: block;
                 height: 100%;
-
-                --rock-entity-compare-dialog: {
-                    height: 30vh !important;
-                    /* temp fix need to rework on nested grid with alert box*/
-                }
             }
 
             :host(.one-accordion) {
@@ -56,6 +51,9 @@ class RockCompareEntities extends mixinBehaviors([
                 --pebble-grid-container-header: {
                     padding-right: 10px;
                     padding-left: 10px;
+                }
+                --height-compare: {
+                    height: 49vh !important;
                 }
             }
 

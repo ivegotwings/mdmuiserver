@@ -785,7 +785,10 @@ extends mixinBehaviors([
 				overflow-y: auto;
 				overflow-x: auto;
 				height: 50vh;
-			}
+            }
+            #attrDialogContainer{
+                @apply --height-compare;
+            }
 
 			.overflow-auto {
 				overflow: auto;
