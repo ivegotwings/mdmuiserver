@@ -1453,19 +1453,14 @@ DataRequestHelper.createFilterCriteria = function (criterionType,searchText, tit
         }
         
         if (attributes && attributes.length) {
-            let prefix = /^\"/i;
-            let suffix = /^.+\"$/gm;
-            let isPrefixed = prefix.test(searchText);
-            let isSuffixed = suffix.test(searchText);
-            let isExactSearch = false;
-            if (isPrefixed && isSuffixed) {
-                isExactSearch = true;
-            }
+            let searchObj = DataHelper.getExactSearch(searchText)
+            let isExactSearch = searchObj["isExactSearch"];
+            searchText = searchObj["updatedVal"];
+            
             let operator = "eq";
             //For Exact Search with Quotes
             searchText = searchText.trim();
             if (isExactSearch) {
-                searchText = DataHelper.replaceDoubleQuotesWithSpace(searchText);
                 operator = "exact";
             } else {
                 searchText = DataHelper.removeSpecialCharacters(searchText)
