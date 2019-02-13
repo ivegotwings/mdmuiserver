@@ -134,7 +134,7 @@ class RockCompareEntities extends mixinBehaviors([
                     </template>
 
         <pebble-dialog id="attributeDialog" dialog-title="Confirmation" modal="" medium="" vertical-offset="1" 50="" horizontal-align="auto" vertical-align="auto" no-cancel-on-outside-click="" no-cancel-on-esc-key="" show-ok="" show-cancel="" show-close-icon="" alert-box="">
-            <div id="attrDialogContainer" class="overflow-auto" style="height:80vh"></div>
+            <div id="attrDialogContainer" class="overflow-auto"></div>
         </pebble-dialog>
 
     </template>
