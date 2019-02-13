@@ -1151,7 +1151,7 @@ class RockCompareEntities extends mixinBehaviors([
                   }
               }
 
-              item["Attributes"] = row.header;
+              item["Attributes"] = row.header || row.name;
               item["attributeName"] = row.name;
               item["isEmpty"] = isEmpty;
               item["hasPartialValues"] = hasPartialValues;

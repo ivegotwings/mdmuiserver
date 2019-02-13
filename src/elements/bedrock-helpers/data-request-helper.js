@@ -1395,6 +1395,24 @@ DataRequestHelper.createGetReferenceRequest = function (contextData, referenceTy
     return req;
 };
 
+DataRequestHelper.createEntityDeleteRequest = function (entityIds, entityTypes) {
+    let req = {
+        "params": {
+            "soft-delete": true,
+            "operationType": "inboundService",
+            "taskType": "delete-query",
+            "query": {
+                "ids": entityIds || [],
+                "filters": {
+                    "typesCriterion": entityTypes || []
+                }
+            }
+        },
+        "hotline": DataHelper.isHotlineModeEnabled() || false
+    };
+    return req;
+};
+
 DataRequestHelper.createEntityContextGetRequest = function (entityId, entityType) {
     let req = {}
 
