@@ -3140,6 +3140,9 @@ extends mixinBehaviors([
     }
 
     _hasLinkTemplate(col, item) {
+        if (this.config.itemConfig && this.config.itemConfig.enableLinkTemplate == false) {
+            return false;
+        }
 				if (col) {
             if (col.linkTemplate && col.linkTemplate != "") {
                 let notEditable = (this.config && this.config.mode && this.config.mode.toLowerCase() != "edit") || (item &&
@@ -3397,7 +3400,7 @@ extends mixinBehaviors([
 
     _rowDblClicked(e) {
 				//Disabling double click on row if configured
-				if (this.config.isRowDoubleClickDisabled) {
+				if (this.config.isRowDoubleClickDisabled || (this.config.itemConfig && this.config.itemConfig.enableLinkTemplate == false)) {
             return;
 				}
 				this._rowLinkClicked(e);
