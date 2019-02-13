@@ -35,7 +35,7 @@ class RockNestedAttributeGrid
                 height: 100% !important
             }
 
-            .attribute-view-label {
+            .attribute-view-wrapper {
                 font-size: var(--font-size-sm, 12px);
                 font-family: 'Roboto', Helvetica, Arial, sans-serif;
                 font-weight: normal;
@@ -44,14 +44,19 @@ class RockNestedAttributeGrid
                 line-height: 16px;
                 text-transform: capitalize;
                 color: var(--label-text-color, #96b0c6);
-                width:calc(100% - 100px);
+                width:calc(100% - 100px);                
+                @apply --context-coalesce-label;
+            }
+            .attribute-view-label{
                 overflow: hidden;
                 text-overflow: ellipsis;
                 white-space: nowrap;
-                @apply --context-coalesce-label;
+                display:inline-block;
+                max-width:calc(100% - 20px)
             }
         </style>
-        <label class="attribute-view-label" hidden\$="[[!_isLabelAvailable(label)]]" aria-hidden="true" title$="[[label]]">[[label]]
+        <label class="attribute-view-wrapper" hidden\$="[[!_isLabelAvailable(label)]]" aria-hidden="true" title$="[[label]]">
+                <span class="attribute-view-label">[[label]]</span>
             <template is="dom-if" if="[[__getDescriptionValue()]]">
                 <pebble-info-icon description-object="[[__getDescriptionValue()]]"></pebble-info-icon>
             </template>

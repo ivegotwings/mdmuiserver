@@ -80,16 +80,18 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
                 font-weight: normal;
                 font-style: normal;
                 font-stretch: normal;
-                line-height: 16px;
+                line-height: 16px;                
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                display:inline-block;
+                max-width: calc(100% - 20px);
                 color: var(--label-text-color, #96b0c6);
                 @apply --context-coalesce-label;
             }
 
             .attribute-label-wrapper{
                 width:calc(100% - 100px);
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
                 display:block;
             }
 
