@@ -791,9 +791,9 @@ DataHelper.getSearchCriteria = function (searchText) {
 DataHelper.prepareKeywordsCriteria = function(searchText,operator) {
     if (searchText) {
         let keywordsCriterion = {};
-        let updatedObj = DataHelper.getExactSearch(searchText)
-        let isExactSearch = updatedObj["isExactSearch"];
-        searchText = updatedObj["updatedVal"];
+        let searchObj = DataHelper.getExactSearch(searchText)
+        let isExactSearch = searchObj["isExactSearch"];
+        searchText = searchObj["updatedVal"];
         
         if(isExactSearch){
             searchText = '"' + searchText + '"';

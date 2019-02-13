@@ -801,8 +801,6 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
 
   _prepareAttrsCriterion(attributeModels, attributes) {
     if (attributes && attributes.length > 0) {
-      // let prefix = /^\"/i;
-      // let suffix = /^.+\"$/gm;
       let selectedContext = ContextHelper.getDataContexts(this.contextData);
       for (let i = 0; i < attributes.length; i++) {
         let attribute = attributes[i];
