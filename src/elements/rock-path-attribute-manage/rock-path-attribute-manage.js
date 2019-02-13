@@ -357,7 +357,16 @@ class RockPathAttributeManage
           return true;
       }
       selectedItems = selectedItems.map(item => item.valuePath);
-      let initialItems = this._initialClassifications.map(item => item.join(this._valuePathSeperator));
+      let valuePathSeperator = this._valuePathSeperator;
+      let pathSeperator = this._pathSeperator;
+      let initialItems = this._initialClassifications.map(function (item) {
+          if (item.indexOf(pathSeperator) !== -1) {
+            let pattern = new RegExp(pathSeperator,'g');
+            return item.replace(pattern, valuePathSeperator);
+          } else {
+            return item.join(valuePathSeperator);             
+          }           
+      });
       return !DataHelper.areEqualArrays(selectedItems, initialItems);
   }
 
@@ -412,7 +421,7 @@ class RockPathAttributeManage
       //Add initial categories - further add delete action based on selected categories
       this._initialClassifications.forEach(category => {
           let fullPath = category.externalNamePath;
-          if (values.indexOf(fullPath) == -1) {
+          if (fullPath && values.indexOf(fullPath) == -1) {
               values.push(fullPath);
           }
       }, this);
