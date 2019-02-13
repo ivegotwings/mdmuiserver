@@ -52,6 +52,9 @@ class RockCompareEntities extends mixinBehaviors([
                     padding-right: 10px;
                     padding-left: 10px;
                 }
+                --height-compare: {
+                    height: 49vh !important;
+                }
             }
 
             .buttonContainer-top-right {
@@ -131,7 +134,7 @@ class RockCompareEntities extends mixinBehaviors([
                     </template>
 
         <pebble-dialog id="attributeDialog" dialog-title="Confirmation" modal="" medium="" vertical-offset="1" 50="" horizontal-align="auto" vertical-align="auto" no-cancel-on-outside-click="" no-cancel-on-esc-key="" show-ok="" show-cancel="" show-close-icon="" alert-box="">
-            <div id="attrDialogContainer" class="overflow-auto"></div>
+            <div id="attrDialogContainer" class="overflow-auto" style="height:80vh"></div>
         </pebble-dialog>
 
     </template>
