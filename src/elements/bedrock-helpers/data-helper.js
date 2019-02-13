@@ -791,12 +791,11 @@ DataHelper.getSearchCriteria = function (searchText) {
 DataHelper.prepareKeywordsCriteria = function(searchText,operator) {
     if (searchText) {
         let keywordsCriterion = {};
-        let prefix = /^\"/i;
-        let suffix = /^.+\"$/gm;
-        let isPrefixed = prefix.test(searchText);
-        let isSuffixed = suffix.test(searchText);
-        if(isPrefixed && isSuffixed){
-            searchText = DataHelper.replaceDoubleQuotesWithSpace(searchText);
+        let searchObj = DataHelper.getExactSearch(searchText)
+        let isExactSearch = searchObj["isExactSearch"];
+        searchText = searchObj["updatedVal"];
+        
+        if(isExactSearch){
             searchText = '"' + searchText + '"';
             keywordsCriterion.keywords = searchText;
         }else{
@@ -814,6 +813,22 @@ DataHelper.removeSpecialCharacters = function(text){
      // replace all extra space with single space.
      text = text.replace(/[\(\)\[\]{}&@₹#$\-\|~!%^*=+/;,<>?\\"]/g," ").replace(/(^[.\s]+)|(^['\s]+)|(^[:\s]+)|([.\s]+$)|([:\s]+$)|(['\s]+$)/g, "").replace(/  +/g, ' ').trim(); 
      return text;
+}
+
+DataHelper.getExactSearch = function(val){
+    let prefix = /^\"/i;
+    let suffix = /^.+\"$/gm;
+    let isPrefixed = prefix.test(val);
+    let isSuffixed = suffix.test(val);
+    let searchObj = {};
+    if(isPrefixed && isSuffixed){
+        searchObj["isExactSearch"] = true;
+        searchObj["updatedVal"]  = DataHelper.replaceDoubleQuotesWithSpace(val);
+    }else{
+        searchObj["isExactSearch"] = false;
+        searchObj["updatedVal"]  = val;
+    }
+    return searchObj;
 }
 
 DataHelper.replaceDoubleQuotesWithSpace = function(value){

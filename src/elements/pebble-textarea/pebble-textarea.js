@@ -68,7 +68,7 @@ class PebbleTextarea extends PolymerElement {
       #input {
         @apply --pebble-textarea-input;
       }
-      .attribute-view-label {
+      .attribute-view-wrapper {
           font-size: var(--font-size-sm, 12px);
           font-family: 'Roboto', Helvetica, Arial, sans-serif;
           font-weight: normal;
@@ -83,11 +83,18 @@ class PebbleTextarea extends PolymerElement {
           white-space: nowrap;
           @apply --context-coalesce-label;
       }
+      .attribute-view-label{
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        display:inline-block;
+        max-width:calc(100% - 20px)
+    }
     </style>
 
     <template is="dom-if" if="[[noLabelFloat]]">
-      <div class="attribute-view-label" title$="[[label]]">
-        [[label]]
+      <div class="attribute-view-wrapper" title$="[[label]]">
+        <span class="attribute-view-label" >[[label]]</span>
         <template is="dom-if" if="[[descriptionObject]]">
           <pebble-info-icon description-object="[[descriptionObject]]"></pebble-info-icon>
         </template>

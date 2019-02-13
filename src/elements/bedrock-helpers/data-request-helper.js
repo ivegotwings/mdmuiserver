@@ -1395,6 +1395,24 @@ DataRequestHelper.createGetReferenceRequest = function (contextData, referenceTy
     return req;
 };
 
+DataRequestHelper.createEntityDeleteRequest = function (entityIds, entityTypes) {
+    let req = {
+        "params": {
+            "soft-delete": true,
+            "operationType": "inboundService",
+            "taskType": "delete-query",
+            "query": {
+                "ids": entityIds || [],
+                "filters": {
+                    "typesCriterion": entityTypes || []
+                }
+            }
+        },
+        "hotline": DataHelper.isHotlineModeEnabled() || false
+    };
+    return req;
+};
+
 DataRequestHelper.createEntityContextGetRequest = function (entityId, entityType) {
     let req = {}
 
@@ -1453,19 +1471,14 @@ DataRequestHelper.createFilterCriteria = function (criterionType,searchText, tit
         }
         
         if (attributes && attributes.length) {
-            let prefix = /^\"/i;
-            let suffix = /^.+\"$/gm;
-            let isPrefixed = prefix.test(searchText);
-            let isSuffixed = suffix.test(searchText);
-            let isExactSearch = false;
-            if (isPrefixed && isSuffixed) {
-                isExactSearch = true;
-            }
+            let searchObj = DataHelper.getExactSearch(searchText)
+            let isExactSearch = searchObj["isExactSearch"];
+            searchText = searchObj["updatedVal"];
+            
             let operator = "eq";
             //For Exact Search with Quotes
             searchText = searchText.trim();
             if (isExactSearch) {
-                searchText = DataHelper.replaceDoubleQuotesWithSpace(searchText);
                 operator = "exact";
             } else {
                 searchText = DataHelper.removeSpecialCharacters(searchText)

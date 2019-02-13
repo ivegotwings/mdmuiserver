@@ -80,16 +80,18 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
                 font-weight: normal;
                 font-style: normal;
                 font-stretch: normal;
-                line-height: 16px;
+                line-height: 16px;                
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                display:inline-block;
+                max-width: calc(100% - 20px);
                 color: var(--label-text-color, #96b0c6);
                 @apply --context-coalesce-label;
             }
 
             .attribute-label-wrapper{
                 width:calc(100% - 100px);
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
                 display:block;
             }
 
@@ -638,7 +640,7 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
                     </template>
                 </template>
 
-                <bedrock-validator validation-errors="{{validationErrors}}" server-errors="{{serverErrors}}" validation-warnings="{{validationWarnings}}" input="[[_getInputValue(attributeObject.value)]]" input-data-type="[[attributeModelObject.dataType]]" pattern="[[_getPatternFieldValue(attributeModelObject, 'regexPattern')]]" regex-hint="[[_getPatternFieldValue(attributeModelObject, 'regexHint')]]" min-length="[[attributeModelObject.minLength]]" max-length="[[attributeModelObject.maxLength]]" precision="[[attributeModelObject.precision]]" required="[[attributeModelObject.required]]" invalid="{{invalid}}" min="[[_getRangeFieldValue(attributeModelObject, 'rangeFrom')]]" max="[[_getRangeFieldValue(attributeModelObject, 'rangeTo')]]" min-inclusive="[[_getRangeFieldValue(attributeModelObject, 'isRangeFromInclusive')]]" max-inclusive="[[_getRangeFieldValue(attributeModelObject, 'isRangeToInclusive')]]" date-format="[[attributeModelObject.dateFormat]]" type="[[attributeModelObject.validationType]]" type-array="[[attributeModelObject.validationTypeArray]]">
+                <bedrock-validator validation-errors="{{validationErrors}}" validation-warnings="{{validationWarnings}}" input="[[_getInputValue(attributeObject.value)]]" input-data-type="[[attributeModelObject.dataType]]" pattern="[[_getPatternFieldValue(attributeModelObject, 'regexPattern')]]" regex-hint="[[_getPatternFieldValue(attributeModelObject, 'regexHint')]]" min-length="[[attributeModelObject.minLength]]" max-length="[[attributeModelObject.maxLength]]" precision="[[attributeModelObject.precision]]" required="[[attributeModelObject.required]]" invalid="{{invalid}}" min="[[_getRangeFieldValue(attributeModelObject, 'rangeFrom')]]" max="[[_getRangeFieldValue(attributeModelObject, 'rangeTo')]]" min-inclusive="[[_getRangeFieldValue(attributeModelObject, 'isRangeFromInclusive')]]" max-inclusive="[[_getRangeFieldValue(attributeModelObject, 'isRangeToInclusive')]]" date-format="[[attributeModelObject.dateFormat]]" type="[[attributeModelObject.validationType]]" type-array="[[attributeModelObject.validationTypeArray]]">
                 </bedrock-validator>
 
                 <div id="error-display" hidden="[[_messageAbsent(messages)]]" on-tap="_messageTapped">

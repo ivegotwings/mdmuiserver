@@ -417,8 +417,7 @@ extends mixinBehaviors([
                   title: this.isSingleEntityProcess ? this._getEntityName() : this._selectedItems.length + " entities"
               };
               sharedData = {
-                  "source-entities": [...new Set(this._selectedItems.map((entity) => entity.id))],
-                  "is-review-process": true
+                  "source-entities": this._selectedItems
               };
               break;
           }
