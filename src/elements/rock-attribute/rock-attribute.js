@@ -1336,6 +1336,7 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
       this.set("attributeObject.value", attributeObjectValue);
       this.set("attributeObject.referenceDataId", attributeDisplayValue);
       this.changed = true;
+      this.tappedSaveAsNull = false;
   }
   _onSourceInformationClick(e) {
       this._isReadyToShowSourceInfoPopover = true;
