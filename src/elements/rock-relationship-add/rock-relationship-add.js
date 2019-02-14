@@ -397,7 +397,7 @@ class RockRelationshipAdd
           tags = rockSearchFilter.tags;
       }
 
-      if (!_.isEmpty(query) || tags.length > 0) {
+      if (!_.isEmpty(query) || tags.length > 0 || this.inputQueryString != "") {
           this._resetSearchEnabled = true;
       }
   }
