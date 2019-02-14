@@ -111,7 +111,7 @@ class RockCompareEntities extends mixinBehaviors([
                                 <pebble-spinner active="[[_loading]]"></pebble-spinner>
                                 <bedrock-pubsub event-name="pebble-actions-action-click" handler="_onActionItemTap" target-id=""></bedrock-pubsub>
                                 <div class="full-height">
-                                    <rock-grid id="compareRelationshipsGrid" data="{{_gridData}}" attribute-models="{{_attributeModels}}" config="{{_gridConfig}}" page-size="5" enable-column-select="[[enableColumnSelect]]" context-data="[[contextData]]" nested-attribute-message="{noOfValues} values" hide-view-selector="" hide-toolbar="" grid-item-view=""></rock-grid>
+                                    <rock-grid id="compareRelationshipsGrid" data="{{_gridData}}" attribute-models="{{_attributeModels}}" config="{{_gridConfig}}" page-size="5" enable-column-select\$="[[_isColumnSelectAllowed(enableColumnSelect, compareEntitiesContext)]]" context-data="[[contextData]]" nested-attribute-message="{noOfValues} values" hide-view-selector="" hide-toolbar="" grid-item-view=""></rock-grid>
                                 </div>
                             </div>
                         </div>
@@ -935,6 +935,12 @@ class RockCompareEntities extends mixinBehaviors([
       }
   }
 
+  _isColumnSelectAllowed() {
+      let matchConfig = (this.compareEntitiesContext || {}).matchConfig;
+      let isMergeEnabled = matchConfig && matchConfig.matchMerge && matchConfig.matchMerge.canMerge;
+      return this.enableColumnSelect && isMergeEnabled;
+  }
+
   //attributes grid column prepare
   async _prepareGridColumnsModelAndData(entities, columns, items) {
       if (this._rowsModel) {
@@ -951,7 +957,7 @@ class RockCompareEntities extends mixinBehaviors([
               "visible": true
           }
           //Normal Scenario
-          if (this.enableColumnSelect) {
+          if (this._isColumnSelectAllowed()) {
               rowHeader["selectable"] = {
                   "isAction": false,
                   "text": this.isSnapshot ? "Select for rollback" : "Select for merge"
