@@ -123,7 +123,7 @@ class RockMatchMerge extends mixinBehaviors([
                         <template is="dom-if" if="[[showActionButtons]]">
                             <div id="content-actions" class="buttonContainer-top-right" align="center">
                                 <template is="dom-if" if="[[isBulkProcess]]">
-                                    <pebble-button class="action-button btn btn-secondary m-r-5" id="skip" button-text="Skip" raised on-tap="_onSkipTap" disabled\$="[[_disableSkip(reviewIndex, sourceEntities)]]"></pebble-button>
+                                    <pebble-button class="action-button btn btn-secondary m-r-5" id="skip" button-text="Skip" raised on-tap="_onSkipTap"></pebble-button>
                                 </template>
                                 <template is="dom-if" if="[[_showDiscard]]">
                                     <pebble-button class="action-button btn btn-primary m-r-5" id="discard" button-text="Discard" raised on-tap="_onDiscard"></pebble-button>
@@ -1400,6 +1400,12 @@ class RockMatchMerge extends mixinBehaviors([
         if (this.sourceEntitiesData[this.reviewIndex + 1]) {
             this.reviewIndex++;
             this.sourceEntity = this.sourceEntitiesData[this.reviewIndex].entity;
+        } else {
+            if (!this.reviewPending) {
+                this._matchProcessMessage = "Review process completed for all selected entities";
+                this.showActionButtons = false;
+                this._showMessageOnly = true;
+            }
         }
     }
 
@@ -1610,10 +1616,6 @@ class RockMatchMerge extends mixinBehaviors([
             return entity.status == status;
         });
         return reviewEntities.length;
-    }
-
-    _disableSkip() {
-        return _.isEmpty(this.sourceEntities) || (this.reviewIndex + 1) == this.sourceEntities.length;
     }
 
     _onDiscard() {
