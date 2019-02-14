@@ -191,7 +191,7 @@ class RockWorkflowPanel
                                                                 <div id="action-details">
                                                                     <img class="user-image" alt="No photo" src="/src/images/no-photo.jpg">
                                                                     <span class="user-details">
-                                                                            <span class="user">[[item.stepDetails.assignedUser]]</span>[[item.stepDetails.details]]</span>
+                                                                            <span class="user">[[_getAssignedUserName(item.stepDetails.assignedUser)]]</span>[[item.stepDetails.details]]</span>
                                                                     <span hidden="" class="view-changes">View all changes »</span>
                                                                 </div>
                                                             </template>
@@ -412,6 +412,14 @@ class RockWorkflowPanel
       this.set("_workflowPastEvents", workflowPastEvents);
       this.entityGetRunningInstanceLiq.requestData = DataRequestHelper.createWorkflowRuntimeInstanceGetRequest(this.clonedContextData);
       this.entityGetRunningInstanceLiq.generateRequest();
+  }
+
+  _getAssignedUserName(assignedUser) {
+      if(assignedUser == "_UNASSIGNED") {
+          return "UNASSIGNED";
+      } else {
+          return assignedUser;
+      }
   }
   _onRunningInstanceReceived (e) {
       let showInvokeButton = true;
