@@ -123,7 +123,7 @@ class RockMatchMerge extends mixinBehaviors([
                         <template is="dom-if" if="[[showActionButtons]]">
                             <div id="content-actions" class="buttonContainer-top-right" align="center">
                                 <template is="dom-if" if="[[isBulkProcess]]">
-                                    <pebble-button class="action-button btn btn-secondary m-r-5" id="skip" button-text="Skip" raised on-tap="_onSkipTap" disabled\$="[[_disableSkip(reviewIndex, sourceEntities)]]"></pebble-button>
+                                    <pebble-button class="action-button btn btn-secondary m-r-5" id="skip" button-text="Skip" raised on-tap="_onSkipTap"></pebble-button>
                                 </template>
                                 <template is="dom-if" if="[[_showDiscard]]">
                                     <pebble-button class="action-button btn btn-primary m-r-5" id="discard" button-text="Discard" raised on-tap="_onDiscard"></pebble-button>
@@ -150,7 +150,7 @@ class RockMatchMerge extends mixinBehaviors([
                                             <pebble-spinner active="[[_loading]]"></pebble-spinner>
                                             <bedrock-pubsub event-name="pebble-actions-action-click" handler="_onActionItemTap" target-id=""></bedrock-pubsub>
                                             <div class="full-height">
-                                                <rock-grid id="compareEntitiesGrid" data="{{_gridData}}" attribute-models="{{_attributeModels}}" config="{{_gridConfig}}" page-size="5" enable-column-select=[[enableColumnSelect]] context-data="[[contextData]]" nested-attribute-message="{noOfValues} values" hide-view-selector hide-toolbar grid-item-view></rock-grid>
+                                                <rock-grid id="compareEntitiesGrid" data="{{_gridData}}" attribute-models="{{_attributeModels}}" config="{{_gridConfig}}" page-size="5" enable-column-select\$=[[_isColumnSelectAllowed(enableColumnSelect, _canMerge)]] context-data="[[contextData]]" nested-attribute-message="{noOfValues} values" hide-view-selector hide-toolbar grid-item-view></rock-grid>
                                             </div>
                                         </div>
                                     </div>
@@ -934,7 +934,7 @@ class RockMatchMerge extends mixinBehaviors([
                 "visible": true
             }
             //Normal Scenario
-            if (this.enableColumnSelect) {
+            if (this._isColumnSelectAllowed()) {
                 rowHeader["selectable"] = {
                     "isAction": false,
                     "text": "Select for merge/create"
@@ -1129,6 +1129,10 @@ class RockMatchMerge extends mixinBehaviors([
                 items.push(item);
             }
         }
+    }
+
+    _isColumnSelectAllowed() {
+        return this.enableColumnSelect && this._canMerge;
     }
 
     _getLink(entityId, entityLink) {
@@ -1396,6 +1400,12 @@ class RockMatchMerge extends mixinBehaviors([
         if (this.sourceEntitiesData[this.reviewIndex + 1]) {
             this.reviewIndex++;
             this.sourceEntity = this.sourceEntitiesData[this.reviewIndex].entity;
+        } else {
+            if (!this.reviewPending) {
+                this._matchProcessMessage = "Review process completed for all selected entities";
+                this.showActionButtons = false;
+                this._showMessageOnly = true;
+            }
         }
     }
 
@@ -1423,7 +1433,7 @@ class RockMatchMerge extends mixinBehaviors([
 
     _onApproveTap(e) {
         if (!this.selectedEntityId) {
-            this.showWarningToast("Select an entity for crete/merge.");
+            this.showWarningToast("Select an entity for create/merge.");
             return;
         }
         this._operation = this.selectedEntityId == this.sourceEntity.id ? "create" : "update";
@@ -1606,10 +1616,6 @@ class RockMatchMerge extends mixinBehaviors([
             return entity.status == status;
         });
         return reviewEntities.length;
-    }
-
-    _disableSkip() {
-        return _.isEmpty(this.sourceEntities) || (this.reviewIndex + 1) == this.sourceEntities.length;
     }
 
     _onDiscard() {
