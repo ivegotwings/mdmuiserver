@@ -1598,20 +1598,22 @@ DataTransformHelper.transformEntitiesToSimpleSchema = function (entities, attrib
                 let formattedEntity = {};
                 for (let index in attributeNames) {
                     let columnName = attributeNames[index];
-                    if (columnName && entities[i][columnName]) {
-                        formattedEntity[columnName] = entities[i][columnName];
-                    } else {
-                        if (attributes && attributes[columnName] && attributes[columnName].values) {
-                            let attributeValueObj = attributes[columnName].values[0];
-                            let value = attributeValueObj.value;
-                            if (attributeModels) {
-                                let model = attributeModels[columnName];
-                                if (model && model.dataType && (model.dataType.toLowerCase() == "date" || model.dataType.toLowerCase() == "datetime")) {
-                                    value = FormatHelper.convertFromISODateTime(value, model.dataType, model.dateFormat);
-                                }
+                    if (attributes && attributes[columnName] && attributes[columnName].values) {
+                        let attributeValueObj = attributes[columnName].values[0];
+                        let value = attributeValueObj.value;
+                        if (attributeModels) {
+                            let model = attributeModels[columnName];
+                            if (model && model.dataType && (model.dataType.toLowerCase() == "date" || model.dataType.toLowerCase() == "datetime")) {
+                                value = FormatHelper.convertFromISODateTime(value, model.dataType, model.dateFormat);
                             }
-                            formattedEntity[columnName] = value;
                         }
+                        formattedEntity[columnName] = value;
+                    }
+                    else if(columnName && entities[i][columnName]){
+                        formattedEntity[columnName] =  entities[i][columnName];
+                    }
+                    else if(columnName && entities[i].properties[columnName]){
+                        formattedEntity[columnName] =  entities[i].properties[columnName];
                     }
                 }
                 if (!_.isEmpty(formattedEntity)) {
