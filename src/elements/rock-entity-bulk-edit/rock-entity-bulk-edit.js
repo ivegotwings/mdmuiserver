@@ -17,7 +17,6 @@ import '../rock-attribute-list/rock-attribute-list.js';
 import '../rock-scope-selector/rock-scope-selector.js';
 import '../rock-component-config-behavior/rock-component-config-behavior.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
-import EntityModelManager from '../bedrock-managers/entity-model-manager.js';
 class RockEntityBulkEdit extends mixinBehaviors([RUFBehaviors.UIBehavior,
 RUFBehaviors.ComponentContextBehavior, RUFBehaviors.ComponentConfigBehavior], PolymerElement) {
   static get template() {
