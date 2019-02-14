@@ -206,7 +206,7 @@ class BedrockValidator extends PolymerElement {
             }
         }
 
-        if (inputDataType) {
+        if (inputDataType && input) {
 
             if (inputDataType == "boolean") {
                 if (!ValidationHelper.booleanValidator(input)) {
