@@ -19,7 +19,6 @@ import '../bedrock-ui-behavior/bedrock-ui-behavior.js';
 import '../liquid-entity-model-get/liquid-entity-model-get.js';
 import '../pebble-lov/pebble-lov.js';
 import '../rock-grid-data-sources/attribute-model-datasource.js';
-import DomainManager from '../bedrock-managers/domain-manager.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockAttributeModelLov extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.LovBehavior], OptionalMutableData(PolymerElement)) {
   static get template() {
@@ -444,8 +443,11 @@ class RockAttributeModelLov extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
           this._combineEntityModels = this._combineEntityModels.concat(entityModels);
           if(this.mode == "domainMapped" && DataHelper.isValidObjectPath(this.modelGetRequest, "params.query.domain")){
               let requestedDomain = this.modelGetRequest.params.query.domain;
-              let systemDomains = DomainManager.getInstance().getSystemDomains();
-              if(requestedDomain === this.domain && (systemDomains.indexOf(this.domain) == -1)) {
+              let systemDomains = "";
+              if(customElements.get('domain-manager') !== "undefined"){
+                systemDomains = customElements.get('domain-manager').getInstance().getSystemDomains();
+              }               
+              if(requestedDomain === this.domain && (systemDomains!="" && systemDomains.indexOf(this.domain) == -1)) {
                   this._initiateDomainMappedRequest("taxonomyModel");
                   return false;
               } else{

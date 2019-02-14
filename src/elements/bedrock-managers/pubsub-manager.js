@@ -176,5 +176,3 @@ class PubSubManager extends mixinBehaviors([RUFBehaviors.LoggerBehavior], Polyme
 }
 
 customElements.define(PubSubManager.is, PubSubManager);
-
-export default PubSubManager;

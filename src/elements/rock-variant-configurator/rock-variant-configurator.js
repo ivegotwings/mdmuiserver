@@ -26,7 +26,6 @@ import '../pebble-icons/pebble-icons.js';
 import '../pebble-data-table/pebble-data-table.js';
 import '../pebble-data-table/data-table-row.js';
 import '../pebble-spinner/pebble-spinner.js';
-import DataTableRow from '../pebble-data-table/data-table-row.js'
 import { dom } from '@polymer/polymer/lib/legacy/polymer.dom.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockVariantConfigurator
@@ -683,7 +682,7 @@ class RockVariantConfigurator
    */
   _getParentRow(element) {
       if (element) {
-          if (element instanceof DataTableRow) {
+        if ((customElements.get('data-table-row') !== "undefined") &&	element instanceof customElements.get('data-table-row')) {
               return element;
           } else {
               return this._getParentRow(element.parentNode);

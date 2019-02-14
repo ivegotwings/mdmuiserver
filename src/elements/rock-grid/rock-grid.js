@@ -226,7 +226,6 @@ import '../pebble-vertical-divider/pebble-vertical-divider.js';
 import '../pebble-icons/pebble-icons.js';
 import '../pebble-icon/pebble-icon.js';
 import '../pebble-popover/pebble-popover.js';
-import DataTableRow from '../pebble-data-table/data-table-row.js'
 import '../rock-attribute/rock-attribute.js';
 import '../rock-image-viewer/rock-image-viewer.js';
 import '../rock-nested-attribute-grid/rock-nested-attribute-grid.js';
@@ -3009,14 +3008,14 @@ extends mixinBehaviors([
     }
     
     _getParentRow(element) {
-				if (element) {
-            if (element instanceof DataTableRow) {
+        if (element) {
+            if ((customElements.get('data-table-row') !== "undefined") && element instanceof customElements.get('data-table-row')) {
                 return element;
             } else {
                 return this._getParentRow(element.parentNode);
             }
-				}
-				return undefined;
+        }
+        return undefined;
     }
     
     _setOriginalValue(element) {

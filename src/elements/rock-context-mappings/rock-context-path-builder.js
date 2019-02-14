@@ -21,7 +21,6 @@ import '../pebble-popover/pebble-popover.js';
 import '../pebble-data-table/pebble-data-table.js';
 import '../pebble-textbox/pebble-textbox.js';
 import '../pebble-lov/pebble-lov.js';
-import DataTableRow from '../pebble-data-table/data-table-row.js'
 import '../bedrock-helpers/data-helper.js';
 import '../bedrock-helpers/context-helper.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
@@ -313,7 +312,7 @@ class RockContextPathBuilder extends mixinBehaviors([RUFBehaviors.UIBehavior, RU
 
   _getParentRow(element) {
       if (element) {
-          if (element instanceof DataTableRow) {
+        if ((customElements.get('data-table-row') !== "undefined") &&	element instanceof customElements.get('data-table-row')) {
               return element;
           } else {
               return this._getParentRow(element.parentNode);
