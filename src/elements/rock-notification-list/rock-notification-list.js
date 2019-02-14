@@ -169,7 +169,8 @@ class RockNotificationList
       }
       .scroller{
         max-height:360px;
-        overflow-y: scroll;
+        overflow-y: auto;
+        overflow-x:auto;
         display:block;
       }
       .container.flex-horizontal:hover {
