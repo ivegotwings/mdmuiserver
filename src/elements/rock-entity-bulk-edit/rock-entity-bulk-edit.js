@@ -129,6 +129,11 @@ RUFBehaviors.ComponentContextBehavior, RUFBehaviors.ComponentConfigBehavior], Po
             <p>Are you sure you want to discard the unsaved changes.</p>
         </pebble-dialog>
         <bedrock-pubsub event-name="on-buttonok-clicked" handler="_revertAll" target-id="cancelDialog"></bedrock-pubsub>
+        <pebble-dialog id="clearValueDialog" dialog-title="Confirmation" modal="" alert-box="" show-cancel="" show-ok="" button-cancel-text="No, do not clear" button-ok-text="Yes, clear from all entities" no-cancel-on-outside-click="" no-cancel-on-esc-key="">
+            <p>Do you want to clear values from all selected entities?</p>
+        </pebble-dialog>
+        <bedrock-pubsub event-name="on-buttoncancel-clicked" handler="_cancelClearValue" target-id="clearValueDialog"></bedrock-pubsub>
+        <bedrock-pubsub event-name="attribute-value-cleared" handler="_onClearValue" target-id=""></bedrock-pubsub>
 `;
   }
 
@@ -246,6 +251,12 @@ RUFBehaviors.ComponentContextBehavior, RUFBehaviors.ComponentConfigBehavior], Po
           hideHistory:{
               type:Boolean,
               value:false
+          },
+          _clearValueAttributeObject:{
+              type:Object,
+              value: function(){
+                  return {};
+              }
           }
       };
   }
@@ -288,7 +299,15 @@ RUFBehaviors.ComponentContextBehavior, RUFBehaviors.ComponentConfigBehavior], Po
           this._request = requestData;
       }
   }
-
+  _onClearValue(ev){
+    this._clearValueAttributeObject = ev.detail;
+    this.$$("#clearValueDialog").open();
+  }
+  _cancelClearValue(e){
+    delete this._clearValueAttributeObject.action;
+    this.set("_clearValueAttributeObject.value", "");
+    this.set("_clearValueAttributeObject.referenceDataId", "");
+  }
   async _onSelectingGridItem(e, detail) {
       let selectedItem = detail.item;
       if (!(this._selectedItems.find(obj => obj.name === selectedItem.name))) {
@@ -300,6 +319,7 @@ RUFBehaviors.ComponentContextBehavior, RUFBehaviors.ComponentConfigBehavior], Po
           this._attributeModels[selectedItem.name] = selectedItem;
           let values = DataTransformHelper.transformAttributes({}, this._attributeModels, this.contextData, "array", true);
           let value = values.find(obj => obj.name === selectedItem.name);
+          value.isBulkEdit = true;
           if (value) {
               this.push("_attributeValues", value);
           }
@@ -391,7 +411,13 @@ RUFBehaviors.ComponentContextBehavior, RUFBehaviors.ComponentConfigBehavior], Po
           ignoreId: true
       });
   }
-
+  _isEmptyValue(value) {
+        if (typeof (value) === "string") {
+            return value === "" || value.trim().length === 0;
+        } else {
+            return _.isEmpty(value);
+        }
+  }
   async _onSaveTap(e) {
       if (!_.isEmpty(this.selectionQuery)) {
           this._loading = true;
@@ -408,9 +434,18 @@ RUFBehaviors.ComponentContextBehavior, RUFBehaviors.ComponentConfigBehavior], Po
           for (let i = 0; i < changedAttributeElements.length; i++) {
               let attributeElement = changedAttributeElements[i];
               let attributeJSON;
-              if (attributeElement.attributeObject.action == "delete") {
-                  attributeJSON = DataHelper.cloneObject(attributeElement.originalAttributeObject);
-                  attributeJSON.action = "delete";
+              if (attributeElement.attributeObject.action == "delete" || this._isEmptyValue(
+                attributeElement.attributeObject.value)) {
+                let isNullValue = attributeElement.attributeObject.isNullValue;
+                attributeJSON = DataHelper.cloneObject(attributeElement.originalAttributeObject);
+                if(isNullValue) {
+                    if(_.isArray(attributeJSON.value)) {
+                        attributeJSON.value = [ConstantHelper.NULL_VALUE];
+                    } else {
+                        attributeJSON.value = ConstantHelper.NULL_VALUE;
+                    }
+                }
+                attributeJSON.action = "delete";
               } else {
                   attributeJSON = attributeElement.attributeObject;
                   if (attributeElement.attributeModelObject && attributeElement.attributeModelObject
