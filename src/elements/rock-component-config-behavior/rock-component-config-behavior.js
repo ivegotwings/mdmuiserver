@@ -102,7 +102,9 @@ RUFBehaviors.ComponentConfigBehaviorImpl = {
         configContext = Object.assign(configContext, valueContext);
 
         configContext.role = userContext && userContext.defaultRole ? userContext.defaultRole : DEFAULT_CONTEXT_KEY,
-            configContext.user = userContext && userContext.user ? userContext.user : DEFAULT_CONTEXT_KEY
+        configContext.sysRole = configContext.role;
+        
+        configContext.user = userContext && userContext.user ? userContext.user : DEFAULT_CONTEXT_KEY
 
         return configContext;
     },
