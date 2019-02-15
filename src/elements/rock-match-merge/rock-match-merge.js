@@ -342,7 +342,7 @@ class RockMatchMerge extends mixinBehaviors([
             },
             matchTitle: {
                 type: String,
-                value: "{noOfEntities} match(es) found, select an entity to merge or create."
+                value: "{noOfEntities} match(es) found, select an entity to create/merge or dicard the draft entity"
             },
             _matchThreshold: {
                 type: Object,
@@ -633,7 +633,7 @@ class RockMatchMerge extends mixinBehaviors([
                     this._showMatchedEntitiesPerPermissions(entities.fullList);
                     return;
                 } else {
-                    this._triggerDiscardProcess(entities.fullList);
+                    this._showMatchedEntitiesPerPermissions(entities.fullList);
                 }
             }
 
@@ -650,7 +650,7 @@ class RockMatchMerge extends mixinBehaviors([
                     if (highestRankedEntityList.length == 1) {
                         this._showMatchedEntitiesPerPermissions(highestRankedEntityList);
                     } else {
-                        this._triggerDiscardProcess(this._mlBasedResults.mergeList);
+                        this._showMatchedEntitiesPerPermissions(this._mlBasedResults.mergeList);
                     }
                 } else if (this._mlBasedResults.createOrMergeList.length) {
                     this._showMatchedEntitiesPerPermissions(this._mlBasedResults.createOrMergeList);
@@ -685,9 +685,9 @@ class RockMatchMerge extends mixinBehaviors([
     }
 
     _showMatchedEntitiesPerPermissions(entities = []) {
-        this._canMerge = this._matchPermissions.mergePermission;
+        this._showDiscard = this._canMerge = this._matchPermissions.mergePermission;
         if (!this._matchPermissions.mergePermission) {
-            this._matchProcessMessage = "You do not have permissions to create or merge";
+            this._matchProcessMessage = "You do not have permissions to perform review action on this entity";
         }
         this._showMatchedEntities(entities);
     }
@@ -981,6 +981,7 @@ class RockMatchMerge extends mixinBehaviors([
                     if (i == 0) {
                         let colDetails = {
                             "header": this._updateEntityHeader(entity.id, entityHeader),
+                            "subheader": this._getEntitySubHeader(entity.id),
                             "name": entity.id,
                             "sortable": false,
                             "filterable": false,
@@ -1361,10 +1362,7 @@ class RockMatchMerge extends mixinBehaviors([
 
     _getEntityHeader(entity) {
         let header = "";
-        let preparedEntities = this.matchedEntitiesData || undefined;
         if (entity) {
-            let preparedEntity = !_.isEmpty(preparedEntities) ? preparedEntities.find(obj => obj.id ===
-                entity.id) : undefined;
             if (entity[this.entityTitle]) {
                 header = entity[this.entityTitle];
             } else {
@@ -1377,9 +1375,6 @@ class RockMatchMerge extends mixinBehaviors([
             if (header === "" || header === "_EMPTY") {
                 header = entity.id;
             }
-            if (preparedEntity && preparedEntity.score) {
-                header = header + " - Score " + preparedEntity.score + "%";
-            }
         }
 
         if (header == "") {
@@ -1389,12 +1384,23 @@ class RockMatchMerge extends mixinBehaviors([
         }
     }
 
+    _getEntitySubHeader(entityId) {
+        let subHeader = "";
+        if (entityId) {
+            let preparedEntities = this.matchedEntitiesData || undefined;
+            let preparedEntity = !_.isEmpty(preparedEntities) ? preparedEntities.find(obj => obj.id === entityId) : undefined;
+            if (preparedEntity && preparedEntity.score) {
+                subHeader = preparedEntity.score + "%";
+            }
+        }
+        return subHeader;
+    }
+
     _updateEntityHeader(entityId, entityHeader) {
         if (_.isEmpty(this.sourceEntity)) {
             return entityHeader;
         }
-        return entityId == this.sourceEntity.id ? "New - " + entityHeader :
-            "Matched - " + entityHeader;
+        return entityId == this.sourceEntity.id ? "Draft - " + entityHeader : entityHeader;
     }
 
     _onColumnSelectionChanged(e) {

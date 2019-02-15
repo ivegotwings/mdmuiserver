@@ -82,7 +82,7 @@ class RockCompareEntities extends mixinBehaviors([
                 <template is="dom-if" if="[[_allowAction(compareEntitiesContext, 'createReview')]]">
                     <pebble-button class="action-button btn btn-primary m-r-5" data-args="createReview" id="createReview" button-text="Send for Review" raised on-tap="_onCreateTap"></pebble-button>
                 </template>
-                <template is="dom-if" if="[[_allowAction(compareEntitiesContext, 'create', showCreateButton)]]">
+                <template is="dom-if" if="[[_allowAction(compareEntitiesContext, 'create', showMergeButton)]]">
                     <pebble-button class="action-button btn btn-success m-r-5" data-args="create" id="create" button-text="Create" raised on-tap="_onCreateTap"></pebble-button>
                 </template>
                 <template is="dom-if" if="[[_allowAction(compareEntitiesContext, 'merge', showMergeButton)]]">
@@ -411,6 +411,16 @@ class RockCompareEntities extends mixinBehaviors([
           showAllAttributes: {
               type: Boolean,
               value: false
+          },
+          matchMergeMessages: {
+              type: Object,
+              value: function () {
+                  return {
+                      "canCreateReview": "{noOfEntities} match(es) found, you can send it for review",
+                      "canMerge": "{noOfEntities} match(es) found, select a matched entity to merge or create your entity anyway",
+                      "canDiscard": "{noOfEntities} similar match(es) found, you cannot create or merge the entity"
+                  }
+              }
           }
       };
   }
@@ -731,7 +741,17 @@ class RockCompareEntities extends mixinBehaviors([
   }
   _getConfigWithUpdatedTitle(gridConfig, entities) {
       if (!_.isEmpty(this.compareEntitiesContext) && this.compareEntitiesContext.matchConfig) {
-          let title = this.compareEntitiesContext.matchConfig["compare-title"];
+          let matchConfig = this.compareEntitiesContext.matchConfig;
+          let title = matchConfig["compare-title"];
+          if (matchConfig.matchMerge) {
+              if (matchConfig.matchMerge.canCreateReview) {
+                  title = this.matchMergeMessages["canCreateReview"];
+              } else if (matchConfig.matchMerge.canMerge) {
+                  title = this.matchMergeMessages["canMerge"];
+              } else if (matchConfig.matchMerge.canDiscard) {
+                  title = this.matchMergeMessages["canDiscard"];
+              }
+          }
           if (title) {
               title = title.replace("{noOfEntities}", entities.length - 1);
               if (entities && entities.length == 0) {
@@ -1002,6 +1022,7 @@ class RockCompareEntities extends mixinBehaviors([
                   if (i == 0) {
                       let colDetails = {
                           "header": this._updateEntityHeader(entity.id, entityHeader),
+                          "subheader": this._getEntitySubHeader(entity.id),
                           "name": entity.id,
                           "sortable": false,
                           "filterable": false,
@@ -1036,7 +1057,7 @@ class RockCompareEntities extends mixinBehaviors([
                           _isAttributeMapped = true;
                       }
                   }, this);
-                  
+
                   currAttrDataType = row.dataType;
                   currAttrDisplayType = row.displayType;
                   if(currAttrDisplayType === "richtexteditor") {
@@ -1540,15 +1561,9 @@ class RockCompareEntities extends mixinBehaviors([
       this._gridDataRelationships = filteredDataRelationships;
   }
   _getEntityHeader(entity) {
-
-
       let header = "";
-      let preparedEntities = this.compareEntitiesContext ? this.compareEntitiesContext[
-          "entities-data"] : undefined;
       if (entity) {
           if (!this.isSnapshot) {
-              let preparedEntity = !_.isEmpty(preparedEntities) ? preparedEntities.find(obj => obj.id ===
-                  entity.id) : undefined;
               if (entity[this.entityTitle]) {
                   header = entity[this.entityTitle];
               } else {
@@ -1560,9 +1575,6 @@ class RockCompareEntities extends mixinBehaviors([
               }
               if (header === "" || header === "_EMPTY" || header === ConstantHelper.NULL_VALUE) {
                   header = entity.id;
-              }
-              if (preparedEntity && preparedEntity.score) {
-                  header = header + " - Score " + preparedEntity.score + "%";
               }
           } else {
               //For Snapshot Scenario
@@ -1579,8 +1591,6 @@ class RockCompareEntities extends mixinBehaviors([
                           'datetime');
                       header = header + ": " + createdDate;
                   }
-
-
               }
           }
       }
@@ -1591,13 +1601,24 @@ class RockCompareEntities extends mixinBehaviors([
           return header;
       }
   }
+  _getEntitySubHeader(entityId) {
+      let subHeader = "";
+      if (entityId) {
+        let preparedEntities = this.compareEntitiesContext ? this.compareEntitiesContext["entities-data"] : undefined;
+          let preparedEntity = !_.isEmpty(preparedEntities) ? preparedEntities.find(obj => obj.id === entityId) : undefined;
+
+          if (preparedEntity && preparedEntity.score) {
+              subHeader = preparedEntity.score + "%";
+          }
+      }
+      return subHeader;
+  }
   _updateEntityHeader(entityId, entityHeader) {
       if (_.isEmpty(this.compareEntitiesContext)) {
           return entityHeader;
       }
       if (!this.isSnapshot) {
-          return entityId == this.compareEntitiesContext.newEntity.id ? "New - " + entityHeader :
-              "Matched - " + entityHeader;
+          return entityId == this.compareEntitiesContext.newEntity.id ? "New - " + entityHeader : entityHeader;
       } else {
           return entityHeader;
       }
@@ -1662,8 +1683,9 @@ class RockCompareEntities extends mixinBehaviors([
           compareEntitiesContext.matchConfig &&
           compareEntitiesContext.matchConfig.matchMerge) {
           let matchConfig = compareEntitiesContext.matchConfig;
+          //If user have merge permissions, then show create also
           if (type == "create") {
-              allowAction = matchConfig["allow-create"] && matchConfig.matchMerge.canCreate && this.showCreateButton;
+              allowAction = matchConfig["allow-create"] && matchConfig.matchMerge.canMerge && this.showMergeButton;
           } else if (type == "createReview") {
               allowAction = matchConfig["allow-create"] && matchConfig.matchMerge.canCreateReview;
           } else if (type == "merge") {

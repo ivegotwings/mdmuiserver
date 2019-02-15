@@ -37,6 +37,12 @@ class DataTableColumn extends mixinBehaviors([RUFBehaviors.UIBehavior], Optional
                     top: 1px;
                     right: 0px;
                 }
+
+                .subheader {
+                    color: var(--data-column-sub-header-color, #36b44a);
+                    font-weight: bold;
+                    @apply --data-column-sub-header;
+                }
             </style>
             <template is="dom-if" if="[[column.filterBy]]">
                 <data-table-column-filter slot="cell-slot-content" label="[[column.name]]" value="{{column.filterValue}}" hidden\$="[[!column.filterBy]]" filter-type="[[filterType]]"></data-table-column-filter>
@@ -48,6 +54,9 @@ class DataTableColumn extends mixinBehaviors([RUFBehaviors.UIBehavior], Optional
                     </template>
                     <template is="dom-if" if="[[!_columHasLink(column.columnObject)]]">
                         <span>[[column.name]]</span>
+                    </template>
+                    <template is="dom-if" if="[[column.columnObject.subheader]]">
+                        <span class="subheader">[[column.columnObject.subheader]]</span>
                     </template>
                 </div>
                 <template is="dom-if" if="[[columnObject.headerDescription]]">
