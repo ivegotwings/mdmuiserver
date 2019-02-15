@@ -958,10 +958,9 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
                 }
               }
               relatedEntities.forEach(function (relItem) {
-                if (relItem) {
+                if (relItem && relItem.relTo && relItem.relTo.id == currentEntityId) {
                   record["relationshipId"] = relItem.relTo.id;
                   record["Relationship Id"] = relItem.id;
-                  if (relItem.relTo && relItem.relTo.id == currentEntityId) {
                     if (relItem.relTo.type) {
                       record["typeExternalName"] = entityTypeManager.getTypeExternalNameById(relItem.relTo
                         .type);
@@ -984,7 +983,6 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
                         }
                       }, this);
                     }
-                  }
                 }
               }, this);
             }
