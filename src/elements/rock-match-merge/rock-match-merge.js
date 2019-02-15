@@ -150,7 +150,7 @@ class RockMatchMerge extends mixinBehaviors([
                                             <pebble-spinner active="[[_loading]]"></pebble-spinner>
                                             <bedrock-pubsub event-name="pebble-actions-action-click" handler="_onActionItemTap" target-id=""></bedrock-pubsub>
                                             <div class="full-height">
-                                                <rock-grid id="compareEntitiesGrid" data="{{_gridData}}" attribute-models="{{_attributeModels}}" config="{{_gridConfig}}" page-size="5" enable-column-select\$=[[_isColumnSelectAllowed(enableColumnSelect, _canMerge)]] context-data="[[contextData]]" nested-attribute-message="{noOfValues} values" hide-view-selector hide-toolbar grid-item-view></rock-grid>
+                                                <rock-grid id="compareEntitiesGrid" data="{{_gridData}}" attribute-models="{{_attributeModels}}" config="{{_gridConfig}}" page-size="5" enable-column-select\$=[[enableColumnSelect]] context-data="[[contextData]]" nested-attribute-message="{noOfValues} values" hide-view-selector hide-toolbar grid-item-view></rock-grid>
                                             </div>
                                         </div>
                                     </div>
@@ -497,9 +497,9 @@ class RockMatchMerge extends mixinBehaviors([
     _onSourceEntitiesChange() {
         if (!_.isEmpty(this.sourceEntities)) {
             if (!this._isAllEntitiesValidForProcess()) {
-                this._matchProcessMessage = this.isBulkProcess ? 
-                                "All selected entities should be of draft type for the review, select valid entities." : 
-                                "Entity should be of draft type for the review, select a valid entity. ";
+                this._matchProcessMessage = this.isBulkProcess ?
+                    "All selected entities should be of draft type for the review, select valid entities." :
+                    "Entity should be of draft type for the review, select a valid entity. ";
                 return;
             }
             let sourceIds = [...new Set(this.sourceEntities.map((entity) => entity.id))];
@@ -575,8 +575,8 @@ class RockMatchMerge extends mixinBehaviors([
             this._attributeModels = DataTransformHelper.transformAttributeModels(this._entityModels[0], this.contextData);
 
             if (!_.isEmpty(this._entityModels[0].properties)) {
-                this._matchPermissions.submitPermission = typeof this._entityModels[0].properties.submitPermission == "boolean" ?  this._entityModels[0].properties.submitPermission : this._matchPermissions.submitPermission;
-                this._matchPermissions.mergePermission = typeof this._entityModels[0].properties.mergePermission == "boolean" ?  this._entityModels[0].properties.mergePermission : this._matchPermissions.mergePermission;
+                this._matchPermissions.submitPermission = typeof this._entityModels[0].properties.submitPermission == "boolean" ? this._entityModels[0].properties.submitPermission : this._matchPermissions.submitPermission;
+                this._matchPermissions.mergePermission = typeof this._entityModels[0].properties.mergePermission == "boolean" ? this._entityModels[0].properties.mergePermission : this._matchPermissions.mergePermission;
             }
         }
         this._triggerEntityMatch();
@@ -860,6 +860,7 @@ class RockMatchMerge extends mixinBehaviors([
         this.entities = this._combinedEntitySetForRender;
 
         if (this.entities && this.entities.length) {
+            this._sortMatchedEntities();
             await this._prepareGridColumnsModelAndData(this.entities, columns, items);
         }
         //attributes grid
@@ -873,6 +874,25 @@ class RockMatchMerge extends mixinBehaviors([
             this._gridData = this._data = items;
         }
         this._loading = false;
+    }
+
+    //Todo, Move this functionality to common behavior
+    _sortMatchedEntities() {
+        if (_.isEmpty(this._mlBasedResults) || this._mlBasedResults.fullList.length <= 1) {
+            return;
+        }
+        //Sort matched entities
+        let sortedMatchedEntities = _.sortBy(this._mlBasedResults.fullList, 'score').reverse(); //desc
+        let entities = [];
+        sortedMatchedEntities.forEach(matchedEntity => {
+            let foundEntity = this.entities.find(entity => entity.id == matchedEntity.id);
+            if (foundEntity) {
+                entities.push(foundEntity);
+            }
+        });
+        if (!_.isEmpty(entities)) {
+            this.entities = entities;
+        }
     }
 
     _getConfigWithUpdatedTitle(gridConfig, entities) {
@@ -933,8 +953,11 @@ class RockMatchMerge extends mixinBehaviors([
                 "isRowHeader": true,
                 "visible": true
             }
-            //Normal Scenario
-            if (this._isColumnSelectAllowed()) {
+            //Set enable column select as per merge permission
+            if (this.enableColumnSelect) {
+                this.enableColumnSelect = this._canMerge;
+            }
+            if (this.enableColumnSelect) {
                 rowHeader["selectable"] = {
                     "isAction": false,
                     "text": "Select for merge/create"
@@ -1129,10 +1152,6 @@ class RockMatchMerge extends mixinBehaviors([
                 items.push(item);
             }
         }
-    }
-
-    _isColumnSelectAllowed() {
-        return this.enableColumnSelect && this._canMerge;
     }
 
     _getLink(entityId, entityLink) {
@@ -1600,10 +1619,12 @@ class RockMatchMerge extends mixinBehaviors([
         this._syncValidationErrors = [];
         this.attributeMessages = {};
         this._combinedEntitySetForRender = [];
+        this._mlBasedResults = [];
         this._entityModels = [];
         this._attributeModels = {};
         this._matchProcessMessage = "";
         this._showMessageOnly = false;
+        this.enableColumnSelect = true;
         this._canCreate = this._canMerge = this._showDiscard = this._isDiscardProcess = false;
         let pebbleDropDown = this.$$("#actionsButton");
         if (pebbleDropDown) {

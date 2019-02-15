@@ -16,13 +16,11 @@ import '../pebble-spinner/pebble-spinner.js';
 import '../pebble-horizontal-divider/pebble-horizontal-divider.js';
 import '../pebble-accordion/pebble-accordion.js';
 import '../rock-grid/rock-grid.js';
-import '../bedrock-match-merge-behavior/bedrock-match-merge-behavior.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockCompareEntities extends mixinBehaviors([
     RUFBehaviors.UIBehavior,
     RUFBehaviors.ComponentContextBehavior,
-    RUFBehaviors.ComponentBusinessFunctionBehavior,
-    RUFBehaviors.MatchMergeBehavior
+    RUFBehaviors.ComponentBusinessFunctionBehavior
 ], PolymerElement) {
   static get template() {
     return html`
@@ -680,7 +678,7 @@ class RockCompareEntities extends mixinBehaviors([
       this._combinedEntitySetForRender.push(...ent);
       this.entities = this._combinedEntitySetForRender;
       if (this.entities && this.entities.length && allowPrepareGrid) {
-          this.entities = RUFBehaviors.MatchMergeBehaviorImpl.sortMatchedEntities(this.entities, this.compareEntitiesContext["entities-data"]);
+          this._sortMatchedEntities();
           await this._prepareGridColumnsModelAndData(this.entities, columns, items);
           if (this._isRelationshipsPresent) {
               await this._prepareGridColumnsModelAndDataRelationshipGrid(this.entities,
@@ -703,6 +701,26 @@ class RockCompareEntities extends mixinBehaviors([
 
       if (allowPrepareGrid) {
           this._loading = false;
+      }
+  }
+  //Todo, Move this functionality to common behavior
+  _sortMatchedEntities() {
+      let ctxMatchedEntities = this.compareEntitiesContext["entities-data"] || [];
+      let ctxType = DataHelper.isValidObjectPath(this.compareEntitiesContext, "matchConfig.matchMerge.type") ? this.compareEntitiesContext.matchConfig.matchMerge.type : "";
+      if (ctxType != "mlbased" || ctxMatchedEntities.length <= 1) {
+          return;
+      }
+      //Sort matched entities
+      let sortedMatchedEntities = _.sortBy(ctxMatchedEntities, 'score').reverse(); //desc
+      let entities = [];
+      sortedMatchedEntities.forEach(matchedEntity => {
+          let foundEntity = this.entities.find(entity => entity.id == matchedEntity.id);
+          if (foundEntity) {
+              entities.push(foundEntity);
+          }
+      });
+      if (!_.isEmpty(entities)) {
+          this.entities = entities;
       }
   }
   _getRelationshipVisibilityStatus() {
