@@ -240,10 +240,10 @@ refresh () {
     let attributeManageEls = this.shadowRoot.querySelectorAll("rock-attribute-manage");
     if (attributeManageEls && attributeManageEls.length > 0) {
         for (let i = 0; i < attributeManageEls.length; i++) {
-						let attributeManage = attributeManageEls[i];
-						if (attributeManage.getIsDirty && !attributeManage.getIsDirty()) {
+            let attributeManage = attributeManageEls[i];
+            if (attributeManage.getIsDirty && !attributeManage.getIsDirty()) {
                 attributeManage.refresh();
-						}
+            }
         }
     }
 }
@@ -251,12 +251,28 @@ refresh () {
  * Can be used to get the elements if they are dirty.
  */
 getIsDirty () {
-    let attributeManage = this.shadowRoot.querySelector("rock-attribute-manage");
-    return this._getIsDirty(attributeManage);
+    let attributeManageEls = this.shadowRoot.querySelectorAll("rock-attribute-manage");
+    if (attributeManageEls && attributeManageEls.length > 0) {
+        for (let i = 0; i < attributeManageEls.length; i++) {
+            let attributeManage = attributeManageEls[i];
+            if (attributeManage.getIsDirty && attributeManage.getIsDirty()) {
+                return true;
+            }
+        }
+    }
+    return false;
 }
 getControlIsDirty () {
-    let attributeManage = this.$$("rock-attribute-manage");
-    return this._getControlIsDirty(attributeManage);
+    let attributeManageEls = this.shadowRoot.querySelectorAll("rock-attribute-manage");
+    if (attributeManageEls && attributeManageEls.length > 0) {
+        for (let i = 0; i < attributeManageEls.length; i++) {
+            let attributeManage = attributeManageEls[i];
+            if (attributeManage.getControlIsDirty && attributeManage.getControlIsDirty()) {
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 _computeScreens (...args) {
