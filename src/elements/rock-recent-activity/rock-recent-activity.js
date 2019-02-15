@@ -520,6 +520,10 @@ class RockRecentActivity extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBeh
           rockElement = new rockComponent();
           rockElement.attributeModelObject = attributeModel;
           let attributeValue = this._getRowData(attributeData, attributeId, attributeModel);
+          if (!attributeValue || _.isEmpty(attributeValue.value)) {
+            this.showWarningToast("No data for the attribute in current context");
+            return;
+          }
           rockElement.attributeObject = attributeValue;
           rockElement.mode = "view";
         } else if (attributeModel.displayType && attributeModel.displayType.toLowerCase() === "richtexteditor") {
