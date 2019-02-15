@@ -128,7 +128,7 @@ class RockSidebar
                         <div class="icon-wrapper leftIcon" on-tap="_moveLeft">
                             <pebble-icon icon="pebble-icon:action-scope-release-selection" class="pebble-icon-size-12"></pebble-icon>
                         </div>
-                        <div class="icon-wrapper rightIcon" on-tap="_moveright">
+                        <div class="icon-wrapper rightIcon" on-tap="_moveRight">
                             <pebble-icon icon="pebble-icon:action-scope-take-selection" class="pebble-icon-size-12"></pebble-icon>
                         </div>
                     </div>
@@ -136,7 +136,9 @@ class RockSidebar
             </template>          
             <slot></slot>
         </div>
-        <bedrock-pubsub event-name="collapse-sidebar" handler="_moveright"></bedrock-pubsub>
+        <bedrock-pubsub event-name="collapse-sidebar" handler="_moveRight"></bedrock-pubsub>
+        <bedrock-pubsub event-name="open-sidebar" handler="_moveLeft"></bedrock-pubsub>
+
 `;
   }
 
@@ -162,6 +164,15 @@ class RockSidebar
           width: {
               type: String,
               value: "quarter"
+          },
+          //we can use this below flag to set if we want entity graph sidebar closed by default or not
+          _isEntityGraphSideBarCollapseByDefault: {
+              type: Boolean,
+              value: true
+          },
+          isUserTriggeredExpandCollapse: {
+              type: Boolean,
+              value: false
           },
           collapse: {
               type: Boolean,
@@ -217,8 +228,14 @@ class RockSidebar
       }                
   }
 
-  _moveright(e){                
+  _moveRight(e){
+      if(e.type == 'tap') {
+        this.isUserTriggeredExpandCollapse = true;
+      } else {
+        this.isUserTriggeredExpandCollapse = false;
+      }             
       this.classList.add('collapse');
+      this.collapse = true;
       if(e && e.detail) {
           ComponentHelper.fireBedrockEvent("toggle-sidebar", e.detail, { ignoreId: true });
       }
@@ -232,7 +249,13 @@ class RockSidebar
 
   }
   _moveLeft(e){
+    if(e.type == 'tap') {
+        this.isUserTriggeredExpandCollapse = true;
+      } else {
+        this.isUserTriggeredExpandCollapse = false;
+      }    
       this.classList.remove('collapse');
+      this.collapse = false;
       if(e && e.detail) {
           ComponentHelper.fireBedrockEvent("toggle-sidebar", e.detail, { ignoreId: true });
       }
