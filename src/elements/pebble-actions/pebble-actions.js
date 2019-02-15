@@ -191,6 +191,9 @@ class PebbleActions
                 cursor: auto !important;
                 pointer-events: none !important;
             }
+            paper-item[disabled] {
+                opacity: 0.5;
+            }
 
             pebble-popover {
                 --pebble-popover-width: 260px;
@@ -218,7 +221,7 @@ class PebbleActions
             #actionItem {
                 line-height: 16px;
             }
-
+            
             #actionsPopoverItem:hover {
                 color: var(--focused-line, #026bc3);
                 background-color: var(--bgColor-hover, #e8f4f9);

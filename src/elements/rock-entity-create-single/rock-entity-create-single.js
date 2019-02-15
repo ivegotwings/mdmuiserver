@@ -683,7 +683,7 @@ class RockEntityCreateSingle
       this._loading = true;
       let msg = "";
 
-      if (operation == "create") {
+      if (operation == "create" && !this.isReviewProcess) {
           msg = "Entity created successfully.";
       }
       if (operation == "update") {
@@ -726,7 +726,9 @@ class RockEntityCreateSingle
 
       setTimeout(() => {
           this._loading = false;
-          this.showSuccessToast(msg);
+          if (msg) {
+            this.showSuccessToast(msg);
+          }
       }, 100);
   }
   _onSaveError(e) {

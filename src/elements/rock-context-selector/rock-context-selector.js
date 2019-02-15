@@ -908,6 +908,20 @@ class RockContextSelector
         //On page refresh set from navigationData
         let defaultDimensions = [];
         if (!_.isEmpty(this.navigationData) && this._isFirstContextLoad) {
+            if(!_.isEmpty(this.entityId) && !_.isEmpty(this._contextHierarchyInfo)) {
+                let _self = this;
+                this._contextHierarchyInfo.forEach(function(ctxInfo) {
+                    let ctxKey = ctxInfo.contextKey;
+                    if(!_.isEmpty(this.navigationData[ctxKey])) {
+                        this.navigationData[ctxKey] = this.navigationData[ctxKey].reduce(function(prev, next) {
+                            if(_self._isItemExistsInCurrentContexts(next, _self._entityContexts)) {
+                                prev.push(next);
+                            }
+                            return prev;
+                        }, []);
+                    }
+                }, this);
+            }
             defaultDimensions = this.navigationData;
         }
 
@@ -1542,8 +1556,13 @@ class RockContextSelector
                     * If entity doesn't have any contexts, no need to request for contexts. 
                     * Hence making requestData undefined for context-lov
                     * */
+                    if(!_.isEmpty(configDataItem.selectedItem)) {
+                        if(!this._isItemExistsInCurrentContexts(configDataItem.selectedItem, this._entityContexts)) {
+                            configDataItem.selectedItem = {};
+                        }
+                    }
                     if (_.isEmpty(this._entityContexts)) {
-                        configDataItem.dataRequest = undefined
+                        configDataItem.dataRequest = undefined;
                     } else if (DataHelper.isValidObjectPath(configDataItem, "dataMappings.title") &&
                         configDataItem.dataMappings.title) {
                         if (_.isEmpty(configDataItem.dataRequest)) {
@@ -1797,6 +1816,15 @@ class RockContextSelector
             }
         }
         this.currentFavouriteSelectorLovId = undefined;
+    }
+
+    _isItemExistsInCurrentContexts(item, entityContexts) {
+        entityContexts = entityContexts || [];
+        let existingContext = entityContexts.find(obj => Object.keys(obj)[0] === item.type && Object.values(obj)[0] === item.title);
+        if(existingContext) {
+            return true;
+        }
+        return false;
     }
 }
 

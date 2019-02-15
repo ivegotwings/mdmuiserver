@@ -374,12 +374,14 @@ class RockRelationshipAdd
       if (rockSearchBar) {
           rockSearchBar.query = "";
           rockSearchBar.searchText = "";
+          rockSearchBar.setAttribute("placeholder", "");
       }
       this._searchQuery = '';
       this._selectedSearchFilters = [];
       this.$.searchFilter.clearSearchFilters();
       this._resetSearchEnabled = false;
       this._refreshGrid();
+      this._buildQueryString();
   }
   _showResetSearch(e) {
       let rockSearchBar = this.shadowRoot.querySelector('#searchBar');
@@ -395,7 +397,7 @@ class RockRelationshipAdd
           tags = rockSearchFilter.tags;
       }
 
-      if (!_.isEmpty(query) || tags.length > 0) {
+      if (!_.isEmpty(query) || tags.length > 0 || this.inputQueryString != "") {
           this._resetSearchEnabled = true;
       }
   }
