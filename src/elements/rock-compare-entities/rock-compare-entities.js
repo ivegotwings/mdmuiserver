@@ -880,7 +880,7 @@ class RockCompareEntities extends mixinBehaviors([
                   let entityHeader = this._getEntityHeader(entity);
                   if (i == 0) {
                       let colDetails = {
-                          "header": this._updateEntityHeader(entity.id, entityHeader),
+                          "header": entityHeader,
                           "name": entity.id,
                           "sortable": false,
                           "filterable": false,
@@ -1021,7 +1021,7 @@ class RockCompareEntities extends mixinBehaviors([
                   let entityHeader = this._getEntityHeader(entity);
                   if (i == 0) {
                       let colDetails = {
-                          "header": this._updateEntityHeader(entity.id, entityHeader),
+                          "header": entityHeader,
                           "subheader": this._getEntitySubHeader(entity.id),
                           "name": entity.id,
                           "sortable": false,
@@ -1609,19 +1609,14 @@ class RockCompareEntities extends mixinBehaviors([
 
           if (preparedEntity && preparedEntity.score) {
               subHeader = preparedEntity.score + "%";
+          } else {
+            if (!this.isSnapshot && !_.isEmpty(this.compareEntitiesContext) &&
+                 entityId == this.compareEntitiesContext.newEntity.id) {
+                    subHeader = "New";
+            }
           }
       }
       return subHeader;
-  }
-  _updateEntityHeader(entityId, entityHeader) {
-      if (_.isEmpty(this.compareEntitiesContext)) {
-          return entityHeader;
-      }
-      if (!this.isSnapshot) {
-          return entityId == this.compareEntitiesContext.newEntity.id ? "New - " + entityHeader : entityHeader;
-      } else {
-          return entityHeader;
-      }
   }
   _getLink(entityId, entityLink) {
       let link = "";

@@ -980,7 +980,7 @@ class RockMatchMerge extends mixinBehaviors([
                     let entityHeader = this._getEntityHeader(entity);
                     if (i == 0) {
                         let colDetails = {
-                            "header": this._updateEntityHeader(entity.id, entityHeader),
+                            "header": entityHeader,
                             "subheader": this._getEntitySubHeader(entity.id),
                             "name": entity.id,
                             "sortable": false,
@@ -1391,16 +1391,13 @@ class RockMatchMerge extends mixinBehaviors([
             let preparedEntity = !_.isEmpty(preparedEntities) ? preparedEntities.find(obj => obj.id === entityId) : undefined;
             if (preparedEntity && preparedEntity.score) {
                 subHeader = preparedEntity.score + "%";
+            } else {
+                if (!_.isEmpty(this.sourceEntity) && entityId == this.sourceEntity.id) {
+                    subHeader = "Draft";
+                }
             }
         }
         return subHeader;
-    }
-
-    _updateEntityHeader(entityId, entityHeader) {
-        if (_.isEmpty(this.sourceEntity)) {
-            return entityHeader;
-        }
-        return entityId == this.sourceEntity.id ? "Draft - " + entityHeader : entityHeader;
     }
 
     _onColumnSelectionChanged(e) {
