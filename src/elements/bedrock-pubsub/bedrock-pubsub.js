@@ -1,5 +1,6 @@
 import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
 import '../bedrock-helpers/data-helper.js';
+import PubSubManager from '../bedrock-managers/pubsub-manager.js'
 /**
     `bedrock-pubsub` provides the basic publish-subscribe functionality for the events.
     
@@ -71,26 +72,19 @@ class BedrockPubsub extends PolymerElement {
      * Content is not appearing - Content development is under progress. 
      */
     disconnectedCallback() {
-        super.disconnectedCallback();
-        if(customElements.get('pubsub-manager') !== "undefined"){
-            let pubsubManager = customElements.get('pubsub-manager').getInstance();
-            if (pubsubManager) {
-                pubsubManager.unRegister(this);
-            }
-        }
+        super.disconnectedCallback();     
+        this.pubsubManager.unRegister(this);
+        this.pubsubManager = null;
+        
     }
     connectedCallback() {
-        super.connectedCallback();
+        super.connectedCallback();        
+        this.pubsubManager = PubSubManager.getInstance();
         this.registerEvent();
     }
 
-    registerEvent() {
-        if(customElements.get('pubsub-manager') !== "undefined") {
-            let pubsubManager = customElements.get('pubsub-manager').getInstance();
-            if (pubsubManager) {
-                pubsubManager.register(this);
-            }
-        }
+    registerEvent() {       
+        this.pubsubManager.register(this);
     }
 }
 

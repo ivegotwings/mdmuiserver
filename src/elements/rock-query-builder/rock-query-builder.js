@@ -1539,7 +1539,8 @@ class RockQueryBuilder extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehavi
           if(element.targetId){
               this.currenGridName = element.targetId;
           }
-          if ((customElements.get('data-table-row') !== "undefined") &&	element instanceof customElements.get('data-table-row')) {
+          let dataTableRow = customElements.get('data-table-row');
+          if (dataTableRow !== "undefined" && element instanceof dataTableRow) {
               return element;
           }
           return this._getParentRow(element.parentNode);
