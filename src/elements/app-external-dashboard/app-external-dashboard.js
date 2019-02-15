@@ -18,10 +18,8 @@ class AppExternalDashboard extends mixinBehaviors([RUFBehaviors.AppBehavior, RUF
                 --rock-footer-background-color: #f5f7f9;
             }
             pebble-iframe{
-                --app-external-dashboard-inner-content-height:{
                     overflow:auto;
                     @apply --app-external-dashboard-content-height;
-                }
             }            
         </style>
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
