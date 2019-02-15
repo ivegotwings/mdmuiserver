@@ -16,11 +16,13 @@ import '../pebble-spinner/pebble-spinner.js';
 import '../pebble-horizontal-divider/pebble-horizontal-divider.js';
 import '../pebble-accordion/pebble-accordion.js';
 import '../rock-grid/rock-grid.js';
+import '../bedrock-match-merge-behavior/bedrock-match-merge-behavior.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockCompareEntities extends mixinBehaviors([
     RUFBehaviors.UIBehavior,
     RUFBehaviors.ComponentContextBehavior,
-    RUFBehaviors.ComponentBusinessFunctionBehavior
+    RUFBehaviors.ComponentBusinessFunctionBehavior,
+    RUFBehaviors.MatchMergeBehavior
 ], PolymerElement) {
   static get template() {
     return html`
@@ -678,6 +680,7 @@ class RockCompareEntities extends mixinBehaviors([
       this._combinedEntitySetForRender.push(...ent);
       this.entities = this._combinedEntitySetForRender;
       if (this.entities && this.entities.length && allowPrepareGrid) {
+          this.entities = RUFBehaviors.MatchMergeBehaviorImpl.sortMatchedEntities(this.entities, this.compareEntitiesContext["entities-data"]);
           await this._prepareGridColumnsModelAndData(this.entities, columns, items);
           if (this._isRelationshipsPresent) {
               await this._prepareGridColumnsModelAndDataRelationshipGrid(this.entities,
