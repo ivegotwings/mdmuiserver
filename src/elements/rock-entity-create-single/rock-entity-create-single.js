@@ -424,6 +424,12 @@ class RockEntityCreateSingle
           } else {
               entityId = entityName + "_" + entityType;
           }
+          if(_.isEmpty(this.entityDomain)){
+              let firstDomainContext = ContextHelper.getFirstDomainContext(this.contextData);
+              if(!_.isEmpty(firstDomainContext) && firstDomainContext.domain){
+                this.entityDomain = firstDomainContext.domain;
+              }
+          }
       } else {
           entityName = DataHelper.getNameForNewEntityFromAttributes(attributesJSON, this._attributeModels, "isExternalName");
       }
