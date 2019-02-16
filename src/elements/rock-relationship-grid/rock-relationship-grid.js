@@ -1333,7 +1333,8 @@ class RockRelationshipGrid
         "self-context": selfContext,
         "add-relationship-grid-config": this.addRelationshipGridConfig,
         "dataIndex": this.dataIndex,
-        "filter-rules": filterRules
+        "filter-rules": filterRules,
+        "domains": [this.domain]
       };
 
       this.openBusinessFunctionDialog({

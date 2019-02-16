@@ -123,7 +123,7 @@ class RockRelationshipAdd
                 </div>
                 <div class="flex searchFilterTag min-width-0">
                     <!-- Search Filter Tags -->
-                    <rock-entity-search-filter id="searchFilter" _selected-search-filters="{{_selectedSearchFilters}}" context-data="[[_getFilterContextData(contextData, mode)]]" types-criterion="[[typesCriterion]]" tags="{{tags}}" attributes-type="domainMapped"></rock-entity-search-filter>
+                    <rock-entity-search-filter id="searchFilter" _selected-search-filters="{{_selectedSearchFilters}}" domains="[[domains]]" context-data="[[_getFilterContextData(contextData, mode)]]" types-criterion="[[typesCriterion]]" tags="{{tags}}" attributes-type="domainMapped"></rock-entity-search-filter>
                     <bedrock-pubsub event-name="tag-item-added" handler="_showResetSearch"></bedrock-pubsub>
                     <bedrock-pubsub event-name="tag-item-remove" handler="_showResetSearch"></bedrock-pubsub>
                     <bedrock-pubsub event-name="build-query" handler="_searchFiltersChanged"></bedrock-pubsub>
@@ -284,6 +284,10 @@ class RockRelationshipAdd
               type: Object,
               value: {}
 
+          },
+          domains: {
+              type: String,
+              value: []
           }
       }
   }

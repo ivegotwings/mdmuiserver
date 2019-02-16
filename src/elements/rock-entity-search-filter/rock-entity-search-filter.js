@@ -19,7 +19,7 @@ import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockEntitySearchFilter extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.AppContextBehavior], PolymerElement) {
   static get template() {
     return html`
-        <rock-search-filter id="search-filter" settings="[[settings]]" attributes-type="[[attributesType]]" icon="pebble-icon:filter" text="Refine More" filters-config="[[filtersConfig]]" tags="{{tags}}" max-allowed-values-for-search="[[maxAllowedValuesForSearch]]" context-data="[[contextData]]" hide-search-trigger="">
+        <rock-search-filter id="search-filter" domains="[[domains]]" settings="[[settings]]" attributes-type="[[attributesType]]" icon="pebble-icon:filter" text="Refine More" filters-config="[[filtersConfig]]" tags="{{tags}}" max-allowed-values-for-search="[[maxAllowedValuesForSearch]]" context-data="[[contextData]]" hide-search-trigger="">
         </rock-search-filter>
         <bedrock-pubsub event-name="tag-value-change" handler="_onSearchTagValueChange"></bedrock-pubsub>
         <bedrock-pubsub event-name="tag-item-remove" handler="_onTagItemRemove"></bedrock-pubsub>

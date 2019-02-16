@@ -154,7 +154,7 @@ class RockSearchFilter
         <pebble-button id="filterButton" icon="{{icon}}" button-text="{{text}}" dropdown-icon="" noink="" class="dropdownText dropdownIcon btn dropdown-primary dropdown-trigger" on-tap="_openFilterLov"></pebble-button>
         <template is="dom-if" if="[[_refineFilterPopoverDialog]]">
           <pebble-popover id="refineFilterPopover" for="filterButton" no-overlap="" vertical-align="auto" horizontal-align="auto">
-            <rock-attribute-model-lov id="attributeModelLov" mode="[[attributesType]]" context-data="[[contextData]]" no-sub-title="" id-field="name" title-pattern="externalName" type-field="[]" sort-details="[[filtersConfig]]" items="{{_filterAttributes}}" show-nested-child-attributes="[[_showNestedChildAttributes]]" show-nested-attributes="[[_showNestedAttributes]]" is-model-get-initiated="{{showReferenceFilter}}"></rock-attribute-model-lov>
+            <rock-attribute-model-lov id="attributeModelLov"  domains="[[domains]]" mode="[[attributesType]]" context-data="[[contextData]]" no-sub-title="" id-field="name" title-pattern="externalName" type-field="[]" sort-details="[[filtersConfig]]" items="{{_filterAttributes}}" show-nested-child-attributes="[[_showNestedChildAttributes]]" show-nested-attributes="[[_showNestedAttributes]]" is-model-get-initiated="{{showReferenceFilter}}"></rock-attribute-model-lov>
           </pebble-popover>
 
           <bedrock-pubsub event-name="attribute-model-lov-selection-changed" handler="_onSelectedFilterChange" target-id="attributeModelLov"></bedrock-pubsub>
@@ -509,6 +509,10 @@ class RockSearchFilter
         attributeExternalName:{
           type:String,
           value:""
+        },
+        domains: {
+          type: Array,
+          value: function () { return []; }
         }
     }
   }
