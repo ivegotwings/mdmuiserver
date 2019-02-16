@@ -417,7 +417,7 @@ class RockCompareEntities extends mixinBehaviors([
               value: function () {
                   return {
                       "canCreateReview": "{noOfEntities} match(es) found, you can send it for review",
-                      "canMerge": "{noOfEntities} match(es) found, select a matched entity to merge or create your entity anyway",
+                      "canMerge": "{noOfEntities} match(es) found, select a matched entity to merge or create your entity",
                       "canDiscard": "{noOfEntities} similar match(es) found, you cannot create or merge the entity"
                   }
               }

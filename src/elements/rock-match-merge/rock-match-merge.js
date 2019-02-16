@@ -342,7 +342,7 @@ class RockMatchMerge extends mixinBehaviors([
             },
             matchTitle: {
                 type: String,
-                value: "{noOfEntities} match(es) found, select an entity to create/merge or dicard the draft entity"
+                value: "{noOfEntities} match(es) found, select an entity to approve or discard the draft entity"
             },
             _matchThreshold: {
                 type: Object,
