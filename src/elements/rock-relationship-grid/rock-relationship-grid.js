@@ -1323,6 +1323,10 @@ class RockRelationshipGrid
       let mode = this.domain == "digitalAsset" ? "asset" : "relationship";
       let savedRelationships = this._getSavedRelationshipItems(rel, this._savedRelationshipItems);
       let filterRules = this._prepareFilterRules();
+      let contextData = DataHelper.cloneObject(this.contextData);
+      contextData[ContextHelper.CONTEXT_TYPE_DOMAIN] = [{
+        "domain": this.domain
+      }];
       const sharedData = {
         "mode": mode,
         "types-criterion": relatedEntityTypes,
@@ -1334,7 +1338,7 @@ class RockRelationshipGrid
         "add-relationship-grid-config": this.addRelationshipGridConfig,
         "dataIndex": this.dataIndex,
         "filter-rules": filterRules,
-        "domains": [this.domain]
+        "context-data": contextData
       };
 
       this.openBusinessFunctionDialog({

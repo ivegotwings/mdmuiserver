@@ -288,9 +288,6 @@ class RockAttributeModelLov extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
       if (!_.isEmpty(this.contextData)) {
           let firstDomainContext = ContextHelper.getFirstDomainContext(this.contextData);
           this.domain = firstDomainContext && firstDomainContext.domain ? firstDomainContext.domain : undefined;
-          if (this.domains) {
-            this.domain = this.domains[0];
-          }
           if (this.mode === "all") {
               this.requestData = undefined;
               this.requestData = this.modelGetRequest;
