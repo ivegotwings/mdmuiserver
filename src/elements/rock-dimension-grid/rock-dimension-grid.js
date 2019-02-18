@@ -387,7 +387,7 @@ class RockDimensionGrid
      this.set("_updatedDimensionConfigs", this.dimensionConfigs);
 
      let fields = this._gridConfig.itemConfig.fields;
-     let modelObject = JSON.parse(this.attributeModelObject);
+     let modelObject = this.attributeModelObject;
      if (!_.isEmpty(fields)) {
        for (let key in fields) {
          if (fields[key].header.toLowerCase() == "value") {
@@ -401,7 +401,7 @@ class RockDimensionGrid
 
      let attrModels = {};
      
-     modelObject = JSON.parse(this.attributeModelObject);
+     modelObject = this.attributeModelObject;
      
      attrModels[modelObject.name] = modelObject;
 
@@ -444,7 +444,7 @@ class RockDimensionGrid
   _onSelectionChange (event) {
     if (this.dataId) {
         let attributeNames = [];
-        let modelObject = JSON.parse(this.attributeModelObject);
+        let modelObject = this.attributeModelObject;
         attributeNames.push(modelObject.name);
 
         let newDimensions = {};
@@ -569,7 +569,7 @@ class RockDimensionGrid
   _onAttributesGetResponse(res){
       if (res && res.status && (res.status == "success")) {
         let data = [];
-        let modelObject = JSON.parse(this.attributeModelObject);
+        let modelObject = this.attributeModelObject;
         let relationshipName = modelObject.relationshipName;
         let attrName = modelObject.name;
         let userIdList = [];
@@ -812,7 +812,7 @@ class RockDimensionGrid
   _saveAction (e) {
     let attributesJSON = {};
     let grid = dom(this).node.shadowRoot.querySelector('rock-grid');
-    let modelObject = JSON.parse(this.attributeModelObject);
+    let modelObject = this.attributeModelObject;
     let attrName = modelObject.name;
 
     if (grid) {
@@ -915,7 +915,7 @@ class RockDimensionGrid
     if (this.response != undefined) {
       let dimGrid = dom(this).node.shadowRoot.querySelector('rock-grid');
       let data = [];
-      let modelObject = JSON.parse(this.attributeModelObject);
+      let modelObject = this.attributeModelObject;
       let attrName = modelObject.name;
       let dimensions = {
         "locales": this._selectedLocales,
