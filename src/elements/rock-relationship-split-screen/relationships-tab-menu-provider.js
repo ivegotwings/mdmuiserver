@@ -15,6 +15,7 @@ import '../bedrock-component-context-behavior/bedrock-component-context-behavior
 import '../bedrock-helpers/data-helper.js';
 import '../liquid-entity-model-get/liquid-entity-model-get.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
+import EntityTypeManager from '../bedrock-managers/entity-type-manager.js'
 class RelationshipsTabMenuProvider
     extends mixinBehaviors([
         RUFBehaviors.UIBehavior,
@@ -118,7 +119,10 @@ class RelationshipsTabMenuProvider
 
           for (let rel of this._relationshipEntityTypeMappings) {
               rel.relatedEntityTypes = rel.relatedEntityTypes.filter(relEntityType => {
-                  relEntityType.properties.domain = this.domain;
+                  if(DataHelper.isValidObjectPath(relEntityType, "properties.relatedEntityInfo.0.relEntityType")){
+                    let entityType = relEntityType.properties.relatedEntityInfo[0].relEntityType;
+                    relEntityType.properties.domain = EntityTypeManager.getInstance().getDomainByEntityTypeName(entityType);
+                  }
                   return relationshipTypeNames.indexOf(rel.relationshipTypeName) > -1;
               });
           }
