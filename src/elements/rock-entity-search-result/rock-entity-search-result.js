@@ -855,7 +855,25 @@ class RockEntitySearchResult extends mixinBehaviors([RUFBehaviors.AppBehavior,
               }
           }
 
+          let noColumnsConfigured = false;
           if (_.isEmpty(attributeModels)) {
+              let metaDataColumnFound = false;
+              if (this.gridConfig.itemConfig && !_.isEmpty(this.gridConfig.itemConfig.fields)) {
+                let fields = this.gridConfig.itemConfig.fields;
+                for (let key in fields) {
+                    if (fields[key].isMetaDataColumn) {
+                        metaDataColumnFound = true;
+                        break;
+                    }
+                }
+              }
+
+              if(!metaDataColumnFound) {
+                  noColumnsConfigured = true;
+              }
+          }
+
+          if(noColumnsConfigured) {
               this.logError("rock-entity-search-result - Empty attribute models", this._selectedEntityTypes);
               /**
               * TODO: We need to change the event to show permissions error.
