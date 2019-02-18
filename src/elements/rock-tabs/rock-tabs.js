@@ -557,6 +557,15 @@ class RockTabs
       if (isNaN(retryCount)) {
           retryCount = 1;
       }
+      let currentApp = ComponentHelper.getCurrentActiveApp();
+      if(currentApp) {
+          let sideBar = currentApp.shadowRoot.querySelector("rock-sidebar");
+          let entitySideBar = currentApp.shadowRoot.querySelector("rock-entity-sidebar");
+          if(entitySideBar && entitySideBar.config && !entitySideBar.config.collapse && sideBar && sideBar.collapse && !sideBar.isUserTriggeredExpandCollapse
+            && this._selectedTabConfig.tabConfig && this._selectedTabConfig.tabConfig.name !== e.detail.item.tabConfig.name) {
+                ComponentHelper.fireBedrockEvent("open-sidebar","",{ ignoreId: true });      
+          }
+      }
 
       //NavigationContext needs to be set only when viewMode and viewModeSubMenu have been resolved
       let setnavConfig = true;

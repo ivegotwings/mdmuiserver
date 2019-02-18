@@ -399,6 +399,8 @@ class RockRelationshipAdd
 
       if (!_.isEmpty(query) || tags.length > 0 || this.inputQueryString != "") {
           this._resetSearchEnabled = true;
+      } else {
+          this._resetSearchEnabled = false;
       }
   }
   _getElement(element) {
@@ -635,6 +637,7 @@ class RockRelationshipAdd
           }
           searchBarElement.setAttribute("placeholder", queryStr);
       }
+      this._showResetSearch();
   }
 
   _parseQuery(query) {
