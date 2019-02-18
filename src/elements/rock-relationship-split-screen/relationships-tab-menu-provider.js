@@ -121,7 +121,8 @@ class RelationshipsTabMenuProvider
               rel.relatedEntityTypes = rel.relatedEntityTypes.filter(relEntityType => {
                   if(DataHelper.isValidObjectPath(relEntityType, "properties.relatedEntityInfo.0.relEntityType")){
                     let entityType = relEntityType.properties.relatedEntityInfo[0].relEntityType;
-                    relEntityType.properties.domain = EntityTypeManager.getInstance().getDomainByEntityTypeName(entityType);
+                    let domain = EntityTypeManager.getInstance().getDomainByEntityTypeName(entityType);
+                    relEntityType.properties.domain = domain ? domain : this.domain;    
                   }
                   return relationshipTypeNames.indexOf(rel.relationshipTypeName) > -1;
               });
