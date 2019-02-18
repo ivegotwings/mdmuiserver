@@ -580,6 +580,14 @@ class RockTabs
                   let menuItemConfig = menuItems.filter(item => item.title === this.viewModeSubMenu);
                   e.detail.item.menuItemConfig = menuItemConfig[0];
                   e.detail.item.tabConfig.subtitle = this.viewModeSubMenu;
+                  let menuListBox = e.detail.item.querySelector('paper-listbox');
+                  if(menuListBox && _.isEmpty(menuListBox.selectedItem)) {
+                      let selectedMenuItemId = e.detail.item.tabConfig.name + "-" + e.detail.item.menuItemConfig.name;
+                      let selectedMenuItem = menuListBox.querySelector("#" + selectedMenuItemId);
+                      if(selectedMenuItem) {
+                          menuListBox._setSelectedItem(selectedMenuItem);
+                      }
+                  }
                   this.selectedTabIndex = e.detail.item.tabConfig.index;
                   this.viewModeSubMenu = "";
                   this.viewMode = "";

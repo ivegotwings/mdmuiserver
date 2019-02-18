@@ -793,7 +793,7 @@ extends mixinBehaviors([
 				overflow: auto;
 			}
 		</style>
-		<template is="dom-if" if="{{_dataIsNotNull(config)}}" restamp>
+		<template is="dom-if" if="{{_dataIsNotNull(config, attributeModels)}}" restamp>
 			<div class="base-grid-structure">
 				<div class="base-grid-structure-child-1">
 					<template is="dom-if" if="[[!noHeader]]">
@@ -2261,13 +2261,15 @@ extends mixinBehaviors([
 				let columnName = this._fields[index].name;
 				let defaultValue = this._fields[index].defaultValue;
 
-				if (this.config.schemaType == undefined || this.config.schemaType == "simple" || this.config.schemaType == "colModel") {
-            cellData = this._formatValue(gridData[columnName], columnName);
-				} else if (this.config.schemaType == "attribute" && gridData && gridData.attributes && gridData.attributes[columnName]) {
-            cellData = this._formatValue(gridData.attributes[columnName].value, columnName);
-				} else if (defaultValue) {
-            cellData = defaultValue;
-				}
+                if(this.config.schemaType == "attribute" && gridData && gridData.attributes && gridData.attributes[columnName]){
+                    cellData = this._formatValue(gridData.attributes[columnName].value, columnName);
+                }
+                else{
+                    cellData = this._formatValue(gridData[columnName], columnName);
+                    if(_.isEmpty(cellData) && defaultValue){
+                        cellData = defaultValue;
+                    }
+                }
 
 				//Pick thumbnailid from entity properties
 				if (!cellData && this._hasImage(columnObj)) {
@@ -2489,9 +2491,23 @@ extends mixinBehaviors([
 				}
     }
     
-    _dataIsNotNull(config) {
+    _dataIsNotNull(config, attributeModels) {
 				let result = typeof (config) == "object" && Object.keys(config).length ? true : false;
 				if (result) {
+                    if ((config.schemaType == "attribute" || config.schemaType == "colModel") && Object.keys(attributeModels).length ==	                    
+                        0) {
+                        let metaDataColumnFound = false;
+                        if (config.itemConfig && !_.isEmpty(config.itemConfig.fields)) {
+                            let fields = config.itemConfig.fields;
+                            for (let key in fields) {
+                                if (fields[key].isMetaDataColumn) {
+                                    metaDataColumnFound = true;
+                                    break;
+                                }
+                            }
+                        }    	                       
+                        result = metaDataColumnFound;	
+                     }
                     if (DataHelper.isValidObjectPath(config, 'viewConfig.tabular.settings.actions')) {
                         this._actions = this._getArrayFromObject(this.config.viewConfig.tabular.settings.actions);
 

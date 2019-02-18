@@ -566,6 +566,7 @@ class RockAttributeList extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehav
           attributeElement.attributeObject = this._cloneObject(attributeElement.originalAttributeObject);
           this._updateDependentAttributes(attributeElement, true);
           attributeElement.changed = false;
+          attributeElement.revertAll();
       }
       this.mode = "view";
   }

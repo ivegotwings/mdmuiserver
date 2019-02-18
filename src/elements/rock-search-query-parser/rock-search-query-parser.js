@@ -802,6 +802,7 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
   _prepareAttrsCriterion(attributeModels, attributes) {
     if (attributes && attributes.length > 0) {
       let selectedContext = ContextHelper.getDataContexts(this.contextData);
+      let defaultValCtx = DataHelper.getDefaultValContext();
       for (let i = 0; i < attributes.length; i++) {
         let attribute = attributes[i];
         for (let attrName in attribute) {
@@ -942,7 +943,6 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                   }
               }
               attrVal["type"] = dataType;
-              let defaultValCtx = DataHelper.getDefaultValContext();
               if (!attrModel.isLocalizable && !attrModel.isNestedChildItem) {
                 attrVal["valueContexts"] = [defaultValCtx];
               }
@@ -972,6 +972,9 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                   if (attrData && (attrData.indexOf("!%&") > -1)) {
                     attrVal = {};
                     attrVal["hasvalue"] = attrData == "!%&has value!%&" ? true : false;
+                  }
+                  if(attrModel && !attrModel.isLocalizable) {
+                    attrVal["valueContexts"] = [defaultValCtx];
                   }
                   nestedAttributeObj[_currentLevel] = attrVal;
                 } else {
