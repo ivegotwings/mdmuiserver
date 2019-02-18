@@ -1167,6 +1167,11 @@ class RockEntitySearchResult extends mixinBehaviors([RUFBehaviors.AppBehavior,
       let copContext = {};
       if(detail && detail["cop-context"]){
           copContext = detail["cop-context"];
+          let currentValueContexts = ContextHelper.getValueContexts(this.contextData);
+          let defaultValueContext = DataHelper.getDefaultValContext();
+          if (_.isEmpty(currentValueContexts) && defaultValueContext) {
+            this.contextData[ContextHelper.CONTEXT_TYPE_VALUE] = [defaultValueContext];
+          }
           if(copContext.source){
             let valContexts = ContextHelper.getValueContexts(this.contextData);        
             copContext.source = valContexts[0].source;
