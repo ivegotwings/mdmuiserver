@@ -561,7 +561,7 @@ class RockTabs
       if(currentApp) {
           let sideBar = currentApp.shadowRoot.querySelector("rock-sidebar");
           let entitySideBar = currentApp.shadowRoot.querySelector("rock-entity-sidebar");
-          if(sideBar && entitySideBar.config && !entitySideBar.config.collapse && sideBar.collapse && !sideBar.isUserTriggeredExpandCollapse
+          if(entitySideBar && entitySideBar.config && !entitySideBar.config.collapse && sideBar && sideBar.collapse && !sideBar.isUserTriggeredExpandCollapse
             && this._selectedTabConfig.tabConfig && this._selectedTabConfig.tabConfig.name !== e.detail.item.tabConfig.name) {
                 ComponentHelper.fireBedrockEvent("open-sidebar","",{ ignoreId: true });      
           }
