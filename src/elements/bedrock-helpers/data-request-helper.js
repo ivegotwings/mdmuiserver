@@ -1471,9 +1471,9 @@ DataRequestHelper.createFilterCriteria = function (criterionType,searchText, tit
         }
         
         if (attributes && attributes.length) {
-            let searchObj = DataHelper.getExactSearch(searchText)
+            let searchObj = DataHelper.getSearchTextCharacteristics(searchText)
             let isExactSearch = searchObj["isExactSearch"];
-            searchText = searchObj["updatedVal"];
+            searchText = searchObj["updatedSearchText"].join(' ');
             
             let operator = "eq";
             //For Exact Search with Quotes
