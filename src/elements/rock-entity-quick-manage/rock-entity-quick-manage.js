@@ -222,7 +222,7 @@ class RockEntityQuickManage extends mixinBehaviors([RUFBehaviors.UIBehavior,
                             <template is="dom-if" if="[[!noHeader]]">
                                 <div class="header-content">
                                     <span id="attrName">[[selectedEntityType]]</span>
-                                    <span id="attrVal">[[_getEntityDetailsForHeader(selectedEntity, attributeModels)]]</span>
+                                    <span id="attrVal">[[_selectedEntityTitle]]</span>
                                 </div>
                             </template>
                             <div class="layout flex right-section">
@@ -251,7 +251,7 @@ class RockEntityQuickManage extends mixinBehaviors([RUFBehaviors.UIBehavior,
                     <div class="base-grid-structure">
                         <div class="base-grid-structure-child-1">
                             <template is="dom-if" if="[[showThumbnailAndHeader]]">
-                                <div class="item-details m-t-20">
+                                <div class="item-details m-t-20 m-l-10">
                                     <div class="description">
                                         <template is="dom-repeat" items="[[itemDescription]]">
                                             <div class="item-container">
@@ -292,6 +292,7 @@ class RockEntityQuickManage extends mixinBehaviors([RUFBehaviors.UIBehavior,
             <div class="default-message" hidden\$="[[_showComponent(selectedEntity,_entityId)]]">
                 <span>[[_errorMessage]]</span>
             </div>
+            <liquid-entity-data-get id="headerAttributesGet" operation="getbyids" request-data="{{_headerAttributesRequest}}" on-error="_onHeaderAttributesGetError" on-response="_onHeaderAttributesResponse" exclude-in-progress=""></liquid-entity-data-get>
         </div>
 `;
   }
@@ -450,7 +451,23 @@ class RockEntityQuickManage extends mixinBehaviors([RUFBehaviors.UIBehavior,
              value: function () {
                 return {}
             }
-          }	    
+          },
+          _headerAttributesRequest: {
+              type: Object,
+              value: function () {
+                  return {}
+              }
+          },
+          _headerAttributeModels: {
+            type: Object,
+            value: function () {
+                return {};
+            }
+          },
+          _selectedEntityTitle: {
+              type: String,
+              value: ""
+          }
       };
   }
 
@@ -738,23 +755,6 @@ class RockEntityQuickManage extends mixinBehaviors([RUFBehaviors.UIBehavior,
       return false;
   }
 
-  _getEntityDetailsForHeader(selectedEntity, attributeModels) {
-      //Get the header value if the attribute is isExternalName
-      if (selectedEntity && !_.isEmpty(attributeModels)) {
-          let atrrName;
-          for (let modelName in attributeModels) {
-              if (attributeModels.hasOwnProperty(modelName) && attributeModels[modelName].isExternalName) {
-                  atrrName = modelName;
-                  break;
-              }
-              
-          }
-          let attrValue = (selectedEntity.attributes && selectedEntity.attributes[atrrName]) ?
-              selectedEntity.attributes[atrrName].value : selectedEntity[atrrName];
-          return attrValue;
-      }
-  }
-
   refresh() {
       this._refreshEvent();
   }
@@ -807,8 +807,8 @@ class RockEntityQuickManage extends mixinBehaviors([RUFBehaviors.UIBehavior,
     if (!_.isEmpty(entity) && showThumbnailAndHeader) {
         this._onContextDataChange();
         let compositeModel = await this._getCompositeModel();
+        let clonedContextData = DataHelper.cloneObject(this.contextData);
         if (compositeModel) {
-            let clonedContextData = DataHelper.cloneObject(this.contextData);
             clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
             this.attributeModels = await DataTransformHelper.transformAttributeModels(
                 compositeModel, clonedContextData);
@@ -834,23 +834,20 @@ class RockEntityQuickManage extends mixinBehaviors([RUFBehaviors.UIBehavior,
                 }
             }
         }
-        let itemDescription = [];
+
         if (!_.isEmpty(this.attributeModels)) {
             let entityIdentifierFound = false;
             let externalNameFound = false;
+            let attributeNames = [];
+            this._headerAttributeModels = {};
             for (let modelName in this.attributeModels) {
                 if (this.attributeModels.hasOwnProperty(modelName)){
                     let attribute = this.attributeModels[modelName];
                     if (attribute.isEntityIdentifier || attribute.isExternalName) {
                         entityIdentifierFound = entityIdentifierFound || attribute.isEntityIdentifier;
                         externalNameFound = externalNameFound || attribute.isExternalName;
-                        let itemValue = entity.attributes && entity.attributes[modelName] ? entity.attributes[modelName].value :
-                            entity[modelName];
-                        itemDescription.push({
-                            name: attribute.externalName,
-                            value: itemValue,
-                            description: attribute.description
-                        });
+                        attributeNames.push(attribute.name);
+                        this._headerAttributeModels[attribute.name] = attribute;
                         //No need to loop though all the attribute models
                         if (entityIdentifierFound && externalNameFound) {
                             break;
@@ -858,9 +855,43 @@ class RockEntityQuickManage extends mixinBehaviors([RUFBehaviors.UIBehavior,
                     }
                 }
             }
+
+            if(!_.isEmpty(attributeNames)) {
+                let firstItemContext = ContextHelper.getFirstItemContext(clonedContextData);
+                firstItemContext.attributeNames = attributeNames;
+                let req = DataRequestHelper.createEntityGetRequest(clonedContextData, true);
+                this.set("_headerAttributesRequest", req);
+                let headerAttributesGet = this.shadowRoot.querySelector("#headerAttributesGet");
+                if(headerAttributesGet) {
+                    headerAttributesGet.generateRequest();
+                }
+            }
         }
-        this.set("itemDescription", itemDescription);
     }
+}
+
+_onHeaderAttributesResponse(e) {
+    let itemDescription = [];
+    if(DataHelper.isValidObjectPath(e, "detail.response.content.entities.0")) {
+        let entity = e.detail.response.content.entities[0];
+        let attributesData = DataTransformHelper.transformAttributes(entity, this._headerAttributeModels, this.contextData, "array", false);
+        if(!_.isEmpty(attributesData)) {
+            for(let idx=0; idx<attributesData.length; idx++) {
+                let attrData = attributesData[idx];
+                let itemValue = attrData.value;
+                let model = this._headerAttributeModels[attrData.name];
+                itemDescription.push({
+                    name: model.externalName,
+                    value: itemValue,
+                    description: model.description
+                });
+                if(model.isExternalName) {
+                    this.set("_selectedEntityTitle", itemValue);
+                }
+            }
+        }
+    }
+    this.set("itemDescription", itemDescription);
 }
   _getDescriptionInfo(item) {
       return !_.isEmpty(item) && item.description;
