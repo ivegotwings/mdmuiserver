@@ -1612,7 +1612,7 @@ DataTransformHelper.transformEntitiesToSimpleSchema = function (entities, attrib
                     else if(columnName && entities[i][columnName]){
                         formattedEntity[columnName] =  entities[i][columnName];
                     }
-                    else if(columnName && entities[i].properties[columnName]){
+                    else if(columnName && entities[i].properties && entities[i].properties[columnName]){
                         formattedEntity[columnName] =  entities[i].properties[columnName];
                     }
                 }
