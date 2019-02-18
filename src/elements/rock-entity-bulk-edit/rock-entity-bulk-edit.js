@@ -387,6 +387,11 @@ RUFBehaviors.ComponentContextBehavior, RUFBehaviors.ComponentConfigBehavior], Po
               }
           }
           let values = DataTransformHelper.transformAttributes({}, this._attributeModels, this.contextData, "array", true);
+          if(!_.isEmpty(values)){
+            values.forEach( value => {
+                value.isBulkEdit = true;
+            })
+          }
           this._resetListGroupName(detail.data.name);
           this._attributeValues = values;
       }
