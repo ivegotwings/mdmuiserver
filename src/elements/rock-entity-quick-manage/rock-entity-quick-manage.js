@@ -868,9 +868,9 @@ class RockEntityQuickManage extends mixinBehaviors([RUFBehaviors.UIBehavior,
             }
         }
     }
-}
+  }
 
-_onHeaderAttributesResponse(e) {
+  _onHeaderAttributesResponse(e) {
     let itemDescription = [];
     if(DataHelper.isValidObjectPath(e, "detail.response.content.entities.0")) {
         let entity = e.detail.response.content.entities[0];
@@ -892,12 +892,12 @@ _onHeaderAttributesResponse(e) {
         }
     }
     this.set("itemDescription", itemDescription);
-}
+  }
 
-_onHeaderAttributesGetError(e) {
+  _onHeaderAttributesGetError(e) {
     this.logError("Entity data get failed with following error", e.detail);
     this.set("itemDescription", []);
-}
+  }
   _getDescriptionInfo(item) {
       return !_.isEmpty(item) && item.description;
   }
