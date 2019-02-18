@@ -893,6 +893,11 @@ _onHeaderAttributesResponse(e) {
     }
     this.set("itemDescription", itemDescription);
 }
+
+_onHeaderAttributesGetError(e) {
+    this.logError("Entity data get failed with following error", e.detail);
+    this.set("itemDescription", []);
+}
   _getDescriptionInfo(item) {
       return !_.isEmpty(item) && item.description;
   }
