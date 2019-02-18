@@ -165,11 +165,6 @@ class RockSidebar
               type: String,
               value: "quarter"
           },
-          //we can use this below flag to set if we want entity graph sidebar closed by default or not
-          _isEntityGraphSideBarCollapseByDefault: {
-              type: Boolean,
-              value: true
-          },
           isUserTriggeredExpandCollapse: {
               type: Boolean,
               value: false

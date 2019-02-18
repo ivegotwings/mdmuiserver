@@ -559,8 +559,9 @@ class RockTabs
       }
       let currentApp = ComponentHelper.getCurrentActiveApp();
       if(currentApp) {
-          let sideBar = ComponentHelper.getCurrentActiveApp().shadowRoot.querySelector("rock-sidebar");
-          if(sideBar && sideBar._isEntityGraphSideBarCollapseByDefault && sideBar.collapse && !sideBar.isUserTriggeredExpandCollapse
+          let sideBar = currentApp.shadowRoot.querySelector("rock-sidebar");
+          let entitySideBar = currentApp.shadowRoot.querySelector("rock-entity-sidebar");
+          if(sideBar && !entitySideBar.config.collapse && sideBar.collapse && !sideBar.isUserTriggeredExpandCollapse
             && this._selectedTabConfig.tabConfig && this._selectedTabConfig.tabConfig.name !== e.detail.item.tabConfig.name) {
                 ComponentHelper.fireBedrockEvent("open-sidebar","",{ ignoreId: true });      
           }

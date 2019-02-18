@@ -398,7 +398,7 @@ class RockEntityGraph
           let currentActiveApp = ComponentHelper.getCurrentActiveApp();
           if(currentActiveApp) {
             let sideBar = currentActiveApp.shadowRoot.querySelector("rock-sidebar");
-            if(sideBar && sideBar._isEntityGraphSideBarCollapseByDefault && !sideBar.collapse) {
+            if(sideBar && !sideBar.collapse) {
                 ComponentHelper.fireBedrockEvent("collapse-sidebar","",{ ignoreId: true });      
             }
           }
