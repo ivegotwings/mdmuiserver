@@ -580,13 +580,9 @@ class BedrockDataobjectNotificationHandler
 
   _getPebbleToast(component) {
       let parentElement = component.parentElement;
-      let pebbleToast = [];
-
-      if(customElements.get('pebble-toast') !== "undefined"){
-        pebbleToast = customElements.get('pebble-toast');
-      }
-      
-      if (!_.isEmpty(pebbleToast) && parentElement instanceof pebbleToast) {
+      let pebbleToast = customElements.get('pebble-toast');
+          
+      if (pebbleToast && pebbleToast!== "undefined" && parentElement instanceof pebbleToast) {
           return parentElement;
       } else {
           return this._getPebbleToast(parentElement);
