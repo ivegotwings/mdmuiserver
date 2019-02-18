@@ -416,7 +416,7 @@ class RockWorkflowPanel
 
   _getAssignedUserName(assignedUser) {
       if(assignedUser == "_UNASSIGNED") {
-          return "UNASSIGNED";
+          return "Unassigned";
       } else {
           return assignedUser;
       }
