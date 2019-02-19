@@ -845,6 +845,9 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
             type: Boolean,
             value: false
           },
+          rtePopoverTimeOut:{
+              type:Number
+          },
           showDeleteIcon: {
               type: Boolean,
               value: false
@@ -943,6 +946,7 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
                   return {};
               }
           },
+          
           hideSaveAsNull: {
               type: Boolean,
               value: false
@@ -1478,19 +1482,20 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
   _isGrid(functionalMode) {
       return functionalMode == "grid";
   }
-  _rteLinkHovered(e) {
-      this.shadowRoot.querySelector('#rtePopover').show();
+  _rteLinkHovered(e) {    
+    this.shadowRoot.querySelector('#rtePopover').show();
   }
   _rteLinkHoveredOut(e) {
-    this.rtePopoverIn = false
-    setTimeout(() => {
+    this.rtePopoverIn = false;
+    this.rtePopoverTimeOut = setTimeout(() => {
         if(!this.rtePopoverIn){        
             this.shadowRoot.querySelector('#rtePopover').hide();
         }
+        clearTimeout(this.rtePopoverTimeOut);
     },10);
   }
   _rtePopoverHovered(e) {
-      this.rtePopoverIn = true
+      this.rtePopoverIn = true;
   }
   _rtePopoverHoveredOut(e) {   
     this.shadowRoot.querySelector('#rtePopover').hide();
