@@ -24,8 +24,7 @@ class RockEntityTypeModelLov extends mixinBehaviors([RUFBehaviors.UIBehavior,
 RUFBehaviors.LovBehavior], PolymerElement) {
   static get template() {
     return html`
-        <attribute-model-datasource id="entityModelDataSource" is-request-by-id="[[isRequestById]]" mode="all" request="[[requestData]]" r-data-source="{{rDataSource}}" r-data-formatter="{{_dataFormatter}}" filter-criterion-builder="{{_filterCriterionBuilder}}" schema="lov" sort-criterion-builder="{{_sortCriterionBuilder}}">
-        </attribute-model-datasource>
+        <entity-type-model-data-source id="entityModelDataSource" is-request-by-id="[[isRequestById]]" request="[[requestData]]" r-data-source="{{rDataSource}}" r-data-formatter="{{_dataFormatter}}" filter-criterion-builder="{{_filterCriterionBuilder}}" sort-criterion-builder="{{_sortCriterionBuilder}}"></entity-type-model-data-source>
 
         <pebble-lov id="entityTypeModelLov" select-all="[[selectAll]]" page-size="[[pageSize]]" multi-select="{{multiSelect}}" show-image="[[showImage]]" show-color="[[showColor]]" no-sub-title="" show-action-buttons="[[showActionButtons]]" r-data-source="{{rDataSource}}" items="[[items]]" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" on-selection-changed="_onSelectedItemChange" on-lov-confirm-button-tap="_onLovConfirmButtonTapped" on-lov-close-button-tap="_onLovCloseButtonTapped">
         </pebble-lov>
