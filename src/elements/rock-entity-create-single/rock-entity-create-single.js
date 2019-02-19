@@ -423,15 +423,16 @@ class RockEntityCreateSingle
               entityId = entityId + "_" + entityType;
           } else {
               entityId = entityName + "_" + entityType;
-          }
-          if(_.isEmpty(this.entityDomain)){
-              let firstDomainContext = ContextHelper.getFirstDomainContext(this.contextData);
-              if(!_.isEmpty(firstDomainContext) && firstDomainContext.domain){
-                this.entityDomain = firstDomainContext.domain;
-              }
-          }
+          }          
       } else {
           entityName = DataHelper.getNameForNewEntityFromAttributes(attributesJSON, this._attributeModels, "isExternalName");
+      }
+
+      if(_.isEmpty(this.entityDomain)){
+        let firstDomainContext = ContextHelper.getFirstDomainContext(this.contextData);
+        if(!_.isEmpty(firstDomainContext) && firstDomainContext.domain){
+          this.entityDomain = firstDomainContext.domain;
+        }
       }
 
       //When it is not a new entity
@@ -441,7 +442,7 @@ class RockEntityCreateSingle
           this._matchedEntity = DataHelper.cloneObject(this.savedEntity);
       }
 
-      let domain;
+      let domain = "";
       if (this.entityDomain && this.entityDomain != "" && this.entityDomain != "undefined") {
           domain = this.entityDomain;
       }
