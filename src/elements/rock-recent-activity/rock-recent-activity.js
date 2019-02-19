@@ -415,45 +415,47 @@ class RockRecentActivity extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBeh
     e.currentTarget.classList.toggle("active");
     e.currentTarget.nextElementSibling.classList.toggle("show");
   }
-  _refresh(event) {
+  async _refresh(event) {
     if (event) {
         this.contextData = event.detail.contextData;
     }
     this.items = [];
     this.page = 0;
     this.page = 1;
-    if (this._isContextsAndCoalesceContextsAreDifferent()) {
-      this._triggerForCoalesceOptions();
+    if (await this._isCoalesceOptionsChanged()) {
+      this._triggerProcess();
     } else {
       this.getEvents();
     }
   }
 
-  _isContextsAndCoalesceContextsAreDifferent() {
-    let isDifferent = false;
-    if (DataHelper.isValidObjectPath(this._coalesceOptions, "enhancerAttributes.0.contexts")) {
-      let contexts = this.contextData.Contexts || [];
-      let coalesceContexts = this._coalesceOptions.enhancerAttributes[0].contexts;
-      coalesceContexts = coalesceContexts.filter(context => {
-        if (!context.self) {
-          return context;
-        }
-      });
+  //Coalesce options will change as per context and classification paths
+  async _isCoalesceOptionsChanged() {
+    let currentCoalesceOptions = await this._getCoalesceOptions();
 
-      if (!DataHelper.areEqualArrays(coalesceContexts, contexts)) {
-        isDifferent = true;
-      }
-    } else if (!_.isEmpty(this.contextData.Contexts)) {
-      isDifferent = true;
+    if (_.isEmpty(currentCoalesceOptions) && _.isEmpty(this._coalesceOptions)) {
+      return false;
     }
 
-    return isDifferent;
+    if ((_.isEmpty(currentCoalesceOptions) && !_.isEmpty(this._coalesceOptions)) ||
+      (!_.isEmpty(currentCoalesceOptions) && _.isEmpty(this._coalesceOptions))) {
+      this._coalesceOptions = currentCoalesceOptions;
+      return true;
+    }
+
+    if (!_.isEmpty(currentCoalesceOptions) && !_.isEmpty(this._coalesceOptions)) {
+      let isChanged = !DataHelper.areEqualArrays(currentCoalesceOptions.enhancerAttributes, this._coalesceOptions.enhancerAttributes);
+      if (isChanged) {
+        this._coalesceOptions = currentCoalesceOptions;
+      }
+      return isChanged;
+    }
   }
 
   ready() {
     super.ready();
     this._dataFormatter = this._getAttributeFormattedData.bind(this);
-    this._triggerForCoalesceOptions();
+    this._triggerWithCoalesceOptions();
   }
   _triggerProcess() {
     let compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
@@ -493,10 +495,14 @@ class RockRecentActivity extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBeh
     }
     request.params.options.coalesceOptions = this._coalesceOptions;
   }
-  async _triggerForCoalesceOptions() {
-    let entityCompositeModelManager = new EntityCompositeModelManager();
-    this._coalesceOptions = await entityCompositeModelManager.getCoalesceOptions(this.contextData);
+  async _triggerWithCoalesceOptions() {
+    this._coalesceOptions = await this._getCoalesceOptions();
     this._triggerProcess();
+  }
+  async _getCoalesceOptions() {
+    let entityCompositeModelManager = new EntityCompositeModelManager();
+    let coalesceOptions = await entityCompositeModelManager.getCoalesceOptions(this.contextData);
+    return coalesceOptions;
   }
   _getAttributeFormattedData(data) {
     if (data && data.content && !_.isEmpty(data.content.entityModels[0])) {
