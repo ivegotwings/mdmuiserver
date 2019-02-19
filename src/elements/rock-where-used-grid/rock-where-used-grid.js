@@ -1887,7 +1887,13 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
       }
     };
     defaultEntity.data.relationships[this.relationship] = [rel];
-    let domain = DataHelper.isValidObjectPath(this.contextData, "ItemContexts.0.domain") ? this.contextData.ItemContexts[0].domain : undefined;
+    let domain;
+    if(DataHelper.isValidObjectPath(this.contextData, "ItemContexts.0.domain") && !_.isEmpty(this.contextData.ItemContexts[0].domain)){
+      domain = this.contextData.ItemContexts[0].domain;
+    }
+    else{
+      domain = "";
+    }
     let entityTypeManager = new EntityTypeManager()
     let fromEntityExternalName = entityTypeManager.getTypeExternalNameById(fromEntityTypes[0]);
     let title = DataHelper.concatValuesFromArray([
