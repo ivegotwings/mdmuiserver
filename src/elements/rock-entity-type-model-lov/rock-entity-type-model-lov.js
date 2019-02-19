@@ -16,7 +16,6 @@ import '../bedrock-helpers/element-helper.js';
 import '../bedrock-lov-behavior/bedrock-lov-behavior.js';
 import '../bedrock-ui-behavior/bedrock-ui-behavior.js';
 import '../liquid-entity-model-get/liquid-entity-model-get.js';
-import '../rock-grid-data-sources/attribute-model-datasource.js';
 import '../pebble-lov/pebble-lov.js';
 import './entity-type-model-datasource.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
