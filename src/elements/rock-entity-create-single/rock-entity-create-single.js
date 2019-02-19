@@ -428,13 +428,6 @@ class RockEntityCreateSingle
           entityName = DataHelper.getNameForNewEntityFromAttributes(attributesJSON, this._attributeModels, "isExternalName");
       }
 
-      if(_.isEmpty(this.entityDomain)){
-        let firstDomainContext = ContextHelper.getFirstDomainContext(this.contextData);
-        if(!_.isEmpty(firstDomainContext) && firstDomainContext.domain){
-          this.entityDomain = firstDomainContext.domain;
-        }
-      }
-
       //When it is not a new entity
       if(!_.isEmpty(this.savedEntity)) {
           entityId = this.savedEntity.id;
@@ -442,7 +435,7 @@ class RockEntityCreateSingle
           this._matchedEntity = DataHelper.cloneObject(this.savedEntity);
       }
 
-      let domain = "";
+      let domain;
       if (this.entityDomain && this.entityDomain != "" && this.entityDomain != "undefined") {
           domain = this.entityDomain;
       }
