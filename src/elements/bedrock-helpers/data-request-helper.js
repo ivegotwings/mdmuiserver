@@ -1437,7 +1437,6 @@ DataRequestHelper.createEntityContextGetRequest = function (entityId, entityType
 DataRequestHelper.createFilterCriteria = function (criterionType,searchText, titlePattern, subTitlePattern,hasNestedChildAttributes) {
     let filterCriterion = [];
     let filterObject = {};
-    let searchKey = {};
     let searchValue = {};
     if (!_.isEmpty(searchText)) {
         let attributes = [];
@@ -1486,6 +1485,7 @@ DataRequestHelper.createFilterCriteria = function (criterionType,searchText, tit
             }
             searchValue[operator] = searchText;
             attributes.forEach(function (item) {
+                let searchKey = {};
                 if(searchText.indexOf(".") > -1 && criterionType == "propertiesCriterion" && hasNestedChildAttributes){
                     searchKey["attributeExternalNamePath"] = searchValue;
                 }else{
@@ -1495,6 +1495,7 @@ DataRequestHelper.createFilterCriteria = function (criterionType,searchText, tit
             }, this);
         }
     }
+
     if(filterCriterion){
         filterObject[criterionType] = filterCriterion
     }
