@@ -455,6 +455,8 @@ RUFBehaviors.ComponentContextBehavior, RUFBehaviors.ComponentConfigBehavior], Po
                     } else {
                         attributeJSON.value = ConstantHelper.NULL_VALUE;
                     }
+                }else{
+                    delete attributeJSON.value;
                 }
                 attributeJSON.action = "delete";
               } else {
