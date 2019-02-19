@@ -1005,7 +1005,7 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
   revertAll(){
 
     //resetting rock-entity-combo-box selectedId
-    var comboBoxElement = this.shadowRoot.querySelector('#combo-box');
+    let comboBoxElement = this.shadowRoot.querySelector('#combo-box');
     if(comboBoxElement && this.attributeObject && this.attributeObject.value){
         comboBoxElement.selectedValueChanged();
     }
