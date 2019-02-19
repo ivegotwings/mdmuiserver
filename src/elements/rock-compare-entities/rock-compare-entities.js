@@ -979,7 +979,7 @@ class RockCompareEntities extends mixinBehaviors([
   _isColumnSelectAllowed() {
       let matchConfig = (this.compareEntitiesContext || {}).matchConfig;
       let isMergeEnabled = matchConfig && matchConfig.matchMerge && matchConfig.matchMerge.canMerge;
-      return this.enableColumnSelect && isMergeEnabled;
+      return this.enableColumnSelect && (isMergeEnabled || this.isSnapshot);
   }
 
   //attributes grid column prepare
@@ -1043,7 +1043,7 @@ class RockCompareEntities extends mixinBehaviors([
                           if (typeof disable == "boolean") {
                               colDetails["selectable"] = {
                                   "isAction": true,
-                                  "disable": disable || !isMergeEnabled
+                                  "disable": disable || !(isMergeEnabled || this.isSnapshot)
                               };
                           }
                       }
