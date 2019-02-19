@@ -440,6 +440,12 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
                     overflow-x: auto;
                 }
             }
+            #rtePopover{
+                --pebble-popover-width: 260px;
+                --popover: {
+                    max-height: 350px;
+                }
+            }
             
         </style>
         <div class\$="attribute [[functionalMode]]">
@@ -623,8 +629,8 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
                     <!-- Show the popover for read-only mode for the grid-->
                     <template is="dom-if" if="[[_isGridType]]">
                         <template is="dom-if" if="[[!_isEditMode(mode)]]">
-                            <span id="rtelink" class="fallback-value" on-mouseenter="_rteLinkHovered" on-mouseout="_rteLinkHoveredOut">Show More</span>
-                            <pebble-popover id="rtePopover" class="p-10" for="rtelink" no-overlap="" horizontal-align="right">
+                            <span id="rtelink" class="fallback-value" on-mouseenter="_rteLinkHovered" on-mouseleave="_rteLinkHoveredOut">Show More</span>
+                            <pebble-popover id="rtePopover" class="p-10" for="rtelink" no-overlap="" horizontal-align="auto" vertical-align="auto" on-mouseenter="_rtePopoverHovered" on-mouseleave="_rtePopoverHoveredOut">
                                 <pebble-richtexteditor id="input" description-object="[[_getDescriptionObject()]]" validation-errors="{{validationErrors}}" label="{{_getLabel(attributeModelObject.externalName)}}" invalid="{{invalid}}" value="{{attributeDisplayValue}}" tabindex="[[tabindex]]" read-only="[[!_isComponentEditable(mode, attributeModelObject)]]" selected-values-font-style="[[_coalescedFontStyle]]" selected-values-color="[[_fallbackColor]]"></pebble-richtexteditor>
                             </pebble-popover>
                         </template>
@@ -834,6 +840,10 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
            */
           tabindex: {
               type: Number
+          },
+          rtePopoverIn:{
+            type: Boolean,
+            value: false
           },
           showDeleteIcon: {
               type: Boolean,
@@ -1472,6 +1482,17 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
       this.shadowRoot.querySelector('#rtePopover').show();
   }
   _rteLinkHoveredOut(e) {
+    this.rtePopoverIn = false
+    setTimeout(() => {
+        if(!this.rtePopoverIn){        
+            this.shadowRoot.querySelector('#rtePopover').hide();
+        }
+    },10);
+  }
+  _rtePopoverHovered(e) {
+      this.rtePopoverIn = true
+  }
+  _rtePopoverHoveredOut(e) {   
     this.shadowRoot.querySelector('#rtePopover').hide();
 }
   _rteEditLinkTapped(e) {
