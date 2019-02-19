@@ -319,7 +319,10 @@ RUFBehaviors.ComponentContextBehavior, RUFBehaviors.ComponentConfigBehavior], Po
           this._attributeModels[selectedItem.name] = selectedItem;
           let values = DataTransformHelper.transformAttributes({}, this._attributeModels, this.contextData, "array", true);
           let value = values.find(obj => obj.name === selectedItem.name);
+          //TODO 
+          // Temporary fix - whether bulk-edit or entity-manage, rock-attribute should handle to display clear icon
           value.isBulkEdit = true;
+          //Till here
           if (value) {
               this.push("_attributeValues", value);
           }
@@ -387,11 +390,14 @@ RUFBehaviors.ComponentContextBehavior, RUFBehaviors.ComponentConfigBehavior], Po
               }
           }
           let values = DataTransformHelper.transformAttributes({}, this._attributeModels, this.contextData, "array", true);
+          //TODO 
+          // Temporary fix - whether bulk-edit or entity-manage, rock-attribute should handle to display clear icon
           if(!_.isEmpty(values)){
             values.forEach( value => {
                 value.isBulkEdit = true;
             })
           }
+          //Till here
           this._resetListGroupName(detail.data.name);
           this._attributeValues = values;
       }
