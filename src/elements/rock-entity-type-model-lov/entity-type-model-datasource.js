@@ -162,7 +162,7 @@ _onInitSearchResponse(e) {
     this.isRequestInitiated = true;
 }
 
-_onGetSearchResponse(success, error) {
+_onGetSearchResponse(success, error, event) {
     if (event && event.detail && event.detail.response) {
         if (typeof (this.rDataFormatter) == 'function') {
             if (event.detail.response.status === "success") {
