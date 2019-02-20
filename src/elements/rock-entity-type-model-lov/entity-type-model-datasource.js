@@ -162,11 +162,11 @@ _onInitSearchResponse(e) {
     this.isRequestInitiated = true;
 }
 
-_onGetSearchResponse(success, error, event) {
-    if (event && event.detail && event.detail.response) {
+_onGetSearchResponse(success, error, e) {
+    if (e && e.detail && e.detail.response) {
         if (typeof (this.rDataFormatter) == 'function') {
-            if (event.detail.response.status === "success") {
-                success(this.rDataFormatter(event.detail.response));
+            if (e.detail.response.status === "success") {
+                success(this.rDataFormatter(e.detail.response));
             } else {
                 error();
             }
