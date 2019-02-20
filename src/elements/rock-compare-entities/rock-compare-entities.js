@@ -1567,7 +1567,9 @@ class RockCompareEntities extends mixinBehaviors([
               if (entity[this.entityTitle]) {
                   header = entity[this.entityTitle];
               } else {
-                  let attributes = entity.data.attributes;
+                let attributes = DataHelper.isValidObjectPath(entity,
+                    'data.contexts.0.attributes') ? entity.data.contexts[0].attributes :
+                        entity.data.attributes;
                   if (attributes && attributes[this.entityTitle]) {
                       header = attributes[this.entityTitle].values ? attributes[this.entityTitle].values[
                           0].value : "";
