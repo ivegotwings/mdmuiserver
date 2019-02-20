@@ -802,6 +802,7 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
   _prepareAttrsCriterion(attributeModels, attributes) {
     if (attributes && attributes.length > 0) {
       let selectedContext = ContextHelper.getDataContexts(this.contextData);
+      let defaultValCtx = DataHelper.getDefaultValContext();
       for (let i = 0; i < attributes.length; i++) {
         let attribute = attributes[i];
         for (let attrName in attribute) {
@@ -825,64 +826,54 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                 let key = keys[j];
                 let val = attrVal[key];
                 let valueStr =  "";
-                let searchObj = DataHelper.getExactSearch(val)
+                let searchObj = DataHelper.getSearchTextCharacteristics(val)
                 let isExactSearch = searchObj["isExactSearch"];
-                let containsStr = searchObj["updatedVal"];
+                let updatedSearchTextArray = searchObj["updatedSearchText"];
+                let operator = searchObj["operator"];
                 
-                let operator;
-                let splitQueryByAnd = containsStr.toLowerCase().split("' and '");
-                let splitQueryByOr = containsStr.toLowerCase().split("' or '");
-                let splittedValue = [];
-                if (splitQueryByAnd.length > 1) {
-                  operator = "_AND";
-                  splittedValue = splitQueryByAnd;
-                } else if (splitQueryByOr.length > 1) {
-                  operator = "_OR";
-                  splittedValue = splitQueryByOr;
-                }
                   if (val.indexOf("!%&") > -1) {
                     attrVal["hasvalue"] = val == "!%&has value!%&" ? true : false;
                     delete attrVal[key];
                   } else if (displayType === "path") {
                     if (key === "equals") {
-                      if(splittedValue.length > 1){
-                          valueStr = this._formatQueryValue(splittedValue,false,false)
+                      if(updatedSearchTextArray.length > 1){
+                          valueStr = this._formatQueryValue(updatedSearchTextArray,false,false)
                           attrVal["eq"] = valueStr;
-                          attrVal["operator"] = operator
+                          attrVal["operator"] = operator;
                       }else {
-                        attrVal["eq"] = containsStr;
+                        attrVal["eq"] = updatedSearchTextArray[0];
                       }
                     }
                     delete attrVal[key];
                   }
                   else if (displayType === "referencelist") {
                     if (key === "equals") {
-                      if (splittedValue.length > 1) {
-                        attrVal["exacts"] = splittedValue;
+                      if (updatedSearchTextArray.length > 1) {
+                        attrVal["exacts"] = updatedSearchTextArray;
                         attrVal["operator"] = operator
                       } else {
-                        attrVal["exact"] = containsStr;
+                        attrVal["exact"] = updatedSearchTextArray[0];
                       }
                       delete attrVal[key];
                     }
                   }else if (displayType === "textbox") {
                     if (key === "equals") {
                       if(isExactSearch){
-                        if (splittedValue.length > 1) {
-                          attrVal["exacts"] = splittedValue;
+                        if (updatedSearchTextArray.length > 1) {
+                          attrVal["exacts"] = updatedSearchTextArray;
                           attrVal["operator"] = operator;
                         }else {
-                          attrVal["exact"] = containsStr;
+                          attrVal["exact"] = updatedSearchTextArray[0];
                         }
                       }else{
-                        if (splittedValue.length > 1) {
-                          valueStr = this._formatQueryValue(splittedValue,true,true)
+                        if (updatedSearchTextArray.length > 1) {
+                          valueStr = this._formatQueryValue(updatedSearchTextArray,true,true)
                           attrVal["eq"] = valueStr;
                           attrVal["operator"] = operator;
                         }else {
-                          containsStr = DataHelper.removeSpecialCharacters(containsStr);
-                          let value = DataHelper.populateWildcardForFilterText(containsStr);
-                          attrVal["eq"] = value;
+                          let filterValue = DataHelper.removeSpecialCharacters(updatedSearchTextArray[0]);
+                          filterValue = DataHelper.populateWildcardForFilterText(filterValue);
+                          attrVal["eq"] = filterValue;
                         }
                       }
                     
@@ -890,25 +881,25 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                     }
                   } else if (displayType === "numeric") {
                     if (key === "equals") {
-                      if (splittedValue.length > 1) {
-                        attrVal["exacts"] = splittedValue;
+                      if (updatedSearchTextArray.length > 1) {
+                        attrVal["exacts"] = updatedSearchTextArray;
                         attrVal["operator"] = operator;
                       }else {
-                        attrVal["eq"] = containsStr;
+                        attrVal["eq"] = updatedSearchTextArray[0];
                       }
                       delete attrVal[key];
                     }
                   } else if (displayType === "boolean") {
-                    attrVal["eq"] = containsStr;
+                    attrVal["eq"] = updatedSearchTextArray[0];
                     delete attrVal[key];
                   } else if (displayType === "richtexteditor" || displayType === "textarea") {
                     if(isExactSearch){
-                      attrVal["eq"] = "\""+containsStr+"\"";
+                      attrVal["eq"] = "\""+ updatedSearchTextArray[0] +"\"";
                       attrVal["operator"] = operator;
                     }else{
-                      containsStr = containsStr.replace(/(^")|("$)/g, "");
-                      containsStr = DataHelper.removeSpecialCharacters(containsStr);
-                      attrVal["eq"] = DataHelper.populateWildcardForFilterText(containsStr)
+                      let filterValue = updatedSearchTextArray[0].replace(/(^")|("$)/g, "");
+                      filterValue = DataHelper.removeSpecialCharacters(filterValue);
+                      attrVal["eq"] = DataHelper.populateWildcardForFilterText(filterValue)
                       attrVal["operator"] = operator;
                     }
                     delete attrVal[key];
@@ -933,16 +924,15 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                     }
                   } else {
                     if (operator) {
-                      attrVal["contains"] = containsStr;
+                      attrVal["contains"] = updatedSearchTextArray[0];
                       attrVal["operator"] = operator;
                     } else {
-                      attrVal["exact"] = containsStr;
+                      attrVal["exact"] = updatedSearchTextArray[0];
                     }
                     delete attrVal[key];
                   }
               }
               attrVal["type"] = dataType;
-              let defaultValCtx = DataHelper.getDefaultValContext();
               if (!attrModel.isLocalizable && !attrModel.isNestedChildItem) {
                 attrVal["valueContexts"] = [defaultValCtx];
               }
@@ -972,6 +962,9 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                   if (attrData && (attrData.indexOf("!%&") > -1)) {
                     attrVal = {};
                     attrVal["hasvalue"] = attrData == "!%&has value!%&" ? true : false;
+                  }
+                  if(attrModel && !attrModel.isLocalizable) {
+                    attrVal["valueContexts"] = [defaultValCtx];
                   }
                   nestedAttributeObj[_currentLevel] = attrVal;
                 } else {

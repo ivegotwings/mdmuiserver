@@ -217,7 +217,8 @@ class BedrockValidator extends PolymerElement {
                 }
             }
             if (this.pattern) {
-                if (!ValidationHelper.regexValidator(input, this.pattern)) {
+                let fullMatchPattern = "^"+this.pattern+"$";
+                if (!ValidationHelper.regexValidator(input, fullMatchPattern)) {
                     this.invalid = true;
                     let msg = "Text doesn't match the required pattern.";
                     if(this.regexHint){

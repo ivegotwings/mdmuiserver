@@ -444,6 +444,12 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
                     overflow-x: auto;
                 }
             }
+            #rtePopover{
+                --pebble-popover-width: 260px;
+                --popover: {
+                    max-height: 350px;
+                }
+            }
             
         </style>
         <div class\$="attribute [[functionalMode]]">
@@ -627,8 +633,8 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
                     <!-- Show the popover for read-only mode for the grid-->
                     <template is="dom-if" if="[[_isGridType]]">
                         <template is="dom-if" if="[[!_isEditMode(mode)]]">
-                            <span id="rtelink" class="fallback-value popup-link-text" on-mouseenter="_rteLinkHovered" on-mouseout="_rteLinkHoveredOut">Show More</span>
-                            <pebble-popover id="rtePopover" class="p-10" for="rtelink" no-overlap="" horizontal-align="right">
+                            <span id="rtelink" class="fallback-value popup-link-text" on-mouseenter="_rteLinkHovered" on-mouseleave="_rteLinkHoveredOut">Show More</span>
+                            <pebble-popover id="rtePopover" class="p-10" for="rtelink" no-overlap="" horizontal-align="auto" vertical-align="auto" on-mouseenter="_rtePopoverHovered" on-mouseleave="_rtePopoverHoveredOut">
                                 <pebble-richtexteditor id="input" description-object="[[_getDescriptionObject()]]" validation-errors="{{validationErrors}}" label="{{_getLabel(attributeModelObject.externalName)}}" invalid="{{invalid}}" value="{{attributeDisplayValue}}" tabindex="[[tabindex]]" read-only="[[!_isComponentEditable(mode, attributeModelObject)]]" selected-values-font-style="[[_coalescedFontStyle]]" selected-values-color="[[_fallbackColor]]"></pebble-richtexteditor>
                             </pebble-popover>
                         </template>
@@ -839,6 +845,13 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
           tabindex: {
               type: Number
           },
+          rtePopoverIn:{
+            type: Boolean,
+            value: false
+          },
+          rtePopoverTimeOut:{
+              type:Number
+          },
           showDeleteIcon: {
               type: Boolean,
               value: false
@@ -937,6 +950,7 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
                   return {};
               }
           },
+          
           hideSaveAsNull: {
               type: Boolean,
               value: false
@@ -991,6 +1005,14 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
           this.validationWarnings = [];
           this.validationWarnings = validationMessages;
       }
+  }
+  revertAll(){
+
+    //resetting rock-entity-combo-box selectedId
+    let comboBoxElement = this.shadowRoot.querySelector('#combo-box');
+    if(comboBoxElement && this.attributeObject && this.attributeObject.value){
+        comboBoxElement.selectedValueChanged();
+    }
   }
   _formatValue(model, object) {
       //This display nothing if the initial display of rock attribute is _NULL
@@ -1343,6 +1365,7 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
       this.set("attributeObject.value", attributeObjectValue);
       this.set("attributeObject.referenceDataId", attributeDisplayValue);
       this.changed = true;
+      this.tappedSaveAsNull = false;
   }
   _onSourceInformationClick(e) {
       this._isReadyToShowSourceInfoPopover = true;
@@ -1472,10 +1495,22 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
   _isGrid(functionalMode) {
       return functionalMode == "grid";
   }
-  _rteLinkHovered(e) {
-      this.shadowRoot.querySelector('#rtePopover').show();
+  _rteLinkHovered(e) {    
+    this.shadowRoot.querySelector('#rtePopover').show();
   }
   _rteLinkHoveredOut(e) {
+    this.rtePopoverIn = false;
+    this.rtePopoverTimeOut = setTimeout(() => {
+        if(!this.rtePopoverIn){        
+            this.shadowRoot.querySelector('#rtePopover').hide();
+        }
+        clearTimeout(this.rtePopoverTimeOut);
+    },10);
+  }
+  _rtePopoverHovered(e) {
+      this.rtePopoverIn = true;
+  }
+  _rtePopoverHoveredOut(e) {   
     this.shadowRoot.querySelector('#rtePopover').hide();
 }
   _rteEditLinkTapped(e) {

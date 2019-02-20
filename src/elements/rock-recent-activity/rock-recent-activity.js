@@ -422,7 +422,32 @@ class RockRecentActivity extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBeh
     this.items = [];
     this.page = 0;
     this.page = 1;
-    this.getEvents();
+    if (this._isContextsAndCoalesceContextsAreDifferent()) {
+      this._triggerForCoalesceOptions();
+    } else {
+      this.getEvents();
+    }
+  }
+
+  _isContextsAndCoalesceContextsAreDifferent() {
+    let isDifferent = false;
+    if (DataHelper.isValidObjectPath(this._coalesceOptions, "enhancerAttributes.0.contexts")) {
+      let contexts = this.contextData.Contexts || [];
+      let coalesceContexts = this._coalesceOptions.enhancerAttributes[0].contexts;
+      coalesceContexts = coalesceContexts.filter(context => {
+        if (!context.self) {
+          return context;
+        }
+      });
+
+      if (!DataHelper.areEqualArrays(coalesceContexts, contexts)) {
+        isDifferent = true;
+      }
+    } else if (!_.isEmpty(this.contextData.Contexts)) {
+      isDifferent = true;
+    }
+
+    return isDifferent;
   }
 
   ready() {
@@ -495,6 +520,10 @@ class RockRecentActivity extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBeh
           rockElement = new rockComponent();
           rockElement.attributeModelObject = attributeModel;
           let attributeValue = this._getRowData(attributeData, attributeId, attributeModel);
+          if (!attributeValue || _.isEmpty(attributeValue.value)) {
+            this.showWarningToast("No data for the attribute in current context");
+            return;
+          }
           rockElement.attributeObject = attributeValue;
           rockElement.mode = "view";
         } else if (attributeModel.displayType && attributeModel.displayType.toLowerCase() === "richtexteditor") {
@@ -523,6 +552,9 @@ class RockRecentActivity extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBeh
       let firstValueContext = ContextHelper.getFirstValueContext(this.contextData);
 
       if (attrModel && attrModel.group && attrModel.group.length > 0) {
+        if (!attrModel.isLocalizable) {
+          firstValueContext = DataHelper.getDefaultValContext();
+        }
         let attrValue = DataTransformHelper.transformNestedAttributes({
           "group": item[attributeId]
         }, attrModel, false, firstDataContext, firstValueContext);

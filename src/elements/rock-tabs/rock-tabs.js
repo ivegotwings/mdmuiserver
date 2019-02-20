@@ -557,6 +557,15 @@ class RockTabs
       if (isNaN(retryCount)) {
           retryCount = 1;
       }
+      let currentApp = ComponentHelper.getCurrentActiveApp();
+      if(currentApp) {
+          let sideBar = currentApp.shadowRoot.querySelector("rock-sidebar");
+          let entitySideBar = currentApp.shadowRoot.querySelector("rock-entity-sidebar");
+          if(entitySideBar && entitySideBar.config && !entitySideBar.config.collapse && sideBar && sideBar.collapse && !sideBar.isUserTriggeredExpandCollapse
+            && this._selectedTabConfig.tabConfig && this._selectedTabConfig.tabConfig.name !== e.detail.item.tabConfig.name) {
+                ComponentHelper.fireBedrockEvent("open-sidebar","",{ ignoreId: true });      
+          }
+      }
 
       //NavigationContext needs to be set only when viewMode and viewModeSubMenu have been resolved
       let setnavConfig = true;
@@ -580,6 +589,14 @@ class RockTabs
                   let menuItemConfig = menuItems.filter(item => item.title === this.viewModeSubMenu);
                   e.detail.item.menuItemConfig = menuItemConfig[0];
                   e.detail.item.tabConfig.subtitle = this.viewModeSubMenu;
+                  let menuListBox = e.detail.item.querySelector('paper-listbox');
+                  if(menuListBox && _.isEmpty(menuListBox.selectedItem)) {
+                      let selectedMenuItemId = e.detail.item.tabConfig.name + "-" + e.detail.item.menuItemConfig.name;
+                      let selectedMenuItem = menuListBox.querySelector("#" + selectedMenuItemId);
+                      if(selectedMenuItem) {
+                          menuListBox._setSelectedItem(selectedMenuItem);
+                      }
+                  }
                   this.selectedTabIndex = e.detail.item.tabConfig.index;
                   this.viewModeSubMenu = "";
                   this.viewMode = "";

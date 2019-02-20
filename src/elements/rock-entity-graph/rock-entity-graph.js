@@ -38,9 +38,6 @@ class RockEntityGraph
             :host{
                 display: block;
                 height: 100%;
-                --quick-manage-header: {
-                    display: none;
-                }
                 --rock-where-used-grid-govern-toggle:{
                     display: none;
                 }
@@ -398,6 +395,13 @@ class RockEntityGraph
   }
   onConfigLoaded(componentConfig) {
       if(componentConfig && componentConfig.config) {
+          let currentActiveApp = ComponentHelper.getCurrentActiveApp();
+          if(currentActiveApp) {
+            let sideBar = currentActiveApp.shadowRoot.querySelector("rock-sidebar");
+            if(sideBar && !sideBar.collapse) {
+                ComponentHelper.fireBedrockEvent("collapse-sidebar","",{ ignoreId: true });      
+            }
+          }
               this.configData = componentConfig.config;
               if(_.isEmpty(this._graphTreeConfig)){
                   this._graphTreeConfig = componentConfig.config.entityGraphTreeConfig;

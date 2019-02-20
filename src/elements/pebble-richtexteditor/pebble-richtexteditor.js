@@ -738,7 +738,7 @@ class PebbleRichtexteditor extends PolymerElement {
 
     _hideDropdown(e) {
         if (!e.target.matches('.ql-select-area')) {
-            let contentDiv = this.shadowRoot.querySelector("content");
+            let contentDiv = this.shadowRoot.querySelector("#content");
             if (contentDiv) {
                 let activeDropdowns = contentDiv.getElementsByClassName('active');
                 if (activeDropdowns && activeDropdowns.length > 0) {

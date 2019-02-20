@@ -23,7 +23,7 @@ ElementHelper.getElement = function (currentNode, selector) {
     }
 };
 
-let ALPHABET = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+let ALPHABET = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 
 let UNIQUE_RETRIES = 9999;
 
@@ -34,33 +34,38 @@ let generate = function(ID_LENGTH){
     for (let i = 0; i < ID_LENGTH; i++) {
         rtn += ALPHABET.charAt(Math.floor(Math.random() * ALPHABET.length));
     }
+    rtn = 'rs' + rtn;
     return rtn;
 }
 
-let generateUnique = function(length, previous) {
-    previous = previous || [];
-    let retries = 0;
-    let id;
+let generateUnique = function(length) {
+    
+    
+    return generate(length);
 
-    // Try to generate a unique ID,
-    // i.e. one that isn't in the previous.
-    while(!id && retries < UNIQUE_RETRIES) {
-        id = generate(length);
-        if(previous.indexOf(id) !== -1) {
-            id = null;
-            retries++;
-        }
-    }
+    // TODO: not maintaining unique id list as of now. should we do? why?
 
-    return id;
+    // let id;
+    // ids = ids || [];
+    // let retries = 0;
+    // while(!id && retries < UNIQUE_RETRIES) {
+    //     id = generate(length);
+    //     if(ids.indexOf(id) !== -1) {
+    //         id = null;
+    //         retries++;
+    //     }
+    // }
+
+    //ids.push(id);
+    //return id;
 };
 
 ElementHelper.getRandomId = function () {
-    return generateUnique(16, ids);
+    return generateUnique(16);
 };
 
 ElementHelper.getRandomString = function () {
-    return generateUnique(12, ids);
+    return generateUnique(12);
 };
 
 ElementHelper.noBubble = function (e) {

@@ -44,7 +44,8 @@ class RockNestedAttributeGrid
                 line-height: 16px;
                 text-transform: capitalize;
                 color: var(--label-text-color, #96b0c6);
-                width:calc(100% - 100px);                
+                width:calc(100% - 100px);  
+                display:inline-block;              
                 @apply --context-coalesce-label;
             }
             .attribute-view-label{

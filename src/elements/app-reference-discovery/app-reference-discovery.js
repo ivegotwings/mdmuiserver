@@ -197,6 +197,13 @@ class AppReferenceDiscovery
             .min-width-0 {
                 min-width: 0px;
             }
+            #entityGridInfo {
+                position: absolute;
+                left: 30px;
+                right: 30px;
+                bottom: auto;
+                display: none;
+            }
         </style>
         <rock-layout>
             <liquid-entity-model-composite-get name="compositeAttributeModelGet" on-entity-model-composite-get-response="_onCompositeModelGetResponse">
@@ -259,11 +266,15 @@ class AppReferenceDiscovery
                 <div class="layout horizontal contentContainer">
                     <div id="entityGridContainer" class\$="[[_applyClass(_quickManageEnabled)]]">
                         <div id="refTypeMsg" class="default-message" hidden\$="[[_isTypesCriterionAvailable(_typesCriterion)]]"> Select reference type </div>
+                        <div id="entityGridInfo" class="default-message"> No results found for the given criteria.</div>
                         <rock-entity-search-result id="entitySearchGrid" context-data="[[contextData]]" search-filters="[[_selectedSearchFilters]]" types-criterion="[[_typesCriterion]]" search-query="[[_searchQuery]]" process-with-dynamic-fields="" dynamic-fields="[[_dynamicFields]]" current-record-size="{{_gridFullLength}}">
                         </rock-entity-search-result>
                         <bedrock-pubsub event-name="grid-selecting-item" handler="_onSelectingGridItem" target-id="entityGrid"></bedrock-pubsub>
                         <bedrock-pubsub event-name="grid-deselecting-item" handler="_onDeSelectingGridItem" target-id="entityGrid"></bedrock-pubsub>
                         <bedrock-pubsub event-name="grid-refresh-items" handler="_onRefreshGrid" target-id="entityGrid"></bedrock-pubsub>
+                        <bedrock-pubsub event-name="empty-grid" handler="_onEntityGridEmpty" target-id="entitySearchGrid"></bedrock-pubsub>
+                        <bedrock-pubsub event-name="grid-with-data" handler="_onEntityGridFull" target-id="entitySearchGrid"></bedrock-pubsub>
+                        <bedrock-pubsub event-name="grid-load-error" handler="_onEntityGridError" target-id="entitySearchGrid"></bedrock-pubsub>
                         <bedrock-pubsub event-name="quick-manage-event" handler="_onTapManage"></bedrock-pubsub>
                     </div>
                     <template is="dom-if" if="[[_quickManageEnabled]]" restamp="">
@@ -1108,6 +1119,50 @@ class AppReferenceDiscovery
               return this.configData.componentSettings[componentName];
           }
       }
+  }
+
+  _onEntityGridEmpty() {
+      let gridComponents = this.shadowRoot.querySelector("#entitySearchGrid");
+      gridComponents.style['visibility'] = "hidden";
+      let actionBtns = this.shadowRoot.querySelector("#businessActions");
+      if (actionBtns) {
+          actionBtns.style['visibility'] = "hidden";
+      }
+
+      let gridInfo = this.shadowRoot.querySelector("#entityGridInfo");
+      gridInfo.style['display'] = "block";
+
+      this._quickManageEnabled = false;
+  }
+
+  /**
+   * When the grid data is not empty, show the grid,action buttons and hide the "no data" info
+   **/
+  _onEntityGridFull() {
+      let gridInfo = this.shadowRoot.querySelector("#entityGridInfo");
+      gridInfo.style['display'] = "none";
+
+      let gridComponents = this.shadowRoot.querySelector("#entitySearchGrid");
+      gridComponents.style['visibility'] = "visible";
+      let actionBtns = this.shadowRoot.querySelector("#businessActions");
+      if (actionBtns) {
+          actionBtns.style['visibility'] = "visible";
+      }
+  }
+
+  _onEntityGridError() {
+      let gridComponents = this.shadowRoot.querySelector("#entitySearchGrid");
+      gridComponents.style['visibility'] = "hidden";
+      let actionBtns = this.shadowRoot.querySelector("#businessActions");
+      if (actionBtns) {
+          actionBtns.style['visibility'] = "hidden";
+      }
+
+      let gridInfo = this.shadowRoot.querySelector("#entityGridInfo");
+      gridInfo.innerHTML = "Failed to fetch search results for the given criteria. Try after some time";
+      gridInfo.style['display'] = "block";
+
+      this._quickManageEnabled = false;
   }
 }
 customElements.define(AppReferenceDiscovery.is, AppReferenceDiscovery)

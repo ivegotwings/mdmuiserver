@@ -21,9 +21,9 @@ class EntityTypeModelDatasource
     ], PolymerElement) {
   static get template() {
     return html`
-        <liquid-entity-model-get id="initGetEntities" operation="initiatesearch" request-data="{{request}}" last-response="{{_initGetEntitySearchResponse}}" on-error="_onError" on-response="_generateSearchRequest" exclude-in-progress="">
-        <liquid-entity-model-get id="getEntitiesSearchResults" operation="getsearchresultdetail" request-data="{{request}}" request-id="[[_initGetEntitySearchResponse.content.requestId]]" on-response="_onGetResponse" on-error="_onError" exclude-in-progress="">
-        </liquid-entity-model-get></liquid-entity-model-get>
+        <liquid-entity-model-get id="initGetEntities" operation="initiatesearch" request-data="{{request}}" last-response="{{_initGetEntitySearchResponse}}" on-error="_onError" exclude-in-progress=""></liquid-entity-model-get>
+        <liquid-entity-model-get id="getEntitiesSearchResults" operation="getsearchresultdetail" request-data="{{request}}" request-id="[[_initGetEntitySearchResponse.content.requestId]]" on-error="_onError" exclude-in-progress=""></liquid-entity-model-get>
+        <liquid-entity-model-get id="liquidModelIdGet" operation="getbyids" request-data="{{request}}" on-error="_onError" last-response="{{searchResultResponse}}" exclude-in-progress=""></liquid-entity-model-get>
         `;
   }
   static get is() { return 'entity-type-model-data-source' }
@@ -36,7 +36,7 @@ class EntityTypeModelDatasource
       super.ready();
       this._liquidInitSearchElement = this.shadowRoot.querySelector('#initGetEntities');
       this._liquidGetSearchElement = this.shadowRoot.querySelector('#getEntitiesSearchResults');
-      this.dataSource = this._dataSource.bind(this);
+      this.rDataSource = this._dataSource.bind(this);
   }
 
   static get properties() {
@@ -45,8 +45,7 @@ class EntityTypeModelDatasource
             type: Object,
             value: function () {
                 return {};
-            },
-            observer: '_initiateRequest'
+            }
         },
         _liquidInitSearchElement: {
             type: Object,
@@ -59,7 +58,10 @@ class EntityTypeModelDatasource
             value: function () {
                 return {};
             }
-        }
+        },
+        isRequestById: {
+            type: Boolean
+        },
       }
   }
   
@@ -72,6 +74,10 @@ class EntityTypeModelDatasource
     if (!this.isResponseAttached) {
         this._liquidInitSearchElement.addEventListener('response', this._onInitSearchResponse.bind(this));
         this._liquidGetSearchElement.addEventListener('response', this._onGetSearchResponse.bind(this, success, error));
+        if(this.isRequestById){
+            DataHelper.oneTimeEvent(this._liquidModelIdGet, 'response', this._onGetSearchResponse.bind(
+                this, success, error));
+        }
 
         this._error = error;
         this.isResponseAttached = true;
@@ -79,8 +85,40 @@ class EntityTypeModelDatasource
 
     // Filter
     let keywordsCriterion;
-    if (this.keywordsCriterionBuilder && this.keywordsCriterionBuilder instanceof Function) {
+    if (this.keywordsCriterionBuilder instanceof Function) {
         keywordsCriterion = this.keywordsCriterionBuilder(data.filter);
+    }
+    let sortCriterion;
+    if (this.sortCriterionBuilder instanceof Function) {
+        sortCriterion = this.sortCriterionBuilder(data.sortOrder);
+    }
+    let filterCriterion;
+    if (this.filterCriterionBuilder instanceof Function) {
+        filterCriterion = this.filterCriterionBuilder(data.filter);
+    }
+
+    if (sortCriterion) {
+        this.request.params["sort"] = sortCriterion;
+    } else {
+        if (this.request.params.sort) {
+            delete this.request.params.sort;
+        }
+    }
+
+    if (filterCriterion) {
+        if (filterCriterion.propertiesCriterion) {
+            this.set("request.params.query.filters.propertiesCriterion", filterCriterion.propertiesCriterion);
+        } else {
+            delete this.request.params.query.filters.propertiesCriterion;
+        }
+        if (filterCriterion.attributesCriterion) {
+            this.set("request.params.query.filters.attributesCriterion", filterCriterion.attributesCriterion);
+        } else {
+            delete this.request.params.query.filters.attributesCriterion;
+        }
+    } else if (this.request.params.query.filters) {
+        delete this.request.params.query.filters.propertiesCriterion;
+        delete this.request.params.query.filters.attributesCriterion;
     }
 
     if (keywordsCriterion) {
@@ -124,11 +162,11 @@ _onInitSearchResponse(e) {
     this.isRequestInitiated = true;
 }
 
-_onGetSearchResponse(success, error) {
-    if (event && event.detail && event.detail.response) {
-        if (typeof (this.dataFormatter) == 'function') {
-            if (event.detail.response.status === "success") {
-                success(this.dataFormatter(event.detail.response));
+_onGetSearchResponse(success, error, e) {
+    if (e && e.detail && e.detail.response) {
+        if (typeof (this.rDataFormatter) == 'function') {
+            if (e.detail.response.status === "success") {
+                success(this.rDataFormatter(e.detail.response));
             } else {
                 error();
             }
