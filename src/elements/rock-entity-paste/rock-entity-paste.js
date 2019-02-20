@@ -572,7 +572,7 @@ class RockEntityPaste
       let copiedItemContext = this._getUpdatedItemContextWithSelectedEntities(copiedEntityContext);
       copiedEntityContext.ItemContexts = [copiedItemContext];
 
-      entityGetRequest = DataRequestHelper.createEntityGetRequest(copiedEntityContext);
+      entityGetRequest = DataRequestHelper.createEntityGetRequest(copiedEntityContext, true);
       let liquidDataElement = this.shadowRoot.querySelector('#getEntity');
       
       let attributes = this._getAttributesForRequestQuery(); 
@@ -655,6 +655,16 @@ class RockEntityPaste
           this._copyPasteEntities = detail.response.content.entities || [];
       }
       let copiedItemContext = ContextHelper.getFirstItemContext(copiedEntityContext);
+      let copiedValueContext = ContextHelper.getFirstValueContext(copiedEntityContext);
+      let copiedLocale;
+      let currentValueContext = ContextHelper.getFirstValueContext(this.contextData);
+      let currentLocale;
+      if(!_.isEmpty(currentValueContext)) {
+          currentLocale = currentValueContext.locale;
+      }
+      if(!_.isEmpty(copiedValueContext)) {
+        copiedLocale = copiedValueContext.locale;
+      }
       let copiedEntity = this._copyPasteEntities.filter(entity => {
          return entity.id == copiedItemContext.id;
       }, this);
@@ -671,30 +681,29 @@ class RockEntityPaste
      
       //handle scenario if attributes are copied
       let clonedAttributes = {};
-      if(DataHelper.isValidObjectPath(copiedEntity, 'data.attributes') && !_.isEmpty(copiedEntity.data.attributes)) {
+      //changing the locale to pasteEntity in all context attributes
+      if (DataHelper.isValidObjectPath(copiedEntity, 'data.contexts.0')) {
+
+         let contextsInResponse = copiedEntity.data.contexts;
+         contextsInResponse.forEach(context => {
+             if (!_.isEmpty(context.attributes)) {
+                 let attributes = context.attributes;
+                 this._setAttributesToCurrentLocale(attributes, currentLocale, copiedLocale);
+             }
+         }, this);
+      } else if(DataHelper.isValidObjectPath(copiedEntity, 'data.attributes') && !_.isEmpty(copiedEntity.data.attributes)) {
           let attributes = copiedEntity.data.attributes;
-          let currentLocale = this.contextData.ValContexts[0].locale;
           //changing the locale to pasteEntity in all self attributes
-          this._setAttributesToCurrentLocale(attributes, currentLocale);
+          this._setAttributesToCurrentLocale(attributes, currentLocale, copiedLocale);
 
-          //changing the locale to pasteEntity in all context attributes
-          if (DataHelper.isValidObjectPath(copiedEntity, 'data.contexts.0')) {
-
-              let contextsInResponse = copiedEntity.data.contexts;
-              contextsInResponse.forEach(context => {
-                  if (!_.isEmpty(context.attributes)) {
-                      let attributes = context.attributes;
-                      this._setAttributesToCurrentLocale(attributes, currentLocale);
-                  }
-              }, this);
-          }
+          
           
           if (DataHelper.isValidObjectPath(copiedEntity, 'data.attributes')) {
               clonedAttributes = DataHelper.cloneObject(copiedEntity.data.attributes);
           }
           //Attributes permission check
           if (!this._isAllHaveEditPermissions(clonedAttributes,this._attributes)) {
-              this._loading = false;                
+              this._loading = false;
               return;
           }
 
@@ -802,17 +811,20 @@ class RockEntityPaste
   /**
    * Function to set the attributes to current locale
    */
-  _setAttributesToCurrentLocale(attributes, currentLocale) {
+  _setAttributesToCurrentLocale(attributes, currentLocale, copiedLocale) {
       this._collectNestedAttributes(attributes);
       let defaultLocale = DataHelper.getDefaultLocale();
       for (let attributeName in attributes) {
           // nested attributes
           let attributeModel = this._attributeModels[attributeName];
-          let locale = attributeModel && attributeModel.isLocalizable ? currentLocale : defaultLocale;
+          let isLocalizable = attributeModel && attributeModel.isLocalizable ? attributeModel.isLocalizable : false;
+          let locale = isLocalizable ? currentLocale : defaultLocale;
           if (this._nestedAttributes.indexOf(attributeName) != -1) {
+              attributes[attributeName].group = isLocalizable ? attributes[attributeName].group.filter(obj => obj.locale === copiedLocale) : attributes[attributeName].group.filter(obj => obj.locale === defaultLocale);
               attributes[attributeName].group.forEach(group => {
                   for (let key in group) {
                       if (group[key] && group[key].values) {
+                          group[key].values = isLocalizable ? group[key].values.filter(obj => obj.locale === copiedLocale) : group[key].values.filter(obj => obj.locale === defaultLocale);
                           group[key].values.forEach(value => {
                               value.locale = locale;
                           });
@@ -821,6 +833,7 @@ class RockEntityPaste
                   group.locale = locale;
               });
           } else if (attributes[attributeName].hasOwnProperty('values')) {
+              attributes[attributeName].values = isLocalizable ? attributes[attributeName].values.filter(obj => obj.locale === copiedLocale) : attributes[attributeName].values.filter(obj => obj.locale === defaultLocale);
               attributes[attributeName].values.forEach(value => {
                   value.locale = locale;
               });
