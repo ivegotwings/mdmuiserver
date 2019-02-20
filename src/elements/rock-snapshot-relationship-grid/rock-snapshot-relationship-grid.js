@@ -287,7 +287,6 @@ extends mixinBehaviors([
   }
 
   getEntityData() {
-        //this.contextData.ValContexts=[];
       let contextWithoutDataContext = DataHelper.cloneObject(this.contextData);
       if(!_.isEmpty(contextWithoutDataContext.Contexts)){
         contextWithoutDataContext.Contexts = [];
