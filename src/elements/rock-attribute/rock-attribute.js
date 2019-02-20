@@ -1476,7 +1476,7 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
       this.shadowRoot.querySelector('#rtePopover').show();
   }
   _rteLinkHoveredOut(e) {
-    //this.shadowRoot.querySelector('#rtePopover').hide();
+    this.shadowRoot.querySelector('#rtePopover').hide();
 }
   _rteEditLinkTapped(e) {
       this.shadowRoot.querySelector('#rteSingleEdit').open();
