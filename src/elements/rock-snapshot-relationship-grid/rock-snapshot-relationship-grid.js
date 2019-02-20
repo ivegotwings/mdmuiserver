@@ -287,7 +287,13 @@ extends mixinBehaviors([
   }
 
   getEntityData() {
-      let req = DataRequestHelper.createEntityGetRequest(this.contextData);
+        //this.contextData.ValContexts=[];
+      let contextWithoutDataContext = DataHelper.cloneObject(this.contextData);
+      if(!_.isEmpty(contextWithoutDataContext.Contexts)){
+        contextWithoutDataContext.Contexts = [];
+      }
+      let req = DataRequestHelper.createEntityGetRequest(contextWithoutDataContext);
+      DataRequestHelper.addDefaultContext(req);
       let liqDataElement = this.shadowRoot.querySelector("#getRelEntities");
       req.params.query.ids = this._ids;
       delete req.params.query.id;
