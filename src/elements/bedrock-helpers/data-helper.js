@@ -134,6 +134,13 @@ DataHelper.compareObjects = function (firstObject, secondObject) {
     return true;
 };
 
+DataHelper.applyLocalFilterByBoolean = function(recordsToBeFiltered,booleanValue,fieldName) {
+    return recordsToBeFiltered.filter(function(record) { 
+        if(record.hasOwnProperty(fieldName)){
+           return Boolean(record[fieldName]) === booleanValue;
+        }
+    });
+}
 DataHelper.applyLocalFilter = function(recordsToBeFiltered,filterText,fieldsToConsider) {
     if (!recordsToBeFiltered) {
         return recordsToBeFiltered;

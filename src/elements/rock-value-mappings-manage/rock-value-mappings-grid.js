@@ -92,7 +92,7 @@ class RockValueMappingsGrid
                                     <div id="inputDiv" slot="cell-slot-content" index="[[index]]">
                                         <pebble-textbox readonly="[[_isReferenceField]]" class="attributes-text" id="govern-text_[[index]]" no-label-float="" row-id="[[index]]" value="[[item.governedValue]]" title="[[item.governedValue]]" on-change="_onGovernTextChange"></pebble-textbox>
                                     </div>
-                                    <template is="dom-if" if="[[_isReferenceField]]">
+                                    <template is="dom-if" if="[[_checkIsReferenceField(index)]]">
                                         <div id="iconDiv" slot="cell-slot-content">
                                             <pebble-icon class="dropdown-icon pebble-icon-size-10" id="txtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:navigation-action-down" on-tap="_showReferenceLOV"></pebble-icon>
                                         </div>
@@ -768,6 +768,10 @@ class RockValueMappingsGrid
 
   _onContextsChanged (e, detail) {
       RUFBehaviors.MappingGridBehaviorImpl._onContextsChanged.call(this, e, detail);
+  }
+
+  _checkIsReferenceField(){
+      return this._isReferenceField;
   }
 }
 customElements.define(RockValueMappingsGrid.is, RockValueMappingsGrid);
