@@ -38,8 +38,12 @@ function ArrayDataSource(arr) {
       for (let i = 0; i < filter.length; i++) {
         let fieldToConsider = filter[i].path;
         let _filterValue = filter[i].filter;
-        if(!_.isEmpty(_filterValue)){
-          _filteredArray = DataHelper.applyLocalFilter(_filteredArray,_filterValue,[fieldToConsider]);
+        if(typeof _filterValue === 'boolean'){
+          _filteredArray = DataHelper.applyLocalFilterByBoolean(_filteredArray,_filterValue,fieldToConsider);
+        }else{
+          if(!_.isEmpty(_filterValue)){
+            _filteredArray = DataHelper.applyLocalFilter(_filteredArray,_filterValue,[fieldToConsider]);
+          }
         }
       }
     }

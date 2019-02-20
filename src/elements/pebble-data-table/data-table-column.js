@@ -45,7 +45,7 @@ class DataTableColumn extends mixinBehaviors([RUFBehaviors.UIBehavior], Optional
                 }
             </style>
             <template is="dom-if" if="[[column.filterBy]]">
-                <data-table-column-filter slot="cell-slot-content" label="[[column.name]]" value="{{column.filterValue}}" hidden\$="[[!column.filterBy]]" filter-type="[[filterType]]"></data-table-column-filter>
+                <data-table-column-filter slot="cell-slot-content" label="[[column.name]]" value="{{column.filterValue}}" hidden\$="[[!column.filterBy]]" filter-type="[[column.filterType]]"></data-table-column-filter>
             </template>
             <div slot="cell-slot-content" class="cell-content" hidden\$="[[column.filterBy]]" title\$="[[column.name]]">
                 <div class="cell-content-text text-ellipsis">
