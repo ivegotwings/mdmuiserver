@@ -730,4 +730,3 @@ class PebbleToast extends mixinBehaviors([IronOverlayBehavior], PolymerElement){
   }
 }
 customElements.define(PebbleToast.is, PebbleToast);
-export default PebbleToast;

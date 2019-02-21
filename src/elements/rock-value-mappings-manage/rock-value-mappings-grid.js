@@ -27,7 +27,6 @@ import '../pebble-data-table/pebble-data-table.js';
 import '../pebble-textbox/pebble-textbox.js';
 import '../pebble-toast/pebble-toast.js';
 import '../pebble-actions/pebble-actions.js';
-import DataTableRow from '../pebble-data-table/data-table-row.js'
 import '../rock-entity-lov/rock-entity-lov.js';
 import '../rock-context-selector/rock-context-selector.js';
 import '../bedrock-style-manager/styles/bedrock-mapping-grid-style.js';
@@ -514,7 +513,8 @@ class RockValueMappingsGrid
 
   _getParentRow (element) {
       if (element) {
-          if (element instanceof DataTableRow) {
+        let dataTableRow = customElements.get('data-table-row');
+          if (dataTableRow !== "undefined" && element instanceof dataTableRow) {
               return element;
           } else {
               return this._getParentRow(element.parentNode);

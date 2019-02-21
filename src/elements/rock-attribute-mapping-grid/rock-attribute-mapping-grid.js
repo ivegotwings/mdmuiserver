@@ -34,7 +34,6 @@ import '../pebble-popover/pebble-popover.js';
 import '../pebble-dialog/pebble-dialog.js';
 import '../pebble-spinner/pebble-spinner.js';
 import '../pebble-actions/pebble-actions.js';
-import DataTableRow from '../pebble-data-table/data-table-row.js'
 import '../rock-attribute-model-lov/rock-attribute-model-lov.js';
 import '../rock-classification-tree/rock-classification-tree.js';
 import '../rock-context-selector/rock-context-selector.js';
@@ -503,9 +502,10 @@ class RockAttributeMappingGrid
       this._refChangeDeletedMappings.push(row);
   }
 
-  _getParentRow (element) {
+  _getParentRow (element) {    
       if (element) {
-          if (element instanceof DataTableRow) {
+          let dataTableRow = customElements.get('data-table-row');
+          if (dataTableRow !== "undefined" &&	element instanceof dataTableRow) {
               return element;
           } else {
               return this._getParentRow(element.parentNode);
