@@ -640,7 +640,7 @@ DataTransformHelper._transformAttributeForSave = function (attributeJSON, model,
             attr = { "group": [] };
             for (let j = 0; j < attributeJSON.value.length; j++) {
                 let group = attributeJSON.value[j];
-                if(attributeJSON.action){
+                if(attributeJSON.action && group && typeof group == "object"){
                     group.action = attributeJSON.action;
                 }
                 
