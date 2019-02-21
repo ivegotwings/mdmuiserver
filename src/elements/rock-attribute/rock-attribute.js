@@ -432,12 +432,22 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
             .attribute-edit-mode-icons .source-information-icon{
                 opacity: 1;
             }
+            .popup-link-text{
+                color: var(--text-primary-color, #1a2028);
+                font-size: var(--font-size-sm, 12px);
+            }
 
             #messagePopover{
                 --popover: {
                     max-height: 350px;
                     overflow-y: auto;
                     overflow-x: auto;
+                }
+            }
+            #rtePopover{
+                --pebble-popover-width: 260px;
+                --popover: {
+                    max-height: 350px;
                 }
             }
             
@@ -573,12 +583,15 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
                                 <template is="dom-if" if="[[_getDescriptionObject()]]">
                                     <pebble-info-icon hidden\$="[[_isGridOrNested(attributeModelObject)]]" description-object="[[_getDescriptionObject()]]"></pebble-info-icon>
                                 </template>
-
                             </span>
                             <span class="attribute-view-value" title$="{{_formatValue(attributeModelObject, attributeObject)}}">{{_formatValue(attributeModelObject, attributeObject)}}</span>
-
                         </div>
                     </template>
+                    <!-- TEXTAREA -->
+                    <template is="dom-if" if="[[_isTextArea(attributeModelObject)]]">
+                        <pebble-textarea id="input" no-label-float="[[noLabelFloat]]" description-object="[[_getDescriptionObject()]]" label="{{_getLabel(attributeModelObject.externalName)}}" value="{{attributeDisplayValue}}" tabindex="[[tabindex]]"></pebble-textarea>
+                    </template>
+
                     <!-- TEXTBOX-COLLECTION -->
                     <template is="dom-if" if="[[_isTextboxCollection(attributeModelObject)]]">
                         <div class="text-collection-container">
@@ -611,7 +624,7 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
                         <rock-nested-attribute-grid label="{{_getLabel(attributeModelObject.externalName)}}" attribute-model-object="[[attributeModelObject]]" original-attribute-object="[[_cloneObject(attributeObject)]]" attribute-object="{{attributeObject}}" context-data="[[contextData]]" mode="[[mode]]" changed="{{changed}}" apply-locale-coalesce="[[applyLocaleCoalesce]]" apply-graph-coalesced-style\$="[[applyGraphCoalescedStyle]]" dependent-attribute-objects="[[dependentAttributeObjects]]" dependent-attribute-model-objects="[[dependentAttributeModelObjects]]"></rock-nested-attribute-grid>
                     </template>
                     <template is="dom-if" if="[[_isGridType]]">
-                        <span id="nestedAttributeLink" on-tap="_nestedAttributeLinkTapped">Click here</span>
+                        <span id="nestedAttributeLink" class="popup-link-text" on-tap="_nestedAttributeLinkTapped">Click here</span>
                         <pebble-dialog id="nestedAttributeModal" modal="" show-ok="" button-ok-text="Ok" show-close-icon="" no-cancel-on-outside-click="" no-cancel-on-esc-key="" dialog-title="{{attributeModelObject.externalName}}">
                             <rock-nested-attribute-grid label="{{_getLabel(attributeModelObject.externalName)}}" attribute-model-object="[[attributeModelObject]]" original-attribute-object="[[_cloneObject(attributeObject)]]" attribute-object="{{attributeObject}}" context-data="[[contextData]]" mode="[[mode]]" apply-locale-coalesce="[[applyLocaleCoalesce]]" apply-graph-coalesced-style\$="[[applyGraphCoalescedStyle]]" dependent-attribute-objects="[[dependentAttributeObjects]]" dependent-attribute-model-objects="[[dependentAttributeModelObjects]]"></rock-nested-attribute-grid>
                         </pebble-dialog>
@@ -623,13 +636,13 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
                     <!-- Show the popover for read-only mode for the grid-->
                     <template is="dom-if" if="[[_isGridType]]">
                         <template is="dom-if" if="[[!_isEditMode(mode)]]">
-                            <span id="rtelink" class="fallback-value" on-mouseenter="_rteLinkHovered" on-mouseout="_rteLinkHoveredOut">Show More</span>
-                            <pebble-popover id="rtePopover" class="p-10" for="rtelink" no-overlap="" horizontal-align="right">
+                            <span id="rtelink" class="fallback-value popup-link-text" on-mouseenter="_rteLinkHovered" on-mouseleave="_rteLinkHoveredOut">Show More</span>
+                            <pebble-popover id="rtePopover" class="p-10" for="rtelink" no-overlap="" horizontal-align="auto" vertical-align="auto" on-mouseenter="_rtePopoverHovered" on-mouseleave="_rtePopoverHoveredOut">
                                 <pebble-richtexteditor id="input" description-object="[[_getDescriptionObject()]]" validation-errors="{{validationErrors}}" label="{{_getLabel(attributeModelObject.externalName)}}" invalid="{{invalid}}" value="{{attributeDisplayValue}}" tabindex="[[tabindex]]" read-only="[[!_isComponentEditable(mode, attributeModelObject)]]" selected-values-font-style="[[_coalescedFontStyle]]" selected-values-color="[[_fallbackColor]]"></pebble-richtexteditor>
                             </pebble-popover>
                         </template>
                         <template is="dom-if" if="[[_isEditMode(mode)]]">
-                            <span id="rteEditLink" on-tap="_rteEditLinkTapped">Click to Edit</span>
+                            <span id="rteEditLink" class="popup-link-text" on-tap="_rteEditLinkTapped">Click to Edit</span>
                             <pebble-dialog id="rteSingleEdit" modal="" show-ok="" button-ok-text="Ok" show-close-icon="" no-cancel-on-outside-click="" no-cancel-on-esc-key="" dialog-title="Edit rich text">
                                 <rock-attribute id="singleEdit" hide-save-as-null="true" mode="[[mode]]" functional-mode="list" attribute-model-object="{{attributeModelObject}}" attribute-object="{{attributeObject}}"></rock-attribute>
                             </pebble-dialog>
@@ -835,6 +848,13 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
           tabindex: {
               type: Number
           },
+          rtePopoverIn:{
+            type: Boolean,
+            value: false
+          },
+          rtePopoverTimeOut:{
+              type:Number
+          },
           showDeleteIcon: {
               type: Boolean,
               value: false
@@ -933,6 +953,7 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
                   return {};
               }
           },
+          
           hideSaveAsNull: {
               type: Boolean,
               value: false
@@ -991,7 +1012,7 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
   revertAll(){
 
     //resetting rock-entity-combo-box selectedId
-    var comboBoxElement = this.shadowRoot.querySelector('#combo-box');
+    let comboBoxElement = this.shadowRoot.querySelector('#combo-box');
     if(comboBoxElement && this.attributeObject && this.attributeObject.value){
         comboBoxElement.selectedValueChanged();
     }
@@ -1093,7 +1114,7 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
   _useDefaultReadMode(model) {
       let displayType = model.displayType ? model.displayType.toLowerCase() : "";
       return !(model.isCollection || displayType === "referencelist" || displayType === "path" || displayType ===
-          "richtexteditor" || displayType === "nestedgrid");
+          "richtexteditor" || displayType === "nestedgrid" || displayType === "textarea");
   }
   _isCollection(model) {
       return model.isCollection;
@@ -1477,10 +1498,22 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
   _isGrid(functionalMode) {
       return functionalMode == "grid";
   }
-  _rteLinkHovered(e) {
-      this.shadowRoot.querySelector('#rtePopover').show();
+  _rteLinkHovered(e) {    
+    this.shadowRoot.querySelector('#rtePopover').show();
   }
   _rteLinkHoveredOut(e) {
+    this.rtePopoverIn = false;
+    this.rtePopoverTimeOut = setTimeout(() => {
+        if(!this.rtePopoverIn){        
+            this.shadowRoot.querySelector('#rtePopover').hide();
+        }
+        clearTimeout(this.rtePopoverTimeOut);
+    },10);
+  }
+  _rtePopoverHovered(e) {
+      this.rtePopoverIn = true;
+  }
+  _rtePopoverHoveredOut(e) {   
     this.shadowRoot.querySelector('#rtePopover').hide();
 }
   _rteEditLinkTapped(e) {

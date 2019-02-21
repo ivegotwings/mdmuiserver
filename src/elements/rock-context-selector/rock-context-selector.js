@@ -1557,8 +1557,18 @@ class RockContextSelector
                     * Hence making requestData undefined for context-lov
                     * */
                     if(!_.isEmpty(configDataItem.selectedItem)) {
-                        if(!this._isItemExistsInCurrentContexts(configDataItem.selectedItem, this._entityContexts)) {
-                            configDataItem.selectedItem = {};
+                        if(Array.isArray(configDataItem.selectedItem)) {
+                            let _self = this;
+                            configDataItem.selectedItem = configDataItem.selectedItem.reduce(function(prev, next) {
+                                if(_self._isItemExistsInCurrentContexts(next, _self._entityContexts)) {
+                                    prev.push(next);
+                                }
+                                return prev;
+                            }, []);
+                        } else {
+                            if(!this._isItemExistsInCurrentContexts(configDataItem.selectedItem, this._entityContexts)) {
+                                configDataItem.selectedItem = {};
+                            }
                         }
                     }
                     if (_.isEmpty(this._entityContexts)) {

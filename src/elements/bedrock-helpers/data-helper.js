@@ -134,6 +134,13 @@ DataHelper.compareObjects = function (firstObject, secondObject) {
     return true;
 };
 
+DataHelper.applyLocalFilterByBoolean = function(recordsToBeFiltered,booleanValue,fieldName) {
+    return recordsToBeFiltered.filter(function(record) { 
+        if(record.hasOwnProperty(fieldName)){
+           return Boolean(record[fieldName]) === booleanValue;
+        }
+    });
+}
 DataHelper.applyLocalFilter = function(recordsToBeFiltered,filterText,fieldsToConsider) {
     if (!recordsToBeFiltered) {
         return recordsToBeFiltered;
@@ -770,39 +777,27 @@ DataHelper.getSearchCriteria = function (searchText) {
                 "ids": idList
             };
         } else {
-            let keywordsCriterion = {};
-            let splitQueryByAnd = searchText.toLowerCase().split(/' and '|,/ig);
-            let splitQueryByOr = searchText.toLowerCase().split(/' or '|,/ig);
-
-            if (splitQueryByAnd.length > 1 || (splitQueryByAnd.length == 1 && splitQueryByOr.length ==
-                    1)) {
-                let keywordText = splitQueryByAnd.join(' ');
-                keywordsCriterion = DataHelper.prepareKeywordsCriteria(keywordText,"_AND")
-            } else {
-                let keywordText = splitQueryByOr.join(' ');
-                keywordsCriterion = DataHelper.prepareKeywordsCriteria(keywordText,"_OR")
-            }
+            let keywordsCriterion = DataHelper.prepareKeywordsCriteria(searchText)
 
             return keywordsCriterion;
         }
     }
 };
 
-DataHelper.prepareKeywordsCriteria = function(searchText,operator) {
+DataHelper.prepareKeywordsCriteria = function(searchText) {
     if (searchText) {
         let keywordsCriterion = {};
-        let searchObj = DataHelper.getExactSearch(searchText)
+        let searchObj = DataHelper.getSearchTextCharacteristics(searchText)
         let isExactSearch = searchObj["isExactSearch"];
-        searchText = searchObj["updatedVal"];
+        let updatedSearchText = searchObj["updatedSearchText"].join(' ');
         
-        if(isExactSearch){
-            searchText = '"' + searchText + '"';
-            keywordsCriterion.keywords = searchText;
-        }else{
-            searchText = DataHelper.removeSpecialCharacters(searchText);
-            keywordsCriterion.keywords = DataHelper.populateWildcardForFilterText(searchText);
+        if(!isExactSearch){
+            updatedSearchText = DataHelper.removeSpecialCharacters(updatedSearchText);
+            updatedSearchText = DataHelper.populateWildcardForFilterText(updatedSearchText);
         }
-        keywordsCriterion.operator = operator;
+
+        keywordsCriterion.keywords = updatedSearchText;
+        keywordsCriterion.operator = searchObj["operator"];
         return keywordsCriterion;
     }
   }
@@ -815,20 +810,54 @@ DataHelper.removeSpecialCharacters = function(text){
      return text;
 }
 
-DataHelper.getExactSearch = function(val){
+DataHelper.getSearchTextCharacteristics = function(searchText){
+    let searchTextCharacteristics = {};
     let prefix = /^\"/i;
     let suffix = /^.+\"$/gm;
-    let isPrefixed = prefix.test(val);
-    let isSuffixed = suffix.test(val);
-    let searchObj = {};
+    let isPrefixed = prefix.test(searchText);
+    let isSuffixed = suffix.test(searchText);
+    let operator = "_AND";
+    let searchTextsByAndSplit;
+    let searchTextsByOrSplit;
+    let searchTextsAfterSplit;
+    let updatedSearchText = [];
+    let isExactSearch = false;
+    
     if(isPrefixed && isSuffixed){
-        searchObj["isExactSearch"] = true;
-        searchObj["updatedVal"]  = DataHelper.replaceDoubleQuotesWithSpace(val);
-    }else{
-        searchObj["isExactSearch"] = false;
-        searchObj["updatedVal"]  = val;
+        isExactSearch = true;
+
+        searchTextsByAndSplit = searchText.toLowerCase().split("\" and \"");
+        searchTextsByOrSplit = searchText.toLowerCase().split("\" or \"");
+    } else {
+        isExactSearch = false;
+
+        searchTextsByAndSplit = searchText.toLowerCase().split("' and '");
+        searchTextsByOrSplit = searchText.toLowerCase().split("' or '");
     }
-    return searchObj;
+
+    if (searchTextsByAndSplit.length > 1) {
+        operator = "_AND";
+        searchTextsAfterSplit = searchTextsByAndSplit;
+    } else if (searchTextsByOrSplit.length > 1) {
+        operator = "_OR";
+        searchTextsAfterSplit = searchTextsByOrSplit;
+    } else {
+        searchTextsAfterSplit = [searchText];
+    }
+
+    if(isExactSearch) {
+        searchTextsAfterSplit.forEach(text => {
+            updatedSearchText.push(DataHelper.replaceDoubleQuotesWithSpace(text));
+        });
+    } else {
+        updatedSearchText = searchTextsAfterSplit;
+    }
+
+    searchTextCharacteristics["isExactSearch"] = isExactSearch;
+    searchTextCharacteristics["updatedSearchText"]  = updatedSearchText;
+    searchTextCharacteristics["operator"] = operator;
+
+    return searchTextCharacteristics;
 }
 
 DataHelper.replaceDoubleQuotesWithSpace = function(value){

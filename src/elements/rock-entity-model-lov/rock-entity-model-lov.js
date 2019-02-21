@@ -289,7 +289,7 @@ RUFBehaviors.LovBehavior
 
   _prepareKeywordsCriteria(searchText) {
     if (searchText) {
-        return DataHelper.prepareKeywordsCriteria(searchText,"_AND");
+        return DataHelper.prepareKeywordsCriteria(searchText);
     }
     
   }

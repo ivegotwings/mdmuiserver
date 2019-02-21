@@ -28,3 +28,4 @@ import '../rock-entity-snapshot-compare/rock-entity-snapshot-compare.js';
 import '../rock-variant-configurator/rock-variant-configurator.js';
 import '../rock-variant-options/rock-variant-options.js';
 import '../rock-user-selector/rock-user-selector.js';
+import '../rock-model-import/rock-model-import.js';
