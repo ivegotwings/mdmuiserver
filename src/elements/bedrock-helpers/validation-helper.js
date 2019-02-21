@@ -201,3 +201,16 @@ ValidationHelper.getDateByFormat=function(datevalue, dateFormat) {
     }
     return moment(datevalue).format(dateFormat);
 };
+/*
+List of keycodes
+https://css-tricks.com/snippets/javascript/javascript-keycodes/
+*/
+ValidationHelper.navigationAndFunctionKeyCodes = [9, 19, 20, 27, 33, 34, 35, 36, 37, 38, 39, 40, 45, 91, 92, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 144, 145];
+ValidationHelper.checkNaviagationAndFunctionKey = function(ev){
+    if(ev && ev.keyCode){
+        if(ValidationHelper.navigationAndFunctionKeyCodes.indexOf(ev.keyCode) > -1){
+            return true;
+        }
+    }
+    return false;
+}
