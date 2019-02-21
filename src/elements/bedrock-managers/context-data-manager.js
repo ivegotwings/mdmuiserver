@@ -158,4 +158,3 @@ class ContextDataManager extends mixinBehaviors([RUFBehaviors.LoggerBehavior], P
 }
 
 customElements.define(ContextDataManager.is, ContextDataManager);
-export default ContextDataManager

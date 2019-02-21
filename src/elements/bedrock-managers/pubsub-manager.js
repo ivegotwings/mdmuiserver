@@ -1,18 +1,14 @@
-import { PolymerElement, html } from '@polymer/polymer/polymer-element.js';
-import '../bedrock-logger-behavior/bedrock-logger-behavior.js';
 import '../bedrock-helpers/data-helper.js';
 import { dom } from '@polymer/polymer/lib/legacy/polymer.dom.js';
-import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 window.globalPubSubInstances = window.globalPubSubInstances || {};
 
-class PubSubManager extends mixinBehaviors([RUFBehaviors.LoggerBehavior], PolymerElement) {
+class PubSubManager {
 
     static get is() {
         return "pubsub-manager";
     }
 
-    constructor() {
-        super();
+    constructor() {       
         if (!RUFUtilities.pubsubManager) {
             RUFUtilities.pubsubManager = this;
             //console.log('pubsub manager is adding event to document with event name bedrock-event');
@@ -174,7 +170,5 @@ class PubSubManager extends mixinBehaviors([RUFBehaviors.LoggerBehavior], Polyme
         return parentNode;
     }
 }
-
-customElements.define(PubSubManager.is, PubSubManager);
 
 export default PubSubManager;

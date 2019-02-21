@@ -789,9 +789,12 @@ DataHelper.prepareKeywordsCriteria = function(searchText) {
         let keywordsCriterion = {};
         let searchObj = DataHelper.getSearchTextCharacteristics(searchText)
         let isExactSearch = searchObj["isExactSearch"];
-        let updatedSearchText = searchObj["updatedSearchText"].join(' ');
+        let updatedSearchText = searchObj["updatedSearchText"];
         
-        if(!isExactSearch){
+        if(isExactSearch){
+            updatedSearchText = '"' + updatedSearchText.join('" "') + '"';
+        } else {
+            updatedSearchText = updatedSearchText.join(' ');
             updatedSearchText = DataHelper.removeSpecialCharacters(updatedSearchText);
             updatedSearchText = DataHelper.populateWildcardForFilterText(updatedSearchText);
         }

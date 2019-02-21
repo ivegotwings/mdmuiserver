@@ -20,7 +20,6 @@ import '../pebble-textarea/pebble-textarea.js';
 import '../pebble-icon/pebble-icon.js';
 import '../pebble-textbox/pebble-textbox.js';
 import '../pebble-lov/pebble-lov.js';
-import DataTableRow from '../pebble-data-table/data-table-row.js'
 import '../pebble-data-table/pebble-data-table.js';
 import '../rock-attribute-model-lov/rock-attribute-model-lov.js';
 import '../rock-entity-type-model-lov/rock-entity-type-model-lov.js';
@@ -1540,7 +1539,8 @@ class RockQueryBuilder extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehavi
           if(element.targetId){
               this.currenGridName = element.targetId;
           }
-          if (element instanceof DataTableRow) {
+          let dataTableRow = customElements.get('data-table-row');
+          if (dataTableRow !== "undefined" && element instanceof dataTableRow) {
               return element;
           }
           return this._getParentRow(element.parentNode);
