@@ -883,7 +883,7 @@ class PebbleLov extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehaviors.Lov
   }
 
   _inputValueChanged(e) {
-      if(ValidationHelper.checkNaviagationAndFunctionKey(ev)){
+      if(ValidationHelper.checkNaviagationAndFunctionKey(e)){
           return;
       }
       this._noReferenceDataPresent = false;
