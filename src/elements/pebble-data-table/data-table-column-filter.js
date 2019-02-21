@@ -7,7 +7,7 @@ import '../pebble-icon/pebble-icon.js';
 import '../bedrock-style-manager/styles/bedrock-style-common.js';
 import '../bedrock-style-manager/styles/bedrock-style-padding-margin.js';
 import '../bedrock-style-manager/styles/bedrock-style-icons.js';
-import '../bedrock-helpers/data-helper.js';
+import '../bedrock-helpers/validation-helper.js';
 class DataTableColumnFilter extends PolymerElement {
   static get template() {
     return html`
@@ -158,7 +158,7 @@ class DataTableColumnFilter extends PolymerElement {
      *instad uses bedrock to communicate to 
      *the column parent
      */
-    if(!DataHelper.validateKeyCode(e)){
+    if(!ValidationHelper.checkNaviagationAndFunctionKey(e)){
         return;
     }
     let value = e.detail.value;

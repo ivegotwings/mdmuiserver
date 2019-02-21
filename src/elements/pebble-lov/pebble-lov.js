@@ -25,6 +25,7 @@ import '@polymer/iron-list/iron-list.js';
 import '@polymer/iron-scroll-threshold/iron-scroll-threshold.js';
 import { timeOut, microTask } from '@polymer/polymer/lib/utils/async.js';
 import { Debouncer } from '@polymer/polymer/lib/utils/debounce.js';
+import '../bedrock-helpers/validation-helper.js';
 import '../bedrock-helpers/element-helper.js';
 import '../bedrock-helpers/data-helper.js';
 import '../bedrock-lov-behavior/bedrock-lov-behavior.js';
@@ -882,7 +883,7 @@ class PebbleLov extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehaviors.Lov
   }
 
   _inputValueChanged(e) {
-      if(!DataHelper.validateKeyCode(ev)){
+      if(!ValidationHelper.checkNaviagationAndFunctionKey(ev)){
           return;
       }
       this._noReferenceDataPresent = false;
