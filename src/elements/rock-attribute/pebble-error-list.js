@@ -79,21 +79,23 @@ class PebbleErrorList extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerE
         </style>
         <div class="outer-container">
             <template is="dom-repeat" items="[[messages]]">
-                <div class="container" data="[[item]]">
-                    <div class\$="entity-icon-outer [[_getMessageClass(item)]]">
-                        <pebble-icon icon="pebble-icon:notification-warning" class="pebble-icon-size-12 pebble-icon-color-white"></pebble-icon>
+                <template is="dom-if" if="{{!_isExist(item)}}">
+                    <div class="container" data="[[item]]">
+                        <div class\$="entity-icon-outer [[_getMessageClass(item)]]">
+                            <pebble-icon icon="pebble-icon:notification-warning" class="pebble-icon-size-12 pebble-icon-color-white"></pebble-icon>
+                        </div>
+                        <template is="dom-if" if="{{_isObject(item)}}">
+                            <div class="entity-content">
+                                [[item.externalName]]: [[item.message]]
+                            </div>
+                        </template>
+                        <template is="dom-if" if="{{!_isObject(item)}}">
+                            <div class="entity-content">
+                                [[item]]
+                            </div>
+                        </template>
                     </div>
-                    <template is="dom-if" if="{{_isObject(item)}}">
-                        <div class="entity-content">
-                            [[item.externalName]]: [[item.message]]
-                        </div>
-                    </template>
-                    <template is="dom-if" if="{{!_isObject(item)}}">
-                        <div class="entity-content">
-                            [[item]]
-                        </div>
-                    </template>
-                </div>
+                </template>
             </template>
             <div class="text-right">
                 <pebble-button hidden\$="[[!showFixNow]]" id="fixNow" class="btn btn-sm btn-primary" button-text="Fix Now" on-tap="_fixNow" elevation="1" raised=""></pebble-button>
@@ -138,6 +140,16 @@ class PebbleErrorList extends mixinBehaviors([RUFBehaviors.UIBehavior], PolymerE
       this.fireBedrockEvent('fix-error', {
           "data": this.errors
       });
+  }
+  _isExist(item){
+      let exist = false;
+      if(item && item.message && item.externalName){
+        let formattedMessage = item.externalName + ': '+ item.message;
+        if(this.messages.indexOf(formattedMessage) > -1){
+            exist = true;
+        }
+      }
+      return exist;
   }
   _isObject(item) {
       return item !== null && typeof item === 'object'
