@@ -758,7 +758,7 @@ class RockEntityGraph
                   if(this.selectedItem.relationshipName){
                       configContext.relationshipNames = [this.selectedItem.relationshipName];
                       configContext.relationshipTypeName = this.selectedItem.relationshipName;
-                      configContext["relationshipType"] = this.selectedItem.relationshipName;
+                      configContext["relationshipId"] = this.selectedItem.relationshipName;
                   }
                   if(this.selectedItem.relationshipOwnership && this.selectedItem.relationshipOwnership == "whereused"){
                       configContext.direction = "up";
@@ -784,6 +784,7 @@ class RockEntityGraph
           }
           if(this.selectedItem.relationshipName){
               configContext["relationshipTypeName"] = this.selectedItem.relationshipName;
+              configContext["relationshipId"] = this.selectedItem.relationshipName;
           }
           this.set('excludeNonContextual',this.selectedItem.excludeNonContextual)
       }
