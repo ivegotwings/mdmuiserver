@@ -1233,7 +1233,7 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
           }));
       }
 
-      if (this.attributeModelObject.displayType.toLowerCase() == "path") {
+      if (this.attributeModelObject.displayType && this.attributeModelObject.displayType.toLowerCase() == "path") {
           if (!_.isEmpty(this.attributeModelObject)) {
               let attrModelObj = this.attributeModelObject;
 
