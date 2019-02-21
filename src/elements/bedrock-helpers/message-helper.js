@@ -35,7 +35,7 @@ MessageHelper.getAttributeMessages = function (attributes, attributeModels, mess
 
                         Object.keys(group).forEach(childAttr => {
                             let childAttrMessageCodes = MessageHelper.getMessageCodes(group[childAttr]);
-                            let childAttrMessages = MessageHelper.getMessagesFromCodes(childAttrMessageCodes, messageCodeMapping, localeHelper, attributeModels);
+                            let childAttrMessages = MessageHelper.getMessagesFromCodes(childAttrMessageCodes, messageCodeMapping, localeHelper, attributeModels, true);
                             if (childAttrMessages && childAttrMessages.length) {
                                 childAttrMessages.forEach(msg => {
                                     let externalName = DataHelper.isValidObjectPath(attrModelGroup, childAttr + ".properties.externalName") ? attrModelGroup[childAttr].properties.externalName : "";
@@ -84,13 +84,21 @@ MessageHelper.getRelationshipsMessages = function (relationships, messageCodeMap
 MessageHelper.getMessageCodes = function (attribute) {
     let messageCodes = [];
     let properties = attribute.properties;
-    let valueProperties = attribute.values && attribute.values.length > 0 && attribute.values[0].properties ? attribute.values[0].properties : undefined;
     let messages = [];
     if (properties && properties.messages && properties.messages.length > 0) {
         messages = messages.concat(properties.messages);
     }
-    if (valueProperties && valueProperties.messages && valueProperties.messages.length > 0) {
-        messages = messages.concat(valueProperties.messages);
+    if(!_.isEmpty(attribute.values)) {
+        for(let valIdx = 0; valIdx < attribute.values.length; valIdx++) {
+            let value = attribute.values[valIdx];
+            let valueId = value.value ? value.value.substr(value.value.indexOf('/') + 1, value.value.length) : undefined;
+            if(DataHelper.isValidObjectPath(value,"properties.messages.0")) {
+                let valueMessages = value.properties.messages;
+                for (let i = 0; i < valueMessages.length; i++) {
+                    messageCodes.push({ "code": valueMessages[i].messageCode, "params": valueMessages[i].messageParams, "valueId": valueId });
+                }
+            }
+        }
     }
     if (messages && messages.length > 0) {
         for (let i = 0; i < messages.length; i++) {
@@ -101,7 +109,7 @@ MessageHelper.getMessageCodes = function (attribute) {
     return messageCodes;
 };
 
-MessageHelper.getMessagesFromCodes = function (messageCodes, messageCodeMapping, localeHelper, attributeModels) {
+MessageHelper.getMessagesFromCodes = function (messageCodes, messageCodeMapping, localeHelper, attributeModels, isNestedChild) {
     let messages = [];
     if (messageCodes && messageCodes.length > 0) {
         for (let i = 0; i < messageCodes.length; i++) {
@@ -138,11 +146,16 @@ MessageHelper.getMessagesFromCodes = function (messageCodes, messageCodeMapping,
                     mes = messageCodeMapping[messageCode.code];
                 }
 
+                let message;
                 if (mes) {
-                    messages.push(mes);
+                    message = mes;
                 } else {
-                    messages.push("Error with Code: " + messageCode.code);
+                    message = "Error with Code: " + messageCode.code;
                 }
+                if(messageCode.valueId && !isNestedChild) {
+                    message = message + "-valueId:" + messageCode.valueId;
+                }
+                messages.push(message);
             }
         }
     }
