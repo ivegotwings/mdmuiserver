@@ -493,6 +493,7 @@ class RockEntityUpload
 
     _getClassificationsEntityGetRequest() {
         let request = DataRequestHelper.createEntityGetRequest(this.contextData);
+        delete request.params.query.id; 
         //Update attributes, type and ids
         request.params.fields.attributes = [this._classificationExtNameAttr];
         request.params.query.filters.typesCriterion = ["classification"];
@@ -503,7 +504,7 @@ class RockEntityUpload
 
     _triggerClassificationEntityGet() {
         //Prepare entity get request with pathRootNodes
-        let request = this._getClassificationsEntityGetRequest();
+        let request = this._getClassificationsEntityGetRequest();        
         let liquidDataElement = this.shadowRoot.querySelector('#getEntity');
         if (liquidDataElement) {
             liquidDataElement.requestData = request;
