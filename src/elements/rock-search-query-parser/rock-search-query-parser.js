@@ -760,6 +760,7 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                         }
                         let attrId = availChildAttrs[0]['id'];
                         let attrName = availChildAttrs[0]['name'];
+                        availChildAttrs[0].isLocalizable = currentItem.isLocalizable;
                         currentItem.group[0][attrName] = availChildAttrs[0];
                         entityModels = entityModels.filter(removalChild => { return removalChild.id != attrId});
                     }
