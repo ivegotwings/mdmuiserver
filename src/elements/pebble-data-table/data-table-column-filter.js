@@ -158,7 +158,7 @@ class DataTableColumnFilter extends PolymerElement {
      *instad uses bedrock to communicate to 
      *the column parent
      */
-    if(!ValidationHelper.checkNaviagationAndFunctionKey(e)){
+    if(ValidationHelper.checkNaviagationAndFunctionKey(e)){
         return;
     }
     let value = e.detail.value;

@@ -209,8 +209,8 @@ ValidationHelper.navigationAndFunctionKeyCodes = [9, 19, 20, 27, 33, 34, 35, 36,
 ValidationHelper.checkNaviagationAndFunctionKey = function(ev){
     if(ev && ev.keyCode){
         if(ValidationHelper.navigationAndFunctionKeyCodes.indexOf(ev.keyCode) > -1){
-            return false;
+            return true;
         }
     }
-    return true;
+    return false;
 }
