@@ -882,6 +882,9 @@ class PebbleLov extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehaviors.Lov
   }
 
   _inputValueChanged(e) {
+      if(!DataHelper.validateKeyCode(ev)){
+          return;
+      }
       this._noReferenceDataPresent = false;
       let length = this._inputElementSearchValue ? this._inputElementSearchValue.replace(/\s/g, '').length : 0;
       if (length > 0 && length < this.minFilterLength) {
