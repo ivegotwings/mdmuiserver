@@ -589,7 +589,7 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
                     </template>
                     <!-- TEXTAREA -->
                     <template is="dom-if" if="[[_isTextArea(attributeModelObject)]]">
-                        <pebble-textarea id="input" no-label-float="[[noLabelFloat]]" description-object="[[_getDescriptionObject()]]" label="{{_getLabel(attributeModelObject.externalName)}}" value="{{attributeDisplayValue}}" tabindex="[[tabindex]]"></pebble-textarea>
+                        <pebble-textarea id="input" readonly="true" no-label-float="[[noLabelFloat]]" description-object="[[_getDescriptionObject()]]" label="{{_getLabel(attributeModelObject.externalName)}}" value="{{attributeDisplayValue}}" tabindex="[[tabindex]]"></pebble-textarea>
                     </template>
 
                     <!-- TEXTBOX-COLLECTION -->
