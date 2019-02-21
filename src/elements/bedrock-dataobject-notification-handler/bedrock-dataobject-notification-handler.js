@@ -19,7 +19,6 @@ import '../bedrock-datachannel/bedrock-datachannel.js';
 import SharedEnumsUtil from '../bedrock-enums-util/bedrock-enums-util.js';
 import '../liquid-dataobject-utils/liquid-dataobject-utils.js';
 import LiquidDataObjectUtils from '../liquid-dataobject-utils/liquid-dataobject-utils.js'
-import PebbleToast from '../pebble-toast/pebble-toast.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 
 class BedrockDataobjectNotificationHandler
@@ -581,8 +580,9 @@ class BedrockDataobjectNotificationHandler
 
   _getPebbleToast(component) {
       let parentElement = component.parentElement;
-
-      if (parentElement instanceof PebbleToast) {
+      let pebbleToast = customElements.get('pebble-toast');
+          
+      if (pebbleToast && pebbleToast!== "undefined" && parentElement instanceof pebbleToast) {
           return parentElement;
       } else {
           return this._getPebbleToast(parentElement);

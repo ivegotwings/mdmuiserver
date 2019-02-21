@@ -1,7 +1,6 @@
 import '../bedrock-component-context-behavior/bedrock-component-context-behavior.js';
 import '../bedrock-ui-behavior/bedrock-ui-behavior.js';
 import '../bedrock-helpers/context-helper.js';
-import ContextDataManager from '../bedrock-managers/context-data-manager.js';
 import ContextModelManager from '../bedrock-managers/context-model-manager.js';
 
 /***
@@ -163,14 +162,16 @@ RUFBehaviors.SplitScreenBehaviorIml = {
         let dataContexts = this.getDataContexts();
         let localeManager = ComponentHelper.getLocaleManager();
         let mappedDataContextLocale = {};
-        let contextDataManager = ContextDataManager.getInstance();
-        if(!_.isEmpty(dataContexts)){
-            let domainContexts = ContextHelper.getDomainContexts(this.contextData);
-            let domain = domainContexts[0]["domain"];
-            let _contextTypes = await ContextModelManager.getContextTypesBasedOnDomain(domain);
-            let _contextHierarchyInfo = await ContextModelManager.getContextHeirarchyInfoBasedOnDomain(domain);
-            let mappedValueContextsRelationship = this._getMappedValueContextsRelationship(_contextHierarchyInfo);
-            mappedDataContextLocale =  await contextDataManager.getMappedLocales(_contextTypes,mappedValueContextsRelationship);
+        if(customElements.get('context-data-manager') !== "undefined"){
+            let contextDataManager = customElements.get('context-data-manager').getInstance();
+            if(!_.isEmpty(dataContexts)){
+                let domainContexts = ContextHelper.getDomainContexts(this.contextData);
+                let domain = domainContexts[0]["domain"];
+                let _contextTypes = await ContextModelManager.getContextTypesBasedOnDomain(domain);
+                let _contextHierarchyInfo = await ContextModelManager.getContextHeirarchyInfoBasedOnDomain(domain);
+                let mappedValueContextsRelationship = this._getMappedValueContextsRelationship(_contextHierarchyInfo);
+                mappedDataContextLocale =  await contextDataManager.getMappedLocales(_contextTypes,mappedValueContextsRelationship);
+            }
         }
 
         let _contexts = [];
