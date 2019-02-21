@@ -587,11 +587,7 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
                             <span class="attribute-view-value" title$="{{_formatValue(attributeModelObject, attributeObject)}}">{{_formatValue(attributeModelObject, attributeObject)}}</span>
                         </div>
                     </template>
-                    <!-- TEXTAREA -->
-                    <template is="dom-if" if="[[_isTextArea(attributeModelObject)]]">
-                        <pebble-textarea id="input" no-label-float="[[noLabelFloat]]" description-object="[[_getDescriptionObject()]]" label="{{_getLabel(attributeModelObject.externalName)}}" value="{{attributeDisplayValue}}" tabindex="[[tabindex]]"></pebble-textarea>
-                    </template>
-
+                   
                     <!-- TEXTBOX-COLLECTION -->
                     <template is="dom-if" if="[[_isTextboxCollection(attributeModelObject)]]">
                         <div class="text-collection-container">
@@ -1114,7 +1110,7 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
   _useDefaultReadMode(model) {
       let displayType = model.displayType ? model.displayType.toLowerCase() : "";
       return !(model.isCollection || displayType === "referencelist" || displayType === "path" || displayType ===
-          "richtexteditor" || displayType === "nestedgrid" || displayType === "textarea");
+          "richtexteditor" || displayType === "nestedgrid");
   }
   _isCollection(model) {
       return model.isCollection;
