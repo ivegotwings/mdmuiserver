@@ -522,7 +522,6 @@ class RockNestedAttributeGrid
               this._checkforDuplicates();
           }
           this.attributeObject.value = DataHelper.cloneObject(this.attributeObject.value);
-          this.notifyPath("attributeObject.value");
       } else if (this.changed === false && _.isEmpty(this.attributeObject)) {
           this.attributeObject = DataHelper.cloneObject(this.originalAttributeObject);
       }
