@@ -73,18 +73,21 @@ class BedrockPubsub extends PolymerElement {
      */
     disconnectedCallback() {
         super.disconnectedCallback();     
-        this.pubsubManager.unRegister(this);
-        this.pubsubManager = null;
-        
+        let pubsubManager = PubSubManager.getInstance();	       
+        if (pubsubManager) {	       
+            pubsubManager.unRegister(this);
+        }        
     }
     connectedCallback() {
         super.connectedCallback();        
-        this.pubsubManager = PubSubManager.getInstance();
         this.registerEvent();
     }
 
-    registerEvent() {       
-        this.pubsubManager.register(this);
+    registerEvent() {     
+        let pubsubManager = PubSubManager.getInstance();
+        if (pubsubManager) {	
+            pubsubManager.register(this);	
+        }
     }
 }
 
