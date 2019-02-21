@@ -737,7 +737,7 @@ class RockEntityPaste
               "attributes": clonedAttributes,
               "relationships": clonedRelationships
           }
-          copiedEntity.data.contexts.push(dataContext);
+          copiedEntity.data.contexts = [dataContext];
           copiedEntity.data.attributes = {};
           copiedEntity.data.relationships = {};
       } else {
@@ -819,12 +819,13 @@ class RockEntityPaste
           let attributeModel = this._attributeModels[attributeName];
           let isLocalizable = attributeModel && attributeModel.isLocalizable ? attributeModel.isLocalizable : false;
           let locale = isLocalizable ? currentLocale : defaultLocale;
+          let localeToFilter = isLocalizable ? copiedLocale : defaultLocale;
           if (this._nestedAttributes.indexOf(attributeName) != -1) {
-              attributes[attributeName].group = isLocalizable ? attributes[attributeName].group.filter(obj => obj.locale === copiedLocale) : attributes[attributeName].group.filter(obj => obj.locale === defaultLocale);
+              attributes[attributeName].group = attributes[attributeName].group.filter(obj => obj.locale === localeToFilter);
               attributes[attributeName].group.forEach(group => {
                   for (let key in group) {
                       if (group[key] && group[key].values) {
-                          group[key].values = isLocalizable ? group[key].values.filter(obj => obj.locale === copiedLocale) : group[key].values.filter(obj => obj.locale === defaultLocale);
+                          group[key].values = group[key].values.filter(obj => obj.locale === localeToFilter);
                           group[key].values.forEach(value => {
                               value.locale = locale;
                           });
@@ -833,7 +834,7 @@ class RockEntityPaste
                   group.locale = locale;
               });
           } else if (attributes[attributeName].hasOwnProperty('values')) {
-              attributes[attributeName].values = isLocalizable ? attributes[attributeName].values.filter(obj => obj.locale === copiedLocale) : attributes[attributeName].values.filter(obj => obj.locale === defaultLocale);
+              attributes[attributeName].values = attributes[attributeName].values.filter(obj => obj.locale === localeToFilter);
               attributes[attributeName].values.forEach(value => {
                   value.locale = locale;
               });
