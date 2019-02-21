@@ -1518,8 +1518,8 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
             this.shadowRoot.querySelector('#rtePopover').hide();
         }
         clearTimeout(this.rtePopoverTimeOut);
+        this._isRteLinkHovered = false;
     },10);
-    this._isRteLinkHovered = false;
   }
   _rtePopoverHovered() {
       this.rtePopoverIn = true;
