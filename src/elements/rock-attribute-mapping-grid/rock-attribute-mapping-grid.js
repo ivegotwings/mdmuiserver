@@ -409,12 +409,13 @@ class RockAttributeMappingGrid
       for (let i = 0; i < headerFields.length; i++) {
           let headerField = headerFields[i];
           let attrModel = this._getAttributeModelForHeaderField(headerField);
+          let isSupportValueMapping = this._isValueMappingsAvailable(attrModel);
           let rowData = {
               "excelColumnName": headerField,
               "attributeModel": attrModel,
               "source": "system",
               "action": "",
-              "supportsValueMapping": this._isValueMappingsAvailable(attrModel)
+              "supportsValueMapping": isSupportValueMapping || false
           };
           gridData.push(rowData);
       }
