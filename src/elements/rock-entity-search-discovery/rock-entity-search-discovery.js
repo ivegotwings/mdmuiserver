@@ -1234,12 +1234,14 @@ extends mixinBehaviors([
                       }
                   }
                   //Set no popover for saved searches
-                  if (tag.options) {
+                  if (tag.options) {                    
+                      tag.options.hasValueChecked = tag.value.hasvalue;                      
                       tag.options.noPopoverOnAttach = true;
                   } else {
                       tag.options = {
                           "noPopoverOnAttach": true
                       };
+                      tag.options.hasValueChecked = tag.value.hasvalue; 
                   }
 
                   tags.push(tag);
