@@ -177,35 +177,35 @@ class RockSearchFilter
         <!-- Refine popover starts here -->
         <pebble-popover id="filterPopover" for="pebble-tag" no-overlap="" vertical-align="auto" horizontal-align="left">
           <template is="dom-if" if="{{_isAttributeValuesExistsSearchEnabled}}">
-            <pebble-toggle-button class="m-b-10" checked="{{currentTag.options.hasValueChecked}}">[[_toggleButtonText]]</pebble-toggle-button>
+            <pebble-toggle-button class="m-b-10" checked="{{currentTag.value.hasvalue}}">[[_toggleButtonText]]</pebble-toggle-button>
           </template>
           <template is="dom-if" if="{{_showTagModifier('textbox', _trigger)}}">
-            <pebble-textbox-collection id="textCollection" class="full-width" values="{{_tagsCollection}}" max-allowed-values-for-search="[[maxAllowedValuesForSearch]]" no-popover="" textbox-label="Enter values to search" show-seperator="" seperator="or" text-collection-input="{{_tagInput}}" disabled="[[!currentTag.options.hasValueChecked]]"></pebble-textbox-collection>
+            <pebble-textbox-collection id="textCollection" class="full-width" values="{{_tagsCollection}}" max-allowed-values-for-search="[[maxAllowedValuesForSearch]]" no-popover="" textbox-label="Enter values to search" show-seperator="" seperator="or" text-collection-input="{{_tagInput}}" disabled="[[!currentTag.value.hasvalue]]"></pebble-textbox-collection>
             <div class="PebbleButtonPadding text-center m-t-15">
               <pebble-button class="btn btn-secondary m-r-5" on-tap="_dismissDialog" raised="" elevation="1" button-text="Close"></pebble-button>
               <pebble-button class="btn btn-success" button-text="Apply" raised="" elevation="1" on-tap="_onTextCollectionUpdate" disabled="{{_disableCollectionUpdate(_tagsCollection, _tagInput)}}"></pebble-button>
             </div>
           </template>
           <template is="dom-if" if="{{_showTagModifier('textArea', _trigger)}}">
-            <pebble-textarea class="input" label="Enter text here" value="{{tav}}" disabled="[[!currentTag.options.hasValueChecked]]"></pebble-textarea>
+            <pebble-textarea class="input" label="Enter text here" value="{{tav}}" disabled="[[!currentTag.value.hasvalue]]"></pebble-textarea>
             <div class="PebbleButtonPadding text-center m-t-15">
               <pebble-button class="btn btn-secondary m-r-5" on-tap="_dismissDialog" raised="" elevation="1" button-text="Close"></pebble-button>
               <pebble-button class="btn btn-success" button-text="Apply" raised="" elevation="1" on-tap="_updateValue" disabled="{{_disableTextAreaUpdate(tav)}}"></pebble-button>
             </div>
           </template>
           <template is="dom-if" if="{{_showTagModifier('richtexteditor', _trigger)}}">
-            <pebble-textarea class="input" label="Enter text here" value="{{tav}}" disabled="[[!currentTag.options.hasValueChecked]]"></pebble-textarea>
+            <pebble-textarea class="input" label="Enter text here" value="{{tav}}" disabled="[[!currentTag.value.hasvalue]]"></pebble-textarea>
             <div class="PebbleButtonPadding text-center m-t-15">
               <pebble-button class="btn btn-secondary m-r-5" on-tap="_dismissDialog" raised="" elevation="1" button-text="Close"></pebble-button>
               <pebble-button class="btn btn-success" button-text="Apply" raised="" elevation="1" on-tap="_updateValue"></pebble-button>
             </div>
           </template>
           <template is="dom-if" if="{{_showTagModifier('referenceList', _trigger)}}">
-            <rock-entity-lov id="rockEntityLov" multi-select="" show-action-buttons="" apply-locale-coalesce="" apply-locale-coalesced-style="" apply-context-coalesced-style="" selected-items="{{_selectedItems}}" disable-selection="[[!currentTag.options.hasValueChecked]]">
+            <rock-entity-lov id="rockEntityLov" multi-select="" show-action-buttons="" apply-locale-coalesce="" apply-locale-coalesced-style="" apply-context-coalesced-style="" selected-items="{{_selectedItems}}" disable-selection="[[!currentTag.value.hasvalue]]">
             </rock-entity-lov>
           </template>
           <template is="dom-if" if="{{_showTagModifier('boolean', _trigger)}}">
-            <pebble-boolean class="text-center" id="booleanDisplay" true-text="[[currentTag.options.trueText]]" false-text="[[currentTag.options.falseText]]" value="{{booleanvalue}}" disabled="[[!currentTag.options.hasValueChecked]]"></pebble-boolean>
+            <pebble-boolean class="text-center" id="booleanDisplay" true-text="[[currentTag.options.trueText]]" false-text="[[currentTag.options.falseText]]" value="{{booleanvalue}}" disabled="[[!currentTag.value.hasvalue]]"></pebble-boolean>
             <div class="PebbleButtonPadding text-center m-t-15">
               <pebble-button class="btn btn-secondary m-r-5" on-tap="_dismissDialog" raised="" elevation="1" button-text="Close"></pebble-button>
               <pebble-button class="btn btn-success" button-text="Apply" raised="" elevation="1" on-tap="_updateValue"></pebble-button>
@@ -213,7 +213,7 @@ class RockSearchFilter
           </template>
           <template is="dom-if" if="{{_showTagModifier('numeric', _trigger)}}">
             <paper-radio-group aria-labelledby="{{longName}}" class="dialogOptions" on-paper-radio-group-changed="_onRadioGroupChange">
-              <paper-radio-button name="range" disabled="{{!currentTag.options.hasValueChecked}}">
+              <paper-radio-button name="range" disabled="{{!currentTag.value.hasvalue}}">
                 <div class="radiobutton-container">
                   <div class="radiobuttons">
                     <pebble-textbox label="Min" prevent-invalid-input="" allowed-pattern="[0-9.]" invalid="{{numericMinInvalid}}" show-error="" input-data-type="[[currentTag.options.dataType]]" value="{{gte}}">
@@ -225,9 +225,9 @@ class RockSearchFilter
                   </div>
                 </div>
               </paper-radio-button>
-              <paper-radio-button name="equalToData" disabled="{{!currentTag.options.hasValueChecked}}">
+              <paper-radio-button name="equalToData" disabled="{{!currentTag.value.hasvalue}}">
                 <div class="radiobutton-container">
-                  <pebble-textbox-collection id="textNumericCollection" class="full-width" values="{{_tagsNumericCollection}}" no-popover="" textbox-label="Enter values to search" show-seperator="" seperator="or" allowed-pattern="[0-9.]" text-collection-input="{{_tagNumericInput}}" disabled="[[!currentTag.options.hasValueChecked]]"></pebble-textbox-collection>
+                  <pebble-textbox-collection id="textNumericCollection" class="full-width" values="{{_tagsNumericCollection}}" no-popover="" textbox-label="Enter values to search" show-seperator="" seperator="or" allowed-pattern="[0-9.]" text-collection-input="{{_tagNumericInput}}" disabled="[[!currentTag.value.hasvalue]]"></pebble-textbox-collection>
                 </div>
               </paper-radio-button>
             </paper-radio-group>
@@ -245,7 +245,7 @@ class RockSearchFilter
         </template>
       
         <template is="dom-if" if="[[_rangepicker]]">
-          <pebble-datetime-picker-overlay id="rangepicker" for="pebble-tag" picker-type="daterange" heading-format="ddd, MMM DD YYYY" start-date-text="{{displaygte}}" end-date-text="{{displaylte}}" start-date-value="{{gte}}" end-date-value="{{lte}}" on-date-range-selected="_updateValue" has-value-checked="{{currentTag.options.hasValueChecked}}" attribute-values-exists-search-enabled="[[_isAttributeValuesExistsSearchEnabled]]" show-ranges="">
+          <pebble-datetime-picker-overlay id="rangepicker" for="pebble-tag" picker-type="daterange" heading-format="ddd, MMM DD YYYY" start-date-text="{{displaygte}}" end-date-text="{{displaylte}}" start-date-value="{{gte}}" end-date-value="{{lte}}" on-date-range-selected="_updateValue" has-value-checked="{{currentTag.value.hasvalue}}" attribute-values-exists-search-enabled="[[_isAttributeValuesExistsSearchEnabled]]" show-ranges="">
           </pebble-datetime-picker-overlay>
         </template>
         <!-- Refine popover ends here -->
@@ -259,7 +259,7 @@ class RockSearchFilter
   }
   static get observers() {
     return [
-      "_onToggleButtonChange(currentTag.options.hasValueChecked)"
+      "_onToggleButtonChange(currentTag.value.hasvalue)"
     ]
   }
   static get properties() {
@@ -739,9 +739,15 @@ class RockSearchFilter
 
     if (!this.currentTag || !this.currentTag.options) return;
 
-    if (DataHelper.isValidObjectPath(this.currentTag, "value.hasvalue")) {
-      this.currentTag.options.hasValueChecked = this.currentTag.value.hasvalue ? true : false;
+    /*if (DataHelper.isValidObjectPath(this.currentTag, "value.hasvalue")) {
+      this.currentTag.value.hasvalue = this.currentTag.value.hasvalue ? true : false;
+    }*/
+
+    //Remove the special characters like * and () in the currentTag value to display only plain text on UI
+    if(this.currentTag.value && this.currentTag.value.eq){
+      this.currentTag.value.eq = this.currentTag.value.eq.replace(/[()*]+/g, '');
     }
+   
     const positionTarget = this.shadowRoot.querySelector('#filter-tags').shadowRoot.querySelector("#tag" + detail.index);
     let displayType = this.currentTag.options.displayType.toLowerCase();
     if (displayType == "path") {
@@ -858,8 +864,15 @@ class RockSearchFilter
           } else if (this.currentTag.value.exact && this.currentTag.value.exact != 'All') {
             filterInput.values = [DataHelper.cloneObject(this.currentTag.value.exact)];
           } else if (this.currentTag.value.contains && this.currentTag.value.contains != 'All') {
-            filterInput.values = [DataHelper.cloneObject(this.currentTag.value.contains)];
+            filterInput.values = [DataHelper.cloneObject(this.currentTag.value.contains)];          
+          } else if (this.currentTag.value.eq && this.currentTag.value.eq != 'All') {
+            if(this.currentTag.value.operator){
+              filterInput.values = this.currentTag.value.eq.split('|');
+            } else {
+              filterInput.values = [DataHelper.cloneObject(this.currentTag.value.eq)];
+            }
           }
+        
 
           setTimeout(() => {
             let collectionInput = filterInput.shadowRoot.querySelector("#txtInputTag");
@@ -877,7 +890,9 @@ class RockSearchFilter
               filterInput.value = this.currentTag.value.exact;
             } else if (this.currentTag.value.contains && this.currentTag.value.contains != 'All') {
               filterInput.value = this.currentTag.value.contains;
-            }
+            } else if (this.currentTag.value.eq && this.currentTag.value.eq != 'All') {
+              filterInput.value = this.currentTag.value.eq;
+            } 
 
             setTimeout(() => {
               filterInput.focus();
@@ -892,6 +907,12 @@ class RockSearchFilter
           if (this.currentTag.value.contains && this.currentTag.value.contains.length > 0 && this.currentTag.value.contains != 'All') {
             filterPopover.querySelector('paper-radio-group').selected = 'equalToData';
             this._tagsNumericCollection = this.currentTag.value.contains.split(" ");
+          } else if (this.currentTag.value.exacts && this.currentTag.value.exacts != 'All'){           
+              if(this.currentTag.value.exacts instanceof Array) {
+                this._tagsNumericCollection = this.currentTag.value.exacts;
+              } else {
+                this._tagsNumericCollection = [this.currentTag.value.exacts];
+              }   
           } else {
             if (filterPopover.querySelector('paper-radio-group')) {
               if (this.currentTag.value && (this.currentTag.value.lte || this.currentTag.value.gte)) {
@@ -991,7 +1012,7 @@ class RockSearchFilter
     let selectedItemSearchString = "";
     let selectedIds = [];
     let selectedItemsObj = this._selectedItems  || [];
-    if (this._isAttributeValuesExistsSearchEnabled && !this.currentTag.options.hasValueChecked) {
+    if (this._isAttributeValuesExistsSearchEnabled && !this.currentTag.value.hasvalue) {
       this.getUpdatedValue();
     } else {
       if (selectedItemsObj.length) {
@@ -1048,7 +1069,7 @@ class RockSearchFilter
       this._tagInput = "";
     }
 
-    if (this._isAttributeValuesExistsSearchEnabled && !this.currentTag.options.hasValueChecked) {
+    if (this._isAttributeValuesExistsSearchEnabled && !this.currentTag.value.hasvalue) {
       this.getUpdatedValue();
     } else {
       this.currentTag.value = {
@@ -1099,7 +1120,7 @@ class RockSearchFilter
   _onClassificationUpdate(e, detail) {
     if (this._classificationValues) {
 
-      if(this._isAttributeValuesExistsSearchEnabled && !this.currentTag.options.hasValueChecked){
+      if(this._isAttributeValuesExistsSearchEnabled && !this.currentTag.value.hasvalue){
           this.getUpdatedValue();
       }else {
         this.currentTag.value = {
@@ -1122,7 +1143,7 @@ class RockSearchFilter
 
   getUpdatedValue(currentValue) {
     let isValueAvailable = false;
-    if (this.currentTag.options.hasValueChecked && typeof currentValue === 'object') {
+    if (this.currentTag.value.hasvalue && typeof currentValue === 'object') {
       for (let key in currentValue) {
         if (key != "type" && key != "operator") {
           if (currentValue[key] != "" && currentValue[key] != undefined && currentValue[key] != "NaN" && currentValue[key] != "Invalid date") {
@@ -1133,7 +1154,7 @@ class RockSearchFilter
     }
     if (!isValueAvailable) {
       let updatedValue = "!%&has value!%&";
-      if (!this.currentTag.options.hasValueChecked) {
+      if (!this.currentTag.value.hasvalue) {
         updatedValue = "!%&has no value!%&";
       }
       this.currentTag.value = {
@@ -1150,7 +1171,7 @@ class RockSearchFilter
     }
     return false;
   }
-
+  
   formatFilterCollectionDisplay(collection, seperator) {
     seperator = seperator || 'or';
     collection = collection.map(function (el) {
@@ -1172,7 +1193,7 @@ class RockSearchFilter
     if (this.currentTag && this.currentTag.options) {
       displayType = this.currentTag.options.displayType.toLowerCase();
     }
-    if (this._isAttributeValuesExistsSearchEnabled && !this.currentTag.options.hasValueChecked) {
+    if (this._isAttributeValuesExistsSearchEnabled && !this.currentTag.value.hasvalue) {
       this.getUpdatedValue()
     } else if (displayType == "datetime" || displayType == "date") { //DateTime
       // Note:- For datetime attribute it is necessary to pass dataType as 'datetime' because from UI the 
@@ -1259,7 +1280,7 @@ class RockSearchFilter
           return;
         } else {
           this.currentTag.value = {
-            "contains": this._tagsNumericCollection.join(" "),
+            "exacts": this._tagsNumericCollection,
             "type": dataType,
             "operator": "_OR"
           };
@@ -1321,14 +1342,14 @@ class RockSearchFilter
 
       if (operator || displayType == 'richtexteditor') {
         this.currentTag.value = {
-          "contains": containsStr,
+          "eq": containsStr,
           "type": dataType,
           "operator": operator
         };
       } else {
         // exact search
         this.currentTag.value = {
-          "exact": this.tav,
+          "eq": this.tav,
           "type": dataType
         };
       }
@@ -1443,7 +1464,7 @@ class RockSearchFilter
 
 
   _onToggleButtonChange(toggleState) {
-    let currentItem = this.currentTag.options.displayType;
+    let currentItem = this.currentTag.options.displayType;   
     if (toggleState) {
       this._toggleButtonText = "Has Value"
       this.updateStyles({
@@ -1470,6 +1491,6 @@ class RockSearchFilter
         this.booleanvalue = "";
       }
     }
-  }
+  }  
 }
 customElements.define(RockSearchFilter.is, RockSearchFilter);
