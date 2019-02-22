@@ -296,12 +296,13 @@ class RockPathAttributeManage
               let classifications = [];
               if (attributes[this.pathAttribute]) {
                   attributes[this.pathAttribute].values.forEach(item => {
+                      this._initialClassifications.push(item.value);
                       let paths = item.value.split(this._pathSeperator) || [];
                       paths.shift(); //Remove root node
                       classifications.push(paths);
                   }, this)
               }
-              this._selectedCategories = this._initialClassifications = classifications;
+              this._selectedCategories = classifications;
           }
       } else {
           //current entity details required for save, so preparing from contextData
@@ -356,18 +357,8 @@ class RockPathAttributeManage
       if (selectedItems.length != this._initialClassifications.length) {
           return true;
       }
-      selectedItems = selectedItems.map(item => item.valuePath);
-      let valuePathSeperator = this._valuePathSeperator;
-      let pathSeperator = this._pathSeperator;
-      let initialItems = this._initialClassifications.map(function (item) {
-          if (item.indexOf(pathSeperator) !== -1) {
-            let pattern = new RegExp(pathSeperator,'g');
-            return item.replace(pattern, valuePathSeperator);
-          } else {
-            return item.join(valuePathSeperator);             
-          }           
-      });
-      return !DataHelper.areEqualArrays(selectedItems, initialItems);
+      selectedItems = selectedItems.map(item => item.externalNamePath || item);
+      return !DataHelper.areEqualArrays(selectedItems, this._initialClassifications);
   }
 
   async _onSave(e) {
@@ -420,9 +411,8 @@ class RockPathAttributeManage
 
       //Add initial categories - further add delete action based on selected categories
       this._initialClassifications.forEach(category => {
-          let fullPath = category.externalNamePath;
-          if (fullPath && values.indexOf(fullPath) == -1) {
-              values.push(fullPath);
+          if (category && values.indexOf(category) == -1) {
+              values.push(category);
           }
       }, this);
 
