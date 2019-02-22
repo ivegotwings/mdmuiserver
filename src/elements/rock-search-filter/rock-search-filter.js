@@ -739,10 +739,6 @@ class RockSearchFilter
 
     if (!this.currentTag || !this.currentTag.options) return;
 
-    /*if (DataHelper.isValidObjectPath(this.currentTag, "value.hasvalue")) {
-      this.currentTag.value.hasvalue = this.currentTag.value.hasvalue ? true : false;
-    }*/
-
     //Remove the special characters like * and () in the currentTag value to display only plain text on UI
     if(this.currentTag.value && this.currentTag.value.eq){
       this.currentTag.value.eq = this.currentTag.value.eq.replace(/[()*]+/g, '');
