@@ -6,6 +6,7 @@ import '../pebble-button/pebble-button.js';
 import '../liquid-dataobject-utils/liquid-dataobject-utils.js';
 import LiquidDataObjectUtils from '../liquid-dataobject-utils/liquid-dataobject-utils.js'
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
+import ServiceWorkerManager from '../bedrock-managers/serviceworker-manager.js';
 class RockVersionManage
   extends mixinBehaviors([
 
@@ -84,6 +85,7 @@ class RockVersionManage
 
   _handleSave() {
     this.generateRequest();
+    ServiceWorkerManager.UnregisterServiceWorkers();
   }
   generateRequest() {
     let configSaveService = this.liqRuntimeVersionUpdateLiq;
