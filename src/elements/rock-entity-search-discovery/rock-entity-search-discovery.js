@@ -1241,6 +1241,7 @@ extends mixinBehaviors([
                       tag.options = {
                           "noPopoverOnAttach": true
                       };
+                      tag.options.hasValueChecked = tag.value.hasvalue; 
                   }
 
                   tags.push(tag);
