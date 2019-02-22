@@ -653,6 +653,7 @@ class RockAttributeList extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehav
   }
 
   _reduceAttributeMessages(messages, attribute) {
+    let localeHelper = this.localize();
     messages.forEach(function(message, index) {
         if(typeof message === "string") {
             if(message.includes("valueId:")) {
@@ -666,10 +667,13 @@ class RockAttributeList extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehav
                 } else {
                     value = messageValueId === attribute.id ? attribute.value : "";
                 }
-
                 if(value) {
+                    let messageSubString = message.substr(0, message.indexOf('@#@'));
                     value = " - " + value;
-                    message = message.replace(message.substr(message.indexOf('-'), message.length), value);
+                    if(!localeHelper || messageSubString !== localeHelper("InvalidVal001")) {
+                        value = "";
+                    }
+                    message = message.replace(message.substr(message.indexOf('@#@'), message.length), value);
                     messages[index] = message;
                 } else {
                     messages[index] = "";

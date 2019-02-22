@@ -153,7 +153,7 @@ MessageHelper.getMessagesFromCodes = function (messageCodes, messageCodeMapping,
                     message = "Error with Code: " + messageCode.code;
                 }
                 if(messageCode.valueId && !isNestedChild) {
-                    message = message + "-valueId:" + messageCode.valueId;
+                    message = message + "@#@valueId:" + messageCode.valueId;
                 }
                 messages.push(message);
             }
