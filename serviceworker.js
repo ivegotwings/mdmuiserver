@@ -6,7 +6,7 @@ self.addEventListener('install', function(event) {
 self.handleResponse = async function(request, clientId){
   const response = await fetch(request);
   if((response.status == 401)){
-      if (clientId){
+    if (clientId){
         // Get the client.
         const client = await self.clients.get(clientId);
         // Exit early if we don't get the client. Eg, if it closed.
