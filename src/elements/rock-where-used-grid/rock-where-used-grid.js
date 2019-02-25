@@ -943,13 +943,12 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
             let isSelfContext = false;
 
             let relConfig = this.relationshipGridConfig;
-            if (relConfig) {
+            let dataContext = this.getFirstDataContext();
+            if (relConfig && _.isEmpty(dataContext)) {
               isSelfContext = relConfig.selfContext;
             }
             this._entityRelations = this._entityRelations.concat(entity);
-
-            let relationships = EntityHelper.getRelationshipsBasedOnContext(entity, this.getFirstDataContext(),
-              isSelfContext);
+            let relationships = EntityHelper.getRelationshipsBasedOnContext(entity, dataContext, isSelfContext);
             if (!_.isEmpty(relationships)) {
               let relatedEntities = relationships[currentRel];
               if (this.dataObjects) {

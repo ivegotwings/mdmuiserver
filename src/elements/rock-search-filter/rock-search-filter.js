@@ -742,6 +742,11 @@ class RockSearchFilter
     if (DataHelper.isValidObjectPath(this.currentTag, "value.hasvalue")) {
       this.currentTag.options.hasValueChecked = this.currentTag.value.hasvalue ? true : false;
     }
+    //Remove the special characters like * and () in the currentTag value to display only plain text on UI
+    if(this.currentTag.value && this.currentTag.value.eq){
+      this.currentTag.value.eq = this.currentTag.value.eq.replace(/[()*]+/g, '');
+    }
+   
     const positionTarget = this.shadowRoot.querySelector('#filter-tags').shadowRoot.querySelector("#tag" + detail.index);
     let displayType = this.currentTag.options.displayType.toLowerCase();
     if (displayType == "path") {
@@ -858,8 +863,15 @@ class RockSearchFilter
           } else if (this.currentTag.value.exact && this.currentTag.value.exact != 'All') {
             filterInput.values = [DataHelper.cloneObject(this.currentTag.value.exact)];
           } else if (this.currentTag.value.contains && this.currentTag.value.contains != 'All') {
-            filterInput.values = [DataHelper.cloneObject(this.currentTag.value.contains)];
+            filterInput.values = [DataHelper.cloneObject(this.currentTag.value.contains)];          
+          } else if (this.currentTag.value.eq && this.currentTag.value.eq != 'All') {
+            if(this.currentTag.value.operator){
+              filterInput.values = this.currentTag.value.eq.split('|');
+            } else {
+              filterInput.values = [DataHelper.cloneObject(this.currentTag.value.eq)];
+            }
           }
+        
 
           setTimeout(() => {
             let collectionInput = filterInput.shadowRoot.querySelector("#txtInputTag");
@@ -877,7 +889,9 @@ class RockSearchFilter
               filterInput.value = this.currentTag.value.exact;
             } else if (this.currentTag.value.contains && this.currentTag.value.contains != 'All') {
               filterInput.value = this.currentTag.value.contains;
-            }
+            } else if (this.currentTag.value.eq && this.currentTag.value.eq != 'All') {
+              filterInput.value = this.currentTag.value.eq;
+            } 
 
             setTimeout(() => {
               filterInput.focus();
@@ -892,6 +906,12 @@ class RockSearchFilter
           if (this.currentTag.value.contains && this.currentTag.value.contains.length > 0 && this.currentTag.value.contains != 'All') {
             filterPopover.querySelector('paper-radio-group').selected = 'equalToData';
             this._tagsNumericCollection = this.currentTag.value.contains.split(" ");
+          } else if (this.currentTag.value.exacts && this.currentTag.value.exacts != 'All'){           
+              if(this.currentTag.value.exacts instanceof Array) {
+                this._tagsNumericCollection = this.currentTag.value.exacts;
+              } else {
+                this._tagsNumericCollection = [this.currentTag.value.exacts];
+              }   
           } else {
             if (filterPopover.querySelector('paper-radio-group')) {
               if (this.currentTag.value && (this.currentTag.value.lte || this.currentTag.value.gte)) {
@@ -1101,7 +1121,7 @@ class RockSearchFilter
 
       if(this._isAttributeValuesExistsSearchEnabled && !this.currentTag.options.hasValueChecked){
           this.getUpdatedValue();
-      }else {
+      } else {
         this.currentTag.value = {
             "exacts": this._classificationValues
         }
@@ -1150,7 +1170,7 @@ class RockSearchFilter
     }
     return false;
   }
-
+  
   formatFilterCollectionDisplay(collection, seperator) {
     seperator = seperator || 'or';
     collection = collection.map(function (el) {
@@ -1259,7 +1279,7 @@ class RockSearchFilter
           return;
         } else {
           this.currentTag.value = {
-            "contains": this._tagsNumericCollection.join(" "),
+            "exacts": this._tagsNumericCollection,
             "type": dataType,
             "operator": "_OR"
           };
@@ -1321,14 +1341,14 @@ class RockSearchFilter
 
       if (operator || displayType == 'richtexteditor') {
         this.currentTag.value = {
-          "contains": containsStr,
+          "eq": containsStr,
           "type": dataType,
           "operator": operator
         };
       } else {
         // exact search
         this.currentTag.value = {
-          "exact": this.tav,
+          "eq": this.tav,
           "type": dataType
         };
       }
@@ -1443,7 +1463,7 @@ class RockSearchFilter
 
 
   _onToggleButtonChange(toggleState) {
-    let currentItem = this.currentTag.options.displayType;
+    let currentItem = this.currentTag.options.displayType;   
     if (toggleState) {
       this._toggleButtonText = "Has Value"
       this.updateStyles({
@@ -1470,6 +1490,6 @@ class RockSearchFilter
         this.booleanvalue = "";
       }
     }
-  }
+  }  
 }
 customElements.define(RockSearchFilter.is, RockSearchFilter);

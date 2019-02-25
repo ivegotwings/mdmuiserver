@@ -615,9 +615,11 @@ extends mixinBehaviors([
       return false;
 }
   _getItemValue(item){
-      if(item && item.value){
+      if(item && Array.isArray(item.value) && !_.isEmpty(item.value)){
           return item.value[0].split('>>').join('>><wbr/>');
       }
+
+      return "";
   }
 
   onConfigLoaded(componentConfig) {
