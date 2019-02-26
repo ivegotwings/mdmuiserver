@@ -102,6 +102,11 @@ const assets = [
     from: resolve('./riversand-serviceworker.js'),
     to: OUTPUT_PATH,
     flatten: true
+  },
+  {
+    from: resolve('./error-page/**/*'),
+    to: OUTPUT_PATH,
+    flatten: false
   }
 ];
 

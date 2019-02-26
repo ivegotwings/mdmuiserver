@@ -1,7 +1,20 @@
+const PRECACHE_URLS = [
+  '/error-page/error-page.html',
+  '/error-page/css/coming-soon.min.css', // Alias for index.html
+  '/error-page/vendor/bootstrap/css/bootstrap.min.css',
+  '/error-page/img/bg-mobile-fallback.jpg',
+  '/error-page/img/riversandlogo.svg'
+];
+const PRECACHE = 'precache-v1';
+
 self.addEventListener('install', function(event) {
-    self.skipWaiting(); //replace immediately with new worker;
-    // for future may be used to cache pages
+    event.waitUntil(
+      caches.open(PRECACHE)
+        .then(cache => cache.addAll(PRECACHE_URLS))
+        .then(self.skipWaiting())
+    );
   });
+  
 
 self.handleResponse = async function(request, clientId){
   const response = await fetch(request);
@@ -18,6 +31,11 @@ self.handleResponse = async function(request, clientId){
           });
         }
       }
+      caches.match(event.request).then(cachedResponse => {
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+      })
   }
   return response;
 }  
