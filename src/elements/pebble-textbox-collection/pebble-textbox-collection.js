@@ -141,7 +141,7 @@ class PebbleTextboxCollection extends
 
           _tagInputText: {
               type: String,
-              value: null,
+              value: '',
               observer: '_onTagInputTextChange'
           },
 
