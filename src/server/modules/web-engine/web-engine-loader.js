@@ -145,6 +145,7 @@ logger.info('Web engine start - user info route is loaded');
 
 //register static file root ...index.html..
 app.get('/*', function (req, res) {
+    //console.log('Incoming URL ', req.url);
     let isES5;
     let userDefaults = config.get("modules.userDefaults");
 
@@ -169,6 +170,7 @@ app.get('/*', function (req, res) {
         }
 
         let staticPath = "/static/es6-bundled"; 
+        //let staticPath = "/build/ui-platform/static/es6-unbundled/";
 
         if(req.cookies && !isEmpty(req.cookies.staticroot)) {
             //console.log('cookie ', req.cookies.staticroot);
@@ -185,8 +187,8 @@ app.get('/*', function (req, res) {
         } else if (url.indexOf("/src/") > -1) {
             url = url.replace("/src/", staticPath + "/src/");
             urlRedirected = true;
-        } else if (url.indexOf("/service-worker.js") > -1) {
-            url = url.replace("/service-worker.js", staticPath + "/service-worker.js");
+        } else if (url.indexOf("/riversand-serviceworker.js") > -1) {
+            url = url.replace("/riversand-serviceworker.js", staticPath + "/riversand-serviceworker.js");
             urlRedirected = true;
         } else if (url.indexOf("/manifest.json") > -1) {
             url = url.replace("/manifest.json", staticPath + "/manifest.json");

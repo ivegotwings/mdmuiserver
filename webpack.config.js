@@ -97,6 +97,16 @@ const assets = [
     from: resolve('./node_modules/underscore/underscore.*{js,map}'),
     to: join(OUTPUT_PATH, 'node_modules/underscore/'),
     flatten: true
+  },
+  {
+    from: resolve('./riversand-serviceworker.js'),
+    to: OUTPUT_PATH,
+    flatten: true
+  },
+  {
+    from: resolve('./error-page/**/*'),
+    to: OUTPUT_PATH,
+    flatten: false
   }
 ];
 
