@@ -160,7 +160,7 @@ class PebbleTreeNode extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
             }
 
             .nodetext {
-                margin-left: 10px;
+                padding-left: 10px;
                 @apply --pebble-tree-node-nodetext;
             }
             .flex{
@@ -208,16 +208,26 @@ class PebbleTreeNode extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
             .flex-grow-zero{
                 flex-grow: 0;
             }
-
+            .toggle-icon{
+                cursor:pointer;
+            }
+            li:hover,li:active,li a:hover,li a:active{
+                cursor:default;
+                color:#000;
+            }
+            .check-box-wrapper ~ .nodetext:hover,.check-box-wrapper ~ .nodetext-wrapper .nodetext:hover,
+            .check-box-wrapper ~ .nodetext:hover a,.check-box-wrapper ~ .nodetext-wrapper .nodetext:hover a{
+                cursor:pointer;
+            }
         </style>
         <template is="dom-if" if="[[!hasChildren(nodeData.*,itemPath)]]">
-            <li class\$="[[_getNodeClass(nodeData)]] [[_getLeafNodeClass()]]">
+            <li class\$="[[_getNodeClass(nodeData)]] [[_getLeafNodeClass()]]" on-tap="_itemClick">
                 <div class="check-box-wrapper">
                     <template is="dom-if" if="[[hideLeafNodeCheckbox]]">
-                        <pebble-icon class="iconButton pebble-icon-size-14" icon="pebble-icon:action-expand"></pebble-icon>
+                        <pebble-icon class="iconButton pebble-icon-size-14 toggle-icon" icon="pebble-icon:action-expand"></pebble-icon>
                     </template>
                     <template is="dom-if" if="[[!hideLeafNodeCheckbox]]">
-                        <pebble-checkbox on-tap="_itemClick" disabled="[[disabled]]" checked="[[_isSelected(nodeData,selectedItems,selectedItems.*,selectedItem)]]"></pebble-checkbox>
+                        <pebble-checkbox disabled="[[disabled]]" checked="[[_isSelected(nodeData,selectedItems,selectedItems.*,selectedItem)]]"></pebble-checkbox>
                     </template>
                 </div>
                 <pebble-icon src="[[nodeData.src]]" icon="[[nodeData.icon]]" hidden="[[!_iconPassed(nodeData)]]"></pebble-icon>
@@ -233,19 +243,16 @@ class PebbleTreeNode extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
             </li>
         </template>
         <template is="dom-if" if="[[hasChildren(nodeData.*,itemPath)]]">
-            <li class\$="[[_getNodeClass(nodeData)]]">
-                <pebble-icon class="iconButton pebble-icon-size-14" icon\$="[[_expandClass(expanded)]]" on-click="_toggle"></pebble-icon>
+            <li class\$="[[_getNodeClass(nodeData)]]" on-tap="_itemClick">
+                <pebble-icon class="iconButton pebble-icon-size-14 toggle-icon" icon\$="[[_expandClass(expanded)]]" on-click="_toggle"></pebble-icon>
                 <template is="dom-if" if="[[!leafNodeOnly]]">
                     <div class="check-box-wrapper">
-                        <pebble-checkbox on-tap="_itemClick" disabled\$="[[_isDisabled(nodeData,selectedItems,selectedItems.*,selectedItem)]]" indeterminate="[[_isIndeterminate(nodeData,indeterminateItems,indeterminateItems.*)]]" checked="[[_isSelected(nodeData,selectedItems,selectedItems.*,selectedItem)]]"></pebble-checkbox>
+                        <pebble-checkbox disabled\$="[[_isDisabled(nodeData,selectedItems,selectedItems.*,selectedItem)]]" indeterminate="[[_isIndeterminate(nodeData,indeterminateItems,indeterminateItems.*)]]" checked="[[_isSelected(nodeData,selectedItems,selectedItems.*,selectedItem)]]"></pebble-checkbox>
                     </div>
                 </template>
-                <div class="flex flex-grow-zero">
-                    <!--<div id="arrow" on-click="_toggle" hidden="[[multiSelect]]" class\$="[[_arrowClass(expanded)]] arrow"-->
-                    <!--&gt;</div>-->
+                <div class="flex flex-grow-zero nodetext-wrapper">
                     <pebble-icon src="[[nodeData.src]]" icon="[[nodeData.icon]]" hidden="[[!_iconPassed(nodeData)]]"></pebble-icon>
-                    <div class\$="nodetext [[_getSelectedNodeClass(highlightNode, nodeData.highlightNode, itemPath)]]" on-tap="_itemTextClick">
-                        <!--<pebble-button class="iconButton pebble-icon-size-16 m-r-5" icon="pebble-icon:view-dashboard"></pebble-button>-->[[nodeData.text]]</div>
+                    <div class\$="nodetext [[_getSelectedNodeClass(highlightNode, nodeData.highlightNode, itemPath)]]" on-tap="_itemTextClick">[[nodeData.text]]</div>
                 </div>
                 <div class="flex">
                     <div class="detailtext nodetext">[[_getPathValue()]]</div>
@@ -891,6 +898,9 @@ class PebbleTreeNode extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
    * Fired when an item is clicked. It sets the selected item and its style.
    */
   _itemClick(evt) {
+      if(!evt.currentTarget.querySelector('pebble-checkbox')){
+          return;
+      }
       if (this.nodeData.isDisabled) {
           return;
       }
