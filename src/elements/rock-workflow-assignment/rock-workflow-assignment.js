@@ -31,7 +31,7 @@ class RockWorkflowAssignment extends mixinBehaviors([RUFBehaviors.UIBehavior, RU
 
         <liquid-rest id="entityWfAssignment" url="/data/pass-through/entitygovernservice/workflowChangeAssignment" method="POST" on-liquid-response="_onAssignmentSuccess" on-liquid-error="_onAssignmentFailure"></liquid-rest>
 
-        <liquid-rest id="entityWfBulkAssignment" url="/pass-through-bulk/entitygovernservice/workflowChangeAssignment" method="POST" on-liquid-response="_onAssignmentSuccess" on-liquid-error="_onAssignmentFailure"></liquid-rest>
+        <liquid-rest id="entityWfBulkAssignment" url="/data/pass-through-bulk/entitygovernservice/workflowChangeAssignment" method="POST" on-liquid-response="_onAssignmentSuccess" on-liquid-error="_onAssignmentFailure"></liquid-rest>
 
         <liquid-rest id="asyncEntityWfAssignment" url="/data/pass-through-combined-query/bulkentityservice/createtask" method="POST" on-liquid-response="_onAsyncAssignmentSuccess" on-liquid-error="_onAsyncAssignmentFailure"></liquid-rest>
 `;

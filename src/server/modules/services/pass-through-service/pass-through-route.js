@@ -36,19 +36,19 @@ let PassThroughRouter = function (app) {
         let response = await entityHistoryEventService.get(req.body);
         res.status(200).send(response);
     });
-    app.post('/pass-through-bulk/matchservice/search', middlewares.urlValidator, async function (req, res) {
+    app.post('/data/pass-through-bulk/matchservice/search', middlewares.urlValidator, async function (req, res) {
         let response = await passThroughService.bulkCall(req);
         res.status(200).send(response);
     });
-    app.post('/pass-through-bulk/entitygovernservice/workflowChangeAssignment', middlewares.urlValidator, async function (req, res) {
+    app.post('/data/pass-through-bulk/entitygovernservice/workflowChangeAssignment', middlewares.urlValidator, async function (req, res) {
         let response = await passThroughService.bulkCall(req);
         res.status(200).send(response);
     });
-    app.post('/pass-through-bulk/entitygovernservice/transitionWorkflow', middlewares.urlValidator, async function (req, res) {
+    app.post('/data/pass-through-bulk/entitygovernservice/transitionWorkflow', middlewares.urlValidator, async function (req, res) {
         let response = await passThroughService.bulkCall(req);
         res.status(200).send(response);
     });
-    app.post('/pass-through-bulk/entitygovernservice/validate', middlewares.urlValidator, async function (req, res) {
+    app.post('/data/pass-through-bulk/entitygovernservice/validate', middlewares.urlValidator, async function (req, res) {
         let response = await passThroughService.bulkCall(req);
         res.status(200).send(response);
     });
@@ -56,7 +56,7 @@ let PassThroughRouter = function (app) {
         let response = await passThroughService.createTaskForCombinedQuery(req);
         res.status(200).send(response);
     });
-    app.post('/pass-through-deploytenantseed/adminservice/deploytenantseed', middlewares.urlValidator, async function (req, res) {
+    app.post('/data/pass-through-deploytenantseed/adminservice/deploytenantseed', middlewares.urlValidator, async function (req, res) {
         let response = await passThroughService.deployTenantSeedCall(req);
         res.status(200).send(response);
     });
