@@ -266,7 +266,7 @@ extends mixinBehaviors([
 
             .attribute:not(.trim) .attr-item--value {
                 display: -webkit-box;
-                word-break: normal;
+                word-break: break-word;
                 -webkit-box-orient: vertical;
                 overflow: hidden;
                 text-overflow: ellipsis;
@@ -349,8 +349,7 @@ extends mixinBehaviors([
                                 </template>
                                 <template is="dom-if" if="[[_isPathAttributeAndLessThanFour(item)]]">
                                     <pebble-echo-html html="[[_getItemValue(item)]]"></pebble-echo-html>
-                                </template>
-                                
+                                </template>                                
                                 </div>
                                 <template is="dom-if" if="[[_isPathAttributeAndHasWritePermission(item)]]">
                                     <pebble-icon icon="pebble-icon:Open-window" class="pebble-icon-size-14 m-l-5" on-tap="_onPathAttributeEdit" attribute-name="[[item.name]]"></pebble-icon>
