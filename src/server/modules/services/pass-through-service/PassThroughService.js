@@ -21,13 +21,13 @@ PassThroughService.prototype = {
     },
 
     deployTenantSeedCall: async function(request){
-        let passThroughUrl = request.url.replace('/pass-through-deploytenantseed/', '');
+        let passThroughUrl = request.url.replace('/data/pass-through-deploytenantseed/', '');
         return await this.post(passThroughUrl, request.body, "dataplatform");
     },
 
     bulkCall: async function (request) {
         //console.log('Bulk Operation Request - ', request.body);
-        let passThroughUrl = request.url.replace('/pass-through-bulk/', '');
+        let passThroughUrl = request.url.replace('/data/pass-through-bulk/', '');
         let singleEntityRequest = {};
         let bulkOperationResponse = [];
         let params = request.body.params;

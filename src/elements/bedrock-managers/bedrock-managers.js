@@ -7,3 +7,4 @@ import './entity-model-manager.js';
 import './context-data-manager.js';
 import './pubsub-manager.js';
 import '../api-external-communication/api-external-communication.js';
+import './serviceworker-manager.js';

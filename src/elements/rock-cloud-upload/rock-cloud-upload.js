@@ -63,7 +63,7 @@ class RockCloudUpload
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
 
         <liquid-rest id="prepareUploadLiquid" url="/data/binarystreamobjectservice/prepareUpload" method="POST" on-liquid-response="_onPrepareUploadLiquidSuccess" on-liquid-error="_onPrepareUploadLiquidFailure"></liquid-rest>
-        <liquid-rest id="notifyTenantSeedDeploy" url="/pass-through-deploytenantseed/adminservice/deploytenantseed" method="POST" on-liquid-response="_onDeployTenantSeedLiquidSuccess" on-liquid-error="_onDeployTenantSeedLiquidFailure"></liquid-rest>
+        <liquid-rest id="notifyTenantSeedDeploy" url="/data/pass-through-deploytenantseed/adminservice/deploytenantseed" method="POST" on-liquid-response="_onDeployTenantSeedLiquidSuccess" on-liquid-error="_onDeployTenantSeedLiquidFailure"></liquid-rest>
         <liquid-rest id="createUploadedFilesLiquid" url="/data/binarystreamobjectservice/create" method="POST" request-data="{{_createUploadedFilesRequest}}" on-liquid-response="_onCreateUploadedFilesLiquidSuccess" on-liquid-error="_onCreateUploadedFilesLiquidFailure"></liquid-rest>
 
         <div id="content-upload" class="content-upload-wrapper">
