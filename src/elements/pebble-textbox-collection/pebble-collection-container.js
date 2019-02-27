@@ -152,7 +152,7 @@ class PebbleCollectionContainer extends
                     min-width: 260px;
                 }
             }
-            .attribute-view-label {
+            .attribute-view-wrapper {
                 font-size: var(--font-size-sm, 12px);
                 font-family: 'Roboto', Helvetica, Arial, sans-serif;
                 font-weight: normal;
@@ -167,10 +167,17 @@ class PebbleCollectionContainer extends
                 white-space: nowrap;
                 @apply --context-coalesce-label;
             }
+            .attribute-view-label{
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                display:inline-block;
+                max-width:calc(100% - 20px)
+            }
         </style>
         <div class\$="text-collection-container [[_valuesClass]]" id="collection_container_wrapper">
             <div class\$="[[_getLabelClassName()]]" title$="[[label]]">
-                [[label]]
+                <span class="attribute-view-label">[[label]]</span>
                 <template is="dom-if" if="[[descriptionObject]]">
                     <pebble-info-icon description-object="[[descriptionObject]]"></pebble-info-icon>
                 </template>
@@ -434,7 +441,7 @@ class PebbleCollectionContainer extends
   // }
 
   _getLabelClassName() {
-      return this.noLabelFloat ? "attribute-view-label" : "text-collection-label";
+      return this.noLabelFloat ? "attribute-view-wrapper" : "text-collection-label";
   }
 
   _getPopover() {

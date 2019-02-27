@@ -943,13 +943,12 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
             let isSelfContext = false;
 
             let relConfig = this.relationshipGridConfig;
-            if (relConfig) {
+            let dataContext = this.getFirstDataContext();
+            if (relConfig && _.isEmpty(dataContext)) {
               isSelfContext = relConfig.selfContext;
             }
             this._entityRelations = this._entityRelations.concat(entity);
-
-            let relationships = EntityHelper.getRelationshipsBasedOnContext(entity, this.getFirstDataContext(),
-              isSelfContext);
+            let relationships = EntityHelper.getRelationshipsBasedOnContext(entity, dataContext, isSelfContext);
             if (!_.isEmpty(relationships)) {
               let relatedEntities = relationships[currentRel];
               if (this.dataObjects) {
@@ -958,10 +957,9 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
                 }
               }
               relatedEntities.forEach(function (relItem) {
-                if (relItem) {
+                if (relItem && relItem.relTo && relItem.relTo.id == currentEntityId) {
                   record["relationshipId"] = relItem.relTo.id;
                   record["Relationship Id"] = relItem.id;
-                  if (relItem.relTo && relItem.relTo.id == currentEntityId) {
                     if (relItem.relTo.type) {
                       record["typeExternalName"] = entityTypeManager.getTypeExternalNameById(relItem.relTo
                         .type);
@@ -984,7 +982,6 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
                         }
                       }, this);
                     }
-                  }
                 }
               }, this);
             }
@@ -1889,7 +1886,13 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
       }
     };
     defaultEntity.data.relationships[this.relationship] = [rel];
-    let domain = DataHelper.isValidObjectPath(this.contextData, "ItemContexts.0.domain") ? this.contextData.ItemContexts[0].domain : undefined;
+    let domain;
+    if(DataHelper.isValidObjectPath(this.contextData, "ItemContexts.0.domain") && !_.isEmpty(this.contextData.ItemContexts[0].domain)){
+      domain = this.contextData.ItemContexts[0].domain;
+    }
+    else{
+      domain = "";
+    }
     let entityTypeManager = new EntityTypeManager()
     let fromEntityExternalName = entityTypeManager.getTypeExternalNameById(fromEntityTypes[0]);
     let title = DataHelper.concatValuesFromArray([

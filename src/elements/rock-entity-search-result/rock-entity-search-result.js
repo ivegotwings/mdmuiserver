@@ -509,6 +509,15 @@ class RockEntitySearchResult extends mixinBehaviors([RUFBehaviors.AppBehavior,
               }
           }
 
+           //App specific
+           let appName = "";
+           appName = ComponentHelper.getCurrentActiveAppName(this);
+           if (appName) {
+               context[ContextHelper.CONTEXT_TYPE_APP] = [{
+                   "app": appName
+               }];
+           }
+
           this.requestConfig('rock-entity-search-result', context);
       }
   }
@@ -846,7 +855,25 @@ class RockEntitySearchResult extends mixinBehaviors([RUFBehaviors.AppBehavior,
               }
           }
 
+          let noColumnsConfigured = false;
           if (_.isEmpty(attributeModels)) {
+              let metaDataColumnFound = false;
+              if (this.gridConfig.itemConfig && !_.isEmpty(this.gridConfig.itemConfig.fields)) {
+                let fields = this.gridConfig.itemConfig.fields;
+                for (let key in fields) {
+                    if (fields[key].isMetaDataColumn) {
+                        metaDataColumnFound = true;
+                        break;
+                    }
+                }
+              }
+
+              if(!metaDataColumnFound) {
+                  noColumnsConfigured = true;
+              }
+          }
+
+          if(noColumnsConfigured) {
               this.logError("rock-entity-search-result - Empty attribute models", this._selectedEntityTypes);
               /**
               * TODO: We need to change the event to show permissions error.
@@ -1158,6 +1185,11 @@ class RockEntitySearchResult extends mixinBehaviors([RUFBehaviors.AppBehavior,
       let copContext = {};
       if(detail && detail["cop-context"]){
           copContext = detail["cop-context"];
+          let currentValueContexts = ContextHelper.getValueContexts(this.contextData);
+          let defaultValueContext = DataHelper.getDefaultValContext();
+          if (_.isEmpty(currentValueContexts) && defaultValueContext) {
+            this.contextData[ContextHelper.CONTEXT_TYPE_VALUE] = [defaultValueContext];
+          }
           if(copContext.source){
             let valContexts = ContextHelper.getValueContexts(this.contextData);        
             copContext.source = valContexts[0].source;

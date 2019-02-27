@@ -10,7 +10,7 @@ import '../liquid-entity-model-get/liquid-entity-model-get.js';
 import '../pebble-spinner/pebble-spinner.js';
 import '../rock-grid/rock-grid.js';
 import '../rock-grid-data-sources/attribute-model-datasource.js';
-import EntityTypeManager from '../bedrock-managers/entity-type-manager.js'
+import EntityTypeManager from '../bedrock-managers/entity-type-manager.js';
 import { mixinBehaviors } from '@polymer/polymer/lib/legacy/class.js';
 class RockBulkEditGrid
     extends mixinBehaviors([

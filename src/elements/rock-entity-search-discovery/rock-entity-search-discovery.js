@@ -1180,7 +1180,7 @@ extends mixinBehaviors([
                           tag.longName = attrModel.externalName;
                           tag.options = DataHelper.cloneObject(attrModel);
                       }
-                      tag.value = attribute;
+                      tag.value = DataHelper.cloneObject(attribute);
                       if (attribute.hasvalue != undefined) {
                           tag.displayValue = attribute.hasvalue ? "!%&has value!%&" : "!%&has no value!%&";
                       } else if (attribute.type === "_STRING") {
@@ -1210,7 +1210,9 @@ extends mixinBehaviors([
                               tag.displayValue = attribute.gte + " - " + attribute.lte;
                           } else if (attribute.contains) {
                               tag.displayValue = this._entitySearchFilterElement.formatFilterCollectionDisplay(attribute.contains.split(" "));
-                          }else if (attribute.exacts) {
+                          } else if (attribute.eq) {
+                              tag.displayValue = attribute.eq;
+                          } else if (attribute.exacts) {
                                 if(attribute.exacts instanceof Array) {
                                     tag.displayValue = this._entitySearchFilterElement.formatFilterCollectionDisplay(attribute.exacts);
                                 } else {
@@ -1227,14 +1229,19 @@ extends mixinBehaviors([
                           }
                       }
                       tag.value.hasvalue = true;
+                      if(attribute.hasvalue == false){
+                        tag.value.hasvalue = false; 
+                      }
                   }
                   //Set no popover for saved searches
-                  if (tag.options) {
+                  if (tag.options) {                    
+                      tag.options.hasValueChecked = tag.value.hasvalue;                      
                       tag.options.noPopoverOnAttach = true;
                   } else {
                       tag.options = {
                           "noPopoverOnAttach": true
                       };
+                      tag.options.hasValueChecked = tag.value.hasvalue; 
                   }
 
                   tags.push(tag);

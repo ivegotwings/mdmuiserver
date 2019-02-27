@@ -55,7 +55,7 @@ class RockWorkflowTransition extends mixinBehaviors([RUFBehaviors.UIBehavior, RU
 
         <liquid-entity-model-get id="workflowDefinitionsGet" operation="getsearchresultdetail" request-id="[[initWorkflowDefinitionsGet.content.requestId]]" on-response="_onWorkflowDefinitionsGetResponse" on-error="_onWorkflowDefinitionsGetError"></liquid-entity-model-get>
 
-        <liquid-rest id="entityWfTransition" url="/pass-through-bulk/entitygovernservice/transitionWorkflow" method="POST" on-liquid-response="_onTransitionSuccess" on-liquid-error="_onTransitionFailure"></liquid-rest>
+        <liquid-rest id="entityWfTransition" url="/data/pass-through-bulk/entitygovernservice/transitionWorkflow" method="POST" on-liquid-response="_onTransitionSuccess" on-liquid-error="_onTransitionFailure"></liquid-rest>
 
         <liquid-rest id="asyncEntityWfTransition" url="/data/pass-through-combined-query/bulkentityservice/createtask" method="POST" on-liquid-response="_onAsyncTransitionSuccess" on-liquid-error="_onAsyncTransitionFailure"></liquid-rest>
         <template is="dom-if" if="[[_showTransitionSection]]">

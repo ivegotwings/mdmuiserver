@@ -85,7 +85,10 @@ ComponentHelper.loadContent = function (contentElement, component, element, call
         for (let property in component.properties) {
             if (component.properties.hasOwnProperty(property)) {
                 let val = component.properties[property];
-                if (typeof val == "object") {
+                let propertyName = DataHelper.convertCamelCaseStringFromHyphenated(property);
+                if(dynamicEl.get(propertyName) != undefined){
+                    dynamicEl[propertyName] = val;
+                }else if (typeof val == "object") {
                     dynamicEl.setAttribute(property, JSON.stringify(val));
                 } else {
                     //Polymer takes default as true, so do not set attribute for boolean false

@@ -355,11 +355,16 @@ class PebbleComboBox extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
       if (!this.multiSelect) {
           this.splice('values', 0, 1);
 
-          this.set("selectedValue", e.detail.item.value);
-
-          this.set("selectedValuesLocale", [e.detail.item.locale]);
-
-          this.set('selectedId', e.detail.item.id);
+          let lovSelectedId = e.detail.item.id;
+          if(lovSelectedId == this.selectedId){
+            this.set("selectedValue", "");
+            this.set("selectedValuesLocale", []);
+            this.set('selectedId', "");
+          }else{
+            this.set("selectedValue", e.detail.item.value);
+            this.set("selectedValuesLocale", [e.detail.item.locale]);
+            this.set('selectedId', e.detail.item.id);
+          }
 
           this._getCollectionContainer().closePopover();
       } else {

@@ -52,7 +52,7 @@ $_documentContainer.innerHTML = `<dom-module id="bedrock-app-layout-height">
 
             app-external-dashboard {
                 --app-external-dashboard-content-height: {
-                    height: calc(var(--window-inner-height) - 141px);
+                    height: calc(var(--window-inner-height) - 104px);
                 }
             }
           

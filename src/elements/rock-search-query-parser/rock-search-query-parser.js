@@ -760,6 +760,7 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                         }
                         let attrId = availChildAttrs[0]['id'];
                         let attrName = availChildAttrs[0]['name'];
+                        availChildAttrs[0].isLocalizable = currentItem.isLocalizable;
                         currentItem.group[0][attrName] = availChildAttrs[0];
                         entityModels = entityModels.filter(removalChild => { return removalChild.id != attrId});
                     }
@@ -801,9 +802,8 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
 
   _prepareAttrsCriterion(attributeModels, attributes) {
     if (attributes && attributes.length > 0) {
-      let prefix = /^\"/i;
-      let suffix = /^.+\"$/gm;
       let selectedContext = ContextHelper.getDataContexts(this.contextData);
+      let defaultValCtx = DataHelper.getDefaultValContext();
       for (let i = 0; i < attributes.length; i++) {
         let attribute = attributes[i];
         for (let attrName in attribute) {
@@ -827,95 +827,54 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                 let key = keys[j];
                 let val = attrVal[key];
                 let valueStr =  "";
-                let isPrefixed = prefix.test(val);
-                let isSuffixed = suffix.test(val);
-                let isExactSearch = false;
+                let searchObj = DataHelper.getSearchTextCharacteristics(val)
+                let isExactSearch = searchObj["isExactSearch"];
+                let updatedSearchTextArray = searchObj["updatedSearchText"];
+                let operator = searchObj["operator"];
                 
-                let operator;
-                let splitQueryByAnd = val.toLowerCase().split("' and '");
-                let splitQueryByOr = val.toLowerCase().split("' or '");
-                if(isPrefixed && isSuffixed){
-                 isExactSearch = true;
-                }
-                let containsStr = val;
-
-                if (splitQueryByAnd.length > 1) {
-                  operator = "_AND";
-                  if(isExactSearch){
-                    splitQueryByAnd = DataHelper.replaceDoubleQuotesWithSpace(splitQueryByAnd);
-                  }
-                  containsStr = splitQueryByAnd;
-                } else if (splitQueryByOr.length > 1) {
-                  operator = "_OR";
-                  if(isExactSearch){
-                    splitQueryByOr = DataHelper.replaceDoubleQuotesWithSpace(splitQueryByOr);
-                  }
-                  containsStr = splitQueryByOr;
-                }else if(isExactSearch){
-                  containsStr = DataHelper.replaceDoubleQuotesWithSpace(containsStr);
-                }
-                if (containsStr instanceof Array) {
-                  containsStr = containsStr.join(' ');
-
-                }
-
                   if (val.indexOf("!%&") > -1) {
                     attrVal["hasvalue"] = val == "!%&has value!%&" ? true : false;
                     delete attrVal[key];
                   } else if (displayType === "path") {
                     if (key === "equals") {
-                      if (splitQueryByAnd.length > 1) {
-                        valueStr = this._formatQueryValue(splitQueryByAnd,false,false)
-                        attrVal["eq"] = valueStr;
-                        attrVal["operator"] = "_AND"
-                      } else if (splitQueryByOr.length > 1) {
-                        valueStr = this._formatQueryValue(splitQueryByOr,false,false)
-                        attrVal["eq"] = valueStr;
-                        attrVal["operator"] = "_OR"
-                      } else {
-                        attrVal["eq"] = val;
+                      if(updatedSearchTextArray.length > 1){
+                          valueStr = this._formatQueryValue(updatedSearchTextArray,false,false)
+                          attrVal["eq"] = valueStr;
+                          attrVal["operator"] = operator;
+                      }else {
+                        attrVal["eq"] = updatedSearchTextArray[0];
                       }
                     }
                     delete attrVal[key];
                   }
                   else if (displayType === "referencelist") {
                     if (key === "equals") {
-                      if (splitQueryByAnd.length > 1) {
-                        attrVal["exacts"] = splitQueryByAnd;
-                        attrVal["operator"] = "_AND"
-                      } else if (splitQueryByOr.length > 1) {
-                        attrVal["exacts"] = splitQueryByOr;
-                        attrVal["operator"] = "_OR"
+                      if (updatedSearchTextArray.length > 1) {
+                        attrVal["exacts"] = updatedSearchTextArray;
+                        attrVal["operator"] = operator
                       } else {
-                        attrVal["exact"] = containsStr;
+                        attrVal["exact"] = updatedSearchTextArray[0];
                       }
                       delete attrVal[key];
                     }
                   }else if (displayType === "textbox") {
                     if (key === "equals") {
                       if(isExactSearch){
-                        if (splitQueryByAnd.length > 1) {
-                          attrVal["exacts"] = splitQueryByAnd;
-                          attrVal["operator"] = "_AND"
-                        } else if (splitQueryByOr.length > 1) {
-                          attrVal["exacts"] = splitQueryByOr;
-                          attrVal["operator"] = "_OR"
-                        } else {
-                          attrVal["exact"] = containsStr;
+                        if (updatedSearchTextArray.length > 1) {
+                          attrVal["exacts"] = updatedSearchTextArray;
+                          attrVal["operator"] = operator;
+                        }else {
+                          attrVal["exact"] = updatedSearchTextArray[0];
                         }
                       }else{
-                        if (splitQueryByAnd.length > 1) {
-                          valueStr = this._formatQueryValue(splitQueryByAnd,true,true)
+                        if (updatedSearchTextArray.length > 1) {
+                          valueStr = this._formatQueryValue(updatedSearchTextArray,true,true)
                           attrVal["eq"] = valueStr;
-                          attrVal["operator"] = "_AND"
-                        } else if (splitQueryByOr.length > 1) {
-                          valueStr = this._formatQueryValue(splitQueryByOr,true,true)
-                          attrVal["eq"] = valueStr;
-                          attrVal["operator"] = "_OR"
-                        } else {
-                          containsStr = DataHelper.removeSpecialCharacters(containsStr);
-                          let value = DataHelper.populateWildcardForFilterText(containsStr);
-                          attrVal["eq"] = value;
+                          attrVal["operator"] = operator;
+                        }else {
+                          let filterValue = DataHelper.removeSpecialCharacters(updatedSearchTextArray[0]);
+                          filterValue = DataHelper.populateWildcardForFilterText(filterValue);
+                          attrVal["eq"] = filterValue;
                         }
                       }
                     
@@ -923,28 +882,25 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                     }
                   } else if (displayType === "numeric") {
                     if (key === "equals") {
-                      if (splitQueryByAnd.length > 1) {
-                        attrVal["exacts"] = splitQueryByAnd;
-                        attrVal["operator"] = "_AND"
-                      } else if (splitQueryByOr.length > 1) {
-                        attrVal["exacts"] = splitQueryByOr;
-                        attrVal["operator"] = "_OR"
-                      } else {
-                        attrVal["eq"] = containsStr;
+                      if (updatedSearchTextArray.length > 1) {
+                        attrVal["exacts"] = updatedSearchTextArray;
+                        attrVal["operator"] = operator;
+                      }else {
+                        attrVal["eq"] = updatedSearchTextArray[0];
                       }
                       delete attrVal[key];
                     }
                   } else if (displayType === "boolean") {
-                    attrVal["eq"] = containsStr;
+                    attrVal["eq"] = updatedSearchTextArray[0];
                     delete attrVal[key];
                   } else if (displayType === "richtexteditor" || displayType === "textarea") {
                     if(isExactSearch){
-                      attrVal["eq"] = "\""+containsStr+"\"";
+                      attrVal["eq"] = "\""+ updatedSearchTextArray[0] +"\"";
                       attrVal["operator"] = operator;
                     }else{
-                      containsStr = containsStr.replace(/(^")|("$)/g, "");
-                      containsStr = DataHelper.removeSpecialCharacters(containsStr);
-                      attrVal["eq"] = DataHelper.populateWildcardForFilterText(containsStr)
+                      let filterValue = updatedSearchTextArray[0].replace(/(^")|("$)/g, "");
+                      filterValue = DataHelper.removeSpecialCharacters(filterValue);
+                      attrVal["eq"] = DataHelper.populateWildcardForFilterText(filterValue)
                       attrVal["operator"] = operator;
                     }
                     delete attrVal[key];
@@ -969,16 +925,15 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                     }
                   } else {
                     if (operator) {
-                      attrVal["contains"] = containsStr;
+                      attrVal["contains"] = updatedSearchTextArray[0];
                       attrVal["operator"] = operator;
                     } else {
-                      attrVal["exact"] = containsStr;
+                      attrVal["exact"] = updatedSearchTextArray[0];
                     }
                     delete attrVal[key];
                   }
               }
               attrVal["type"] = dataType;
-              let defaultValCtx = DataHelper.getDefaultValContext();
               if (!attrModel.isLocalizable && !attrModel.isNestedChildItem) {
                 attrVal["valueContexts"] = [defaultValCtx];
               }
@@ -1008,6 +963,9 @@ class RockSearchQueryParser extends mixinBehaviors([RUFBehaviors.UIBehavior, RUF
                   if (attrData && (attrData.indexOf("!%&") > -1)) {
                     attrVal = {};
                     attrVal["hasvalue"] = attrData == "!%&has value!%&" ? true : false;
+                  }
+                  if(attrModel && !attrModel.isLocalizable) {
+                    attrVal["valueContexts"] = [defaultValCtx];
                   }
                   nestedAttributeObj[_currentLevel] = attrVal;
                 } else {

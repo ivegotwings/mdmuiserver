@@ -17,8 +17,8 @@ class PebbleIframe extends
     return html`
         <style include="bedrock-style-scroll-bar bedrock-style-common">
             :host {
-                height: 100%;
-                display: block;
+                height: 100%;                
+                display: block;                
             }
 
             .wrapper {
@@ -44,9 +44,6 @@ class PebbleIframe extends
                 left: 0;
                 width: 100%;
                 height:100%;
-            }
-            iframe{
-                @apply --app-external-dashboard-inner-content-height;
             }
         </style>
         <div class="wrapper">

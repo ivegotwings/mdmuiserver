@@ -415,20 +415,47 @@ class RockRecentActivity extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBeh
     e.currentTarget.classList.toggle("active");
     e.currentTarget.nextElementSibling.classList.toggle("show");
   }
-  _refresh(event) {
+  async _refresh(event) {
     if (event) {
         this.contextData = event.detail.contextData;
     }
     this.items = [];
     this.page = 0;
     this.page = 1;
-    this.getEvents();
+    if (await this._isCoalesceOptionsChanged()) {
+      this._triggerProcess();
+    } else {
+      this.getEvents();
+    }
+  }
+
+  //Coalesce options will change as per context and classification paths
+  async _isCoalesceOptionsChanged() {
+    let currentCoalesceOptions = await this._getCoalesceOptions();
+
+    if (_.isEmpty(currentCoalesceOptions) && _.isEmpty(this._coalesceOptions)) {
+      return false;
+    }
+
+    if ((_.isEmpty(currentCoalesceOptions) && !_.isEmpty(this._coalesceOptions)) ||
+      (!_.isEmpty(currentCoalesceOptions) && _.isEmpty(this._coalesceOptions))) {
+      this._coalesceOptions = currentCoalesceOptions;
+      return true;
+    }
+
+    if (!_.isEmpty(currentCoalesceOptions) && !_.isEmpty(this._coalesceOptions)) {
+      let isChanged = !DataHelper.areEqualArrays(currentCoalesceOptions.enhancerAttributes, this._coalesceOptions.enhancerAttributes);
+      if (isChanged) {
+        this._coalesceOptions = currentCoalesceOptions;
+      }
+      return isChanged;
+    }
   }
 
   ready() {
     super.ready();
     this._dataFormatter = this._getAttributeFormattedData.bind(this);
-    this._triggerForCoalesceOptions();
+    this._triggerWithCoalesceOptions();
   }
   _triggerProcess() {
     let compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
@@ -468,10 +495,14 @@ class RockRecentActivity extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBeh
     }
     request.params.options.coalesceOptions = this._coalesceOptions;
   }
-  async _triggerForCoalesceOptions() {
-    let entityCompositeModelManager = new EntityCompositeModelManager();
-    this._coalesceOptions = await entityCompositeModelManager.getCoalesceOptions(this.contextData);
+  async _triggerWithCoalesceOptions() {
+    this._coalesceOptions = await this._getCoalesceOptions();
     this._triggerProcess();
+  }
+  async _getCoalesceOptions() {
+    let entityCompositeModelManager = new EntityCompositeModelManager();
+    let coalesceOptions = await entityCompositeModelManager.getCoalesceOptions(this.contextData);
+    return coalesceOptions;
   }
   _getAttributeFormattedData(data) {
     if (data && data.content && !_.isEmpty(data.content.entityModels[0])) {
@@ -495,6 +526,10 @@ class RockRecentActivity extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBeh
           rockElement = new rockComponent();
           rockElement.attributeModelObject = attributeModel;
           let attributeValue = this._getRowData(attributeData, attributeId, attributeModel);
+          if (!attributeValue || _.isEmpty(attributeValue.value)) {
+            this.showWarningToast("No data for the attribute in current context");
+            return;
+          }
           rockElement.attributeObject = attributeValue;
           rockElement.mode = "view";
         } else if (attributeModel.displayType && attributeModel.displayType.toLowerCase() === "richtexteditor") {
@@ -523,6 +558,9 @@ class RockRecentActivity extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBeh
       let firstValueContext = ContextHelper.getFirstValueContext(this.contextData);
 
       if (attrModel && attrModel.group && attrModel.group.length > 0) {
+        if (!attrModel.isLocalizable) {
+          firstValueContext = DataHelper.getDefaultValContext();
+        }
         let attrValue = DataTransformHelper.transformNestedAttributes({
           "group": item[attributeId]
         }, attrModel, false, firstDataContext, firstValueContext);

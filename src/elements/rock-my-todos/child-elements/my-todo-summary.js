@@ -194,9 +194,8 @@ class MyTodoSummary
             <div class\$="{{_computeClass(myTodo.status)}} todo-status"></div>
             <div>    
             <div class="item-container">               
-                    <div id="taskCount" class="square" hidden="">
-                        [[_numberOfTasks]]
-                        
+                    <div id="taskCount" class="square" hidden="" on-tap="_onActivityTap">
+                        [[_numberOfTasks]]                        
                     </div>
                     <div id="taskCountLoading">
                         <img id="loadingIcon" src="../../../../src/images/loading.svg">

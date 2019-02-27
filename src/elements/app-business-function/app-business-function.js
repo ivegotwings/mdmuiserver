@@ -203,4 +203,3 @@ class AppBusinessFunction
   }
 }
 customElements.define(AppBusinessFunction.is, AppBusinessFunction)
-export default AppBusinessFunction;

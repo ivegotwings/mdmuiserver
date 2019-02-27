@@ -566,6 +566,7 @@ class RockAttributeList extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehav
           attributeElement.attributeObject = this._cloneObject(attributeElement.originalAttributeObject);
           this._updateDependentAttributes(attributeElement, true);
           attributeElement.changed = false;
+          attributeElement.revertAll();
       }
       this.mode = "view";
   }
@@ -642,12 +643,53 @@ class RockAttributeList extends mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehav
           for (let i = 0; i < this.attributeValues.length; i++) {
               let _currentAttribute = this.attributeValues[i];
               if (this.attributeMessages[_currentAttribute.name]) {
+                  this.attributeMessages[_currentAttribute.name] = this._reduceAttributeMessages(this.attributeMessages[_currentAttribute.name], _currentAttribute);
                   if (!_currentAttribute["errors"] || _currentAttribute["errors"].length == 0) {
                       _currentAttribute["errors"] = this.attributeMessages[_currentAttribute.name];
                   }
               }
           }
       }
+  }
+
+  _reduceAttributeMessages(messages, attribute) {
+    let localeHelper = this.localize();
+    messages.forEach(function(message, index) {
+        if(typeof message === "string") {
+            if(message.includes("valueId:")) {
+                let messageValueId = message.split("valueId:")[1];
+                let value = "";
+                if(Array.isArray(attribute.value)) {
+                    let valueIndex = attribute.valueIds ? attribute.valueIds.indexOf(messageValueId) : -1;
+                    if(valueIndex > -1) {
+                        value = attribute.value[valueIndex];
+                    }
+                } else {
+                    value = messageValueId === attribute.id ? attribute.value : "";
+                }
+                if(value) {
+                    let messageSubString = message.substr(0, message.indexOf('@#@'));
+                    value = " - " + value;
+                    if(!localeHelper || messageSubString !== localeHelper("InvalidVal001")) {
+                        value = "";
+                    }
+                    message = message.replace(message.substr(message.indexOf('@#@'), message.length), value);
+                    messages[index] = message;
+                } else {
+                    messages[index] = "";
+                }
+            }
+        }
+    }, this);
+
+    messages = messages.reduce(function(prev, next) {
+        if(next && next !== "") {
+            prev.push(next);
+        }
+        return prev;
+    }, []);
+
+    return messages;
   }
   _onModeChange(e) {
       const mode = e.detail.mode;

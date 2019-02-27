@@ -640,7 +640,7 @@ DataTransformHelper._transformAttributeForSave = function (attributeJSON, model,
             attr = { "group": [] };
             for (let j = 0; j < attributeJSON.value.length; j++) {
                 let group = attributeJSON.value[j];
-                if(attributeJSON.action){
+                if(attributeJSON.action && group && typeof group == "object"){
                     group.action = attributeJSON.action;
                 }
                 
@@ -844,6 +844,7 @@ DataTransformHelper._transformAttributes = function (attributes, attributeModels
                 let os = undefined;
                 let osid = undefined;
                 let ostype = undefined;
+                let attributeValueIds = [];
 
                 for (let i = 0; i < attribute.values.length; i++) {
                     let attributeValue = attribute.values[i];
@@ -870,6 +871,8 @@ DataTransformHelper._transformAttributes = function (attributes, attributeModels
                         }
                     }
 
+                    attributeValueIds.push(attributeValue.id);
+
                     if (!_.isEmpty(attributeValue.os) && !_.isEmpty(attributeValue.osid) && !_.isEmpty(attributeValue.ostype)) {
                         os = attributeValue.os;
                         osid = attributeValue.osid;
@@ -889,6 +892,8 @@ DataTransformHelper._transformAttributes = function (attributes, attributeModels
                         attributeJSON.osid = osid;
                         attributeJSON.ostype = ostype;
                     }
+
+                    attributeJSON.valueIds = attributeValueIds;
                 }
 
                 if (attributeJSON != undefined && attributeJSON.invalidValue) {
@@ -1598,20 +1603,22 @@ DataTransformHelper.transformEntitiesToSimpleSchema = function (entities, attrib
                 let formattedEntity = {};
                 for (let index in attributeNames) {
                     let columnName = attributeNames[index];
-                    if (columnName && entities[i][columnName]) {
-                        formattedEntity[columnName] = entities[i][columnName];
-                    } else {
-                        if (attributes && attributes[columnName] && attributes[columnName].values) {
-                            let attributeValueObj = attributes[columnName].values[0];
-                            let value = attributeValueObj.value;
-                            if (attributeModels) {
-                                let model = attributeModels[columnName];
-                                if (model && model.dataType && (model.dataType.toLowerCase() == "date" || model.dataType.toLowerCase() == "datetime")) {
-                                    value = FormatHelper.convertFromISODateTime(value, model.dataType, model.dateFormat);
-                                }
+                    if (attributes && attributes[columnName] && attributes[columnName].values) {
+                        let attributeValueObj = attributes[columnName].values[0];
+                        let value = attributeValueObj.value;
+                        if (attributeModels) {
+                            let model = attributeModels[columnName];
+                            if (model && model.dataType && (model.dataType.toLowerCase() == "date" || model.dataType.toLowerCase() == "datetime")) {
+                                value = FormatHelper.convertFromISODateTime(value, model.dataType, model.dateFormat);
                             }
-                            formattedEntity[columnName] = value;
                         }
+                        formattedEntity[columnName] = value;
+                    }
+                    else if(columnName && entities[i][columnName]){
+                        formattedEntity[columnName] =  entities[i][columnName];
+                    }
+                    else if(columnName && entities[i].properties && entities[i].properties[columnName]){
+                        formattedEntity[columnName] =  entities[i].properties[columnName];
                     }
                 }
                 if (!_.isEmpty(formattedEntity)) {
@@ -2084,17 +2091,23 @@ DataTransformHelper._updateValuesAndLocaleCoalesceInfo = function (values, valCo
             }
         }
 
+        let invalidValues = [];
         for (let i = locales.length - 1; i > -1; i--) {
             _filteredLocale = _values.filter(value => value.locale === locales[i].name);
             if (_filteredLocale && _filteredLocale.length > 0) {
                 for (let j = 0; j < _filteredLocale.length; j++) {
-                    let _referenceData = _filteredLocale[j].properties.referenceData;
-                    let existingCol = _filteredLocale[j].locale;
+                    let filteredLocaleObj = _filteredLocale[j];
+                    let existingCol = filteredLocaleObj.locale;
                     if (existingCol != valContext.locale) {
-                        _filteredLocale[j]["localeCoalesce"] = existingCol;
-                        _filteredLocale[j]["fallbackLocaleIndex"] = locales[i]["index"];
+                        filteredLocaleObj["localeCoalesce"] = existingCol;
+                        filteredLocaleObj["fallbackLocaleIndex"] = locales[i]["index"];
                     }
-                    fallbackLocaleObj[_referenceData] = _filteredLocale[j];
+                    if(filteredLocaleObj.properties && filteredLocaleObj.properties.referenceData) {
+                        let _referenceData = filteredLocaleObj.properties.referenceData;
+                        fallbackLocaleObj[_referenceData] = filteredLocaleObj;
+                    } else {
+                        invalidValues.push(filteredLocaleObj);
+                    }
                 }
             }
         }
@@ -2109,6 +2122,10 @@ DataTransformHelper._updateValuesAndLocaleCoalesceInfo = function (values, valCo
                 delete _fallbackLocale['localeCoalesce'];
             }
             output.push(_fallbackLocale);
+        }
+
+        if(!_.isEmpty(invalidValues)) {
+            output = output.concat(invalidValues);
         }
         attrValues = output;
     } else {

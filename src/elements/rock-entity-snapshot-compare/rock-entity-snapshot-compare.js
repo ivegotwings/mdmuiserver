@@ -56,12 +56,7 @@ class RockEntitySnapshotCompare extends mixinBehaviors([RUFBehaviors.UIBehavior,
             .overflow-auto-y {
                 overflow-x: hidden;
                 overflow-y: auto;
-            }
-            rock-compare-entities{
-                --rock-snapshot-screen:{
-                    height:calc(100% - 50px);
-                }
-            }
+            }            
         </style>
 
         <pebble-spinner active="[[_loading]]"></pebble-spinner>

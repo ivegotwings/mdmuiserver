@@ -410,6 +410,13 @@ extends mixinBehaviors([
               break;
           }
           case 'action-matchandmerge': {
+              if (!this._areSelectedEntitiesValidForMatchMerge()) {
+                  let msg = !this.isSingleEntityProcess ?
+                      "All selected entities should be of draft type for the review, select valid entities." :
+                      "Entity should be of draft type for the review, select a valid entity. ";
+                  this.showWarningToast(msg);
+                  return;
+              }
               detail = {
                   name: componentName,
                   subName: subComponentName,
@@ -417,8 +424,7 @@ extends mixinBehaviors([
                   title: this.isSingleEntityProcess ? this._getEntityName() : this._selectedItems.length + " entities"
               };
               sharedData = {
-                  "source-entities": [...new Set(this._selectedItems.map((entity) => entity.id))],
-                  "is-review-process": true
+                  "source-entities": this._selectedItems
               };
               break;
           }
@@ -454,8 +460,7 @@ extends mixinBehaviors([
                   "title": title,
                   "selected-entities": this._selectedItems,
                   "selection-mode": selectionMode,
-                  "selection-query": selectionQuery,
-                  
+                  "selection-query": selectionQuery
               };
               break;
           }
@@ -467,6 +472,14 @@ extends mixinBehaviors([
       if(shouldOpenBusinessDialog) {
           this.openBusinessFunctionDialog(detail, sharedData);
       }
+  }
+
+  _areSelectedEntitiesValidForMatchMerge() {
+      let isValid = false;
+      isValid = this._selectedItems.every(entity => {
+          return /^rsdraft/i.test(entity.type);
+      });
+      return isValid;
   }
 
   _isSelectedItemsAllowed(allowedEntityTypes) {

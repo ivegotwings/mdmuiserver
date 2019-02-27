@@ -38,8 +38,12 @@ function ArrayDataSource(arr) {
       for (let i = 0; i < filter.length; i++) {
         let fieldToConsider = filter[i].path;
         let _filterValue = filter[i].filter;
-        if(!_.isEmpty(_filterValue)){
-          _filteredArray = DataHelper.applyLocalFilter(_filteredArray,_filterValue,[fieldToConsider]);
+        if(typeof _filterValue === 'boolean'){
+          _filteredArray = DataHelper.applyLocalFilterByBoolean(_filteredArray,_filterValue,fieldToConsider);
+        }else{
+          if(!_.isEmpty(_filterValue)){
+            _filteredArray = DataHelper.applyLocalFilter(_filteredArray,_filterValue,[fieldToConsider]);
+          }
         }
       }
     }
@@ -1081,6 +1085,10 @@ IronScrollTargetBehavior
     return this.enableMultiSelection;
   }
   _resetData(rDataSource, filter, sortOrder) {
+    if(!(rDataSource === this.rDataSource)) {
+      this.rDataSource = rDataSource;
+      return;
+    }
     // Resetting scroll position and selection for consistency here. They are
     // both reset implicitly when a new _cachedItems is set to iron-list, but
     // that doesn't happen when size of the dataset changes only by a few items.

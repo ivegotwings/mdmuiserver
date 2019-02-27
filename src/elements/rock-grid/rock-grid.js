@@ -226,7 +226,6 @@ import '../pebble-vertical-divider/pebble-vertical-divider.js';
 import '../pebble-icons/pebble-icons.js';
 import '../pebble-icon/pebble-icon.js';
 import '../pebble-popover/pebble-popover.js';
-import DataTableRow from '../pebble-data-table/data-table-row.js'
 import '../rock-attribute/rock-attribute.js';
 import '../rock-image-viewer/rock-image-viewer.js';
 import '../rock-nested-attribute-grid/rock-nested-attribute-grid.js';
@@ -785,13 +784,16 @@ extends mixinBehaviors([
 				overflow-y: auto;
 				overflow-x: auto;
 				height: 50vh;
-			}
+            }
+            #attrDialogContainer{
+                @apply --height-compare;
+            }
 
 			.overflow-auto {
 				overflow: auto;
 			}
 		</style>
-		<template is="dom-if" if="{{_dataIsNotNull(config)}}" restamp>
+		<template is="dom-if" if="{{_dataIsNotNull(config, attributeModels)}}" restamp>
 			<div class="base-grid-structure">
 				<div class="base-grid-structure-child-1">
 					<template is="dom-if" if="[[!noHeader]]">
@@ -982,7 +984,7 @@ extends mixinBehaviors([
 													<template is="dom-if" if="[[_hasLinkTemplate(column.columnObject, item)]]">
 														<a item="[[item]]" href="#" on-tap="_rowLinkClicked" slot="cell-slot-content">
 															<template is="dom-if" if="[[!column.columnObject.readOnly]]">
-																<rock-attribute index="[[index]]" context-data="[[_getContextData(column.columnIndex)]]" apply-locale-coalesce="[[applyLocaleCoalesce]]" apply-graph-coalesced-style$="[[applyGraphCoalescedStyle]]" item="[[item]]" row-index$="[[index]]" column-index$="[[column.columnIndex]]" functional-mode="grid" id="row[[index]]col[[column.columnIndex]]" class="attribute" mode="[[config.mode]]" attribute-model-object="[[column.modelObject]]" attribute-object="[[_getAttributeObject(item, column.modelObject, column.columnIndex, index)]]" dependent-attribute-model-objects="[[_getDependentAttributeModels(column.modelObject)]]" dependent-attribute-objects="[[_getDependentAttributes(item, column.modelObject, index)]]" on-attribute-value-changed="_updateValue"></rock-attribute>
+																<rock-attribute index="[[index]]" context-data="[[_getContextData(column.columnIndex)]]" apply-locale-coalesce="" apply-graph-coalesced-style$="" item="[[item]]" row-index$="[[index]]" column-index$="[[column.columnIndex]]" functional-mode="grid" id="row[[index]]col[[column.columnIndex]]" class="attribute" mode="[[config.mode]]" attribute-model-object="[[column.modelObject]]" attribute-object="[[_getAttributeObject(item, column.modelObject, column.columnIndex, index)]]" dependent-attribute-model-objects="[[_getDependentAttributeModels(column.modelObject)]]" dependent-attribute-objects="[[_getDependentAttributes(item, column.modelObject, index)]]" on-attribute-value-changed="_updateValue"></rock-attribute>
 															</template>
 															<template is="dom-if" if="[[column.columnObject.readOnly]]">
 																<div title$="[[_columnValue(item, column.columnIndex)]]">
@@ -993,7 +995,7 @@ extends mixinBehaviors([
 													</template>
 													<template is="dom-if" if="[[!_hasLinkTemplate(column.columnObject, item)]]">
 														<template is="dom-if" if="[[!column.columnObject.readOnly]]">
-															<rock-attribute slot="cell-slot-content" index="[[index]]" context-data="[[_getContextData(column.columnIndex)]]" apply-locale-coalesce="[[applyLocaleCoalesce]]" apply-graph-coalesced-style$="[[applyGraphCoalescedStyle]]" item="[[item]]" row-index$="[[index]]" column-index$="[[column.columnIndex]]" functional-mode="grid" id="row[[index]]col[[column.columnIndex]]" class="attribute" mode="[[config.mode]]" attribute-model-object="[[column.modelObject]]" attribute-object="[[_getAttributeObject(item, column.modelObject, column.columnIndex, index)]]" dependent-attribute-model-objects="[[_getDependentAttributeModels(column.modelObject)]]" dependent-attribute-objects="[[_getDependentAttributes(item, column.modelObject, index)]]" tabindex="[[_getTabIndex()]]" on-attribute-value-changed="_updateValue"></rock-attribute>
+															<rock-attribute slot="cell-slot-content" index="[[index]]" context-data="[[_getContextData(column.columnIndex)]]" apply-locale-coalesce="" apply-graph-coalesced-style$="" item="[[item]]" row-index$="[[index]]" column-index$="[[column.columnIndex]]" functional-mode="grid" id="row[[index]]col[[column.columnIndex]]" class="attribute" mode="[[config.mode]]" attribute-model-object="[[column.modelObject]]" attribute-object="[[_getAttributeObject(item, column.modelObject, column.columnIndex, index)]]" dependent-attribute-model-objects="[[_getDependentAttributeModels(column.modelObject)]]" dependent-attribute-objects="[[_getDependentAttributes(item, column.modelObject, index)]]" tabindex="[[_getTabIndex()]]" on-attribute-value-changed="_updateValue"></rock-attribute>
 														</template>
 														<template is="dom-if" if="[[column.columnObject.readOnly]]">
 															<!--Thumbnail and src will be computed and passed and rockimage viewer takes care of the value -->
@@ -2259,13 +2261,15 @@ extends mixinBehaviors([
 				let columnName = this._fields[index].name;
 				let defaultValue = this._fields[index].defaultValue;
 
-				if (this.config.schemaType == undefined || this.config.schemaType == "simple" || this.config.schemaType == "colModel") {
-            cellData = this._formatValue(gridData[columnName], columnName);
-				} else if (this.config.schemaType == "attribute" && gridData && gridData.attributes && gridData.attributes[columnName]) {
-            cellData = this._formatValue(gridData.attributes[columnName].value, columnName);
-				} else if (defaultValue) {
-            cellData = defaultValue;
-				}
+                if(this.config.schemaType == "attribute" && gridData && gridData.attributes && gridData.attributes[columnName]){
+                    cellData = this._formatValue(gridData.attributes[columnName].value, columnName);
+                }
+                else{
+                    cellData = this._formatValue(gridData[columnName], columnName);
+                    if(_.isEmpty(cellData) && defaultValue){
+                        cellData = defaultValue;
+                    }
+                }
 
 				//Pick thumbnailid from entity properties
 				if (!cellData && this._hasImage(columnObj)) {
@@ -2487,9 +2491,23 @@ extends mixinBehaviors([
 				}
     }
     
-    _dataIsNotNull(config) {
+    _dataIsNotNull(config, attributeModels) {
 				let result = typeof (config) == "object" && Object.keys(config).length ? true : false;
 				if (result) {
+                    if ((config.schemaType == "attribute" || config.schemaType == "colModel") && Object.keys(attributeModels).length ==	                    
+                        0) {
+                        let metaDataColumnFound = false;
+                        if (config.itemConfig && !_.isEmpty(config.itemConfig.fields)) {
+                            let fields = config.itemConfig.fields;
+                            for (let key in fields) {
+                                if (fields[key].isMetaDataColumn) {
+                                    metaDataColumnFound = true;
+                                    break;
+                                }
+                            }
+                        }    	                       
+                        result = metaDataColumnFound;	
+                     }
                     if (DataHelper.isValidObjectPath(config, 'viewConfig.tabular.settings.actions')) {
                         this._actions = this._getArrayFromObject(this.config.viewConfig.tabular.settings.actions);
 
@@ -3006,14 +3024,15 @@ extends mixinBehaviors([
     }
     
     _getParentRow(element) {
-				if (element) {
-            if (element instanceof DataTableRow) {
+        if (element) {
+            let dataTableRow = customElements.get('data-table-row');
+            if (dataTableRow !== "undefined" && element instanceof dataTableRow) {
                 return element;
             } else {
                 return this._getParentRow(element.parentNode);
             }
-				}
-				return undefined;
+        }
+        return undefined;
     }
     
     _setOriginalValue(element) {
@@ -3140,6 +3159,9 @@ extends mixinBehaviors([
     }
 
     _hasLinkTemplate(col, item) {
+        if (this.config.itemConfig && this.config.itemConfig.enableLinkTemplate == false) {
+            return false;
+        }
 				if (col) {
             if (col.linkTemplate && col.linkTemplate != "") {
                 let notEditable = (this.config && this.config.mode && this.config.mode.toLowerCase() != "edit") || (item &&
@@ -3397,7 +3419,7 @@ extends mixinBehaviors([
 
     _rowDblClicked(e) {
 				//Disabling double click on row if configured
-				if (this.config.isRowDoubleClickDisabled) {
+				if (this.config.isRowDoubleClickDisabled || (this.config.itemConfig && this.config.itemConfig.enableLinkTemplate == false)) {
             return;
 				}
 				this._rowLinkClicked(e);

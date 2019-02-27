@@ -80,16 +80,18 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
                 font-weight: normal;
                 font-style: normal;
                 font-stretch: normal;
-                line-height: 16px;
+                line-height: 16px;                
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                display:inline-block;
+                max-width: calc(100% - 20px);
                 color: var(--label-text-color, #96b0c6);
                 @apply --context-coalesce-label;
             }
 
             .attribute-label-wrapper{
                 width:calc(100% - 100px);
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
                 display:block;
             }
 
@@ -430,12 +432,22 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
             .attribute-edit-mode-icons .source-information-icon{
                 opacity: 1;
             }
+            .popup-link-text{
+                color: var(--text-primary-color, #1a2028);
+                font-size: var(--font-size-sm, 12px);
+            }
 
             #messagePopover{
                 --popover: {
                     max-height: 350px;
                     overflow-y: auto;
                     overflow-x: auto;
+                }
+            }
+            #rtePopover{
+                --pebble-popover-width: 260px;
+                --popover: {
+                    max-height: 350px;
                 }
             }
             
@@ -571,12 +583,11 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
                                 <template is="dom-if" if="[[_getDescriptionObject()]]">
                                     <pebble-info-icon hidden\$="[[_isGridOrNested(attributeModelObject)]]" description-object="[[_getDescriptionObject()]]"></pebble-info-icon>
                                 </template>
-
                             </span>
                             <span class="attribute-view-value" title$="{{_formatValue(attributeModelObject, attributeObject)}}">{{_formatValue(attributeModelObject, attributeObject)}}</span>
-
                         </div>
                     </template>
+                   
                     <!-- TEXTBOX-COLLECTION -->
                     <template is="dom-if" if="[[_isTextboxCollection(attributeModelObject)]]">
                         <div class="text-collection-container">
@@ -609,7 +620,7 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
                         <rock-nested-attribute-grid label="{{_getLabel(attributeModelObject.externalName)}}" attribute-model-object="[[attributeModelObject]]" original-attribute-object="[[_cloneObject(attributeObject)]]" attribute-object="{{attributeObject}}" context-data="[[contextData]]" mode="[[mode]]" changed="{{changed}}" apply-locale-coalesce="[[applyLocaleCoalesce]]" apply-graph-coalesced-style\$="[[applyGraphCoalescedStyle]]" dependent-attribute-objects="[[dependentAttributeObjects]]" dependent-attribute-model-objects="[[dependentAttributeModelObjects]]"></rock-nested-attribute-grid>
                     </template>
                     <template is="dom-if" if="[[_isGridType]]">
-                        <span id="nestedAttributeLink" on-tap="_nestedAttributeLinkTapped">Click here</span>
+                        <span id="nestedAttributeLink" class="popup-link-text" on-tap="_nestedAttributeLinkTapped">Click here</span>
                         <pebble-dialog id="nestedAttributeModal" modal="" show-ok="" button-ok-text="Ok" show-close-icon="" no-cancel-on-outside-click="" no-cancel-on-esc-key="" dialog-title="{{attributeModelObject.externalName}}">
                             <rock-nested-attribute-grid label="{{_getLabel(attributeModelObject.externalName)}}" attribute-model-object="[[attributeModelObject]]" original-attribute-object="[[_cloneObject(attributeObject)]]" attribute-object="{{attributeObject}}" context-data="[[contextData]]" mode="[[mode]]" apply-locale-coalesce="[[applyLocaleCoalesce]]" apply-graph-coalesced-style\$="[[applyGraphCoalescedStyle]]" dependent-attribute-objects="[[dependentAttributeObjects]]" dependent-attribute-model-objects="[[dependentAttributeModelObjects]]"></rock-nested-attribute-grid>
                         </pebble-dialog>
@@ -621,16 +632,20 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
                     <!-- Show the popover for read-only mode for the grid-->
                     <template is="dom-if" if="[[_isGridType]]">
                         <template is="dom-if" if="[[!_isEditMode(mode)]]">
-                            <span id="rtelink" class="fallback-value" on-mouseenter="_rteLinkHovered" on-mouseout="_rteLinkHoveredOut">Show More</span>
-                            <pebble-popover id="rtePopover" class="p-10" for="rtelink" no-overlap="" horizontal-align="right">
-                                <pebble-richtexteditor id="input" description-object="[[_getDescriptionObject()]]" validation-errors="{{validationErrors}}" label="{{_getLabel(attributeModelObject.externalName)}}" invalid="{{invalid}}" value="{{attributeDisplayValue}}" tabindex="[[tabindex]]" read-only="[[!_isComponentEditable(mode, attributeModelObject)]]" selected-values-font-style="[[_coalescedFontStyle]]" selected-values-color="[[_fallbackColor]]"></pebble-richtexteditor>
-                            </pebble-popover>
+                            <span id="rtelink" class="fallback-value popup-link-text" on-mouseenter="_rteLinkHovered" on-mouseleave="_rteLinkHoveredOut">Show More</span>
+                            <template is="dom-if" if="[[_isRteLinkHovered]]" restamp>
+                                <pebble-popover id="rtePopover" class="p-10" for="rtelink" no-overlap="" horizontal-align="auto" vertical-align="auto" on-mouseenter="_rtePopoverHovered" on-mouseleave="_rtePopoverHoveredOut">
+                                    <pebble-richtexteditor id="input" description-object="[[_getDescriptionObject()]]" validation-errors="{{validationErrors}}" label="{{_getLabel(attributeModelObject.externalName)}}" invalid="{{invalid}}" value="{{attributeDisplayValue}}" tabindex="[[tabindex]]" read-only="[[!_isComponentEditable(mode, attributeModelObject)]]" selected-values-font-style="[[_coalescedFontStyle]]" selected-values-color="[[_fallbackColor]]"></pebble-richtexteditor>
+                                </pebble-popover>
+                            </template>
                         </template>
                         <template is="dom-if" if="[[_isEditMode(mode)]]">
-                            <span id="rteEditLink" on-tap="_rteEditLinkTapped">Click to Edit</span>
-                            <pebble-dialog id="rteSingleEdit" modal="" show-ok="" button-ok-text="Ok" show-close-icon="" no-cancel-on-outside-click="" no-cancel-on-esc-key="" dialog-title="Edit rich text">
-                                <rock-attribute id="singleEdit" hide-save-as-null="true" mode="[[mode]]" functional-mode="list" attribute-model-object="{{attributeModelObject}}" attribute-object="{{attributeObject}}"></rock-attribute>
-                            </pebble-dialog>
+                            <span id="rteEditLink" class="popup-link-text" on-tap="_rteEditLinkTapped">Click to Edit</span>
+                            <template is="dom-if" if="[[_isRteEditLinkTapped]]" restamp>
+                                <pebble-dialog id="rteSingleEdit" modal="" show-ok="" button-ok-text="Ok" show-close-icon="" no-cancel-on-outside-click="" no-cancel-on-esc-key="" dialog-title="Edit rich text">
+                                    <rock-attribute id="singleEdit" hide-save-as-null="true" mode="[[mode]]" functional-mode="list" attribute-model-object="{{attributeModelObject}}" attribute-object="{{attributeObject}}"></rock-attribute>
+                                </pebble-dialog>
+                            </template>
                         </template>
                     </template>
                     <template is="dom-if" if="[[!_isGridType]]">
@@ -638,7 +653,7 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
                     </template>
                 </template>
 
-                <bedrock-validator validation-errors="{{validationErrors}}" server-errors="{{serverErrors}}" validation-warnings="{{validationWarnings}}" input="[[_getInputValue(attributeObject.value)]]" input-data-type="[[attributeModelObject.dataType]]" pattern="[[_getPatternFieldValue(attributeModelObject, 'regexPattern')]]" regex-hint="[[_getPatternFieldValue(attributeModelObject, 'regexHint')]]" min-length="[[attributeModelObject.minLength]]" max-length="[[attributeModelObject.maxLength]]" precision="[[attributeModelObject.precision]]" required="[[attributeModelObject.required]]" invalid="{{invalid}}" min="[[_getRangeFieldValue(attributeModelObject, 'rangeFrom')]]" max="[[_getRangeFieldValue(attributeModelObject, 'rangeTo')]]" min-inclusive="[[_getRangeFieldValue(attributeModelObject, 'isRangeFromInclusive')]]" max-inclusive="[[_getRangeFieldValue(attributeModelObject, 'isRangeToInclusive')]]" date-format="[[attributeModelObject.dateFormat]]" type="[[attributeModelObject.validationType]]" type-array="[[attributeModelObject.validationTypeArray]]">
+                <bedrock-validator validation-errors="{{validationErrors}}" validation-warnings="{{validationWarnings}}" input="[[_getInputValue(attributeObject.value)]]" input-data-type="[[attributeModelObject.dataType]]" pattern="[[_getPatternFieldValue(attributeModelObject, 'regexPattern')]]" regex-hint="[[_getPatternFieldValue(attributeModelObject, 'regexHint')]]" min-length="[[attributeModelObject.minLength]]" max-length="[[attributeModelObject.maxLength]]" precision="[[attributeModelObject.precision]]" required="[[attributeModelObject.required]]" invalid="{{invalid}}" min="[[_getRangeFieldValue(attributeModelObject, 'rangeFrom')]]" max="[[_getRangeFieldValue(attributeModelObject, 'rangeTo')]]" min-inclusive="[[_getRangeFieldValue(attributeModelObject, 'isRangeFromInclusive')]]" max-inclusive="[[_getRangeFieldValue(attributeModelObject, 'isRangeToInclusive')]]" date-format="[[attributeModelObject.dateFormat]]" type="[[attributeModelObject.validationType]]" type-array="[[attributeModelObject.validationTypeArray]]">
                 </bedrock-validator>
 
                 <div id="error-display" hidden="[[_messageAbsent(messages)]]" on-tap="_messageTapped">
@@ -833,6 +848,13 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
           tabindex: {
               type: Number
           },
+          rtePopoverIn:{
+            type: Boolean,
+            value: false
+          },
+          rtePopoverTimeOut:{
+              type:Number
+          },
           showDeleteIcon: {
               type: Boolean,
               value: false
@@ -931,6 +953,7 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
                   return {};
               }
           },
+          
           hideSaveAsNull: {
               type: Boolean,
               value: false
@@ -944,6 +967,14 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
               value: false
           },
           _isReadyToShowSourceInfoPopover: {
+              type: Boolean,
+              value: false
+          },
+          _isRteEditLinkTapped: {
+              type: Boolean,
+              value: false
+          },
+          _isRteLinkHovered: {
               type: Boolean,
               value: false
           }
@@ -985,6 +1016,14 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
           this.validationWarnings = [];
           this.validationWarnings = validationMessages;
       }
+  }
+  revertAll(){
+
+    //resetting rock-entity-combo-box selectedId
+    let comboBoxElement = this.shadowRoot.querySelector('#combo-box');
+    if(comboBoxElement && this.attributeObject && this.attributeObject.value){
+        comboBoxElement.selectedValueChanged();
+    }
   }
   _formatValue(model, object) {
       //This display nothing if the initial display of rock attribute is _NULL
@@ -1121,7 +1160,7 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
   getControlIsDirty() {
       return this.mode == "edit";
   }
-  _getInputValue(value) {
+  _getInputValue() {
       let attributeObjectValue = this.attributeObject.value;
       let inputValue;
       if(_.isArray(attributeObjectValue) && attributeObjectValue[0] == ConstantHelper.NULL_VALUE){
@@ -1206,7 +1245,7 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
           }));
       }
 
-      if (this.attributeModelObject.displayType == "path") {
+      if (this.attributeModelObject.displayType && this.attributeModelObject.displayType.toLowerCase() == "path") {
           if (!_.isEmpty(this.attributeModelObject)) {
               let attrModelObj = this.attributeModelObject;
 
@@ -1266,7 +1305,7 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
           return 'attribute-edit';
       }
   }
-  _onRevertClick(e) {
+  _onRevertClick() {
       this.set("attributeObject.value", this.originalAttributeObject.value);
       this.attributeObject = this._cloneObject(this.originalAttributeObject); //can't assign directly, its by ref - thus using cloning
       this.dispatchEvent(new CustomEvent("attribute-value-changed", {
@@ -1278,12 +1317,15 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
       }));
       this.changed = false;
   }
-  _onClearClick(e) {
+  _onClearClick() {
       let setValue = this.attributeModelObject && this.attributeModelObject.isCollection ? [] : "";
       this.set("attributeObject.value", setValue);
       this.set("attributeObject.referenceDataId", setValue);
       this.set("attributeObject.action", "delete");
       this.changed = true;
+      this.fireBedrockEvent("attribute-value-cleared", this.attributeObject, {
+        ignoreId: true
+      });
   }
   _cloneObject(o) {
       return DataHelper.cloneObject(o);
@@ -1334,6 +1376,7 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
       this.set("attributeObject.value", attributeObjectValue);
       this.set("attributeObject.referenceDataId", attributeDisplayValue);
       this.changed = true;
+      this.tappedSaveAsNull = false;
   }
   _onSourceInformationClick(e) {
       this._isReadyToShowSourceInfoPopover = true;
@@ -1463,20 +1506,37 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
   _isGrid(functionalMode) {
       return functionalMode == "grid";
   }
-  _rteLinkHovered(e) {
-      this.shadowRoot.querySelector('#rtePopover').show();
+  _rteLinkHovered() {
+    this._isRteLinkHovered = true;
+    flush();  
+    this.shadowRoot.querySelector('#rtePopover').show();
   }
-  _rteLinkHoveredOut(e) {
+  _rteLinkHoveredOut() {
+    this.rtePopoverIn = false;
+    this.rtePopoverTimeOut = setTimeout(() => {
+        if(!this.rtePopoverIn){        
+            this.shadowRoot.querySelector('#rtePopover').hide();
+        }
+        clearTimeout(this.rtePopoverTimeOut);
+        this._isRteLinkHovered = false;
+    },10);
+  }
+  _rtePopoverHovered() {
+      this.rtePopoverIn = true;
+  }
+  _rtePopoverHoveredOut() {   
     this.shadowRoot.querySelector('#rtePopover').hide();
 }
-  _rteEditLinkTapped(e) {
-      this.shadowRoot.querySelector('#rteSingleEdit').open();
+  _rteEditLinkTapped() {
+    this._isRteEditLinkTapped = true;
+    flush();
+    this.shadowRoot.querySelector('#rteSingleEdit').open();
   }
-  _nestedAttributeLinkTapped(e) {
+  _nestedAttributeLinkTapped() {
       this.shadowRoot.querySelector('#nestedAttributeModal').open();
   }
   //TODO: this did not work for entityTypes, need to check why
-  _prepareRequestObjectForLov(attributeModel, dependentAttributeObjects) {
+  _prepareRequestObjectForLov(attributeModel) {
       let refEntityTypes = [];
 
       //find from manage model, looks like this:
@@ -1529,7 +1589,6 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
 
 
       let requestData = DataRequestHelper.createEntityGetRequest(clonedContextData, true);
-      let referenceDataId = this.attributeObject.referenceDataId;
       return requestData;
   }
   _prepareRelationshipCriterion(relName, relToId, relToType) {
@@ -1609,7 +1668,7 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
   }
   _hasValue(attributeObject) {
       let value = attributeObject.value;
-      if (!_.isEmpty(value) || attributeObject.isNullValue) {
+      if (!_.isEmpty(value) || attributeObject.isNullValue || attributeObject.isBulkEdit) {
           return true;
       } else {
           return false;
@@ -1622,7 +1681,7 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
           return label;
       }
   }
-  _onDeleteClick(e) {
+  _onDeleteClick() {
       this.fireBedrockEvent("attribute-delete", {
           data: this.attributeModelObject
       }, {
@@ -1636,7 +1695,7 @@ class RockAttribute extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehavior
       let isCollection = this.attributeModelObject && this.attributeModelObject.isCollection ? true :
           false;
       if (!isCollection || (isCollection && this.attributeObject && _.isEmpty(this.attributeObject.value))) {
-          this._onClearClick(e);
+          this._onClearClick();
       }
   }
   _updateMarkerClass() {

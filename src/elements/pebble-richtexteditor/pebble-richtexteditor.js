@@ -350,7 +350,7 @@ class PebbleRichtexteditor extends PolymerElement {
         h2{
             line-height: 1.5em;
         } 
-        .attribute-view-label {
+        .attribute-view-wrapper {
             font-size: var(--font-size-sm, 12px);
             font-family: 'Roboto', Helvetica, Arial, sans-serif;
             font-weight: normal;
@@ -364,11 +364,19 @@ class PebbleRichtexteditor extends PolymerElement {
             text-overflow: ellipsis;
             white-space: nowrap;
             @apply --context-coalesce-label;
-        }               
+        }   
+        
+        .attribute-view-label{
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            display:inline-block;
+            max-width:calc(100% - 20px)
+        }
     </style>
 
-    <div class="attribute-view-label" hidden\$="[[!label]]" aria-hidden="true" title\$="[[label]]">
-        [[label]]
+    <div class="attribute-view-wrapper" hidden\$="[[!label]]" aria-hidden="true" title\$="[[label]]">
+        <span class="attribute-view-label">[[label]]</span>
         <template is="dom-if" if="[[descriptionObject]]">
             <pebble-info-icon description-object="[[descriptionObject]]"></pebble-info-icon>
         </template>
@@ -730,7 +738,7 @@ class PebbleRichtexteditor extends PolymerElement {
 
     _hideDropdown(e) {
         if (!e.target.matches('.ql-select-area')) {
-            let contentDiv = this.shadowRoot.querySelector("content");
+            let contentDiv = this.shadowRoot.querySelector("#content");
             if (contentDiv) {
                 let activeDropdowns = contentDiv.getElementsByClassName('active');
                 if (activeDropdowns && activeDropdowns.length > 0) {
