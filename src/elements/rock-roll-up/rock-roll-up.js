@@ -78,7 +78,7 @@ class RockRollUp extends mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.C
         </template>
         <liquid-entity-data-save name="entitySaveService" request-data="{{_saveRequest}}" last-response="{{_saveResponse}}" on-response="_onSaveResponse" on-error="_onSaveError">
         </liquid-entity-data-save>
-        <liquid-rest id="entityGovernService" url="/pass-through-bulk/entitygovernservice/validate" method="POST" request-data="{{_entityGovernRequest}}" on-liquid-response="_onEntityGovernResponse" on-liquid-error="_onEntityGovernFailed">
+        <liquid-rest id="entityGovernService" url="/data/pass-through-bulk/entitygovernservice/validate" method="POST" request-data="{{_entityGovernRequest}}" on-liquid-response="_onEntityGovernResponse" on-liquid-error="_onEntityGovernFailed">
         </liquid-rest>
 `;
   }
