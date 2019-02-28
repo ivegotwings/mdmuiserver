@@ -588,7 +588,12 @@ class RockTabs
               if (!_.isEmpty(menuItems)) {
                   let menuItemConfig = menuItems.filter(item => item.title === this.viewModeSubMenu);
                   e.detail.item.menuItemConfig = menuItemConfig[0];
-                  e.detail.item.tabConfig.subtitle = this.viewModeSubMenu;
+
+                  let pebbleTabGroup = this.shadowRoot.querySelector("#" + this.id);
+                  if(pebbleTabGroup) {
+                      pebbleTabGroup.isMenuItemSelected = true;
+                  }
+                  
                   let menuListBox = e.detail.item.querySelector('paper-listbox');
                   if(menuListBox && _.isEmpty(menuListBox.selectedItem)) {
                       let selectedMenuItemId = e.detail.item.tabConfig.name + "-" + e.detail.item.menuItemConfig.name;
@@ -627,7 +632,7 @@ class RockTabs
       // Capturing selected tab configuration
       let tabConfig = this.selectedTab = e.detail.item.tabConfig;
       let menuItemConfig = e.detail.item.menuItemConfig;
-      let subTitle = tabConfig.subtitle || '';
+      let subTitle = !_.isEmpty(menuItemConfig) ? menuItemConfig.subtitle : '';
 
       //Capturing for Quick Manage, reload tab with this configuration
       this._selectedTabConfig = {
