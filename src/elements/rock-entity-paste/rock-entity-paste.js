@@ -1239,7 +1239,8 @@ class RockEntityPaste
           let valueContexts = ContextHelper.getValueContexts(this.contextData);
           let forContext = _.isEmpty(parsedData.Contexts)? "self": Object.values(parsedData.Contexts[0]).toString();
           let toContext = _.isEmpty(dataContexts)? "self": Object.values(dataContexts[0]).toString();
-          let toEntityName = entity.name ? entity.name : entity.id;
+          let toEntityId = entity.id;
+          let toEntityName = entity.name? entity.name:toEntityId;
           let fromEntityName = parsedData.ItemContexts[0].name ? parsedData.ItemContexts[0].name : parsedData.ItemContexts[0].id;
           if (response.status === 'success') {
               message = `Copy paste request submitted for copying data from ${fromEntityName} (${forContext}, ${parsedData.ValContexts[0].locale}) to ${toEntityName} (${toContext}, ${valueContexts[0].locale})`;
@@ -1253,7 +1254,7 @@ class RockEntityPaste
                   status = status[0].toUpperCase() + status.slice(1,status.length);
               }
               const responseObj = {
-                  "Entity Name": toEntityName,
+                  "Entity Id": toEntityId,
                   "Message": message,
                   "Status": status
               }
@@ -1280,7 +1281,7 @@ class RockEntityPaste
       let messages = [];
       this._entitiesNotEligibleForSave.forEach(entity=> {
           let message = {
-              "Entity Name" : entity.name ? entity.name : entity.id,
+              "Entity Id" : entity.id,
               "Message": `Permissions Denied. You do not have permissions for [${this._entityTypesNotToSendForSave[entity.type].join(", ")}] attributes or relationships`,
               "Status": "Error"
           }
@@ -1332,7 +1333,7 @@ class RockEntityPaste
           "noGrid": noGrid,
           "actions": actions,
           "contextData": this.contextData,
-          "processedEntities": this._cloneEntitiesForBulkSave,
+          "processedEntities": this.selectedItemsForPaste,
           "messageKey": "Entity Id",
           "isPasteScenario": true
       };
