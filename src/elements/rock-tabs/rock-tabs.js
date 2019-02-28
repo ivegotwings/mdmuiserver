@@ -632,7 +632,7 @@ class RockTabs
       // Capturing selected tab configuration
       let tabConfig = this.selectedTab = e.detail.item.tabConfig;
       let menuItemConfig = e.detail.item.menuItemConfig;
-      let subTitle = !_.isEmpty(menuItemConfig) ? menuItemConfig.subtitle : '';
+      let subTitle = !_.isEmpty(menuItemConfig) ? menuItemConfig.title : '';
 
       //Capturing for Quick Manage, reload tab with this configuration
       this._selectedTabConfig = {
