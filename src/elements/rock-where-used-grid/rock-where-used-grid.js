@@ -856,8 +856,8 @@ class RockWhereUsedGrid extends mixinBehaviors([RUFBehaviors.AppBehavior, RUFBeh
         };
         if (dataContexts && dataContexts.length && this.excludeNonContextual) {
           relCriterion[relationshipTypeName]["contexts"] = dataContexts,
-            relCriterion[relationshipTypeName]["excludeNonContextual"] = !this.excludeNonContextual
-          req.params.query.filters.excludeNonContextual = this.excludeNonContextual;
+            relCriterion[relationshipTypeName]["nonContextual"] = !this.excludeNonContextual
+          req.params.query.filters.nonContextual = !this.excludeNonContextual;
         }
         req.params.query.filters.relationshipsCriterion = [relCriterion];
       }
