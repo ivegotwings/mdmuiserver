@@ -501,37 +501,21 @@ class RockEntityRelationshipSearchResult
           let compositeModel = e.detail.response.content.entityModels[0];
           if (relType && compositeModel && compositeModel.data) {
               let relationships = DataTransformHelper.transformRelationshipModels(compositeModel, this.contextData);
+              DataHelper.prepareOwnershipBasedRelationships(relationships);
               if (relationships && relationships[relType] && relationships[relType].length) {
                   let rel = null;
-                  let direction = this.configContext.direction;
-                  let selectedRelationshipId = this.configContext.relationshipId;
-                  if(direction && direction == "up"){
-                    selectedRelationshipId = relType + "owned";  
-                  }
-                  if(selectedRelationshipId){
-                      for(let relationshipObj of relationships[relType]){
-                          if(relationshipObj.id == selectedRelationshipId){
-                              if(relationshipObj.properties && relationshipObj.properties.relatedEntityInfo){
-                                  rel = relationshipObj;
-                                  break;
-                              }
+                  for (let relationshipObj of relationships[relType]) {
+                      if (relationshipObj.properties && relationshipObj.properties.relatedEntityInfo) {
+                          let ownership = relationshipObj.properties.relationshipOwnership
+                          //Fall back ownership is needed when there is no ownership data(Happens for entity grap)
+                          let fallBackOwnership = "owned";
+                          let selectedRelOwnership = this.configContext.ownership;
+                          //Composite model when returned for rel entity type which is where used, we need consider as owned to get the model
+                          if(ownership !== selectedRelOwnership && selectedRelOwnership == "whereused"){
+                            selectedRelOwnership= "owned";
                           }
-                      }
-                      if(_.isEmpty(rel)){
-                          let relationshipId = this.configContext.relationshipId || relType;
-                          for(let relationshipObj of relationships[relType]){
-                                if(relationshipObj.id == relationshipId){
-                                    if(relationshipObj.properties && relationshipObj.properties.relatedEntityInfo){
-                                        rel = relationshipObj;
-                                        break;
-                                    }
-                                }
-                            }
-                      }
-                  }
-                  else{
-                      for(let relationshipObj of relationships[relType]){
-                          if(relationshipObj.properties && relationshipObj.properties.relatedEntityInfo){
+                          if ((relType == this.configContext.relationshipTypeName) &&
+                              (ownership == (selectedRelOwnership || fallBackOwnership))) {
                               rel = relationshipObj;
                               break;
                           }
