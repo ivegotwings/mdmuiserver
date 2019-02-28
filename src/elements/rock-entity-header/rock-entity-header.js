@@ -614,10 +614,11 @@ extends mixinBehaviors([
       return false;
 }
   _getItemValue(item){
-      if(item && Array.isArray(item.value) && !_.isEmpty(item.value)){
-          return item.value[0].split('>>').join('>><wbr/>');
+      let attributeValue;
+      if(item && !_.isEmpty(item.value)){
+        attributeValue = Array.isArray(item.value)?item.value[0]:item.value;
+        return attributeValue.split('>>').join('>><wbr/>');
       }
-
       return "";
   }
 
