@@ -1556,3 +1556,31 @@ DataHelper.prepareAttributeModelSortCriterion = function(_sortField){
     sort.properties = sortProperties;
     return sort;
 }
+DataHelper.prepareOwnershipBasedRelationships = function(relationshipModels){
+    for(let relType in relationshipModels){
+        let relatedEntityTypesInfo = relationshipModels[relType];
+        let relatedEntityTypesCombined = {};
+        if(!_.isEmpty(relatedEntityTypesInfo)){
+            relatedEntityTypesInfo.forEach(relEntity => {
+                let properties = relEntity.properties;
+                if(DataHelper.isValidObjectPath(properties, 'relatedEntityInfo')){
+                    let ownership = properties.relationshipOwnership;
+                    if (relatedEntityTypesCombined[ownership]) {
+                        relatedEntityTypesCombined[ownership].properties.relatedEntityInfo.push(...properties.relatedEntityInfo)
+                    } else {
+                        relatedEntityTypesCombined[properties.relationshipOwnership] = relEntity;
+                    }
+                }
+            });
+            if (!_.isEmpty(relatedEntityTypesCombined)) {
+                relationshipModels[relType] = [];
+                if (relatedEntityTypesCombined.owned) {
+                    relationshipModels[relType].push(relatedEntityTypesCombined.owned);
+                }
+                if(relatedEntityTypesCombined.whereused) {
+                    relationshipModels[relType].push(relatedEntityTypesCombined.whereused);
+                }
+            }
+        }
+    }
+}
