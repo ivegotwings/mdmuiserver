@@ -162,7 +162,15 @@ class RockBulkActionResult
                         <template is="dom-repeat" items="[[_gridColumns]]" as="column">
                             <data-table-column slot="column-slot" name="[[column]]">
                                 <template>
-                                    <div slot="cell-slot-content" class="cell" title\$="[[_itemValue(item, column)]]"><span>[[_itemValue(item, column)]]</span></div>
+                                    <template is="dom-if" if="[[_hasColumnName(column)]]">
+                                        <a item="[[item]]" slot="cell-slot-content" href="#" on-tap="_rowLinkClicked">
+                                            <div class="cell" title\$="[[_itemValue(item.message, column)]]"><span>[[_itemValue(item.message, column)]]</span></div>
+                                        </a>
+                                    </template>
+
+                                    <template is="dom-if" if="[[!_hasColumnName(column)]]">
+                                        <div slot="cell-slot-content" class="cell" title\$="[[_itemValue(item.message, column)]]"><span>[[_itemValue(item.message, column)]]</span></div>
+                                    </template>
                                 </template>
                             </data-table-column>
                         </template>
@@ -175,7 +183,6 @@ class RockBulkActionResult
                 </div>
             </div>
         </div>
-        <liquid-entity-data-get name="entityGetService" operation="getbyids" request-data="{{entityRequest}}" on-response="_onEntityGetResponse" on-error="_onEntityGetError"></liquid-entity-data-get>
 `;
   }
 
@@ -194,18 +201,15 @@ class RockBulkActionResult
               value: function () { return {}; }
           },
 
-          resultAttributes: {
-              type: Array,
-              value: function () {
-                  return [];
-              }
-          },
-
           _gridColumns: {
               type: Array,
               value: function () {
                   return [];
               }
+          },
+          _linkTemplate: {
+              type: String,
+              value: "entity-manage?id={id}&type={type}"
           },
 
           _gridData: {
@@ -225,13 +229,6 @@ class RockBulkActionResult
 
   _itemValue(item, column) {
       if (!_.isEmpty(item)) {
-          if (!_.isEmpty(this.resultAttributes)) {
-              //Column name is external name, so need name to fetch data 
-              let resultAttr = this.resultAttributes.find(attr => attr.externalName == column.name);
-              if (resultAttr) {
-                  return item[resultAttr.name];
-              }
-          }
           return item[column.name];
       }
   }
@@ -239,57 +236,92 @@ class RockBulkActionResult
     * <b><i>Content development is under progress... </b></i>
     */
   onBusinessFunctionChange() {
-      if (!_.isEmpty(this.businessFunctionData)) {
-          let contextData = this.businessFunctionData.contextData;
-          let processedEntities = this.businessFunctionData.processedEntities;
-          let messages = this.businessFunctionData.messages;
+      if (!_.isEmpty(this.businessFunctionData) && this.businessFunctionData.processedEntities) {
+              let entities = this.businessFunctionData.processedEntities?this.businessFunctionData.processedEntities: [];
+              let messages = this.businessFunctionData.messages;
+              let key = this.businessFunctionData.messageKey;
 
-          if (!_.isEmpty(this.resultAttributes) && !_.isEmpty(contextData)
-              && !_.isEmpty(processedEntities) && !_.isEmpty(messages)) {
-              //Prepare request
-              let entityIds = [...new Set(processedEntities.map((obj) => obj.id))];
-              let entityTypes = [...new Set(processedEntities.map((obj) => obj.type))];
-              let entityAttributes = [...new Set(this.resultAttributes.map((obj) => obj.name))];
+              this._setColumnsForGrid(messages);
 
-              contextData.ItemContexts = [{
-                  "attributeNames": entityAttributes
-              }];
-
-              this.entityRequest = DataRequestHelper.createEntityGetRequest(contextData);
-              this.entityRequest.params.query.ids = entityIds;
-              this.entityRequest.params.query.filters.typesCriterion = entityTypes;
-              delete this.entityRequest.params.options;
-              let liquidDataGet = this.$$("[name=entityGetService]");
-              if (liquidDataGet) {
-                  liquidDataGet.generateRequest();
-              }
-          } else {
-              this._setBulkResponse();
-          }
-      }
-  }
-
-  _onEntityGetResponse(e) {
-      if (DataHelper.isValidObjectPath(e, "detail.response.content.entities") &&
-          !_.isEmpty(e.detail.response.content.entities)) {
-          let entites = e.detail.response.content.entities;
-          let messages = this.businessFunctionData.messages;
-          let key = this.businessFunctionData.messageKey;
-
-          this._setColumnsForGrid(messages);
-
-          for (let i = 0; i < messages.length; i++) {
-              let entity = entites.find(obj => obj.id == messages[i][key]);
-              if (entity) {
-                  for (let j = 0; j < this.resultAttributes.length; j++) {
-                      messages[i][this.resultAttributes[j].name] = AttributeHelper.getFirstAttributeValue(entity.data.attributes[this.resultAttributes[j].name]);
+              for (let i = 0; i < messages.length; i++) {
+                  let entity = entities.find(obj => obj.id == messages[i][key]);
+                  if (entity) {
+                      messages[i].name = !_.isEmpty(entity.name)?entity.name:"_Empty";
                   }
               }
-          }
-      }
 
-      this._setBulkResponse();
+          this._setBulkResponse();
+      } else {
+          this.logError('The requested entities in processing not getting passed to bulk-action-result');
+      }
   }
+
+  _hasColumnName(column) {
+      if(column.name == "name") {
+          return true;
+      }
+      return false;
+  }
+  _rowLinkClicked(e) {
+      let item = (e.currentTarget && e.currentTarget.item) ? e.currentTarget.item : null;
+      if (item && this._linkTemplate) {
+          let data=item.data;
+          let link = this._getLink(this._linkTemplate, data);
+          this.fireBedrockEvent("grid-link-clicked", {
+              "link": link,
+              "id": data.id
+          }, {
+              ignoreId: true
+          });
+          window.history.pushState("", "", link);
+          window.dispatchEvent(new CustomEvent('location-changed'));
+      }
+      this._closeBusinessFunctionDialog()
+  }
+
+    _closeBusinessFunctionDialog() {
+        let eventData = {
+            name: "on-buttonclose-clicked"
+        };
+        this.dispatchEvent(new CustomEvent('bedrock-event', {
+            detail: eventData,
+            bubbles: true,
+            composed: true
+        }));
+    }
+
+
+    _getLink(linkTemplate, item) {
+        let _this = this;
+
+        if (linkTemplate) {
+    return linkTemplate.replace(/\{\S+?\}/g,
+        function (match) {
+            let attrName = match.replace("{", "").replace("}", "");
+            if (attrName.toLowerCase() == "id") {
+                return encodeURIComponent(item.id);
+            }
+            if (attrName.toLowerCase() == "type") {
+                return encodeURIComponent(item.type);
+            }
+
+            let colModels = _this._fields;
+            let index = -1;
+            for (let i = 0; i < colModels.length; i++) {
+                if (colModels[i].name == attrName) {
+                    index = i;
+                    break;
+                }
+            }
+            if (index > -1) {
+                return encodeURIComponent(_this._columnValue(item, index));
+            }
+            return encodeURIComponent(match);
+        });
+        }
+
+        return "";
+}
 
   _setColumnsForGrid(messages) {
       if (_.isEmpty(messages)) {
@@ -298,23 +330,14 @@ class RockBulkActionResult
 
       let columns = [];
       for (let key in messages[0]) {
-          columns.push(key);
-      }
-
-      //pushing a new name column in workflow case
-      if (!this.businessFunctionData.isPasteScenario) {
-          for (let i = 0; i < this.resultAttributes.length; i++) {
-              let index = i + 1; // after first column
-              columns.splice(index, 0, this.resultAttributes[i].externalName);
+          if(key!=='entityData') {
+              columns.push(key);
           }
       }
+
       this._gridColumns = columns;
   }
 
-  _onEntityGetError(e) {
-      this.logError("Entity get failed");
-      this._setBulkResponse();
-  }
 
   _setBulkResponse() {
       if (this.businessFunctionData.noGrid) {
@@ -324,26 +347,32 @@ class RockBulkActionResult
       if (!this._noGrid) {
           let messages = this.businessFunctionData.messages;
 
-          if (_.isEmpty(messages)) {
-              return;
-          }
+            this._setColumnsForGrid(messages);
+            this._setFormattedGridData(messages);
 
-          if (_.isEmpty(this._gridColumns)) {
-              let columns = [];
-              for (let key in messages[0]) {
-                  columns.push(key);
-              }
 
-              this._gridColumns = columns;
-          }
-
-          this._gridData = messages;
       }
       else {
           if (this.businessFunctionData.message) {
               this.message = this.businessFunctionData.message;
           }
       }
+  }
+
+  _setFormattedGridData(messages) {
+    let formattedGridData = []; 
+    this.businessFunctionData.processedEntities.forEach(entity=> {
+        messages.forEach((gridDataItem, index)=> {
+
+            if(entity.id == gridDataItem["Entity Id"]) {
+              formattedGridData[index] = {
+                  data: entity,
+                  message: gridDataItem
+              }
+            }
+        })
+    })
+    this._gridData = formattedGridData;
   }
 
   _onActionTap(e) {
