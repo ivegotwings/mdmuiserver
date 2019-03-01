@@ -1240,7 +1240,7 @@ class RockEntityPaste
           let forContext = _.isEmpty(parsedData.Contexts)? "self": Object.values(parsedData.Contexts[0]).toString();
           let toContext = _.isEmpty(dataContexts)? "self": Object.values(dataContexts[0]).toString();
           let toEntityId = entity.id;
-          let toEntityName = entity.name? entity.name:toEntityId;
+          let toEntityName = !_.isEmpty(entity.name)? entity.name:toEntityId;
           let fromEntityName = parsedData.ItemContexts[0].name ? parsedData.ItemContexts[0].name : parsedData.ItemContexts[0].id;
           if (response.status === 'success') {
               message = `Copy paste request submitted for copying data from ${fromEntityName} (${forContext}, ${parsedData.ValContexts[0].locale}) to ${toEntityName} (${toContext}, ${valueContexts[0].locale})`;

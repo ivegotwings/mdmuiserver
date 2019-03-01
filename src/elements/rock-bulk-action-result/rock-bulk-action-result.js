@@ -162,13 +162,13 @@ class RockBulkActionResult
                         <template is="dom-repeat" items="[[_gridColumns]]" as="column">
                             <data-table-column slot="column-slot" name="[[column]]">
                                 <template>
-                                    <template is="dom-if" if="[[_hasLinkTemplate(column)]]">
+                                    <template is="dom-if" if="[[_hasColumnName(column)]]">
                                         <a item="[[item]]" slot="cell-slot-content" href="#" on-tap="_rowLinkClicked">
                                             <div class="cell" title\$="[[_itemValue(item.message, column)]]"><span>[[_itemValue(item.message, column)]]</span></div>
                                         </a>
                                     </template>
 
-                                    <template is="dom-if" if="[[!_hasLinkTemplate(column)]]">
+                                    <template is="dom-if" if="[[!_hasColumnName(column)]]">
                                         <div slot="cell-slot-content" class="cell" title\$="[[_itemValue(item.message, column)]]"><span>[[_itemValue(item.message, column)]]</span></div>
                                     </template>
                                 </template>
@@ -256,28 +256,28 @@ class RockBulkActionResult
       }
   }
 
-  _hasLinkTemplate(column) {
+  _hasColumnName(column) {
       if(column.name == "name") {
           return true;
       }
       return false;
   }
   _rowLinkClicked(e) {
-      let detail = e.detail.item ? e.detail : e.currentTarget;
-          let item = detail.item.data;
-          if (this._linkTemplate) {
-              let link = this._getLink(this._linkTemplate, item);
-              this.fireBedrockEvent("grid-link-clicked", {
-                  "link": link,
-                  "id": item.id
-              }, {
-                  ignoreId: true
-              });
-              window.history.pushState("", "", link);
-              window.dispatchEvent(new CustomEvent('location-changed'));
-          }
-          this._closeBusinessFunctionDialog()
-    }
+      let item = (e.currentTarget && e.currentTarget.item) ? e.currentTarget.item : null;
+      if (item && this._linkTemplate) {
+          let data=item.data;
+          let link = this._getLink(this._linkTemplate, data);
+          this.fireBedrockEvent("grid-link-clicked", {
+              "link": link,
+              "id": data.id
+          }, {
+              ignoreId: true
+          });
+          window.history.pushState("", "", link);
+          window.dispatchEvent(new CustomEvent('location-changed'));
+      }
+      this._closeBusinessFunctionDialog()
+  }
 
     _closeBusinessFunctionDialog() {
         let eventData = {
