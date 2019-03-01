@@ -2863,7 +2863,7 @@ extends mixinBehaviors([
                     }
 
                     if (sourceAction) {
-                        actions.splice(sourceAction, 1);
+                        delete actions[actions.indexOf(sourceAction)];
                     }
                 }
             }
