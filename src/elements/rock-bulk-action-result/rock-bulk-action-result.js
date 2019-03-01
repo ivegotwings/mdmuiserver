@@ -183,7 +183,6 @@ class RockBulkActionResult
                 </div>
             </div>
         </div>
-        <liquid-entity-data-get name="entityGetService" operation="getbyids" request-data="{{entityRequest}}" on-response="_onEntityGetResponse" on-error="_onEntityGetError"></liquid-entity-data-get>
 `;
   }
 
@@ -200,13 +199,6 @@ class RockBulkActionResult
           businessFunctionData: {
               type: Object,
               value: function () { return {}; }
-          },
-
-          resultAttributes: {
-              type: Array,
-              value: function () {
-                  return [];
-              }
           },
 
           _gridColumns: {
@@ -237,13 +229,6 @@ class RockBulkActionResult
 
   _itemValue(item, column) {
       if (!_.isEmpty(item)) {
-          if (!_.isEmpty(this.resultAttributes)) {
-              //Column name is external name, so need name to fetch data 
-              let resultAttr = this.resultAttributes.find(attr => attr.externalName == column.name);
-              if (resultAttr) {
-                  return item[resultAttr.name];
-              }
-          }
           return item[column.name];
       }
   }
@@ -251,57 +236,26 @@ class RockBulkActionResult
     * <b><i>Content development is under progress... </b></i>
     */
   onBusinessFunctionChange() {
-      if (!_.isEmpty(this.businessFunctionData)) {
-          let contextData = this.businessFunctionData.contextData;
-          let processedEntities = this.businessFunctionData.processedEntities;
-          let messages = this.businessFunctionData.messages;
+      if (!_.isEmpty(this.businessFunctionData) && this.businessFunctionData.processedEntities) {
+              let entities = this.businessFunctionData.processedEntities?this.businessFunctionData.processedEntities: [];
+              let messages = this.businessFunctionData.messages;
+              let key = this.businessFunctionData.messageKey;
 
-          if (!_.isEmpty(this.resultAttributes) && !_.isEmpty(contextData)
-              && !_.isEmpty(processedEntities) && !_.isEmpty(messages)) {
-              //Prepare request
-              let entityIds = [...new Set(processedEntities.map((obj) => obj.id))];
-              let entityTypes = [...new Set(processedEntities.map((obj) => obj.type))];
-              let entityAttributes = [...new Set(this.resultAttributes.map((obj) => obj.name))];
+              this._setColumnsForGrid(messages);
 
-              contextData.ItemContexts = [{
-                  "attributeNames": entityAttributes
-              }];
-
-              this.entityRequest = DataRequestHelper.createEntityGetRequest(contextData);
-              this.entityRequest.params.query.ids = entityIds;
-              this.entityRequest.params.query.filters.typesCriterion = entityTypes;
-              delete this.entityRequest.params.options;
-              let liquidDataGet = this.$$("[name=entityGetService]");
-              if (liquidDataGet) {
-                  liquidDataGet.generateRequest();
-              }
-          } else {
-              this._setBulkResponse();
-          }
-      }
-  }
-
-  _onEntityGetResponse(e) {
-      if (DataHelper.isValidObjectPath(e, "detail.response.content.entities") &&
-          !_.isEmpty(e.detail.response.content.entities)) {
-          let entities = this.businessFunctionData.processedEntities?this.businessFunctionData.processedEntities: e.detail.response.content.entities;
-          let messages = this.businessFunctionData.messages;
-          let key = this.businessFunctionData.messageKey;
-
-          this._setColumnsForGrid(messages);
-            
-          for (let i = 0; i < messages.length; i++) {
-              let entity = entities.find(obj => obj.id == messages[i][key]);
-              if (entity) {
-                  for (let j = 0; j < this.resultAttributes.length; j++) {
-                      messages[i][this.resultAttributes[j].name] = entity.name;
+              for (let i = 0; i < messages.length; i++) {
+                  let entity = entities.find(obj => obj.id == messages[i][key]);
+                  if (entity) {
+                      messages[i].name = !_.isEmpty(entity.name)?entity.name:"_Empty";
                   }
               }
-          }
-      }
 
-      this._setBulkResponse();
+          this._setBulkResponse();
+      } else {
+          this.logError('The requested entities in processing not getting passed to bulk-action-result');
+      }
   }
+
   _hasLinkTemplate(column) {
       if(column.name == "name") {
           return true;
@@ -381,20 +335,9 @@ class RockBulkActionResult
           }
       }
 
-      //pushing a new name column in workflow case
-    //   if (!this.businessFunctionData.isPasteScenario) {
-    //       for (let i = 0; i < this.resultAttributes.length; i++) {
-    //           let index = i + 1; // after first column
-    //           columns.splice(index, 0, this.resultAttributes[i].externalName);
-    //       }
-    //   }
       this._gridColumns = columns;
   }
 
-  _onEntityGetError(e) {
-      this.logError("Entity get failed");
-      this._setBulkResponse();
-  }
 
   _setBulkResponse() {
       if (this.businessFunctionData.noGrid) {
