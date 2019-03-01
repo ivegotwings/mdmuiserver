@@ -2861,9 +2861,9 @@ extends mixinBehaviors([
                     } else {
                         sourceAction = actions.filter(v => v.name.toLowerCase() == "sourceinfo")[0];
                     }
-
-                    if (sourceAction) {
-                        delete actions[actions.indexOf(sourceAction)];
+                    let sourceIndex = actions.indexOf(sourceAction);
+                    if (sourceAction &&  sourceIndex > -1) {
+                        delete actions[sourceIndex];
                     }
                 }
             }
