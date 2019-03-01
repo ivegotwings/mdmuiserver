@@ -505,7 +505,7 @@ class RockEntityRelationshipSearchResult
               if (relationships && relationships[relType] && relationships[relType].length) {
                   let rel = null;
                   for (let relationshipObj of relationships[relType]) {
-                      if (relationshipObj.properties && relationshipObj.properties.relatedEntityInfo) {
+                        if(DataHelper.isValidObjectPath(relationshipObj, 'properties.relatedEntityInfo')){
                           let ownership = relationshipObj.properties.relationshipOwnership
                           //Fall back ownership is needed when there is no ownership data(Happens for entity grap)
                           let fallBackOwnership = "owned";
