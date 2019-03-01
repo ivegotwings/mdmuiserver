@@ -155,12 +155,12 @@ class RelationshipsTabMenuProvider
 
   _setRelationshipEntityTypeMappings(relationshipModels, relationshipEntityTypeMappings) {
       if (!_.isEmpty(relationshipModels)) {
+          DataHelper.prepareOwnershipBasedRelationships(relationshipModels);
           Object.keys(relationshipModels).map(function (relationshipTypeName) {
               const relationshipTypeNameFound = DataHelper._findItemByKeyValue(relationshipEntityTypeMappings, "relationshipTypeName", relationshipTypeName);
               if (!relationshipTypeNameFound) {
                   let relationshipModel = {};
                   relationshipModel.relationshipTypeName = relationshipTypeName;
-                  DataHelper.prepareOwnershipBasedRelationships(relationshipModels);
                   relationshipModel.relatedEntityTypes = relationshipModels[relationshipTypeName];
                   relationshipEntityTypeMappings.push(relationshipModel);
               }
