@@ -244,7 +244,7 @@ class PebbleTreeNode extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
         </template>
         <template is="dom-if" if="[[hasChildren(nodeData.*,itemPath)]]">
             <li class\$="[[_getNodeClass(nodeData)]]" on-tap="_itemClick">
-                <pebble-icon class="iconButton pebble-icon-size-14 toggle-icon" icon\$="[[_expandClass(expanded)]]" on-click="_toggle"></pebble-icon>
+                <pebble-icon class="iconButton pebble-icon-size-14 toggle-icon" id="toggle-icon" icon\$="[[_expandClass(expanded)]]" on-click="_toggle"></pebble-icon>
                 <template is="dom-if" if="[[!leafNodeOnly]]">
                     <div class="check-box-wrapper">
                         <pebble-checkbox disabled\$="[[_isDisabled(nodeData,selectedItems,selectedItems.*,selectedItem)]]" indeterminate="[[_isIndeterminate(nodeData,indeterminateItems,indeterminateItems.*)]]" checked="[[_isSelected(nodeData,selectedItems,selectedItems.*,selectedItem)]]"></pebble-checkbox>
@@ -898,7 +898,7 @@ class PebbleTreeNode extends mixinBehaviors([RUFBehaviors.UIBehavior], OptionalM
    * Fired when an item is clicked. It sets the selected item and its style.
    */
   _itemClick(evt) {
-      if(!evt.currentTarget.querySelector('pebble-checkbox')){
+      if(evt.target.id == 'toggle-icon'){
           return;
       }
       if (this.nodeData.isDisabled) {
