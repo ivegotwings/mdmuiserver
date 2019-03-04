@@ -155,6 +155,7 @@ class RelationshipsTabMenuProvider
 
   _setRelationshipEntityTypeMappings(relationshipModels, relationshipEntityTypeMappings) {
       if (!_.isEmpty(relationshipModels)) {
+          DataHelper.prepareOwnershipBasedRelationships(relationshipModels);
           Object.keys(relationshipModels).map(function (relationshipTypeName) {
               const relationshipTypeNameFound = DataHelper._findItemByKeyValue(relationshipEntityTypeMappings, "relationshipTypeName", relationshipTypeName);
               if (!relationshipTypeNameFound) {
@@ -190,11 +191,14 @@ class RelationshipsTabMenuProvider
               let relatedEntityTypes = relationshipEntityTypeMappings[i].relatedEntityTypes;
 
               if (relatedEntityTypes && relatedEntityTypes instanceof Array) {
+                  
+                
                   for (let j = 0; j < relatedEntityTypes.length; j++) {
                       let relatedEntityTypeProps = relatedEntityTypes[j].properties;
                       if (relatedEntityTypeProps) {
                           let menuItem = {};
                           let domain = relatedEntityTypeProps.domain;
+                          let ownership = relatedEntityTypeProps.relationshipOwnership;
                           menuItem.name = relatedEntityTypes[j].id;
                           menuItem.title = relatedEntityTypeProps.externalName || relatedEntityTypes[j].id;
                           menuItem.selected = this.selectedMenuTitle === menuItem.title ? true : false;
@@ -206,11 +210,11 @@ class RelationshipsTabMenuProvider
                           }
                           configContext.relationshipTitle = relatedEntityTypeProps.externalName;
                           configContext.relationshipTypeName = relationshipTypeName;
-                          configContext.relationshipId = relatedEntityTypes[j].id;
+                          configContext.ownership = ownership;
                           if (domain) {
                               configContext.domain = domain;
                           }
-                          if(relatedEntityTypeProps.relationshipOwnership == "whereused"){
+                          if(ownership == "whereused"){
                               configContext.direction = "up";
                               if(DataHelper.isValidObjectPath(relatedEntityTypeProps, 'relatedEntityInfo.0.relEntityType')){
                                   configContext.fromEntityType = relatedEntityTypeProps.relatedEntityInfo[0].relEntityType;

@@ -378,7 +378,7 @@ extends mixinBehaviors([
       if (entityModels && entityModels.length > 0) {
           if (entityModels[0].data && entityModels[0].data.relationships) {
               let relationshipModels = entityModels[0].data.relationships;
-
+              DataHelper.prepareOwnershipBasedRelationships(relationshipModels);
               Object.keys(relationshipModels).map(function (relationshipTypeName) {
                   let relationshipModel = {};
                   relationshipModel.relationshipTypeName = relationshipTypeName;

@@ -30,7 +30,7 @@ let DFServiceBase = function (options) {
         if (!tenantId) {
             tenantId = this.getTenantId();
         }
-        
+
         let timeStamp = moment().toISOString();
 
         let url = this._serverUrl + '/' + tenantId + '/api' + serviceName + '?timeStamp=' + timeStamp;
@@ -43,12 +43,15 @@ let DFServiceBase = function (options) {
             headers[key] = val;
         }
 
+        // Convert request JSON object into string since response is expected in string not in JSON.
+        let req = JSON.stringify(request);
+
         let options = {
             url: url,
             method: HTTP_POST,
             headers: headers,
-            body: request,
-            json: true,
+            body: req,
+            json: false,
             simple: false,
             timeout: timeout,
             gzip: true,
@@ -82,8 +85,16 @@ let DFServiceBase = function (options) {
                 result.body.response.statusDetail = {};
                 result.body.response.statusDetail.message = 'Server is busy, please try after some time.';
                 result.body.response.requestId = result.body.response.requestId || internalRequestId;
+                result = result.body;
+            } else {
+                // Regex will find decimal values in string response like for example it will try to match "value": 12.10 
+                // and once it will find this it will replace it with "value": "12.10"
+                let formattedStringResult = result.body.replace(/(("value":)\d+\.\d+)/g, function (match) {
+                    return match.replace(/(\d+\.\d+)/g, "\"$1\"")
+                });
+
+                result = JSON.parse(formattedStringResult);
             }
-            result = result.body;
         } else {
             let error = "NULL response received";
             logger.logException(internalRequestId, serviceName, options, error);
@@ -96,7 +107,7 @@ let DFServiceBase = function (options) {
         let takenInMilliSeconds = hrTime && hrTime.milliseconds ? hrTime.milliseconds.toFixed(3) : 0;
 
         logger.logResponseCompletedInfo(internalRequestId, serviceName, takenInMilliSeconds);
-        
+
         logger.logResponse(internalRequestId, serviceName, result);
 
         return result;

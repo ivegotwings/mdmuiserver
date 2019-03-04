@@ -304,7 +304,7 @@ class PebbleTabGroup extends mixinBehaviors([RUFBehaviors.UIBehavior, IronResiza
               notify: true
           },
 
-          _isMenuItemSelected: {
+          isMenuItemSelected: {
               type: Boolean,
               value: false
           }
@@ -463,7 +463,7 @@ class PebbleTabGroup extends mixinBehaviors([RUFBehaviors.UIBehavior, IronResiza
       // Note: More Info. available in Select method
       if (event) {
           if (event.target.nodeName === "PAPER-LISTBOX") {
-              this._isMenuItemSelected = true;
+              this.isMenuItemSelected = true;
               if (event.detail && event.detail.item) {
                   let item = event.detail.item;
                   if (item) {
@@ -733,7 +733,7 @@ class PebbleTabGroup extends mixinBehaviors([RUFBehaviors.UIBehavior, IronResiza
                       if user wants to loaded the content of a tab, then
                       it will not work because the tabitem selection has not been changed.
 
-          Fix:     Added a flag "_isMenuItemSelected". If true then allow then control to load
+          Fix:     Added a flag "isMenuItemSelected". If true then allow then control to load
                       tab content else ignore
       */
       let selectedTab = this.querySelectorAll('pebble-tab')[selectedTabIndex];
@@ -756,8 +756,9 @@ class PebbleTabGroup extends mixinBehaviors([RUFBehaviors.UIBehavior, IronResiza
 
       if (this._selection.multi) {
           this._selection.toggle(selectedTab);
-      } else if (this._selection.get() !== selectedTab || this._isMenuItemSelected) {
-          this._isMenuItemSelected = false;
+      } else if (this._selection.get() !== selectedTab || this.isMenuItemSelected) {
+          this.isMenuItemSelected = false;
+          selectedTab.menuItemConfig = "";
           this._selection.setItemSelected(this._selection.get(), false);
           this._selection.setItemSelected(selectedTab, true);
       }
